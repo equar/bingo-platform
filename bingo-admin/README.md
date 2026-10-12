@@ -6,10 +6,12 @@ React 18, TypeScript, and Vite admin console for the Bingo platform.
 
 Set `VITE_API_BASE_URL` before running the app. The admin shell reads the value at startup and uses it for every backend request.
 
+For local development, put the backend URL in `.env.local`:
+
 Example:
 
 ```bash
-VITE_API_BASE_URL=https://api.example.com
+VITE_API_BASE_URL=http://localhost:8080
 ```
 
 ## Backend contract dependencies

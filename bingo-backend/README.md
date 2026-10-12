@@ -15,13 +15,15 @@ Spring Boot 3 backend foundation for the Bingo platform.
 
 ## Local Development
 
-1. Create the `bingo` database in your local MySQL instance if it does not already exist.
-2. Copy `.env.example` to `.env` and fill in the values if you need overrides.
-3. Run the backend in the `dev` profile to enable development-only seed users:
+1. Make sure MySQL is running locally and the configured user can create the `bingo` database if it does not already exist.
+2. Copy `.env.example` to `.env` if you need to override the default local settings.
+3. Run the backend normally, or with the `dev` profile to enable development-only seed users:
 
 ```bash
 mvn spring-boot:run -Dspring-boot.run.profiles=dev
 ```
+
+By default, the backend points to `jdbc:mysql://localhost:3306/bingo`, uses the local `root` / `root` credentials, and enables `createDatabaseIfNotExist=true`, so the database is created on first connect when the MySQL account has permission.
 
 ## Notes
 
