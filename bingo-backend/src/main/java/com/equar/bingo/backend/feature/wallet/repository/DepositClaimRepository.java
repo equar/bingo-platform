@@ -1,0 +1,31 @@
+package com.equar.bingo.backend.feature.wallet.repository;
+
+import com.equar.bingo.backend.feature.wallet.entity.DepositClaim;
+import com.equar.bingo.backend.feature.wallet.entity.DepositClaimStatus;
+import java.util.Optional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import jakarta.persistence.LockModeType;
+
+public interface DepositClaimRepository extends JpaRepository<DepositClaim, Long> {
+
+    @Query("select d from DepositClaim d where d.player.id = :playerId order by d.submittedAt desc, d.id desc")
+    Page<DepositClaim> findByPlayerId(@Param("playerId") Long playerId, Pageable pageable);
+
+    @Query("select d from DepositClaim d order by d.submittedAt desc, d.id desc")
+    Page<DepositClaim> findAllOrderBySubmittedAt(Pageable pageable);
+
+    boolean existsByNormalizedTelebirrReference(String normalizedTelebirrReference);
+
+    Optional<DepositClaim> findByNormalizedTelebirrReference(String normalizedTelebirrReference);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select d from DepositClaim d where d.id = :id")
+    Optional<DepositClaim> findByIdForUpdate(@Param("id") Long id);
+
+    Page<DepositClaim> findByStatus(DepositClaimStatus status, Pageable pageable);
+}

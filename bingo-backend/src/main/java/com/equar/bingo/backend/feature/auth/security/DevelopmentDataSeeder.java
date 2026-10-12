@@ -4,6 +4,7 @@ import com.equar.bingo.backend.feature.user.entity.AccountStatus;
 import com.equar.bingo.backend.feature.user.entity.User;
 import com.equar.bingo.backend.feature.user.entity.UserRole;
 import com.equar.bingo.backend.feature.user.repository.UserRepository;
+import com.equar.bingo.backend.feature.wallet.service.WalletService;
 import java.time.Instant;
 import java.util.Set;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,15 +22,18 @@ public class DevelopmentDataSeeder implements CommandLineRunner {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final PasswordEncoder agentPinEncoder;
+    private final WalletService walletService;
     private final boolean enabled;
 
     public DevelopmentDataSeeder(UserRepository userRepository,
             PasswordEncoder passwordEncoder,
             @Qualifier("agentPinEncoder") PasswordEncoder agentPinEncoder,
+            WalletService walletService,
             @Value("${app.dev.seed-enabled:true}") boolean enabled) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.agentPinEncoder = agentPinEncoder;
+        this.walletService = walletService;
         this.enabled = enabled;
     }
 
@@ -69,5 +73,8 @@ public class DevelopmentDataSeeder implements CommandLineRunner {
                 AccountStatus.ACTIVE,
                 Set.of(UserRole.PLAYER),
                 now));
+
+        User player = userRepository.findByNormalizedPhone("251911000003").orElseThrow();
+        walletService.createWalletIfMissing(player);
     }
 }

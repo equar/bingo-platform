@@ -7,6 +7,7 @@ import com.equar.bingo.backend.feature.auth.dto.LoginRequest;
 import com.equar.bingo.backend.feature.auth.dto.MeResponse;
 import com.equar.bingo.backend.feature.auth.dto.RegisterRequest;
 import com.equar.bingo.backend.feature.auth.dto.UserProfileResponse;
+import com.equar.bingo.backend.feature.wallet.service.WalletService;
 import com.equar.bingo.backend.feature.user.entity.AccountStatus;
 import com.equar.bingo.backend.feature.user.entity.User;
 import com.equar.bingo.backend.feature.user.entity.UserRole;
@@ -28,17 +29,20 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final EthiopianPhoneNormalizer phoneNormalizer;
     private final JwtService jwtService;
+    private final WalletService walletService;
 
     public AuthService(UserRepository userRepository,
             PasswordEncoder passwordEncoder,
             AuthenticationManager authenticationManager,
             EthiopianPhoneNormalizer phoneNormalizer,
-            JwtService jwtService) {
+            JwtService jwtService,
+            WalletService walletService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager;
         this.phoneNormalizer = phoneNormalizer;
         this.jwtService = jwtService;
+        this.walletService = walletService;
     }
 
     @Transactional
@@ -57,6 +61,7 @@ public class AuthService {
                 Instant.now());
 
         User saved = userRepository.save(user);
+        walletService.createWalletIfMissing(saved);
         String token = jwtService.generateToken(saved);
         return new AuthResponse(token, "Bearer", jwtService.getExpirationSeconds(), toProfile(saved));
     }

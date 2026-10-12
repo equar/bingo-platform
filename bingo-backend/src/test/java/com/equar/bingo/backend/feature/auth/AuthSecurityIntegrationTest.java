@@ -7,6 +7,10 @@ import com.equar.bingo.backend.feature.user.entity.AccountStatus;
 import com.equar.bingo.backend.feature.user.entity.User;
 import com.equar.bingo.backend.feature.user.entity.UserRole;
 import com.equar.bingo.backend.feature.user.repository.UserRepository;
+import com.equar.bingo.backend.feature.wallet.repository.DepositClaimRepository;
+import com.equar.bingo.backend.feature.wallet.repository.IdempotencyRecordRepository;
+import com.equar.bingo.backend.feature.wallet.repository.WalletRepository;
+import com.equar.bingo.backend.feature.wallet.repository.WalletTransactionRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Instant;
 import java.util.Set;
@@ -46,8 +50,24 @@ class AuthSecurityIntegrationTest {
     @Autowired
     EthiopianPhoneNormalizer phoneNormalizer;
 
+    @Autowired
+    WalletTransactionRepository walletTransactionRepository;
+
+    @Autowired
+    DepositClaimRepository depositClaimRepository;
+
+    @Autowired
+    WalletRepository walletRepository;
+
+    @Autowired
+    IdempotencyRecordRepository idempotencyRecordRepository;
+
     @BeforeEach
     void setUp() {
+        walletTransactionRepository.deleteAll();
+        depositClaimRepository.deleteAll();
+        walletRepository.deleteAll();
+        idempotencyRecordRepository.deleteAll();
         userRepository.deleteAll();
 
         Instant now = Instant.now();
