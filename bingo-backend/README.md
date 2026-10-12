@@ -30,3 +30,4 @@ mvn spring-boot:run -Dspring-boot.run.profiles=dev
 - Password hashes, PIN hashes, and JWT secrets are never returned by the API.
 - Database schema is managed with Flyway migrations.
 - Local development uses localhost MySQL and does not require Docker.
+- The checked-in OpenAPI contract lives at [openapi.json](openapi.json); see [docs/openapi-integration.md](docs/openapi-integration.md) for how the three frontend projects should consume it.
