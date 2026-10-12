@@ -11,6 +11,7 @@ import {
   Toolbar,
   Typography,
 } from "@mui/material";
+import type { Theme } from "@mui/material/styles";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useSession } from "../api/session";
 
@@ -21,6 +22,8 @@ const navItems = [
   { to: "/rooms", label: "Rooms" },
   { to: "/sessions", label: "Sessions" },
   { to: "/players", label: "Players" },
+  { to: "/agents", label: "Agents" },
+  { to: "/support/tickets", label: "Support" },
   { to: "/claims", label: "Win Claims" },
   { to: "/deposits", label: "Deposits" },
   { to: "/audit-logs", label: "Audit Logs" },
@@ -33,7 +36,7 @@ export function AppShell() {
   return (
     <Box sx={{ display: "flex", minHeight: "100vh", bgcolor: "background.default" }}>
       <CssBaseline />
-      <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
+      <AppBar position="fixed" sx={{ zIndex: (theme: Theme) => theme.zIndex.drawer + 1 }}>
         <Toolbar>
           <Typography variant="h6" noWrap sx={{ flexGrow: 1 }}>
             Bingo Admin

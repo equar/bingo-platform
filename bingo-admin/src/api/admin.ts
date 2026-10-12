@@ -96,6 +96,201 @@ export interface AdminReviewQueueItemResponse {
   updatedAt: string;
 }
 
+export interface UserSummaryResponse {
+  id: number;
+  displayName: string;
+  phoneNumber: string;
+  roles: string[];
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminAgentSummaryResponse {
+  agentId: number;
+  userId: number;
+  displayName: string;
+  normalizedPhone: string;
+  status: string;
+  city: string | null;
+  territory: string | null;
+  createdAt: string;
+  updatedAt: string;
+  ticketSalesCount: number;
+  floatTransactionCount: number;
+  topUpRequestCount: number;
+  payoutVerificationCount: number;
+}
+
+export interface AdminAgentDetailResponse extends AdminAgentSummaryResponse {}
+
+export interface AgentProfileResponse {
+  agentId: number | null;
+  userId: number | null;
+  phoneNumber: string;
+  displayName: string;
+  status: string;
+  city: string | null;
+  territory: string | null;
+  idDocumentType: string | null;
+  idDocumentNumber: string | null;
+  idDocumentFrontReference: string | null;
+  idDocumentBackReference: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AgentDashboardResponse {
+  agentId: number;
+  status: string;
+  availableFloat: string;
+  clearingFloat: string;
+  ticketsSold: number;
+  commissionAccruals: number;
+  topUpRequests: number;
+  generatedAt: string;
+}
+
+export interface AgentFloatResponse {
+  agentId: number;
+  floatId: number;
+  currency: string;
+  availableBalance: string;
+  clearingBalance: string;
+  updatedAt: string;
+}
+
+export interface AgentFloatTransactionResponse {
+  id: number;
+  agentFloatId: number;
+  transactionType: string;
+  amount: string;
+  availableBefore: string;
+  availableAfter: string;
+  clearingBefore: string;
+  clearingAfter: string;
+  relatedEntityType: string | null;
+  relatedEntityId: number | null;
+  operationId: string;
+  note: string | null;
+  createdAt: string;
+}
+
+export interface CommissionAccrualResponse {
+  id: number;
+  agentId: number;
+  ticketId: number;
+  sessionId: number;
+  commissionRuleVersion: number;
+  saleAmount: string;
+  commissionAmount: string;
+  status: string;
+  operationId: string;
+  createdAt: string;
+  settledAt: string | null;
+  settlementReference: string | null;
+  settlementNote: string | null;
+}
+
+export interface FloatTopUpRequestResponse {
+  id: number;
+  agentId: number;
+  requestedByUserId: number;
+  amount: string;
+  currency: string;
+  status: string;
+  operationId: string;
+  reviewNote: string | null;
+  reviewedByUserId: number | null;
+  reviewedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CommissionRuleRequest {
+  commissionRateBps: number;
+  effectiveFrom: string;
+  active: boolean;
+}
+
+export interface ReviewFloatTopUpRequest {
+  approve: boolean;
+  reviewNote: string;
+}
+
+export interface SupportMessageResponse {
+  id: number;
+  authorUserId: number;
+  body: string;
+  createdAt: string;
+}
+
+export interface InternalNoteResponse {
+  id: number;
+  authorUserId: number;
+  body: string;
+  createdAt: string;
+}
+
+export interface SupportTicketSummaryResponse {
+  id: number;
+  ticketNumber: string;
+  requesterUserId: number;
+  subject: string;
+  category: string;
+  priority: string;
+  status: string;
+  assignedToUserId: number | null;
+  linkedEntityType: string | null;
+  linkedEntityId: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SupportTicketResponse {
+  id: number;
+  ticketNumber: string;
+  requesterUserId: number;
+  requesterDisplayName: string;
+  subject: string;
+  description: string;
+  category: string;
+  priority: string;
+  status: string;
+  linkedEntityType: string | null;
+  linkedEntityId: number | null;
+  linkedEntityReference: string | null;
+  assignedToUserId: number | null;
+  resolutionSummary: string | null;
+  createdAt: string;
+  updatedAt: string;
+  messages: SupportMessageResponse[];
+  internalNotes: InternalNoteResponse[];
+}
+
+export interface SupportTicketAssignmentRequest {
+  assignedToUserId: number;
+}
+
+export interface SupportTicketStatusUpdateRequest {
+  status: string;
+  resolutionSummary?: string | null;
+}
+
+export interface SupportTicketMessageRequest {
+  body: string;
+}
+
+export interface SupportTicketCreateRequest {
+  subject: string;
+  description: string;
+  category: string;
+  priority: string;
+  linkedEntityType?: string | null;
+  linkedEntityId?: number | null;
+  linkedEntityReference?: string | null;
+}
+
 export interface AdminAuditLogSummaryResponse {
   id: number;
   actorUserId: number | null;
@@ -482,5 +677,76 @@ export async function reviewQueue(page = 0, size = 20) {
   const { data } = await http.get<PageResponse<AdminReviewQueueItemResponse>>('/api/v1/admin/review-queue', {
     params: { page, size },
   });
+  return data;
+}
+
+export async function adminUsers(page = 0, size = 20) {
+  const { data } = await http.get<PageResponse<UserSummaryResponse>>('/api/v1/admin/users', {
+    params: { page, size },
+  });
+  return data;
+}
+
+export async function adminAgents(page = 0, size = 20) {
+  const { data } = await http.get<PageResponse<AdminAgentSummaryResponse>>('/api/v1/admin/agents', {
+    params: { page, size },
+  });
+  return data;
+}
+
+export async function adminAgentDetail(agentId: number) {
+  const { data } = await http.get<AdminAgentDetailResponse>(`/api/v1/admin/agents/${agentId}`);
+  return data;
+}
+
+export async function approveAgent(userId: number, body: AgentProfileResponse) {
+  const { data } = await http.post<AgentProfileResponse>(`/api/v1/admin/agents/${userId}/approve`, body);
+  return data;
+}
+
+export async function suspendAgent(agentId: number) {
+  const { data } = await http.post<AgentProfileResponse>(`/api/v1/admin/agents/${agentId}/suspend`);
+  return data;
+}
+
+export async function reviewFloatTopUpRequest(requestId: number, body: ReviewFloatTopUpRequest) {
+  const { data } = await http.post<FloatTopUpRequestResponse>(`/api/v1/admin/agents/float-top-up-requests/${requestId}/review`, body);
+  return data;
+}
+
+export async function commissionRule(body: CommissionRuleRequest) {
+  const { data } = await http.post<CommissionRuleRequest>('/api/v1/admin/agents/commission-rules', body);
+  return data;
+}
+
+export async function supportTickets(query?: string, status?: string, category?: string, page = 0, size = 20) {
+  const { data } = await http.get<PageResponse<SupportTicketSummaryResponse>>('/api/v1/admin/support/tickets', {
+    params: { query, status, category, page, size },
+  });
+  return data;
+}
+
+export async function supportTicketDetail(ticketId: number) {
+  const { data } = await http.get<SupportTicketResponse>(`/api/v1/admin/support/tickets/${ticketId}`);
+  return data;
+}
+
+export async function assignSupportTicket(ticketId: number, body: SupportTicketAssignmentRequest) {
+  const { data } = await http.post<SupportTicketResponse>(`/api/v1/admin/support/tickets/${ticketId}/assign`, body);
+  return data;
+}
+
+export async function replySupportTicket(ticketId: number, body: SupportTicketMessageRequest) {
+  const { data } = await http.post<SupportTicketResponse>(`/api/v1/admin/support/tickets/${ticketId}/messages`, body);
+  return data;
+}
+
+export async function noteSupportTicket(ticketId: number, body: SupportTicketMessageRequest) {
+  const { data } = await http.post<SupportTicketResponse>(`/api/v1/admin/support/tickets/${ticketId}/notes`, body);
+  return data;
+}
+
+export async function updateSupportTicketStatus(ticketId: number, body: SupportTicketStatusUpdateRequest) {
+  const { data } = await http.put<SupportTicketResponse>(`/api/v1/admin/support/tickets/${ticketId}/status`, body);
   return data;
 }

@@ -27,4 +27,14 @@ This UI is wired to the backend OpenAPI contract and expects these admin routes 
 - `POST /api/v1/admin/players/{id}/wallet-adjustments`
 - `GET /api/v1/admin/audit-logs`, `GET /api/v1/admin/review-queue`
 
+## Current contract gaps
+
+The React admin now includes agents and call-center support screens, but a few requested backend capabilities are still not exposed by the contract:
+
+- Agent float balance/ledger detail is not available from any admin endpoint.
+- Agent payout, ticket, and commission history are not exposed to the admin user; only agent summary counts are available.
+- Agent suspend does not accept a reason field, and the float-top-up review endpoint does not accept idempotency headers.
+- There is no admin endpoint for a searchable float-top-up queue or commission-rule history.
+- Support ticket assignee filtering and dashboard priority totals are not available as aggregate backend endpoints, so the UI derives them from the loaded page.
+
 The session live draw page also expects the existing websocket transport used by the backend session feed.

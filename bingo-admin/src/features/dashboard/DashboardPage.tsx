@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Alert,
@@ -14,7 +15,7 @@ import {
   Typography,
 } from "@mui/material";
 import { Link as RouterLink } from "react-router-dom";
-import { auditLogs, dashboardMetrics, liveSessions, reviewQueue } from "../../api/admin";
+import { auditLogs, dashboardMetrics, liveSessions, reviewQueue, supportTickets } from "../../api/admin";
 import { StatusState } from "../../components/StatusState";
 
 function MetricCard({ label, value, sublabel }: { label: string; value: string | number; sublabel?: string }) {
@@ -40,6 +41,17 @@ export function DashboardPage() {
   const sessionsQuery = useQuery({ queryKey: ["dashboard", "live-sessions"], queryFn: liveSessions });
   const queueQuery = useQuery({ queryKey: ["dashboard", "review-queue"], queryFn: () => reviewQueue(0, 5) });
   const logsQuery = useQuery({ queryKey: ["dashboard", "audit-logs"], queryFn: () => auditLogs(0, 5) });
+  const supportPriorityQuery = useQuery({
+    queryKey: ["dashboard", "support-priorities"],
+    queryFn: () => supportTickets(undefined, undefined, undefined, 0, 100),
+  });
+  const supportPriorityCounts = useMemo(() => {
+    const counts: Record<string, number> = { LOW: 0, NORMAL: 0, HIGH: 0, URGENT: 0 };
+    (supportPriorityQuery.data?.content ?? []).forEach((ticket) => {
+      counts[ticket.priority] = (counts[ticket.priority] ?? 0) + 1;
+    });
+    return counts;
+  }, [supportPriorityQuery.data]);
 
   if (metricsQuery.isLoading) {
     return <StatusState title="Loading dashboard" loading message="Fetching live metrics and activity" />;
@@ -101,6 +113,32 @@ export function DashboardPage() {
           />
         </Grid>
       </Grid>
+
+      <Card elevation={0} sx={{ border: "1px solid", borderColor: "divider" }}>
+        <CardContent>
+          <Stack spacing={2}>
+            <Typography variant="h6">Support priority counts</Typography>
+            <Typography variant="body2" color="text.secondary">
+              These counts are derived from the loaded ticket page because the backend does not expose aggregate
+              priority totals.
+            </Typography>
+            <Grid container spacing={2}>
+              {(["LOW", "NORMAL", "HIGH", "URGENT"] as const).map((priority) => (
+                <Grid item xs={12} sm={6} md={3} key={priority}>
+                  <Card variant="outlined">
+                    <CardContent>
+                      <Typography variant="overline" color="text.secondary">
+                        {priority}
+                      </Typography>
+                      <Typography variant="h4">{supportPriorityCounts[priority] ?? 0}</Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+          </Stack>
+        </CardContent>
+      </Card>
 
       <Grid container spacing={2}>
         <Grid item xs={12} md={6}>

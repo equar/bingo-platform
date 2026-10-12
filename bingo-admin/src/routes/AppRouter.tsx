@@ -11,6 +11,10 @@ import { PlayerDetailPage } from "../features/players/PlayerDetailPage";
 import { ClaimsPage } from "../features/claims/ClaimsPage";
 import { DepositsPage } from "../features/deposits/DepositsPage";
 import { AuditLogsPage } from "../features/audit/AuditLogsPage";
+import { AgentsPage } from "../features/agents/AgentsPage";
+import { AgentDetailPage } from "../features/agents/AgentDetailPage";
+import { SupportTicketsPage } from "../features/support/SupportTicketsPage";
+import { SupportTicketDetailPage } from "../features/support/SupportTicketDetailPage";
 
 export function AppRouter() {
   return (
@@ -27,6 +31,10 @@ export function AppRouter() {
           <Route path="players/:playerId" element={<PlayerDetailPage />} />
           <Route path="claims" element={<ClaimsPage />} />
           <Route path="deposits" element={<DepositsPage />} />
+          <Route path="agents" element={<AgentsPage />} />
+          <Route path="agents/:agentId" element={<AgentDetailPage />} />
+          <Route path="support/tickets" element={<SupportTicketsPage />} />
+          <Route path="support/tickets/:ticketId" element={<SupportTicketDetailPage />} />
           <Route path="audit-logs" element={<AuditLogsPage />} />
         </Route>
       </Route>
