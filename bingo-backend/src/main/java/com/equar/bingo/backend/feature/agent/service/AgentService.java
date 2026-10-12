@@ -1,0 +1,570 @@
+package com.equar.bingo.backend.feature.agent.service;
+
+import com.equar.bingo.backend.common.exception.BadRequestException;
+import com.equar.bingo.backend.common.exception.ConflictException;
+import com.equar.bingo.backend.common.exception.NotFoundException;
+import com.equar.bingo.backend.common.idempotency.IdempotentResult;
+import com.equar.bingo.backend.common.idempotency.IdempotencyService;
+import com.equar.bingo.backend.common.money.MoneyValues;
+import com.equar.bingo.backend.common.request.RequestHashService;
+import com.equar.bingo.backend.feature.agent.config.AgentProperties;
+import com.equar.bingo.backend.feature.agent.dto.*;
+import com.equar.bingo.backend.feature.agent.entity.*;
+import com.equar.bingo.backend.feature.agent.repository.*;
+import com.equar.bingo.backend.feature.auth.dto.AuthResponse;
+import com.equar.bingo.backend.feature.auth.dto.UserProfileResponse;
+import com.equar.bingo.backend.feature.auth.service.BingoUserPrincipal;
+import com.equar.bingo.backend.feature.auth.service.EthiopianPhoneNormalizer;
+import com.equar.bingo.backend.feature.auth.service.JwtService;
+import com.equar.bingo.backend.feature.game.dto.TicketPurchaseResponse;
+import com.equar.bingo.backend.feature.game.dto.TicketResponse;
+import com.equar.bingo.backend.feature.game.entity.Ticket;
+import com.equar.bingo.backend.feature.game.entity.PrizeEntitlement;
+import com.equar.bingo.backend.feature.game.entity.PrizeEntitlementStatus;
+import com.equar.bingo.backend.feature.game.entity.PrizeSettlementPath;
+import com.equar.bingo.backend.feature.game.repository.PrizeEntitlementRepository;
+import com.equar.bingo.backend.feature.game.repository.TicketRepository;
+import com.equar.bingo.backend.feature.game.service.BingoGameService;
+import com.equar.bingo.backend.feature.user.entity.AccountStatus;
+import com.equar.bingo.backend.feature.user.entity.User;
+import com.equar.bingo.backend.feature.user.entity.UserRole;
+import com.equar.bingo.backend.feature.user.repository.UserRepository;
+import com.equar.bingo.backend.feature.wallet.entity.Wallet;
+import com.equar.bingo.backend.feature.wallet.entity.WalletTransaction;
+import com.equar.bingo.backend.feature.wallet.entity.WalletTransactionType;
+import com.equar.bingo.backend.feature.wallet.repository.WalletRepository;
+import com.equar.bingo.backend.feature.wallet.repository.WalletTransactionRepository;
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+public class AgentService {
+
+    private final AgentRepository agentRepository;
+    private final AgentFloatRepository agentFloatRepository;
+    private final AgentFloatTransactionRepository agentFloatTransactionRepository;
+    private final CommissionRuleRepository commissionRuleRepository;
+    private final CommissionAccrualRepository commissionAccrualRepository;
+    private final FloatTopUpRequestRepository floatTopUpRequestRepository;
+    private final AgentOperationRepository agentOperationRepository;
+    private final PayoutVerificationRecordRepository payoutVerificationRecordRepository;
+    private final PrizeEntitlementRepository prizeEntitlementRepository;
+    private final TicketRepository ticketRepository;
+    private final UserRepository userRepository;
+    private final WalletRepository walletRepository;
+    private final WalletTransactionRepository walletTransactionRepository;
+    private final BingoGameService bingoGameService;
+    private final AgentProperties agentProperties;
+    private final EthiopianPhoneNormalizer phoneNormalizer;
+    private final AuthenticationManager authenticationManager;
+    private final PasswordEncoder passwordEncoder;
+    private final PasswordEncoder agentPinEncoder;
+    private final JwtService jwtService;
+    private final IdempotencyService idempotencyService;
+    private final RequestHashService requestHashService;
+    private final AgentAttemptThrottleService throttleService;
+
+    public AgentService(AgentRepository agentRepository,
+            AgentFloatRepository agentFloatRepository,
+            AgentFloatTransactionRepository agentFloatTransactionRepository,
+            CommissionRuleRepository commissionRuleRepository,
+            CommissionAccrualRepository commissionAccrualRepository,
+            FloatTopUpRequestRepository floatTopUpRequestRepository,
+            AgentOperationRepository agentOperationRepository,
+            PayoutVerificationRecordRepository payoutVerificationRecordRepository,
+            PrizeEntitlementRepository prizeEntitlementRepository,
+            TicketRepository ticketRepository,
+            UserRepository userRepository,
+            WalletRepository walletRepository,
+            WalletTransactionRepository walletTransactionRepository,
+            BingoGameService bingoGameService,
+            AgentProperties agentProperties,
+            EthiopianPhoneNormalizer phoneNormalizer,
+            AuthenticationManager authenticationManager,
+            PasswordEncoder passwordEncoder,
+            @org.springframework.beans.factory.annotation.Qualifier("agentPinEncoder") PasswordEncoder agentPinEncoder,
+            JwtService jwtService,
+            IdempotencyService idempotencyService,
+            RequestHashService requestHashService,
+            AgentAttemptThrottleService throttleService) {
+        this.agentRepository = agentRepository;
+        this.agentFloatRepository = agentFloatRepository;
+        this.agentFloatTransactionRepository = agentFloatTransactionRepository;
+        this.commissionRuleRepository = commissionRuleRepository;
+        this.commissionAccrualRepository = commissionAccrualRepository;
+        this.floatTopUpRequestRepository = floatTopUpRequestRepository;
+        this.agentOperationRepository = agentOperationRepository;
+        this.payoutVerificationRecordRepository = payoutVerificationRecordRepository;
+        this.prizeEntitlementRepository = prizeEntitlementRepository;
+        this.ticketRepository = ticketRepository;
+        this.userRepository = userRepository;
+        this.walletRepository = walletRepository;
+        this.walletTransactionRepository = walletTransactionRepository;
+        this.bingoGameService = bingoGameService;
+        this.agentProperties = agentProperties;
+        this.phoneNormalizer = phoneNormalizer;
+        this.authenticationManager = authenticationManager;
+        this.passwordEncoder = passwordEncoder;
+        this.agentPinEncoder = agentPinEncoder;
+        this.jwtService = jwtService;
+        this.idempotencyService = idempotencyService;
+        this.requestHashService = requestHashService;
+        this.throttleService = throttleService;
+    }
+
+    @Transactional
+    public AuthResponse login(AgentLoginRequest request) {
+        String normalizedPhone = phoneNormalizer.normalize(request.phoneNumber());
+        throttleService.requireAllowed("agent-login:" + normalizedPhone, agentProperties.loginAttemptLimit(),
+                agentProperties.attemptWindow(), "AGENT_LOGIN_RATE_LIMITED", "Too many agent login attempts");
+
+        var authentication = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(normalizedPhone, request.password()));
+        User user = ((BingoUserPrincipal) authentication.getPrincipal()).getUser();
+        Agent agent = requireApprovedAgent(user.getId());
+        if (!agentPinEncoder.matches(request.pin(), user.getAgentPinHash())) {
+            throw new BadRequestException("INVALID_PIN", "Invalid agent PIN");
+        }
+        throttleService.clear("agent-login:" + normalizedPhone);
+        String token = jwtService.generateToken(user);
+        return new AuthResponse(token, "Bearer", jwtService.getExpirationSeconds(), toProfile(user));
+    }
+
+    @Transactional(readOnly = true)
+    public AgentDashboardResponse dashboard(BingoUserPrincipal principal) {
+        Agent agent = requireApprovedAgent(principal.getUser().getId());
+        AgentFloat agentFloat = requireAgentFloat(agent.getId());
+        return new AgentDashboardResponse(agent.getId(), agent.getStatus().name(), agentFloat.getAvailableBalance(),
+                agentFloat.getClearingBalance(),
+                commissionAccrualRepository.findByAgentIdOrderByCreatedAtDesc(agent.getId()).size(),
+                commissionAccrualRepository.findByAgentIdOrderByCreatedAtDesc(agent.getId()).size(),
+                floatTopUpRequestRepository.findByAgentIdOrderByCreatedAtDesc(agent.getId()).size(), Instant.now());
+    }
+
+    @Transactional(readOnly = true)
+    public UserProfileResponse lookupPlayer(String normalizedPhone) {
+        User player = userRepository.findByNormalizedPhone(phoneNormalizer.normalize(normalizedPhone))
+                .orElseThrow(() -> new NotFoundException("PLAYER_NOT_FOUND", "Player account not found"));
+        return toProfile(player);
+    }
+
+    @Transactional
+    public UserProfileResponse registerPlayer(AgentPlayerRegistrationRequest request) {
+        String normalizedPhone = phoneNormalizer.normalize(request.phoneNumber());
+        if (userRepository.existsByNormalizedPhone(normalizedPhone)) {
+            throw new ConflictException("PHONE_ALREADY_REGISTERED", "That phone number is already registered");
+        }
+        String generatedPassword = UUID.randomUUID().toString() + "!aA1";
+        User player = User.create(normalizedPhone, request.displayName().trim(),
+                passwordEncoder.encode(generatedPassword),
+                AccountStatus.ACTIVE, Set.of(UserRole.PLAYER), Instant.now());
+        player = userRepository.save(player);
+        return toProfile(player);
+    }
+
+    @Transactional
+    public IdempotentResult<TicketPurchaseResponse> sellTicket(BingoUserPrincipal principal,
+            AgentTicketSaleRequest request,
+            String idempotencyKey) {
+        Agent agent = requireApprovedAgent(principal.getUser().getId());
+        verifyPin(agent.getUser(), request.pin());
+        User player = lookupOrCreatePlayer(request.playerPhoneNumber());
+        String requestHash = requestHashService.hash("POST", "/api/v1/agent/tickets", request);
+        String operationId = UUID.randomUUID().toString();
+
+        return idempotencyService.execute(idempotencyKey, requestHash, operationId, HttpStatus.CREATED.value(),
+                TicketPurchaseResponse.class, () -> {
+                    AgentFloat agentFloat = requireAgentFloatForUpdate(agent.getId());
+                    BigDecimal ticketPrice = bingoGameService.getSession(request.sessionId()).ticketPrice();
+                    debitAgentFloat(agentFloat, ticketPrice, AgentFloatTransactionType.TICKET_SALE_DEBIT,
+                            "BINGO_TICKET", null, operationId, "Agent ticket sale");
+                    TicketPurchaseResponse response = bingoGameService.createAgentTicket(request.sessionId(), player,
+                            operationId);
+                    Ticket ticket = ticketRepository.findById(response.ticket().id())
+                            .orElseThrow(() -> new NotFoundException("TICKET_NOT_FOUND", "Ticket not found"));
+                    createCommissionAccrual(agent, ticket, ticketPrice, operationId);
+                    return response;
+                });
+    }
+
+    @Transactional
+    public IdempotentResult<AgentFloatResponse> transferFloat(BingoUserPrincipal principal,
+            AgentFloatTransferRequest request,
+            String idempotencyKey) {
+        Agent agent = requireApprovedAgent(principal.getUser().getId());
+        verifyPin(agent.getUser(), request.pin());
+        if (!request.currency().equalsIgnoreCase(requireAgentFloat(agent.getId()).getCurrency())) {
+            throw new BadRequestException("UNSUPPORTED_CURRENCY", "Currency does not match agent float currency");
+        }
+        User player = lookupOrCreatePlayer(request.playerPhoneNumber());
+        String requestHash = requestHashService.hash("POST", "/api/v1/agent/float/transfers", request);
+        String operationId = UUID.randomUUID().toString();
+
+        return idempotencyService.execute(idempotencyKey, requestHash, operationId, HttpStatus.OK.value(),
+                AgentFloatResponse.class, () -> {
+                    AgentFloat agentFloat = requireAgentFloatForUpdate(agent.getId());
+                    Wallet wallet = walletRepository.findByOwnerIdForUpdate(player.getId())
+                            .orElseGet(() -> walletRepository.save(Wallet.create(player, request.currency())));
+                    BigDecimal amount = MoneyValues.money(request.amount());
+                    debitAgentFloat(agentFloat, amount, AgentFloatTransactionType.PLAYER_WALLET_TRANSFER_DEBIT,
+                            "PLAYER_WALLET", player.getId(), operationId, request.note());
+
+                    BigDecimal before = wallet.getAvailableBalance();
+                    BigDecimal after = MoneyValues.money(before.add(amount));
+                    wallet.setAvailableBalance(after);
+                    walletRepository.save(wallet);
+                    walletTransactionRepository.save(WalletTransaction.create(wallet, operationId,
+                            WalletTransactionType.AGENT_FLOAT_TRANSFER_CREDIT, amount, before, after,
+                            wallet.getCurrency(),
+                            "AGENT_TRANSFER", agent.getId(), request.note(), Instant.now()));
+                    return toFloatResponse(agentFloat);
+                });
+    }
+
+    @Transactional(readOnly = true)
+    public AgentPayoutLookupResponse lookupApprovedPayout(BingoUserPrincipal principal, String payoutCode) {
+        requireApprovedAgent(principal.getUser().getId());
+        throttleService.requireAllowed("agent-payout-code:" + payoutCode, agentProperties.payoutCodeAttemptLimit(),
+                agentProperties.attemptWindow(), "AGENT_PAYOUT_CODE_RATE_LIMITED", "Too many payout code attempts");
+        PrizeEntitlement entitlement = prizeEntitlementRepository.findByPayoutCode(payoutCode)
+                .orElseThrow(() -> new NotFoundException("PAYOUT_CODE_NOT_FOUND", "Payout code not found"));
+        if (entitlement.getSettlementPath() != PrizeSettlementPath.AGENT_CASH) {
+            throw new BadRequestException("NOT_AGENT_CASH", "That entitlement is not agent cash");
+        }
+        return new AgentPayoutLookupResponse(entitlement.getId(), entitlement.getSession().getId(),
+                entitlement.getTicket().getId(), entitlement.getClaimant().getId(), entitlement.getSettlementPath(),
+                entitlement.getStatus(), entitlement.getPrizeAmount(), entitlement.getCurrency(),
+                entitlement.getPayoutCode(),
+                entitlement.getCreatedAt());
+    }
+
+    @Transactional
+    public IdempotentResult<PayoutVerificationResponse> verifyAndDisbursePayout(BingoUserPrincipal principal,
+            AgentPayoutVerificationRequest request,
+            String idempotencyKey) {
+        Agent agent = requireApprovedAgent(principal.getUser().getId());
+        throttleService.requireAllowed("agent-payout-code:" + request.payoutCode(),
+                agentProperties.payoutCodeAttemptLimit(), agentProperties.attemptWindow(),
+                "AGENT_PAYOUT_CODE_RATE_LIMITED", "Too many payout code attempts");
+        verifyPin(agent.getUser(), request.pin());
+        String requestHash = requestHashService.hash("POST", "/api/v1/agent/payouts/verify", request);
+        String operationId = UUID.randomUUID().toString();
+
+        return idempotencyService.execute(idempotencyKey, requestHash, operationId, HttpStatus.OK.value(),
+                PayoutVerificationResponse.class, () -> {
+                    PrizeEntitlement entitlement = prizeEntitlementRepository
+                            .findByPayoutCodeForUpdate(request.payoutCode())
+                            .orElseThrow(() -> new NotFoundException("PAYOUT_CODE_NOT_FOUND", "Payout code not found"));
+                    if (entitlement.getSettlementPath() != PrizeSettlementPath.AGENT_CASH) {
+                        throw new BadRequestException("NOT_AGENT_CASH", "That entitlement is not agent cash");
+                    }
+                    if (entitlement.getStatus() != PrizeEntitlementStatus.PENDING) {
+                        throw new ConflictException("PAYOUT_ALREADY_SETTLED", "That payout has already been settled");
+                    }
+
+                    AgentFloat agentFloat = requireAgentFloatForUpdate(agent.getId());
+                    BigDecimal amount = MoneyValues.money(entitlement.getPrizeAmount());
+                    debitAgentFloat(agentFloat, amount, AgentFloatTransactionType.PAYOUT_DISBURSEMENT_DEBIT,
+                            "PAYOUT_ENTITLEMENT", entitlement.getId(), operationId, request.clearingReference());
+
+                    AgentFloatTransaction clearingEntry = AgentFloatTransaction.create(agentFloat,
+                            AgentFloatTransactionType.PAYOUT_CLEARING_CREDIT,
+                            amount,
+                            agentFloat.getAvailableBalance(),
+                            agentFloat.getAvailableBalance(),
+                            agentFloat.getClearingBalance(),
+                            MoneyValues.money(agentFloat.getClearingBalance().add(amount)),
+                            "PAYOUT_ENTITLEMENT",
+                            entitlement.getId(),
+                            UUID.randomUUID().toString(),
+                            request.clearingReference());
+                    agentFloat.setClearingBalance(MoneyValues.money(agentFloat.getClearingBalance().add(amount)));
+                    agentFloatRepository.save(agentFloat);
+                    clearingEntry = agentFloatTransactionRepository.save(clearingEntry);
+
+                    entitlement.setStatus(PrizeEntitlementStatus.SETTLED);
+                    entitlement.setSettledAt(Instant.now());
+                    entitlement.setSettlementReference(request.clearingReference());
+                    prizeEntitlementRepository.save(entitlement);
+
+                    PayoutVerificationRecord record = PayoutVerificationRecord.create(entitlement, agent,
+                            request.payoutCode(), amount);
+                    record.setStatus(PayoutVerificationStatus.DISBURSED);
+                    record.setVerifiedBy(principal.getUser());
+                    record.setVerifiedAt(Instant.now());
+                    record.setClearingReference(request.clearingReference());
+                    record.setFloatTransaction(clearingEntry);
+                    record = payoutVerificationRecordRepository.save(record);
+
+                    return new PayoutVerificationResponse(record.getId(), entitlement.getId(), agent.getId(),
+                            request.payoutCode(), record.getStatus(), amount, request.clearingReference(),
+                            record.getVerifiedAt(), clearingEntry.getId());
+                });
+    }
+
+    @Transactional(readOnly = true)
+    public AgentFloatResponse getFloat(BingoUserPrincipal principal) {
+        Agent agent = requireApprovedAgent(principal.getUser().getId());
+        return toFloatResponse(requireAgentFloat(agent.getId()));
+    }
+
+    @Transactional(readOnly = true)
+    public List<AgentFloatTransactionResponse> getFloatHistory(BingoUserPrincipal principal) {
+        Agent agent = requireApprovedAgent(principal.getUser().getId());
+        return agentFloatTransactionRepository.findByAgentFloatAgentIdOrderByCreatedAtDesc(agent.getId()).stream()
+                .map(this::toFloatTransactionResponse).toList();
+    }
+
+    @Transactional
+    public IdempotentResult<FloatTopUpRequestResponse> submitTopUpRequest(BingoUserPrincipal principal,
+            SubmitFloatTopUpRequest request,
+            String idempotencyKey) {
+        Agent agent = requireApprovedAgent(principal.getUser().getId());
+        String requestHash = requestHashService.hash("POST", "/api/v1/agent/float-top-up-requests", request);
+        String operationId = UUID.randomUUID().toString();
+
+        return idempotencyService.execute(idempotencyKey, requestHash, operationId, HttpStatus.CREATED.value(),
+                FloatTopUpRequestResponse.class, () -> {
+                    FloatTopUpRequest topUpRequest = FloatTopUpRequest.create(agent, principal.getUser(),
+                            MoneyValues.money(request.amount()), request.currency().toUpperCase(), operationId);
+                    topUpRequest.setReviewNote(request.note());
+                    topUpRequest = floatTopUpRequestRepository.save(topUpRequest);
+                    return toFloatTopUpResponse(topUpRequest);
+                });
+    }
+
+    @Transactional
+    public FloatTopUpRequestResponse reviewTopUpRequest(Long requestId, BingoUserPrincipal principal,
+            ReviewFloatTopUpRequest request) {
+        User reviewer = requireAdmin(principal);
+        FloatTopUpRequest topUpRequest = floatTopUpRequestRepository.findByIdForUpdate(requestId)
+                .orElseThrow(() -> new NotFoundException("TOP_UP_REQUEST_NOT_FOUND", "Float top-up request not found"));
+        if (topUpRequest.getStatus() != FloatTopUpRequestStatus.PENDING) {
+            throw new ConflictException("TOP_UP_REQUEST_ALREADY_REVIEWED", "Float top-up request already reviewed");
+        }
+
+        topUpRequest.setReviewedBy(reviewer);
+        topUpRequest.setReviewedAt(Instant.now());
+        topUpRequest.setReviewNote(request.reviewNote());
+        topUpRequest.setStatus(request.approve() ? FloatTopUpRequestStatus.APPROVED : FloatTopUpRequestStatus.REJECTED);
+        topUpRequest = floatTopUpRequestRepository.save(topUpRequest);
+        if (request.approve()) {
+            AgentFloat agentFloat = requireAgentFloatForUpdate(topUpRequest.getAgent().getId());
+            BigDecimal before = agentFloat.getAvailableBalance();
+            BigDecimal after = MoneyValues.money(before.add(topUpRequest.getAmount()));
+            agentFloat.setAvailableBalance(after);
+            agentFloatRepository.save(agentFloat);
+            agentFloatTransactionRepository.save(AgentFloatTransaction.create(agentFloat,
+                    AgentFloatTransactionType.TOP_UP,
+                    topUpRequest.getAmount(),
+                    before,
+                    after,
+                    agentFloat.getClearingBalance(),
+                    agentFloat.getClearingBalance(),
+                    "FLOAT_TOP_UP_REQUEST",
+                    topUpRequest.getId(),
+                    UUID.randomUUID().toString(),
+                    request.reviewNote()));
+        }
+        return toFloatTopUpResponse(topUpRequest);
+    }
+
+    @Transactional(readOnly = true)
+    public List<FloatTopUpRequestResponse> getTopUpRequests(BingoUserPrincipal principal) {
+        Agent agent = requireApprovedAgent(principal.getUser().getId());
+        return floatTopUpRequestRepository.findByAgentIdOrderByCreatedAtDesc(agent.getId()).stream()
+                .map(this::toFloatTopUpResponse).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<CommissionAccrualResponse> getCommissionHistory(BingoUserPrincipal principal) {
+        Agent agent = requireApprovedAgent(principal.getUser().getId());
+        return commissionAccrualRepository.findByAgentIdOrderByCreatedAtDesc(agent.getId()).stream()
+                .map(this::toCommissionResponse).toList();
+    }
+
+    @Transactional
+    public AgentProfileResponse adminApproveAgent(Long userId, AgentProfileResponse request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new NotFoundException("USER_NOT_FOUND", "User account not found"));
+        if (!user.hasRole(UserRole.AGENT)) {
+            user.getRoles().add(UserRole.AGENT);
+        }
+        user.setStatus(AccountStatus.ACTIVE);
+        User savedUser = userRepository.save(user);
+
+        Agent agent = agentRepository.findByUserId(userId).orElse(null);
+        if (agent == null) {
+            agent = Agent.create(savedUser, AgentStatus.APPROVED, request.city(), request.territory(),
+                    request.idDocumentType(), request.idDocumentNumber(), request.idDocumentFrontReference(),
+                    request.idDocumentBackReference());
+        }
+        agent.setUser(savedUser);
+        agent.setStatus(AgentStatus.APPROVED);
+        agent.setCity(request.city());
+        agent.setTerritory(request.territory());
+        agent.setIdDocumentType(request.idDocumentType());
+        agent.setIdDocumentNumber(request.idDocumentNumber());
+        agent.setIdDocumentFrontReference(request.idDocumentFrontReference());
+        agent.setIdDocumentBackReference(request.idDocumentBackReference());
+        Agent savedAgent = agentRepository.save(agent);
+        if (agentFloatRepository.findByAgentId(savedAgent.getId()).isEmpty()) {
+            agentFloatRepository.save(AgentFloat.create(savedAgent, "ETB", BigDecimal.ZERO.setScale(2),
+                    BigDecimal.ZERO.setScale(2)));
+        }
+        return toAgentProfileResponse(savedAgent);
+    }
+
+    @Transactional
+    public AgentProfileResponse adminSuspendAgent(Long agentId) {
+        Agent agent = agentRepository.findById(agentId)
+                .orElseThrow(() -> new NotFoundException("AGENT_NOT_FOUND", "Agent not found"));
+        agent.setStatus(AgentStatus.SUSPENDED);
+        agent.getUser().setStatus(AccountStatus.SUSPENDED);
+        return toAgentProfileResponse(agentRepository.save(agent));
+    }
+
+    @Transactional
+    public CommissionRuleRequest upsertCommissionRule(BingoUserPrincipal principal, CommissionRuleRequest request) {
+        requireAdmin(principal);
+        CommissionRule rule = commissionRuleRepository.findFirstByActiveTrueOrderByVersionNumberDesc()
+                .map(existing -> {
+                    existing.setCommissionRateBps(request.commissionRateBps());
+                    existing.setActive(request.active());
+                    existing.setEffectiveFrom(request.effectiveFrom());
+                    return existing;
+                })
+                .orElseGet(() -> CommissionRule.create(1, request.commissionRateBps(), request.active(),
+                        request.effectiveFrom()));
+        commissionRuleRepository.save(rule);
+        return request;
+    }
+
+    private User requireAdmin(BingoUserPrincipal principal) {
+        User user = principal.getUser();
+        if (!user.hasRole(UserRole.ADMIN)) {
+            throw new BadRequestException("ADMIN_ROLE_REQUIRED", "This endpoint is available to admin accounts only");
+        }
+        return user;
+    }
+
+    private void createCommissionAccrual(Agent agent, Ticket ticket, BigDecimal saleAmount, String operationId) {
+        commissionRuleRepository.findFirstByActiveTrueOrderByVersionNumberDesc().ifPresent(rule -> {
+            BigDecimal commission = MoneyValues.money(saleAmount
+                    .multiply(BigDecimal.valueOf(rule.getCommissionRateBps()))
+                    .divide(BigDecimal.valueOf(10000)));
+            CommissionAccrual accrual = CommissionAccrual.create(agent, ticket, ticket.getSession().getId(), rule,
+                    saleAmount,
+                    commission, operationId);
+            commissionAccrualRepository.save(accrual);
+        });
+    }
+
+    private void debitAgentFloat(AgentFloat agentFloat, BigDecimal amount, AgentFloatTransactionType type,
+            String relatedEntityType, Long relatedEntityId, String operationId, String note) {
+        BigDecimal beforeAvailable = agentFloat.getAvailableBalance();
+        BigDecimal afterAvailable = MoneyValues.money(beforeAvailable.subtract(amount));
+        if (afterAvailable.compareTo(BigDecimal.ZERO) < 0) {
+            throw new ConflictException("AGENT_FLOAT_OVERDRAFT", "Agent float cannot go below zero");
+        }
+        BigDecimal beforeClearing = agentFloat.getClearingBalance();
+        BigDecimal afterClearing = type == AgentFloatTransactionType.PAYOUT_DISBURSEMENT_DEBIT
+                ? MoneyValues.money(beforeClearing.add(amount))
+                : beforeClearing;
+        agentFloat.setAvailableBalance(afterAvailable);
+        agentFloat.setClearingBalance(afterClearing);
+        agentFloatRepository.save(agentFloat);
+        agentFloatTransactionRepository.save(AgentFloatTransaction.create(agentFloat, type, amount, beforeAvailable,
+                afterAvailable, beforeClearing, afterClearing, relatedEntityType, relatedEntityId, operationId, note));
+    }
+
+    private Agent requireApprovedAgent(Long userId) {
+        Agent agent = agentRepository.findByUserId(userId)
+                .orElseThrow(() -> new NotFoundException("AGENT_NOT_FOUND", "Agent profile not found"));
+        if (agent.getStatus() != AgentStatus.APPROVED) {
+            throw new ConflictException("AGENT_NOT_APPROVED", "Agent is not approved");
+        }
+        if (!agent.getUser().isActive()) {
+            throw new ConflictException("AGENT_NOT_ACTIVE", "Agent account is not active");
+        }
+        return agent;
+    }
+
+    private AgentFloat requireAgentFloat(Long agentId) {
+        return agentFloatRepository.findByAgentId(agentId)
+                .orElseThrow(() -> new NotFoundException("AGENT_FLOAT_NOT_FOUND", "Agent float not found"));
+    }
+
+    private AgentFloat requireAgentFloatForUpdate(Long agentId) {
+        return agentFloatRepository.findByAgentIdForUpdate(agentId)
+                .orElseThrow(() -> new NotFoundException("AGENT_FLOAT_NOT_FOUND", "Agent float not found"));
+    }
+
+    private User lookupOrCreatePlayer(String phoneNumber) {
+        String normalizedPhone = phoneNormalizer.normalize(phoneNumber);
+        return userRepository.findByNormalizedPhone(normalizedPhone).orElseGet(() -> {
+            String generatedPassword = UUID.randomUUID().toString() + "!aA1";
+            User player = User.create(normalizedPhone, normalizedPhone, passwordEncoder.encode(generatedPassword),
+                    AccountStatus.ACTIVE, Set.of(UserRole.PLAYER), Instant.now());
+            return userRepository.save(player);
+        });
+    }
+
+    private void verifyPin(User user, String pin) {
+        throttleService.requireAllowed("agent-pin:" + user.getNormalizedPhone(), agentProperties.pinAttemptLimit(),
+                agentProperties.attemptWindow(), "AGENT_PIN_RATE_LIMITED", "Too many PIN attempts");
+        if (!agentPinEncoder.matches(pin, user.getAgentPinHash())) {
+            throw new BadRequestException("INVALID_PIN", "Invalid agent PIN");
+        }
+        throttleService.clear("agent-pin:" + user.getNormalizedPhone());
+    }
+
+    private UserProfileResponse toProfile(User user) {
+        return new UserProfileResponse(user.getId(), user.getDisplayName(), user.getNormalizedPhone(), user.getRoles(),
+                user.getStatus(), user.getCreatedAt(), user.getUpdatedAt());
+    }
+
+    private AgentProfileResponse toAgentProfileResponse(Agent agent) {
+        return new AgentProfileResponse(agent.getId(), agent.getUser().getId(), agent.getUser().getNormalizedPhone(),
+                agent.getUser().getDisplayName(), agent.getStatus(), agent.getCity(), agent.getTerritory(),
+                agent.getIdDocumentType(), agent.getIdDocumentNumber(), agent.getIdDocumentFrontReference(),
+                agent.getIdDocumentBackReference(), agent.getCreatedAt(), agent.getUpdatedAt());
+    }
+
+    private AgentFloatResponse toFloatResponse(AgentFloat agentFloat) {
+        return new AgentFloatResponse(agentFloat.getAgent().getId(), agentFloat.getId(), agentFloat.getCurrency(),
+                agentFloat.getAvailableBalance(), agentFloat.getClearingBalance(), agentFloat.getUpdatedAt());
+    }
+
+    private AgentFloatTransactionResponse toFloatTransactionResponse(AgentFloatTransaction transaction) {
+        return new AgentFloatTransactionResponse(transaction.getId(), transaction.getAgentFloat().getId(),
+                transaction.getTransactionType(), transaction.getAmount(), transaction.getAvailableBefore(),
+                transaction.getAvailableAfter(), transaction.getClearingBefore(), transaction.getClearingAfter(),
+                transaction.getRelatedEntityType(), transaction.getRelatedEntityId(), transaction.getOperationId(),
+                transaction.getNote(), transaction.getCreatedAt());
+    }
+
+    private FloatTopUpRequestResponse toFloatTopUpResponse(FloatTopUpRequest request) {
+        return new FloatTopUpRequestResponse(request.getId(), request.getAgent().getId(),
+                request.getRequestedBy().getId(),
+                request.getAmount(), request.getCurrency(), request.getStatus(), request.getOperationId(),
+                request.getReviewNote(), request.getReviewedBy() == null ? null : request.getReviewedBy().getId(),
+                request.getReviewedAt(), request.getCreatedAt(), request.getUpdatedAt());
+    }
+
+    private CommissionAccrualResponse toCommissionResponse(CommissionAccrual accrual) {
+        return new CommissionAccrualResponse(accrual.getId(), accrual.getAgent().getId(), accrual.getTicket().getId(),
+                accrual.getSessionId(), accrual.getCommissionRuleVersion(), accrual.getSaleAmount(),
+                accrual.getCommissionAmount(), accrual.getStatus(), accrual.getOperationId(), accrual.getCreatedAt(),
+                accrual.getSettledAt(), accrual.getSettlementReference(), accrual.getSettlementNote());
+    }
+}

@@ -318,6 +318,33 @@ public class BingoGameService {
                 });
     }
 
+    @Transactional
+    public TicketPurchaseResponse issueTicketForAgent(Long sessionId, User player, String operationId) {
+        GameSession session = gameSessionRepository.findByIdForUpdate(sessionId)
+                .orElseThrow(() -> new NotFoundException("SESSION_NOT_FOUND", "Game session not found"));
+        BingoRoom room = session.getRoom();
+
+        validateTicketSaleOpen(session);
+        ensureGameCurrency(session, room);
+        enforceSessionCapacity(session);
+        enforcePlayerTicketLimit(session, player);
+
+        Ticket ticket = new Ticket();
+        ticket.setSession(session);
+        ticket.setOwner(player);
+        ticket.setOperationId(operationId);
+        ticket.setPublicTicketCode(generatePublicTicketCode(sessionId));
+        ticket.setGridJson(writeGrid(new BingoCardGenerator().generate().grid()));
+        ticket = ticketRepository.save(ticket);
+
+        return new TicketPurchaseResponse(toTicketResponse(ticket));
+    }
+
+    @Transactional
+    public TicketPurchaseResponse createAgentTicket(Long sessionId, User player, String operationId) {
+        return issueTicketForAgent(sessionId, player, operationId);
+    }
+
     @Transactional(readOnly = true)
     public List<BingoPatternType> getConfiguredPatterns(Long sessionId) {
         return readPatterns(requireSession(sessionId).getPatternsSnapshotJson());
@@ -587,8 +614,15 @@ public class BingoGameService {
         entitlement.setPrizeAmount(MoneyValues.money(config.amount()));
         entitlement.setCurrency(claim.getSession().getCurrencySnapshot());
         entitlement.setOperationId(UUID.randomUUID().toString());
+        if (config.settlementPath() == PrizeSettlementPath.AGENT_CASH) {
+            entitlement.setPayoutCode(generatePayoutCode());
+        }
         entitlement.setSettlementNote(reviewNote);
         return prizeEntitlementRepository.save(entitlement);
+    }
+
+    private String generatePayoutCode() {
+        return "PC-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase();
     }
 
     private int currentDrawSequence(Long sessionId) {

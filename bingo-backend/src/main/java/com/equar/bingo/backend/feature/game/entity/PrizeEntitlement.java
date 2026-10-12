@@ -62,6 +62,9 @@ public class PrizeEntitlement {
     @Column(name = "operation_id", nullable = false, length = 36, unique = true)
     private String operationId;
 
+    @Column(name = "payout_code", length = 80, unique = true)
+    private String payoutCode;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -170,6 +173,14 @@ public class PrizeEntitlement {
 
     public void setOperationId(String operationId) {
         this.operationId = operationId;
+    }
+
+    public String getPayoutCode() {
+        return payoutCode;
+    }
+
+    public void setPayoutCode(String payoutCode) {
+        this.payoutCode = payoutCode;
     }
 
     public Instant getCreatedAt() {

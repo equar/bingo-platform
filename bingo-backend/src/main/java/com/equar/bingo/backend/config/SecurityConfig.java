@@ -45,10 +45,11 @@ public class SecurityConfig {
                 .authenticationProvider(daoAuthenticationProvider)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/api/v1/auth/**", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html",
-                                "/actuator/health", "/ws")
+                        .requestMatchers("/api/v1/auth/**", "/api/v1/agent/login", "/v3/api-docs/**",
+                                "/swagger-ui/**", "/swagger-ui.html", "/actuator/health", "/ws")
                         .permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/v1/agent/**").hasRole("AGENT")
                         .anyRequest().authenticated())
                 .exceptionHandling(exception -> exception
                         .authenticationEntryPoint((request, response, authException) -> errorWriter.write(

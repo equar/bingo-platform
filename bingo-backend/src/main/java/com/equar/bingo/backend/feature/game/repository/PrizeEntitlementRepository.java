@@ -18,6 +18,12 @@ public interface PrizeEntitlementRepository extends JpaRepository<PrizeEntitleme
     @Query("select p from PrizeEntitlement p where p.id = :id")
     Optional<PrizeEntitlement> findByIdForUpdate(@Param("id") Long id);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select p from PrizeEntitlement p where p.payoutCode = :payoutCode")
+    Optional<PrizeEntitlement> findByPayoutCodeForUpdate(@Param("payoutCode") String payoutCode);
+
+    Optional<PrizeEntitlement> findByPayoutCode(String payoutCode);
+
     boolean existsByWinClaimId(Long winClaimId);
 
     List<PrizeEntitlement> findByStatus(PrizeEntitlementStatus status);

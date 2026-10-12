@@ -42,3 +42,9 @@ app:
     session-capacity: ${APP_GAME_SESSION_CAPACITY:1000}
     ticket-sales-close-on-session-start: ${APP_GAME_TICKET_SALES_CLOSE_ON_SESSION_START:true}
     draw-interval: ${APP_GAME_DRAW_INTERVAL:PT10S}
+  agent:
+    pin-reconfirm-threshold: ${APP_AGENT_PIN_RECONFIRM_THRESHOLD:1000.00}
+    login-attempt-limit: ${APP_AGENT_LOGIN_ATTEMPT_LIMIT:5}
+    pin-attempt-limit: ${APP_AGENT_PIN_ATTEMPT_LIMIT:5}
+    payout-code-attempt-limit: ${APP_AGENT_PAYOUT_CODE_ATTEMPT_LIMIT:5}
+    attempt-window: ${APP_AGENT_ATTEMPT_WINDOW:PT15M}
