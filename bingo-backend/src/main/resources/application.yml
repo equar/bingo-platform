@@ -37,3 +37,7 @@ app:
     payment-provider-name: ${APP_PAYMENT_PROVIDER_NAME:Telebirr}
     business-account: ${APP_PAYMENT_BUSINESS_ACCOUNT:}
     payment-instructions: ${APP_PAYMENT_INSTRUCTIONS:Submit the telebirr reference after payment for manual verification.}
+  game:
+    max-tickets-per-player: ${APP_GAME_MAX_TICKETS_PER_PLAYER:10}
+    session-capacity: ${APP_GAME_SESSION_CAPACITY:1000}
+    ticket-sales-close-on-session-start: ${APP_GAME_TICKET_SALES_CLOSE_ON_SESSION_START:true}

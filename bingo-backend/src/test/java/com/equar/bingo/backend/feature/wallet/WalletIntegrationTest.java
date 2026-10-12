@@ -8,6 +8,12 @@ import com.equar.bingo.backend.feature.user.entity.AccountStatus;
 import com.equar.bingo.backend.feature.user.entity.User;
 import com.equar.bingo.backend.feature.user.entity.UserRole;
 import com.equar.bingo.backend.feature.user.repository.UserRepository;
+import com.equar.bingo.backend.feature.game.repository.BingoRoomRepository;
+import com.equar.bingo.backend.feature.game.repository.GameSessionRepository;
+import com.equar.bingo.backend.feature.game.repository.TicketRepository;
+import com.equar.bingo.backend.feature.game.repository.DrawEventRepository;
+import com.equar.bingo.backend.feature.game.repository.WinClaimRepository;
+import com.equar.bingo.backend.feature.game.repository.PrizeEntitlementRepository;
 import com.equar.bingo.backend.feature.wallet.dto.DepositClaimRequest;
 import com.equar.bingo.backend.feature.wallet.dto.DepositClaimResponse;
 import com.equar.bingo.backend.feature.wallet.dto.DepositReviewRequest;
@@ -86,11 +92,35 @@ class WalletIntegrationTest {
     @Autowired
     WalletService walletService;
 
+    @Autowired
+    BingoRoomRepository bingoRoomRepository;
+
+    @Autowired
+    GameSessionRepository gameSessionRepository;
+
+    @Autowired
+    TicketRepository ticketRepository;
+
+    @Autowired
+    DrawEventRepository drawEventRepository;
+
+    @Autowired
+    WinClaimRepository winClaimRepository;
+
+    @Autowired
+    PrizeEntitlementRepository prizeEntitlementRepository;
+
     private User adminUser;
     private User playerUser;
 
     @BeforeEach
     void setUp() {
+        prizeEntitlementRepository.deleteAll();
+        winClaimRepository.deleteAll();
+        drawEventRepository.deleteAll();
+        ticketRepository.deleteAll();
+        gameSessionRepository.deleteAll();
+        bingoRoomRepository.deleteAll();
         walletTransactionRepository.deleteAll();
         depositClaimRepository.deleteAll();
         walletRepository.deleteAll();
