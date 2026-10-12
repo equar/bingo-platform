@@ -490,7 +490,7 @@ export interface PageRequest {
 }
 
 export interface LoginRequest {
-  phoneNumber: string;
+  email: string;
   password: string;
 }
 
@@ -513,7 +513,7 @@ export function buildQuery(page?: PageRequest) {
 }
 
 export async function login(request: LoginRequest) {
-  const { data } = await http.post<AuthResponse>('/api/v1/auth/login', request);
+  const { data } = await http.post<AuthResponse>('/api/v1/admin/login', request);
   return data;
 }
 

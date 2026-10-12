@@ -46,13 +46,15 @@ public class DevelopmentDataSeeder implements CommandLineRunner {
 
         Instant now = Instant.now();
 
-        userRepository.save(User.create(
-                "251911000001",
-                "Dev Admin",
-                passwordEncoder.encode("DevAdmin123!"),
-                AccountStatus.ACTIVE,
-                Set.of(UserRole.ADMIN),
-                now));
+        User admin = User.create(
+            "251911000001",
+            "Dev Admin",
+            passwordEncoder.encode("DevAdmin123!"),
+            AccountStatus.ACTIVE,
+            Set.of(UserRole.ADMIN),
+            now);
+        admin.setEmail("admin@bingo.local");
+        userRepository.save(admin);
 
         userRepository.save(User.create(
                 "251911000002",

@@ -20,7 +20,10 @@ import java.util.LinkedHashSet;
 import java.util.Set;
 
 @Entity
-@Table(name = "users", uniqueConstraints = @UniqueConstraint(name = "uk_users_normalized_phone", columnNames = "normalized_phone"))
+@Table(name = "users", uniqueConstraints = {
+        @UniqueConstraint(name = "uk_users_normalized_phone", columnNames = "normalized_phone"),
+        @UniqueConstraint(name = "uk_users_email", columnNames = "email")
+})
 public class User {
 
     @Id
@@ -29,6 +32,9 @@ public class User {
 
     @Column(name = "normalized_phone", nullable = false, length = 32)
     private String normalizedPhone;
+
+    @Column(name = "email", length = 255)
+    private String email;
 
     @Column(name = "display_name", nullable = false, length = 120)
     private String displayName;
@@ -95,6 +101,14 @@ public class User {
 
     public void setNormalizedPhone(String normalizedPhone) {
         this.normalizedPhone = normalizedPhone;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
     }
 
     public String getDisplayName() {

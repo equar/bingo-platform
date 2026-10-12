@@ -9,7 +9,7 @@ import { parseApiError } from "../../api/types";
 export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [phoneNumber, setPhoneNumber] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -20,7 +20,7 @@ export function LoginPage() {
   }, [location.state]);
 
   const mutation = useMutation({
-    mutationFn: () => login({ phoneNumber, password }),
+    mutationFn: () => login({ email, password }),
     onSuccess: (response) => {
       writeSession({
         accessToken: response.accessToken,
@@ -58,10 +58,10 @@ export function LoginPage() {
             }}
           >
             <TextField
-              label="Phone number"
-              value={phoneNumber}
-              onChange={(event) => setPhoneNumber(event.target.value)}
-              autoComplete="username"
+              label="Email address"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              autoComplete="email"
               fullWidth
               required
             />

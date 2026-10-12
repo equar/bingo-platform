@@ -24,56 +24,66 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 @EnableMethodSecurity
 public class SecurityConfig {
 
-    @Bean
-    public DaoAuthenticationProvider daoAuthenticationProvider(BingoUserDetailsService userDetailsService,
-            PasswordEncoder passwordEncoder) {
-        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
-        provider.setUserDetailsService(userDetailsService);
-        provider.setPasswordEncoder(passwordEncoder);
-        return provider;
-    }
+        @Bean
+        public DaoAuthenticationProvider daoAuthenticationProvider(BingoUserDetailsService userDetailsService,
+                        PasswordEncoder passwordEncoder) {
+                DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
+                provider.setUserDetailsService(userDetailsService);
+                provider.setPasswordEncoder(passwordEncoder);
+                return provider;
+        }
 
-    @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http,
-            JwtAuthenticationFilter jwtAuthenticationFilter,
-            ObjectMapper objectMapper,
-            DaoAuthenticationProvider daoAuthenticationProvider) throws Exception {
-        ApiErrorResponseWriter errorWriter = new ApiErrorResponseWriter(objectMapper);
+        @Bean
+        public SecurityFilterChain securityFilterChain(HttpSecurity http,
+                        JwtAuthenticationFilter jwtAuthenticationFilter,
+                        ObjectMapper objectMapper,
+                        DaoAuthenticationProvider daoAuthenticationProvider) throws Exception {
+                ApiErrorResponseWriter errorWriter = new ApiErrorResponseWriter(objectMapper);
 
-        http.csrf(csrf -> csrf.disable())
-                .cors(Customizer.withDefaults())
-                .authenticationProvider(daoAuthenticationProvider)
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/api/v1/auth/**", "/api/v1/agent/login", "/v3/api-docs/**",
-                                "/swagger-ui/**", "/swagger-ui.html", "/actuator/health", "/ws")
-                        .permitAll()
-                        .requestMatchers("/api/v1/admin/support/**").hasAnyRole("ADMIN", "SUPPORT")
-                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
-                        .requestMatchers("/api/v1/agent/**").hasRole("AGENT")
-                        .anyRequest().authenticated())
-                .exceptionHandling(exception -> exception
-                        .authenticationEntryPoint((request, response, authException) -> errorWriter.write(
-                                response,
-                                HttpStatus.UNAUTHORIZED.value(),
-                                "UNAUTHORIZED",
-                                "Authentication is required",
-                                request.getRequestURI(),
-                                ApiErrorResponseWriter.resolveCorrelationId(request)))
-                        .accessDeniedHandler((request, response, accessDeniedException) -> errorWriter.write(
-                                response,
-                                HttpStatus.FORBIDDEN.value(),
-                                "FORBIDDEN",
-                                "You do not have permission to access this resource",
-                                request.getRequestURI(),
-                                ApiErrorResponseWriter.resolveCorrelationId(request))))
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                http.csrf(csrf -> csrf.disable())
+                                .cors(Customizer.withDefaults())
+                                .authenticationProvider(daoAuthenticationProvider)
+                                .sessionManagement(session -> session
+                                                .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                                .authorizeHttpRequests(authorize -> authorize
+                                                .requestMatchers("/api/v1/auth/**", "/api/v1/admin/login",
+                                                                "/api/v1/agent/login", "/v3/api-docs/**",
+                                                                "/swagger-ui/**", "/swagger-ui.html",
+                                                                "/actuator/health", "/ws")
+                                                .permitAll()
+                                                .requestMatchers("/api/v1/admin/support/**")
+                                                .hasAnyRole("ADMIN", "SUPPORT")
+                                                .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+                                                .requestMatchers("/api/v1/agent/**").hasRole("AGENT")
+                                                .anyRequest().authenticated())
+                                .exceptionHandling(exception -> exception
+                                                .authenticationEntryPoint(
+                                                                (request, response, authException) -> errorWriter.write(
+                                                                                response,
+                                                                                HttpStatus.UNAUTHORIZED.value(),
+                                                                                "UNAUTHORIZED",
+                                                                                "Authentication is required",
+                                                                                request.getRequestURI(),
+                                                                                ApiErrorResponseWriter
+                                                                                                .resolveCorrelationId(
+                                                                                                                request)))
+                                                .accessDeniedHandler((request, response,
+                                                                accessDeniedException) -> errorWriter.write(
+                                                                                response,
+                                                                                HttpStatus.FORBIDDEN.value(),
+                                                                                "FORBIDDEN",
+                                                                                "You do not have permission to access this resource",
+                                                                                request.getRequestURI(),
+                                                                                ApiErrorResponseWriter
+                                                                                                .resolveCorrelationId(
+                                                                                                                request))))
+                                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
-        return http.build();
-    }
+                return http.build();
+        }
 
-    @Bean
-    public AuthenticationManager authenticationManager(DaoAuthenticationProvider daoAuthenticationProvider) {
-        return new ProviderManager(daoAuthenticationProvider);
-    }
+        @Bean
+        public AuthenticationManager authenticationManager(DaoAuthenticationProvider daoAuthenticationProvider) {
+                return new ProviderManager(daoAuthenticationProvider);
+        }
 }
