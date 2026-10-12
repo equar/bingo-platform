@@ -1,0 +1,80 @@
+package com.equar.bingo.backend.common.exception;
+
+import com.equar.bingo.backend.common.api.ApiErrorResponse;
+import com.equar.bingo.backend.common.api.ValidationErrorDetail;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.ConstraintViolationException;
+import java.time.Instant;
+import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+
+    @ExceptionHandler(ApiException.class)
+    public ResponseEntity<ApiErrorResponse> handleApiException(ApiException exception, HttpServletRequest request) {
+        return ResponseEntity.status(exception.getStatus())
+                .body(error(exception.getStatus(), exception.getCode(), exception.getMessage(), request, List.of()));
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ApiErrorResponse> handleValidation(MethodArgumentNotValidException exception,
+            HttpServletRequest request) {
+        List<ValidationErrorDetail> details = exception.getBindingResult().getFieldErrors().stream()
+                .map(fieldError -> new ValidationErrorDetail(
+                        fieldError.getField(),
+                        Objects.requireNonNullElse(fieldError.getDefaultMessage(), "Invalid value")))
+                .collect(Collectors.toList());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(error(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "Request validation failed", request, details));
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ApiErrorResponse> handleConstraintViolation(ConstraintViolationException exception,
+            HttpServletRequest request) {
+        List<ValidationErrorDetail> details = exception.getConstraintViolations().stream()
+                .map(violation -> new ValidationErrorDetail(violation.getPropertyPath().toString(),
+                        violation.getMessage()))
+                .collect(Collectors.toList());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(error(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "Request validation failed", request, details));
+    }
+
+    @ExceptionHandler(BadCredentialsException.class)
+    public ResponseEntity<ApiErrorResponse> handleBadCredentials(BadCredentialsException exception,
+            HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(error(HttpStatus.UNAUTHORIZED, "AUTH_INVALID_CREDENTIALS", "Invalid phone number or password",
+                        request, List.of()));
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ApiErrorResponse> handleFallback(Exception exception, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(error(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", "An unexpected error occurred", request,
+                        List.of()));
+    }
+
+    private ApiErrorResponse error(HttpStatus status,
+            String code,
+            String message,
+            HttpServletRequest request,
+            List<ValidationErrorDetail> details) {
+        return new ApiErrorResponse(
+                Instant.now(),
+                status.value(),
+                status.getReasonPhrase(),
+                code,
+                message,
+                request.getRequestURI(),
+                com.equar.bingo.backend.common.api.ApiErrorResponseWriter.resolveCorrelationId(request),
+                details);
+    }
+}
