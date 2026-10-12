@@ -1,5 +1,3 @@
-import 'package:bingo_agent/src/core/models/page_response.dart';
-
 class SupportMessage {
   SupportMessage({required this.id, required this.authorUserId, required this.body, required this.createdAt});
 

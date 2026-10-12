@@ -2,6 +2,10 @@
 target/
 /build/
 /.dart_tool/
+**/.dart_tool/
+**/.metadata
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
 /.idea/
 /.vscode/
 /node_modules/
@@ -12,4 +16,5 @@ target/
 /bingo-admin/vite.config.js
 /bingo-admin/tsconfig.app.tsbuildinfo
 /bingo-admin/tsconfig.node.tsbuildinfo
+.tmp/
 *.log
