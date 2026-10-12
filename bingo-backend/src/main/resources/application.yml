@@ -41,3 +41,4 @@ app:
     max-tickets-per-player: ${APP_GAME_MAX_TICKETS_PER_PLAYER:10}
     session-capacity: ${APP_GAME_SESSION_CAPACITY:1000}
     ticket-sales-close-on-session-start: ${APP_GAME_TICKET_SALES_CLOSE_ON_SESSION_START:true}
+    draw-interval: ${APP_GAME_DRAW_INTERVAL:PT10S}

@@ -11,6 +11,8 @@ import com.equar.bingo.backend.feature.game.dto.WinClaimRequest;
 import com.equar.bingo.backend.feature.game.dto.WinClaimResponse;
 import com.equar.bingo.backend.feature.game.service.BingoGameService;
 import jakarta.validation.Valid;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
@@ -29,6 +31,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1")
+@Tag(name = "Game")
 public class PublicGameController {
 
     private final BingoGameService bingoGameService;
@@ -71,6 +74,7 @@ public class PublicGameController {
     }
 
     @GetMapping("/sessions/{id}/draws")
+    @Operation(summary = "Replay ordered draws", description = "Returns draws with sequence numbers greater than afterSequence, ordered ascending.")
     public List<DrawEventResponse> draws(@PathVariable Long id, @RequestParam(required = false) Integer afterSequence) {
         return bingoGameService.getDrawsAfter(id, afterSequence);
     }

@@ -17,6 +17,7 @@ import com.equar.bingo.backend.feature.game.entity.PrizeEntitlement;
 import com.equar.bingo.backend.feature.game.repository.PrizeEntitlementRepository;
 import com.equar.bingo.backend.feature.game.service.BingoGameService;
 import jakarta.validation.Valid;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
@@ -35,6 +36,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/admin")
 @PreAuthorize("hasRole('ADMIN')")
+@Tag(name = "Game Admin")
 public class AdminGameController {
 
     private final BingoGameService bingoGameService;

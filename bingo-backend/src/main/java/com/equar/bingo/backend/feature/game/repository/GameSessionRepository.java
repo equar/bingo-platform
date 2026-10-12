@@ -17,10 +17,14 @@ public interface GameSessionRepository extends JpaRepository<GameSession, Long> 
 
     List<GameSession> findByRoomIdOrderByScheduledStartAtDesc(Long roomId);
 
+    List<GameSession> findByStateInAndStartedAtIsNotNullAndEndedAtIsNullOrderByScheduledStartAtAsc(
+            List<GameSessionState> states);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select s from GameSession s where s.id = :id")
     Optional<GameSession> findByIdForUpdate(@Param("id") Long id);
 
     @Query("select s from GameSession s where s.room.id = :roomId and s.scheduledStartAt = :scheduledStartAt")
-    Optional<GameSession> findByRoomIdAndScheduledStartAt(@Param("roomId") Long roomId, @Param("scheduledStartAt") Instant scheduledStartAt);
+    Optional<GameSession> findByRoomIdAndScheduledStartAt(@Param("roomId") Long roomId,
+            @Param("scheduledStartAt") Instant scheduledStartAt);
 }

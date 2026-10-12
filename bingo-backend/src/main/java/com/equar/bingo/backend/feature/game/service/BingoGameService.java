@@ -44,6 +44,7 @@ import com.equar.bingo.backend.feature.game.repository.GameSessionRepository;
 import com.equar.bingo.backend.feature.game.repository.PrizeEntitlementRepository;
 import com.equar.bingo.backend.feature.game.repository.TicketRepository;
 import com.equar.bingo.backend.feature.game.repository.WinClaimRepository;
+import com.equar.bingo.backend.feature.game.websocket.GameDrawRecordedEvent;
 import com.equar.bingo.backend.feature.user.entity.User;
 import com.equar.bingo.backend.feature.user.entity.UserRole;
 import com.equar.bingo.backend.feature.user.repository.UserRepository;
@@ -63,6 +64,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -93,6 +95,7 @@ public class BingoGameService {
     private final IdempotencyService idempotencyService;
     private final RequestHashService requestHashService;
     private final ObjectMapper objectMapper;
+    private final ApplicationEventPublisher applicationEventPublisher;
 
     public BingoGameService(BingoRoomRepository bingoRoomRepository,
             GameSessionRepository gameSessionRepository,
@@ -107,7 +110,8 @@ public class BingoGameService {
             GameSnapshotMapper snapshotMapper,
             IdempotencyService idempotencyService,
             RequestHashService requestHashService,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            ApplicationEventPublisher applicationEventPublisher) {
         this.bingoRoomRepository = bingoRoomRepository;
         this.gameSessionRepository = gameSessionRepository;
         this.ticketRepository = ticketRepository;
@@ -124,6 +128,7 @@ public class BingoGameService {
         this.idempotencyService = idempotencyService;
         this.requestHashService = requestHashService;
         this.objectMapper = objectMapper;
+        this.applicationEventPublisher = applicationEventPublisher;
     }
 
     @Transactional(readOnly = true)
@@ -341,11 +346,16 @@ public class BingoGameService {
 
         DrawEvent draw = new DrawEvent();
         draw.setSession(session);
+        if (session.getState() == GameSessionState.STARTED) {
+            session.setState(GameSessionState.DRAWING);
+        }
         draw.setSequenceNo(sequenceNo);
         draw.setNumberDrawn(request.numberDrawn());
         draw.setDrawnBy(admin);
         draw.setOperationId(UUID.randomUUID().toString());
         draw = drawEventRepository.save(draw);
+        closeSessionIfExhausted(sessionId, session);
+        applicationEventPublisher.publishEvent(new GameDrawRecordedEvent(toDrawResponse(draw)));
         return toDrawResponse(draw);
     }
 
@@ -793,5 +803,13 @@ public class BingoGameService {
 
     private String generatePublicTicketCode(Long sessionId) {
         return "TK-" + sessionId + "-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase();
+    }
+
+    private void closeSessionIfExhausted(Long sessionId, GameSession session) {
+        if (drawEventRepository.countBySessionId(sessionId) >= 75 && session.getState() != GameSessionState.CLOSED
+                && session.getState() != GameSessionState.SETTLED && session.getState() != GameSessionState.CANCELLED) {
+            session.setState(GameSessionState.CLOSED);
+            session.setEndedAt(Instant.now());
+        }
     }
 }

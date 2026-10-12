@@ -104,4 +104,8 @@ public class DrawEvent {
     public Instant getDrawnAt() {
         return drawnAt;
     }
+
+    public void setDrawnAt(Instant drawnAt) {
+        this.drawnAt = drawnAt;
+    }
 }

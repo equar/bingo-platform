@@ -15,7 +15,10 @@ public class OpenApiConfig {
     public OpenAPI openAPI() {
         String schemeName = "bearerAuth";
         return new OpenAPI()
-                .info(new Info().title("Bingo Backend API").version("v1"))
+                .info(new Info().title("Bingo Backend API").version("v1")
+                        .description("REST API plus live draw WebSocket at ws://<host>/ws or wss://<host>/ws. "
+                                + "Authenticate STOMP CONNECT frames with the HTTP JWT as a Bearer token. "
+                                + "Subscribe to /topic/session/{sessionId}/draws for live draw events."))
                 .addSecurityItem(new SecurityRequirement().addList(schemeName))
                 .components(new Components().addSecuritySchemes(schemeName,
                         new SecurityScheme()
