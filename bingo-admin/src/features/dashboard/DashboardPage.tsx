@@ -1,0 +1,185 @@
+import { useQuery } from "@tanstack/react-query";
+import {
+  Alert,
+  Box,
+  Card,
+  CardContent,
+  Chip,
+  Grid,
+  Link,
+  List,
+  ListItem,
+  ListItemText,
+  Stack,
+  Typography,
+} from "@mui/material";
+import { Link as RouterLink } from "react-router-dom";
+import { auditLogs, dashboardMetrics, liveSessions, reviewQueue } from "../../api/admin";
+import { StatusState } from "../../components/StatusState";
+
+function MetricCard({ label, value, sublabel }: { label: string; value: string | number; sublabel?: string }) {
+  return (
+    <Card elevation={0} sx={{ border: "1px solid", borderColor: "divider" }}>
+      <CardContent>
+        <Typography variant="overline" color="text.secondary">
+          {label}
+        </Typography>
+        <Typography variant="h4">{value}</Typography>
+        {sublabel ? (
+          <Typography variant="body2" color="text.secondary">
+            {sublabel}
+          </Typography>
+        ) : null}
+      </CardContent>
+    </Card>
+  );
+}
+
+export function DashboardPage() {
+  const metricsQuery = useQuery({ queryKey: ["dashboard", "metrics"], queryFn: dashboardMetrics });
+  const sessionsQuery = useQuery({ queryKey: ["dashboard", "live-sessions"], queryFn: liveSessions });
+  const queueQuery = useQuery({ queryKey: ["dashboard", "review-queue"], queryFn: () => reviewQueue(0, 5) });
+  const logsQuery = useQuery({ queryKey: ["dashboard", "audit-logs"], queryFn: () => auditLogs(0, 5) });
+
+  if (metricsQuery.isLoading) {
+    return <StatusState title="Loading dashboard" loading message="Fetching live metrics and activity" />;
+  }
+
+  if (metricsQuery.error) {
+    return (
+      <StatusState
+        title="Unable to load dashboard"
+        message={(metricsQuery.error as Error).message}
+        actionLabel="Retry"
+        onAction={() => metricsQuery.refetch()}
+      />
+    );
+  }
+
+  const metrics = metricsQuery.data!;
+
+  return (
+    <Stack spacing={3}>
+      <Box>
+        <Typography variant="h4" gutterBottom>
+          Dashboard
+        </Typography>
+        <Typography color="text.secondary">Operational overview powered by the backend admin contract.</Typography>
+      </Box>
+
+      <Grid container spacing={2}>
+        <Grid item xs={12} md={4} lg={3}>
+          <MetricCard label="Active players" value={metrics.activePlayers} />
+        </Grid>
+        <Grid item xs={12} md={4} lg={3}>
+          <MetricCard label="Active sessions" value={metrics.activeSessions} />
+        </Grid>
+        <Grid item xs={12} md={4} lg={3}>
+          <MetricCard label="Open deposit reviews" value={metrics.openDepositReviews} />
+        </Grid>
+        <Grid item xs={12} md={4} lg={3}>
+          <MetricCard label="Open win claims" value={metrics.openWinClaims} />
+        </Grid>
+        <Grid item xs={12} md={4} lg={3}>
+          <MetricCard label="Open support tickets" value={metrics.openSupportTickets} />
+        </Grid>
+        <Grid item xs={12} md={4} lg={3}>
+          <MetricCard label="Active agents" value={metrics.activeAgents} />
+        </Grid>
+        <Grid item xs={12} md={4} lg={3}>
+          <MetricCard
+            label="Player wallet total"
+            value={metrics.playerWalletBalanceTotal}
+            sublabel={metrics.businessTimezone}
+          />
+        </Grid>
+        <Grid item xs={12} md={4} lg={3}>
+          <MetricCard
+            label="Agent float total"
+            value={metrics.agentFloatAvailableTotal}
+            sublabel={`Clearing ${metrics.agentFloatClearingTotal}`}
+          />
+        </Grid>
+      </Grid>
+
+      <Grid container spacing={2}>
+        <Grid item xs={12} md={6}>
+          <Card elevation={0} sx={{ border: "1px solid", borderColor: "divider", height: "100%" }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Live sessions
+              </Typography>
+              {sessionsQuery.isLoading ? <StatusState title="Loading live sessions" loading /> : null}
+              {sessionsQuery.data && sessionsQuery.data.length === 0 ? (
+                <Alert severity="info">No active sessions right now.</Alert>
+              ) : null}
+              <List dense>
+                {(sessionsQuery.data ?? []).map((session) => (
+                  <ListItem key={session.id} divider secondaryAction={<Chip label={session.state} size="small" />}>
+                    <ListItemText
+                      primary={
+                        <Link component={RouterLink} to={`/sessions/${session.id}`} underline="hover">
+                          {session.sessionName}
+                        </Link>
+                      }
+                      secondary={`${session.roomName} · ${session.ticketCount} tickets · ${session.drawCount} draws`}
+                    />
+                  </ListItem>
+                ))}
+              </List>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} md={6}>
+          <Card elevation={0} sx={{ border: "1px solid", borderColor: "divider", height: "100%" }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Activity
+              </Typography>
+              <Stack spacing={2}>
+                {queueQuery.data ? (
+                  <Box>
+                    <Typography variant="subtitle2">Review queue</Typography>
+                    {queueQuery.data.content.length === 0 ? (
+                      <Typography color="text.secondary">No items in the queue.</Typography>
+                    ) : null}
+                    {queueQuery.data.content.slice(0, 5).map((item) => (
+                      <Stack key={item.id} direction="row" spacing={1} sx={{ py: 0.75 }} justifyContent="space-between">
+                        <Typography variant="body2">
+                          {item.queueType}: {item.title}
+                        </Typography>
+                        <Chip label={item.status} size="small" />
+                      </Stack>
+                    ))}
+                  </Box>
+                ) : null}
+                {logsQuery.data ? (
+                  <Box>
+                    <Typography variant="subtitle2">Recent audit logs</Typography>
+                    {logsQuery.data.content.length === 0 ? (
+                      <Typography color="text.secondary">No audit history.</Typography>
+                    ) : null}
+                    {logsQuery.data.content.map((entry) => (
+                      <Stack
+                        key={entry.id}
+                        spacing={0.25}
+                        sx={{ py: 1, borderBottom: "1px solid", borderColor: "divider" }}
+                      >
+                        <Typography variant="body2" fontWeight={600}>
+                          {entry.action}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {entry.targetType} {entry.targetId ?? "n/a"} · {entry.reason ?? "no reason"}
+                        </Typography>
+                      </Stack>
+                    ))}
+                  </Box>
+                ) : null}
+              </Stack>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+    </Stack>
+  );
+}
