@@ -5,4 +5,11 @@ target/
 /.idea/
 /.vscode/
 /node_modules/
+**/node_modules/
+**/dist/
+**/*.tsbuildinfo
+/bingo-admin/vite.config.d.ts
+/bingo-admin/vite.config.js
+/bingo-admin/tsconfig.app.tsbuildinfo
+/bingo-admin/tsconfig.node.tsbuildinfo
 *.log

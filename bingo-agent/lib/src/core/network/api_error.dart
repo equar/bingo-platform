@@ -1,0 +1,10 @@
+class ApiError implements Exception {
+  ApiError({required this.code, required this.message, this.statusCode});
+
+  final String code;
+  final String message;
+  final int? statusCode;
+
+  @override
+  String toString() => '$code: $message';
+}
