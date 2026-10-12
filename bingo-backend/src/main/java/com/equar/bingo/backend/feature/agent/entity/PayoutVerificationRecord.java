@@ -45,6 +45,9 @@ public class PayoutVerificationRecord {
     @Column(name = "disbursed_amount", nullable = false, precision = 19, scale = 2)
     private BigDecimal disbursedAmount;
 
+    @Column(name = "operation_id", nullable = false, length = 36, unique = true)
+    private String operationId;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "float_transaction_id")
     private AgentFloatTransaction floatTransaction;
@@ -69,13 +72,14 @@ public class PayoutVerificationRecord {
     }
 
     public static PayoutVerificationRecord create(PrizeEntitlement entitlement, Agent agent, String payoutCode,
-            BigDecimal disbursedAmount) {
+            BigDecimal disbursedAmount, String operationId) {
         PayoutVerificationRecord record = new PayoutVerificationRecord();
         record.entitlement = entitlement;
         record.agent = agent;
         record.payoutCode = payoutCode;
         record.status = PayoutVerificationStatus.PENDING;
         record.disbursedAmount = disbursedAmount;
+        record.operationId = operationId;
         return record;
     }
 
@@ -119,6 +123,10 @@ public class PayoutVerificationRecord {
 
     public BigDecimal getDisbursedAmount() {
         return disbursedAmount;
+    }
+
+    public String getOperationId() {
+        return operationId;
     }
 
     public AgentFloatTransaction getFloatTransaction() {

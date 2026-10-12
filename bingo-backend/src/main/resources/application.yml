@@ -5,14 +5,14 @@ spring:
     serialization:
       write-dates-as-timestamps: false
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/bingo?createDatabaseIfNotExist=true}
-    username: ${SPRING_DATASOURCE_USERNAME:kirshiuser}
-    password: ${SPRING_DATASOURCE_PASSWORD:Kirshi@pay!}
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
     driver-class-name: ${SPRING_DATASOURCE_DRIVER_CLASS_NAME:com.mysql.cj.jdbc.Driver}
   jpa:
     open-in-view: false
     hibernate:
-      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:update}
+      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:validate}
     properties:
       hibernate:
         dialect: ${SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT:org.hibernate.dialect.MySQLDialect}
@@ -30,7 +30,7 @@ app:
   business-timezone: ${APP_BUSINESS_TIMEZONE:Africa/Addis_Ababa}
   security:
     jwt:
-      secret: ${JWT_SECRET:replace-with-a-very-long-random-secret-at-least-32-characters}
+      secret: ${JWT_SECRET}
       access-token-ttl-seconds: ${JWT_ACCESS_TOKEN_TTL_SECONDS:3600}
   wallet:
     currency: ${APP_WALLET_CURRENCY:ETB}

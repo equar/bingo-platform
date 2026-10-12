@@ -115,8 +115,8 @@ public class WalletService {
         String requestHash = requestHashService.hash("POST", "/api/v1/wallet/deposits", request);
         String operationId = UUID.randomUUID().toString();
 
-        return idempotencyService.execute(idempotencyKey, requestHash, operationId, HttpStatus.CREATED.value(),
-                DepositClaimResponse.class, () -> {
+        return idempotencyService.execute(player.getId(), idempotencyKey, requestHash, operationId,
+                HttpStatus.CREATED.value(), DepositClaimResponse.class, () -> {
                     if (depositClaimRepository.existsByNormalizedTelebirrReference(normalizedReference)) {
                         throw new ConflictException("DUPLICATE_TELEBIRR_REFERENCE",
                                 "That telebirr reference has already been submitted");
@@ -151,8 +151,8 @@ public class WalletService {
                 request);
         String operationId = UUID.randomUUID().toString();
 
-        return idempotencyService.execute(idempotencyKey, requestHash, operationId, HttpStatus.OK.value(),
-                DepositClaimResponse.class, () -> {
+        return idempotencyService.execute(reviewer.getId(), idempotencyKey, requestHash, operationId,
+                HttpStatus.OK.value(), DepositClaimResponse.class, () -> {
                     DepositClaim claim = depositClaimRepository.findByIdForUpdate(depositId)
                             .orElseThrow(() -> new NotFoundException("DEPOSIT_NOT_FOUND", "Deposit claim not found"));
 
@@ -200,8 +200,8 @@ public class WalletService {
                 request);
         String operationId = UUID.randomUUID().toString();
 
-        return idempotencyService.execute(idempotencyKey, requestHash, operationId, HttpStatus.OK.value(),
-                DepositClaimResponse.class, () -> {
+        return idempotencyService.execute(reviewer.getId(), idempotencyKey, requestHash, operationId,
+                HttpStatus.OK.value(), DepositClaimResponse.class, () -> {
                     DepositClaim claim = depositClaimRepository.findByIdForUpdate(depositId)
                             .orElseThrow(() -> new NotFoundException("DEPOSIT_NOT_FOUND", "Deposit claim not found"));
 
@@ -238,8 +238,8 @@ public class WalletService {
                 "/api/v1/admin/players/" + playerId + "/wallet-adjustments", request);
         String operationId = UUID.randomUUID().toString();
 
-        return idempotencyService.execute(idempotencyKey, requestHash, operationId, HttpStatus.OK.value(),
-                WalletAdjustmentResponse.class, () -> {
+        return idempotencyService.execute(reviewer.getId(), idempotencyKey, requestHash, operationId,
+                HttpStatus.OK.value(), WalletAdjustmentResponse.class, () -> {
                     User player = userRepository.findById(playerId)
                             .orElseThrow(() -> new NotFoundException("PLAYER_NOT_FOUND", "Player account not found"));
                     if (!player.hasRole(UserRole.PLAYER)) {

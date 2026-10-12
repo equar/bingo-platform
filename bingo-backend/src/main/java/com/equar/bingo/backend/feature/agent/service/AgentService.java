@@ -181,8 +181,8 @@ public class AgentService {
         String requestHash = requestHashService.hash("POST", "/api/v1/agent/tickets", request);
         String operationId = UUID.randomUUID().toString();
 
-        return idempotencyService.execute(idempotencyKey, requestHash, operationId, HttpStatus.CREATED.value(),
-                TicketPurchaseResponse.class, () -> {
+        return idempotencyService.execute(principal.getUser().getId(), idempotencyKey, requestHash, operationId,
+                HttpStatus.CREATED.value(), TicketPurchaseResponse.class, () -> {
                     AgentFloat agentFloat = requireAgentFloatForUpdate(agent.getId());
                     BigDecimal ticketPrice = bingoGameService.getSession(request.sessionId()).ticketPrice();
                     debitAgentFloat(agentFloat, ticketPrice, AgentFloatTransactionType.TICKET_SALE_DEBIT,
@@ -209,12 +209,13 @@ public class AgentService {
         String requestHash = requestHashService.hash("POST", "/api/v1/agent/float/transfers", request);
         String operationId = UUID.randomUUID().toString();
 
-        return idempotencyService.execute(idempotencyKey, requestHash, operationId, HttpStatus.OK.value(),
-                AgentFloatResponse.class, () -> {
+        return idempotencyService.execute(principal.getUser().getId(), idempotencyKey, requestHash, operationId,
+                HttpStatus.OK.value(), AgentFloatResponse.class, () -> {
                     AgentFloat agentFloat = requireAgentFloatForUpdate(agent.getId());
                     Wallet wallet = walletRepository.findByOwnerIdForUpdate(player.getId())
                             .orElseGet(() -> walletRepository.save(Wallet.create(player, request.currency())));
-                    BigDecimal amount = MoneyValues.money(request.amount());
+                    BigDecimal amount = requirePositiveAmount(request.amount(), "INVALID_AMOUNT",
+                            "Transfer amount must be greater than zero");
                     debitAgentFloat(agentFloat, amount, AgentFloatTransactionType.PLAYER_WALLET_TRANSFER_DEBIT,
                             "PLAYER_WALLET", player.getId(), operationId, request.note());
 
@@ -259,8 +260,8 @@ public class AgentService {
         String requestHash = requestHashService.hash("POST", "/api/v1/agent/payouts/verify", request);
         String operationId = UUID.randomUUID().toString();
 
-        return idempotencyService.execute(idempotencyKey, requestHash, operationId, HttpStatus.OK.value(),
-                PayoutVerificationResponse.class, () -> {
+        return idempotencyService.execute(principal.getUser().getId(), idempotencyKey, requestHash, operationId,
+                HttpStatus.OK.value(), PayoutVerificationResponse.class, () -> {
                     PrizeEntitlement entitlement = prizeEntitlementRepository
                             .findByPayoutCodeForUpdate(request.payoutCode())
                             .orElseThrow(() -> new NotFoundException("PAYOUT_CODE_NOT_FOUND", "Payout code not found"));
@@ -272,24 +273,11 @@ public class AgentService {
                     }
 
                     AgentFloat agentFloat = requireAgentFloatForUpdate(agent.getId());
-                    BigDecimal amount = MoneyValues.money(entitlement.getPrizeAmount());
-                    debitAgentFloat(agentFloat, amount, AgentFloatTransactionType.PAYOUT_DISBURSEMENT_DEBIT,
+                    BigDecimal amount = requirePositiveAmount(entitlement.getPrizeAmount(), "INVALID_PAYOUT_AMOUNT",
+                            "Payout amount must be greater than zero");
+                    AgentFloatTransaction payoutTransaction = debitAgentFloat(agentFloat, amount,
+                            AgentFloatTransactionType.PAYOUT_DISBURSEMENT_DEBIT,
                             "PAYOUT_ENTITLEMENT", entitlement.getId(), operationId, request.clearingReference());
-
-                    AgentFloatTransaction clearingEntry = AgentFloatTransaction.create(agentFloat,
-                            AgentFloatTransactionType.PAYOUT_CLEARING_CREDIT,
-                            amount,
-                            agentFloat.getAvailableBalance(),
-                            agentFloat.getAvailableBalance(),
-                            agentFloat.getClearingBalance(),
-                            MoneyValues.money(agentFloat.getClearingBalance().add(amount)),
-                            "PAYOUT_ENTITLEMENT",
-                            entitlement.getId(),
-                            UUID.randomUUID().toString(),
-                            request.clearingReference());
-                    agentFloat.setClearingBalance(MoneyValues.money(agentFloat.getClearingBalance().add(amount)));
-                    agentFloatRepository.save(agentFloat);
-                    clearingEntry = agentFloatTransactionRepository.save(clearingEntry);
 
                     entitlement.setStatus(PrizeEntitlementStatus.SETTLED);
                     entitlement.setSettledAt(Instant.now());
@@ -297,17 +285,17 @@ public class AgentService {
                     prizeEntitlementRepository.save(entitlement);
 
                     PayoutVerificationRecord record = PayoutVerificationRecord.create(entitlement, agent,
-                            request.payoutCode(), amount);
+                            request.payoutCode(), amount, operationId);
                     record.setStatus(PayoutVerificationStatus.DISBURSED);
                     record.setVerifiedBy(principal.getUser());
                     record.setVerifiedAt(Instant.now());
                     record.setClearingReference(request.clearingReference());
-                    record.setFloatTransaction(clearingEntry);
+                    record.setFloatTransaction(payoutTransaction);
                     record = payoutVerificationRecordRepository.save(record);
 
                     return new PayoutVerificationResponse(record.getId(), entitlement.getId(), agent.getId(),
                             request.payoutCode(), record.getStatus(), amount, request.clearingReference(),
-                            record.getVerifiedAt(), clearingEntry.getId());
+                            record.getVerifiedAt(), payoutTransaction.getId());
                 });
     }
 
@@ -332,10 +320,12 @@ public class AgentService {
         String requestHash = requestHashService.hash("POST", "/api/v1/agent/float-top-up-requests", request);
         String operationId = UUID.randomUUID().toString();
 
-        return idempotencyService.execute(idempotencyKey, requestHash, operationId, HttpStatus.CREATED.value(),
-                FloatTopUpRequestResponse.class, () -> {
-                    FloatTopUpRequest topUpRequest = FloatTopUpRequest.create(agent, principal.getUser(),
-                            MoneyValues.money(request.amount()), request.currency().toUpperCase(), operationId);
+        return idempotencyService.execute(principal.getUser().getId(), idempotencyKey, requestHash, operationId,
+                HttpStatus.CREATED.value(), FloatTopUpRequestResponse.class, () -> {
+                    BigDecimal amount = requirePositiveAmount(request.amount(), "INVALID_AMOUNT",
+                            "Top-up amount must be greater than zero");
+                    FloatTopUpRequest topUpRequest = FloatTopUpRequest.create(agent, principal.getUser(), amount,
+                            request.currency().toUpperCase(), operationId);
                     topUpRequest.setReviewNote(request.note());
                     topUpRequest = floatTopUpRequestRepository.save(topUpRequest);
                     return toFloatTopUpResponse(topUpRequest);
@@ -469,22 +459,34 @@ public class AgentService {
         });
     }
 
-    private void debitAgentFloat(AgentFloat agentFloat, BigDecimal amount, AgentFloatTransactionType type,
-            String relatedEntityType, Long relatedEntityId, String operationId, String note) {
+    private AgentFloatTransaction debitAgentFloat(AgentFloat agentFloat, BigDecimal amount,
+            AgentFloatTransactionType type, String relatedEntityType, Long relatedEntityId, String operationId,
+            String note) {
+        BigDecimal normalizedAmount = requirePositiveAmount(amount, "INVALID_AMOUNT",
+                "Amount must be greater than zero");
         BigDecimal beforeAvailable = agentFloat.getAvailableBalance();
-        BigDecimal afterAvailable = MoneyValues.money(beforeAvailable.subtract(amount));
+        BigDecimal afterAvailable = MoneyValues.money(beforeAvailable.subtract(normalizedAmount));
         if (afterAvailable.compareTo(BigDecimal.ZERO) < 0) {
             throw new ConflictException("AGENT_FLOAT_OVERDRAFT", "Agent float cannot go below zero");
         }
         BigDecimal beforeClearing = agentFloat.getClearingBalance();
         BigDecimal afterClearing = type == AgentFloatTransactionType.PAYOUT_DISBURSEMENT_DEBIT
-                ? MoneyValues.money(beforeClearing.add(amount))
+                ? MoneyValues.money(beforeClearing.add(normalizedAmount))
                 : beforeClearing;
         agentFloat.setAvailableBalance(afterAvailable);
         agentFloat.setClearingBalance(afterClearing);
         agentFloatRepository.save(agentFloat);
-        agentFloatTransactionRepository.save(AgentFloatTransaction.create(agentFloat, type, amount, beforeAvailable,
-                afterAvailable, beforeClearing, afterClearing, relatedEntityType, relatedEntityId, operationId, note));
+        return agentFloatTransactionRepository.save(AgentFloatTransaction.create(agentFloat, type, normalizedAmount,
+                beforeAvailable, afterAvailable, beforeClearing, afterClearing, relatedEntityType, relatedEntityId,
+                operationId, note));
+    }
+
+    private BigDecimal requirePositiveAmount(BigDecimal amount, String code, String message) {
+        BigDecimal normalizedAmount = MoneyValues.money(amount);
+        if (normalizedAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BadRequestException(code, message);
+        }
+        return normalizedAmount;
     }
 
     private Agent requireApprovedAgent(Long userId) {

@@ -275,8 +275,8 @@ public class BingoGameService {
                 player.getId());
         String operationId = UUID.randomUUID().toString();
 
-        return idempotencyService.execute(idempotencyKey, requestHash, operationId, HttpStatus.CREATED.value(),
-                TicketPurchaseResponse.class, () -> {
+        return idempotencyService.execute(player.getId(), idempotencyKey, requestHash, operationId,
+                HttpStatus.CREATED.value(), TicketPurchaseResponse.class, () -> {
                     validateTicketSaleOpen(session);
                     ensureGameCurrency(session, room);
                     enforceSessionCapacity(session);
@@ -397,7 +397,7 @@ public class BingoGameService {
         String requestHash = requestHashService.hash("POST", "/api/v1/tickets/" + ticketId + "/win-claims", request);
         String operationId = UUID.randomUUID().toString();
 
-        return idempotencyService.execute(idempotencyKey, requestHash, operationId,
+        return idempotencyService.execute(player.getId(), idempotencyKey, requestHash, operationId,
                 HttpStatus.CREATED.value(), WinClaimResponse.class, () -> {
                     if (winClaimRepository.existsByTicketIdAndClaimedPatternAndDrawSequenceSnapshot(ticketId,
                             request.claimedPattern(), currentDrawSequence(session.getId()))) {

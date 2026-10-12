@@ -33,6 +33,10 @@ import com.equar.bingo.backend.feature.user.repository.UserRepository;
 import com.equar.bingo.backend.feature.wallet.entity.Wallet;
 import com.equar.bingo.backend.feature.wallet.entity.WalletTransaction;
 import com.equar.bingo.backend.feature.wallet.entity.WalletTransactionType;
+import com.equar.bingo.backend.feature.agent.repository.PayoutVerificationRecordRepository;
+import com.equar.bingo.backend.feature.agent.repository.AgentFloatTransactionRepository;
+import com.equar.bingo.backend.feature.agent.repository.AgentFloatRepository;
+import com.equar.bingo.backend.feature.agent.repository.AgentRepository;
 import com.equar.bingo.backend.feature.wallet.repository.IdempotencyRecordRepository;
 import com.equar.bingo.backend.feature.wallet.repository.WalletRepository;
 import com.equar.bingo.backend.feature.wallet.repository.WalletTransactionRepository;
@@ -103,6 +107,17 @@ class BingoGameIntegrationTest {
 
     @Autowired
     PrizeEntitlementRepository prizeEntitlementRepository;
+    @Autowired
+    PayoutVerificationRecordRepository payoutVerificationRecordRepository;
+
+    @Autowired
+    AgentFloatTransactionRepository agentFloatTransactionRepository;
+
+    @Autowired
+    AgentFloatRepository agentFloatRepository;
+
+    @Autowired
+    AgentRepository agentRepository;
 
     @Autowired
     IdempotencyRecordRepository idempotencyRecordRepository;
@@ -125,6 +140,10 @@ class BingoGameIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        payoutVerificationRecordRepository.deleteAll();
+        agentFloatTransactionRepository.deleteAll();
+        agentFloatRepository.deleteAll();
+        agentRepository.deleteAll();
         walletTransactionRepository.deleteAll();
         prizeEntitlementRepository.deleteAll();
         winClaimRepository.deleteAll();

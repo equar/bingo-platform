@@ -11,6 +11,13 @@ import java.time.Instant;
 public class IdempotencyRecord {
 
     @Id
+    @jakarta.persistence.GeneratedValue(strategy = jakarta.persistence.GenerationType.IDENTITY)
+    @Column(name = "id", nullable = false)
+    private Long id;
+
+    @Column(name = "actor_id")
+    private Long actorId;
+
     @Column(name = "idempotency_key", nullable = false, length = 80)
     private String idempotencyKey;
 
@@ -35,13 +42,15 @@ public class IdempotencyRecord {
     protected IdempotencyRecord() {
     }
 
-    public static IdempotencyRecord create(String idempotencyKey,
+    public static IdempotencyRecord create(Long actorId,
+            String idempotencyKey,
             String requestHash,
             int responseStatus,
             String responseBody,
             String operationId,
             Instant createdAt) {
         IdempotencyRecord record = new IdempotencyRecord();
+        record.actorId = actorId;
         record.idempotencyKey = idempotencyKey;
         record.requestHash = requestHash;
         record.responseStatus = responseStatus;
@@ -50,6 +59,14 @@ public class IdempotencyRecord {
         record.createdAt = createdAt;
         record.updatedAt = createdAt;
         return record;
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public Long getActorId() {
+        return actorId;
     }
 
     public String getIdempotencyKey() {

@@ -3,10 +3,20 @@ package com.equar.bingo.backend.feature.auth;
 import com.equar.bingo.backend.feature.auth.dto.LoginRequest;
 import com.equar.bingo.backend.feature.auth.dto.RegisterRequest;
 import com.equar.bingo.backend.feature.auth.service.EthiopianPhoneNormalizer;
+import com.equar.bingo.backend.feature.game.repository.BingoRoomRepository;
+import com.equar.bingo.backend.feature.game.repository.DrawEventRepository;
+import com.equar.bingo.backend.feature.game.repository.GameSessionRepository;
+import com.equar.bingo.backend.feature.game.repository.PrizeEntitlementRepository;
+import com.equar.bingo.backend.feature.game.repository.TicketRepository;
+import com.equar.bingo.backend.feature.game.repository.WinClaimRepository;
 import com.equar.bingo.backend.feature.user.entity.AccountStatus;
 import com.equar.bingo.backend.feature.user.entity.User;
 import com.equar.bingo.backend.feature.user.entity.UserRole;
 import com.equar.bingo.backend.feature.user.repository.UserRepository;
+import com.equar.bingo.backend.feature.agent.repository.AgentFloatRepository;
+import com.equar.bingo.backend.feature.agent.repository.AgentRepository;
+import com.equar.bingo.backend.feature.agent.repository.AgentFloatTransactionRepository;
+import com.equar.bingo.backend.feature.agent.repository.PayoutVerificationRecordRepository;
 import com.equar.bingo.backend.feature.wallet.repository.DepositClaimRepository;
 import com.equar.bingo.backend.feature.wallet.repository.IdempotencyRecordRepository;
 import com.equar.bingo.backend.feature.wallet.repository.WalletRepository;
@@ -61,14 +71,52 @@ class AuthSecurityIntegrationTest {
 
     @Autowired
     IdempotencyRecordRepository idempotencyRecordRepository;
+    @Autowired
+    AgentFloatRepository agentFloatRepository;
+    @Autowired
+    AgentRepository agentRepository;
+
+    @Autowired
+    AgentFloatTransactionRepository agentFloatTransactionRepository;
+
+    @Autowired
+    PayoutVerificationRecordRepository payoutVerificationRecordRepository;
+
+    @Autowired
+    PrizeEntitlementRepository prizeEntitlementRepository;
+
+    @Autowired
+    WinClaimRepository winClaimRepository;
+
+    @Autowired
+    TicketRepository ticketRepository;
+
+    @Autowired
+    DrawEventRepository drawEventRepository;
+
+    @Autowired
+    GameSessionRepository gameSessionRepository;
+
+    @Autowired
+    BingoRoomRepository bingoRoomRepository;
 
     @BeforeEach
     void setUp() {
-        walletTransactionRepository.deleteAll();
-        depositClaimRepository.deleteAll();
-        walletRepository.deleteAll();
-        idempotencyRecordRepository.deleteAll();
-        userRepository.deleteAll();
+        walletTransactionRepository.deleteAllInBatch();
+        depositClaimRepository.deleteAllInBatch();
+        walletRepository.deleteAllInBatch();
+        idempotencyRecordRepository.deleteAllInBatch();
+        payoutVerificationRecordRepository.deleteAllInBatch();
+        agentFloatTransactionRepository.deleteAllInBatch();
+        agentFloatRepository.deleteAllInBatch();
+        agentRepository.deleteAllInBatch();
+        prizeEntitlementRepository.deleteAllInBatch();
+        winClaimRepository.deleteAllInBatch();
+        drawEventRepository.deleteAllInBatch();
+        ticketRepository.deleteAllInBatch();
+        gameSessionRepository.deleteAllInBatch();
+        bingoRoomRepository.deleteAllInBatch();
+        userRepository.deleteAllInBatch();
 
         Instant now = Instant.now();
         userRepository.save(User.create(

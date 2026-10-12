@@ -29,6 +29,10 @@ import com.equar.bingo.backend.feature.wallet.repository.IdempotencyRecordReposi
 import com.equar.bingo.backend.feature.wallet.repository.WalletRepository;
 import com.equar.bingo.backend.feature.wallet.repository.WalletTransactionRepository;
 import com.equar.bingo.backend.feature.wallet.service.WalletService;
+import com.equar.bingo.backend.feature.agent.repository.PayoutVerificationRecordRepository;
+import com.equar.bingo.backend.feature.agent.repository.AgentFloatTransactionRepository;
+import com.equar.bingo.backend.feature.agent.repository.AgentFloatRepository;
+import com.equar.bingo.backend.feature.agent.repository.AgentRepository;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
@@ -147,12 +151,27 @@ class BingoLiveDrawIntegrationTest {
 
     @Autowired
     com.equar.bingo.backend.feature.game.config.GameProperties gameProperties;
+    @Autowired
+    PayoutVerificationRecordRepository payoutVerificationRecordRepository;
+
+    @Autowired
+    AgentFloatTransactionRepository agentFloatTransactionRepository;
+
+    @Autowired
+    AgentFloatRepository agentFloatRepository;
+
+    @Autowired
+    AgentRepository agentRepository;
 
     private User adminUser;
     private User playerUser;
 
     @BeforeEach
     void setUp() {
+        payoutVerificationRecordRepository.deleteAll();
+        agentFloatTransactionRepository.deleteAll();
+        agentFloatRepository.deleteAll();
+        agentRepository.deleteAll();
         prizeEntitlementRepository.deleteAll();
         winClaimRepository.deleteAll();
         drawEventRepository.deleteAll();
