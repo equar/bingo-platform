@@ -3,6 +3,8 @@ package com.equar.bingo.backend.feature.support.service;
 import com.equar.bingo.backend.common.exception.BadRequestException;
 import com.equar.bingo.backend.feature.auth.service.BingoUserPrincipal;
 import com.equar.bingo.backend.feature.support.dto.SupportTicketMessageRequest;
+import com.equar.bingo.backend.feature.support.dto.SupportTicketAssignmentRequest;
+import com.equar.bingo.backend.feature.support.dto.SupportTicketCreateRequest;
 import com.equar.bingo.backend.feature.support.dto.SupportTicketResponse;
 import com.equar.bingo.backend.feature.support.dto.SupportTicketStatusUpdateRequest;
 import com.equar.bingo.backend.feature.support.entity.InternalNote;
@@ -11,6 +13,7 @@ import com.equar.bingo.backend.feature.support.entity.SupportTicket;
 import com.equar.bingo.backend.feature.support.entity.SupportTicketCategory;
 import com.equar.bingo.backend.feature.support.entity.SupportTicketPriority;
 import com.equar.bingo.backend.feature.support.entity.SupportTicketStatus;
+import com.equar.bingo.backend.feature.support.entity.SupportLinkedEntityType;
 import com.equar.bingo.backend.feature.support.repository.InternalNoteRepository;
 import com.equar.bingo.backend.feature.support.repository.SupportMessageRepository;
 import com.equar.bingo.backend.feature.support.repository.SupportTicketRepository;
@@ -32,6 +35,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -107,7 +112,6 @@ class SupportServiceTest {
 
         when(supportTicketRepository.findById(11L)).thenReturn(Optional.of(ticket));
         when(supportMessageRepository.findByTicketIdOrderByCreatedAtAsc(11L)).thenReturn(List.of(message));
-        when(internalNoteRepository.findByTicketIdOrderByCreatedAtAsc(11L)).thenReturn(List.of(note));
 
         SupportTicketResponse response = service.getMyTicket(new BingoUserPrincipal(player), 11L);
 
@@ -122,5 +126,66 @@ class SupportServiceTest {
         assertThrows(BadRequestException.class,
                 () -> service.addMessage(new BingoUserPrincipal(otherPlayer), 11L,
                         new SupportTicketMessageRequest("help")));
+    }
+
+    @Test
+    void createsTicketsAndListsThemForTheRequester() {
+                SupportMessage initialMessage = SupportMessage.create(ticket, player, "Need help", "op-1");
+                ReflectionTestUtils.setField(initialMessage, "id", 23L);
+                when(supportTicketRepository.save(any())).thenAnswer(invocation -> {
+                        SupportTicket saved = invocation.getArgument(0);
+                        ReflectionTestUtils.setField(saved, "id", 12L);
+                        return saved;
+                });
+                when(supportMessageRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+                when(supportMessageRepository.findByTicketIdOrderByCreatedAtAsc(12L)).thenReturn(List.of(initialMessage));
+        when(supportTicketRepository.findByRequesterIdOrderByCreatedAtDesc(player.getId(), PageRequest.of(0, 20)))
+                .thenReturn(new PageImpl<>(List.of(ticket)));
+
+        SupportTicketResponse response = service.createTicket(new BingoUserPrincipal(player),
+                new SupportTicketCreateRequest("Wallet issue", "Need help", SupportTicketCategory.WALLET,
+                        SupportTicketPriority.HIGH, null, null, null));
+
+        assertEquals("Wallet issue", response.subject());
+        assertEquals(1, response.messages().size());
+        assertEquals(1, service.getMyTickets(new BingoUserPrincipal(player), PageRequest.of(0, 20)).content().size());
+    }
+
+    @Test
+    void supportStaffCanAssignReplyAndCloseTickets() {
+        User support = User.create("251911000004", "Support", "pw", AccountStatus.ACTIVE, Set.of(UserRole.SUPPORT),
+                Instant.parse("2026-01-01T00:00:00Z"));
+        ReflectionTestUtils.setField(support, "id", 4L);
+
+        when(supportTicketRepository.findByIdForUpdate(11L)).thenReturn(Optional.of(ticket));
+        when(userRepository.findById(4L)).thenReturn(Optional.of(support));
+        when(supportTicketRepository.findById(11L)).thenReturn(Optional.of(ticket));
+        SupportMessage firstReply = SupportMessage.create(ticket, player, "Initial", "op-3");
+        ReflectionTestUtils.setField(firstReply, "id", 31L);
+        SupportMessage secondReply = SupportMessage.create(ticket, support, "Working on it", "op-4");
+        ReflectionTestUtils.setField(secondReply, "id", 32L);
+        InternalNote note = InternalNote.create(ticket, support, "Internal only", "op-5");
+        ReflectionTestUtils.setField(note, "id", 33L);
+
+        when(supportMessageRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(supportMessageRepository.findByTicketIdOrderByCreatedAtAsc(11L)).thenReturn(List.of(firstReply, secondReply));
+        when(internalNoteRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(internalNoteRepository.findByTicketIdOrderByCreatedAtAsc(11L)).thenReturn(List.of(note));
+
+        SupportTicketResponse assigned = service.assignTicket(11L, new BingoUserPrincipal(support),
+                new SupportTicketAssignmentRequest(4L));
+        assertEquals(SupportTicketStatus.IN_PROGRESS, assigned.status());
+
+        SupportTicketResponse replied = service.addAdminReply(11L, new BingoUserPrincipal(support),
+                new SupportTicketMessageRequest("Working on it"));
+        assertEquals(2, replied.messages().size());
+
+        SupportTicketResponse noted = service.addInternalNote(11L, new BingoUserPrincipal(support),
+                new SupportTicketMessageRequest("Internal only"));
+        assertEquals(1, noted.internalNotes().size());
+
+        SupportTicketResponse closed = service.updateStatus(11L, new BingoUserPrincipal(support),
+                new SupportTicketStatusUpdateRequest(SupportTicketStatus.CLOSED, "Fixed"));
+        assertEquals(SupportTicketStatus.CLOSED, closed.status());
     }
 }

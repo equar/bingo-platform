@@ -6,7 +6,10 @@ import com.equar.bingo.backend.feature.agent.dto.AgentPayoutVerificationRequest;
 import com.equar.bingo.backend.feature.agent.entity.Agent;
 import com.equar.bingo.backend.feature.agent.entity.AgentFloat;
 import com.equar.bingo.backend.feature.agent.entity.AgentStatus;
+import com.equar.bingo.backend.feature.agent.dto.AgentProfileResponse;
 import com.equar.bingo.backend.feature.agent.entity.PayoutVerificationStatus;
+import com.equar.bingo.backend.feature.agent.entity.CommissionRule;
+import com.equar.bingo.backend.feature.agent.entity.FloatTopUpRequestStatus;
 import com.equar.bingo.backend.feature.agent.repository.AgentFloatRepository;
 import com.equar.bingo.backend.feature.agent.repository.AgentFloatTransactionRepository;
 import com.equar.bingo.backend.feature.agent.repository.AgentRepository;
@@ -31,6 +34,9 @@ import com.equar.bingo.backend.feature.game.repository.GameSessionRepository;
 import com.equar.bingo.backend.feature.game.repository.PrizeEntitlementRepository;
 import com.equar.bingo.backend.feature.game.repository.TicketRepository;
 import com.equar.bingo.backend.feature.game.repository.WinClaimRepository;
+import com.equar.bingo.backend.feature.support.repository.InternalNoteRepository;
+import com.equar.bingo.backend.feature.support.repository.SupportMessageRepository;
+import com.equar.bingo.backend.feature.support.repository.SupportTicketRepository;
 import com.equar.bingo.backend.feature.user.entity.AccountStatus;
 import com.equar.bingo.backend.feature.user.entity.User;
 import com.equar.bingo.backend.feature.user.entity.UserRole;
@@ -55,6 +61,7 @@ import org.springframework.test.context.ActiveProfiles;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest
 @ActiveProfiles("test")
@@ -121,12 +128,24 @@ class AgentServiceIntegrationTest {
     @Qualifier("agentPinEncoder")
     PasswordEncoder agentPinEncoder;
 
+        @Autowired
+        SupportTicketRepository supportTicketRepository;
+
+        @Autowired
+        SupportMessageRepository supportMessageRepository;
+
+        @Autowired
+        InternalNoteRepository internalNoteRepository;
+
     private User agentUser;
     private User playerUser;
     private BingoUserPrincipal agentPrincipal;
 
     @BeforeEach
     void setUp() {
+                internalNoteRepository.deleteAllInBatch();
+                supportMessageRepository.deleteAllInBatch();
+                supportTicketRepository.deleteAllInBatch();
         payoutVerificationRecordRepository.deleteAll();
         commissionAccrualRepository.deleteAll();
         floatTopUpRequestRepository.deleteAll();
@@ -211,6 +230,77 @@ class AgentServiceIntegrationTest {
         assertEquals(1L, payoutVerificationRecordRepository.count());
         assertEquals(1L, agentFloatTransactionRepository.count());
         assertEquals(1L, idempotencyRecordRepository.count());
+    }
+
+    @Test
+    void dashboardLookupRegisterAndFloatReadPathsWork() {
+        var dashboard = agentService.dashboard(agentPrincipal);
+                assertEquals(agentRepository.findByUserId(agentUser.getId()).orElseThrow().getId(), dashboard.agentId());
+        assertEquals("APPROVED", dashboard.status());
+        assertEquals(new BigDecimal("100.00"), dashboard.availableFloat());
+        assertEquals(new BigDecimal("0.00"), dashboard.clearingFloat());
+
+        assertEquals(playerUser.getId(), agentService.lookupPlayer(playerUser.getNormalizedPhone()).id());
+
+        var registered = agentService.registerPlayer(new com.equar.bingo.backend.feature.agent.dto.AgentPlayerRegistrationRequest(
+                "0911000399", "Registered Player"));
+        assertEquals("Registered Player", registered.displayName());
+        assertEquals(Set.of(UserRole.PLAYER), registered.roles());
+
+        assertEquals(new BigDecimal("100.00"), agentService.getFloat(agentPrincipal).availableBalance());
+        assertTrue(agentService.getFloatHistory(agentPrincipal).isEmpty());
+    }
+
+    @Test
+    void transferFloatCreditsThePlayerWalletAndCreatesHistory() {
+        var result = agentService.transferFloat(agentPrincipal,
+                new AgentFloatTransferRequest("0911000302", new BigDecimal("10.00"), "ETB", "2468",
+                        "float transfer"),
+                "transfer-key");
+
+        assertEquals(new BigDecimal("90.00"), result.body().availableBalance());
+        assertEquals(1L, agentFloatTransactionRepository.count());
+        assertEquals(1L, walletTransactionRepository.count());
+        assertEquals(new BigDecimal("10.00"), walletRepository.findByOwnerId(playerUser.getId()).orElseThrow()
+                .getAvailableBalance());
+        assertEquals(1, agentService.getFloatHistory(agentPrincipal).size());
+    }
+
+    @Test
+    void topUpReviewAndCommissionRulePathsWork() {
+        var topUp = agentService.submitTopUpRequest(agentPrincipal,
+                new com.equar.bingo.backend.feature.agent.dto.SubmitFloatTopUpRequest(new BigDecimal("15.00"),
+                        "etb", "need liquidity"),
+                "topup-key");
+        assertEquals(FloatTopUpRequestStatus.PENDING, topUp.body().status());
+
+        User admin = userRepository.save(User.create(phoneNormalizer.normalize("0911000401"), "Admin User",
+                passwordEncoder.encode("AdminPass123!"), AccountStatus.ACTIVE, Set.of(UserRole.ADMIN), Instant.now()));
+        BingoUserPrincipal adminPrincipal = new BingoUserPrincipal(admin);
+
+        var reviewed = agentService.reviewTopUpRequest(topUp.body().id(), adminPrincipal,
+                new com.equar.bingo.backend.feature.agent.dto.ReviewFloatTopUpRequest(true, "approved"));
+        assertEquals(FloatTopUpRequestStatus.APPROVED, reviewed.status());
+        assertEquals(new BigDecimal("115.00"), agentService.getFloat(agentPrincipal).availableBalance());
+
+        agentService.upsertCommissionRule(adminPrincipal,
+                new com.equar.bingo.backend.feature.agent.dto.CommissionRuleRequest(250,
+                        Instant.now().plusSeconds(3600), true));
+        assertTrue(agentService.getCommissionHistory(agentPrincipal).isEmpty());
+    }
+
+    @Test
+    void adminApproveAndSuspendAgentManageAgentState() {
+        User pendingUser = userRepository.save(User.create(phoneNormalizer.normalize("0911000501"), "Pending Agent",
+                passwordEncoder.encode("AgentPass123!"), AccountStatus.PENDING, Set.of(UserRole.AGENT), Instant.now()));
+
+        var approved = agentService.adminApproveAgent(pendingUser.getId(), new AgentProfileResponse(null, null, null,
+                "Pending Agent", AgentStatus.APPROVED, "City", "Territory", "NID", "N-001", null, null,
+                null, null));
+        assertEquals(AgentStatus.APPROVED, approved.status());
+
+        var suspended = agentService.adminSuspendAgent(approved.agentId());
+        assertEquals(AgentStatus.SUSPENDED, suspended.status());
     }
 
     private PrizeEntitlement createAgentCashEntitlement() {

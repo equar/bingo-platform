@@ -8,6 +8,7 @@ import java.util.Set;
 public record UserSummaryResponse(
         Long id,
         String displayName,
+        String email,
         String phoneNumber,
         Set<UserRole> roles,
         AccountStatus status,

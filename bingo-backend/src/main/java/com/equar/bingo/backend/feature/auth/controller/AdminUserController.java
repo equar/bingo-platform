@@ -1,53 +1,58 @@
 package com.equar.bingo.backend.feature.auth.controller;
 
 import com.equar.bingo.backend.common.api.PageResponse;
+import com.equar.bingo.backend.feature.auth.dto.AdminUserCreateRequest;
+import com.equar.bingo.backend.feature.auth.dto.AdminUserUpdateRequest;
 import com.equar.bingo.backend.feature.auth.dto.SetAgentPinRequest;
 import com.equar.bingo.backend.feature.auth.dto.UserSummaryResponse;
 import com.equar.bingo.backend.feature.auth.service.AgentPinService;
-import com.equar.bingo.backend.feature.user.entity.User;
-import com.equar.bingo.backend.feature.user.repository.UserRepository;
+import com.equar.bingo.backend.feature.auth.service.AdminUserService;
+import com.equar.bingo.backend.feature.user.entity.AccountStatus;
 import jakarta.validation.Valid;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/admin/users")
+@PreAuthorize("hasRole('ADMIN')")
 public class AdminUserController {
 
-    private final UserRepository userRepository;
+    private final AdminUserService adminUserService;
     private final AgentPinService agentPinService;
 
-    public AdminUserController(UserRepository userRepository, AgentPinService agentPinService) {
-        this.userRepository = userRepository;
+    public AdminUserController(AdminUserService adminUserService, AgentPinService agentPinService) {
+        this.adminUserService = adminUserService;
         this.agentPinService = agentPinService;
     }
 
     @GetMapping
-    public PageResponse<UserSummaryResponse> listUsers(@PageableDefault(size = 20) Pageable pageable) {
-        Page<UserSummaryResponse> page = userRepository.findAll(pageable).map(this::toSummary);
-        return PageResponse.from(page);
+    public PageResponse<UserSummaryResponse> listUsers(
+            @PageableDefault(size = 20) Pageable pageable,
+            @org.springframework.web.bind.annotation.RequestParam(required = false) String search,
+            @org.springframework.web.bind.annotation.RequestParam(required = false) AccountStatus status) {
+        return PageResponse.from(adminUserService.listUsers(pageable, search, status));
+    }
+
+    @PostMapping
+    public UserSummaryResponse createUser(@Valid @RequestBody AdminUserCreateRequest request) {
+        return adminUserService.createUser(request);
+    }
+
+    @PutMapping("/{userId}")
+    public UserSummaryResponse updateUser(@PathVariable Long userId, @Valid @RequestBody AdminUserUpdateRequest request) {
+        return adminUserService.updateUser(userId, request);
     }
 
     @PostMapping("/{userId}/agent-pin")
     public void setAgentPin(@PathVariable Long userId, @Valid @RequestBody SetAgentPinRequest request) {
         agentPinService.setAgentPin(userId, request);
-    }
-
-    private UserSummaryResponse toSummary(User user) {
-        return new UserSummaryResponse(
-                user.getId(),
-                user.getDisplayName(),
-                user.getNormalizedPhone(),
-                user.getRoles(),
-                user.getStatus(),
-                user.getCreatedAt(),
-                user.getUpdatedAt());
     }
 }

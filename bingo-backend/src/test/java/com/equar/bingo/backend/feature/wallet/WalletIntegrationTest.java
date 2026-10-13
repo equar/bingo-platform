@@ -31,6 +31,9 @@ import com.equar.bingo.backend.feature.wallet.repository.IdempotencyRecordReposi
 import com.equar.bingo.backend.feature.wallet.repository.WalletRepository;
 import com.equar.bingo.backend.feature.wallet.repository.WalletTransactionRepository;
 import com.equar.bingo.backend.feature.wallet.service.WalletService;
+import com.equar.bingo.backend.feature.support.repository.InternalNoteRepository;
+import com.equar.bingo.backend.feature.support.repository.SupportMessageRepository;
+import com.equar.bingo.backend.feature.support.repository.SupportTicketRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
@@ -96,6 +99,15 @@ class WalletIntegrationTest {
     @Autowired
     WalletService walletService;
 
+        @Autowired
+        SupportTicketRepository supportTicketRepository;
+
+        @Autowired
+        SupportMessageRepository supportMessageRepository;
+
+        @Autowired
+        InternalNoteRepository internalNoteRepository;
+
     @Autowired
     BingoRoomRepository bingoRoomRepository;
 
@@ -130,6 +142,9 @@ class WalletIntegrationTest {
 
     @BeforeEach
     void setUp() {
+                internalNoteRepository.deleteAllInBatch();
+                supportMessageRepository.deleteAllInBatch();
+                supportTicketRepository.deleteAllInBatch();
         payoutVerificationRecordRepository.deleteAll();
         agentFloatTransactionRepository.deleteAll();
         agentFloatRepository.deleteAll();

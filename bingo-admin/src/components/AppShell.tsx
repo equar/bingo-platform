@@ -17,16 +17,28 @@ import { useSession } from "../api/session";
 
 const drawerWidth = 260;
 
-const navItems = [
-  { to: "/dashboard", label: "Dashboard" },
-  { to: "/rooms", label: "Rooms" },
-  { to: "/sessions", label: "Sessions" },
-  { to: "/players", label: "Players" },
-  { to: "/agents", label: "Agents" },
-  { to: "/support/tickets", label: "Support" },
-  { to: "/claims", label: "Win Claims" },
-  { to: "/deposits", label: "Deposits" },
-  { to: "/audit-logs", label: "Audit Logs" },
+const navGroups = [
+  {
+    title: "Management",
+    items: [
+      { to: "/management", label: "Overview" },
+      { to: "/admin-users", label: "Admin Users" },
+      { to: "/agents", label: "Agents" },
+      { to: "/players", label: "Players" },
+    ],
+  },
+  {
+    title: "Operations",
+    items: [
+      { to: "/dashboard", label: "Dashboard" },
+      { to: "/rooms", label: "Rooms" },
+      { to: "/sessions", label: "Sessions" },
+      { to: "/support/tickets", label: "Support" },
+      { to: "/claims", label: "Win Claims" },
+      { to: "/deposits", label: "Deposits" },
+      { to: "/audit-logs", label: "Audit Logs" },
+    ],
+  },
 ];
 
 export function AppShell() {
@@ -59,20 +71,27 @@ export function AppShell() {
       >
         <Toolbar />
         <Box sx={{ overflow: "auto", p: 1 }}>
-          <List>
-            {navItems.map((item) => (
-              <ListItemButton
-                key={item.to}
-                component={NavLink}
-                to={item.to}
-                selected={location.pathname === item.to || location.pathname.startsWith(`${item.to}/`)}
-                sx={{ borderRadius: 2, mb: 0.5 }}
-              >
-                <ListItemText primary={item.label} />
-              </ListItemButton>
-            ))}
-          </List>
-          <Divider sx={{ my: 2 }} />
+          {navGroups.map((group, groupIndex) => (
+            <Box key={group.title} sx={{ mb: groupIndex === navGroups.length - 1 ? 0 : 2 }}>
+              <Typography variant="overline" color="text.secondary" sx={{ px: 1.5 }}>
+                {group.title}
+              </Typography>
+              <List>
+                {group.items.map((item) => (
+                  <ListItemButton
+                    key={item.to}
+                    component={NavLink}
+                    to={item.to}
+                    selected={location.pathname === item.to || location.pathname.startsWith(`${item.to}/`)}
+                    sx={{ borderRadius: 2, mb: 0.5 }}
+                  >
+                    <ListItemText primary={item.label} />
+                  </ListItemButton>
+                ))}
+              </List>
+              {groupIndex < navGroups.length - 1 ? <Divider sx={{ my: 2 }} /> : null}
+            </Box>
+          ))}
           <Typography variant="caption" color="text.secondary">
             Backend authorization remains authoritative.
           </Typography>

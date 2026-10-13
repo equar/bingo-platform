@@ -17,6 +17,9 @@ import com.equar.bingo.backend.feature.agent.repository.AgentFloatRepository;
 import com.equar.bingo.backend.feature.agent.repository.AgentRepository;
 import com.equar.bingo.backend.feature.agent.repository.AgentFloatTransactionRepository;
 import com.equar.bingo.backend.feature.agent.repository.PayoutVerificationRecordRepository;
+import com.equar.bingo.backend.feature.support.repository.InternalNoteRepository;
+import com.equar.bingo.backend.feature.support.repository.SupportMessageRepository;
+import com.equar.bingo.backend.feature.support.repository.SupportTicketRepository;
 import com.equar.bingo.backend.feature.wallet.repository.DepositClaimRepository;
 import com.equar.bingo.backend.feature.wallet.repository.IdempotencyRecordRepository;
 import com.equar.bingo.backend.feature.wallet.repository.WalletRepository;
@@ -76,6 +79,15 @@ class AuthSecurityIntegrationTest {
     @Autowired
     AgentRepository agentRepository;
 
+        @Autowired
+        SupportTicketRepository supportTicketRepository;
+
+        @Autowired
+        SupportMessageRepository supportMessageRepository;
+
+        @Autowired
+        InternalNoteRepository internalNoteRepository;
+
     @Autowired
     AgentFloatTransactionRepository agentFloatTransactionRepository;
 
@@ -102,6 +114,9 @@ class AuthSecurityIntegrationTest {
 
     @BeforeEach
     void setUp() {
+                internalNoteRepository.deleteAllInBatch();
+                supportMessageRepository.deleteAllInBatch();
+                supportTicketRepository.deleteAllInBatch();
         walletTransactionRepository.deleteAllInBatch();
         depositClaimRepository.deleteAllInBatch();
         walletRepository.deleteAllInBatch();
@@ -195,7 +210,7 @@ class AuthSecurityIntegrationTest {
         mockMvc.perform(get("/api/v1/admin/users")
                 .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content", hasSize(2)))
+                .andExpect(jsonPath("$.content", hasSize(1)))
                 .andExpect(jsonPath("$.page").value(0))
                 .andExpect(jsonPath("$.size").value(20));
     }

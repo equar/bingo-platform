@@ -99,11 +99,30 @@ export interface AdminReviewQueueItemResponse {
 export interface UserSummaryResponse {
   id: number;
   displayName: string;
+  email: string;
   phoneNumber: string;
   roles: string[];
   status: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface AdminUserCreateRequest {
+  displayName: string;
+  email: string;
+  phoneNumber: string;
+  password: string;
+  status: string;
+  roles: string[];
+}
+
+export interface AdminUserUpdateRequest {
+  displayName: string;
+  email: string;
+  phoneNumber: string;
+  password?: string;
+  status: string;
+  roles: string[];
 }
 
 export interface AdminAgentSummaryResponse {
@@ -680,10 +699,20 @@ export async function reviewQueue(page = 0, size = 20) {
   return data;
 }
 
-export async function adminUsers(page = 0, size = 20) {
+export async function adminUsers(page = 0, size = 20, search = "", status = "") {
   const { data } = await http.get<PageResponse<UserSummaryResponse>>('/api/v1/admin/users', {
-    params: { page, size },
+    params: { page, size, search: search.trim() || undefined, status: status.trim() || undefined },
   });
+  return data;
+}
+
+export async function createAdminUser(request: AdminUserCreateRequest) {
+  const { data } = await http.post<UserSummaryResponse>('/api/v1/admin/users', request);
+  return data;
+}
+
+export async function updateAdminUser(userId: number, request: AdminUserUpdateRequest) {
+  const { data } = await http.put<UserSummaryResponse>(`/api/v1/admin/users/${userId}`, request);
   return data;
 }
 
