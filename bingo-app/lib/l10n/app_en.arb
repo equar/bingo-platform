@@ -16,6 +16,7 @@
   "displayNameLabel": "Display name",
   "phoneRequired": "Enter your phone number.",
   "passwordRequired": "Enter your password.",
+  "requiredField": "This field is required.",
   "passwordTooShort": "Password must be at least 8 characters.",
   "displayNameRequired": "Enter a display name.",
   "invalidPhone": "Enter a valid phone number.",

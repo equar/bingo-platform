@@ -16,4 +16,4 @@ app:
     seed-enabled: true
   security:
     jwt:
-      secret: ${JWT_SECRET:replace-with-local-jwt-secret}
+      secret: ${JWT_SECRET:0123456789abcdef0123456789abcdef}

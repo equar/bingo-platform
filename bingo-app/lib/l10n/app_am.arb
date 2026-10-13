@@ -16,6 +16,7 @@
   "displayNameLabel": "የሚታይ ስም",
   "phoneRequired": "ስልክ ቁጥር ያስገቡ።",
   "passwordRequired": "የይለፍ ቃል ያስገቡ።",
+  "requiredField": "ይህ መስክ አስፈላጊ ነው።",
   "passwordTooShort": "የይለፍ ቃል ቢያንስ 8 ፊደላት መሆን አለበት።",
   "displayNameRequired": "የሚታይ ስም ያስገቡ።",
   "invalidPhone": "ትክክለኛ ስልክ ቁጥር ያስገቡ።",

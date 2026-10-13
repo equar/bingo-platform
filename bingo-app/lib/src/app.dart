@@ -66,7 +66,7 @@ class _MissingConfigView extends StatelessWidget {
                 Text(localizations.missingApiBaseUrlTitle,
                     style: Theme.of(context).textTheme.headlineSmall),
                 const SizedBox(height: 12),
-                Text(localizations.missingApiBaseUrlBody(apiBaseUrlLabel)),
+                Text(localizations.missingApiBaseUrlBody),
               ],
             ),
           ),

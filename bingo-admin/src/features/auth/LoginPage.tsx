@@ -1,4 +1,13 @@
-import { Button, Container, Paper, Stack, TextField, Typography, Alert } from "@mui/material";
+import {
+  Alert,
+  Button,
+  Container,
+  InputAdornment,
+  Paper,
+  Stack,
+  TextField,
+  Typography,
+} from "@mui/material";
 import { useMutation } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -11,6 +20,7 @@ export function LoginPage() {
   const location = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const redirectTo = useMemo(() => {
@@ -67,12 +77,28 @@ export function LoginPage() {
             />
             <TextField
               label="Password"
-              type="password"
+              type={showPassword ? "text" : "password"}
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               autoComplete="current-password"
               fullWidth
               required
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <Button
+                      onClick={() => setShowPassword((current) => !current)}
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                      color="inherit"
+                      size="small"
+                      sx={{ minWidth: 0, px: 1 }}
+                      type="button"
+                    >
+                      {showPassword ? "Hide" : "Show"}
+                    </Button>
+                  </InputAdornment>
+                ),
+              }}
             />
             {errorMessage ? <Alert severity="error">{errorMessage}</Alert> : null}
             <Button type="submit" variant="contained" size="large" disabled={mutation.isPending}>

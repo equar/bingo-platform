@@ -6,6 +6,7 @@ import com.equar.bingo.backend.feature.user.entity.UserRole;
 import com.equar.bingo.backend.feature.user.repository.UserRepository;
 import com.equar.bingo.backend.feature.wallet.service.WalletService;
 import java.time.Instant;
+import java.util.LinkedHashSet;
 import java.util.Set;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
@@ -40,43 +41,77 @@ public class DevelopmentDataSeeder implements CommandLineRunner {
     @Override
     @Transactional
     public void run(String... args) {
-        if (!enabled || userRepository.count() > 0) {
+        if (!enabled) {
             return;
         }
 
         Instant now = Instant.now();
+        User admin = upsertAdmin(now);
+        User agent = upsertAgent(now);
+        User player = upsertPlayer(now);
 
-        User admin = User.create(
-            "251911000001",
-            "Dev Admin",
-            passwordEncoder.encode("DevAdmin123!"),
-            AccountStatus.ACTIVE,
-            Set.of(UserRole.ADMIN),
-            now);
-        admin.setEmail("admin@bingo.local");
-        userRepository.save(admin);
-
-        userRepository.save(User.create(
-                "251911000002",
-                "Dev Agent",
-                passwordEncoder.encode("DevAgent123!"),
-                AccountStatus.ACTIVE,
-                Set.of(UserRole.AGENT),
-                now));
-
-        User agent = userRepository.findByNormalizedPhone("251911000002").orElseThrow();
         agent.setAgentPinHash(agentPinEncoder.encode("2468"));
         userRepository.save(agent);
 
-        userRepository.save(User.create(
-                "251911000003",
-                "Dev Player",
-                passwordEncoder.encode("DevPlayer123!"),
-                AccountStatus.ACTIVE,
-                Set.of(UserRole.PLAYER),
-                now));
-
-        User player = userRepository.findByNormalizedPhone("251911000003").orElseThrow();
         walletService.createWalletIfMissing(player);
+    }
+
+    private User upsertAdmin(Instant now) {
+        return userRepository.findByEmail("admin@bingo.local")
+                .map(existing -> {
+                    existing.setNormalizedPhone("251911000001");
+                    existing.setDisplayName("Dev Admin");
+                    existing.setPasswordHash(passwordEncoder.encode("DevAdmin123!"));
+                    existing.setStatus(AccountStatus.ACTIVE);
+                    existing.setRoles(new LinkedHashSet<>(Set.of(UserRole.ADMIN)));
+                    return userRepository.save(existing);
+                })
+                .orElseGet(() -> {
+                    User admin = User.create(
+                            "251911000001",
+                            "Dev Admin",
+                            passwordEncoder.encode("DevAdmin123!"),
+                            AccountStatus.ACTIVE,
+                            Set.of(UserRole.ADMIN),
+                            now);
+                    admin.setEmail("admin@bingo.local");
+                    return userRepository.save(admin);
+                });
+    }
+
+    private User upsertAgent(Instant now) {
+        return userRepository.findByNormalizedPhone("251911000002")
+                .map(existing -> {
+                    existing.setDisplayName("Dev Agent");
+                    existing.setPasswordHash(passwordEncoder.encode("DevAgent123!"));
+                    existing.setStatus(AccountStatus.ACTIVE);
+                    existing.setRoles(new LinkedHashSet<>(Set.of(UserRole.AGENT)));
+                    return userRepository.save(existing);
+                })
+                .orElseGet(() -> userRepository.save(User.create(
+                        "251911000002",
+                        "Dev Agent",
+                        passwordEncoder.encode("DevAgent123!"),
+                        AccountStatus.ACTIVE,
+                        Set.of(UserRole.AGENT),
+                        now)));
+    }
+
+    private User upsertPlayer(Instant now) {
+        return userRepository.findByNormalizedPhone("251911000003")
+                .map(existing -> {
+                    existing.setDisplayName("Dev Player");
+                    existing.setPasswordHash(passwordEncoder.encode("DevPlayer123!"));
+                    existing.setStatus(AccountStatus.ACTIVE);
+                    existing.setRoles(new LinkedHashSet<>(Set.of(UserRole.PLAYER)));
+                    return userRepository.save(existing);
+                })
+                .orElseGet(() -> userRepository.save(User.create(
+                        "251911000003",
+                        "Dev Player",
+                        passwordEncoder.encode("DevPlayer123!"),
+                        AccountStatus.ACTIVE,
+                        Set.of(UserRole.PLAYER),
+                        now)));
     }
 }
