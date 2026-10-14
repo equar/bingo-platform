@@ -43,6 +43,13 @@ mvn spring-boot:run -Dspring-boot.run.profiles=dev
 The `dev` profile enables the development seed data and a safe local JWT secret.
 If Flyway reports a checksum or migration error on your local machine, the easiest recovery is usually to drop the local `bingo` database and start the backend again so migrations can be applied from scratch.
 
+The seeded local admin credentials are:
+
+- Email: `kirshipay+admin@gmail.com`
+- Password: `admin@123`
+
+When creating new admin or support accounts from the console, the backend generates the password, enforces a 10-digit phone number, and emails the password to the new user. Make sure SMTP is configured before using that flow locally.
+
 Useful backend notes:
 
 - Default local datasource credentials are `root` / `root`

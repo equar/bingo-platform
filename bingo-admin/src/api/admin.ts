@@ -111,7 +111,6 @@ export interface AdminUserCreateRequest {
   displayName: string;
   email: string;
   phoneNumber: string;
-  password: string;
   status: string;
   roles: string[];
 }

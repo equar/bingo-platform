@@ -26,13 +26,19 @@ public class AdminUserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final EthiopianPhoneNormalizer phoneNormalizer;
+    private final AdminPasswordGenerator passwordGenerator;
+    private final AdminAccountNotificationService notificationService;
 
     public AdminUserService(UserRepository userRepository,
             PasswordEncoder passwordEncoder,
-            EthiopianPhoneNormalizer phoneNormalizer) {
+            EthiopianPhoneNormalizer phoneNormalizer,
+            AdminPasswordGenerator passwordGenerator,
+            AdminAccountNotificationService notificationService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.phoneNormalizer = phoneNormalizer;
+        this.passwordGenerator = passwordGenerator;
+        this.notificationService = notificationService;
     }
 
     @Transactional(readOnly = true)
@@ -50,15 +56,19 @@ public class AdminUserService {
         ensureEmailAvailable(normalizedEmail, null);
         ensurePhoneAvailable(normalizedPhone, null);
 
+        String generatedPassword = passwordGenerator.generate();
+
         User user = User.create(
                 normalizedPhone,
                 request.displayName().trim(),
-                passwordEncoder.encode(request.password()),
+            passwordEncoder.encode(generatedPassword),
                 request.status(),
                 new LinkedHashSet<>(request.roles()),
                 Instant.now());
         user.setEmail(normalizedEmail);
-        return toSummary(userRepository.save(user));
+        User savedUser = userRepository.save(user);
+        notificationService.sendGeneratedPassword(savedUser, generatedPassword);
+        return toSummary(savedUser);
     }
 
     @Transactional

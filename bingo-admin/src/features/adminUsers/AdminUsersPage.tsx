@@ -34,7 +34,7 @@ interface AdminUserFormState {
   displayName: string;
   email: string;
   phoneNumber: string;
-  password: string;
+  password?: string;
   status: string;
   roles: string[];
 }
@@ -43,7 +43,6 @@ const emptyForm: AdminUserFormState = {
   displayName: "",
   email: "",
   phoneNumber: "",
-  password: "",
   status: "ACTIVE",
   roles: ["ADMIN"],
 };
@@ -83,7 +82,6 @@ export function AdminUsersPage() {
       displayName: user.displayName,
       email: user.email,
       phoneNumber: user.phoneNumber,
-      password: "",
       status: user.status,
       roles: user.roles,
     });
@@ -98,7 +96,7 @@ export function AdminUsersPage() {
           displayName: form.displayName,
           email: form.email,
           phoneNumber: form.phoneNumber,
-          password: form.password.trim() ? form.password : undefined,
+          password: form.password?.trim() ? form.password : undefined,
           status: form.status,
           roles: form.roles,
         });
@@ -108,7 +106,6 @@ export function AdminUsersPage() {
         displayName: form.displayName,
         email: form.email,
         phoneNumber: form.phoneNumber,
-        password: form.password,
         status: form.status,
         roles: form.roles,
       });
@@ -265,18 +262,30 @@ export function AdminUsersPage() {
             <TextField
               label="Phone number"
               value={form.phoneNumber}
-              onChange={(event) => setForm((current) => ({ ...current, phoneNumber: event.target.value }))}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  phoneNumber: event.target.value.replace(/\D/g, "").slice(0, 10),
+                }))
+              }
               fullWidth
               required
+              inputProps={{ inputMode: "numeric", maxLength: 10 }}
+              helperText="Enter exactly 10 digits."
             />
-            <TextField
-              label={selectedUser ? "Password (leave blank to keep current)" : "Password"}
-              type="password"
-              value={form.password}
-              onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))}
-              fullWidth
-              required={!selectedUser}
-            />
+            {!selectedUser ? (
+              <Alert severity="info">A password will be generated automatically and emailed to the new user.</Alert>
+            ) : null}
+            {selectedUser ? (
+              <TextField
+                label="Password (leave blank to keep current)"
+                type="password"
+                value={form.password ?? ""}
+                onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))}
+                fullWidth
+                helperText="Leave blank to keep the current password."
+              />
+            ) : null}
             <TextField
               select
               label="Status"

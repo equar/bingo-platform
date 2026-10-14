@@ -66,16 +66,14 @@ describe("AdminUsersPage", () => {
     const createDialog = await screen.findByRole("dialog", { name: "Create admin user" });
     await user.type(within(createDialog).getByRole("textbox", { name: /display name/i }), "New Admin");
     await user.type(within(createDialog).getByRole("textbox", { name: /email/i }), "new@bingo.local");
-    await user.type(within(createDialog).getByRole("textbox", { name: /phone number/i }), "251911000009");
-    await user.type(within(createDialog).getByLabelText(/password/i), "Secret123!");
+    await user.type(within(createDialog).getByRole("textbox", { name: /phone number/i }), "0925636541");
     await user.click(screen.getByRole("button", { name: "Create user" }));
 
     await waitFor(() => {
       expect(createAdminUserMock).toHaveBeenCalledWith({
         displayName: "New Admin",
         email: "new@bingo.local",
-        phoneNumber: "251911000009",
-        password: "Secret123!",
+        phoneNumber: "0925636541",
         status: "ACTIVE",
         roles: ["ADMIN"],
       });
@@ -111,6 +109,9 @@ describe("AdminUsersPage", () => {
     expect(await screen.findByText("Alice Admin")).toBeInTheDocument();
     await user.click(await screen.findByRole("button", { name: "Edit" }));
     const editDialog = await screen.findByRole("dialog", { name: "Edit admin user" });
+    await waitFor(() => {
+      expect(within(editDialog).getByText("ADMIN, SUPPORT")).toBeInTheDocument();
+    });
     await user.clear(within(editDialog).getByRole("textbox", { name: /email/i }));
     await user.type(within(editDialog).getByRole("textbox", { name: /email/i }), "alice.admin@bingo.local");
     await user.click(screen.getByRole("button", { name: "Save changes" }));

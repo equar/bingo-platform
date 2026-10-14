@@ -20,6 +20,11 @@ import org.springframework.transaction.annotation.Transactional;
 @Profile("dev")
 public class DevelopmentDataSeeder implements CommandLineRunner {
 
+    private static final String DEV_ADMIN_EMAIL = "kirshipay+admin@gmail.com";
+    private static final String DEV_ADMIN_PASSWORD = "admin@123";
+    private static final String DEV_ADMIN_PHONE = "251911000001";
+    private static final String DEV_ADMIN_NAME = "Dev Admin";
+
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final PasswordEncoder agentPinEncoder;
@@ -57,24 +62,26 @@ public class DevelopmentDataSeeder implements CommandLineRunner {
     }
 
     private User upsertAdmin(Instant now) {
-        return userRepository.findByEmail("admin@bingo.local")
+        return userRepository.findByEmail(DEV_ADMIN_EMAIL)
+                .or(() -> userRepository.findByNormalizedPhone(DEV_ADMIN_PHONE))
                 .map(existing -> {
-                    existing.setNormalizedPhone("251911000001");
-                    existing.setDisplayName("Dev Admin");
-                    existing.setPasswordHash(passwordEncoder.encode("DevAdmin123!"));
+                    existing.setNormalizedPhone(DEV_ADMIN_PHONE);
+                    existing.setEmail(DEV_ADMIN_EMAIL);
+                    existing.setDisplayName(DEV_ADMIN_NAME);
+                    existing.setPasswordHash(passwordEncoder.encode(DEV_ADMIN_PASSWORD));
                     existing.setStatus(AccountStatus.ACTIVE);
                     existing.setRoles(new LinkedHashSet<>(Set.of(UserRole.ADMIN)));
                     return userRepository.save(existing);
                 })
                 .orElseGet(() -> {
                     User admin = User.create(
-                            "251911000001",
-                            "Dev Admin",
-                            passwordEncoder.encode("DevAdmin123!"),
+                            DEV_ADMIN_PHONE,
+                            DEV_ADMIN_NAME,
+                            passwordEncoder.encode(DEV_ADMIN_PASSWORD),
                             AccountStatus.ACTIVE,
                             Set.of(UserRole.ADMIN),
                             now);
-                    admin.setEmail("admin@bingo.local");
+                    admin.setEmail(DEV_ADMIN_EMAIL);
                     return userRepository.save(admin);
                 });
     }
