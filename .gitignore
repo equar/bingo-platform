@@ -14,6 +14,7 @@ target/
 **/*.tsbuildinfo
 /bingo-admin/vite.config.d.ts
 /bingo-admin/vite.config.js
+/bingo-admin/coverage/
 /bingo-app/build/
 /bingo-admin/tsconfig.app.tsbuildinfo
 /bingo-admin/tsconfig.node.tsbuildinfo
