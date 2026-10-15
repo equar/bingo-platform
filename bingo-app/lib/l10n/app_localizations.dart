@@ -173,7 +173,7 @@ abstract class AppLocalizations {
   /// No description provided for @passwordLabel.
   ///
   /// In en, this message translates to:
-  /// **'Password'**
+  /// **'PIN'**
   String get passwordLabel;
 
   /// No description provided for @displayNameLabel.
@@ -191,7 +191,7 @@ abstract class AppLocalizations {
   /// No description provided for @passwordRequired.
   ///
   /// In en, this message translates to:
-  /// **'Enter your password.'**
+  /// **'Enter your 6-digit PIN.'**
   String get passwordRequired;
 
   /// No description provided for @requiredField.
@@ -203,7 +203,7 @@ abstract class AppLocalizations {
   /// No description provided for @passwordTooShort.
   ///
   /// In en, this message translates to:
-  /// **'Password must be at least 8 characters.'**
+  /// **'PIN must be exactly 6 digits.'**
   String get passwordTooShort;
 
   /// No description provided for @displayNameRequired.

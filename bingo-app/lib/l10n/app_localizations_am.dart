@@ -46,7 +46,7 @@ class AppLocalizationsAm extends AppLocalizations {
   String get phoneLabel => 'ስልክ ቁጥር';
 
   @override
-  String get passwordLabel => 'የይለፍ ቃል';
+  String get passwordLabel => 'ፒን';
 
   @override
   String get displayNameLabel => 'የሚታይ ስም';
@@ -55,13 +55,13 @@ class AppLocalizationsAm extends AppLocalizations {
   String get phoneRequired => 'ስልክ ቁጥር ያስገቡ።';
 
   @override
-  String get passwordRequired => 'የይለፍ ቃል ያስገቡ።';
+  String get passwordRequired => 'ባለ 6 አሃዝ ፒን ያስገቡ።';
 
   @override
   String get requiredField => 'ይህ መስክ አስፈላጊ ነው።';
 
   @override
-  String get passwordTooShort => 'የይለፍ ቃል ቢያንስ 8 ፊደላት መሆን አለበት።';
+  String get passwordTooShort => 'ፒኑ ትክክል 6 አሃዝ መሆን አለበት።';
 
   @override
   String get displayNameRequired => 'የሚታይ ስም ያስገቡ።';

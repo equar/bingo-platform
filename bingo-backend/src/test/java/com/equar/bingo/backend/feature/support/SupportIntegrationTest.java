@@ -44,145 +44,146 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles("test")
 class SupportIntegrationTest {
 
-    @Autowired
-    MockMvc mockMvc;
+        @Autowired
+        MockMvc mockMvc;
 
-    @Autowired
-    ObjectMapper objectMapper;
+        @Autowired
+        ObjectMapper objectMapper;
 
-    @Autowired
-    UserRepository userRepository;
+        @Autowired
+        UserRepository userRepository;
 
-    @Autowired
-    PasswordEncoder passwordEncoder;
+        @Autowired
+        PasswordEncoder passwordEncoder;
 
-    @Autowired
-    EthiopianPhoneNormalizer phoneNormalizer;
+        @Autowired
+        EthiopianPhoneNormalizer phoneNormalizer;
 
-    @Autowired
-    SupportTicketRepository supportTicketRepository;
+        @Autowired
+        SupportTicketRepository supportTicketRepository;
 
-    @Autowired
-    SupportMessageRepository supportMessageRepository;
+        @Autowired
+        SupportMessageRepository supportMessageRepository;
 
-    @Autowired
-    InternalNoteRepository internalNoteRepository;
+        @Autowired
+        InternalNoteRepository internalNoteRepository;
 
-    @Autowired
-    WalletTransactionRepository walletTransactionRepository;
+        @Autowired
+        WalletTransactionRepository walletTransactionRepository;
 
-    @Autowired
-    DepositClaimRepository depositClaimRepository;
+        @Autowired
+        DepositClaimRepository depositClaimRepository;
 
-    @Autowired
-    WalletRepository walletRepository;
+        @Autowired
+        WalletRepository walletRepository;
 
-    @Autowired
-    IdempotencyRecordRepository idempotencyRecordRepository;
+        @Autowired
+        IdempotencyRecordRepository idempotencyRecordRepository;
 
-    private User player;
-    private User admin;
-    private String playerPhoneNumber;
-    private String adminPhoneNumber;
+        private User player;
+        private User admin;
+        private String playerPhoneNumber;
+        private String adminPhoneNumber;
 
-    @BeforeEach
-    void setUp() {
-        internalNoteRepository.deleteAllInBatch();
-        supportMessageRepository.deleteAllInBatch();
-        supportTicketRepository.deleteAllInBatch();
-        walletTransactionRepository.deleteAllInBatch();
-        depositClaimRepository.deleteAllInBatch();
-        walletRepository.deleteAllInBatch();
-        idempotencyRecordRepository.deleteAllInBatch();
+        @BeforeEach
+        void setUp() {
+                internalNoteRepository.deleteAllInBatch();
+                supportMessageRepository.deleteAllInBatch();
+                supportTicketRepository.deleteAllInBatch();
+                walletTransactionRepository.deleteAllInBatch();
+                depositClaimRepository.deleteAllInBatch();
+                walletRepository.deleteAllInBatch();
+                idempotencyRecordRepository.deleteAllInBatch();
 
-        long uniqueSeed = System.currentTimeMillis() % 100_000_000L;
-        playerPhoneNumber = String.format("09%08d", uniqueSeed);
-        adminPhoneNumber = String.format("09%08d", (uniqueSeed + 1) % 100_000_000L);
+                long uniqueSeed = System.currentTimeMillis() % 100_000_000L;
+                playerPhoneNumber = String.format("09%08d", uniqueSeed);
+                adminPhoneNumber = String.format("09%08d", (uniqueSeed + 1) % 100_000_000L);
 
-        Instant now = Instant.now();
-        player = userRepository.save(User.create(
-                phoneNormalizer.normalize(playerPhoneNumber),
-                "Support Player",
-                passwordEncoder.encode("PlayerPass123!"),
-                AccountStatus.ACTIVE,
-                Set.of(UserRole.PLAYER),
-                now));
-        admin = userRepository.save(User.create(
-                phoneNormalizer.normalize(adminPhoneNumber),
-                "Support Admin",
-                passwordEncoder.encode("AdminPass123!"),
-                AccountStatus.ACTIVE,
-                Set.of(UserRole.ADMIN),
-                now));
-    }
+                Instant now = Instant.now();
+                player = userRepository.save(User.create(
+                                phoneNormalizer.normalize(playerPhoneNumber),
+                                "Support Player",
+                                passwordEncoder.encode("123456"),
+                                AccountStatus.ACTIVE,
+                                Set.of(UserRole.PLAYER),
+                                now));
+                admin = userRepository.save(User.create(
+                                phoneNormalizer.normalize(adminPhoneNumber),
+                                "Support Admin",
+                                passwordEncoder.encode("AdminPass123!"),
+                                AccountStatus.ACTIVE,
+                                Set.of(UserRole.ADMIN),
+                                now));
+        }
 
-    @Test
-    void supportTicketFlowHidesInternalNotesFromRequesterAndRequiresResolutionSummary() throws Exception {
-        String playerToken = loginToken(playerPhoneNumber, "PlayerPass123!");
-        String adminToken = loginToken(adminPhoneNumber, "AdminPass123!");
+        @Test
+        void supportTicketFlowHidesInternalNotesFromRequesterAndRequiresResolutionSummary() throws Exception {
+                String playerToken = loginToken(playerPhoneNumber, "123456");
+                String adminToken = loginToken(adminPhoneNumber, "AdminPass123!");
 
-        String createResponse = mockMvc.perform(post("/api/v1/support/tickets")
-                .header("Authorization", "Bearer " + playerToken)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(new SupportTicketCreateRequest(
-                        "Wallet issue",
-                        "Top-up did not arrive",
-                        SupportTicketCategory.WALLET,
-                        SupportTicketPriority.HIGH,
-                        null,
-                        null,
-                        null))))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.messages[0].body").value("Top-up did not arrive"))
-                .andExpect(jsonPath("$.internalNotes").isEmpty())
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
+                String createResponse = mockMvc.perform(post("/api/v1/support/tickets")
+                                .header("Authorization", "Bearer " + playerToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(new SupportTicketCreateRequest(
+                                                "Wallet issue",
+                                                "Top-up did not arrive",
+                                                SupportTicketCategory.WALLET,
+                                                SupportTicketPriority.HIGH,
+                                                null,
+                                                null,
+                                                null))))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.messages[0].body").value("Top-up did not arrive"))
+                                .andExpect(jsonPath("$.internalNotes").isEmpty())
+                                .andReturn()
+                                .getResponse()
+                                .getContentAsString();
 
-        JsonNode created = objectMapper.readTree(createResponse);
-        long ticketId = created.get("id").asLong();
+                JsonNode created = objectMapper.readTree(createResponse);
+                long ticketId = created.get("id").asLong();
 
-        mockMvc.perform(post("/api/v1/admin/support/tickets/" + ticketId + "/notes")
-                .header("Authorization", "Bearer " + adminToken)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(new SupportTicketMessageRequest("Internal follow-up"))))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.internalNotes[0].body").value("Internal follow-up"));
+                mockMvc.perform(post("/api/v1/admin/support/tickets/" + ticketId + "/notes")
+                                .header("Authorization", "Bearer " + adminToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(
+                                                new SupportTicketMessageRequest("Internal follow-up"))))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.internalNotes[0].body").value("Internal follow-up"));
 
-        mockMvc.perform(get("/api/v1/support/tickets/" + ticketId)
-                .header("Authorization", "Bearer " + playerToken))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.internalNotes").isEmpty())
-                .andExpect(jsonPath("$.messages[0].body").value("Top-up did not arrive"));
+                mockMvc.perform(get("/api/v1/support/tickets/" + ticketId)
+                                .header("Authorization", "Bearer " + playerToken))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.internalNotes").isEmpty())
+                                .andExpect(jsonPath("$.messages[0].body").value("Top-up did not arrive"));
 
-        mockMvc.perform(put("/api/v1/admin/support/tickets/" + ticketId + "/status")
-                .header("Authorization", "Bearer " + adminToken)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(new SupportTicketStatusUpdateRequest(
-                        SupportTicketStatus.CLOSED,
-                        null))))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("RESOLUTION_SUMMARY_REQUIRED"));
+                mockMvc.perform(put("/api/v1/admin/support/tickets/" + ticketId + "/status")
+                                .header("Authorization", "Bearer " + adminToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(new SupportTicketStatusUpdateRequest(
+                                                SupportTicketStatus.CLOSED,
+                                                null))))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.code").value("RESOLUTION_SUMMARY_REQUIRED"));
 
-        mockMvc.perform(put("/api/v1/admin/support/tickets/" + ticketId + "/status")
-                .header("Authorization", "Bearer " + adminToken)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(new SupportTicketStatusUpdateRequest(
-                        SupportTicketStatus.RESOLVED,
-                        "Refunded manually"))))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("RESOLVED"))
-                .andExpect(jsonPath("$.resolutionSummary").value("Refunded manually"));
-    }
+                mockMvc.perform(put("/api/v1/admin/support/tickets/" + ticketId + "/status")
+                                .header("Authorization", "Bearer " + adminToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(new SupportTicketStatusUpdateRequest(
+                                                SupportTicketStatus.RESOLVED,
+                                                "Refunded manually"))))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.status").value("RESOLVED"))
+                                .andExpect(jsonPath("$.resolutionSummary").value("Refunded manually"));
+        }
 
-    private String loginToken(String phoneNumber, String password) throws Exception {
-        String response = mockMvc.perform(post("/api/v1/auth/login")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(new LoginRequest(phoneNumber, password))))
-                .andExpect(status().isOk())
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-        return objectMapper.readTree(response).get("accessToken").asText();
-    }
+        private String loginToken(String phoneNumber, String password) throws Exception {
+                String response = mockMvc.perform(post("/api/v1/auth/login")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(new LoginRequest(phoneNumber, password))))
+                                .andExpect(status().isOk())
+                                .andReturn()
+                                .getResponse()
+                                .getContentAsString();
+                return objectMapper.readTree(response).get("accessToken").asText();
+        }
 }

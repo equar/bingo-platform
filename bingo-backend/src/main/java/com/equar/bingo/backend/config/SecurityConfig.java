@@ -74,7 +74,7 @@ public class SecurityConfig {
                                                 .requestMatchers("/api/v1/auth/**", "/api/v1/admin/login",
                                                                 "/api/v1/agent/login", "/v3/api-docs/**",
                                                                 "/swagger-ui/**", "/swagger-ui.html",
-                                                                "/actuator/health", "/ws")
+                                                                "/actuator/health", "/ws", "/")
                                                 .permitAll()
                                                 .requestMatchers("/api/v1/admin/support/**")
                                                 .hasAnyRole("ADMIN", "SUPPORT")

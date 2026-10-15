@@ -69,35 +69,35 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles("test")
 class WalletIntegrationTest {
 
-    @Autowired
-    MockMvc mockMvc;
+        @Autowired
+        MockMvc mockMvc;
 
-    @Autowired
-    ObjectMapper objectMapper;
+        @Autowired
+        ObjectMapper objectMapper;
 
-    @Autowired
-    UserRepository userRepository;
+        @Autowired
+        UserRepository userRepository;
 
-    @Autowired
-    WalletRepository walletRepository;
+        @Autowired
+        WalletRepository walletRepository;
 
-    @Autowired
-    WalletTransactionRepository walletTransactionRepository;
+        @Autowired
+        WalletTransactionRepository walletTransactionRepository;
 
-    @Autowired
-    DepositClaimRepository depositClaimRepository;
+        @Autowired
+        DepositClaimRepository depositClaimRepository;
 
-    @Autowired
-    IdempotencyRecordRepository idempotencyRecordRepository;
+        @Autowired
+        IdempotencyRecordRepository idempotencyRecordRepository;
 
-    @Autowired
-    PasswordEncoder passwordEncoder;
+        @Autowired
+        PasswordEncoder passwordEncoder;
 
-    @Autowired
-    EthiopianPhoneNormalizer phoneNormalizer;
+        @Autowired
+        EthiopianPhoneNormalizer phoneNormalizer;
 
-    @Autowired
-    WalletService walletService;
+        @Autowired
+        WalletService walletService;
 
         @Autowired
         SupportTicketRepository supportTicketRepository;
@@ -108,256 +108,260 @@ class WalletIntegrationTest {
         @Autowired
         InternalNoteRepository internalNoteRepository;
 
-    @Autowired
-    BingoRoomRepository bingoRoomRepository;
+        @Autowired
+        BingoRoomRepository bingoRoomRepository;
 
-    @Autowired
-    GameSessionRepository gameSessionRepository;
+        @Autowired
+        GameSessionRepository gameSessionRepository;
 
-    @Autowired
-    TicketRepository ticketRepository;
+        @Autowired
+        TicketRepository ticketRepository;
 
-    @Autowired
-    DrawEventRepository drawEventRepository;
+        @Autowired
+        DrawEventRepository drawEventRepository;
 
-    @Autowired
-    WinClaimRepository winClaimRepository;
+        @Autowired
+        WinClaimRepository winClaimRepository;
 
-    @Autowired
-    PrizeEntitlementRepository prizeEntitlementRepository;
-    @Autowired
-    PayoutVerificationRecordRepository payoutVerificationRecordRepository;
+        @Autowired
+        PrizeEntitlementRepository prizeEntitlementRepository;
+        @Autowired
+        PayoutVerificationRecordRepository payoutVerificationRecordRepository;
 
-    @Autowired
-    AgentFloatTransactionRepository agentFloatTransactionRepository;
+        @Autowired
+        AgentFloatTransactionRepository agentFloatTransactionRepository;
 
-    @Autowired
-    AgentFloatRepository agentFloatRepository;
+        @Autowired
+        AgentFloatRepository agentFloatRepository;
 
-    @Autowired
-    AgentRepository agentRepository;
+        @Autowired
+        AgentRepository agentRepository;
 
-    private User adminUser;
-    private User playerUser;
+        private User adminUser;
+        private User playerUser;
 
-    @BeforeEach
-    void setUp() {
+        @BeforeEach
+        void setUp() {
                 internalNoteRepository.deleteAllInBatch();
                 supportMessageRepository.deleteAllInBatch();
                 supportTicketRepository.deleteAllInBatch();
-        payoutVerificationRecordRepository.deleteAll();
-        agentFloatTransactionRepository.deleteAll();
-        agentFloatRepository.deleteAll();
-        agentRepository.deleteAll();
-        prizeEntitlementRepository.deleteAll();
-        winClaimRepository.deleteAll();
-        drawEventRepository.deleteAll();
-        ticketRepository.deleteAll();
-        gameSessionRepository.deleteAll();
-        bingoRoomRepository.deleteAll();
-        walletTransactionRepository.deleteAll();
-        depositClaimRepository.deleteAll();
-        walletRepository.deleteAll();
-        idempotencyRecordRepository.deleteAll();
-        userRepository.deleteAll();
+                payoutVerificationRecordRepository.deleteAll();
+                agentFloatTransactionRepository.deleteAll();
+                agentFloatRepository.deleteAll();
+                agentRepository.deleteAll();
+                prizeEntitlementRepository.deleteAll();
+                winClaimRepository.deleteAll();
+                drawEventRepository.deleteAll();
+                ticketRepository.deleteAll();
+                gameSessionRepository.deleteAll();
+                bingoRoomRepository.deleteAll();
+                walletTransactionRepository.deleteAll();
+                depositClaimRepository.deleteAll();
+                walletRepository.deleteAll();
+                idempotencyRecordRepository.deleteAll();
+                userRepository.deleteAll();
 
-        Instant now = Instant.now();
-        adminUser = userRepository.save(User.create(
-                phoneNormalizer.normalize("0911000101"),
-                "Admin User",
-                passwordEncoder.encode("AdminPass123!"),
-                AccountStatus.ACTIVE,
-                Set.of(UserRole.ADMIN),
-                now));
+                Instant now = Instant.now();
+                adminUser = userRepository.save(User.create(
+                                phoneNormalizer.normalize("0911000101"),
+                                "Admin User",
+                                passwordEncoder.encode("AdminPass123!"),
+                                AccountStatus.ACTIVE,
+                                Set.of(UserRole.ADMIN),
+                                now));
 
-        playerUser = userRepository.save(User.create(
-                phoneNormalizer.normalize("0911000102"),
-                "Player User",
-                passwordEncoder.encode("PlayerPass123!"),
-                AccountStatus.ACTIVE,
-                Set.of(UserRole.PLAYER),
-                now));
+                playerUser = userRepository.save(User.create(
+                                phoneNormalizer.normalize("0911000102"),
+                                "Player User",
+                                passwordEncoder.encode("123456"),
+                                AccountStatus.ACTIVE,
+                                Set.of(UserRole.PLAYER),
+                                now));
 
-        walletService.createWalletIfMissing(playerUser);
-    }
-
-    @Test
-    void playerDepositIdempotencyAndAdminApprovalFlowWork() throws Exception {
-        String playerToken = loginToken("0911000102", "PlayerPass123!");
-        String adminToken = loginToken("0911000101", "AdminPass123!");
-
-        DepositClaimRequest request = new DepositClaimRequest(new BigDecimal("100.00"), "ETB", "TBR-123 456");
-        String requestJson = objectMapper.writeValueAsString(request);
-
-        String createResponse = mockMvc.perform(post("/api/v1/wallet/deposits")
-                .header("Authorization", "Bearer " + playerToken)
-                .header("Idempotency-Key", "deposit-1")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(requestJson))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.status").value("PENDING"))
-                .andExpect(jsonPath("$.paymentInstructions.providerName").value("Telebirr"))
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-
-        JsonNode created = objectMapper.readTree(createResponse);
-        Long depositId = created.get("id").asLong();
-
-        String repeatResponse = mockMvc.perform(post("/api/v1/wallet/deposits")
-                .header("Authorization", "Bearer " + playerToken)
-                .header("Idempotency-Key", "deposit-1")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(requestJson))
-                .andExpect(status().isCreated())
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-
-        JsonNode repeated = objectMapper.readTree(repeatResponse);
-        assertEquals(depositId, repeated.get("id").asLong());
-        assertEquals(1L, depositClaimRepository.count());
-        assertEquals(1L, idempotencyRecordRepository.count());
-
-        mockMvc.perform(get("/api/v1/wallet/balance")
-                .header("Authorization", "Bearer " + playerToken))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.currency").value("ETB"))
-                .andExpect(jsonPath("$.availableBalance").value(0));
-
-        String approveResponse = mockMvc.perform(post("/api/v1/admin/deposits/" + depositId + "/approve")
-                .header("Authorization", "Bearer " + adminToken)
-                .header("Idempotency-Key", "approve-1")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(new DepositReviewRequest("Verified"))))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("APPROVED"))
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-
-        JsonNode approved = objectMapper.readTree(approveResponse);
-        assertEquals("Verified", approved.get("reviewNote").asText());
-
-        mockMvc.perform(get("/api/v1/wallet/balance")
-                .header("Authorization", "Bearer " + playerToken))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.availableBalance").value(100));
-
-        mockMvc.perform(get("/api/v1/wallet/transactions")
-                .header("Authorization", "Bearer " + playerToken))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content[0].transactionType").value(WalletTransactionType.DEPOSIT_CREDIT.name()))
-                .andExpect(jsonPath("$.totalElements").value(1));
-
-        Wallet wallet = walletRepository.findByOwnerId(playerUser.getId()).orElseThrow();
-        assertEquals(new BigDecimal("100.00"), wallet.getAvailableBalance());
-    }
-
-    @Test
-    void duplicateTelebirrReferenceIsRejected() throws Exception {
-        String playerToken = loginToken("0911000102", "PlayerPass123!");
-        DepositClaimRequest first = new DepositClaimRequest(new BigDecimal("50.00"), "ETB", "TBR-DUP-001");
-        DepositClaimRequest second = new DepositClaimRequest(new BigDecimal("50.00"), "ETB", "TBR-DUP-001");
-
-        mockMvc.perform(post("/api/v1/wallet/deposits")
-                .header("Authorization", "Bearer " + playerToken)
-                .header("Idempotency-Key", "deposit-a")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(first)))
-                .andExpect(status().isCreated());
-
-        mockMvc.perform(post("/api/v1/wallet/deposits")
-                .header("Authorization", "Bearer " + playerToken)
-                .header("Idempotency-Key", "deposit-b")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(second)))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("DUPLICATE_TELEBIRR_REFERENCE"));
-    }
-
-    @Test
-    void insufficientAdjustmentRollsBackWithoutChangingBalance() throws Exception {
-        String adminToken = loginToken("0911000101", "AdminPass123!");
-
-        mockMvc.perform(post("/api/v1/admin/players/" + playerUser.getId() + "/wallet-adjustments")
-                .header("Authorization", "Bearer " + adminToken)
-                .header("Idempotency-Key", "adjust-1")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(new WalletAdjustmentRequest(
-                        new BigDecimal("-25.00"),
-                        "ETB",
-                        "test rollback"))))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("INSUFFICIENT_BALANCE"));
-
-        Wallet wallet = walletRepository.findByOwnerId(playerUser.getId()).orElseThrow();
-        assertEquals(new BigDecimal("0.00"), wallet.getAvailableBalance());
-        assertEquals(0L, walletTransactionRepository.count());
-    }
-
-    @Test
-    void concurrentApprovalCreditsOnlyOnce() throws Exception {
-        User admin = userRepository.findById(adminUser.getId()).orElseThrow();
-        User player = userRepository.findById(playerUser.getId()).orElseThrow();
-        BingoUserPrincipal adminPrincipal = new BingoUserPrincipal(admin);
-        BingoUserPrincipal playerPrincipal = new BingoUserPrincipal(player);
-
-        IdempotentResult<DepositClaimResponse> created = walletService.submitDeposit(
-                playerPrincipal,
-                new DepositClaimRequest(new BigDecimal("80.00"), "ETB", "TBR-CONCURRENT-001"),
-                "deposit-concurrent");
-        Long depositId = created.body().id();
-
-        ExecutorService executorService = Executors.newFixedThreadPool(2);
-        CountDownLatch ready = new CountDownLatch(2);
-        CountDownLatch start = new CountDownLatch(1);
-
-        Callable<String> firstAttempt = () -> approveInParallel(adminPrincipal, depositId, ready, start, "approve-a");
-        Callable<String> secondAttempt = () -> approveInParallel(adminPrincipal, depositId, ready, start, "approve-b");
-
-        Future<String> first = executorService.submit(firstAttempt);
-        Future<String> second = executorService.submit(secondAttempt);
-
-        ready.await(10, TimeUnit.SECONDS);
-        start.countDown();
-
-        String firstResult = first.get(10, TimeUnit.SECONDS);
-        String secondResult = second.get(10, TimeUnit.SECONDS);
-        executorService.shutdownNow();
-
-        assertTrue(List.of(firstResult, secondResult).contains("OK"));
-        assertTrue(List.of(firstResult, secondResult).contains("CONFLICT"));
-
-        Wallet wallet = walletRepository.findByOwnerId(playerUser.getId()).orElseThrow();
-        assertEquals(new BigDecimal("80.00"), wallet.getAvailableBalance());
-        assertEquals(1L, walletTransactionRepository.count());
-    }
-
-    private String approveInParallel(BingoUserPrincipal adminPrincipal,
-            Long depositId,
-            CountDownLatch ready,
-            CountDownLatch start,
-            String idempotencyKey) throws Exception {
-        ready.countDown();
-        start.await(10, TimeUnit.SECONDS);
-        try {
-            walletService.approveDeposit(depositId, adminPrincipal, new DepositReviewRequest("Concurrent review"),
-                    idempotencyKey);
-            return "OK";
-        } catch (Exception exception) {
-            return "CONFLICT";
+                walletService.createWalletIfMissing(playerUser);
         }
-    }
 
-    private String loginToken(String phoneNumber, String password) throws Exception {
-        String response = mockMvc.perform(post("/api/v1/auth/login")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(new LoginRequest(phoneNumber, password))))
-                .andExpect(status().isOk())
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-        return objectMapper.readTree(response).get("accessToken").asText();
-    }
+        @Test
+        void playerDepositIdempotencyAndAdminApprovalFlowWork() throws Exception {
+                String playerToken = loginToken("0911000102", "123456");
+                String adminToken = loginToken("0911000101", "AdminPass123!");
+
+                DepositClaimRequest request = new DepositClaimRequest(new BigDecimal("100.00"), "ETB", "TBR-123 456");
+                String requestJson = objectMapper.writeValueAsString(request);
+
+                String createResponse = mockMvc.perform(post("/api/v1/wallet/deposits")
+                                .header("Authorization", "Bearer " + playerToken)
+                                .header("Idempotency-Key", "deposit-1")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(requestJson))
+                                .andExpect(status().isCreated())
+                                .andExpect(jsonPath("$.status").value("PENDING"))
+                                .andExpect(jsonPath("$.paymentInstructions.providerName").value("Telebirr"))
+                                .andReturn()
+                                .getResponse()
+                                .getContentAsString();
+
+                JsonNode created = objectMapper.readTree(createResponse);
+                Long depositId = created.get("id").asLong();
+
+                String repeatResponse = mockMvc.perform(post("/api/v1/wallet/deposits")
+                                .header("Authorization", "Bearer " + playerToken)
+                                .header("Idempotency-Key", "deposit-1")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(requestJson))
+                                .andExpect(status().isCreated())
+                                .andReturn()
+                                .getResponse()
+                                .getContentAsString();
+
+                JsonNode repeated = objectMapper.readTree(repeatResponse);
+                assertEquals(depositId, repeated.get("id").asLong());
+                assertEquals(1L, depositClaimRepository.count());
+                assertEquals(1L, idempotencyRecordRepository.count());
+
+                mockMvc.perform(get("/api/v1/wallet/balance")
+                                .header("Authorization", "Bearer " + playerToken))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.currency").value("ETB"))
+                                .andExpect(jsonPath("$.availableBalance").value(0));
+
+                String approveResponse = mockMvc.perform(post("/api/v1/admin/deposits/" + depositId + "/approve")
+                                .header("Authorization", "Bearer " + adminToken)
+                                .header("Idempotency-Key", "approve-1")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(new DepositReviewRequest("Verified"))))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.status").value("APPROVED"))
+                                .andReturn()
+                                .getResponse()
+                                .getContentAsString();
+
+                JsonNode approved = objectMapper.readTree(approveResponse);
+                assertEquals("Verified", approved.get("reviewNote").asText());
+
+                mockMvc.perform(get("/api/v1/wallet/balance")
+                                .header("Authorization", "Bearer " + playerToken))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.availableBalance").value(100));
+
+                mockMvc.perform(get("/api/v1/wallet/transactions")
+                                .header("Authorization", "Bearer " + playerToken))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.content[0].transactionType")
+                                                .value(WalletTransactionType.DEPOSIT_CREDIT.name()))
+                                .andExpect(jsonPath("$.totalElements").value(1));
+
+                Wallet wallet = walletRepository.findByOwnerId(playerUser.getId()).orElseThrow();
+                assertEquals(new BigDecimal("100.00"), wallet.getAvailableBalance());
+        }
+
+        @Test
+        void duplicateTelebirrReferenceIsRejected() throws Exception {
+                String playerToken = loginToken("0911000102", "123456");
+                DepositClaimRequest first = new DepositClaimRequest(new BigDecimal("50.00"), "ETB", "TBR-DUP-001");
+                DepositClaimRequest second = new DepositClaimRequest(new BigDecimal("50.00"), "ETB", "TBR-DUP-001");
+
+                mockMvc.perform(post("/api/v1/wallet/deposits")
+                                .header("Authorization", "Bearer " + playerToken)
+                                .header("Idempotency-Key", "deposit-a")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(first)))
+                                .andExpect(status().isCreated());
+
+                mockMvc.perform(post("/api/v1/wallet/deposits")
+                                .header("Authorization", "Bearer " + playerToken)
+                                .header("Idempotency-Key", "deposit-b")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(second)))
+                                .andExpect(status().isConflict())
+                                .andExpect(jsonPath("$.code").value("DUPLICATE_TELEBIRR_REFERENCE"));
+        }
+
+        @Test
+        void insufficientAdjustmentRollsBackWithoutChangingBalance() throws Exception {
+                String adminToken = loginToken("0911000101", "AdminPass123!");
+
+                mockMvc.perform(post("/api/v1/admin/players/" + playerUser.getId() + "/wallet-adjustments")
+                                .header("Authorization", "Bearer " + adminToken)
+                                .header("Idempotency-Key", "adjust-1")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(new WalletAdjustmentRequest(
+                                                new BigDecimal("-25.00"),
+                                                "ETB",
+                                                "test rollback"))))
+                                .andExpect(status().isConflict())
+                                .andExpect(jsonPath("$.code").value("INSUFFICIENT_BALANCE"));
+
+                Wallet wallet = walletRepository.findByOwnerId(playerUser.getId()).orElseThrow();
+                assertEquals(new BigDecimal("0.00"), wallet.getAvailableBalance());
+                assertEquals(0L, walletTransactionRepository.count());
+        }
+
+        @Test
+        void concurrentApprovalCreditsOnlyOnce() throws Exception {
+                User admin = userRepository.findById(adminUser.getId()).orElseThrow();
+                User player = userRepository.findById(playerUser.getId()).orElseThrow();
+                BingoUserPrincipal adminPrincipal = new BingoUserPrincipal(admin);
+                BingoUserPrincipal playerPrincipal = new BingoUserPrincipal(player);
+
+                IdempotentResult<DepositClaimResponse> created = walletService.submitDeposit(
+                                playerPrincipal,
+                                new DepositClaimRequest(new BigDecimal("80.00"), "ETB", "TBR-CONCURRENT-001"),
+                                "deposit-concurrent");
+                Long depositId = created.body().id();
+
+                ExecutorService executorService = Executors.newFixedThreadPool(2);
+                CountDownLatch ready = new CountDownLatch(2);
+                CountDownLatch start = new CountDownLatch(1);
+
+                Callable<String> firstAttempt = () -> approveInParallel(adminPrincipal, depositId, ready, start,
+                                "approve-a");
+                Callable<String> secondAttempt = () -> approveInParallel(adminPrincipal, depositId, ready, start,
+                                "approve-b");
+
+                Future<String> first = executorService.submit(firstAttempt);
+                Future<String> second = executorService.submit(secondAttempt);
+
+                ready.await(10, TimeUnit.SECONDS);
+                start.countDown();
+
+                String firstResult = first.get(10, TimeUnit.SECONDS);
+                String secondResult = second.get(10, TimeUnit.SECONDS);
+                executorService.shutdownNow();
+
+                assertTrue(List.of(firstResult, secondResult).contains("OK"));
+                assertTrue(List.of(firstResult, secondResult).contains("CONFLICT"));
+
+                Wallet wallet = walletRepository.findByOwnerId(playerUser.getId()).orElseThrow();
+                assertEquals(new BigDecimal("80.00"), wallet.getAvailableBalance());
+                assertEquals(1L, walletTransactionRepository.count());
+        }
+
+        private String approveInParallel(BingoUserPrincipal adminPrincipal,
+                        Long depositId,
+                        CountDownLatch ready,
+                        CountDownLatch start,
+                        String idempotencyKey) throws Exception {
+                ready.countDown();
+                start.await(10, TimeUnit.SECONDS);
+                try {
+                        walletService.approveDeposit(depositId, adminPrincipal,
+                                        new DepositReviewRequest("Concurrent review"),
+                                        idempotencyKey);
+                        return "OK";
+                } catch (Exception exception) {
+                        return "CONFLICT";
+                }
+        }
+
+        private String loginToken(String phoneNumber, String password) throws Exception {
+                String response = mockMvc.perform(post("/api/v1/auth/login")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(new LoginRequest(phoneNumber, password))))
+                                .andExpect(status().isOk())
+                                .andReturn()
+                                .getResponse()
+                                .getContentAsString();
+                return objectMapper.readTree(response).get("accessToken").asText();
+        }
 }

@@ -92,56 +92,56 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Import(BingoLiveDrawIntegrationTest.TestMessagingConfig.class)
 class BingoLiveDrawIntegrationTest {
 
-    @LocalServerPort
-    int port;
+        @LocalServerPort
+        int port;
 
-    @Autowired
-    MockMvc mockMvc;
+        @Autowired
+        MockMvc mockMvc;
 
-    @Autowired
-    PasswordEncoder passwordEncoder;
+        @Autowired
+        PasswordEncoder passwordEncoder;
 
-    @Autowired
-    ObjectMapper objectMapper;
+        @Autowired
+        ObjectMapper objectMapper;
 
-    @Autowired
-    EthiopianPhoneNormalizer phoneNormalizer;
+        @Autowired
+        EthiopianPhoneNormalizer phoneNormalizer;
 
-    @Autowired
-    UserRepository userRepository;
+        @Autowired
+        UserRepository userRepository;
 
-    @Autowired
-    WalletRepository walletRepository;
+        @Autowired
+        WalletRepository walletRepository;
 
-    @Autowired
-    WalletTransactionRepository walletTransactionRepository;
+        @Autowired
+        WalletTransactionRepository walletTransactionRepository;
 
-    @Autowired
-    DepositClaimRepository depositClaimRepository;
+        @Autowired
+        DepositClaimRepository depositClaimRepository;
 
-    @Autowired
-    IdempotencyRecordRepository idempotencyRecordRepository;
+        @Autowired
+        IdempotencyRecordRepository idempotencyRecordRepository;
 
-    @Autowired
-    BingoRoomRepository bingoRoomRepository;
+        @Autowired
+        BingoRoomRepository bingoRoomRepository;
 
-    @Autowired
-    GameSessionRepository gameSessionRepository;
+        @Autowired
+        GameSessionRepository gameSessionRepository;
 
-    @Autowired
-    TicketRepository ticketRepository;
+        @Autowired
+        TicketRepository ticketRepository;
 
-    @Autowired
-    DrawEventRepository drawEventRepository;
+        @Autowired
+        DrawEventRepository drawEventRepository;
 
-    @Autowired
-    WinClaimRepository winClaimRepository;
+        @Autowired
+        WinClaimRepository winClaimRepository;
 
-    @Autowired
-    PrizeEntitlementRepository prizeEntitlementRepository;
+        @Autowired
+        PrizeEntitlementRepository prizeEntitlementRepository;
 
-    @Autowired
-    WalletService walletService;
+        @Autowired
+        WalletService walletService;
 
         @Autowired
         SupportTicketRepository supportTicketRepository;
@@ -152,251 +152,264 @@ class BingoLiveDrawIntegrationTest {
         @Autowired
         InternalNoteRepository internalNoteRepository;
 
-    @Autowired
-    BingoGameService bingoGameService;
+        @Autowired
+        BingoGameService bingoGameService;
 
-    @Autowired
-    GameLiveDrawService gameLiveDrawService;
+        @Autowired
+        GameLiveDrawService gameLiveDrawService;
 
-    @Autowired
-    RecordingSimpMessagingTemplate recordingSimpMessagingTemplate;
+        @Autowired
+        RecordingSimpMessagingTemplate recordingSimpMessagingTemplate;
 
-    @Autowired
-    com.equar.bingo.backend.feature.game.config.GameProperties gameProperties;
-    @Autowired
-    PayoutVerificationRecordRepository payoutVerificationRecordRepository;
+        @Autowired
+        com.equar.bingo.backend.feature.game.config.GameProperties gameProperties;
+        @Autowired
+        PayoutVerificationRecordRepository payoutVerificationRecordRepository;
 
-    @Autowired
-    AgentFloatTransactionRepository agentFloatTransactionRepository;
+        @Autowired
+        AgentFloatTransactionRepository agentFloatTransactionRepository;
 
-    @Autowired
-    AgentFloatRepository agentFloatRepository;
+        @Autowired
+        AgentFloatRepository agentFloatRepository;
 
-    @Autowired
-    AgentRepository agentRepository;
+        @Autowired
+        AgentRepository agentRepository;
 
-    private User adminUser;
-    private User playerUser;
+        private User adminUser;
+        private User playerUser;
 
-    @BeforeEach
-    void setUp() {
+        @BeforeEach
+        void setUp() {
                 internalNoteRepository.deleteAllInBatch();
                 supportMessageRepository.deleteAllInBatch();
                 supportTicketRepository.deleteAllInBatch();
-        payoutVerificationRecordRepository.deleteAll();
-        agentFloatTransactionRepository.deleteAll();
-        agentFloatRepository.deleteAll();
-        agentRepository.deleteAll();
-        prizeEntitlementRepository.deleteAll();
-        winClaimRepository.deleteAll();
-        drawEventRepository.deleteAll();
-        ticketRepository.deleteAll();
-        gameSessionRepository.deleteAll();
-        bingoRoomRepository.deleteAll();
-        walletTransactionRepository.deleteAll();
-        depositClaimRepository.deleteAll();
-        walletRepository.deleteAll();
-        idempotencyRecordRepository.deleteAll();
-        userRepository.deleteAll();
+                payoutVerificationRecordRepository.deleteAll();
+                agentFloatTransactionRepository.deleteAll();
+                agentFloatRepository.deleteAll();
+                agentRepository.deleteAll();
+                prizeEntitlementRepository.deleteAll();
+                winClaimRepository.deleteAll();
+                drawEventRepository.deleteAll();
+                ticketRepository.deleteAll();
+                gameSessionRepository.deleteAll();
+                bingoRoomRepository.deleteAll();
+                walletTransactionRepository.deleteAll();
+                depositClaimRepository.deleteAll();
+                walletRepository.deleteAll();
+                idempotencyRecordRepository.deleteAll();
+                userRepository.deleteAll();
 
-        Instant now = Instant.now();
-        adminUser = userRepository.save(User.create(
-                phoneNormalizer.normalize("0911000201"),
-                "Admin User",
-                passwordEncoder.encode("AdminPass123!"),
-                AccountStatus.ACTIVE,
-                Set.of(UserRole.ADMIN),
-                now));
-        playerUser = userRepository.save(User.create(
-                phoneNormalizer.normalize("0911000202"),
-                "Player User",
-                passwordEncoder.encode("PlayerPass123!"),
-                AccountStatus.ACTIVE,
-                Set.of(UserRole.PLAYER),
-                now));
-        walletService.createWalletIfMissing(playerUser);
-        walletService.adjustPlayerWallet(playerUser.getId(), new BingoUserPrincipal(adminUser),
-                new com.equar.bingo.backend.feature.wallet.dto.WalletAdjustmentRequest(new BigDecimal("1000.00"), "ETB",
-                        "seed"),
-                "seed-player");
-    }
-
-    @Test
-    void competingWorkersPersistOnlyOneDraw() {
-        GameSession session = startedSession("Concurrency Room");
-        Instant dueTime = session.getStartedAt().plus(gameProperties.drawInterval()).plusSeconds(1);
-
-        var first = CompletableFuture
-                .supplyAsync(() -> gameLiveDrawService.advanceSessionDrawIfDue(session.getId(), dueTime));
-        var second = CompletableFuture
-                .supplyAsync(() -> gameLiveDrawService.advanceSessionDrawIfDue(session.getId(), dueTime));
-
-        List<DrawEventResponse> draws = List.of(first.join(), second.join()).stream()
-                .flatMap(java.util.Optional::stream)
-                .toList();
-
-        assertEquals(1, draws.size());
-        assertEquals(1L, drawEventRepository.countBySessionId(session.getId()));
-    }
-
-    @Test
-    void restartRecoveryReplayAndExhaustionAreHandled() throws Exception {
-        GameSession session = startedSession("Replay Room");
-        Instant dueTime = session.getStartedAt().plus(gameProperties.drawInterval()).plusSeconds(1);
-
-        List<Integer> numbers = new ArrayList<>();
-        Set<Integer> uniqueNumbers = new HashSet<>();
-        for (int index = 0; index < 75; index++) {
-            DrawEventResponse draw = gameLiveDrawService.advanceSessionDrawIfDue(session.getId(),
-                    dueTime.plus(gameProperties.drawInterval().multipliedBy(index))).orElseThrow();
-            numbers.add(draw.numberDrawn());
-            uniqueNumbers.add(draw.numberDrawn());
+                Instant now = Instant.now();
+                adminUser = userRepository.save(User.create(
+                                phoneNormalizer.normalize("0911000201"),
+                                "Admin User",
+                                passwordEncoder.encode("AdminPass123!"),
+                                AccountStatus.ACTIVE,
+                                Set.of(UserRole.ADMIN),
+                                now));
+                playerUser = userRepository.save(User.create(
+                                phoneNormalizer.normalize("0911000202"),
+                                "Player User",
+                                passwordEncoder.encode("123456"),
+                                AccountStatus.ACTIVE,
+                                Set.of(UserRole.PLAYER),
+                                now));
+                walletService.createWalletIfMissing(playerUser);
+                walletService.adjustPlayerWallet(playerUser.getId(), new BingoUserPrincipal(adminUser),
+                                new com.equar.bingo.backend.feature.wallet.dto.WalletAdjustmentRequest(
+                                                new BigDecimal("1000.00"), "ETB",
+                                                "seed"),
+                                "seed-player");
         }
 
-        assertEquals(75, numbers.size());
-        assertEquals(75, uniqueNumbers.size());
-        assertEquals(GameSessionState.CLOSED, gameSessionRepository.findById(session.getId()).orElseThrow().getState());
-        assertFalse(gameLiveDrawService.advanceSessionDrawIfDue(session.getId(), dueTime.plus(Duration.ofDays(1)))
-                .isPresent());
+        @Test
+        void competingWorkersPersistOnlyOneDraw() {
+                GameSession session = startedSession("Concurrency Room");
+                Instant dueTime = session.getStartedAt().plus(gameProperties.drawInterval()).plusSeconds(1);
 
-        String replay = mockMvc.perform(get("/api/v1/sessions/" + session.getId() + "/draws")
-                .header("Authorization", "Bearer " + loginToken("0911000201", "AdminPass123!"))
-                .param("afterSequence", "1"))
-                .andExpect(status().isOk())
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-        List<DrawEventResponse> replayed = objectMapper.readValue(replay, new TypeReference<>() {
-        });
-        assertEquals(74, replayed.size());
-        for (int index = 1; index < replayed.size(); index++) {
-            assertTrue(replayed.get(index - 1).sequenceNo() < replayed.get(index).sequenceNo());
-        }
-    }
+                var first = CompletableFuture
+                                .supplyAsync(() -> gameLiveDrawService.advanceSessionDrawIfDue(session.getId(),
+                                                dueTime));
+                var second = CompletableFuture
+                                .supplyAsync(() -> gameLiveDrawService.advanceSessionDrawIfDue(session.getId(),
+                                                dueTime));
 
-    @Test
-    void websocketSubscriptionRequiresJwtAndReceivesBroadcast() throws Exception {
-        GameSession session = startedSession("Socket Room");
-        String token = loginToken("0911000202", "PlayerPass123!");
-        assertTrue(token.startsWith("eyJ"));
-        Instant dueTime = session.getStartedAt().plus(gameProperties.drawInterval()).plusSeconds(1);
-        gameLiveDrawService.advanceSessionDrawIfDue(session.getId(), dueTime);
+                List<DrawEventResponse> draws = List.of(first.join(), second.join()).stream()
+                                .flatMap(java.util.Optional::stream)
+                                .toList();
 
-        assertFalse(recordingSimpMessagingTemplate.getRecordedMessages().isEmpty());
-        RecordedMessage message = recordingSimpMessagingTemplate.getRecordedMessages().get(0);
-        assertEquals("/topic/session/" + session.getId() + "/draws", message.destination());
-        assertTrue(message.payload() instanceof DrawEventResponse);
-    }
-
-    @Test
-    void websocketConnectionWithoutJwtIsRejected() {
-        WebSocketStompClient stompClient = new WebSocketStompClient(new StandardWebSocketClient());
-        stompClient.setMessageConverter(new MappingJackson2MessageConverter());
-
-        assertThrows(Exception.class, () -> stompClient
-                .connectAsync(URI.create("ws://localhost:" + port + "/ws"), new WebSocketHttpHeaders(),
-                        new StompHeaders(), new StompSessionHandlerAdapter() {
-                        })
-                .get(5, TimeUnit.SECONDS));
-    }
-
-    private GameSession startedSession(String roomName) {
-        var room = bingoGameService.createRoom(roomRequest(roomName));
-        var session = bingoGameService.createSession(room.id(), sessionRequest(GameSessionState.DRAFT));
-        bingoGameService.updateSessionState(session.id(), new GameSessionStateUpdateRequest(GameSessionState.OPEN));
-        bingoGameService.updateSessionState(session.id(), new GameSessionStateUpdateRequest(GameSessionState.STARTED));
-        return gameSessionRepository.findById(session.id()).orElseThrow();
-    }
-
-    private String loginToken(String phoneNumber, String password) throws Exception {
-        String response = mockMvc.perform(post("/api/v1/auth/login")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(new LoginRequest(phoneNumber, password))))
-                .andExpect(status().isOk())
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-        return objectMapper.readTree(response).get("accessToken").asText();
-    }
-
-    private StompHeaders connectHeaders(String token) {
-        StompHeaders headers = new StompHeaders();
-        headers.add("Authorization", "Bearer " + token);
-        return headers;
-    }
-
-    private BingoRoomRequest roomRequest(String name) {
-        return new BingoRoomRequest(
-                name,
-                "Live draw room",
-                new BigDecimal("4.00"),
-                "ETB",
-                "Africa/Addis_Ababa",
-                "0 0/30 * * * *",
-                10,
-                10,
-                true,
-                true,
-                true,
-                List.of(BingoPatternType.LINE, BingoPatternType.TWO_LINES, BingoPatternType.FULL_HOUSE),
-                List.of(
-                        new BingoPrizeConfigRequest(BingoPatternType.LINE, new BigDecimal("10.00"),
-                                PrizeSettlementPath.PLAYER_WALLET, 1),
-                        new BingoPrizeConfigRequest(BingoPatternType.TWO_LINES, new BigDecimal("20.00"),
-                                PrizeSettlementPath.PLAYER_WALLET, 1),
-                        new BingoPrizeConfigRequest(BingoPatternType.FULL_HOUSE, new BigDecimal("50.00"),
-                                PrizeSettlementPath.PLAYER_WALLET, 1)));
-    }
-
-    private GameSessionRequest sessionRequest(GameSessionState state) {
-        return new GameSessionRequest(
-                "Live session",
-                Instant.now().plusSeconds(60),
-                state,
-                new BigDecimal("4.00"),
-                "ETB",
-                10,
-                10,
-                true,
-                true,
-                List.of(BingoPatternType.LINE, BingoPatternType.TWO_LINES, BingoPatternType.FULL_HOUSE),
-                List.of(
-                        new BingoPrizeConfigRequest(BingoPatternType.LINE, new BigDecimal("10.00"),
-                                PrizeSettlementPath.PLAYER_WALLET, 1),
-                        new BingoPrizeConfigRequest(BingoPatternType.TWO_LINES, new BigDecimal("20.00"),
-                                PrizeSettlementPath.PLAYER_WALLET, 1),
-                        new BingoPrizeConfigRequest(BingoPatternType.FULL_HOUSE, new BigDecimal("50.00"),
-                                PrizeSettlementPath.PLAYER_WALLET, 1)));
-    }
-
-    @org.springframework.boot.test.context.TestConfiguration
-    static class TestMessagingConfig {
-
-        @Bean
-        @Primary
-        RecordingSimpMessagingTemplate recordingSimpMessagingTemplate() {
-            return new RecordingSimpMessagingTemplate();
-        }
-    }
-
-    static final class RecordingSimpMessagingTemplate extends SimpMessagingTemplate {
-
-        private final List<RecordedMessage> recordedMessages = new ArrayList<>();
-
-        RecordingSimpMessagingTemplate() {
-            super(new ExecutorSubscribableChannel());
+                assertEquals(1, draws.size());
+                assertEquals(1L, drawEventRepository.countBySessionId(session.getId()));
         }
 
-        @Override
-        public void convertAndSend(String destination, Object payload) {
-            recordedMessages.add(new RecordedMessage(destination, payload));
+        @Test
+        void restartRecoveryReplayAndExhaustionAreHandled() throws Exception {
+                GameSession session = startedSession("Replay Room");
+                Instant dueTime = session.getStartedAt().plus(gameProperties.drawInterval()).plusSeconds(1);
+
+                List<Integer> numbers = new ArrayList<>();
+                Set<Integer> uniqueNumbers = new HashSet<>();
+                for (int index = 0; index < 75; index++) {
+                        DrawEventResponse draw = gameLiveDrawService.advanceSessionDrawIfDue(session.getId(),
+                                        dueTime.plus(gameProperties.drawInterval().multipliedBy(index))).orElseThrow();
+                        numbers.add(draw.numberDrawn());
+                        uniqueNumbers.add(draw.numberDrawn());
+                }
+
+                assertEquals(75, numbers.size());
+                assertEquals(75, uniqueNumbers.size());
+                assertEquals(GameSessionState.CLOSED,
+                                gameSessionRepository.findById(session.getId()).orElseThrow().getState());
+                assertFalse(gameLiveDrawService
+                                .advanceSessionDrawIfDue(session.getId(), dueTime.plus(Duration.ofDays(1)))
+                                .isPresent());
+
+                String replay = mockMvc.perform(get("/api/v1/sessions/" + session.getId() + "/draws")
+                                .header("Authorization", "Bearer " + loginToken("0911000201", "AdminPass123!"))
+                                .param("afterSequence", "1"))
+                                .andExpect(status().isOk())
+                                .andReturn()
+                                .getResponse()
+                                .getContentAsString();
+                List<DrawEventResponse> replayed = objectMapper.readValue(replay, new TypeReference<>() {
+                });
+                assertEquals(74, replayed.size());
+                for (int index = 1; index < replayed.size(); index++) {
+                        assertTrue(replayed.get(index - 1).sequenceNo() < replayed.get(index).sequenceNo());
+                }
         }
 
-        List<RecordedMessage> getRecordedMessages() {
-            return recordedMessages;
-        }
-    }
+        @Test
+        void websocketSubscriptionRequiresJwtAndReceivesBroadcast() throws Exception {
+                GameSession session = startedSession("Socket Room");
+                String token = loginToken("0911000202", "123456");
+                assertTrue(token.startsWith("eyJ"));
+                Instant dueTime = session.getStartedAt().plus(gameProperties.drawInterval()).plusSeconds(1);
+                gameLiveDrawService.advanceSessionDrawIfDue(session.getId(), dueTime);
 
-    record RecordedMessage(String destination, Object payload) {
-    }
+                assertFalse(recordingSimpMessagingTemplate.getRecordedMessages().isEmpty());
+                RecordedMessage message = recordingSimpMessagingTemplate.getRecordedMessages().get(0);
+                assertEquals("/topic/session/" + session.getId() + "/draws", message.destination());
+                assertTrue(message.payload() instanceof DrawEventResponse);
+        }
+
+        @Test
+        void websocketConnectionWithoutJwtIsRejected() {
+                WebSocketStompClient stompClient = new WebSocketStompClient(new StandardWebSocketClient());
+                stompClient.setMessageConverter(new MappingJackson2MessageConverter());
+
+                assertThrows(Exception.class, () -> stompClient
+                                .connectAsync(URI.create("ws://localhost:" + port + "/ws"), new WebSocketHttpHeaders(),
+                                                new StompHeaders(), new StompSessionHandlerAdapter() {
+                                                })
+                                .get(5, TimeUnit.SECONDS));
+        }
+
+        private GameSession startedSession(String roomName) {
+                var room = bingoGameService.createRoom(roomRequest(roomName));
+                var session = bingoGameService.createSession(room.id(), sessionRequest(GameSessionState.DRAFT));
+                bingoGameService.updateSessionState(session.id(),
+                                new GameSessionStateUpdateRequest(GameSessionState.OPEN));
+                bingoGameService.updateSessionState(session.id(),
+                                new GameSessionStateUpdateRequest(GameSessionState.STARTED));
+                return gameSessionRepository.findById(session.id()).orElseThrow();
+        }
+
+        private String loginToken(String phoneNumber, String password) throws Exception {
+                String response = mockMvc.perform(post("/api/v1/auth/login")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(new LoginRequest(phoneNumber, password))))
+                                .andExpect(status().isOk())
+                                .andReturn()
+                                .getResponse()
+                                .getContentAsString();
+                return objectMapper.readTree(response).get("accessToken").asText();
+        }
+
+        private StompHeaders connectHeaders(String token) {
+                StompHeaders headers = new StompHeaders();
+                headers.add("Authorization", "Bearer " + token);
+                return headers;
+        }
+
+        private BingoRoomRequest roomRequest(String name) {
+                return new BingoRoomRequest(
+                                name,
+                                "Live draw room",
+                                new BigDecimal("4.00"),
+                                "ETB",
+                                "Africa/Addis_Ababa",
+                                "0 0/30 * * * *",
+                                10,
+                                10,
+                                true,
+                                true,
+                                true,
+                                List.of(BingoPatternType.LINE, BingoPatternType.TWO_LINES, BingoPatternType.FULL_HOUSE),
+                                List.of(
+                                                new BingoPrizeConfigRequest(BingoPatternType.LINE,
+                                                                new BigDecimal("10.00"),
+                                                                PrizeSettlementPath.PLAYER_WALLET, 1),
+                                                new BingoPrizeConfigRequest(BingoPatternType.TWO_LINES,
+                                                                new BigDecimal("20.00"),
+                                                                PrizeSettlementPath.PLAYER_WALLET, 1),
+                                                new BingoPrizeConfigRequest(BingoPatternType.FULL_HOUSE,
+                                                                new BigDecimal("50.00"),
+                                                                PrizeSettlementPath.PLAYER_WALLET, 1)));
+        }
+
+        private GameSessionRequest sessionRequest(GameSessionState state) {
+                return new GameSessionRequest(
+                                "Live session",
+                                Instant.now().plusSeconds(60),
+                                state,
+                                new BigDecimal("4.00"),
+                                "ETB",
+                                10,
+                                10,
+                                true,
+                                true,
+                                List.of(BingoPatternType.LINE, BingoPatternType.TWO_LINES, BingoPatternType.FULL_HOUSE),
+                                List.of(
+                                                new BingoPrizeConfigRequest(BingoPatternType.LINE,
+                                                                new BigDecimal("10.00"),
+                                                                PrizeSettlementPath.PLAYER_WALLET, 1),
+                                                new BingoPrizeConfigRequest(BingoPatternType.TWO_LINES,
+                                                                new BigDecimal("20.00"),
+                                                                PrizeSettlementPath.PLAYER_WALLET, 1),
+                                                new BingoPrizeConfigRequest(BingoPatternType.FULL_HOUSE,
+                                                                new BigDecimal("50.00"),
+                                                                PrizeSettlementPath.PLAYER_WALLET, 1)));
+        }
+
+        @org.springframework.boot.test.context.TestConfiguration
+        static class TestMessagingConfig {
+
+                @Bean
+                @Primary
+                RecordingSimpMessagingTemplate recordingSimpMessagingTemplate() {
+                        return new RecordingSimpMessagingTemplate();
+                }
+        }
+
+        static final class RecordingSimpMessagingTemplate extends SimpMessagingTemplate {
+
+                private final List<RecordedMessage> recordedMessages = new ArrayList<>();
+
+                RecordingSimpMessagingTemplate() {
+                        super(new ExecutorSubscribableChannel());
+                }
+
+                @Override
+                public void convertAndSend(String destination, Object payload) {
+                        recordedMessages.add(new RecordedMessage(destination, payload));
+                }
+
+                List<RecordedMessage> getRecordedMessages() {
+                        return recordedMessages;
+                }
+        }
+
+        record RecordedMessage(String destination, Object payload) {
+        }
 }

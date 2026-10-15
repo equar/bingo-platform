@@ -20,6 +20,36 @@ spring:
     enabled: true
   main:
     allow-bean-definition-overriding: false
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${SPRING_MAIL_USERNAME:kirshipay@gmail.com}
+    password: ${SPRING_MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+  endpoint:
+    health:
+      show-details: always
+  health:
+    mail:
+      enabled: false
 
 server:
   port: ${SERVER_PORT:8080}
@@ -30,7 +60,7 @@ app:
   business-timezone: ${APP_BUSINESS_TIMEZONE:Africa/Addis_Ababa}
   security:
     jwt:
-      secret: ${JWT_SECRET}
+      secret: ${JWT_SECRET:0123456789abcdef0123456789abcdef}
       access-token-ttl-seconds: ${JWT_ACCESS_TOKEN_TTL_SECONDS:3600}
   wallet:
     currency: ${APP_WALLET_CURRENCY:ETB}

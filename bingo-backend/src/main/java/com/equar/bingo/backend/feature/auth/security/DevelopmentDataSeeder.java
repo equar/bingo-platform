@@ -108,7 +108,7 @@ public class DevelopmentDataSeeder implements CommandLineRunner {
         return userRepository.findByNormalizedPhone("251911000003")
                 .map(existing -> {
                     existing.setDisplayName("Dev Player");
-                    existing.setPasswordHash(passwordEncoder.encode("DevPlayer123!"));
+                    existing.setPasswordHash(passwordEncoder.encode("123456"));
                     existing.setStatus(AccountStatus.ACTIVE);
                     existing.setRoles(new LinkedHashSet<>(Set.of(UserRole.PLAYER)));
                     return userRepository.save(existing);
@@ -116,7 +116,7 @@ public class DevelopmentDataSeeder implements CommandLineRunner {
                 .orElseGet(() -> userRepository.save(User.create(
                         "251911000003",
                         "Dev Player",
-                        passwordEncoder.encode("DevPlayer123!"),
+                        passwordEncoder.encode("123456"),
                         AccountStatus.ACTIVE,
                         Set.of(UserRole.PLAYER),
                         now)));

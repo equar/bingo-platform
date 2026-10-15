@@ -12,7 +12,6 @@ import {
   FormControl,
   InputLabel,
   MenuItem,
-  OutlinedInput,
   Select,
   TablePagination,
   Stack,
@@ -36,7 +35,7 @@ interface AdminUserFormState {
   phoneNumber: string;
   password?: string;
   status: string;
-  roles: string[];
+  role: string;
 }
 
 const emptyForm: AdminUserFormState = {
@@ -44,7 +43,7 @@ const emptyForm: AdminUserFormState = {
   email: "",
   phoneNumber: "",
   status: "ACTIVE",
-  roles: ["ADMIN"],
+  role: "ADMIN",
 };
 
 function roleLabel(role: string) {
@@ -83,7 +82,7 @@ export function AdminUsersPage() {
       email: user.email,
       phoneNumber: user.phoneNumber,
       status: user.status,
-      roles: user.roles,
+      role: user.roles.find((role) => roleOptions.includes(role as (typeof roleOptions)[number])) ?? "ADMIN",
     });
     setFormError(null);
     setDialogOpen(true);
@@ -98,7 +97,7 @@ export function AdminUsersPage() {
           phoneNumber: form.phoneNumber,
           password: form.password?.trim() ? form.password : undefined,
           status: form.status,
-          roles: form.roles,
+          roles: [form.role],
         });
       }
 
@@ -107,7 +106,7 @@ export function AdminUsersPage() {
         email: form.email,
         phoneNumber: form.phoneNumber,
         status: form.status,
-        roles: form.roles,
+        roles: [form.role],
       });
     },
     onSuccess: async () => {
@@ -300,20 +299,12 @@ export function AdminUsersPage() {
               ))}
             </TextField>
             <FormControl fullWidth>
-              <InputLabel id="admin-user-roles-label">Roles</InputLabel>
+              <InputLabel id="admin-user-role-label">Role</InputLabel>
               <Select
-                labelId="admin-user-roles-label"
-                label="Roles"
-                multiple
-                value={form.roles}
-                input={<OutlinedInput label="Roles" />}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    roles: typeof event.target.value === "string" ? event.target.value.split(",") : event.target.value,
-                  }))
-                }
-                renderValue={(selected) => (selected as string[]).join(", ")}
+                labelId="admin-user-role-label"
+                label="Role"
+                value={form.role}
+                onChange={(event) => setForm((current) => ({ ...current, role: event.target.value }))}
               >
                 {roleOptions.map((role) => (
                   <MenuItem key={role} value={role}>
@@ -322,6 +313,9 @@ export function AdminUsersPage() {
                 ))}
               </Select>
             </FormControl>
+            <Typography variant="body2" color="text.secondary">
+              Choose either ADMIN or SUPPORT.
+            </Typography>
             {formError ? <Alert severity="error">{formError}</Alert> : null}
           </Stack>
         </DialogContent>

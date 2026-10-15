@@ -46,7 +46,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get phoneLabel => 'Phone number';
 
   @override
-  String get passwordLabel => 'Password';
+  String get passwordLabel => 'PIN';
 
   @override
   String get displayNameLabel => 'Display name';
@@ -55,13 +55,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get phoneRequired => 'Enter your phone number.';
 
   @override
-  String get passwordRequired => 'Enter your password.';
+  String get passwordRequired => 'Enter your 6-digit PIN.';
 
   @override
   String get requiredField => 'This field is required.';
 
   @override
-  String get passwordTooShort => 'Password must be at least 8 characters.';
+  String get passwordTooShort => 'PIN must be exactly 6 digits.';
 
   @override
   String get displayNameRequired => 'Enter a display name.';

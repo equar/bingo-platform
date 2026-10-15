@@ -110,7 +110,7 @@ describe("AdminUsersPage", () => {
     await user.click(await screen.findByRole("button", { name: "Edit" }));
     const editDialog = await screen.findByRole("dialog", { name: "Edit admin user" });
     await waitFor(() => {
-      expect(within(editDialog).getByText("ADMIN, SUPPORT")).toBeInTheDocument();
+      expect(within(editDialog).getByText("ADMIN")).toBeInTheDocument();
     });
     await user.clear(within(editDialog).getByRole("textbox", { name: /email/i }));
     await user.type(within(editDialog).getByRole("textbox", { name: /email/i }), "alice.admin@bingo.local");
@@ -123,7 +123,7 @@ describe("AdminUsersPage", () => {
         phoneNumber: "251911000001",
         password: undefined,
         status: "ACTIVE",
-        roles: ["ADMIN", "SUPPORT"],
+        roles: ["ADMIN"],
       });
     });
   });

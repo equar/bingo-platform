@@ -20,7 +20,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final TextEditingController _displayNameController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _pinController = TextEditingController();
   bool _registerMode = false;
   bool _busy = false;
   String? _errorMessage;
@@ -29,7 +29,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   void dispose() {
     _displayNameController.dispose();
     _phoneController.dispose();
-    _passwordController.dispose();
+    _pinController.dispose();
     super.dispose();
   }
 
@@ -48,14 +48,14 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       final repository = ref.read(authRepositoryProvider);
       final sessionController = ref.read(authSessionControllerProvider.notifier);
       final requestPhone = _phoneController.text.trim();
-      final password = _passwordController.text;
+      final pin = _pinController.text;
       final authResponse = _registerMode
           ? await repository.register(RegisterRequest(
               displayName: _displayNameController.text.trim(),
               phoneNumber: requestPhone,
-              password: password,
+              password: pin,
             ))
-          : await repository.login(LoginRequest(phoneNumber: requestPhone, password: password));
+          : await repository.login(LoginRequest(phoneNumber: requestPhone, password: pin));
       await sessionController.setSession(authResponse);
     } catch (error) {
       if (error is ApiError) {
@@ -121,13 +121,14 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                           ),
                           const SizedBox(height: 12),
                           TextFormField(
-                            controller: _passwordController,
+                            controller: _pinController,
                             obscureText: true,
+                            keyboardType: TextInputType.number,
                             decoration: InputDecoration(labelText: localizations.passwordLabel),
                             validator: (value) {
                               final text = value ?? '';
                               if (text.isEmpty) return localizations.passwordRequired;
-                              if (text.length < 8) return localizations.passwordTooShort;
+                              if (!RegExp(r'^[0-9]{6}$').hasMatch(text)) return localizations.passwordTooShort;
                               return null;
                             },
                           ),

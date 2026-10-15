@@ -48,36 +48,36 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles("test")
 class AuthSecurityIntegrationTest {
 
-    @Autowired
-    MockMvc mockMvc;
+        @Autowired
+        MockMvc mockMvc;
 
-    @Autowired
-    ObjectMapper objectMapper;
+        @Autowired
+        ObjectMapper objectMapper;
 
-    @Autowired
-    UserRepository userRepository;
+        @Autowired
+        UserRepository userRepository;
 
-    @Autowired
-    PasswordEncoder passwordEncoder;
+        @Autowired
+        PasswordEncoder passwordEncoder;
 
-    @Autowired
-    EthiopianPhoneNormalizer phoneNormalizer;
+        @Autowired
+        EthiopianPhoneNormalizer phoneNormalizer;
 
-    @Autowired
-    WalletTransactionRepository walletTransactionRepository;
+        @Autowired
+        WalletTransactionRepository walletTransactionRepository;
 
-    @Autowired
-    DepositClaimRepository depositClaimRepository;
+        @Autowired
+        DepositClaimRepository depositClaimRepository;
 
-    @Autowired
-    WalletRepository walletRepository;
+        @Autowired
+        WalletRepository walletRepository;
 
-    @Autowired
-    IdempotencyRecordRepository idempotencyRecordRepository;
-    @Autowired
-    AgentFloatRepository agentFloatRepository;
-    @Autowired
-    AgentRepository agentRepository;
+        @Autowired
+        IdempotencyRecordRepository idempotencyRecordRepository;
+        @Autowired
+        AgentFloatRepository agentFloatRepository;
+        @Autowired
+        AgentRepository agentRepository;
 
         @Autowired
         SupportTicketRepository supportTicketRepository;
@@ -88,130 +88,130 @@ class AuthSecurityIntegrationTest {
         @Autowired
         InternalNoteRepository internalNoteRepository;
 
-    @Autowired
-    AgentFloatTransactionRepository agentFloatTransactionRepository;
+        @Autowired
+        AgentFloatTransactionRepository agentFloatTransactionRepository;
 
-    @Autowired
-    PayoutVerificationRecordRepository payoutVerificationRecordRepository;
+        @Autowired
+        PayoutVerificationRecordRepository payoutVerificationRecordRepository;
 
-    @Autowired
-    PrizeEntitlementRepository prizeEntitlementRepository;
+        @Autowired
+        PrizeEntitlementRepository prizeEntitlementRepository;
 
-    @Autowired
-    WinClaimRepository winClaimRepository;
+        @Autowired
+        WinClaimRepository winClaimRepository;
 
-    @Autowired
-    TicketRepository ticketRepository;
+        @Autowired
+        TicketRepository ticketRepository;
 
-    @Autowired
-    DrawEventRepository drawEventRepository;
+        @Autowired
+        DrawEventRepository drawEventRepository;
 
-    @Autowired
-    GameSessionRepository gameSessionRepository;
+        @Autowired
+        GameSessionRepository gameSessionRepository;
 
-    @Autowired
-    BingoRoomRepository bingoRoomRepository;
+        @Autowired
+        BingoRoomRepository bingoRoomRepository;
 
-    @BeforeEach
-    void setUp() {
+        @BeforeEach
+        void setUp() {
                 internalNoteRepository.deleteAllInBatch();
                 supportMessageRepository.deleteAllInBatch();
                 supportTicketRepository.deleteAllInBatch();
-        walletTransactionRepository.deleteAllInBatch();
-        depositClaimRepository.deleteAllInBatch();
-        walletRepository.deleteAllInBatch();
-        idempotencyRecordRepository.deleteAllInBatch();
-        payoutVerificationRecordRepository.deleteAllInBatch();
-        agentFloatTransactionRepository.deleteAllInBatch();
-        agentFloatRepository.deleteAllInBatch();
-        agentRepository.deleteAllInBatch();
-        prizeEntitlementRepository.deleteAllInBatch();
-        winClaimRepository.deleteAllInBatch();
-        drawEventRepository.deleteAllInBatch();
-        ticketRepository.deleteAllInBatch();
-        gameSessionRepository.deleteAllInBatch();
-        bingoRoomRepository.deleteAllInBatch();
-        userRepository.deleteAllInBatch();
+                walletTransactionRepository.deleteAllInBatch();
+                depositClaimRepository.deleteAllInBatch();
+                walletRepository.deleteAllInBatch();
+                idempotencyRecordRepository.deleteAllInBatch();
+                payoutVerificationRecordRepository.deleteAllInBatch();
+                agentFloatTransactionRepository.deleteAllInBatch();
+                agentFloatRepository.deleteAllInBatch();
+                agentRepository.deleteAllInBatch();
+                prizeEntitlementRepository.deleteAllInBatch();
+                winClaimRepository.deleteAllInBatch();
+                drawEventRepository.deleteAllInBatch();
+                ticketRepository.deleteAllInBatch();
+                gameSessionRepository.deleteAllInBatch();
+                bingoRoomRepository.deleteAllInBatch();
+                userRepository.deleteAllInBatch();
 
-        Instant now = Instant.now();
-        userRepository.save(User.create(
-                phoneNormalizer.normalize("0911000001"),
-                "Admin User",
-                passwordEncoder.encode("AdminPass123!"),
-                AccountStatus.ACTIVE,
-                Set.of(UserRole.ADMIN),
-                now));
+                Instant now = Instant.now();
+                userRepository.save(User.create(
+                                phoneNormalizer.normalize("0911000001"),
+                                "Admin User",
+                                passwordEncoder.encode("AdminPass123!"),
+                                AccountStatus.ACTIVE,
+                                Set.of(UserRole.ADMIN),
+                                now));
 
-        userRepository.save(User.create(
-                phoneNormalizer.normalize("0911000002"),
-                "Agent User",
-                passwordEncoder.encode("AgentPass123!"),
-                AccountStatus.ACTIVE,
-                Set.of(UserRole.AGENT),
-                now));
-    }
+                userRepository.save(User.create(
+                                phoneNormalizer.normalize("0911000002"),
+                                "Agent User",
+                                passwordEncoder.encode("AgentPass123!"),
+                                AccountStatus.ACTIVE,
+                                Set.of(UserRole.AGENT),
+                                now));
+        }
 
-    @Test
-    void registerLoginAndProtectionWork() throws Exception {
-        String registerJson = objectMapper.writeValueAsString(new RegisterRequest(
-                "Player One",
-                "09 11 00 00 03",
-                "PlayerPass123!"));
+        @Test
+        void registerLoginAndProtectionWork() throws Exception {
+                String registerJson = objectMapper.writeValueAsString(new RegisterRequest(
+                                "Player One",
+                                "09 11 00 00 03",
+                                "123456"));
 
-        mockMvc.perform(post("/api/v1/auth/register")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(registerJson))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.accessToken").exists())
-                .andExpect(jsonPath("$.user.phoneNumber").value("251911000003"))
-                .andExpect(jsonPath("$.user.roles[0]").value("PLAYER"));
+                mockMvc.perform(post("/api/v1/auth/register")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(registerJson))
+                                .andExpect(status().isCreated())
+                                .andExpect(jsonPath("$.accessToken").exists())
+                                .andExpect(jsonPath("$.user.phoneNumber").value("251911000003"))
+                                .andExpect(jsonPath("$.user.roles[0]").value("PLAYER"));
 
-        String loginJson = objectMapper.writeValueAsString(new LoginRequest(
-                "0911000003",
-                "PlayerPass123!"));
+                String loginJson = objectMapper.writeValueAsString(new LoginRequest(
+                                "0911000003",
+                                "123456"));
 
-        String loginResponse = mockMvc.perform(post("/api/v1/auth/login")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(loginJson))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.accessToken").exists())
-                .andExpect(jsonPath("$.user.passwordHash").doesNotExist())
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
+                String loginResponse = mockMvc.perform(post("/api/v1/auth/login")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(loginJson))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.accessToken").exists())
+                                .andExpect(jsonPath("$.user.passwordHash").doesNotExist())
+                                .andReturn()
+                                .getResponse()
+                                .getContentAsString();
 
-        String playerToken = objectMapper.readTree(loginResponse).get("accessToken").asText();
+                String playerToken = objectMapper.readTree(loginResponse).get("accessToken").asText();
 
-        mockMvc.perform(get("/api/v1/me")
-                .header("Authorization", "Bearer " + playerToken))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.user.phoneNumber").value("251911000003"));
+                mockMvc.perform(get("/api/v1/me")
+                                .header("Authorization", "Bearer " + playerToken))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.user.phoneNumber").value("251911000003"));
 
-        mockMvc.perform(get("/api/v1/admin/users")
-                .header("Authorization", "Bearer " + playerToken))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.correlationId").exists());
-    }
+                mockMvc.perform(get("/api/v1/admin/users")
+                                .header("Authorization", "Bearer " + playerToken))
+                                .andExpect(status().isForbidden())
+                                .andExpect(jsonPath("$.correlationId").exists());
+        }
 
-    @Test
-    void adminEndpointIsProtectedByRole() throws Exception {
-        String adminLoginJson = objectMapper.writeValueAsString(new LoginRequest(
-                "0911000001",
-                "AdminPass123!"));
+        @Test
+        void adminEndpointIsProtectedByRole() throws Exception {
+                String adminLoginJson = objectMapper.writeValueAsString(new LoginRequest(
+                                "0911000001",
+                                "AdminPass123!"));
 
-        String adminToken = objectMapper.readTree(mockMvc.perform(post("/api/v1/auth/login")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(adminLoginJson))
-                .andExpect(status().isOk())
-                .andReturn()
-                .getResponse()
-                .getContentAsString()).get("accessToken").asText();
+                String adminToken = objectMapper.readTree(mockMvc.perform(post("/api/v1/auth/login")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(adminLoginJson))
+                                .andExpect(status().isOk())
+                                .andReturn()
+                                .getResponse()
+                                .getContentAsString()).get("accessToken").asText();
 
-        mockMvc.perform(get("/api/v1/admin/users")
-                .header("Authorization", "Bearer " + adminToken))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content", hasSize(1)))
-                .andExpect(jsonPath("$.page").value(0))
-                .andExpect(jsonPath("$.size").value(20));
-    }
+                mockMvc.perform(get("/api/v1/admin/users")
+                                .header("Authorization", "Bearer " + adminToken))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.content", hasSize(1)))
+                                .andExpect(jsonPath("$.page").value(0))
+                                .andExpect(jsonPath("$.size").value(20));
+        }
 }
