@@ -9,7 +9,7 @@ class AppLocalizationsAm extends AppLocalizations {
   AppLocalizationsAm([String locale = 'am']) : super(locale);
 
   @override
-  String get appTitle => 'ቢንጎ';
+  String get appTitle => 'Sunset Bingo';
 
   @override
   String get missingApiBaseUrlTitle => 'የAPI መሠረት URL አልተገለጸም';

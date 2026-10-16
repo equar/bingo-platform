@@ -1,6 +1,6 @@
 {
   "@@locale": "am",
-  "appTitle": "ቢንጎ",
+  "appTitle": "Sunset Bingo",
   "missingApiBaseUrlTitle": "የAPI መሠረት URL አልተገለጸም",
   "missingApiBaseUrlBody": "አፕሊኬሽኑን --dart-define=API_BASE_URL=... በማስነሳት ወደ backend ይደርሱ።",
   "loading": "በመጫን ላይ...",

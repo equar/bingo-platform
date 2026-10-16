@@ -9,7 +9,7 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
-  String get appTitle => 'Bingo';
+  String get appTitle => 'Sunset Bingo';
 
   @override
   String get missingApiBaseUrlTitle => 'API base URL is missing';

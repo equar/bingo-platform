@@ -1,6 +1,6 @@
 {
   "@@locale": "en",
-  "appTitle": "Bingo",
+  "appTitle": "Sunset Bingo",
   "missingApiBaseUrlTitle": "API base URL is missing",
   "missingApiBaseUrlBody": "Start the app with --dart-define=API_BASE_URL=... so the client can reach the backend.",
   "loading": "Loading...",
