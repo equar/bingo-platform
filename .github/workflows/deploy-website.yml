@@ -1,0 +1,89 @@
+name: Deploy Bingo Website
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Validate the deployment without changing AWS
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: bingo-website-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: bingo-website-production
+    env:
+      AWS_REGION: ${{ vars.BINGO_AWS_REGION }}
+      WEBSITE_BUCKET: ${{ vars.BINGO_WEBSITE_BUCKET }}
+      CLOUDFRONT_DISTRIBUTION_ID: ${{ vars.BINGO_WEBSITE_CLOUDFRONT_DISTRIBUTION_ID }}
+      DRY_RUN: ${{ inputs.dry_run }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: bingo-website/package-lock.json
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.BINGO_AWS_ROLE_ARN }}
+          aws-region: ${{ vars.BINGO_AWS_REGION }}
+
+      - name: Build website artifact
+        working-directory: bingo-website
+        run: |
+          npm ci
+          npm run check
+          npm run validate:links
+          npm run build
+
+      - name: Validate website deployment inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${AWS_REGION:-}" ]]; then
+            echo 'ERROR: BINGO_AWS_REGION variable is required.' >&2
+            exit 1
+          fi
+
+          if [[ -z "${WEBSITE_BUCKET:-}" ]]; then
+            echo 'ERROR: BINGO_WEBSITE_BUCKET variable is required.' >&2
+            exit 1
+          fi
+
+      - name: Dry run website deploy
+        if: ${{ env.DRY_RUN == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Would sync bingo-website/dist to s3://${WEBSITE_BUCKET}"
+          if [[ -n "${CLOUDFRONT_DISTRIBUTION_ID:-}" ]]; then
+            echo "Would invalidate CloudFront distribution ${CLOUDFRONT_DISTRIBUTION_ID}"
+          fi
+
+      - name: Sync website artifact to S3
+        if: ${{ env.DRY_RUN != 'true' }}
+        run: |
+          aws s3 sync bingo-website/dist "s3://${WEBSITE_BUCKET}" --delete
+
+      - name: Invalidate CloudFront cache
+        if: ${{ env.DRY_RUN != 'true' && env.CLOUDFRONT_DISTRIBUTION_ID != '' }}
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \
+            --paths '/*'

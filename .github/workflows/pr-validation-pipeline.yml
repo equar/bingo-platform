@@ -1,0 +1,124 @@
+name: PR Validation Pipeline
+
+on:
+  pull_request:
+    branches:
+      - main
+      - public-landing-website
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bingo-pr-validation-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend compile, test, and package
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      mysql:
+        image: mysql:8.0.36
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: bingo_ci
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
+    env:
+      SPRING_PROFILES_ACTIVE: test
+      SPRING_DATASOURCE_URL: "jdbc:mysql://127.0.0.1:3306/bingo_ci?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC"
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: com.mysql.cj.jdbc.Driver
+      SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT: org.hibernate.dialect.MySQLDialect
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+
+      - name: Run Maven verify against MySQL
+        working-directory: bingo-backend
+        run: mvn -q verify
+
+      - name: Upload backend test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bingo-backend-test-reports
+          path: |
+            bingo-backend/target/surefire-reports/**
+            bingo-backend/target/failsafe-reports/**
+          if-no-files-found: ignore
+
+      - name: Upload backend build artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bingo-backend-jar
+          path: bingo-backend/target/*.jar
+          if-no-files-found: ignore
+
+  admin:
+    name: Admin install, test, typecheck, and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      VITE_API_BASE_URL: http://127.0.0.1:8080
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: bingo-admin/package-lock.json
+
+      - name: Install admin dependencies
+        working-directory: bingo-admin
+        run: npm ci
+
+      - name: Run admin tests
+        working-directory: bingo-admin
+        run: |
+          mkdir -p test-results
+          npm test -- --reporter=junit --outputFile=test-results/vitest-junit.xml
+
+      - name: Run TypeScript check
+        working-directory: bingo-admin
+        run: npx tsc -b --pretty false
+
+      - name: Build admin bundle
+        working-directory: bingo-admin
+        run: npm run build
+
+      - name: Upload admin test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bingo-admin-test-results
+          path: bingo-admin/test-results/**
+          if-no-files-found: ignore
+
+      - name: Upload admin build artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bingo-admin-dist
+          path: bingo-admin/dist/**
+          if-no-files-found: ignore

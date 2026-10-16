@@ -1,0 +1,93 @@
+name: Deploy Bingo Backend
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Validate the deployment without changing the remote host
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bingo-backend-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: bingo-backend-production
+    env:
+      SERVER: ${{ vars.BINGO_SERVER }}
+      SSH_KEY: ${{ runner.temp }}/bingo-backend-deploy.key
+      BACKEND_ENV_FILE: ${{ runner.temp }}/bingo-backend.env
+      BACKEND_SERVICE_NAME: ${{ vars.BINGO_BACKEND_SERVICE_NAME }}
+      REMOTE_BACKEND_ROOT: ${{ vars.BINGO_REMOTE_BACKEND_ROOT }}
+      SERVICE_USER: ${{ vars.BINGO_SERVICE_USER }}
+      DRY_RUN: ${{ inputs.dry_run }}
+      BINGO_SSH_KEY_B64: ${{ secrets.BINGO_SSH_KEY_B64 }}
+      BINGO_BACKEND_ENV_FILE_B64: ${{ secrets.BINGO_BACKEND_ENV_FILE_B64 }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+
+      - name: Prepare deployment inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+
+          if [[ -z "${SERVER:-}" ]]; then
+            echo 'ERROR: BINGO_SERVER variable is required.' >&2
+            exit 1
+          fi
+
+          if [[ -z "${BINGO_SSH_KEY_B64:-}" ]]; then
+            echo 'ERROR: BINGO_SSH_KEY_B64 secret is required.' >&2
+            exit 1
+          fi
+
+          if [[ -z "${BINGO_BACKEND_ENV_FILE_B64:-}" ]]; then
+            echo 'ERROR: BINGO_BACKEND_ENV_FILE_B64 secret is required.' >&2
+            exit 1
+          fi
+
+          printf '%s' "$BINGO_SSH_KEY_B64" | base64 -d > "$SSH_KEY"
+          printf '%s' "$BINGO_BACKEND_ENV_FILE_B64" | base64 -d > "$BACKEND_ENV_FILE"
+          chmod 600 "$SSH_KEY" "$BACKEND_ENV_FILE"
+
+      - name: Build backend release artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          BACKEND_JAR_PATH="$(${GITHUB_WORKSPACE}/deployment/backend/build-backend.sh)"
+          printf 'BACKEND_JAR_PATH=%s\n' "$BACKEND_JAR_PATH" >> "$GITHUB_ENV"
+
+      - name: Deploy backend release
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${DRY_RUN}" == "true" ]]; then
+            "${GITHUB_WORKSPACE}/deployment/backend/deploy-backend.sh" \
+              --dry-run \
+              --server "$SERVER" \
+              --ssh-key "$SSH_KEY" \
+              --env-file "$BACKEND_ENV_FILE" \
+              --backend-jar "$BACKEND_JAR_PATH"
+          else
+            "${GITHUB_WORKSPACE}/deployment/backend/deploy-backend.sh" \
+              --server "$SERVER" \
+              --ssh-key "$SSH_KEY" \
+              --env-file "$BACKEND_ENV_FILE" \
+              --backend-jar "$BACKEND_JAR_PATH"
+          fi
