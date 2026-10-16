@@ -12,14 +12,14 @@ while [[ $# -gt 0 ]]; do
       BACKEND_ARGS+=(--dry-run)
       ADMIN_ARGS+=(--dry-run)
       ;;
-    --backend-env-file|--server|--ssh-key|--backend-service-name|--remote-backend-root|--service-user)
+    --backend-env-file|--backend-jar|--server|--ssh-key|--backend-service-name|--remote-backend-root|--service-user)
       BACKEND_ARGS+=("$1" "$2")
       if [[ "$1" == "--server" || "$1" == "--ssh-key" ]]; then
         ADMIN_ARGS+=("$1" "$2")
       fi
       shift
       ;;
-    --public-url|--remote-admin-root)
+    --public-url|--admin-dist|--remote-admin-root)
       ADMIN_ARGS+=("$1" "$2")
       shift
       ;;
@@ -29,6 +29,7 @@ Usage: deploy-all.sh [--dry-run] [backend options] [admin options]
 
 Backend options:
   --backend-env-file PATH
+  --backend-jar PATH
   --server USER@HOST
   --ssh-key PATH
   --remote-backend-root PATH
@@ -37,6 +38,7 @@ Backend options:
 
 Admin options:
   --public-url https://bingo.example.com
+  --admin-dist PATH
   --server USER@HOST
   --ssh-key PATH
   --remote-admin-root PATH

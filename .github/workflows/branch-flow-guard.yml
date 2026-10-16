@@ -1,0 +1,46 @@
+name: Branch Flow Guard
+
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - edited
+      - ready_for_review
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bingo-branch-guard-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enforce Bingo branch flow
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const base = context.payload.pull_request.base.ref;
+            const head = context.payload.pull_request.head.ref;
+            const allowedTargets = new Set(['main', 'public-landing-website']);
+
+            if (!allowedTargets.has(base)) {
+              core.setFailed(`Unsupported PR target "${base}". Bingo PRs should target main or public-landing-website.`);
+              return;
+            }
+
+            if (base === 'main' && head !== 'public-landing-website') {
+              core.setFailed(`Only public-landing-website can merge directly into main. Current head: ${head}.`);
+              return;
+            }
+
+            if (base === 'public-landing-website' && head === 'main') {
+              core.setFailed('main must not be merged back into public-landing-website.');
+              return;
+            }
+
+            core.notice(`Allowed Bingo PR flow: ${head} -> ${base}`);

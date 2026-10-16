@@ -1,6 +1,6 @@
 # Bingo deployment
 
-This directory contains the production deployment scripts and templates for the Bingo backend and admin app.
+This directory contains the production deployment scripts and templates for the Bingo backend, admin app, and public website.
 
 The layout follows the same general pattern as the BillPay deployment folder:
 
@@ -14,6 +14,7 @@ The layout follows the same general pattern as the BillPay deployment folder:
 
 - `bingo-backend` Spring Boot 3.3 / Java 17 / Maven / MySQL / Flyway
 - `bingo-admin` React / TypeScript / Vite SPA
+- `bingo-website` Astro static site deployed to AWS S3, with optional CloudFront invalidation
 
 The Flutter player app and the agent app are intentionally not part of this deployment set.
 
@@ -32,6 +33,7 @@ The Flutter player app and the agent app are intentionally not part of this depl
 - [admin/admin.env.example](admin/admin.env.example)
 - [admin/nginx-bingo.conf](admin/nginx-bingo.conf)
 - [deploy-all.sh](deploy-all.sh)
+- [.github/workflows/deploy-website.yml](../.github/workflows/deploy-website.yml)
 - [.github/workflows/deploy-aws.yml](../.github/workflows/deploy-aws.yml)
 
 ## Prerequisites

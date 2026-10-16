@@ -1,26 +1,25 @@
-name: Deploy Bingo to AWS
+name: Deploy Bingo All
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
     inputs:
       dry_run:
-        description: "Validate the deployment without changing AWS"
+        description: Validate the deployment without changing the remote host
         type: boolean
         required: false
         default: false
 
+permissions:
+  contents: read
+
 concurrency:
-  group: bingo-aws-production
+  group: bingo-production
   cancel-in-progress: false
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     environment: bingo-production
-
     env:
       SERVER: ${{ vars.BINGO_SERVER }}
       SSH_KEY: ${{ runner.temp }}/bingo-deploy.key
@@ -30,10 +29,9 @@ jobs:
       REMOTE_ADMIN_ROOT: ${{ vars.BINGO_REMOTE_ADMIN_ROOT }}
       SERVICE_USER: ${{ vars.BINGO_SERVICE_USER }}
       ADMIN_PUBLIC_URL: ${{ vars.BINGO_ADMIN_PUBLIC_URL }}
-      DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || false }}
+      DRY_RUN: ${{ inputs.dry_run }}
       BINGO_SSH_KEY_B64: ${{ secrets.BINGO_SSH_KEY_B64 }}
       BINGO_BACKEND_ENV_FILE_B64: ${{ secrets.BINGO_BACKEND_ENV_FILE_B64 }}
-
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -82,33 +80,47 @@ jobs:
           printf '%s' "$BINGO_BACKEND_ENV_FILE_B64" | base64 -d > "$BACKEND_ENV_FILE"
           chmod 600 "$SSH_KEY" "$BACKEND_ENV_FILE"
 
-      - name: Run dry run
-        if: ${{ env.DRY_RUN == 'true' }}
+      - name: Build backend release artifact
         shell: bash
         run: |
           set -euo pipefail
-          deployment/deploy-all.sh \
-            --dry-run \
-            --server "$SERVER" \
-            --ssh-key "$SSH_KEY" \
-            --backend-env-file "$BACKEND_ENV_FILE" \
-            --backend-service-name "${BACKEND_SERVICE_NAME:-bingo-backend}" \
-            --remote-backend-root "${REMOTE_BACKEND_ROOT:-/opt/bingo/backend}" \
-            --service-user "${SERVICE_USER:-bingo}" \
-            --public-url "$ADMIN_PUBLIC_URL" \
-            --remote-admin-root "${REMOTE_ADMIN_ROOT:-/var/www/bingo-admin}"
+          BACKEND_JAR_PATH="$(${GITHUB_WORKSPACE}/deployment/backend/build-backend.sh)"
+          printf 'BACKEND_JAR_PATH=%s\n' "$BACKEND_JAR_PATH" >> "$GITHUB_ENV"
 
-      - name: Deploy to AWS
-        if: ${{ env.DRY_RUN != 'true' }}
+      - name: Build admin release artifact
         shell: bash
         run: |
           set -euo pipefail
-          deployment/deploy-all.sh \
-            --server "$SERVER" \
-            --ssh-key "$SSH_KEY" \
-            --backend-env-file "$BACKEND_ENV_FILE" \
-            --backend-service-name "${BACKEND_SERVICE_NAME:-bingo-backend}" \
-            --remote-backend-root "${REMOTE_BACKEND_ROOT:-/opt/bingo/backend}" \
-            --service-user "${SERVICE_USER:-bingo}" \
-            --public-url "$ADMIN_PUBLIC_URL" \
-            --remote-admin-root "${REMOTE_ADMIN_ROOT:-/var/www/bingo-admin}"
+          ADMIN_DIST_DIR="$(${GITHUB_WORKSPACE}/deployment/admin/build-admin.sh --api-base-url "$ADMIN_PUBLIC_URL")"
+          printf 'ADMIN_DIST_DIR=%s\n' "$ADMIN_DIST_DIR" >> "$GITHUB_ENV"
+
+      - name: Deploy backend and admin releases
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${DRY_RUN}" == "true" ]]; then
+            "${GITHUB_WORKSPACE}/deployment/deploy-all.sh" \
+              --dry-run \
+              --server "$SERVER" \
+              --ssh-key "$SSH_KEY" \
+              --backend-env-file "$BACKEND_ENV_FILE" \
+              --backend-jar "$BACKEND_JAR_PATH" \
+              --backend-service-name "${BACKEND_SERVICE_NAME:-bingo-backend}" \
+              --remote-backend-root "${REMOTE_BACKEND_ROOT:-/opt/bingo/backend}" \
+              --service-user "${SERVICE_USER:-bingo}" \
+              --public-url "$ADMIN_PUBLIC_URL" \
+              --admin-dist "$ADMIN_DIST_DIR" \
+              --remote-admin-root "${REMOTE_ADMIN_ROOT:-/var/www/bingo-admin}"
+          else
+            "${GITHUB_WORKSPACE}/deployment/deploy-all.sh" \
+              --server "$SERVER" \
+              --ssh-key "$SSH_KEY" \
+              --backend-env-file "$BACKEND_ENV_FILE" \
+              --backend-jar "$BACKEND_JAR_PATH" \
+              --backend-service-name "${BACKEND_SERVICE_NAME:-bingo-backend}" \
+              --remote-backend-root "${REMOTE_BACKEND_ROOT:-/opt/bingo/backend}" \
+              --service-user "${SERVICE_USER:-bingo}" \
+              --public-url "$ADMIN_PUBLIC_URL" \
+              --admin-dist "$ADMIN_DIST_DIR" \
+              --remote-admin-root "${REMOTE_ADMIN_ROOT:-/var/www/bingo-admin}"
+          fi
