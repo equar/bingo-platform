@@ -38,7 +38,10 @@ public class SecurityConfig {
                                 "http://localhost:3001",
                                 "http://127.0.0.1:3001",
                                 "http://localhost:3002",
-                                "http://127.0.0.1:3002"));
+                                "http://127.0.0.1:3002",
+                                "http://localhost:*",
+                                "http://127.0.0.1:*",
+                                "http://[::1]:*"));
                 configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
                 configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Correlation-Id"));
                 configuration.setExposedHeaders(List.of("X-Correlation-Id"));

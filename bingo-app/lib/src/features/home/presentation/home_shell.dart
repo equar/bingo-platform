@@ -17,14 +17,13 @@ class _HomeShellState extends State<HomeShell> {
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context)!;
-    final pages = [
-      const LobbyScreen(),
-      const WalletScreen(),
-      const ProfileScreen(),
-    ];
 
     return Scaffold(
-      body: IndexedStack(index: _index, children: pages),
+      body: switch (_index) {
+        0 => const LobbyScreen(),
+        1 => const WalletScreen(),
+        _ => const ProfileScreen(),
+      },
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: (index) => setState(() => _index = index),

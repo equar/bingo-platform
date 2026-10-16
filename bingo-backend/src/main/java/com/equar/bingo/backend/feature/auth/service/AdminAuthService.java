@@ -1,6 +1,7 @@
 package com.equar.bingo.backend.feature.auth.service;
 
 import com.equar.bingo.backend.common.exception.NotFoundException;
+import com.equar.bingo.backend.feature.auth.dto.ChangePasswordRequest;
 import com.equar.bingo.backend.feature.auth.dto.AdminLoginRequest;
 import com.equar.bingo.backend.feature.auth.dto.AuthResponse;
 import com.equar.bingo.backend.feature.user.entity.User;
@@ -41,6 +42,19 @@ public class AdminAuthService {
 
         String token = jwtService.generateToken(user);
         return new AuthResponse(token, "Bearer", jwtService.getExpirationSeconds(), toProfile(user));
+    }
+
+    @Transactional
+    public void changePassword(Long userId, ChangePasswordRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new NotFoundException("USER_NOT_FOUND", "User account not found"));
+
+        if (!passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
+            throw new BadCredentialsException("Current password is incorrect");
+        }
+
+        user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
+        userRepository.save(user);
     }
 
     private String normalizeEmail(String rawEmail) {

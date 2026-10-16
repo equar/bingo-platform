@@ -44,7 +44,9 @@ class LiveGameState {
     this.ticketPage,
     this.claimPage,
     this.draws = const [],
+    this.isPurchasingTicket = false,
     this.isSubmittingClaim = false,
+    this.pendingPurchaseIdempotencyKey,
     this.selectedClaimPattern,
     this.pendingClaimIdempotencyKey,
     this.infoMessage,
@@ -59,7 +61,9 @@ class LiveGameState {
   final int selectedTicketIndex;
   final PageResult<WinClaimRecord>? claimPage;
   final List<LiveDrawEvent> draws;
+  final bool isPurchasingTicket;
   final bool isSubmittingClaim;
+  final String? pendingPurchaseIdempotencyKey;
   final String? selectedClaimPattern;
   final String? pendingClaimIdempotencyKey;
   final String? infoMessage;
@@ -93,7 +97,9 @@ class LiveGameState {
     int? selectedTicketIndex,
     Object? claimPage = _stateUnset,
     Object? draws = _stateUnset,
+    bool? isPurchasingTicket,
     bool? isSubmittingClaim,
+    Object? pendingPurchaseIdempotencyKey = _stateUnset,
     Object? selectedClaimPattern = _stateUnset,
     Object? pendingClaimIdempotencyKey = _stateUnset,
     Object? infoMessage = _stateUnset,
@@ -108,7 +114,11 @@ class LiveGameState {
       selectedTicketIndex: selectedTicketIndex ?? this.selectedTicketIndex,
       claimPage: claimPage == _stateUnset ? this.claimPage : claimPage as PageResult<WinClaimRecord>?,
       draws: draws == _stateUnset ? this.draws : draws as List<LiveDrawEvent>,
+        isPurchasingTicket: isPurchasingTicket ?? this.isPurchasingTicket,
       isSubmittingClaim: isSubmittingClaim ?? this.isSubmittingClaim,
+        pendingPurchaseIdempotencyKey: pendingPurchaseIdempotencyKey == _stateUnset
+          ? this.pendingPurchaseIdempotencyKey
+          : pendingPurchaseIdempotencyKey as String?,
       selectedClaimPattern: selectedClaimPattern == _stateUnset
           ? this.selectedClaimPattern
           : selectedClaimPattern as String?,
@@ -187,6 +197,48 @@ class LiveGameController extends StateNotifier<LiveGameState> {
     await _connectAndSync(isResume: true);
   }
 
+  Future<void> purchaseTicket() async {
+    if (_disposed || state.isTerminalSession) {
+      return;
+    }
+
+    final authSession = _readAuthSession().session;
+    if (authSession == null || authSession.isExpired) {
+      await _expireSession();
+      return;
+    }
+
+    final idempotencyKey = state.pendingPurchaseIdempotencyKey ?? _uuid.v4();
+    state = state.copyWith(
+      isPurchasingTicket: true,
+      pendingPurchaseIdempotencyKey: idempotencyKey,
+      infoMessage: null,
+      errorMessage: null,
+    );
+
+    try {
+      final purchase = await _repository.purchaseTicket(sessionId, idempotencyKey);
+      await _loadSnapshotAndHistory(selectedTicketId: purchase.ticket.id);
+      if (_disposed) {
+        return;
+      }
+      state = state.copyWith(
+        isPurchasingTicket: false,
+        pendingPurchaseIdempotencyKey: null,
+        infoMessage: 'TICKET_PURCHASED',
+      );
+    } catch (error) {
+      if (_isAuthError(error)) {
+        await _expireSession();
+        return;
+      }
+      state = state.copyWith(
+        isPurchasingTicket: false,
+        errorMessage: error.toString(),
+      );
+    }
+  }
+
   Future<void> selectTicketPage(int pageIndex) async {
     if (_disposed || pageIndex < 0 || pageIndex == state.ticketPageIndex) {
       return;
@@ -249,6 +301,9 @@ class LiveGameController extends StateNotifier<LiveGameState> {
 
   @override
   void dispose() {
+    if (_disposed) {
+      return;
+    }
     _disposed = true;
     _transport.disconnect();
     super.dispose();
@@ -314,16 +369,32 @@ class LiveGameController extends StateNotifier<LiveGameState> {
     }
   }
 
-  Future<void> _loadSnapshotAndHistory() async {
+  Future<void> _loadSnapshotAndHistory({int? selectedTicketId}) async {
     final session = await _repository.getSession(sessionId);
+    if (_disposed) {
+      return;
+    }
     final ticketPage = await _repository.getMyTickets(sessionId, page: state.ticketPageIndex, size: _ticketPageSize);
+    if (_disposed) {
+      return;
+    }
     final claimPage = await _repository.getMyWinClaims(page: 0, size: _claimPageSize);
+    if (_disposed) {
+      return;
+    }
     final missingDraws = await _repository.getDraws(sessionId, afterSequence: _timeline.lastSequence);
+    if (_disposed) {
+      return;
+    }
+
+    final selectedTicketIndex = selectedTicketId == null
+        ? _clampSelectedTicketIndex(ticketPage)
+        : _ticketIndexForId(ticketPage, selectedTicketId);
 
     state = state.copyWith(
       session: session,
       ticketPage: ticketPage,
-      selectedTicketIndex: _clampSelectedTicketIndex(ticketPage),
+      selectedTicketIndex: selectedTicketIndex,
       claimPage: claimPage,
       selectedClaimPattern: state.selectedClaimPattern ?? _defaultClaimPattern(session),
       infoMessage: null,
@@ -471,6 +542,14 @@ class LiveGameController extends StateNotifier<LiveGameState> {
       return ticketPage.content.length - 1;
     }
     return state.selectedTicketIndex;
+  }
+
+  int _ticketIndexForId(PageResult<TicketResponse> ticketPage, int ticketId) {
+    final index = ticketPage.content.indexWhere((ticket) => ticket.id == ticketId);
+    if (index >= 0) {
+      return index;
+    }
+    return _clampSelectedTicketIndex(ticketPage);
   }
 
   String? _defaultClaimPattern(GameSession session) {

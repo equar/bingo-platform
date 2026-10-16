@@ -1,27 +1,28 @@
-import {
-  Alert,
-  Button,
-  Container,
-  InputAdornment,
-  Paper,
-  Stack,
-  TextField,
-  Typography,
-} from "@mui/material";
+import { Alert, Button, Container, InputAdornment, Paper, Stack, TextField, Typography } from "@mui/material";
 import { useMutation } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { login } from "../../api/admin";
 import { clearSession, writeSession } from "../../api/session";
 import { parseApiError } from "../../api/types";
 
+const LOGIN_EMAIL_KEY = "bingo-admin-login-email";
+
 export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(() => window.localStorage.getItem(LOGIN_EMAIL_KEY) ?? "");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (email.trim()) {
+      window.localStorage.setItem(LOGIN_EMAIL_KEY, email.trim());
+    } else {
+      window.localStorage.removeItem(LOGIN_EMAIL_KEY);
+    }
+  }, [email]);
 
   const redirectTo = useMemo(() => {
     return typeof location.state === "object" && location.state && "from" in location.state
@@ -71,7 +72,8 @@ export function LoginPage() {
               label="Email address"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              autoComplete="email"
+              name="email"
+              autoComplete="username"
               fullWidth
               required
             />
@@ -80,6 +82,7 @@ export function LoginPage() {
               type={showPassword ? "text" : "password"}
               value={password}
               onChange={(event) => setPassword(event.target.value)}
+              name="password"
               autoComplete="current-password"
               fullWidth
               required

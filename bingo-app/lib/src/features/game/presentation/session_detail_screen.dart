@@ -76,7 +76,7 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> with 
                 ),
                 const SizedBox(height: 16),
               ],
-              _SessionSummaryCard(session: session, state: state, localizations: localizations),
+              _SessionSummaryCard(session: session, state: state, controller: controller, localizations: localizations),
               const SizedBox(height: 16),
               _CalledNumbersCard(draws: state.draws, localizations: localizations),
               const SizedBox(height: 16),
@@ -96,10 +96,11 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> with 
 }
 
 class _SessionSummaryCard extends StatelessWidget {
-  const _SessionSummaryCard({required this.session, required this.state, required this.localizations});
+  const _SessionSummaryCard({required this.session, required this.state, required this.controller, required this.localizations});
 
   final GameSession session;
   final LiveGameState state;
+  final LiveGameController controller;
   final AppLocalizations localizations;
 
   @override
@@ -135,6 +136,25 @@ class _SessionSummaryCard extends StatelessWidget {
               _InfoChip(label: localizations.availableSeatsLabel, value: session.availableSeats.toString()),
             ],
           ),
+          const SizedBox(height: 12),
+          if (session.state == 'OPEN')
+            FilledButton.icon(
+              key: const ValueKey('buy-ticket-button'),
+              onPressed: state.isPurchasingTicket ? null : controller.purchaseTicket,
+              icon: state.isPurchasingTicket
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.confirmation_number_outlined),
+              label: Text(localizations.purchaseTicket),
+            )
+          else
+            Text(
+              localizations.purchaseTicketBody,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          if (state.infoMessage == 'TICKET_PURCHASED') ...[
+            const SizedBox(height: 8),
+            Text(localizations.purchaseSuccess, style: TextStyle(color: Theme.of(context).colorScheme.primary)),
+          ],
           if (state.isTerminalSession) ...[
             const SizedBox(height: 12),
             Text(localizations.liveConnectionFinished, style: TextStyle(color: Theme.of(context).colorScheme.primary)),
@@ -278,6 +298,7 @@ class _TicketGridCard extends StatelessWidget {
               final isCalled = isFree || calledNumbers.contains(value);
               final isLatest = value == latestCalled;
               return _TicketCell(
+                key: ValueKey('ticket-cell-$row-$column'),
                 value: value,
                 isFree: isFree,
                 isCalled: isCalled,
@@ -312,6 +333,7 @@ class _ClaimCard extends StatelessWidget {
           Text(localizations.claimSettlementLabel, style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
+            key: const ValueKey('claim-pattern-field'),
             value: state.selectedClaimPattern,
             decoration: InputDecoration(labelText: localizations.claimPatternLabel),
             items: [
@@ -325,6 +347,7 @@ class _ClaimCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           FilledButton(
+            key: const ValueKey('claim-submit-button'),
             onPressed: state.isSubmittingClaim || ticket == null || state.selectedClaimPattern == null || state.isTerminalSession
                 ? null
                 : controller.submitClaim,
@@ -477,7 +500,7 @@ class _InfoChip extends StatelessWidget {
 }
 
 class _DrawChip extends StatelessWidget {
-  const _DrawChip({required this.number, required this.sequenceNo, required this.isLatest});
+  const _DrawChip({super.key, required this.number, required this.sequenceNo, required this.isLatest});
 
   final int number;
   final int sequenceNo;
@@ -501,6 +524,7 @@ class _DrawChip extends StatelessWidget {
 
 class _TicketCell extends StatelessWidget {
   const _TicketCell({
+    super.key,
     required this.value,
     required this.isFree,
     required this.isCalled,

@@ -79,7 +79,7 @@ export function ClaimsPage() {
       <Grid container spacing={2}>
         {(claimsQuery.data?.content ?? []).map((claim) => (
           <Grid item xs={12} md={6} key={claim.id}>
-            <Card sx={{ border: "1px solid", borderColor: "divider", height: "100%" }}>
+            <Card data-testid={`claim-card-${claim.id}`} sx={{ border: "1px solid", borderColor: "divider", height: "100%" }}>
               <CardContent>
                 <Stack spacing={1.25}>
                   <Box display="flex" justifyContent="space-between" gap={2}>
@@ -97,6 +97,7 @@ export function ClaimsPage() {
                   <Typography variant="body2">Evidence: {claim.evidenceJson ?? "n/a"}</Typography>
                   <Stack direction="row" spacing={1}>
                     <Button
+                      data-testid={`claim-approve-${claim.id}`}
                       variant="contained"
                       onClick={() => {
                         setMode("APPROVE");
@@ -107,6 +108,7 @@ export function ClaimsPage() {
                       Approve
                     </Button>
                     <Button
+                      data-testid={`claim-reject-${claim.id}`}
                       variant="outlined"
                       onClick={() => {
                         setMode("REJECT");

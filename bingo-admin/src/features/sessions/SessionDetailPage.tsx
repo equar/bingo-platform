@@ -175,6 +175,7 @@ export function SessionDetailPage() {
                   {availableTransitions.map((nextState: string) => (
                     <Button
                       key={nextState}
+                      data-testid={`session-transition-${nextState.toLowerCase()}`}
                       size="small"
                       variant="outlined"
                       onClick={() => stateMutation.mutate(nextState)}
@@ -205,6 +206,7 @@ export function SessionDetailPage() {
                   </Grid>
                   <Grid item xs={12} md={4}>
                     <Button
+                      data-testid="post-draw-button"
                       fullWidth
                       variant="contained"
                       onClick={() => drawMutation.mutate(numberDrawn)}

@@ -11,12 +11,15 @@ import { SessionDetailPage } from "../features/sessions/SessionDetailPage";
 import { PlayersPage } from "../features/players/PlayersPage";
 import { PlayerDetailPage } from "../features/players/PlayerDetailPage";
 import { ClaimsPage } from "../features/claims/ClaimsPage";
+import { PrizeEntitlementsPage } from "../features/prizeEntitlements/PrizeEntitlementsPage";
 import { DepositsPage } from "../features/deposits/DepositsPage";
 import { AuditLogsPage } from "../features/audit/AuditLogsPage";
 import { AgentsPage } from "../features/agents/AgentsPage";
 import { AgentDetailPage } from "../features/agents/AgentDetailPage";
 import { SupportTicketsPage } from "../features/support/SupportTicketsPage";
 import { SupportTicketDetailPage } from "../features/support/SupportTicketDetailPage";
+import { ProfilePage } from "../features/profile/ProfilePage";
+import { ChangePasswordPage } from "../features/profile/ChangePasswordPage";
 
 export function AppRouter() {
   return (
@@ -25,6 +28,8 @@ export function AppRouter() {
       <Route element={<ProtectedRoute allowedRoles={["ADMIN"]} />}>
         <Route element={<AppShell />}>
           <Route index element={<Navigate to="/dashboard" replace />} />
+          <Route path="profile" element={<ProfilePage />} />
+          <Route path="change-password" element={<ChangePasswordPage />} />
           <Route path="management" element={<ManagementHomePage />} />
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="admin-users" element={<AdminUsersPage />} />
@@ -34,6 +39,7 @@ export function AppRouter() {
           <Route path="players" element={<PlayersPage />} />
           <Route path="players/:playerId" element={<PlayerDetailPage />} />
           <Route path="claims" element={<ClaimsPage />} />
+          <Route path="prize-entitlements" element={<PrizeEntitlementsPage />} />
           <Route path="deposits" element={<DepositsPage />} />
           <Route path="agents" element={<AgentsPage />} />
           <Route path="agents/:agentId" element={<AgentDetailPage />} />

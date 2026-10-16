@@ -98,6 +98,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                         children: [
                           if (_registerMode) ...[
                             TextFormField(
+                              key: const ValueKey('auth-display-name-field'),
                               controller: _displayNameController,
                               textInputAction: TextInputAction.next,
                               decoration: InputDecoration(labelText: localizations.displayNameLabel),
@@ -108,6 +109,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                             const SizedBox(height: 12),
                           ],
                           TextFormField(
+                            key: const ValueKey('auth-phone-field'),
                             controller: _phoneController,
                             textInputAction: TextInputAction.next,
                             keyboardType: TextInputType.phone,
@@ -121,6 +123,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                           ),
                           const SizedBox(height: 12),
                           TextFormField(
+                            key: const ValueKey('auth-password-field'),
                             controller: _pinController,
                             obscureText: true,
                             keyboardType: TextInputType.number,
@@ -138,6 +141,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                           ],
                           const SizedBox(height: 16),
                           FilledButton(
+                            key: const ValueKey('auth-submit-button'),
                             onPressed: _busy ? null : _submit,
                             child: _busy
                                 ? const SizedBox(
@@ -149,6 +153,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                           ),
                           const SizedBox(height: 8),
                           TextButton(
+                            key: const ValueKey('auth-toggle-button'),
                             onPressed: _busy
                                 ? null
                                 : () => setState(() {

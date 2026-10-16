@@ -66,6 +66,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                     Text(localizations.sessionGapBody),
                     const SizedBox(height: 16),
                     TextField(
+                      key: const ValueKey('session-id-field'),
                       controller: _sessionIdController,
                       keyboardType: TextInputType.number,
                       decoration: InputDecoration(

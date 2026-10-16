@@ -3,10 +3,12 @@ package com.equar.bingo.backend.feature.auth.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.equar.bingo.backend.config.JwtProperties;
+import com.equar.bingo.backend.feature.auth.dto.ChangePasswordRequest;
 import com.equar.bingo.backend.feature.auth.dto.AdminLoginRequest;
 import com.equar.bingo.backend.feature.user.entity.AccountStatus;
 import com.equar.bingo.backend.feature.user.entity.User;
@@ -87,5 +89,26 @@ class AdminAuthServiceTest {
 
         assertThrows(BadCredentialsException.class,
                 () -> service.login(new AdminLoginRequest("admin@example.com", "WrongPass!")));
+    }
+
+    @Test
+    void changePasswordValidatesCurrentPasswordAndPersistsNewHash() {
+        when(userRepository.findById(11L)).thenReturn(Optional.of(admin));
+        when(passwordEncoder.matches("OldPass123!", admin.getPasswordHash())).thenReturn(true);
+        when(passwordEncoder.encode("NewPass123!")).thenReturn("new-hash");
+
+        service.changePassword(11L, new ChangePasswordRequest("OldPass123!", "NewPass123!"));
+
+        assertThat(admin.getPasswordHash()).isEqualTo("new-hash");
+        verify(userRepository).save(admin);
+    }
+
+    @Test
+    void changePasswordRejectsIncorrectCurrentPassword() {
+        when(userRepository.findById(11L)).thenReturn(Optional.of(admin));
+        when(passwordEncoder.matches("WrongPass!", admin.getPasswordHash())).thenReturn(false);
+
+        assertThrows(BadCredentialsException.class,
+                () -> service.changePassword(11L, new ChangePasswordRequest("WrongPass!", "NewPass123!")));
     }
 }

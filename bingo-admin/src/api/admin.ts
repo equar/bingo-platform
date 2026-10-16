@@ -512,6 +512,11 @@ export interface LoginRequest {
   password: string;
 }
 
+export interface ChangeAdminPasswordRequest {
+  currentPassword: string;
+  newPassword: string;
+}
+
 export interface RegisterRequest {
   displayName: string;
   phoneNumber: string;
@@ -533,6 +538,10 @@ export function buildQuery(page?: PageRequest) {
 export async function login(request: LoginRequest) {
   const { data } = await http.post<AuthResponse>('/api/v1/admin/login', request);
   return data;
+}
+
+export async function changeAdminPassword(request: ChangeAdminPasswordRequest) {
+  await http.put('/api/v1/admin/me/password', request);
 }
 
 export async function me() {
@@ -643,6 +652,19 @@ export async function prizeEntitlements(page = 0, size = 20) {
   const { data } = await http.get<PageResponse<PrizeEntitlementResponse>>('/api/v1/admin/prize-entitlements', {
     params: { page, size },
   });
+  return data;
+}
+
+export interface PrizeEntitlementSettlementRequest {
+  settlementReference: string;
+  settlementNote?: string;
+}
+
+export async function settlePrizeEntitlement(
+  entitlementId: number,
+  body: PrizeEntitlementSettlementRequest,
+) {
+  const { data } = await http.post<PrizeEntitlementResponse>(`/api/v1/admin/prize-entitlements/${entitlementId}/settle`, body);
   return data;
 }
 

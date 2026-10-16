@@ -58,6 +58,9 @@ class _WalletScreenState extends ConsumerState<WalletScreen> with SingleTickerPr
       ref.invalidate(walletBalanceProvider);
       ref.invalidate(walletTransactionsProvider(_transactionPage));
       ref.invalidate(walletDepositsProvider(_depositPage));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.toString())));
     } finally {
       if (mounted) {
         setState(() => _submittingDeposit = false);
@@ -102,6 +105,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> with SingleTickerPr
                     Text(localizations.balanceDisclaimer),
                     const SizedBox(height: 12),
                     FilledButton(
+                      key: const ValueKey('wallet-submit-deposit-button'),
                       onPressed: _submittingDeposit ? null : () => _createDeposit(balance.currency),
                       child: _submittingDeposit
                           ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))

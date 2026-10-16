@@ -3,6 +3,11 @@ import { Link as RouterLink } from "react-router-dom";
 
 const sections = [
   {
+    title: "Profile",
+    description: "Update your password and manage your signed-in session.",
+    to: "/profile",
+  },
+  {
     title: "Admin users",
     description: "Create and maintain admin and support accounts.",
     to: "/admin-users",

@@ -49,6 +49,7 @@ class _DepositDialogState extends State<DepositDialog> {
           mainAxisSize: MainAxisSize.min,
           children: [
             TextFormField(
+              key: const ValueKey('deposit-amount-field'),
               controller: _amountController,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               decoration: InputDecoration(labelText: localizations.amountLabel),
@@ -56,6 +57,7 @@ class _DepositDialogState extends State<DepositDialog> {
             ),
             const SizedBox(height: 12),
             TextFormField(
+              key: const ValueKey('deposit-reference-field'),
               controller: _referenceController,
               decoration: InputDecoration(labelText: localizations.telebirrReferenceLabel),
               validator: (value) => (value == null || value.trim().isEmpty) ? localizations.requiredField : null,

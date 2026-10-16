@@ -79,7 +79,7 @@ export function DepositsPage() {
       <Grid container spacing={2}>
         {(depositsQuery.data?.content ?? []).map((deposit) => (
           <Grid item xs={12} md={6} key={deposit.id}>
-            <Card sx={{ border: "1px solid", borderColor: "divider", height: "100%" }}>
+            <Card data-testid={`deposit-card-${deposit.id}`} sx={{ border: "1px solid", borderColor: "divider", height: "100%" }}>
               <CardContent>
                 <Stack spacing={1.25}>
                   <Box display="flex" justifyContent="space-between" gap={2}>
@@ -100,6 +100,7 @@ export function DepositsPage() {
                   <Typography variant="body2">Operation: {deposit.operationId}</Typography>
                   <Stack direction="row" spacing={1}>
                     <Button
+                      data-testid={`deposit-approve-${deposit.id}`}
                       variant="contained"
                       onClick={() => {
                         setMode("APPROVE");
@@ -110,6 +111,7 @@ export function DepositsPage() {
                       Approve
                     </Button>
                     <Button
+                      data-testid={`deposit-reject-${deposit.id}`}
                       variant="outlined"
                       onClick={() => {
                         setMode("REJECT");

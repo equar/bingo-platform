@@ -18,5 +18,10 @@ target/
 /bingo-app/build/
 /bingo-admin/tsconfig.app.tsbuildinfo
 /bingo-admin/tsconfig.node.tsbuildinfo
+.env.local
+.env.*.local
+/test-results/
+/bingo-admin/test-results/
+/bingo-app/test-results/
 .tmp/
 *.log

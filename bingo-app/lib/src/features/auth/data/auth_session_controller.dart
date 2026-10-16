@@ -28,6 +28,9 @@ class AuthSessionController extends StateNotifier<AuthSessionState> {
 
   Future<void> restore() async {
     final stored = await _storage.readSession();
+    if (!mounted) {
+      return;
+    }
     final token = stored['token'];
     final expiresAt = stored['expiresAt'];
     final userJson = stored['userJson'];
