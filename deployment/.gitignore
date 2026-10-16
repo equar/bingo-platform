@@ -1,0 +1,7 @@
+*.env
+*.local
+*.secret
+*.pem
+*.key
+*.crt
+*.csr

@@ -1,0 +1,114 @@
+name: Deploy Bingo to AWS
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Validate the deployment without changing AWS"
+        type: boolean
+        required: false
+        default: false
+
+concurrency:
+  group: bingo-aws-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: bingo-production
+
+    env:
+      SERVER: ${{ vars.BINGO_SERVER }}
+      SSH_KEY: ${{ runner.temp }}/bingo-deploy.key
+      BACKEND_ENV_FILE: ${{ runner.temp }}/bingo-backend.env
+      BACKEND_SERVICE_NAME: ${{ vars.BINGO_BACKEND_SERVICE_NAME }}
+      REMOTE_BACKEND_ROOT: ${{ vars.BINGO_REMOTE_BACKEND_ROOT }}
+      REMOTE_ADMIN_ROOT: ${{ vars.BINGO_REMOTE_ADMIN_ROOT }}
+      SERVICE_USER: ${{ vars.BINGO_SERVICE_USER }}
+      ADMIN_PUBLIC_URL: ${{ vars.BINGO_ADMIN_PUBLIC_URL }}
+      DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || false }}
+      BINGO_SSH_KEY_B64: ${{ secrets.BINGO_SSH_KEY_B64 }}
+      BINGO_BACKEND_ENV_FILE_B64: ${{ secrets.BINGO_BACKEND_ENV_FILE_B64 }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: bingo-admin/package-lock.json
+
+      - name: Prepare deployment inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+
+          if [[ -z "${SERVER:-}" ]]; then
+            echo 'ERROR: BINGO_SERVER variable is required.' >&2
+            exit 1
+          fi
+
+          if [[ -z "${ADMIN_PUBLIC_URL:-}" ]]; then
+            echo 'ERROR: BINGO_ADMIN_PUBLIC_URL variable is required.' >&2
+            exit 1
+          fi
+
+          if [[ -z "${BINGO_SSH_KEY_B64:-}" ]]; then
+            echo 'ERROR: BINGO_SSH_KEY_B64 secret is required.' >&2
+            exit 1
+          fi
+
+          if [[ -z "${BINGO_BACKEND_ENV_FILE_B64:-}" ]]; then
+            echo 'ERROR: BINGO_BACKEND_ENV_FILE_B64 secret is required.' >&2
+            exit 1
+          fi
+
+          printf '%s' "$BINGO_SSH_KEY_B64" | base64 -d > "$SSH_KEY"
+          printf '%s' "$BINGO_BACKEND_ENV_FILE_B64" | base64 -d > "$BACKEND_ENV_FILE"
+          chmod 600 "$SSH_KEY" "$BACKEND_ENV_FILE"
+
+      - name: Run dry run
+        if: ${{ env.DRY_RUN == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          deployment/deploy-all.sh \
+            --dry-run \
+            --server "$SERVER" \
+            --ssh-key "$SSH_KEY" \
+            --backend-env-file "$BACKEND_ENV_FILE" \
+            --backend-service-name "${BACKEND_SERVICE_NAME:-bingo-backend}" \
+            --remote-backend-root "${REMOTE_BACKEND_ROOT:-/opt/bingo/backend}" \
+            --service-user "${SERVICE_USER:-bingo}" \
+            --public-url "$ADMIN_PUBLIC_URL" \
+            --remote-admin-root "${REMOTE_ADMIN_ROOT:-/var/www/bingo-admin}"
+
+      - name: Deploy to AWS
+        if: ${{ env.DRY_RUN != 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          deployment/deploy-all.sh \
+            --server "$SERVER" \
+            --ssh-key "$SSH_KEY" \
+            --backend-env-file "$BACKEND_ENV_FILE" \
+            --backend-service-name "${BACKEND_SERVICE_NAME:-bingo-backend}" \
+            --remote-backend-root "${REMOTE_BACKEND_ROOT:-/opt/bingo/backend}" \
+            --service-user "${SERVICE_USER:-bingo}" \
+            --public-url "$ADMIN_PUBLIC_URL" \
+            --remote-admin-root "${REMOTE_ADMIN_ROOT:-/var/www/bingo-admin}"
