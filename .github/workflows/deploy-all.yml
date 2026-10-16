@@ -22,8 +22,6 @@ jobs:
     environment: bingo-production
     env:
       SERVER: ${{ vars.BINGO_SERVER }}
-      SSH_KEY: ${{ runner.temp }}/bingo-deploy.key
-      BACKEND_ENV_FILE: ${{ runner.temp }}/bingo-backend.env
       BACKEND_SERVICE_NAME: ${{ vars.BINGO_BACKEND_SERVICE_NAME }}
       REMOTE_BACKEND_ROOT: ${{ vars.BINGO_REMOTE_BACKEND_ROOT }}
       REMOTE_ADMIN_ROOT: ${{ vars.BINGO_REMOTE_ADMIN_ROOT }}
@@ -55,6 +53,10 @@ jobs:
         run: |
           set -euo pipefail
           umask 077
+          SSH_KEY="$RUNNER_TEMP/bingo-deploy.key"
+          BACKEND_ENV_FILE="$RUNNER_TEMP/bingo-backend.env"
+          printf 'SSH_KEY=%s\n' "$SSH_KEY" >> "$GITHUB_ENV"
+          printf 'BACKEND_ENV_FILE=%s\n' "$BACKEND_ENV_FILE" >> "$GITHUB_ENV"
 
           if [[ -z "${SERVER:-}" ]]; then
             echo 'ERROR: BINGO_SERVER variable is required.' >&2

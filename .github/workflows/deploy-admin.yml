@@ -22,7 +22,6 @@ jobs:
     environment: bingo-admin-production
     env:
       SERVER: ${{ vars.BINGO_SERVER }}
-      SSH_KEY: ${{ runner.temp }}/bingo-admin-deploy.key
       REMOTE_ADMIN_ROOT: ${{ vars.BINGO_REMOTE_ADMIN_ROOT }}
       SERVICE_USER: ${{ vars.BINGO_SERVICE_USER }}
       ADMIN_PUBLIC_URL: ${{ vars.BINGO_ADMIN_PUBLIC_URL }}
@@ -44,6 +43,8 @@ jobs:
         run: |
           set -euo pipefail
           umask 077
+          SSH_KEY="$RUNNER_TEMP/bingo-admin-deploy.key"
+          printf 'SSH_KEY=%s\n' "$SSH_KEY" >> "$GITHUB_ENV"
 
           if [[ -z "${SERVER:-}" ]]; then
             echo 'ERROR: BINGO_SERVER variable is required.' >&2
