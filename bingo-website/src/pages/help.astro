@@ -1,0 +1,52 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { siteConfig } from "../config/site";
+
+const path = "/help/";
+const contactsAvailable = Boolean(siteConfig.support.email || siteConfig.support.telegramUrl || siteConfig.support.whatsappUrl);
+---
+
+<BaseLayout
+  title="Sunset Bingo help and contact details"
+  description="Find configured support details for Sunset Bingo or see a neutral coming-soon message when no verified contact details have been published yet."
+  path={path}
+>
+  <section class="page-intro-shell">
+    <p class="release-label">Help and contact</p>
+    <h1 class="page-title">Need support?</h1>
+    <p class="page-intro">
+      This page only lists verified support channels. If no contact details are configured yet, it shows a neutral coming-soon state instead of placeholder information.
+    </p>
+  </section>
+
+  <section class="support-grid">
+    <article class="support-panel surface" id="support-title">
+      <h2>Support details</h2>
+      {contactsAvailable ? (
+        <div class="support-links">
+          {siteConfig.support.email ? <a href={`mailto:${siteConfig.support.email}`}>{siteConfig.support.email}</a> : null}
+          {siteConfig.support.telegramUrl ? <a href={siteConfig.support.telegramUrl}>Telegram support</a> : null}
+          {siteConfig.support.whatsappUrl ? <a href={siteConfig.support.whatsappUrl}>WhatsApp support</a> : null}
+        </div>
+      ) : (
+        <div class="download-state surface-inset">
+          <strong>Support details coming soon.</strong>
+          <p>No verified support contact has been configured yet.</p>
+        </div>
+      )}
+    </article>
+
+    <article class="copy-panel surface">
+      <h2>What to include when you ask for help</h2>
+      <ul>
+        <li>The app version, if you can see it in the app or app settings.</li>
+        <li>The device model and platform version.</li>
+        <li>A short description of the step that failed.</li>
+        <li>Any on-screen message you saw.</li>
+      </ul>
+      <p class="muted">
+        No backend contact form is published on this site, and no placeholder phone numbers are shown here.
+      </p>
+    </article>
+  </section>
+</BaseLayout>

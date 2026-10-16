@@ -1,0 +1,39 @@
+---
+
+interface PlatformPanel {
+  title: string;
+  label: string;
+  status: string;
+  icon: "android" | "iphone";
+}
+
+const platformPanels: PlatformPanel[] = [
+  {
+    title: "Android",
+    label: "Google Play",
+    status: "Coming soon",
+    icon: "android",
+  },
+  {
+    title: "iPhone / iOS",
+    label: "App Store",
+    status: "Coming soon",
+    icon: "iphone",
+  },
+];
+---
+
+<section class="platform-grid" aria-label="Platforms coming soon">
+  {platformPanels.map((platform) => (
+    <article class="platform-card surface-soft">
+      <div class="platform-card__icon" aria-hidden="true">
+        <span>{platform.icon === "android" ? "A" : "i"}</span>
+      </div>
+      <div class="platform-card__body">
+        <p class="platform-card__label">{platform.label}</p>
+        <h3>{platform.title}</h3>
+        <div class="state-chip">{platform.status}</div>
+      </div>
+    </article>
+  ))}
+</section>

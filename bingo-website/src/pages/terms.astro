@@ -1,0 +1,63 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+
+const path = "/terms/";
+---
+
+<BaseLayout
+  title="Sunset Bingo terms and game rules draft"
+  description="Draft terms and game rules for Sunset Bingo based on the implemented app behavior. This page is for operator review and does not authorize paid gaming."
+  path={path}
+  draft={true}
+>
+  <section class="page-intro-shell">
+    <p class="release-label">Terms and game rules</p>
+    <h1 class="page-title">Draft rules only.</h1>
+    <p class="page-intro">
+      This page documents the implemented ticket, draw, claim, and money-handling behavior. It is not a legal approval to run paid gaming, and it remains a draft until the operator reviews it.
+    </p>
+    <div class="draft-pill" role="status">
+      <span aria-hidden="true">●</span>
+      <span>Draft terms for operator review.</span>
+    </div>
+  </section>
+
+  <section class="two-column">
+    <article class="panel">
+      <h2>Implemented game flow</h2>
+      <ol>
+        <li>Players create an account and sign in with the app.</li>
+        <li>Players join an available session and buy a ticket inside the app.</li>
+        <li>The app receives draw updates from the live session feed.</li>
+        <li>When a player completes a pattern, they can submit a win claim in the app.</li>
+      </ol>
+    </article>
+
+    <article class="panel">
+      <h2>What the backend already enforces</h2>
+      <ul>
+        <li>Ticket purchases use an idempotency key.</li>
+        <li>Sessions can close ticket sales when a session starts.</li>
+        <li>Win claims are limited to the implemented patterns: LINE, TWO_LINES, and FULL_HOUSE.</li>
+        <li>Claim results can be approved, rejected, or fail server validation.</li>
+      </ul>
+    </article>
+  </section>
+
+  <section class="panel">
+    <h2>Money handling</h2>
+    <p>
+      The current public release must not invent approved gaming, payout, or launch status. Any money-handling wording must remain aligned with the operator-approved policy text.
+    </p>
+    <p>
+      Do not present simulated deposits as instructions to send real money. Any future payment, prize, or payout wording must be approved before publication.
+    </p>
+  </section>
+
+  <section class="panel">
+    <h2>Legal review reminder</h2>
+    <p>
+      This draft separates implemented behavior from unresolved business or legal terms. The operator should approve the final wording before the page is treated as public terms.
+    </p>
+  </section>
+</BaseLayout>

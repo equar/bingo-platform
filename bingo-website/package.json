@@ -1,0 +1,21 @@
+{
+  "name": "bingo-website",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "check": "astro check",
+    "validate:links": "tsx scripts/validate-links.ts"
+  },
+  "dependencies": {
+    "astro": "^5.13.8"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.10",
+    "@types/node": "^22.18.7",
+    "tsx": "^4.19.1",
+    "typescript": "^5.9.3"
+  }
+}
