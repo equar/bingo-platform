@@ -1,0 +1,55 @@
+---
+import { siteConfig } from "../config/site";
+
+interface Props {
+  path: string;
+  draft?: boolean;
+}
+
+const { path, draft = false } = Astro.props;
+
+const navItems = [
+  { label: "Overview", href: path === "/" ? "#overview" : "/#overview" },
+  { label: "Apps", href: "/download/" },
+  { label: "FAQ", href: path === "/" ? "#faq" : "/#faq" },
+  { label: "Support", href: "/help/" },
+] as const;
+
+const primaryActionLabel = "Explore Sunset Bingo";
+---
+
+<header class="site-header">
+  <a class="brand-lockup" href="/" aria-label={siteConfig.brandName}>
+    <span class="brand-mark" aria-hidden="true">
+      <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+        <rect x="8" y="14" width="32" height="20" rx="10"></rect>
+        <circle cx="24" cy="20" r="9"></circle>
+        <rect x="10" y="28" width="28" height="4" rx="2"></rect>
+      </svg>
+    </span>
+    <span class="brand-copy">
+      <span class="brand-name">Sunset Bingo</span>
+      <span class="brand-subtitle">Coming soon to Android and iPhone{draft ? " • draft pages" : ""}</span>
+    </span>
+  </a>
+
+  <nav class="desktop-nav" aria-label="Primary">
+    {navItems.map((item) => (
+      <a href={item.href}>{item.label}</a>
+    ))}
+  </nav>
+
+  <div class="header-actions">
+    <a class="primary-cta" href={path === "/" ? "#overview" : "/#overview"}>{primaryActionLabel}</a>
+
+    <details class="mobile-menu">
+      <summary aria-label="Open navigation menu">Menu</summary>
+      <nav aria-label="Mobile primary">
+        {navItems.map((item) => (
+          <a href={item.href}>{item.label}</a>
+        ))}
+        <a href={path === "/" ? "#overview" : "/#overview"}>{primaryActionLabel}</a>
+      </nav>
+    </details>
+  </div>
+</header>

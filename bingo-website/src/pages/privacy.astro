@@ -1,0 +1,60 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+
+const path = "/privacy/";
+---
+
+<BaseLayout
+  title="Sunset Bingo privacy notice draft"
+  description="Draft privacy notice for Sunset Bingo based on verified app behavior. This page is marked for operator review before public approval."
+  path={path}
+  draft={true}
+>
+  <section class="page-intro-shell">
+    <p class="release-label">Privacy</p>
+    <h1 class="page-title">Draft privacy notice.</h1>
+    <p class="page-intro">
+      This page is a draft. It summarizes the information the app is currently built to process, without inventing retention periods, deletion rights, analytics providers, or security guarantees.
+    </p>
+    <div class="draft-pill" role="status">
+      <span aria-hidden="true">●</span>
+      <span>Operator review required before approval.</span>
+    </div>
+  </section>
+
+  <section class="copy-panel surface">
+    <h2>What the app currently processes</h2>
+    <p>
+      Based on the implemented client flows, Sunset Bingo currently processes the information needed to create accounts, authenticate users, run game sessions, issue tickets, handle win claims, maintain wallet and deposit records, and manage support requests.
+    </p>
+    <ul>
+      <li>Account data such as phone number, display name, password, and role or status information.</li>
+      <li>Ticket purchases, session participation, live draw replay, and win-claim records.</li>
+      <li>Wallet balances, wallet transactions, and deposit claim references that are part of the implemented flow.</li>
+      <li>Support tickets and messages created through the support workflow.</li>
+      <li>Agent and operator workflow data where the backend exposes those roles for management.</li>
+    </ul>
+  </section>
+
+  <section class="two-column">
+    <article class="panel">
+      <h2>What this page does not promise yet</h2>
+      <ul>
+        <li>No retention period is published here.</li>
+        <li>No deletion workflow is published here.</li>
+        <li>No analytics, cookies, or third-party tracking providers are declared by default.</li>
+        <li>No stronger security guarantee is claimed than the implemented software currently provides.</li>
+      </ul>
+    </article>
+
+    <article class="panel">
+      <h2>Operator review note</h2>
+      <p>
+        Any unresolved privacy-policy decisions should stay in the private operator checklist until someone approves the final wording for publication.
+      </p>
+      <p class="muted">
+        After approval, replace this draft with the operator-approved policy language and remove the draft badge.
+      </p>
+    </article>
+  </section>
+</BaseLayout>

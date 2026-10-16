@@ -1,0 +1,55 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { siteConfig } from "../config/site";
+import PhonePreview from "../components/PhonePreview.astro";
+import PlatformPanels from "../components/PlatformPanels.astro";
+
+const path = "/download/";
+---
+
+<BaseLayout
+  title="Sunset Bingo | Get the app"
+  description="Sunset Bingo apps for Android and iPhone are coming soon. This page explains the launch state and only exposes active links when a platform is explicitly released."
+  path={path}
+>
+  <section class="page-intro-shell">
+    <p class="release-label">Apps</p>
+    <h1 class="page-title">Get the app.</h1>
+    <p class="page-intro">
+      Android and iPhone versions are coming soon. This page keeps the public launch state clear without exposing unavailable downloads or sideloading instructions.
+    </p>
+  </section>
+
+  <section class="download-grid">
+    <article class="download-panel surface">
+      <div class="download-state surface-inset">
+        <strong>Coming soon on Android and iPhone</strong>
+        <p>When a platform is explicitly released and a valid URL is configured, its active store or download link will appear here. Until then, this page stays neutral and accurate.</p>
+      </div>
+
+      <PlatformPanels />
+
+      <ul class="meta-list" aria-label="Platform availability">
+        <li><span class="meta-label">Android</span><span class="meta-value">{siteConfig.platforms.android.availability === "released" && siteConfig.platforms.android.url ? siteConfig.platforms.android.url : "Coming soon"}</span></li>
+        <li><span class="meta-label">iPhone / iOS</span><span class="meta-value">{siteConfig.platforms.ios.availability === "released" && siteConfig.platforms.ios.url ? siteConfig.platforms.ios.url : "Coming soon"}</span></li>
+      </ul>
+
+      <div class="note-bar">
+        <strong>No fake download links</strong>
+        <p>The site only renders active app links when the corresponding platform is explicitly released and has a valid configured URL.</p>
+      </div>
+    </article>
+
+    <PhonePreview variant="download" />
+  </section>
+
+  <section class="panel">
+    <h2>What this page is for</h2>
+    <p>
+      This is the public app-status page for Sunset Bingo. It is not an APK sideload guide and it does not present unavailable store listings as if they were live.
+    </p>
+    <p>
+      If you are looking for support or policy information, use the help, privacy, and terms pages in the footer.
+    </p>
+  </section>
+</BaseLayout>

@@ -1,0 +1,144 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { siteConfig } from "../config/site";
+import PlatformPanels from "../components/PlatformPanels.astro";
+import PhonePreview from "../components/PhonePreview.astro";
+
+const path = "/";
+---
+
+<BaseLayout
+  title="Sunset Bingo | Coming soon to Android and iPhone"
+  description="Sunset Bingo is a coming-soon mobile bingo experience for Android and iPhone. Explore the brand, platform availability, and the planned app launch structure."
+  path={path}
+>
+  <section class="hero section--hero">
+    <div class="hero__copy">
+      <p class="eyebrow">Sunset Bingo</p>
+      <h1>Something exciting is on the horizon.</h1>
+      <p class="hero__lede">Meet Sunset Bingo. Your next bingo experience is coming soon to Android and iPhone.</p>
+      <p class="hero__lede hero__lede--secondary">
+        We are shaping a polished public launch site around a modern brand, balanced platform availability, and clear next steps for players.
+      </p>
+      <div class="hero-actions">
+        <a class="button" href="#overview">Explore Sunset Bingo</a>
+        <a class="button-secondary" href="/download/">Get the app</a>
+      </div>
+    </div>
+
+    <div class="hero-visual">
+      <PhonePreview variant="hero" />
+    </div>
+  </section>
+
+  <section id="overview" class="section section--intro">
+    <header class="section-header page-intro-shell">
+      <p class="section-kicker">Overview</p>
+      <h2 class="section-title">A confident public introduction to the Sunset Bingo launch.</h2>
+      <p class="section-lede">This site keeps the story simple: a strong brand, balanced platform availability, and a clear coming-soon launch state without inventing release details.</p>
+    </header>
+
+    <div class="feature-grid feature-grid--intro">
+      <article class="feature-card surface-soft">
+        <h3>Polished launch site</h3>
+        <p>Sunset Bingo introduces a modern public face with generous spacing, warm sunset styling, and accessible contrast.</p>
+      </article>
+      <article class="feature-card surface-soft">
+        <h3>Balanced platform story</h3>
+        <p>Android and iPhone are presented equally as coming soon, with no misleading download prompts or fake store badges.</p>
+      </article>
+      <article class="feature-card surface-soft">
+        <h3>Clear launch state</h3>
+        <p>Every public page reflects the configured availability so visitors see the same message across the site.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="section section--showcase" aria-labelledby="showcase-title">
+    <header class="section-header page-intro-shell">
+      <p class="section-kicker">Platforms</p>
+      <h2 id="showcase-title" class="section-title">Android and iPhone are both coming soon.</h2>
+      <p class="section-lede">These panels keep the launch positioning balanced and explicit without pretending either platform is already available.</p>
+    </header>
+
+    <div class="showcase-grid">
+      <article class="copy-panel surface">
+        <h3>What’s planned for launch</h3>
+        <p>
+          Sunset Bingo is being prepared as a public mobile experience with a focused brand, account access, game sessions, and support that can be presented clearly once the apps are released.
+        </p>
+        <ul>
+          <li>Player accounts and sign-in flows.</li>
+          <li>Game sessions and ticketing inside the app.</li>
+          <li>Support and policy pages on the public website.</li>
+        </ul>
+        <div class="section-callout">
+          <strong>Illustrative note</strong>
+          <p>The phone preview below is labeled as illustrative. It is a design treatment, not a published app screenshot.</p>
+        </div>
+      </article>
+
+      <PhonePreview variant="compact" />
+    </div>
+    <PlatformPanels />
+  </section>
+
+  <section id="apps" class="section section--download" aria-labelledby="download-title">
+    <header class="section-header page-intro-shell">
+      <p class="section-kicker">Apps</p>
+      <h2 id="download-title" class="section-title">Get the app</h2>
+      <p class="section-lede">Android and iPhone versions are coming soon. This page explains the launch state without presenting unavailable downloads.</p>
+    </header>
+
+    <div class="download-grid">
+      <article class="download-panel surface">
+        <div class="download-state surface-inset">
+          <strong>Coming soon on both platforms</strong>
+          <p>
+            Sunset Bingo is preparing Android and iPhone releases. When each platform is explicitly released and its URL is configured, the corresponding link will appear here.
+          </p>
+        </div>
+
+        <PlatformPanels />
+
+        <ul class="meta-list" aria-label="Platform availability">
+          <li><span class="meta-label">Android</span><span class="meta-value">{siteConfig.platforms.android.availability === "released" && siteConfig.platforms.android.url ? siteConfig.platforms.android.url : "Coming soon"}</span></li>
+          <li><span class="meta-label">iPhone / iOS</span><span class="meta-value">{siteConfig.platforms.ios.availability === "released" && siteConfig.platforms.ios.url ? siteConfig.platforms.ios.url : "Coming soon"}</span></li>
+        </ul>
+
+        <p class="muted">
+          No app is represented as downloadable until its platform is explicitly marked released with a valid configured URL.
+        </p>
+      </article>
+
+      <PhonePreview variant="download" />
+    </div>
+  </section>
+
+  <section id="faq" class="section section--faq" aria-labelledby="faq-title">
+    <header class="section-header page-intro-shell">
+      <p class="section-kicker">FAQ</p>
+      <h2 id="faq-title" class="section-title">Answers for launch visitors.</h2>
+      <p class="section-lede">Keep questions grounded in availability, supported platforms, and the public support channels already configured for the site.</p>
+    </header>
+
+    <div class="faq-list">
+      <details class="faq-item">
+        <summary>When will Sunset Bingo launch?</summary>
+        <p>No launch date is published yet. The website only communicates that Android and iPhone versions are coming soon.</p>
+      </details>
+      <details class="faq-item">
+        <summary>Which platforms are supported?</summary>
+        <p>Android and iPhone are both planned and both marked coming soon on the public site.</p>
+      </details>
+      <details class="faq-item">
+        <summary>How will the apps be available?</summary>
+        <p>Only explicitly released platforms with valid configured URLs will show active links. Until then, the site shows coming-soon panels instead of fake download buttons.</p>
+      </details>
+      <details class="faq-item">
+        <summary>How do I get help?</summary>
+        <p>Use the support details in the footer or the help page. If support contacts are not configured, the site will say so directly.</p>
+      </details>
+    </div>
+  </section>
+</BaseLayout>

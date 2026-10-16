@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Sunset Bingo">
+  <defs>
+    <linearGradient id="g" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#ffdb9c"/>
+      <stop offset="0.55" stop-color="#ff9b62"/>
+      <stop offset="1" stop-color="#ff6f91"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="18" fill="#08111f"/>
+  <circle cx="32" cy="28" r="14" fill="url(#g)"/>
+  <path d="M14 42h36" stroke="#ffe8be" stroke-width="4" stroke-linecap="round"/>
+  <path d="M18 18h28" stroke="#ffe8be" stroke-width="2" stroke-linecap="round" opacity="0.35"/>
+</svg>

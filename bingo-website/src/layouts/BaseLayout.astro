@@ -1,0 +1,51 @@
+---
+import { siteConfig } from "../config/site";
+import SiteFooter from "../components/SiteFooter.astro";
+import SiteHeader from "../components/SiteHeader.astro";
+import "../styles/global.css";
+
+interface Props {
+  title: string;
+  description: string;
+  path: string;
+  draft?: boolean;
+}
+
+const { title, description, path, draft = false } = Astro.props;
+const canonicalUrl = new URL(path, siteConfig.siteUrl).toString();
+const robotsContent = siteConfig.indexable ? "index,follow" : "noindex,nofollow";
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="generator" content={Astro.generator} />
+    <meta name="description" content={description} />
+    <meta name="robots" content={robotsContent} />
+    <link rel="canonical" href={canonicalUrl} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta property="og:site_name" content={siteConfig.brandName} />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonicalUrl} />
+    <meta property="og:image" content={new URL("/og-image.svg", siteConfig.siteUrl).toString()} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <title>{title}</title>
+  </head>
+  <body class:list={['site-body', draft && 'site-body--draft']}>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div class="site-shell">
+      <SiteHeader path={path} draft={draft} />
+
+      <main id="main" class="site-main">
+        <slot />
+      </main>
+
+      <SiteFooter draft={draft} />
+    </div>
+  </body>
+</html>
+
