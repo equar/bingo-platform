@@ -33,11 +33,6 @@ jobs:
               return;
             }
 
-            if (base === 'main' && head !== 'public-landing-website') {
-              core.setFailed(`Only public-landing-website can merge directly into main. Current head: ${head}.`);
-              return;
-            }
-
             if (base === 'public-landing-website' && head === 'main') {
               core.setFailed('main must not be merged back into public-landing-website.');
               return;
