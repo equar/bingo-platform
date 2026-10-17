@@ -334,7 +334,7 @@ class _ClaimCard extends StatelessWidget {
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
             key: const ValueKey('claim-pattern-field'),
-            value: state.selectedClaimPattern,
+            initialValue: state.selectedClaimPattern,
             decoration: InputDecoration(labelText: localizations.claimPatternLabel),
             items: [
               for (final pattern in patterns)
@@ -500,7 +500,7 @@ class _InfoChip extends StatelessWidget {
 }
 
 class _DrawChip extends StatelessWidget {
-  const _DrawChip({super.key, required this.number, required this.sequenceNo, required this.isLatest});
+  const _DrawChip({required this.number, required this.sequenceNo, required this.isLatest});
 
   final int number;
   final int sequenceNo;
@@ -541,9 +541,9 @@ class _TicketCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final background = isFree
-      ? Theme.of(context).colorScheme.primaryContainer.withOpacity(0.75)
+      ? Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.75)
       : isCalled
-        ? Theme.of(context).colorScheme.secondaryContainer.withOpacity(0.9)
+        ? Theme.of(context).colorScheme.secondaryContainer.withValues(alpha: 0.9)
         : Theme.of(context).colorScheme.surfaceContainerHighest;
     return AnimatedScale(
       duration: const Duration(milliseconds: 220),

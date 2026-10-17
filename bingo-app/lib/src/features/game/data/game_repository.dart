@@ -29,24 +29,30 @@ class GameRepository implements LiveGameRepository {
 
   final GameApi _api;
 
+  @override
   Future<TicketPurchaseResponse> purchaseTicket(int sessionId, String idempotencyKey) {
     return _api.purchaseTicket(sessionId, idempotencyKey);
   }
 
+  @override
   Future<GameSession> getSession(int sessionId) => _api.getSession(sessionId);
 
+  @override
   Future<PageResult<TicketResponse>> getMyTickets(int sessionId, {required int page, required int size}) {
     return _api.getMyTickets(sessionId, page: page, size: size);
   }
 
+  @override
   Future<List<LiveDrawEvent>> getDraws(int sessionId, {int? afterSequence}) {
     return _api.getDraws(sessionId, afterSequence: afterSequence);
   }
 
+  @override
   Future<PageResult<WinClaimRecord>> getMyWinClaims({required int page, required int size}) {
     return _api.getMyWinClaims(page: page, size: size);
   }
 
+  @override
   Future<WinClaimRecord> submitWinClaim(int ticketId, String claimedPattern, String idempotencyKey) {
     return _api.submitWinClaim(ticketId, claimedPattern, idempotencyKey);
   }
