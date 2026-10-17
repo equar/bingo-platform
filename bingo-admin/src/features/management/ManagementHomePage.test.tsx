@@ -1,19 +1,19 @@
 import { render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 import { ManagementHomePage } from "./ManagementHomePage";
 
 describe("ManagementHomePage", () => {
-  it("renders the management shortcuts", () => {
+  it("redirects to the dashboard", () => {
     render(
-      <MemoryRouter>
-        <ManagementHomePage />
+      <MemoryRouter initialEntries={["/management"]}>
+        <Routes>
+          <Route path="/management" element={<ManagementHomePage />} />
+          <Route path="/dashboard" element={<div>Dashboard content</div>} />
+        </Routes>
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole("heading", { name: "Management" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Admin users/ })).toHaveAttribute("href", "/admin-users");
-    expect(screen.getByRole("link", { name: /Agents/ })).toHaveAttribute("href", "/agents");
-    expect(screen.getByRole("link", { name: /Players/ })).toHaveAttribute("href", "/players");
+    expect(screen.getByText("Dashboard content")).toBeInTheDocument();
   });
 });

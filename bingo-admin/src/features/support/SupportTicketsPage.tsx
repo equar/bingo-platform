@@ -38,17 +38,12 @@ export function SupportTicketsPage() {
   const [assignee, setAssignee] = useState("");
   const usersQuery = useQuery({ queryKey: ["admin-users"], queryFn: () => adminUsers(0, 100) });
   const ticketsQuery = useQuery({
-    queryKey: ["support-tickets", query, status, category],
-    queryFn: () => supportTickets(query || undefined, status || undefined, category || undefined, 0, 100),
+    queryKey: ["support-tickets", query, status, category, assignee],
+    queryFn: () =>
+      supportTickets(query || undefined, status || undefined, category || undefined, assignee || undefined, 0, 100),
   });
 
-  const visibleTickets = useMemo(() => {
-    const items = ticketsQuery.data?.content ?? [];
-    if (!assignee) {
-      return items;
-    }
-    return items.filter((ticket) => String(ticket.assignedToUserId ?? "") === assignee);
-  }, [assignee, ticketsQuery.data]);
+  const visibleTickets = useMemo(() => ticketsQuery.data?.content ?? [], [ticketsQuery.data]);
 
   const priorityCounts = countByPriority(visibleTickets);
 
@@ -75,11 +70,6 @@ export function SupportTicketsPage() {
           Queue, filter, and review call-center tickets with public and internal notes kept separate.
         </Typography>
       </Box>
-
-      <Alert severity="warning">
-        The backend supports status and category filtering server-side, but assignee filtering and priority rollups are
-        not exposed as aggregate endpoints. Those parts are filtered from the loaded page in the UI.
-      </Alert>
 
       <Grid container spacing={2}>
         {["LOW", "NORMAL", "HIGH", "URGENT"].map((priority) => (

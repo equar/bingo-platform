@@ -947,9 +947,16 @@ export async function commissionRule(body: CommissionRuleRequest) {
   return data;
 }
 
-export async function supportTickets(query?: string, status?: string, category?: string, page = 0, size = 20) {
+export async function supportTickets(
+  query?: string,
+  status?: string,
+  category?: string,
+  assignedToUserId?: string,
+  page = 0,
+  size = 20,
+) {
   const { data } = await http.get<PageResponse<SupportTicketSummaryResponse>>('/api/v1/admin/support/tickets', {
-    params: { query, status, category, page, size },
+    params: { query, status, category, assignedToUserId, page, size },
   });
   return data;
 }

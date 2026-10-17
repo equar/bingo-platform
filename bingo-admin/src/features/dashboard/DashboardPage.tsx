@@ -4,6 +4,7 @@ import {
   Alert,
   Box,
   Card,
+  CardActionArea,
   CardContent,
   Chip,
   Grid,
@@ -17,6 +18,24 @@ import {
 import { Link as RouterLink } from "react-router-dom";
 import { auditLogs, dashboardMetrics, liveSessions, reviewQueue, supportTickets } from "../../api/admin";
 import { StatusState } from "../../components/StatusState";
+
+const managementShortcuts = [
+  {
+    title: "Admin users",
+    description: "Create and maintain admin and support accounts.",
+    to: "/admin-users",
+  },
+  {
+    title: "Agents",
+    description: "Review agent status, profile data, and operational actions.",
+    to: "/agents",
+  },
+  {
+    title: "Players",
+    description: "Search player accounts and inspect account details.",
+    to: "/players",
+  },
+] as const;
 
 function MetricCard({ label, value, sublabel }: { label: string; value: string | number; sublabel?: string }) {
   return (
@@ -43,7 +62,7 @@ export function DashboardPage() {
   const logsQuery = useQuery({ queryKey: ["dashboard", "audit-logs"], queryFn: () => auditLogs(0, 5) });
   const supportPriorityQuery = useQuery({
     queryKey: ["dashboard", "support-priorities"],
-    queryFn: () => supportTickets(undefined, undefined, undefined, 0, 100),
+    queryFn: () => supportTickets(undefined, undefined, undefined, undefined, 0, 100),
   });
   const supportPriorityCounts = useMemo(() => {
     const counts: Record<string, number> = { LOW: 0, NORMAL: 0, HIGH: 0, URGENT: 0 };
@@ -113,6 +132,37 @@ export function DashboardPage() {
           />
         </Grid>
       </Grid>
+
+      <Card elevation={0} sx={{ border: "1px solid", borderColor: "divider" }}>
+        <CardContent>
+          <Stack spacing={2}>
+            <Box>
+              <Typography variant="h6">Management shortcuts</Typography>
+              <Typography variant="body2" color="text.secondary">
+                The dashboard now includes the old overview entry points so operators can start from one place.
+              </Typography>
+            </Box>
+            <Grid container spacing={2}>
+              {managementShortcuts.map((section) => (
+                <Grid item xs={12} md={4} key={section.to}>
+                  <Card sx={{ border: "1px solid", borderColor: "divider", height: "100%" }}>
+                    <CardActionArea component={RouterLink} to={section.to} sx={{ height: "100%" }}>
+                      <CardContent>
+                        <Stack spacing={1}>
+                          <Typography variant="h6">{section.title}</Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            {section.description}
+                          </Typography>
+                        </Stack>
+                      </CardContent>
+                    </CardActionArea>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+          </Stack>
+        </CardContent>
+      </Card>
 
       <Card elevation={0} sx={{ border: "1px solid", borderColor: "divider" }}>
         <CardContent>
