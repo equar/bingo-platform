@@ -81,12 +81,11 @@ jobs:
           printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$KEYSTORE_PATH"
           printf '%s' "$GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64" | base64 -d > "$GOOGLE_PLAY_JSON_PATH"
 
-          cat > "$KEY_PROPERTIES_PATH" <<EOF
-storeFile=$KEYSTORE_PATH
-storePassword=$ANDROID_KEYSTORE_PASSWORD
-keyAlias=$ANDROID_KEY_ALIAS
-keyPassword=$ANDROID_KEY_PASSWORD
-EOF
+          printf 'storeFile=%s\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
+            "$KEYSTORE_PATH" \
+            "$ANDROID_KEYSTORE_PASSWORD" \
+            "$ANDROID_KEY_ALIAS" \
+            "$ANDROID_KEY_PASSWORD" > "$KEY_PROPERTIES_PATH"
 
           printf 'ANDROID_AAB_PATH=%s\n' "$PWD/build/app/outputs/bundle/release/app-release.aab" >> "$GITHUB_ENV"
           printf 'GOOGLE_PLAY_JSON_KEY_PATH=%s\n' "$GOOGLE_PLAY_JSON_PATH" >> "$GITHUB_ENV"

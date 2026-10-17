@@ -203,7 +203,7 @@ class BingoLiveDrawIntegrationTest {
                 adminUser = userRepository.save(User.create(
                                 phoneNormalizer.normalize("0911000201"),
                                 "Admin User",
-                                passwordEncoder.encode("AdminPass123!"),
+                                passwordEncoder.encode("123456"),
                                 AccountStatus.ACTIVE,
                                 Set.of(UserRole.ADMIN),
                                 now));
@@ -265,7 +265,7 @@ class BingoLiveDrawIntegrationTest {
                                 .isPresent());
 
                 String replay = mockMvc.perform(get("/api/v1/sessions/" + session.getId() + "/draws")
-                                .header("Authorization", "Bearer " + loginToken("0911000201", "AdminPass123!"))
+                                .header("Authorization", "Bearer " + loginToken("0911000201", "123456"))
                                 .param("afterSequence", "1"))
                                 .andExpect(status().isOk())
                                 .andReturn()

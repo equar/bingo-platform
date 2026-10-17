@@ -137,7 +137,7 @@ class AuthSecurityIntegrationTest {
                 userRepository.save(User.create(
                                 phoneNormalizer.normalize("0911000001"),
                                 "Admin User",
-                                passwordEncoder.encode("AdminPass123!"),
+                                passwordEncoder.encode("123456"),
                                 AccountStatus.ACTIVE,
                                 Set.of(UserRole.ADMIN),
                                 now));
@@ -197,7 +197,7 @@ class AuthSecurityIntegrationTest {
         void adminEndpointIsProtectedByRole() throws Exception {
                 String adminLoginJson = objectMapper.writeValueAsString(new LoginRequest(
                                 "0911000001",
-                                "AdminPass123!"));
+                                "123456"));
 
                 String adminToken = objectMapper.readTree(mockMvc.perform(post("/api/v1/auth/login")
                                 .contentType(MediaType.APPLICATION_JSON)

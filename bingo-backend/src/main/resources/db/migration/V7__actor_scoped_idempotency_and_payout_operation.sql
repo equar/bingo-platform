@@ -1,6 +1,13 @@
 alter table idempotency_records
-    drop primary key,
-    add column id bigint not null auto_increment primary key first,
+    add column id bigint not null auto_increment first;
+
+alter table idempotency_records
+    drop primary key;
+
+alter table idempotency_records
+    add primary key (id);
+
+alter table idempotency_records
     add column actor_id bigint null;
 
 alter table idempotency_records
