@@ -23,4 +23,9 @@ class WalletRepository {
 
   Future<DepositClaim> submitDeposit(DepositRequest request, String idempotencyKey) =>
       _api.submitDeposit(request, idempotencyKey);
+
+    Future<WalletRecipientLookup> lookupRecipient(String phoneNumber) => _api.lookupRecipient(phoneNumber);
+
+    Future<WalletTransferResponse> submitTransfer(WalletTransferRequest request, String idempotencyKey) =>
+      _api.submitTransfer(request, idempotencyKey);
 }

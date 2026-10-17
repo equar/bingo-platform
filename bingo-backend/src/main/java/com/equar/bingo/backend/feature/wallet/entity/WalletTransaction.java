@@ -42,6 +42,18 @@ public class WalletTransaction {
     @Column(name = "balance_after", nullable = false, precision = 19, scale = 2)
     private BigDecimal balanceAfter;
 
+    @Column(name = "transferable_balance_before", precision = 19, scale = 2)
+    private BigDecimal transferableBalanceBefore;
+
+    @Column(name = "transferable_balance_after", precision = 19, scale = 2)
+    private BigDecimal transferableBalanceAfter;
+
+    @Column(name = "promotional_balance_before", precision = 19, scale = 2)
+    private BigDecimal promotionalBalanceBefore;
+
+    @Column(name = "promotional_balance_after", precision = 19, scale = 2)
+    private BigDecimal promotionalBalanceAfter;
+
     @Column(name = "currency", nullable = false, length = 3)
     private String currency;
 
@@ -53,6 +65,9 @@ public class WalletTransaction {
 
     @Column(name = "note", length = 500)
     private String note;
+
+    @Column(name = "metadata_json", columnDefinition = "text")
+    private String metadataJson;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
@@ -71,6 +86,26 @@ public class WalletTransaction {
             Long referenceId,
             String note,
             Instant createdAt) {
+        return create(wallet, operationId, transactionType, amount, balanceBefore, balanceAfter, currency,
+                referenceType, referenceId, note, null, null, null, null, null, createdAt);
+    }
+
+    public static WalletTransaction create(Wallet wallet,
+            String operationId,
+            WalletTransactionType transactionType,
+            BigDecimal amount,
+            BigDecimal balanceBefore,
+            BigDecimal balanceAfter,
+            String currency,
+            String referenceType,
+            Long referenceId,
+            String note,
+            BigDecimal transferableBalanceBefore,
+            BigDecimal transferableBalanceAfter,
+            BigDecimal promotionalBalanceBefore,
+            BigDecimal promotionalBalanceAfter,
+            String metadataJson,
+            Instant createdAt) {
         WalletTransaction transaction = new WalletTransaction();
         transaction.wallet = wallet;
         transaction.operationId = operationId;
@@ -82,6 +117,11 @@ public class WalletTransaction {
         transaction.referenceType = referenceType;
         transaction.referenceId = referenceId;
         transaction.note = note;
+        transaction.transferableBalanceBefore = transferableBalanceBefore;
+        transaction.transferableBalanceAfter = transferableBalanceAfter;
+        transaction.promotionalBalanceBefore = promotionalBalanceBefore;
+        transaction.promotionalBalanceAfter = promotionalBalanceAfter;
+        transaction.metadataJson = metadataJson;
         transaction.createdAt = createdAt;
         return transaction;
     }
@@ -114,6 +154,22 @@ public class WalletTransaction {
         return balanceAfter;
     }
 
+    public BigDecimal getTransferableBalanceBefore() {
+        return transferableBalanceBefore;
+    }
+
+    public BigDecimal getTransferableBalanceAfter() {
+        return transferableBalanceAfter;
+    }
+
+    public BigDecimal getPromotionalBalanceBefore() {
+        return promotionalBalanceBefore;
+    }
+
+    public BigDecimal getPromotionalBalanceAfter() {
+        return promotionalBalanceAfter;
+    }
+
     public String getCurrency() {
         return currency;
     }
@@ -128,6 +184,10 @@ public class WalletTransaction {
 
     public String getNote() {
         return note;
+    }
+
+    public String getMetadataJson() {
+        return metadataJson;
     }
 
     public Instant getCreatedAt() {

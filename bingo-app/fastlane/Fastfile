@@ -1,0 +1,135 @@
+require 'ipaddr'
+require 'uri'
+
+def validate_release_base_url!(value)
+  parsed = URI.parse(value)
+
+  UI.user_error!('API base URL must use https.') unless parsed.scheme == 'https'
+  UI.user_error!('API base URL must include a host.') if parsed.host.nil? || parsed.host.empty?
+
+  host = parsed.host.downcase
+  blocked_hosts = [
+    'localhost',
+    'host.docker.internal',
+    '10.0.2.2',
+    '127.0.0.1',
+    '0.0.0.0',
+    '::1'
+  ]
+
+  if blocked_hosts.include?(host) || host.end_with?('.local')
+    UI.user_error!('API base URL must not point to localhost, emulator, or private hostnames.')
+  end
+
+  begin
+    address = IPAddr.new(host)
+    if address.private? || address.loopback? || address.link_local? || address.multicast?
+      UI.user_error!('API base URL must not point to a private, loopback, or link-local address.')
+    end
+  rescue IPAddr::InvalidAddressError
+    # Hostname is fine as long as it is not an obvious local/private name.
+  end
+end
+
+def ensure_file!(path, description)
+  UI.user_error!("#{description} not found at #{path}") unless File.exist?(path)
+end
+
+default_platform(:android)
+
+platform :android do
+  desc 'Upload a signed Android App Bundle to Google Play internal testing.'
+  lane :internal_testing do
+    validate_release_base_url!(ENV.fetch('MOBILE_API_BASE_URL'))
+    ensure_file!(ENV.fetch('ANDROID_AAB_PATH'), 'Android App Bundle')
+    ensure_file!(ENV.fetch('GOOGLE_PLAY_JSON_KEY_PATH'), 'Google Play service account key')
+
+    upload_to_play_store(
+      package_name: ENV.fetch('ANDROID_PACKAGE_NAME'),
+      track: 'internal',
+      aab: ENV.fetch('ANDROID_AAB_PATH'),
+      json_key: ENV.fetch('GOOGLE_PLAY_JSON_KEY_PATH'),
+      release_status: 'completed',
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true,
+      changes_not_sent_for_review: true,
+      release_notes: {
+        'en-US' => ENV.fetch('RELEASE_NOTES', 'Internal testing release')
+      }
+    )
+  end
+
+  desc 'Promote an already tested Android build to production without rebuilding.'
+  lane :promote_production do
+    validate_release_base_url!(ENV.fetch('MOBILE_API_BASE_URL'))
+    ensure_file!(ENV.fetch('GOOGLE_PLAY_JSON_KEY_PATH'), 'Google Play service account key')
+
+    supply(
+      package_name: ENV.fetch('ANDROID_PACKAGE_NAME'),
+      json_key: ENV.fetch('GOOGLE_PLAY_JSON_KEY_PATH'),
+      track: 'internal',
+      track_promote_to: 'production',
+      version_codes: [ENV.fetch('ANDROID_VERSION_CODE')],
+      rollout: ENV.fetch('ANDROID_PRODUCTION_ROLLOUT', '0.10').to_f,
+      release_status: 'completed',
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
+    )
+  end
+end
+
+platform :ios do
+  desc 'Upload a signed iOS IPA to TestFlight.'
+  lane :testflight do
+    validate_release_base_url!(ENV.fetch('MOBILE_API_BASE_URL'))
+    ensure_file!(ENV.fetch('IOS_IPA_PATH'), 'iOS IPA')
+    ensure_file!(ENV.fetch('APP_STORE_CONNECT_PRIVATE_KEY_PATH'), 'App Store Connect API key file')
+
+    api_key = app_store_connect_api_key(
+      key_id: ENV.fetch('APP_STORE_CONNECT_KEY_ID'),
+      issuer_id: ENV.fetch('APP_STORE_CONNECT_ISSUER_ID'),
+      key_filepath: ENV.fetch('APP_STORE_CONNECT_PRIVATE_KEY_PATH'),
+      duration: 1200,
+      in_house: false
+    )
+
+    upload_to_testflight(
+      ipa: ENV.fetch('IOS_IPA_PATH'),
+      api_key: api_key,
+      changelog: ENV.fetch('RELEASE_NOTES', 'TestFlight release'),
+      skip_waiting_for_build_processing: false,
+      distribute_external: false
+    )
+  end
+
+  desc 'Submit a processed TestFlight build for App Store review.'
+  lane :app_store_submission do
+    validate_release_base_url!(ENV.fetch('MOBILE_API_BASE_URL'))
+    ensure_file!(ENV.fetch('APP_STORE_CONNECT_PRIVATE_KEY_PATH'), 'App Store Connect API key file')
+
+    api_key = app_store_connect_api_key(
+      key_id: ENV.fetch('APP_STORE_CONNECT_KEY_ID'),
+      issuer_id: ENV.fetch('APP_STORE_CONNECT_ISSUER_ID'),
+      key_filepath: ENV.fetch('APP_STORE_CONNECT_PRIVATE_KEY_PATH'),
+      duration: 1200,
+      in_house: false
+    )
+
+    ios_build_number = ENV['IOS_BUILD_NUMBER']
+    UI.user_error!('IOS_BUILD_NUMBER is required.') if ios_build_number.nil? || ios_build_number.empty?
+    UI.message("Submitting App Store build number #{ios_build_number}")
+
+    deliver(
+      api_key: api_key,
+      app_identifier: ENV.fetch('IOS_BUNDLE_ID'),
+      submit_for_review: true,
+      automatic_release: ENV.fetch('IOS_AUTOMATIC_RELEASE', 'false') == 'true',
+      skip_binary_upload: true,
+      skip_screenshots: true,
+      skip_metadata: true,
+      force: true
+    )
+  end
+end

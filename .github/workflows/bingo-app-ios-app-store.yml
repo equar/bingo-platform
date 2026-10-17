@@ -1,0 +1,91 @@
+name: Bingo App iOS App Store Submission
+
+on:
+  workflow_dispatch:
+    inputs:
+      ios_build_number:
+        description: Processed iOS build number to submit for review
+        type: string
+        required: true
+      release_notes:
+        description: Release notes for the App Store submission
+        type: string
+        required: false
+        default: App Store submission release
+      mobile_api_base_url:
+        description: Public HTTPS API base URL for release validation
+        type: string
+        required: true
+        default: https://api.sunsetbingo.example
+      ios_automatic_release:
+        description: Release automatically after App Review approval
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bingo-app-ios-app-store
+  cancel-in-progress: false
+
+jobs:
+  submit:
+    name: Submit the processed iOS build for App Store review
+    runs-on: macos-14
+    timeout-minutes: 45
+    environment: bingo-app-ios-production
+    defaults:
+      run:
+        shell: bash
+        working-directory: bingo-app
+    env:
+      MOBILE_API_BASE_URL: ${{ inputs.mobile_api_base_url || vars.BINGO_MOBILE_API_BASE_URL }}
+      IOS_BUNDLE_ID: ${{ vars.BINGO_IOS_BUNDLE_ID }}
+      IOS_BUILD_NUMBER: ${{ inputs.ios_build_number }}
+      IOS_AUTOMATIC_RELEASE: ${{ inputs.ios_automatic_release }}
+      APP_STORE_CONNECT_KEY_ID: ${{ secrets.BINGO_APP_STORE_CONNECT_KEY_ID }}
+      APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.BINGO_APP_STORE_CONNECT_ISSUER_ID }}
+      APP_STORE_CONNECT_PRIVATE_KEY_BASE64: ${{ secrets.BINGO_APP_STORE_CONNECT_PRIVATE_KEY_BASE64 }}
+      RELEASE_NOTES: ${{ inputs.release_notes }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@f2c4f6686ca8e8d6e6d0f28410eeef506ed66aff
+        with:
+          flutter-version: 3.47.7
+          channel: stable
+
+      - name: Validate release backend URL
+        run: ./tooling/validate_release_api_base_url.sh "$MOBILE_API_BASE_URL"
+
+      - name: Fail fast when the iOS project is missing
+        run: |
+          set -euo pipefail
+          if [[ ! -d ios/Runner.xcodeproj ]]; then
+            echo 'ERROR: ios/Runner.xcodeproj is missing. Restore the iOS project before running this workflow.' >&2
+            exit 1
+          fi
+
+      - name: Prepare App Store Connect key
+        run: |
+          set -euo pipefail
+          umask 077
+
+          if [[ -z "${APP_STORE_CONNECT_KEY_ID:-}" || -z "${APP_STORE_CONNECT_ISSUER_ID:-}" || -z "${APP_STORE_CONNECT_PRIVATE_KEY_BASE64:-}" ]]; then
+            echo 'ERROR: App Store Connect API key secrets are required.' >&2
+            exit 1
+          fi
+
+          PRIVATE_KEY_PATH="$RUNNER_TEMP/app-store-connect.p8"
+          printf '%s' "$APP_STORE_CONNECT_PRIVATE_KEY_BASE64" | base64 -d > "$PRIVATE_KEY_PATH"
+          printf 'APP_STORE_CONNECT_PRIVATE_KEY_PATH=%s\n' "$PRIVATE_KEY_PATH" >> "$GITHUB_ENV"
+
+      - name: Install Fastlane
+        run: sudo gem install fastlane --no-document
+
+      - name: Submit the build for review
+        run: fastlane ios app_store_submission

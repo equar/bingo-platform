@@ -1,0 +1,48 @@
+name: Bingo App Mobile CI
+
+on:
+  pull_request:
+    paths:
+      - bingo-app/**
+      - .github/workflows/bingo-app-mobile-ci.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bingo-app-mobile-ci-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Analyze, test, and build the Flutter app
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        shell: bash
+        working-directory: bingo-app
+    env:
+      MOBILE_API_BASE_URL: http://127.0.0.1:8080
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@f2c4f6686ca8e8d6e6d0f28410eeef506ed66aff
+        with:
+          flutter-version: 3.47.7
+          channel: stable
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze the app
+        run: flutter analyze
+
+      - name: Run widget tests
+        run: flutter test
+
+      - name: Build Android release bundle
+        run: flutter build appbundle --release --dart-define=API_BASE_URL="${MOBILE_API_BASE_URL}"

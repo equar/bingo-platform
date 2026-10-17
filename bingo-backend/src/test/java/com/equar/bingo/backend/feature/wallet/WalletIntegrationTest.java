@@ -2,6 +2,7 @@ package com.equar.bingo.backend.feature.wallet;
 
 import com.equar.bingo.backend.common.idempotency.IdempotentResult;
 import com.equar.bingo.backend.feature.auth.dto.LoginRequest;
+import com.equar.bingo.backend.feature.auth.dto.AdminLoginRequest;
 import com.equar.bingo.backend.feature.auth.service.BingoUserPrincipal;
 import com.equar.bingo.backend.feature.auth.service.EthiopianPhoneNormalizer;
 import com.equar.bingo.backend.feature.user.entity.AccountStatus;
@@ -14,6 +15,7 @@ import com.equar.bingo.backend.feature.game.repository.TicketRepository;
 import com.equar.bingo.backend.feature.game.repository.DrawEventRepository;
 import com.equar.bingo.backend.feature.game.repository.WinClaimRepository;
 import com.equar.bingo.backend.feature.game.repository.PrizeEntitlementRepository;
+import com.equar.bingo.backend.feature.auth.dto.RegisterRequest;
 import com.equar.bingo.backend.feature.wallet.dto.DepositClaimRequest;
 import com.equar.bingo.backend.feature.wallet.dto.DepositClaimResponse;
 import com.equar.bingo.backend.feature.wallet.dto.DepositReviewRequest;
@@ -22,14 +24,20 @@ import com.equar.bingo.backend.feature.wallet.entity.DepositClaim;
 import com.equar.bingo.backend.feature.wallet.entity.Wallet;
 import com.equar.bingo.backend.feature.wallet.entity.WalletTransaction;
 import com.equar.bingo.backend.feature.wallet.entity.WalletTransactionType;
+import com.equar.bingo.backend.feature.wallet.entity.SignupRewardPolicy;
+import com.equar.bingo.backend.feature.wallet.entity.WalletTransferPolicy;
 import com.equar.bingo.backend.feature.agent.repository.PayoutVerificationRecordRepository;
 import com.equar.bingo.backend.feature.agent.repository.AgentFloatTransactionRepository;
 import com.equar.bingo.backend.feature.agent.repository.AgentFloatRepository;
 import com.equar.bingo.backend.feature.agent.repository.AgentRepository;
 import com.equar.bingo.backend.feature.wallet.repository.DepositClaimRepository;
 import com.equar.bingo.backend.feature.wallet.repository.IdempotencyRecordRepository;
+import com.equar.bingo.backend.feature.wallet.repository.SignupRewardGrantRepository;
+import com.equar.bingo.backend.feature.wallet.repository.SignupRewardPolicyRepository;
 import com.equar.bingo.backend.feature.wallet.repository.WalletRepository;
 import com.equar.bingo.backend.feature.wallet.repository.WalletTransactionRepository;
+import com.equar.bingo.backend.feature.wallet.repository.WalletTransferPolicyRepository;
+import com.equar.bingo.backend.feature.wallet.repository.WalletTransferRepository;
 import com.equar.bingo.backend.feature.wallet.service.WalletService;
 import com.equar.bingo.backend.feature.support.repository.InternalNoteRepository;
 import com.equar.bingo.backend.feature.support.repository.SupportMessageRepository;
@@ -83,6 +91,18 @@ class WalletIntegrationTest {
 
         @Autowired
         WalletTransactionRepository walletTransactionRepository;
+
+        @Autowired
+        SignupRewardPolicyRepository signupRewardPolicyRepository;
+
+        @Autowired
+        SignupRewardGrantRepository signupRewardGrantRepository;
+
+        @Autowired
+        WalletTransferPolicyRepository walletTransferPolicyRepository;
+
+        @Autowired
+        WalletTransferRepository walletTransferRepository;
 
         @Autowired
         DepositClaimRepository depositClaimRepository;
@@ -156,6 +176,10 @@ class WalletIntegrationTest {
                 gameSessionRepository.deleteAll();
                 bingoRoomRepository.deleteAll();
                 walletTransactionRepository.deleteAll();
+                signupRewardGrantRepository.deleteAll();
+                signupRewardPolicyRepository.deleteAll();
+                walletTransferRepository.deleteAll();
+                walletTransferPolicyRepository.deleteAll();
                 depositClaimRepository.deleteAll();
                 walletRepository.deleteAll();
                 idempotencyRecordRepository.deleteAll();
@@ -169,6 +193,8 @@ class WalletIntegrationTest {
                                 AccountStatus.ACTIVE,
                                 Set.of(UserRole.ADMIN),
                                 now));
+                adminUser.setEmail("admin@example.com");
+                adminUser = userRepository.save(adminUser);
 
                 playerUser = userRepository.save(User.create(
                                 phoneNormalizer.normalize("0911000102"),
@@ -179,12 +205,17 @@ class WalletIntegrationTest {
                                 now));
 
                 walletService.createWalletIfMissing(playerUser);
+                signupRewardPolicyRepository.save(SignupRewardPolicy.create(true, new BigDecimal("25.00"), "ETB",
+                                now.minusSeconds(60), now.plusSeconds(86400), adminUser, "Welcome reward", now));
+                walletTransferPolicyRepository.save(WalletTransferPolicy.create(true, new BigDecimal("1000.00"),
+                                new BigDecimal("5000.00"), "ETB", now.minusSeconds(60), now.plusSeconds(86400),
+                                adminUser, "Enable transfers", now));
         }
 
         @Test
         void playerDepositIdempotencyAndAdminApprovalFlowWork() throws Exception {
                 String playerToken = loginToken("0911000102", "123456");
-                String adminToken = loginToken("0911000101", "AdminPass123!");
+                String adminToken = adminLoginToken("admin@example.com", "AdminPass123!");
 
                 DepositClaimRequest request = new DepositClaimRequest(new BigDecimal("100.00"), "ETB", "TBR-123 456");
                 String requestJson = objectMapper.writeValueAsString(request);
@@ -279,7 +310,7 @@ class WalletIntegrationTest {
 
         @Test
         void insufficientAdjustmentRollsBackWithoutChangingBalance() throws Exception {
-                String adminToken = loginToken("0911000101", "AdminPass123!");
+                String adminToken = adminLoginToken("admin@example.com", "AdminPass123!");
 
                 mockMvc.perform(post("/api/v1/admin/players/" + playerUser.getId() + "/wallet-adjustments")
                                 .header("Authorization", "Bearer " + adminToken)
@@ -337,6 +368,80 @@ class WalletIntegrationTest {
                 assertEquals(1L, walletTransactionRepository.count());
         }
 
+        @Test
+        void signupRewardIsGrantedOnRegistrationAndRecordedOnce() throws Exception {
+                String phone = "0911000103";
+
+                mockMvc.perform(post("/api/v1/auth/register")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(
+                                                new RegisterRequest("New Player", phone, "123456"))))
+                                .andExpect(status().isCreated())
+                                .andExpect(jsonPath("$.tokenType").value("Bearer"));
+
+                User newPlayer = userRepository.findByNormalizedPhone(phoneNormalizer.normalize(phone)).orElseThrow();
+                Wallet wallet = walletRepository.findByOwnerId(newPlayer.getId()).orElseThrow();
+                assertEquals(new BigDecimal("25.00"), wallet.getPromotionalBalance());
+                assertEquals(new BigDecimal("25.00"), wallet.getTotalBalance());
+                assertEquals(1L, signupRewardGrantRepository.count());
+                assertEquals(1L, walletTransactionRepository.count());
+                assertEquals(WalletTransactionType.SIGNUP_REWARD_CREDIT,
+                                walletTransactionRepository.findAll().get(0).getTransactionType());
+        }
+
+        @Test
+        void playerTransferUsesIdempotencyAndMovesTransferableBalance() throws Exception {
+                String senderToken = loginToken("0911000102", "123456");
+                User recipient = userRepository.save(User.create(
+                                phoneNormalizer.normalize("0911000104"),
+                                "Recipient User",
+                                passwordEncoder.encode("123456"),
+                                AccountStatus.ACTIVE,
+                                Set.of(UserRole.PLAYER),
+                                Instant.now()));
+                walletService.createWalletIfMissing(recipient);
+
+                Wallet senderWallet = walletRepository.findByOwnerId(playerUser.getId()).orElseThrow();
+                senderWallet.setAvailableBalance(new BigDecimal("100.00"));
+                walletRepository.save(senderWallet);
+
+                String requestJson = objectMapper.writeValueAsString(
+                                new com.equar.bingo.backend.feature.wallet.dto.WalletTransferRequest(
+                                                "0911000104", new BigDecimal("30.00"), "ETB", "Dinner split"));
+
+                String firstResponse = mockMvc.perform(post("/api/v1/wallet/transfers")
+                                .header("Authorization", "Bearer " + senderToken)
+                                .header("Idempotency-Key", "transfer-1")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(requestJson))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.status").value("COMPLETED"))
+                                .andReturn()
+                                .getResponse()
+                                .getContentAsString();
+
+                String secondResponse = mockMvc.perform(post("/api/v1/wallet/transfers")
+                                .header("Authorization", "Bearer " + senderToken)
+                                .header("Idempotency-Key", "transfer-1")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(requestJson))
+                                .andExpect(status().isOk())
+                                .andReturn()
+                                .getResponse()
+                                .getContentAsString();
+
+                JsonNode first = objectMapper.readTree(firstResponse);
+                JsonNode second = objectMapper.readTree(secondResponse);
+                assertEquals(first.get("operationId").asText(), second.get("operationId").asText());
+                assertEquals(1L, walletTransferRepository.count());
+                assertEquals(2L, walletTransactionRepository.count());
+
+                Wallet senderAfter = walletRepository.findByOwnerId(playerUser.getId()).orElseThrow();
+                Wallet recipientAfter = walletRepository.findByOwnerId(recipient.getId()).orElseThrow();
+                assertEquals(new BigDecimal("70.00"), senderAfter.getAvailableBalance());
+                assertEquals(new BigDecimal("30.00"), recipientAfter.getAvailableBalance());
+        }
+
         private String approveInParallel(BingoUserPrincipal adminPrincipal,
                         Long depositId,
                         CountDownLatch ready,
@@ -358,6 +463,17 @@ class WalletIntegrationTest {
                 String response = mockMvc.perform(post("/api/v1/auth/login")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(new LoginRequest(phoneNumber, password))))
+                                .andExpect(status().isOk())
+                                .andReturn()
+                                .getResponse()
+                                .getContentAsString();
+                return objectMapper.readTree(response).get("accessToken").asText();
+        }
+
+        private String adminLoginToken(String email, String password) throws Exception {
+                String response = mockMvc.perform(post("/api/v1/admin/login")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(new AdminLoginRequest(email, password))))
                                 .andExpect(status().isOk())
                                 .andReturn()
                                 .getResponse()

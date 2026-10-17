@@ -43,6 +43,14 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+/android/key.properties
+/android/*.jks
+/android/*.keystore
+
+# Fastlane secrets and generated release files
+/fastlane/.env*
+/fastlane/report.xml
+/fastlane/test_output/
 
 # Widget Preview related
 .widget_preview/

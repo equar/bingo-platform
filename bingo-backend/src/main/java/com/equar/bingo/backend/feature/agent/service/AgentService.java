@@ -29,11 +29,13 @@ import com.equar.bingo.backend.feature.user.entity.AccountStatus;
 import com.equar.bingo.backend.feature.user.entity.User;
 import com.equar.bingo.backend.feature.user.entity.UserRole;
 import com.equar.bingo.backend.feature.user.repository.UserRepository;
+import com.equar.bingo.backend.feature.wallet.config.WalletProperties;
 import com.equar.bingo.backend.feature.wallet.entity.Wallet;
 import com.equar.bingo.backend.feature.wallet.entity.WalletTransaction;
 import com.equar.bingo.backend.feature.wallet.entity.WalletTransactionType;
 import com.equar.bingo.backend.feature.wallet.repository.WalletRepository;
 import com.equar.bingo.backend.feature.wallet.repository.WalletTransactionRepository;
+import com.equar.bingo.backend.feature.wallet.service.SignupRewardService;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
@@ -64,6 +66,7 @@ public class AgentService {
     private final WalletTransactionRepository walletTransactionRepository;
     private final BingoGameService bingoGameService;
     private final AgentProperties agentProperties;
+    private final WalletProperties walletProperties;
     private final EthiopianPhoneNormalizer phoneNormalizer;
     private final AuthenticationManager authenticationManager;
     private final PasswordEncoder passwordEncoder;
@@ -72,6 +75,7 @@ public class AgentService {
     private final IdempotencyService idempotencyService;
     private final RequestHashService requestHashService;
     private final AgentAttemptThrottleService throttleService;
+    private final SignupRewardService signupRewardService;
 
     public AgentService(AgentRepository agentRepository,
             AgentFloatRepository agentFloatRepository,
@@ -88,6 +92,7 @@ public class AgentService {
             WalletTransactionRepository walletTransactionRepository,
             BingoGameService bingoGameService,
             AgentProperties agentProperties,
+            WalletProperties walletProperties,
             EthiopianPhoneNormalizer phoneNormalizer,
             AuthenticationManager authenticationManager,
             PasswordEncoder passwordEncoder,
@@ -95,7 +100,8 @@ public class AgentService {
             JwtService jwtService,
             IdempotencyService idempotencyService,
             RequestHashService requestHashService,
-            AgentAttemptThrottleService throttleService) {
+            AgentAttemptThrottleService throttleService,
+            SignupRewardService signupRewardService) {
         this.agentRepository = agentRepository;
         this.agentFloatRepository = agentFloatRepository;
         this.agentFloatTransactionRepository = agentFloatTransactionRepository;
@@ -111,6 +117,7 @@ public class AgentService {
         this.walletTransactionRepository = walletTransactionRepository;
         this.bingoGameService = bingoGameService;
         this.agentProperties = agentProperties;
+        this.walletProperties = walletProperties;
         this.phoneNormalizer = phoneNormalizer;
         this.authenticationManager = authenticationManager;
         this.passwordEncoder = passwordEncoder;
@@ -119,6 +126,7 @@ public class AgentService {
         this.idempotencyService = idempotencyService;
         this.requestHashService = requestHashService;
         this.throttleService = throttleService;
+        this.signupRewardService = signupRewardService;
     }
 
     @Transactional
@@ -168,6 +176,8 @@ public class AgentService {
                 passwordEncoder.encode(generatedPassword),
                 AccountStatus.ACTIVE, Set.of(UserRole.PLAYER), Instant.now());
         player = userRepository.save(player);
+        walletRepository.save(Wallet.create(player, walletProperties.currency()));
+        signupRewardService.grantForNewPlayer(player);
         return toProfile(player);
     }
 

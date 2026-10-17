@@ -1,0 +1,104 @@
+name: Bingo App Android Internal Testing
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_notes:
+        description: Release notes for Google Play internal testing
+        type: string
+        required: false
+        default: Internal testing release
+      mobile_api_base_url:
+        description: Public HTTPS API base URL for the release build
+        type: string
+        required: true
+        default: https://api.sunsetbingo.example
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bingo-app-android-internal-testing
+  cancel-in-progress: false
+
+jobs:
+  upload:
+    name: Build, sign, and upload to Google Play internal testing
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+        working-directory: bingo-app
+    env:
+      MOBILE_API_BASE_URL: ${{ inputs.mobile_api_base_url || vars.BINGO_MOBILE_API_BASE_URL }}
+      ANDROID_PACKAGE_NAME: ${{ vars.BINGO_ANDROID_PACKAGE_NAME }}
+      RELEASE_NOTES: ${{ inputs.release_notes }}
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.BINGO_ANDROID_KEYSTORE_BASE64 }}
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.BINGO_ANDROID_KEYSTORE_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.BINGO_ANDROID_KEY_ALIAS }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.BINGO_ANDROID_KEY_PASSWORD }}
+      GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64: ${{ secrets.BINGO_GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64 }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Set up Java
+        uses: actions/setup-java@7a6d8a8234af8eb26422e24e3006232cccaa061b
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@f2c4f6686ca8e8d6e6d0f28410eeef506ed66aff
+        with:
+          flutter-version: 3.47.7
+          channel: stable
+
+      - name: Validate release backend URL
+        run: ./tooling/validate_release_api_base_url.sh "$MOBILE_API_BASE_URL"
+
+      - name: Prepare Android signing and Play credentials
+        run: |
+          set -euo pipefail
+          umask 077
+
+          if [[ -z "${ANDROID_KEYSTORE_BASE64:-}" || -z "${ANDROID_KEYSTORE_PASSWORD:-}" || -z "${ANDROID_KEY_ALIAS:-}" || -z "${ANDROID_KEY_PASSWORD:-}" ]]; then
+            echo 'ERROR: Android signing secrets are required.' >&2
+            exit 1
+          fi
+
+          if [[ -z "${GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64:-}" ]]; then
+            echo 'ERROR: Google Play service account credentials are required.' >&2
+            exit 1
+          fi
+
+          KEYSTORE_PATH="$RUNNER_TEMP/bingo-release.keystore"
+          GOOGLE_PLAY_JSON_PATH="$RUNNER_TEMP/google-play-service-account.json"
+          KEY_PROPERTIES_PATH="$PWD/android/key.properties"
+
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$KEYSTORE_PATH"
+          printf '%s' "$GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64" | base64 -d > "$GOOGLE_PLAY_JSON_PATH"
+
+          cat > "$KEY_PROPERTIES_PATH" <<EOF
+storeFile=$KEYSTORE_PATH
+storePassword=$ANDROID_KEYSTORE_PASSWORD
+keyAlias=$ANDROID_KEY_ALIAS
+keyPassword=$ANDROID_KEY_PASSWORD
+EOF
+
+          printf 'ANDROID_AAB_PATH=%s\n' "$PWD/build/app/outputs/bundle/release/app-release.aab" >> "$GITHUB_ENV"
+          printf 'GOOGLE_PLAY_JSON_KEY_PATH=%s\n' "$GOOGLE_PLAY_JSON_PATH" >> "$GITHUB_ENV"
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
+      - name: Build Android app bundle
+        run: flutter build appbundle --release --dart-define=API_BASE_URL="${MOBILE_API_BASE_URL}"
+
+      - name: Install Fastlane
+        run: sudo gem install fastlane --no-document
+
+      - name: Upload to Google Play internal testing
+        run: fastlane android internal_testing

@@ -438,6 +438,8 @@ export interface WalletBalanceResponse {
   walletId: number;
   currency: string;
   availableBalance: string;
+  promotionalBalance: string;
+  totalBalance: string;
   updatedAt: string;
 }
 
@@ -448,11 +450,109 @@ export interface WalletTransactionResponse {
   amount: string;
   balanceBefore: string;
   balanceAfter: string;
+  transferableBalanceBefore: string | null;
+  transferableBalanceAfter: string | null;
+  promotionalBalanceBefore: string | null;
+  promotionalBalanceAfter: string | null;
   currency: string;
   referenceType: string;
   referenceId: number | null;
   note: string | null;
+  metadataJson: string | null;
   createdAt: string;
+}
+
+export interface WalletRecipientLookupResponse {
+  userId: number;
+  displayName: string;
+  normalizedPhone: string;
+}
+
+export interface WalletTransferRequest {
+  recipientPhoneNumber: string;
+  amount: number;
+  currency: string;
+  note?: string | null;
+}
+
+export interface WalletTransferResponse {
+  id: number;
+  operationId: string;
+  senderId: number;
+  senderPhoneNumber: string;
+  recipientId: number;
+  recipientPhoneNumber: string;
+  amount: string;
+  currency: string;
+  note: string | null;
+  status: string;
+  senderBalanceBefore: string;
+  senderBalanceAfter: string;
+  recipientBalanceBefore: string;
+  recipientBalanceAfter: string;
+  createdAt: string;
+  completedAt: string | null;
+  failureReason: string | null;
+}
+
+export interface SignupRewardSettingsResponse {
+  id: number;
+  enabled: boolean;
+  rewardAmount: string;
+  currency: string;
+  effectiveFrom: string;
+  effectiveUntil: string | null;
+  changedByUserId: number | null;
+  reason: string | null;
+  createdAt: string;
+  updatedAt: string;
+  activeNow: boolean;
+}
+
+export interface SignupRewardSettingsRequest {
+  enabled: boolean;
+  rewardAmount: number;
+  currency: string;
+  effectiveFrom: string;
+  effectiveUntil?: string | null;
+  reason?: string | null;
+}
+
+export interface SignupRewardGrantResponse {
+  id: number;
+  playerId: number;
+  playerDisplayName: string;
+  playerPhoneNumber: string;
+  policyId: number;
+  operationId: string;
+  rewardAmount: string;
+  currency: string;
+  awardedAt: string;
+}
+
+export interface WalletTransferSettingsResponse {
+  id: number;
+  enabled: boolean;
+  maxSingleTransferAmount: string;
+  dailyOutgoingLimitAmount: string;
+  currency: string;
+  effectiveFrom: string;
+  effectiveUntil: string | null;
+  changedByUserId: number | null;
+  reason: string | null;
+  createdAt: string;
+  updatedAt: string;
+  activeNow: boolean;
+}
+
+export interface WalletTransferSettingsRequest {
+  enabled: boolean;
+  maxSingleTransferAmount: number;
+  dailyOutgoingLimitAmount: number;
+  currency: string;
+  effectiveFrom: string;
+  effectiveUntil?: string | null;
+  reason?: string | null;
 }
 
 export interface DepositClaimResponse {
@@ -570,6 +670,22 @@ export async function playerWalletTransactions(playerId: number, page = 0, size 
   const { data } = await http.get<PageResponse<WalletTransactionResponse>>('/api/v1/wallet/transactions', {
     params: { page, size },
   });
+  return data;
+}
+
+export async function lookupWalletRecipient(phoneNumber: string) {
+  const { data } = await http.get<WalletRecipientLookupResponse>('/api/v1/wallet/transfers/recipient', {
+    params: { phoneNumber },
+  });
+  return data;
+}
+
+export async function submitWalletTransfer(request: WalletTransferRequest, idempotencyKey: string) {
+  const { data } = await http.post<WalletTransferResponse>(
+    '/api/v1/wallet/transfers',
+    request,
+    { headers: { 'Idempotency-Key': idempotencyKey } },
+  );
   return data;
 }
 
@@ -703,6 +819,68 @@ export async function adjustWallet(
     requestBody,
     { headers: idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined },
   );
+  return data;
+}
+
+export async function currentSignupRewardSettings() {
+  const { data } = await http.get<SignupRewardSettingsResponse>('/api/v1/admin/wallet/signup-rewards/settings');
+  return data;
+}
+
+export async function signupRewardSettingsHistory(page = 0, size = 20) {
+  const { data } = await http.get<PageResponse<SignupRewardSettingsResponse>>(
+    '/api/v1/admin/wallet/signup-rewards/settings/history',
+    { params: { page, size } },
+  );
+  return data;
+}
+
+export async function saveSignupRewardSettings(request: SignupRewardSettingsRequest) {
+  const { data } = await http.post<SignupRewardSettingsResponse>('/api/v1/admin/wallet/signup-rewards/settings', request);
+  return data;
+}
+
+export async function signupRewardGrants(page = 0, size = 20) {
+  const { data } = await http.get<PageResponse<SignupRewardGrantResponse>>('/api/v1/admin/wallet/signup-rewards/grants', {
+    params: { page, size },
+  });
+  return data;
+}
+
+export async function currentWalletTransferSettings() {
+  const { data } = await http.get<WalletTransferSettingsResponse>('/api/v1/admin/wallet/transfers/settings');
+  return data;
+}
+
+export async function walletTransferSettingsHistory(page = 0, size = 20) {
+  const { data } = await http.get<PageResponse<WalletTransferSettingsResponse>>(
+    '/api/v1/admin/wallet/transfers/settings/history',
+    { params: { page, size } },
+  );
+  return data;
+}
+
+export async function saveWalletTransferSettings(request: WalletTransferSettingsRequest) {
+  const { data } = await http.post<WalletTransferSettingsResponse>('/api/v1/admin/wallet/transfers/settings', request);
+  return data;
+}
+
+export async function walletTransfers(
+  query?: string,
+  status?: string,
+  senderPhone?: string,
+  recipientPhone?: string,
+  page = 0,
+  size = 20,
+) {
+  const { data } = await http.get<PageResponse<WalletTransferResponse>>('/api/v1/admin/wallet/transfers', {
+    params: { query, status, senderPhone, recipientPhone, page, size },
+  });
+  return data;
+}
+
+export async function walletTransferDetail(transferId: number) {
+  const { data } = await http.get<WalletTransferResponse>(`/api/v1/admin/wallet/transfers/${transferId}`);
   return data;
 }
 

@@ -35,6 +35,9 @@ public class Ticket {
     @Column(name = "operation_id", nullable = false, length = 36, unique = true)
     private String operationId;
 
+    @Column(name = "wallet_funding_snapshot_json", columnDefinition = "text")
+    private String walletFundingSnapshotJson;
+
     @Column(name = "grid_json", nullable = false, columnDefinition = "text")
     private String gridJson;
 
@@ -85,6 +88,14 @@ public class Ticket {
 
     public void setOperationId(String operationId) {
         this.operationId = operationId;
+    }
+
+    public String getWalletFundingSnapshotJson() {
+        return walletFundingSnapshotJson;
+    }
+
+    public void setWalletFundingSnapshotJson(String walletFundingSnapshotJson) {
+        this.walletFundingSnapshotJson = walletFundingSnapshotJson;
     }
 
     public String getGridJson() {
