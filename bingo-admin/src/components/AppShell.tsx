@@ -40,6 +40,8 @@ const navGroups = [
       { to: "/dashboard", label: "Dashboard" },
       { to: "/rooms", label: "Rooms" },
       { to: "/sessions", label: "Sessions" },
+      { to: "/wallet", label: "Wallet Policies" },
+      { to: "/wallet/transfers", label: "Transfer History" },
       { to: "/support/tickets", label: "Support" },
       { to: "/claims", label: "Win Claims" },
       { to: "/prize-entitlements", label: "Prize Entitlements" },

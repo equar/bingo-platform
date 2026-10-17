@@ -11,8 +11,10 @@ describe("useIdempotencyKey", () => {
     expect(result.current.getKey()).toBe("key-1");
 
     act(() => result.current.resetKey());
-    vi.mocked(globalThis.crypto.randomUUID).mockReturnValueOnce("key-2");
+    vi.mocked(globalThis.crypto.randomUUID).mockReturnValueOnce(
+      "11111111-1111-4111-8111-111111111111",
+    );
 
-    expect(result.current.getKey()).toBe("key-2");
+    expect(result.current.getKey()).toBe("11111111-1111-4111-8111-111111111111");
   });
 });

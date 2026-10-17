@@ -35,6 +35,9 @@ public class Wallet {
     @Column(name = "available_balance", nullable = false, precision = 19, scale = 2)
     private BigDecimal availableBalance;
 
+    @Column(name = "promotional_balance", nullable = false, precision = 19, scale = 2)
+    private BigDecimal promotionalBalance;
+
     @Version
     @Column(name = "version", nullable = false)
     private Long version;
@@ -53,6 +56,7 @@ public class Wallet {
         wallet.owner = owner;
         wallet.currency = currency;
         wallet.availableBalance = BigDecimal.ZERO.setScale(2);
+        wallet.promotionalBalance = BigDecimal.ZERO.setScale(2);
         return wallet;
     }
 
@@ -65,6 +69,9 @@ public class Wallet {
         updatedAt = now;
         if (availableBalance == null) {
             availableBalance = BigDecimal.ZERO.setScale(2);
+        }
+        if (promotionalBalance == null) {
+            promotionalBalance = BigDecimal.ZERO.setScale(2);
         }
     }
 
@@ -91,6 +98,18 @@ public class Wallet {
 
     public void setAvailableBalance(BigDecimal availableBalance) {
         this.availableBalance = availableBalance;
+    }
+
+    public BigDecimal getPromotionalBalance() {
+        return promotionalBalance;
+    }
+
+    public void setPromotionalBalance(BigDecimal promotionalBalance) {
+        this.promotionalBalance = promotionalBalance;
+    }
+
+    public BigDecimal getTotalBalance() {
+        return availableBalance.add(promotionalBalance);
     }
 
     public Long getVersion() {

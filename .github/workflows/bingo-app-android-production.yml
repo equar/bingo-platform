@@ -1,0 +1,87 @@
+name: Bingo App Android Production Promotion
+
+on:
+  workflow_dispatch:
+    inputs:
+      android_version_code:
+        description: Android versionCode to promote to production
+        type: string
+        required: true
+      android_production_rollout:
+        description: Initial rollout fraction for production promotion
+        type: string
+        required: false
+        default: "0.10"
+      release_notes:
+        description: Release notes for the production rollout
+        type: string
+        required: false
+        default: Production promotion release
+      mobile_api_base_url:
+        description: Public HTTPS API base URL for release validation
+        type: string
+        required: true
+        default: https://api.sunsetbingo.example
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bingo-app-android-production
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    name: Promote the tested Android build to production
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: bingo-app-android-production
+    defaults:
+      run:
+        shell: bash
+        working-directory: bingo-app
+    env:
+      MOBILE_API_BASE_URL: ${{ inputs.mobile_api_base_url || vars.BINGO_MOBILE_API_BASE_URL }}
+      ANDROID_PACKAGE_NAME: ${{ vars.BINGO_ANDROID_PACKAGE_NAME }}
+      ANDROID_VERSION_CODE: ${{ inputs.android_version_code }}
+      ANDROID_PRODUCTION_ROLLOUT: ${{ inputs.android_production_rollout || vars.BINGO_ANDROID_PRODUCTION_ROLLOUT }}
+      RELEASE_NOTES: ${{ inputs.release_notes }}
+      GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64: ${{ secrets.BINGO_GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64 }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Set up Java
+        uses: actions/setup-java@7a6d8a8234af8eb26422e24e3006232cccaa061b
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+
+      - name: Validate release backend URL
+        run: ./tooling/validate_release_api_base_url.sh "$MOBILE_API_BASE_URL"
+
+      - name: Prepare Google Play credentials
+        run: |
+          set -euo pipefail
+          umask 077
+
+          if [[ -z "${ANDROID_VERSION_CODE:-}" ]]; then
+            echo 'ERROR: android_version_code is required.' >&2
+            exit 1
+          fi
+
+          if [[ -z "${GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64:-}" ]]; then
+            echo 'ERROR: Google Play service account credentials are required.' >&2
+            exit 1
+          fi
+
+          GOOGLE_PLAY_JSON_PATH="$RUNNER_TEMP/google-play-service-account.json"
+          printf '%s' "$GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64" | base64 -d > "$GOOGLE_PLAY_JSON_PATH"
+          printf 'GOOGLE_PLAY_JSON_KEY_PATH=%s\n' "$GOOGLE_PLAY_JSON_PATH" >> "$GITHUB_ENV"
+
+      - name: Install Fastlane
+        run: sudo gem install fastlane --no-document
+
+      - name: Promote the build to production
+        run: fastlane android promote_production

@@ -77,7 +77,7 @@ public class WalletService {
         User player = requirePlayer(principal);
         Wallet wallet = ensureWallet(player);
         return new WalletBalanceResponse(wallet.getId(), wallet.getCurrency(), wallet.getAvailableBalance(),
-                wallet.getUpdatedAt());
+                wallet.getPromotionalBalance(), wallet.getTotalBalance(), wallet.getUpdatedAt());
     }
 
     @Transactional(readOnly = true)
@@ -183,6 +183,11 @@ public class WalletService {
                             "DEPOSIT_CLAIM",
                             claim.getId(),
                             request.reviewNote(),
+                            balanceBefore,
+                            balanceAfter,
+                            wallet.getPromotionalBalance(),
+                            wallet.getPromotionalBalance(),
+                            null,
                             Instant.now()));
 
                     DepositClaim saved = depositClaimRepository.save(claim);
@@ -268,6 +273,11 @@ public class WalletService {
                             "WALLET_ADJUSTMENT",
                             player.getId(),
                             request.reason(),
+                            balanceBefore,
+                            balanceAfter,
+                            wallet.getPromotionalBalance(),
+                            wallet.getPromotionalBalance(),
+                            null,
                             Instant.now()));
 
                     return new WalletAdjustmentResponse(
@@ -331,10 +341,15 @@ public class WalletService {
                 transaction.getAmount(),
                 transaction.getBalanceBefore(),
                 transaction.getBalanceAfter(),
+                transaction.getTransferableBalanceBefore(),
+                transaction.getTransferableBalanceAfter(),
+                transaction.getPromotionalBalanceBefore(),
+                transaction.getPromotionalBalanceAfter(),
                 transaction.getCurrency(),
                 transaction.getReferenceType(),
                 transaction.getReferenceId(),
                 transaction.getNote(),
+                transaction.getMetadataJson(),
                 transaction.getCreatedAt());
     }
 

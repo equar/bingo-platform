@@ -283,14 +283,22 @@ public class BingoGameService {
                     enforcePlayerTicketLimit(session, player);
 
                     Wallet wallet = ensureWallet(player);
-                    BigDecimal balanceBefore = wallet.getAvailableBalance();
                     BigDecimal price = MoneyValues.money(session.getTicketPriceSnapshot());
-                    BigDecimal balanceAfter = MoneyValues.money(balanceBefore.subtract(price));
-                    if (balanceAfter.compareTo(BigDecimal.ZERO) < 0) {
+                    BigDecimal transferableBefore = wallet.getAvailableBalance();
+                    BigDecimal promotionalBefore = wallet.getPromotionalBalance();
+                    BigDecimal balanceBefore = wallet.getTotalBalance();
+                    if (balanceBefore.compareTo(price) < 0) {
                         throw new ConflictException("INSUFFICIENT_BALANCE", "Wallet balance cannot go below zero");
                     }
 
-                    wallet.setAvailableBalance(balanceAfter);
+                    BigDecimal promotionalUsed = promotionalBefore.min(price);
+                    BigDecimal transferableUsed = MoneyValues.money(price.subtract(promotionalUsed));
+                    BigDecimal transferableAfter = MoneyValues.money(transferableBefore.subtract(transferableUsed));
+                    BigDecimal promotionalAfter = MoneyValues.money(promotionalBefore.subtract(promotionalUsed));
+                    BigDecimal balanceAfter = MoneyValues.money(transferableAfter.add(promotionalAfter));
+
+                    wallet.setAvailableBalance(transferableAfter);
+                    wallet.setPromotionalBalance(promotionalAfter);
                     walletRepository.save(wallet);
 
                     Ticket ticket = new Ticket();
@@ -299,6 +307,8 @@ public class BingoGameService {
                     ticket.setOperationId(operationId);
                     ticket.setPublicTicketCode(generatePublicTicketCode(sessionId));
                     ticket.setGridJson(writeGrid(new BingoCardGenerator().generate().grid()));
+                    ticket.setWalletFundingSnapshotJson(writeFundingSnapshot(transferableUsed, promotionalUsed,
+                            transferableBefore, promotionalBefore, transferableAfter, promotionalAfter));
                     ticket = ticketRepository.save(ticket);
 
                     walletTransactionRepository.save(WalletTransaction.create(
@@ -312,6 +322,11 @@ public class BingoGameService {
                             "BINGO_TICKET",
                             ticket.getId(),
                             "Bingo ticket purchase",
+                            transferableBefore,
+                            transferableAfter,
+                            promotionalBefore,
+                            promotionalAfter,
+                            ticket.getWalletFundingSnapshotJson(),
                             Instant.now()));
 
                     return new TicketPurchaseResponse(toTicketResponse(ticket));
@@ -802,6 +817,25 @@ public class BingoGameService {
             return objectMapper.writeValueAsString(grid);
         } catch (Exception exception) {
             throw new IllegalStateException("Unable to write ticket grid", exception);
+        }
+    }
+
+    private String writeFundingSnapshot(BigDecimal transferableUsed,
+            BigDecimal promotionalUsed,
+            BigDecimal transferableBefore,
+            BigDecimal promotionalBefore,
+            BigDecimal transferableAfter,
+            BigDecimal promotionalAfter) {
+        try {
+            return objectMapper.writeValueAsString(java.util.Map.of(
+                    "transferableUsed", transferableUsed,
+                    "promotionalUsed", promotionalUsed,
+                    "transferableBefore", transferableBefore,
+                    "promotionalBefore", promotionalBefore,
+                    "transferableAfter", transferableAfter,
+                    "promotionalAfter", promotionalAfter));
+        } catch (Exception exception) {
+            throw new IllegalStateException("Unable to write wallet funding snapshot", exception);
         }
     }
 

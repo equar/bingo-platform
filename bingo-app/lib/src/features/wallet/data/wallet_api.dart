@@ -36,4 +36,21 @@ class WalletApi {
     );
     return DepositClaim.fromJson(response.data ?? const <String, dynamic>{});
   }
+
+  Future<WalletRecipientLookup> lookupRecipient(String phoneNumber) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/v1/wallet/transfers/recipient',
+      queryParameters: {'phoneNumber': phoneNumber},
+    );
+    return WalletRecipientLookup.fromJson(response.data ?? const <String, dynamic>{});
+  }
+
+  Future<WalletTransferResponse> submitTransfer(WalletTransferRequest request, String idempotencyKey) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/api/v1/wallet/transfers',
+      data: request.toJson(),
+      options: Options(headers: {'Idempotency-Key': idempotencyKey}),
+    );
+    return WalletTransferResponse.fromJson(response.data ?? const <String, dynamic>{});
+  }
 }
