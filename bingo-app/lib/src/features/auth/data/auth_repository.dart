@@ -1,5 +1,4 @@
 import 'package:bingo_app/src/core/network/api_provider.dart';
-import 'package:bingo_app/src/core/network/api_client.dart';
 import 'package:bingo_app/src/features/auth/data/auth_api.dart';
 import 'package:bingo_app/src/features/auth/data/auth_models.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

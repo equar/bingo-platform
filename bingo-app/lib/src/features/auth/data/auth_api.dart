@@ -1,6 +1,5 @@
 import 'package:bingo_app/src/features/auth/data/auth_models.dart';
 import 'package:bingo_app/src/core/network/api_client.dart';
-import 'package:bingo_app/src/core/network/api_error.dart';
 import 'package:dio/dio.dart';
 
 class AuthApi {
