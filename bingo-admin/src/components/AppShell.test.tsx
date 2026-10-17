@@ -1,5 +1,4 @@
-import { act, render, screen, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -52,10 +51,10 @@ describe("AppShell", () => {
 
     render(
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={["/management"]}>
+        <MemoryRouter initialEntries={["/dashboard"]}>
           <Routes>
             <Route element={<AppShell />}>
-              <Route path="management" element={<div>Management content</div>} />
+              <Route path="dashboard" element={<div>Dashboard content</div>} />
             </Route>
           </Routes>
         </MemoryRouter>
@@ -80,14 +79,13 @@ describe("AppShell", () => {
 
   it("renders grouped navigation and the current user menu", async () => {
     const queryClient = new QueryClient();
-    const user = userEvent.setup();
 
     render(
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={["/management"]}>
+        <MemoryRouter initialEntries={["/dashboard"]}>
           <Routes>
             <Route element={<AppShell />}>
-              <Route path="management" element={<div>Management content</div>} />
+              <Route path="dashboard" element={<div>Dashboard content</div>} />
             </Route>
           </Routes>
         </MemoryRouter>
@@ -96,12 +94,25 @@ describe("AppShell", () => {
 
     expect(screen.getAllByRole("banner")[0].textContent).toContain("Bingo Admin");
     expect(screen.getAllByText("Admin Tester")[0]).toBeInTheDocument();
-    expect(screen.getAllByText("Management")[0]).toBeInTheDocument();
+    expect(screen.getAllByText("Overview")[0]).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /admin tester/i })[0]).toBeInTheDocument();
+    expect(screen.getAllByText("Urgent work")[0]).toBeInTheDocument();
+    expect(screen.getAllByText("Live operations")[0]).toBeInTheDocument();
+    expect(screen.getAllByText("Account management")[0]).toBeInTheDocument();
+    expect(screen.getAllByText("Policies")[0]).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "Admin Users" })[0]).toBeInTheDocument();
-    expect(screen.getAllByText("Operations")[0]).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "Dashboard" })[0]).toBeInTheDocument();
-    expect(screen.getAllByText("Management content")[0]).toBeInTheDocument();
+    expect(screen.getAllByText("Dashboard content")[0]).toBeInTheDocument();
 
+    const urgentWorkToggle = screen.getAllByRole("button", { name: /Urgent work/ })[0];
+    expect(urgentWorkToggle).toHaveAttribute("aria-expanded", "true");
+
+    fireEvent.click(urgentWorkToggle);
+
+    expect(urgentWorkToggle).toHaveAttribute("aria-expanded", "false");
+
+    fireEvent.click(urgentWorkToggle);
+
+    expect(urgentWorkToggle).toHaveAttribute("aria-expanded", "true");
   });
 });

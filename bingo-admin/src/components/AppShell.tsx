@@ -16,7 +16,7 @@ import {
   Typography,
 } from "@mui/material";
 import type { Theme } from "@mui/material/styles";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { clearSession, useSession } from "../api/session";
 
@@ -26,27 +26,41 @@ const activityEvents = ["click", "keydown", "mousemove", "mousedown", "scroll", 
 
 const navGroups = [
   {
-    title: "Management",
+    title: "Overview",
     items: [
-      { to: "/management", label: "Overview" },
+      { to: "/dashboard", label: "Dashboard" },
+    ],
+  },
+  {
+    title: "Urgent work",
+    items: [
+      { to: "/support/tickets", label: "Support" },
+      { to: "/claims", label: "Win Claims" },
+      { to: "/deposits", label: "Deposits" },
+    ],
+  },
+  {
+    title: "Live operations",
+    items: [
+      { to: "/sessions", label: "Sessions" },
+      { to: "/rooms", label: "Rooms" },
+      { to: "/audit-logs", label: "Audit Logs" },
+    ],
+  },
+  {
+    title: "Account management",
+    items: [
       { to: "/admin-users", label: "Admin Users" },
       { to: "/agents", label: "Agents" },
       { to: "/players", label: "Players" },
     ],
   },
   {
-    title: "Operations",
+    title: "Policies",
     items: [
-      { to: "/dashboard", label: "Dashboard" },
-      { to: "/rooms", label: "Rooms" },
-      { to: "/sessions", label: "Sessions" },
       { to: "/wallet", label: "Wallet Policies" },
       { to: "/wallet/transfers", label: "Transfer History" },
-      { to: "/support/tickets", label: "Support" },
-      { to: "/claims", label: "Win Claims" },
       { to: "/prize-entitlements", label: "Prize Entitlements" },
-      { to: "/deposits", label: "Deposits" },
-      { to: "/audit-logs", label: "Audit Logs" },
     ],
   },
 ];
@@ -56,8 +70,22 @@ export function AppShell() {
   const location = useLocation();
   const navigate = useNavigate();
   const [accountMenuAnchor, setAccountMenuAnchor] = useState<null | HTMLElement>(null);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set(navGroups.map((group) => group.title)));
 
   const accountMenuOpen = Boolean(accountMenuAnchor);
+
+  const activeGroupTitles = useMemo(
+    () => navGroups.filter((group) => group.items.some((item) => location.pathname === item.to || location.pathname.startsWith(`${item.to}/`))).map((group) => group.title),
+    [location.pathname],
+  );
+
+  useEffect(() => {
+    setExpandedGroups((currentGroups) => {
+      const nextGroups = new Set(currentGroups);
+      activeGroupTitles.forEach((groupTitle) => nextGroups.add(groupTitle));
+      return nextGroups;
+    });
+  }, [activeGroupTitles]);
 
   useEffect(() => {
     if (!session) {
@@ -168,22 +196,45 @@ export function AppShell() {
         <Box sx={{ overflow: "auto", p: 1 }}>
           {navGroups.map((group, groupIndex) => (
             <Box key={group.title} sx={{ mb: groupIndex === navGroups.length - 1 ? 0 : 2 }}>
-              <Typography variant="overline" color="text.secondary" sx={{ px: 1.5 }}>
-                {group.title}
-              </Typography>
-              <List>
-                {group.items.map((item) => (
-                  <ListItemButton
-                    key={item.to}
-                    component={NavLink}
-                    to={item.to}
-                    selected={location.pathname === item.to || location.pathname.startsWith(`${item.to}/`)}
-                    sx={{ borderRadius: 2, mb: 0.5 }}
-                  >
-                    <ListItemText primary={item.label} />
-                  </ListItemButton>
-                ))}
-              </List>
+              <ListItemButton
+                onClick={() => {
+                  setExpandedGroups((currentGroups) => {
+                    const nextGroups = new Set(currentGroups);
+                    if (nextGroups.has(group.title)) {
+                      nextGroups.delete(group.title);
+                    } else {
+                      nextGroups.add(group.title);
+                    }
+                    return nextGroups;
+                  });
+                }}
+                sx={{ borderRadius: 2, px: 1.5, py: 0.5 }}
+                aria-expanded={expandedGroups.has(group.title)}
+                aria-controls={`nav-group-${group.title.toLowerCase().replace(/\s+/g, "-")}`}
+              >
+                <ListItemText
+                  primary={group.title}
+                  primaryTypographyProps={{ variant: "overline", color: "text.secondary" }}
+                />
+                <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                  {expandedGroups.has(group.title) ? "▾" : "▸"}
+                </Typography>
+              </ListItemButton>
+              {expandedGroups.has(group.title) ? (
+                <List id={`nav-group-${group.title.toLowerCase().replace(/\s+/g, "-")}`}>
+                  {group.items.map((item) => (
+                    <ListItemButton
+                      key={item.to}
+                      component={NavLink}
+                      to={item.to}
+                      selected={location.pathname === item.to || location.pathname.startsWith(`${item.to}/`)}
+                      sx={{ borderRadius: 2, mb: 0.5, ml: 1 }}
+                    >
+                      <ListItemText primary={item.label} />
+                    </ListItemButton>
+                  ))}
+                </List>
+              ) : null}
               {groupIndex < navGroups.length - 1 ? <Divider sx={{ my: 2 }} /> : null}
             </Box>
           ))}
