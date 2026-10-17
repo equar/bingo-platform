@@ -146,6 +146,9 @@ class BingoGameIntegrationTest {
         @Autowired
         InternalNoteRepository internalNoteRepository;
 
+        @Autowired
+        org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+
         private User adminUser;
         private User playerOne;
         private User playerTwo;
@@ -160,6 +163,10 @@ class BingoGameIntegrationTest {
                 agentFloatRepository.deleteAll();
                 agentRepository.deleteAll();
                 walletTransactionRepository.deleteAll();
+                jdbcTemplate.update("delete from signup_reward_grants");
+                jdbcTemplate.update("delete from wallet_transfers");
+                jdbcTemplate.update("delete from signup_reward_policies");
+                jdbcTemplate.update("delete from wallet_transfer_policies");
                 prizeEntitlementRepository.deleteAll();
                 winClaimRepository.deleteAll();
                 drawEventRepository.deleteAll();

@@ -9,7 +9,7 @@ create table signup_reward_policies (
     reason varchar(500) null,
     created_at timestamp(6) not null,
     updated_at timestamp(6) not null,
-    constraint fk_signup_reward_policies_changed_by foreign key (changed_by_user_id) references users (id)
+    constraint fk_signup_reward_policies_changed_by foreign key (changed_by_user_id) references users (id) on delete set null
 );
 
 create index idx_signup_reward_policies_created_at on signup_reward_policies (created_at desc);
@@ -42,7 +42,7 @@ create table wallet_transfer_policies (
     reason varchar(500) null,
     created_at timestamp(6) not null,
     updated_at timestamp(6) not null,
-    constraint fk_wallet_transfer_policies_changed_by foreign key (changed_by_user_id) references users (id)
+    constraint fk_wallet_transfer_policies_changed_by foreign key (changed_by_user_id) references users (id) on delete set null
 );
 
 create index idx_wallet_transfer_policies_created_at on wallet_transfer_policies (created_at desc);

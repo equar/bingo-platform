@@ -112,12 +112,19 @@ class AuthSecurityIntegrationTest {
         @Autowired
         BingoRoomRepository bingoRoomRepository;
 
+        @Autowired
+        org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+
         @BeforeEach
         void setUp() {
                 internalNoteRepository.deleteAllInBatch();
                 supportMessageRepository.deleteAllInBatch();
                 supportTicketRepository.deleteAllInBatch();
                 walletTransactionRepository.deleteAllInBatch();
+                jdbcTemplate.update("delete from signup_reward_grants");
+                jdbcTemplate.update("delete from wallet_transfers");
+                jdbcTemplate.update("delete from signup_reward_policies");
+                jdbcTemplate.update("delete from wallet_transfer_policies");
                 depositClaimRepository.deleteAllInBatch();
                 walletRepository.deleteAllInBatch();
                 idempotencyRecordRepository.deleteAllInBatch();

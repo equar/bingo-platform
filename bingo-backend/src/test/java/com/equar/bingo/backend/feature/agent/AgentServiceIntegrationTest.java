@@ -137,6 +137,9 @@ class AgentServiceIntegrationTest {
         @Autowired
         InternalNoteRepository internalNoteRepository;
 
+        @Autowired
+        org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+
         private User agentUser;
         private User playerUser;
         private BingoUserPrincipal agentPrincipal;
@@ -158,6 +161,10 @@ class AgentServiceIntegrationTest {
                 agentFloatRepository.deleteAll();
                 agentRepository.deleteAll();
                 walletTransactionRepository.deleteAll();
+                jdbcTemplate.update("delete from signup_reward_grants");
+                jdbcTemplate.update("delete from wallet_transfers");
+                jdbcTemplate.update("delete from signup_reward_policies");
+                jdbcTemplate.update("delete from wallet_transfer_policies");
                 depositClaimRepository.deleteAll();
                 walletRepository.deleteAll();
                 idempotencyRecordRepository.deleteAll();
