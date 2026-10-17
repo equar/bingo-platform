@@ -46,13 +46,17 @@ describe("ChangePasswordPage", () => {
 
   it("submits the password change form", async () => {
     const user = userEvent.setup();
-    render(<ChangePasswordPage />, { wrapper: createWrapper() });
+    const { container } = render(<ChangePasswordPage />, { wrapper: createWrapper() });
 
     expect(await screen.findByRole("heading", { name: "Change password" })).toBeInTheDocument();
 
-    await user.type(screen.getByLabelText(/^current password$/i), "OldPass123!");
-    await user.type(screen.getByLabelText(/^new password$/i), "NewPass123!");
-    await user.type(screen.getByLabelText(/^confirm new password$/i), "NewPass123!");
+    const [currentPasswordInput, newPasswordInput, confirmPasswordInput] = container.querySelectorAll(
+      'input[type="password"]',
+    );
+
+    await user.type(currentPasswordInput, "OldPass123!");
+    await user.type(newPasswordInput, "NewPass123!");
+    await user.type(confirmPasswordInput, "NewPass123!");
     await user.click(screen.getByRole("button", { name: "Save password" }));
 
     await waitFor(() => {

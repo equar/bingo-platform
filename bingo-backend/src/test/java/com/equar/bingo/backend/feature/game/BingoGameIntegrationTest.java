@@ -146,6 +146,9 @@ class BingoGameIntegrationTest {
         @Autowired
         InternalNoteRepository internalNoteRepository;
 
+        @Autowired
+        org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+
         private User adminUser;
         private User playerOne;
         private User playerTwo;
@@ -160,6 +163,10 @@ class BingoGameIntegrationTest {
                 agentFloatRepository.deleteAll();
                 agentRepository.deleteAll();
                 walletTransactionRepository.deleteAll();
+                jdbcTemplate.update("delete from signup_reward_grants");
+                jdbcTemplate.update("delete from wallet_transfers");
+                jdbcTemplate.update("delete from signup_reward_policies");
+                jdbcTemplate.update("delete from wallet_transfer_policies");
                 prizeEntitlementRepository.deleteAll();
                 winClaimRepository.deleteAll();
                 drawEventRepository.deleteAll();
@@ -174,7 +181,7 @@ class BingoGameIntegrationTest {
                 adminUser = userRepository.save(User.create(
                                 phoneNormalizer.normalize("0911000201"),
                                 "Admin User",
-                                passwordEncoder.encode("AdminPass123!"),
+                                passwordEncoder.encode("123456"),
                                 AccountStatus.ACTIVE,
                                 Set.of(UserRole.ADMIN),
                                 now));
@@ -212,7 +219,7 @@ class BingoGameIntegrationTest {
                 BingoRoomRequest roomRequest = roomRequest("Main Hall A", 1, 10, true);
                 var room = bingoGameService.createRoom(roomRequest);
                 var session = bingoGameService.createSession(room.id(), sessionRequest(GameSessionState.OPEN));
-                String adminToken = loginToken("0911000201", "AdminPass123!");
+                String adminToken = loginToken("0911000201", "123456");
 
                 mockMvc.perform(get("/api/v1/rooms")
                                 .header("Authorization", "Bearer " + adminToken))
@@ -239,7 +246,7 @@ class BingoGameIntegrationTest {
                 BingoUserPrincipal adminPrincipal = new BingoUserPrincipal(
                                 userRepository.findById(adminUser.getId()).orElseThrow());
                 String playerToken = loginToken("0911000202", "123456");
-                String adminToken = loginToken("0911000201", "AdminPass123!");
+                String adminToken = loginToken("0911000201", "123456");
 
                 IdempotentResult<TicketPurchaseResponse> purchase = bingoGameService.purchaseTicket(session.id(),
                                 playerPrincipal, "ticket-1");

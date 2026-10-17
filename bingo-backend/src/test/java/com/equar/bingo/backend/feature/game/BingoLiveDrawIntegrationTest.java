@@ -175,6 +175,9 @@ class BingoLiveDrawIntegrationTest {
         @Autowired
         AgentRepository agentRepository;
 
+        @Autowired
+        org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+
         private User adminUser;
         private User playerUser;
 
@@ -194,6 +197,10 @@ class BingoLiveDrawIntegrationTest {
                 gameSessionRepository.deleteAll();
                 bingoRoomRepository.deleteAll();
                 walletTransactionRepository.deleteAll();
+                jdbcTemplate.update("delete from signup_reward_grants");
+                jdbcTemplate.update("delete from wallet_transfers");
+                jdbcTemplate.update("delete from signup_reward_policies");
+                jdbcTemplate.update("delete from wallet_transfer_policies");
                 depositClaimRepository.deleteAll();
                 walletRepository.deleteAll();
                 idempotencyRecordRepository.deleteAll();
@@ -203,7 +210,7 @@ class BingoLiveDrawIntegrationTest {
                 adminUser = userRepository.save(User.create(
                                 phoneNormalizer.normalize("0911000201"),
                                 "Admin User",
-                                passwordEncoder.encode("AdminPass123!"),
+                                passwordEncoder.encode("123456"),
                                 AccountStatus.ACTIVE,
                                 Set.of(UserRole.ADMIN),
                                 now));
@@ -265,7 +272,7 @@ class BingoLiveDrawIntegrationTest {
                                 .isPresent());
 
                 String replay = mockMvc.perform(get("/api/v1/sessions/" + session.getId() + "/draws")
-                                .header("Authorization", "Bearer " + loginToken("0911000201", "AdminPass123!"))
+                                .header("Authorization", "Bearer " + loginToken("0911000201", "123456"))
                                 .param("afterSequence", "1"))
                                 .andExpect(status().isOk())
                                 .andReturn()

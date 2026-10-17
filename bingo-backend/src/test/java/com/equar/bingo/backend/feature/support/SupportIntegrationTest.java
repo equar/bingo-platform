@@ -110,7 +110,7 @@ class SupportIntegrationTest {
                 admin = userRepository.save(User.create(
                                 phoneNormalizer.normalize(adminPhoneNumber),
                                 "Support Admin",
-                                passwordEncoder.encode("AdminPass123!"),
+                                passwordEncoder.encode("123456"),
                                 AccountStatus.ACTIVE,
                                 Set.of(UserRole.ADMIN),
                                 now));
@@ -119,7 +119,7 @@ class SupportIntegrationTest {
         @Test
         void supportTicketFlowHidesInternalNotesFromRequesterAndRequiresResolutionSummary() throws Exception {
                 String playerToken = loginToken(playerPhoneNumber, "123456");
-                String adminToken = loginToken(adminPhoneNumber, "AdminPass123!");
+                String adminToken = loginToken(adminPhoneNumber, "123456");
 
                 String createResponse = mockMvc.perform(post("/api/v1/support/tickets")
                                 .header("Authorization", "Bearer " + playerToken)
