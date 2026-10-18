@@ -4,7 +4,6 @@ import { ProtectedRoute } from "./ProtectedRoute";
 import { LoginPage } from "../features/auth/LoginPage";
 import { DashboardPage } from "../features/dashboard/DashboardPage";
 import { AdminUsersPage } from "../features/adminUsers/AdminUsersPage";
-import { ManagementHomePage } from "../features/management/ManagementHomePage";
 import { RoomsPage } from "../features/rooms/RoomsPage";
 import { SessionsPage } from "../features/sessions/SessionsPage";
 import { SessionDetailPage } from "../features/sessions/SessionDetailPage";
@@ -32,7 +31,7 @@ export function AppRouter() {
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="profile" element={<ProfilePage />} />
           <Route path="change-password" element={<ChangePasswordPage />} />
-          <Route path="management" element={<ManagementHomePage />} />
+          <Route path="management" element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="admin-users" element={<AdminUsersPage />} />
           <Route path="rooms" element={<RoomsPage />} />

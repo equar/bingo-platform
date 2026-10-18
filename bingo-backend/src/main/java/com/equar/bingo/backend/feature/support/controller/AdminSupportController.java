@@ -39,8 +39,9 @@ public class AdminSupportController {
     public PageResponse<SupportTicketSummaryResponse> search(@RequestParam(required = false) String query,
             @RequestParam(required = false) SupportTicketStatus status,
             @RequestParam(required = false) SupportTicketCategory category,
+            @RequestParam(required = false) Long assignedToUserId,
             @PageableDefault(size = 20) Pageable pageable) {
-        return PageResponse.from(supportService.searchTickets(query, status, category, pageable));
+        return PageResponse.from(supportService.searchTickets(query, status, category, assignedToUserId, pageable));
     }
 
     @GetMapping("/{ticketId}")
