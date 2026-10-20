@@ -12,7 +12,7 @@ The layout follows the same general pattern as the BillPay deployment folder:
 
 ## What is deployed
 
-- `bingo-backend` Spring Boot 3.3 / Java 17 / Maven / MySQL / Flyway
+- `bingo-backend` Spring Boot 3.5 / Java 25 / Maven / MySQL / Flyway
 - `bingo-admin` React / TypeScript / Vite SPA
 - `bingo-website` Astro static site deployed to AWS S3, with optional CloudFront invalidation
 
@@ -42,14 +42,14 @@ Local machine:
 
 - Bash-compatible shell
 - `ssh` and `scp`
-- Maven 3.9+ and Java 17 for the backend build
+- Maven 3.9+ and Java 25 for the backend build
 - Node.js 18+ and npm for the admin build
 - Access to the production SSH key
 
 Server:
 
 - Ubuntu or similar Linux host
-- Java 17 runtime
+- Java 25 runtime
 - nginx
 - MySQL reachable from the backend host
 - DNS for the public hostname pointing at nginx

@@ -204,6 +204,13 @@ class AdminReadServiceTest {
         ReflectionTestUtils.setField(entry, "id", 81L);
         when(auditLogRepository.findAll(PageRequest.of(0, 20))).thenReturn(new PageImpl<>(List.of(entry)));
         assertThat(service.auditLogs(PageRequest.of(0, 20))).hasSize(1);
+        when(auditLogRepository.findById(81L)).thenReturn(Optional.of(entry));
+        assertThat(service.auditLogDetail(81L))
+                .satisfies(detail -> {
+                    assertThat(detail.actorUserId()).isEqualTo(adminUser.getId());
+                    assertThat(detail.actorDisplayName()).isEqualTo(adminUser.getDisplayName());
+                    assertThat(detail.metadataJson()).isEqualTo("{}");
+                });
 
         when(supportTicketRepository.findAll(any(Pageable.class))).thenReturn(new PageImpl<>(List.of(supportTicket)));
         assertThat(service.reviewQueue(PageRequest.of(0, 20))).hasSize(1);

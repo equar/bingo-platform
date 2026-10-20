@@ -3,7 +3,9 @@ package com.equar.bingo.backend.feature.admin.controller;
 import com.equar.bingo.backend.common.api.PageResponse;
 import com.equar.bingo.backend.feature.admin.dto.*;
 import com.equar.bingo.backend.feature.admin.service.AdminReadService;
+import com.equar.bingo.backend.feature.audit.dto.AuditLogDetailResponse;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -60,8 +62,14 @@ public class AdminReadController {
     }
 
     @GetMapping("/audit-logs")
-    public PageResponse<AdminAuditLogSummaryResponse> auditLogs(@PageableDefault(size = 20) Pageable pageable) {
+    public PageResponse<AdminAuditLogSummaryResponse> auditLogs(
+            @PageableDefault(size = 20, sort = { "createdAt", "id" }, direction = Sort.Direction.DESC) Pageable pageable) {
         return PageResponse.from(adminReadService.auditLogs(pageable));
+    }
+
+    @GetMapping("/audit-logs/{auditLogId}")
+    public AuditLogDetailResponse auditLog(@PathVariable Long auditLogId) {
+        return adminReadService.auditLogDetail(auditLogId);
     }
 
     @GetMapping("/review-queue")

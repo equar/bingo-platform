@@ -4,7 +4,7 @@ Spring Boot 3 backend foundation for the Bingo platform.
 
 ## Stack
 
-- Java 17
+- Java 25
 - Spring Boot 3
 - Spring Security
 - Spring Data JPA
