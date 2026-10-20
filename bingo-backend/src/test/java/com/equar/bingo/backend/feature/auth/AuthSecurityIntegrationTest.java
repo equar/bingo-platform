@@ -117,6 +117,7 @@ class AuthSecurityIntegrationTest {
 
         @BeforeEach
         void setUp() {
+                jdbcTemplate.update("delete from audit_log_entries");
                 internalNoteRepository.deleteAllInBatch();
                 supportMessageRepository.deleteAllInBatch();
                 supportTicketRepository.deleteAllInBatch();
