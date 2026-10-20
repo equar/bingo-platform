@@ -6,14 +6,14 @@ interface Props {
 const { variant = "hero" } = Astro.props;
 const compact = variant !== "hero";
 
-const calledNumbers = [1, 14, 17, 22, 28, 33, 42, 45];
+const calledNumbers = [1, 22, 31, 39, 52, 60, 67, 75];
 
 const bingoBoard = [
-  [1, 14, 22, 33, 45],
-  [5, 17, 0, 28, 42],
-  [9, 19, 31, 37, 49],
-  [4, 12, 25, 36, 50],
-  [7, 15, 27, 40, 52],
+  [1, 16, 31, 46, 61],
+  [5, 22, 0, 52, 67],
+  [9, 24, 35, 56, 71],
+  [12, 27, 39, 58, 73],
+  [14, 30, 43, 60, 75],
 ] as const;
 
 const isCalled = (value: number) => calledNumbers.includes(value);
@@ -35,8 +35,8 @@ const isCalled = (value: number) => calledNumbers.includes(value);
 
       <div class="phone-hero-card phone-hero-card--brand">
         <p class="phone-eyebrow">Live room preview</p>
-        <strong>Sunset Bingo play card</strong>
-        <span>Android and iPhone are both coming soon.</span>
+        <strong>Your live bingo card</strong>
+        <span>Follow every call and watch your matches appear.</span>
       </div>
 
       <div class="phone-stack">

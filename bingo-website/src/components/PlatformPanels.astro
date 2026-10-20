@@ -1,24 +1,28 @@
 ---
+import { siteConfig } from "../config/site";
 
 interface PlatformPanel {
   title: string;
   label: string;
-  status: string;
   icon: "android" | "iphone";
+  availability: "comingSoon" | "released";
+  url: string | null;
 }
 
 const platformPanels: PlatformPanel[] = [
   {
     title: "Android",
     label: "Google Play",
-    status: "Coming soon",
     icon: "android",
+    availability: siteConfig.platforms.android.availability,
+    url: siteConfig.platforms.android.url,
   },
   {
     title: "iPhone / iOS",
     label: "App Store",
-    status: "Coming soon",
     icon: "iphone",
+    availability: siteConfig.platforms.ios.availability,
+    url: siteConfig.platforms.ios.url,
   },
 ];
 ---
@@ -32,7 +36,11 @@ const platformPanels: PlatformPanel[] = [
       <div class="platform-card__body">
         <p class="platform-card__label">{platform.label}</p>
         <h3>{platform.title}</h3>
-        <div class="state-chip">{platform.status}</div>
+        {platform.availability === "released" && platform.url ? (
+          <a class="platform-link" href={platform.url}>Download now</a>
+        ) : (
+          <div class="state-chip">Coming soon</div>
+        )}
       </div>
     </article>
   ))}

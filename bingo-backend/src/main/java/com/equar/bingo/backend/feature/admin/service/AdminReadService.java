@@ -31,6 +31,7 @@ import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class AdminReadService {
@@ -152,10 +153,12 @@ public class AdminReadService {
                                                 .count());
         }
 
+        @Transactional(readOnly = true)
         public Page<AdminSessionSummaryResponse> sessions(Pageable pageable) {
                 return gameSessionRepository.findAll(pageable).map(this::toSessionSummary);
         }
 
+        @Transactional(readOnly = true)
         public List<AdminSessionSummaryResponse> liveSessions() {
                 return gameSessionRepository
                                 .findByStateInAndStartedAtIsNotNullAndEndedAtIsNullOrderByScheduledStartAtAsc(

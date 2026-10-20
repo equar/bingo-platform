@@ -6,12 +6,13 @@ interface Props {
 }
 
 const { draft = false } = Astro.props;
+const currentYear = new Date().getFullYear();
 ---
 
 <footer class="site-footer">
   <div class="footer-brand">
     <p class="footer-wordmark">Sunset Bingo</p>
-    <p>Sunset Bingo is a coming-soon mobile bingo experience for Android and iPhone.</p>
+    <p>A mobile bingo experience designed for players in Ethiopia.</p>
   </div>
 
   <div class="footer-columns">
@@ -19,9 +20,7 @@ const { draft = false } = Astro.props;
       <h2>Support</h2>
       {siteConfig.support.email ? (
         <a href={`mailto:${siteConfig.support.email}`}>{siteConfig.support.email}</a>
-      ) : (
-        <p>Support details coming soon.</p>
-      )}
+      ) : null}
       <a href="/help/">Help / contact</a>
     </section>
 
@@ -29,18 +28,19 @@ const { draft = false } = Astro.props;
       <h2>Policies</h2>
       <a href="/privacy/">Privacy{draft ? " (draft)" : ""}</a>
       <a href="/terms/">Terms &amp; game rules{draft ? " (draft)" : ""}</a>
+      <a href="/responsible-play/">Responsible play</a>
     </section>
 
     <section>
-      <h2>Links</h2>
+      <h2>Explore</h2>
       <a href="/#overview">Overview</a>
       <a href="/download/">Apps</a>
       <a href="/#faq">FAQ</a>
-      <a href={siteConfig.siteUrl}>Canonical site</a>
     </section>
   </div>
 
-  <p class="footer-note">
-    Public site URL: <a href={siteConfig.siteUrl}>{siteConfig.siteUrl}</a>
-  </p>
+  <div class="footer-bottom">
+    <p>&copy; {currentYear} Sunset Bingo</p>
+    <p><span class="age-mark" aria-hidden="true">Adults</span> Play responsibly.</p>
+  </div>
 </footer>

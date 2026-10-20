@@ -7,6 +7,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface BingoRoomRepository extends JpaRepository<BingoRoom, Long> {
 
+    List<BingoRoom> findAllByOrderByActiveDescNameAsc();
+
     List<BingoRoom> findByActiveTrueOrderByNameAsc();
 
     Optional<BingoRoom> findByIdAndActiveTrue(Long id);

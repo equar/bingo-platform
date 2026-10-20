@@ -694,6 +694,11 @@ export async function listRooms() {
   return data;
 }
 
+export async function listAdminRooms() {
+  const { data } = await http.get<BingoRoomResponse[]>('/api/v1/admin/rooms');
+  return data;
+}
+
 export async function createRoom(body: Partial<BingoRoomResponse>) {
   const { data } = await http.post<BingoRoomResponse>('/api/v1/admin/rooms', body);
   return data;
