@@ -4,16 +4,22 @@ import {
   Alert,
   Box,
   Button,
-  Card,
-  CardContent,
   Chip,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
-  Grid,
+  Link,
   MenuItem,
+  Paper,
+  InputAdornment,
   Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
   TextField,
   Typography,
 } from "@mui/material";
@@ -50,6 +56,10 @@ export function SessionsPage() {
   const sessionsQuery = useQuery({ queryKey: ["sessions"], queryFn: () => listSessions(0, 50) });
   const roomsQuery = useQuery({ queryKey: ["rooms"], queryFn: listRooms });
   const [draft, setDraft] = useState<SessionDraft | null>(null);
+  const [search, setSearch] = useState("");
+  const [stateFilter, setStateFilter] = useState("ALL");
+  const [roomFilter, setRoomFilter] = useState("ALL");
+  const [startFilter, setStartFilter] = useState("ALL");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingTransition, setPendingTransition] = useState<{ sessionId: number; nextState: string } | null>(null);
 
@@ -81,6 +91,23 @@ export function SessionsPage() {
 
   const rooms = roomsQuery.data ?? [];
   const sessions = sessionsQuery.data?.content ?? [];
+  const filteredSessions = sessions.filter((session) => {
+    const query = search.trim().toLocaleLowerCase();
+    const matchesSearch =
+      !query ||
+      session.sessionName.toLocaleLowerCase().includes(query) ||
+      session.roomName.toLocaleLowerCase().includes(query) ||
+      String(session.id).includes(query);
+    const matchesState = stateFilter === "ALL" || session.state === stateFilter;
+    const matchesRoom = roomFilter === "ALL" || String(session.roomId) === roomFilter;
+    const scheduledStart = new Date(session.scheduledStartAt).getTime();
+    const now = Date.now();
+    const matchesStart =
+      startFilter === "ALL" ||
+      (startFilter === "UPCOMING" && scheduledStart >= now) ||
+      (startFilter === "PAST" && scheduledStart < now);
+    return matchesSearch && matchesState && matchesRoom && matchesStart;
+  });
   const title = useMemo(() => (draft ? "Create session" : ""), [draft]);
 
   if (sessionsQuery.isLoading) {
@@ -112,51 +139,142 @@ export function SessionsPage() {
 
       {sessions.length === 0 ? <Alert severity="info">No sessions found.</Alert> : null}
 
-      <Grid container spacing={2}>
-        {sessions.map((session) => (
-          <Grid item xs={12} md={6} key={session.id}>
-            <Card sx={{ border: "1px solid", borderColor: "divider", height: "100%" }}>
-              <CardContent>
-                <Stack spacing={1.5}>
-                  <Box display="flex" justifyContent="space-between" gap={2} alignItems="start">
-                    <div>
-                      <Typography variant="h6">
-                        <RouterLink to={`/sessions/${session.id}`}>{session.sessionName}</RouterLink>
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {session.roomName} · {session.currency} {session.ticketPrice}
-                      </Typography>
-                    </div>
+      {sessions.length > 0 ? (
+        <Stack spacing={1.5}>
+          <Stack direction={{ xs: "column", md: "row" }} spacing={1.5}>
+            <TextField
+              label="Search sessions"
+              placeholder="Name, room, or ID"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              size="small"
+              sx={{ flex: 2, minWidth: { md: 260 } }}
+              InputProps={{
+                startAdornment: <InputAdornment position="start">⌕</InputAdornment>,
+              }}
+            />
+            <TextField
+              select
+              label="Status"
+              value={stateFilter}
+              onChange={(event) => setStateFilter(event.target.value)}
+              size="small"
+              sx={{ flex: 1, minWidth: 150 }}
+            >
+              <MenuItem value="ALL">All statuses</MenuItem>
+              {["DRAFT", "OPEN", "STARTED", "DRAWING", "CLOSED", "SETTLED", "CANCELLED"].map((state) => (
+                <MenuItem key={state} value={state}>
+                  {state}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              select
+              label="Room"
+              value={roomFilter}
+              onChange={(event) => setRoomFilter(event.target.value)}
+              size="small"
+              sx={{ flex: 1, minWidth: 150 }}
+            >
+              <MenuItem value="ALL">All rooms</MenuItem>
+              {rooms.map((room) => (
+                <MenuItem key={room.id} value={String(room.id)}>
+                  {room.name}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              select
+              label="Start date"
+              value={startFilter}
+              onChange={(event) => setStartFilter(event.target.value)}
+              size="small"
+              sx={{ flex: 1, minWidth: 150 }}
+            >
+              <MenuItem value="ALL">Any time</MenuItem>
+              <MenuItem value="UPCOMING">Upcoming</MenuItem>
+              <MenuItem value="PAST">Past</MenuItem>
+            </TextField>
+          </Stack>
+          <Typography variant="body2" color="text.secondary">
+            Showing {filteredSessions.length} of {sessions.length} sessions
+          </Typography>
+        <TableContainer component={Paper} variant="outlined">
+          <Table size="small" sx={{ minWidth: 1050 }} aria-label="Sessions">
+            <TableHead>
+              <TableRow>
+                <TableCell>Session</TableCell>
+                <TableCell>Room</TableCell>
+                <TableCell>Ticket price</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell align="right">Tickets</TableCell>
+                <TableCell align="right">Draws</TableCell>
+                <TableCell>Scheduled start</TableCell>
+                <TableCell>State actions</TableCell>
+                <TableCell align="right">View</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {filteredSessions.map((session) => (
+                <TableRow key={session.id} hover>
+                  <TableCell component="th" scope="row">
+                    <Link component={RouterLink} to={`/sessions/${session.id}`} fontWeight={600}>
+                      {session.sessionName}
+                    </Link>
+                  </TableCell>
+                  <TableCell>{session.roomName}</TableCell>
+                  <TableCell sx={{ whiteSpace: "nowrap" }}>
+                    {session.currency} {session.ticketPrice}
+                  </TableCell>
+                  <TableCell>
                     <Chip label={session.state} color="primary" size="small" />
-                  </Box>
-                  <Typography variant="body2">
-                    Tickets: {session.ticketCount} · Draws: {session.drawCount}
-                  </Typography>
-                  <Typography variant="body2">Start: {new Date(session.scheduledStartAt).toLocaleString()}</Typography>
-                  <Stack direction="row" spacing={1} flexWrap="wrap">
-                    {(allowedStates[session.state] ?? []).map((nextState) => (
-                      <Button
-                        key={nextState}
-                        size="small"
-                        variant="outlined"
-                        onClick={() => {
-                          setPendingTransition({ sessionId: session.id, nextState });
-                          setConfirmOpen(true);
-                        }}
-                      >
-                        {nextState}
-                      </Button>
-                    ))}
-                  </Stack>
-                  <Button variant="text" onClick={() => navigate(`/sessions/${session.id}`)}>
-                    Open live view
-                  </Button>
-                </Stack>
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
+                  </TableCell>
+                  <TableCell align="right">{session.ticketCount}</TableCell>
+                  <TableCell align="right">{session.drawCount}</TableCell>
+                  <TableCell sx={{ whiteSpace: "nowrap" }}>
+                    {new Date(session.scheduledStartAt).toLocaleString()}
+                  </TableCell>
+                  <TableCell>
+                    <Stack direction="row" spacing={0.75}>
+                      {(allowedStates[session.state] ?? []).map((nextState) => (
+                        <Button
+                          key={nextState}
+                          size="small"
+                          variant="outlined"
+                          onClick={() => {
+                            setPendingTransition({ sessionId: session.id, nextState });
+                            setConfirmOpen(true);
+                          }}
+                        >
+                          {nextState}
+                        </Button>
+                      ))}
+                      {(allowedStates[session.state] ?? []).length === 0 ? (
+                        <Typography variant="body2" color="text.secondary">
+                          —
+                        </Typography>
+                      ) : null}
+                    </Stack>
+                  </TableCell>
+                  <TableCell align="right">
+                    <Button size="small" variant="text" onClick={() => navigate(`/sessions/${session.id}`)}>
+                      Open live view
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {filteredSessions.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
+                    No sessions match your search and filters.
+                  </TableCell>
+                </TableRow>
+              ) : null}
+            </TableBody>
+          </Table>
+        </TableContainer>
+        </Stack>
+      ) : null}
 
       <Dialog open={Boolean(draft)} onClose={() => setDraft(null)} fullWidth maxWidth="sm">
         <DialogTitle>{title}</DialogTitle>

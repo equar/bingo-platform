@@ -137,6 +137,11 @@ public class BingoGameService {
     }
 
     @Transactional(readOnly = true)
+    public List<BingoRoomResponse> listAdminRooms() {
+        return bingoRoomRepository.findAllByOrderByActiveDescNameAsc().stream().map(this::toRoomResponse).toList();
+    }
+
+    @Transactional(readOnly = true)
     public BingoRoomResponse getRoom(Long roomId) {
         return toRoomResponse(requireRoom(roomId));
     }

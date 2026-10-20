@@ -320,6 +320,11 @@ export interface AdminAuditLogSummaryResponse {
   createdAt: string;
 }
 
+export interface AdminAuditLogDetailResponse extends AdminAuditLogSummaryResponse {
+  actorDisplayName: string | null;
+  metadataJson: string | null;
+}
+
 export interface BingoPatternConfig {
   prizeType: string;
   amount: number;
@@ -694,6 +699,11 @@ export async function listRooms() {
   return data;
 }
 
+export async function listAdminRooms() {
+  const { data } = await http.get<BingoRoomResponse[]>('/api/v1/admin/rooms');
+  return data;
+}
+
 export async function createRoom(body: Partial<BingoRoomResponse>) {
   const { data } = await http.post<BingoRoomResponse>('/api/v1/admin/rooms', body);
   return data;
@@ -888,6 +898,11 @@ export async function auditLogs(page = 0, size = 20) {
   const { data } = await http.get<PageResponse<AdminAuditLogSummaryResponse>>('/api/v1/admin/audit-logs', {
     params: { page, size },
   });
+  return data;
+}
+
+export async function auditLogDetail(auditLogId: number) {
+  const { data } = await http.get<AdminAuditLogDetailResponse>(`/api/v1/admin/audit-logs/${auditLogId}`);
   return data;
 }
 

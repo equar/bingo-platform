@@ -26,7 +26,7 @@ public class AdminAuthService {
         this.jwtService = jwtService;
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public AuthResponse login(AdminLoginRequest request) {
         String email = normalizeEmail(request.email());
         User user = userRepository.findByEmail(email)

@@ -50,7 +50,7 @@ public class AdminGameController {
 
     @GetMapping("/rooms")
     public List<BingoRoomResponse> rooms() {
-        return bingoGameService.listRooms();
+        return bingoGameService.listAdminRooms();
     }
 
     @PostMapping("/rooms")

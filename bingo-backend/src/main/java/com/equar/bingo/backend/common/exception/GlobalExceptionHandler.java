@@ -8,6 +8,8 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -17,6 +19,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+        private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
         @ExceptionHandler(ApiException.class)
         public ResponseEntity<ApiErrorResponse> handleApiException(ApiException exception, HttpServletRequest request) {
@@ -61,6 +65,10 @@ public class GlobalExceptionHandler {
 
         @ExceptionHandler(Exception.class)
         public ResponseEntity<ApiErrorResponse> handleFallback(Exception exception, HttpServletRequest request) {
+                log.error("Unhandled request failure for {} {} (correlationId={})", request.getMethod(),
+                                request.getRequestURI(),
+                                com.equar.bingo.backend.common.api.ApiErrorResponseWriter.resolveCorrelationId(request),
+                                exception);
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                                 .body(error(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_ERROR",
                                                 "An unexpected error occurred", request,

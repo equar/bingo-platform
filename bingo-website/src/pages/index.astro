@@ -1,6 +1,5 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
-import { siteConfig } from "../config/site";
 import PlatformPanels from "../components/PlatformPanels.astro";
 import PhonePreview from "../components/PhonePreview.astro";
 
@@ -8,137 +7,92 @@ const path = "/";
 ---
 
 <BaseLayout
-  title="Sunset Bingo | Coming soon to Android and iPhone"
-  description="Sunset Bingo is a coming-soon mobile bingo experience for Android and iPhone. Explore the brand, platform availability, and the planned app launch structure."
+  title="Sunset Bingo Ethiopia | Live 75-ball bingo, coming soon"
+  description="Sunset Bingo is a mobile 75-ball bingo experience made for players in Ethiopia, with live games and support for English and Amharic. Coming soon to Android and iPhone."
   path={path}
 >
   <section class="hero section--hero">
     <div class="hero__copy">
-      <p class="eyebrow">Sunset Bingo</p>
-      <h1>Something exciting is on the horizon.</h1>
-      <p class="hero__lede">Meet Sunset Bingo. Your next bingo experience is coming soon to Android and iPhone.</p>
-      <p class="hero__lede hero__lede--secondary">
-        We are shaping a polished public launch site around a modern brand, balanced platform availability, and clear next steps for players.
-      </p>
+      <p class="eyebrow">Made for Ethiopia · ለኢትዮጵያ</p>
+      <h1>Your next bingo moment starts here.</h1>
+      <p class="hero__lede">Join live 75-ball games, follow every called number, and keep your ticket close—all from your phone.</p>
+      <p class="hero__lede hero__lede--secondary">Sunset Bingo is coming soon to Android and iPhone, with an experience available in English and Amharic.</p>
       <div class="hero-actions">
-        <a class="button" href="#overview">Explore Sunset Bingo</a>
-        <a class="button-secondary" href="/download/">Get the app</a>
+        <a class="button" href="/download/">Check app availability</a>
+        <a class="button-secondary" href="#how-it-works">See how it works</a>
       </div>
+      <ul class="hero-highlights" aria-label="Sunset Bingo highlights">
+        <li>Live number updates</li>
+        <li>English &amp; Amharic</li>
+        <li>Android &amp; iPhone</li>
+      </ul>
     </div>
-
-    <div class="hero-visual">
-      <PhonePreview variant="hero" />
-    </div>
+    <div class="hero-visual"><PhonePreview variant="hero" /></div>
   </section>
 
   <section id="overview" class="section section--intro">
     <header class="section-header page-intro-shell">
-      <p class="section-kicker">Overview</p>
-      <h2 class="section-title">A confident public introduction to the Sunset Bingo launch.</h2>
-      <p class="section-lede">This site keeps the story simple: a strong brand, balanced platform availability, and a clear coming-soon launch state without inventing release details.</p>
+      <p class="section-kicker">Why Sunset Bingo</p>
+      <h2 class="section-title">The classic game, made clear on mobile.</h2>
+      <p class="section-lede">Everything important stays in view—from the live draw to your ticket and claim status—so you can focus on the game.</p>
     </header>
-
     <div class="feature-grid feature-grid--intro">
-      <article class="feature-card surface-soft">
-        <h3>Polished launch site</h3>
-        <p>Sunset Bingo introduces a modern public face with generous spacing, warm sunset styling, and accessible contrast.</p>
-      </article>
-      <article class="feature-card surface-soft">
-        <h3>Balanced platform story</h3>
-        <p>Android and iPhone are presented equally as coming soon, with no misleading download prompts or fake store badges.</p>
-      </article>
-      <article class="feature-card surface-soft">
-        <h3>Clear launch state</h3>
-        <p>Every public page reflects the configured availability so visitors see the same message across the site.</p>
-      </article>
+      <article class="feature-card surface-soft"><span class="feature-number" aria-hidden="true">01</span><h3>Follow the draw live</h3><p>See called numbers as the session progresses and quickly spot the matches on your card.</p></article>
+      <article class="feature-card surface-soft"><span class="feature-number" aria-hidden="true">02</span><h3>Your tickets in one place</h3><p>Join an available session, choose your ticket, and keep your game activity easy to find.</p></article>
+      <article class="feature-card surface-soft"><span class="feature-number" aria-hidden="true">03</span><h3>Clear win claims</h3><p>Submit a claim from the app. Final results are checked by the game system against the official draw.</p></article>
     </div>
   </section>
 
-  <section class="section section--showcase" aria-labelledby="showcase-title">
-    <header class="section-header page-intro-shell">
-      <p class="section-kicker">Platforms</p>
-      <h2 id="showcase-title" class="section-title">Android and iPhone are both coming soon.</h2>
-      <p class="section-lede">These panels keep the launch positioning balanced and explicit without pretending either platform is already available.</p>
-    </header>
-
-    <div class="showcase-grid">
+  <section id="how-it-works" class="section section--showcase" aria-labelledby="how-title">
+    <div class="showcase-grid showcase-grid--steps">
       <article class="copy-panel surface">
-        <h3>What’s planned for launch</h3>
-        <p>
-          Sunset Bingo is being prepared as a public mobile experience with a focused brand, account access, game sessions, and support that can be presented clearly once the apps are released.
-        </p>
-        <ul>
-          <li>Player accounts and sign-in flows.</li>
-          <li>Game sessions and ticketing inside the app.</li>
-          <li>Support and policy pages on the public website.</li>
-        </ul>
-        <div class="section-callout">
-          <strong>Illustrative note</strong>
-          <p>The phone preview below is labeled as illustrative. It is a design treatment, not a published app screenshot.</p>
-        </div>
+        <p class="section-kicker">How it works</p>
+        <h2 id="how-title" class="section-title">From joining to calling bingo.</h2>
+        <ol class="play-steps">
+          <li><span>1</span><div><strong>Choose a session</strong><p>Browse available games and open the one you want to join.</p></div></li>
+          <li><span>2</span><div><strong>Get your ticket</strong><p>Select a ticket before sales close and the live session begins.</p></div></li>
+          <li><span>3</span><div><strong>Follow every call</strong><p>Watch the number feed and track matches on your bingo card.</p></div></li>
+          <li><span>4</span><div><strong>Claim bingo</strong><p>Complete the required pattern and submit your claim for validation.</p></div></li>
+        </ol>
       </article>
-
       <PhonePreview variant="compact" />
     </div>
-    <PlatformPanels />
+  </section>
+
+  <section class="section local-section" aria-labelledby="local-title">
+    <div class="local-callout surface">
+      <div>
+        <p class="section-kicker">Built with local players in mind</p>
+        <h2 id="local-title" class="section-title">Play in the language that feels natural.</h2>
+        <p class="section-lede">Sunset Bingo supports English and Amharic in the player app, with a mobile-first experience designed for players in Ethiopia.</p>
+      </div>
+      <div class="language-card surface-inset" aria-label="Supported languages"><span>English</span><span lang="am">አማርኛ</span></div>
+    </div>
   </section>
 
   <section id="apps" class="section section--download" aria-labelledby="download-title">
     <header class="section-header page-intro-shell">
-      <p class="section-kicker">Apps</p>
-      <h2 id="download-title" class="section-title">Get the app</h2>
-      <p class="section-lede">Android and iPhone versions are coming soon. This page explains the launch state without presenting unavailable downloads.</p>
+      <p class="section-kicker">Coming soon</p>
+      <h2 id="download-title" class="section-title">Ready when the apps are.</h2>
+      <p class="section-lede">Android and iPhone releases are being prepared. Official download links will appear here as soon as each app is available.</p>
     </header>
+    <PlatformPanels />
+    <div class="section-callout launch-note"><strong>Download safely</strong><p>Use only the official links published on this website. We will never ask you to install an app from an unverified message or page.</p></div>
+  </section>
 
-    <div class="download-grid">
-      <article class="download-panel surface">
-        <div class="download-state surface-inset">
-          <strong>Coming soon on both platforms</strong>
-          <p>
-            Sunset Bingo is preparing Android and iPhone releases. When each platform is explicitly released and its URL is configured, the corresponding link will appear here.
-          </p>
-        </div>
-
-        <PlatformPanels />
-
-        <ul class="meta-list" aria-label="Platform availability">
-          <li><span class="meta-label">Android</span><span class="meta-value">{siteConfig.platforms.android.availability === "released" && siteConfig.platforms.android.url ? siteConfig.platforms.android.url : "Coming soon"}</span></li>
-          <li><span class="meta-label">iPhone / iOS</span><span class="meta-value">{siteConfig.platforms.ios.availability === "released" && siteConfig.platforms.ios.url ? siteConfig.platforms.ios.url : "Coming soon"}</span></li>
-        </ul>
-
-        <p class="muted">
-          No app is represented as downloadable until its platform is explicitly marked released with a valid configured URL.
-        </p>
-      </article>
-
-      <PhonePreview variant="download" />
-    </div>
+  <section class="section responsible-banner surface" aria-labelledby="responsible-title">
+    <div><p class="section-kicker">Play responsibly</p><h2 id="responsible-title">Bingo should stay enjoyable.</h2><p>Set your limits, take breaks, and never treat gaming as a way to make money or recover losses. Adults only.</p></div>
+    <a class="button-secondary" href="/responsible-play/">Responsible play guidance</a>
   </section>
 
   <section id="faq" class="section section--faq" aria-labelledby="faq-title">
-    <header class="section-header page-intro-shell">
-      <p class="section-kicker">FAQ</p>
-      <h2 id="faq-title" class="section-title">Answers for launch visitors.</h2>
-      <p class="section-lede">Keep questions grounded in availability, supported platforms, and the public support channels already configured for the site.</p>
-    </header>
-
+    <header class="section-header page-intro-shell"><p class="section-kicker">FAQ</p><h2 id="faq-title" class="section-title">Good to know before launch.</h2></header>
     <div class="faq-list">
-      <details class="faq-item">
-        <summary>When will Sunset Bingo launch?</summary>
-        <p>No launch date is published yet. The website only communicates that Android and iPhone versions are coming soon.</p>
-      </details>
-      <details class="faq-item">
-        <summary>Which platforms are supported?</summary>
-        <p>Android and iPhone are both planned and both marked coming soon on the public site.</p>
-      </details>
-      <details class="faq-item">
-        <summary>How will the apps be available?</summary>
-        <p>Only explicitly released platforms with valid configured URLs will show active links. Until then, the site shows coming-soon panels instead of fake download buttons.</p>
-      </details>
-      <details class="faq-item">
-        <summary>How do I get help?</summary>
-        <p>Use the support details in the footer or the help page. If support contacts are not configured, the site will say so directly.</p>
-      </details>
+      <details class="faq-item"><summary>When will Sunset Bingo launch?</summary><p>A launch date has not been announced yet. This site will show official Android and iPhone links when they are ready.</p></details>
+      <details class="faq-item"><summary>What kind of bingo can I play?</summary><p>Sunset Bingo uses 75-ball bingo with a 5 × 5 card and a free centre space. Available win patterns can include a line, two lines, and a full house.</p></details>
+      <details class="faq-item"><summary>Can I use the app in Amharic?</summary><p>Yes. The player experience supports both Amharic and English.</p></details>
+      <details class="faq-item"><summary>How will I know an app link is official?</summary><p>Use the links on the Sunset Bingo app page. Until a release is ready, the platform will remain clearly marked “Coming soon.”</p></details>
+      <details class="faq-item"><summary>Where can I get help?</summary><p>Visit the help page for the verified support channels currently available.</p></details>
     </div>
   </section>
 </BaseLayout>

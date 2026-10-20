@@ -4,28 +4,47 @@ import {
   Alert,
   Box,
   Button,
-  Card,
-  CardContent,
   Checkbox,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
-  Divider,
+  FormControl,
   FormControlLabel,
   Grid,
+  InputLabel,
   MenuItem,
+  Paper,
+  Select,
   Stack,
   TextField,
   Typography,
-  List,
-  ListItem,
-  ListItemText,
   Chip,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  ListItemText,
 } from "@mui/material";
-import { BingoPatternConfig, BingoRoomResponse, createRoom, listRooms, updateRoom } from "../../api/admin";
+import { BingoPatternConfig, BingoRoomResponse, createRoom, listAdminRooms, updateRoom } from "../../api/admin";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { StatusState } from "../../components/StatusState";
+
+const scheduleOptions = [
+  { value: "HOURLY", label: "Hourly" },
+  { value: "DAILY", label: "Daily" },
+  { value: "WEEKLY", label: "Weekly" },
+] as const;
+
+const patternOptions = [
+  { value: "LINE", label: "Line" },
+  { value: "TWO_LINES", label: "Two lines" },
+  { value: "FULL_HOUSE", label: "Full house" },
+] as const;
+
+type PatternValue = (typeof patternOptions)[number]["value"];
 
 interface RoomDraft {
   id?: number;
@@ -40,7 +59,7 @@ interface RoomDraft {
   ticketSalesCloseOnSessionStart: boolean;
   allowMultipleWinnersPerPrize: boolean;
   active: boolean;
-  configuredPatterns: string;
+  configuredPatterns: PatternValue[];
   configuredPrizes: string;
 }
 
@@ -56,13 +75,17 @@ const emptyDraft: RoomDraft = {
   ticketSalesCloseOnSessionStart: true,
   allowMultipleWinnersPerPrize: true,
   active: true,
-  configuredPatterns: "LINE, TWO_LINES, FULL_HOUSE",
+  configuredPatterns: patternOptions.map((option) => option.value),
   configuredPrizes: JSON.stringify(
     [{ prizeType: "LINE", amount: 100, settlementPath: "PLAYER_WALLET", maxWinners: 1 }],
     null,
     2,
   ),
 };
+
+function isPatternValue(value: string): value is PatternValue {
+  return patternOptions.some((option) => option.value === value);
+}
 
 function roomToDraft(room: BingoRoomResponse): RoomDraft {
   return {
@@ -78,7 +101,7 @@ function roomToDraft(room: BingoRoomResponse): RoomDraft {
     ticketSalesCloseOnSessionStart: room.ticketSalesCloseOnSessionStart,
     allowMultipleWinnersPerPrize: room.allowMultipleWinnersPerPrize,
     active: room.active,
-    configuredPatterns: room.configuredPatterns.join(", "),
+    configuredPatterns: room.configuredPatterns.filter(isPatternValue),
     configuredPrizes: JSON.stringify(room.configuredPrizes, null, 2),
   };
 }
@@ -98,13 +121,54 @@ function parsePrizes(json: string): BingoPatternConfig[] {
   }));
 }
 
+function formatDraftSummary(draft: RoomDraft) {
+  const patternCount = draft.configuredPatterns.length;
+  const prizeCount = (() => {
+    try {
+      return JSON.parse(draft.configuredPrizes).length as number;
+    } catch {
+      return 0;
+    }
+  })();
+
+  return [
+    `Room: ${draft.name || "Untitled"}`,
+    `Schedule: ${draft.scheduleRule}`,
+    `Patterns: ${patternCount} selected`,
+    `Prizes: ${prizeCount} configured`,
+  ].join(" • ");
+}
+
+function matchesRoomSearch(room: BingoRoomResponse, searchText: string) {
+  if (!searchText) {
+    return true;
+  }
+
+  const searchable = [
+    room.name,
+    room.description ?? "",
+    room.currency,
+    room.scheduleRule,
+    String(room.sessionCapacity),
+    String(room.maxTicketsPerPlayer),
+    room.active ? "active" : "inactive",
+    room.configuredPatterns.join(" "),
+  ]
+    .join(" ")
+    .toLowerCase();
+
+  return searchable.includes(searchText.toLowerCase());
+}
+
 export function RoomsPage() {
   const queryClient = useQueryClient();
-  const roomsQuery = useQuery({ queryKey: ["rooms"], queryFn: listRooms });
+  const roomsQuery = useQuery({ queryKey: ["admin-rooms"], queryFn: listAdminRooms });
   const [draft, setDraft] = useState<RoomDraft | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingSubmit, setPendingSubmit] = useState(false);
   const [pendingError, setPendingError] = useState<string | null>(null);
+  const [roomSearch, setRoomSearch] = useState("");
+  const [roomStatusFilter, setRoomStatusFilter] = useState<"all" | "active" | "inactive">("all");
 
   const createMutation = useMutation({
     mutationFn: (body: RoomDraft) =>
@@ -120,14 +184,11 @@ export function RoomsPage() {
         ticketSalesCloseOnSessionStart: body.ticketSalesCloseOnSessionStart,
         allowMultipleWinnersPerPrize: body.allowMultipleWinnersPerPrize,
         active: body.active,
-        configuredPatterns: body.configuredPatterns
-          .split(",")
-          .map((item) => item.trim())
-          .filter(Boolean),
+        configuredPatterns: body.configuredPatterns,
         configuredPrizes: parsePrizes(body.configuredPrizes),
       }),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["rooms"] });
+      await queryClient.invalidateQueries({ queryKey: ["admin-rooms"] });
       setDraft(null);
       setConfirmOpen(false);
       setPendingError(null);
@@ -150,14 +211,11 @@ export function RoomsPage() {
         ticketSalesCloseOnSessionStart: body.ticketSalesCloseOnSessionStart,
         allowMultipleWinnersPerPrize: body.allowMultipleWinnersPerPrize,
         active: body.active,
-        configuredPatterns: body.configuredPatterns
-          .split(",")
-          .map((item) => item.trim())
-          .filter(Boolean),
+        configuredPatterns: body.configuredPatterns,
         configuredPrizes: parsePrizes(body.configuredPrizes),
       }),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["rooms"] });
+      await queryClient.invalidateQueries({ queryKey: ["admin-rooms"] });
       setDraft(null);
       setConfirmOpen(false);
       setPendingError(null);
@@ -180,6 +238,13 @@ export function RoomsPage() {
   };
 
   const rooms = roomsQuery.data ?? [];
+  const filteredRooms = useMemo(() => {
+    return rooms.filter((room) => {
+      const statusMatches =
+        roomStatusFilter === "all" || (roomStatusFilter === "active" ? room.active : !room.active);
+      return statusMatches && matchesRoomSearch(room, roomSearch.trim());
+    });
+  }, [roomSearch, roomStatusFilter, rooms]);
   const title = useMemo(() => (draft?.id ? "Edit room" : "Create room"), [draft?.id]);
 
   if (roomsQuery.isLoading) {
@@ -209,47 +274,109 @@ export function RoomsPage() {
         </Button>
       </Box>
 
-      <Grid container spacing={2}>
-        {rooms.map((room) => (
-          <Grid item xs={12} md={6} key={room.id}>
-            <Card sx={{ border: "1px solid", borderColor: "divider", height: "100%" }}>
-              <CardContent>
-                <Stack spacing={1.5}>
-                  <Box display="flex" justifyContent="space-between" gap={2} alignItems="start">
-                    <div>
-                      <Typography variant="h6">{room.name}</Typography>
+      <Paper variant="outlined" sx={{ borderRadius: 3, overflow: "hidden" }}>
+        <Box
+          sx={{
+            display: "flex",
+            gap: 2,
+            alignItems: { xs: "stretch", md: "center" },
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            p: 2,
+            borderBottom: "1px solid",
+            borderColor: "divider",
+            backgroundColor: "background.paper",
+          }}
+        >
+          <TextField
+            label="Search rooms"
+            value={roomSearch}
+            onChange={(event) => setRoomSearch(event.target.value)}
+            placeholder="Name, description, schedule, or pattern"
+            size="small"
+            sx={{ minWidth: { xs: "100%", md: 360 }, flex: 1 }}
+          />
+          <TextField
+            select
+            label="Status"
+            value={roomStatusFilter}
+            onChange={(event) => setRoomStatusFilter(event.target.value as "all" | "active" | "inactive")}
+            size="small"
+            sx={{ minWidth: 180 }}
+          >
+            <MenuItem value="all">All rooms</MenuItem>
+            <MenuItem value="active">Active only</MenuItem>
+            <MenuItem value="inactive">Inactive only</MenuItem>
+          </TextField>
+        </Box>
+
+        <TableContainer>
+          <Table size="small" aria-label="rooms table">
+            <TableHead>
+              <TableRow>
+                <TableCell>Room</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell>Price</TableCell>
+                <TableCell>Capacity</TableCell>
+                <TableCell>Schedule</TableCell>
+                <TableCell>Patterns</TableCell>
+                <TableCell>Updated</TableCell>
+                <TableCell align="right">Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {filteredRooms.map((room) => (
+                <TableRow key={room.id} hover>
+                  <TableCell>
+                    <Stack spacing={0.5}>
+                      <Typography variant="subtitle2">{room.name}</Typography>
                       <Typography variant="body2" color="text.secondary">
                         {room.description ?? "No description"}
                       </Typography>
-                    </div>
+                    </Stack>
+                  </TableCell>
+                  <TableCell>
                     <Chip
                       label={room.active ? "Active" : "Inactive"}
                       color={room.active ? "success" : "default"}
                       size="small"
                     />
-                  </Box>
-                  <Typography variant="body2">
-                    Price: {room.ticketPrice} {room.currency}
-                  </Typography>
-                  <Typography variant="body2">
-                    Capacity: {room.sessionCapacity} · Max tickets: {room.maxTicketsPerPlayer}
-                  </Typography>
-                  <Typography variant="body2">Schedule: {room.scheduleRule}</Typography>
-                  <Stack direction="row" spacing={1} flexWrap="wrap">
-                    {room.configuredPatterns.map((pattern) => (
-                      <Chip key={pattern} label={pattern} size="small" />
-                    ))}
-                  </Stack>
-                  <Divider />
-                  <Button variant="outlined" onClick={() => setDraft(roomToDraft(room))}>
-                    Edit
-                  </Button>
-                </Stack>
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
+                  </TableCell>
+                  <TableCell>
+                    {room.ticketPrice} {room.currency}
+                  </TableCell>
+                  <TableCell>
+                    {room.sessionCapacity} / {room.maxTicketsPerPlayer}
+                  </TableCell>
+                  <TableCell>{room.scheduleRule}</TableCell>
+                  <TableCell>
+                    <Stack direction="row" spacing={1} flexWrap="wrap">
+                      {room.configuredPatterns.map((pattern) => (
+                        <Chip key={pattern} label={pattern} size="small" />
+                      ))}
+                    </Stack>
+                  </TableCell>
+                  <TableCell>{new Date(room.updatedAt).toLocaleString()}</TableCell>
+                  <TableCell align="right">
+                    <Button variant="outlined" size="small" onClick={() => setDraft(roomToDraft(room))}>
+                      Edit
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {filteredRooms.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8}>
+                    <Alert severity="info" sx={{ my: 1 }}>
+                      No rooms match the current filters.
+                    </Alert>
+                  </TableCell>
+                </TableRow>
+              ) : null}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Paper>
 
       {rooms.length === 0 ? <Alert severity="info">No rooms have been configured yet.</Alert> : null}
 
@@ -305,11 +432,19 @@ export function RoomsPage() {
               </Grid>
               <Grid item xs={12} md={4}>
                 <TextField
+                  select
                   label="Schedule rule"
                   value={draft?.scheduleRule ?? ""}
                   onChange={(e) => draft && setDraft({ ...draft, scheduleRule: e.target.value })}
                   fullWidth
-                />
+                  helperText="Recommended preset cadence for the room."
+                >
+                  {scheduleOptions.map((option) => (
+                    <MenuItem key={option.value} value={option.value}>
+                      {option.label}
+                    </MenuItem>
+                  ))}
+                </TextField>
               </Grid>
               <Grid item xs={12} md={6}>
                 <TextField
@@ -328,13 +463,41 @@ export function RoomsPage() {
                 />
               </Grid>
               <Grid item xs={12}>
-                <TextField
-                  label="Configured patterns"
-                  value={draft?.configuredPatterns ?? ""}
-                  onChange={(e) => draft && setDraft({ ...draft, configuredPatterns: e.target.value })}
-                  fullWidth
-                  helperText="Comma-separated BingoPatternType values"
-                />
+                <FormControl fullWidth>
+                  <InputLabel id="configured-patterns-label">Configured patterns</InputLabel>
+                  <Select
+                    labelId="configured-patterns-label"
+                    label="Configured patterns"
+                    multiple
+                    value={draft?.configuredPatterns ?? []}
+                    onChange={(event) => {
+                      if (!draft) {
+                        return;
+                      }
+                      const value = event.target.value;
+                      const nextPatterns = typeof value === "string" ? value.split(",") : value;
+                      setDraft({
+                        ...draft,
+                        configuredPatterns: nextPatterns.filter(isPatternValue),
+                      });
+                    }}
+                    renderValue={(selected) =>
+                      (selected as string[])
+                        .map((pattern) => patternOptions.find((option) => option.value === pattern)?.label ?? pattern)
+                        .join(", ")
+                    }
+                  >
+                    {patternOptions.map((option) => (
+                      <MenuItem key={option.value} value={option.value}>
+                        <Checkbox checked={(draft?.configuredPatterns ?? []).includes(option.value)} />
+                        <ListItemText primary={option.label} />
+                      </MenuItem>
+                    ))}
+                  </Select>
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, ml: 1.75 }}>
+                    Best practice: keep the room to a small set of patterns that match the prize structure.
+                  </Typography>
+                </FormControl>
               </Grid>
               <Grid item xs={12}>
                 <TextField
@@ -390,7 +553,7 @@ export function RoomsPage() {
       <ConfirmDialog
         open={confirmOpen}
         title={title}
-        description="This will save the room configuration on the backend."
+        description={draft ? formatDraftSummary(draft) : "This will save the room configuration on the backend."}
         confirmLabel="Confirm"
         cancelLabel="Back"
         confirming={pendingSubmit}

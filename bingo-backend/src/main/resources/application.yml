@@ -1,9 +1,6 @@
 spring:
   application:
     name: bingo-backend
-  jackson:
-    serialization:
-      write-dates-as-timestamps: false
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/bingo?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
     username: ${SPRING_DATASOURCE_USERNAME:root}

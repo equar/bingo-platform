@@ -15,7 +15,8 @@ const navItems = [
   { label: "Support", href: "/help/" },
 ] as const;
 
-const primaryActionLabel = "Explore Sunset Bingo";
+const primaryActionLabel = "Get the app";
+const primaryActionHref = "/download/";
 ---
 
 <header class="site-header">
@@ -29,7 +30,7 @@ const primaryActionLabel = "Explore Sunset Bingo";
     </span>
     <span class="brand-copy">
       <span class="brand-name">Sunset Bingo</span>
-      <span class="brand-subtitle">Coming soon to Android and iPhone{draft ? " • draft pages" : ""}</span>
+      <span class="brand-subtitle">Bingo made for Ethiopia{draft ? " • draft page" : ""}</span>
     </span>
   </a>
 
@@ -40,7 +41,7 @@ const primaryActionLabel = "Explore Sunset Bingo";
   </nav>
 
   <div class="header-actions">
-    <a class="primary-cta" href={path === "/" ? "#overview" : "/#overview"}>{primaryActionLabel}</a>
+    <a class="primary-cta" href={primaryActionHref}>{primaryActionLabel}</a>
 
     <details class="mobile-menu">
       <summary aria-label="Open navigation menu">Menu</summary>
@@ -48,7 +49,7 @@ const primaryActionLabel = "Explore Sunset Bingo";
         {navItems.map((item) => (
           <a href={item.href}>{item.label}</a>
         ))}
-        <a href={path === "/" ? "#overview" : "/#overview"}>{primaryActionLabel}</a>
+        <a href={primaryActionHref}>{primaryActionLabel}</a>
       </nav>
     </details>
   </div>

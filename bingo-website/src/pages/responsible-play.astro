@@ -1,0 +1,30 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+
+const path = "/responsible-play/";
+---
+
+<BaseLayout
+  title="Responsible play | Sunset Bingo"
+  description="Practical guidance for keeping bingo safe, balanced, and enjoyable. Sunset Bingo is for adults only."
+  path={path}
+>
+  <section class="page-intro-shell">
+    <p class="release-label">Responsible play</p>
+    <h1 class="page-title">Keep bingo fun and in balance.</h1>
+    <p class="page-intro">Gaming should be entertainment—not a source of income or a way to solve financial problems. Sunset Bingo is for adults only.</p>
+  </section>
+
+  <section class="feature-grid">
+    <article class="feature-card surface-soft"><h2>Set a limit first</h2><p>Decide how much time and money you can comfortably spend before you start, and stop when you reach that limit.</p></article>
+    <article class="feature-card surface-soft"><h2>Never chase losses</h2><p>Do not spend more in an attempt to recover money already lost. Every game outcome is uncertain.</p></article>
+    <article class="feature-card surface-soft"><h2>Take regular breaks</h2><p>Step away between sessions and keep gaming separate from work, family time, sleep, and essential expenses.</p></article>
+  </section>
+
+  <section class="two-column">
+    <article class="panel"><h2>Pause and ask for help if…</h2><ul><li>You hide how much time or money you spend.</li><li>You borrow money or use funds meant for essentials.</li><li>You feel stressed, restless, or unable to stop.</li><li>Gaming is affecting your relationships, work, or wellbeing.</li></ul></article>
+    <article class="panel"><h2>Protect younger people</h2><p>Do not share your account or device access with anyone under the legal gaming age. Keep passwords and payment credentials private.</p><p>If you need help with your Sunset Bingo account, use only our verified support channels.</p><a class="text-button" href="/help/">Go to help and support</a></article>
+  </section>
+
+  <section class="responsible-banner surface"><div><p class="section-kicker">Remember</p><h2>Taking a break is always okay.</h2><p>If play stops feeling enjoyable, stop. Contact support when verified channels become available for help with your account.</p></div></section>
+</BaseLayout>

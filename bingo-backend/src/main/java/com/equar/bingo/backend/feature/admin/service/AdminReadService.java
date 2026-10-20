@@ -9,6 +9,7 @@ import com.equar.bingo.backend.feature.agent.repository.AgentRepository;
 import com.equar.bingo.backend.feature.agent.repository.FloatTopUpRequestRepository;
 import com.equar.bingo.backend.feature.agent.repository.PayoutVerificationRecordRepository;
 import com.equar.bingo.backend.feature.audit.repository.AuditLogRepository;
+import com.equar.bingo.backend.feature.audit.dto.AuditLogDetailResponse;
 import com.equar.bingo.backend.feature.config.BusinessProperties;
 import com.equar.bingo.backend.feature.game.entity.GameSession;
 import com.equar.bingo.backend.feature.game.entity.GameSessionState;
@@ -31,6 +32,7 @@ import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class AdminReadService {
@@ -152,10 +154,12 @@ public class AdminReadService {
                                                 .count());
         }
 
+        @Transactional(readOnly = true)
         public Page<AdminSessionSummaryResponse> sessions(Pageable pageable) {
                 return gameSessionRepository.findAll(pageable).map(this::toSessionSummary);
         }
 
+        @Transactional(readOnly = true)
         public List<AdminSessionSummaryResponse> liveSessions() {
                 return gameSessionRepository
                                 .findByStateInAndStartedAtIsNotNullAndEndedAtIsNullOrderByScheduledStartAtAsc(
@@ -174,11 +178,25 @@ public class AdminReadService {
                                 .orElseThrow(() -> new NotFoundException("AGENT_NOT_FOUND", "Agent not found")));
         }
 
+        @Transactional(readOnly = true)
         public Page<AdminAuditLogSummaryResponse> auditLogs(Pageable pageable) {
-                return auditLogRepository.findAll(pageable).map(entry -> new AdminAuditLogSummaryResponse(entry.getId(),
-                                entry.getActor() == null ? null : entry.getActor().getId(), entry.getAction(),
-                                entry.getTargetType(),
-                                entry.getTargetId(), entry.getReason(), entry.getOperationId(), entry.getCreatedAt()));
+                return auditLogRepository.findAll(pageable).map(entry -> {
+                        User actor = entry.getActor();
+                        return new AdminAuditLogSummaryResponse(entry.getId(), actor == null ? null : actor.getId(),
+                                        entry.getAction(), entry.getTargetType(), entry.getTargetId(), entry.getReason(),
+                                        entry.getOperationId(), entry.getCreatedAt());
+                });
+        }
+
+        @Transactional(readOnly = true)
+        public AuditLogDetailResponse auditLogDetail(Long auditLogId) {
+                var entry = auditLogRepository.findById(auditLogId)
+                                .orElseThrow(() -> new NotFoundException("AUDIT_LOG_NOT_FOUND", "Audit log not found"));
+                User actor = entry.getActor();
+                return new AuditLogDetailResponse(entry.getId(), actor == null ? null : actor.getId(),
+                                actor == null ? null : actor.getDisplayName(), entry.getAction(), entry.getTargetType(),
+                                entry.getTargetId(), entry.getReason(), entry.getOperationId(), entry.getMetadataJson(),
+                                entry.getCreatedAt());
         }
 
         public Page<AdminReviewQueueItemResponse> reviewQueue(Pageable pageable) {

@@ -12,7 +12,7 @@ This repository contains the backend service plus three client apps:
 
 Before starting the apps locally, make sure you have:
 
-- Java 17 or newer
+- Java 25 or newer for the backend
 - Maven 3.9+ or a compatible Maven installation
 - Node.js 18+ and npm
 - Flutter 3.22+ for the mobile apps
