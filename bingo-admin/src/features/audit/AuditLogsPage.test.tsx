@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AuditLogsPage } from "./AuditLogsPage";
@@ -37,10 +37,10 @@ describe("AuditLogsPage", () => {
       ],
       page: 0,
       size: 100,
-      totalElements: 1,
-      totalPages: 1,
+      totalElements: 45,
+      totalPages: 3,
       first: true,
-      last: true,
+      last: false,
     });
     auditLogDetailMock.mockResolvedValue({
       id: 42,
@@ -75,5 +75,17 @@ describe("AuditLogsPage", () => {
     expect(within(dialog).getByText(/"correlationId": "request-42"/)).toBeInTheDocument();
     expect(within(dialog).getByText(/"state": "CLOSED"/)).toBeInTheDocument();
     expect(auditLogDetailMock).toHaveBeenCalledWith(42);
+  });
+
+  it("requests the next server page when pagination advances", async () => {
+    const user = userEvent.setup();
+    render(<AuditLogsPage />, { wrapper: createWrapper() });
+
+    expect(await screen.findByRole("button", { name: "Go to next page" })).toBeEnabled();
+    expect(auditLogsMock).toHaveBeenCalledWith(0, 20);
+
+    await user.click(screen.getByRole("button", { name: "Go to next page" }));
+
+    await waitFor(() => expect(auditLogsMock).toHaveBeenLastCalledWith(1, 20));
   });
 });

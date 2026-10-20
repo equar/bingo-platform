@@ -18,6 +18,7 @@ import {
   TableCell,
   TableContainer,
   TableHead,
+  TablePagination,
   TableRow,
   TextField,
   Typography,
@@ -36,12 +37,17 @@ function hasDetailedMetadata(metadataJson: string) {
 }
 
 export function AuditLogsPage() {
-  const auditQuery = useQuery({ queryKey: ["audit-logs"], queryFn: () => auditLogs(0, 100) });
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
   const [search, setSearch] = useState("");
   const [actionFilter, setActionFilter] = useState("ALL");
   const [targetTypeFilter, setTargetTypeFilter] = useState("ALL");
   const [dateFilter, setDateFilter] = useState("ALL");
   const [selectedEntry, setSelectedEntry] = useState<AdminAuditLogSummaryResponse | null>(null);
+  const auditQuery = useQuery({
+    queryKey: ["audit-logs", page, pageSize],
+    queryFn: () => auditLogs(page, pageSize),
+  });
   const detailQuery = useQuery({
     queryKey: ["audit-logs", "detail", selectedEntry?.id],
     queryFn: () => auditLogDetail(selectedEntry!.id),
@@ -107,7 +113,10 @@ export function AuditLogsPage() {
               label="Search audit logs"
               placeholder="Action, actor, target, reason, operation ID"
               value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              onChange={(event) => {
+                setSearch(event.target.value);
+                setPage(0);
+              }}
               size="small"
               sx={{ flex: 2, minWidth: { md: 280 } }}
               InputProps={{ startAdornment: <InputAdornment position="start">⌕</InputAdornment> }}
@@ -116,7 +125,10 @@ export function AuditLogsPage() {
               select
               label="Action"
               value={actionFilter}
-              onChange={(event) => setActionFilter(event.target.value)}
+              onChange={(event) => {
+                setActionFilter(event.target.value);
+                setPage(0);
+              }}
               size="small"
               sx={{ flex: 1, minWidth: 160 }}
             >
@@ -131,7 +143,10 @@ export function AuditLogsPage() {
               select
               label="Target type"
               value={targetTypeFilter}
-              onChange={(event) => setTargetTypeFilter(event.target.value)}
+              onChange={(event) => {
+                setTargetTypeFilter(event.target.value);
+                setPage(0);
+              }}
               size="small"
               sx={{ flex: 1, minWidth: 160 }}
             >
@@ -146,7 +161,10 @@ export function AuditLogsPage() {
               select
               label="Time period"
               value={dateFilter}
-              onChange={(event) => setDateFilter(event.target.value)}
+              onChange={(event) => {
+                setDateFilter(event.target.value);
+                setPage(0);
+              }}
               size="small"
               sx={{ flex: 1, minWidth: 150 }}
             >
@@ -157,7 +175,7 @@ export function AuditLogsPage() {
             </TextField>
           </Stack>
           <Typography variant="body2" color="text.secondary">
-            Showing {filteredEntries.length} of {entries.length} recent audit entries
+            Showing {filteredEntries.length} matching entries on this page
           </Typography>
           <TableContainer component={Paper} variant="outlined">
             <Table size="small" sx={{ minWidth: 1050 }} aria-label="Audit logs">
@@ -206,6 +224,18 @@ export function AuditLogsPage() {
               </TableBody>
             </Table>
           </TableContainer>
+          <TablePagination
+            component="div"
+            count={auditQuery.data?.totalElements ?? 0}
+            page={page}
+            onPageChange={(_, nextPage) => setPage(nextPage)}
+            rowsPerPage={pageSize}
+            onRowsPerPageChange={(event) => {
+              setPageSize(Number(event.target.value));
+              setPage(0);
+            }}
+            rowsPerPageOptions={[10, 20, 50, 100]}
+          />
         </Stack>
       ) : null}
 

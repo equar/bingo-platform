@@ -1,9 +1,6 @@
-alter table idempotency_records drop primary key;
-
 alter table idempotency_records
-    add column id bigint not null auto_increment first;
-
-alter table idempotency_records
+    drop primary key,
+    add column id bigint not null auto_increment first,
     add primary key (id);
 
 alter table idempotency_records
