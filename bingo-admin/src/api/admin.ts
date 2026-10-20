@@ -54,10 +54,14 @@ export interface AdminPlayerDetailResponse {
   id: number;
   displayName: string;
   normalizedPhone: string;
+  email: string | null;
   roles: string[];
   status: string;
   createdAt: string;
   updatedAt: string;
+  walletCurrency: string | null;
+  walletAvailableBalance: string | null;
+  walletPromotionalBalance: string | null;
   walletTransactionCount: number;
   depositClaimCount: number;
   supportTicketCount: number;
@@ -671,8 +675,53 @@ export async function playerDetail(playerId: number) {
   return data;
 }
 
+export async function adminSessionDetail(sessionId: number) {
+  const { data } = await http.get<GameSessionResponse>(`/api/v1/admin/sessions/${sessionId}`);
+  return data;
+}
+
+export async function adminTicketDetail(ticketId: number) {
+  const { data } = await http.get<TicketResponse>(`/api/v1/admin/tickets/${ticketId}`);
+  return data;
+}
+
+export async function adminWinClaimDetail(claimId: number) {
+  const { data } = await http.get<WinClaimResponse>(`/api/v1/admin/win-claims/${claimId}`);
+  return data;
+}
+
 export async function playerWalletTransactions(playerId: number, page = 0, size = 20) {
-  const { data } = await http.get<PageResponse<WalletTransactionResponse>>('/api/v1/wallet/transactions', {
+  const { data } = await http.get<PageResponse<WalletTransactionResponse>>(
+    `/api/v1/admin/players/${playerId}/wallet-transactions`,
+    { params: { page, size } },
+  );
+  return data;
+}
+
+export async function playerDeposits(playerId: number, page = 0, size = 20) {
+  const { data } = await http.get<PageResponse<DepositClaimResponse>>(`/api/v1/admin/players/${playerId}/deposits`, {
+    params: { page, size },
+  });
+  return data;
+}
+
+export async function playerSupportTickets(playerId: number, page = 0, size = 20) {
+  const { data } = await http.get<PageResponse<SupportTicketSummaryResponse>>(
+    `/api/v1/admin/players/${playerId}/support-tickets`,
+    { params: { page, size } },
+  );
+  return data;
+}
+
+export async function playerTickets(playerId: number, page = 0, size = 20) {
+  const { data } = await http.get<PageResponse<TicketResponse>>(`/api/v1/admin/players/${playerId}/tickets`, {
+    params: { page, size },
+  });
+  return data;
+}
+
+export async function playerWinClaims(playerId: number, page = 0, size = 20) {
+  const { data } = await http.get<PageResponse<WinClaimResponse>>(`/api/v1/admin/players/${playerId}/win-claims`, {
     params: { page, size },
   });
   return data;

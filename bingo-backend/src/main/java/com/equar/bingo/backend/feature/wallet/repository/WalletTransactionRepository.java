@@ -12,5 +12,8 @@ public interface WalletTransactionRepository extends JpaRepository<WalletTransac
     @Query("select t from WalletTransaction t where t.wallet.owner.id = :ownerId order by t.createdAt desc, t.id desc")
     Page<WalletTransaction> findByOwnerId(@Param("ownerId") Long ownerId, Pageable pageable);
 
+    @Query("select count(t) from WalletTransaction t where t.wallet.owner.id = :ownerId")
+    long countByOwnerId(@Param("ownerId") Long ownerId);
+
     boolean existsByOperationId(String operationId);
 }

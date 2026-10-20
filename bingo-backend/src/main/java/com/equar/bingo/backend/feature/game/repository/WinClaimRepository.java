@@ -17,6 +17,8 @@ public interface WinClaimRepository extends JpaRepository<WinClaim, Long> {
 
     Page<WinClaim> findByClaimantIdOrderByCreatedAtDesc(Long claimantId, Pageable pageable);
 
+    long countByClaimantId(Long claimantId);
+
     @Query(value = """
             select claim from WinClaim claim
             join claim.claimant claimant
@@ -34,8 +36,7 @@ public interface WinClaimRepository extends JpaRepository<WinClaim, Long> {
                         or claimant.id = :referenceId
                     ))
                 )
-            """,
-            countQuery = """
+            """, countQuery = """
             select count(claim) from WinClaim claim
             join claim.claimant claimant
             where (:status is null or claim.status = :status)
@@ -65,7 +66,8 @@ public interface WinClaimRepository extends JpaRepository<WinClaim, Long> {
     @Query("select c from WinClaim c where c.id = :id")
     Optional<WinClaim> findByIdForUpdate(@Param("id") Long id);
 
-    boolean existsByTicketIdAndClaimedPatternAndDrawSequenceSnapshot(Long ticketId, BingoPatternType claimedPattern, int drawSequenceSnapshot);
+    boolean existsByTicketIdAndClaimedPatternAndDrawSequenceSnapshot(Long ticketId, BingoPatternType claimedPattern,
+            int drawSequenceSnapshot);
 
     List<WinClaim> findBySessionIdOrderByCreatedAtDesc(Long sessionId);
 }

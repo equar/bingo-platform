@@ -24,6 +24,7 @@ import {
 } from "@mui/material";
 import { prizeEntitlements, settlePrizeEntitlement } from "../../api/admin";
 import { StatusState } from "../../components/StatusState";
+import { EntitlementReferenceDialog, type EntitlementReference } from "./EntitlementReferenceDialog";
 
 export function PrizeEntitlementsPage() {
   const queryClient = useQueryClient();
@@ -35,6 +36,7 @@ export function PrizeEntitlementsPage() {
   const [settlementReference, setSettlementReference] = useState("");
   const [settlementNote, setSettlementNote] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [reference, setReference] = useState<EntitlementReference | null>(null);
   const normalizedQuery = query.trim();
   const entitlementsQuery = useQuery({
     queryKey: ["prize-entitlements", normalizedQuery, status, page, pageSize],
@@ -143,7 +145,8 @@ export function PrizeEntitlementsPage() {
                 <TableCell>Entitlement</TableCell>
                 <TableCell>Player</TableCell>
                 <TableCell>Claim</TableCell>
-                <TableCell>Session / ticket</TableCell>
+                <TableCell>Session</TableCell>
+                <TableCell>Ticket</TableCell>
                 <TableCell>Prize</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell>Created</TableCell>
@@ -155,10 +158,45 @@ export function PrizeEntitlementsPage() {
               {entitlements.map((entitlement) => (
                 <TableRow key={entitlement.id} hover data-testid={`entitlement-row-${entitlement.id}`}>
                   <TableCell>#{entitlement.id}</TableCell>
-                  <TableCell>#{entitlement.claimantId}</TableCell>
-                  <TableCell>#{entitlement.winClaimId}</TableCell>
                   <TableCell>
-                    #{entitlement.sessionId} / #{entitlement.ticketId}
+                    <Button
+                      size="small"
+                      aria-label={`View player ${entitlement.claimantId} details`}
+                      sx={{ minWidth: 0, p: 0 }}
+                      onClick={() => setReference({ kind: "player", id: entitlement.claimantId })}
+                    >
+                      #{entitlement.claimantId}
+                    </Button>
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      size="small"
+                      aria-label={`View claim ${entitlement.winClaimId} details`}
+                      sx={{ minWidth: 0, p: 0 }}
+                      onClick={() => setReference({ kind: "claim", id: entitlement.winClaimId })}
+                    >
+                      #{entitlement.winClaimId}
+                    </Button>
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      size="small"
+                      aria-label={`View session ${entitlement.sessionId} details`}
+                      sx={{ minWidth: 0, p: 0 }}
+                      onClick={() => setReference({ kind: "session", id: entitlement.sessionId })}
+                    >
+                      #{entitlement.sessionId}
+                    </Button>
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      size="small"
+                      aria-label={`View ticket ${entitlement.ticketId} details`}
+                      sx={{ minWidth: 0, p: 0 }}
+                      onClick={() => setReference({ kind: "ticket", id: entitlement.ticketId })}
+                    >
+                      #{entitlement.ticketId}
+                    </Button>
                   </TableCell>
                   <TableCell>
                     <Stack spacing={0.25}>
@@ -205,7 +243,7 @@ export function PrizeEntitlementsPage() {
               ))}
               {entitlementsQuery.data && entitlements.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9}>
+                  <TableCell colSpan={10}>
                     <Alert severity="info">No prize entitlements match the current filters.</Alert>
                   </TableCell>
                 </TableRow>
@@ -226,6 +264,8 @@ export function PrizeEntitlementsPage() {
           rowsPerPageOptions={[10, 20, 50]}
         />
       </Paper>
+
+      <EntitlementReferenceDialog reference={reference} onClose={() => setReference(null)} />
 
       <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>Settle entitlement</DialogTitle>

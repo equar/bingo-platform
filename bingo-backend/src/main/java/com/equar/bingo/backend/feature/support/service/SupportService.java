@@ -79,6 +79,12 @@ public class SupportService {
     }
 
     @Transactional(readOnly = true)
+    public Page<SupportTicketSummaryResponse> getAdminPlayerTickets(Long playerId, Pageable pageable) {
+        return supportTicketRepository.findByRequesterIdOrderByCreatedAtDesc(playerId, pageable)
+                .map(this::toSummaryResponse);
+    }
+
+    @Transactional(readOnly = true)
     public SupportTicketResponse getMyTicket(BingoUserPrincipal principal, Long ticketId) {
         User requester = principal.getUser();
         ensureRequesterRole(requester);

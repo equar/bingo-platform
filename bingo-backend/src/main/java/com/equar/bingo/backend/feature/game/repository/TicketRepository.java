@@ -11,6 +11,8 @@ public interface TicketRepository extends JpaRepository<Ticket, Long> {
 
     Page<Ticket> findBySessionIdAndOwnerId(Long sessionId, Long ownerId, Pageable pageable);
 
+    Page<Ticket> findByOwnerIdOrderByPurchasedAtDesc(Long ownerId, Pageable pageable);
+
     List<Ticket> findBySessionIdAndOwnerIdOrderByPurchasedAtDesc(Long sessionId, Long ownerId);
 
     Optional<Ticket> findByIdAndOwnerId(Long id, Long ownerId);

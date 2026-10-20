@@ -18,6 +18,8 @@ public interface SupportTicketRepository
 
     Page<SupportTicket> findByRequesterIdOrderByCreatedAtDesc(Long requesterId, Pageable pageable);
 
+    long countByRequesterId(Long requesterId);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select t from SupportTicket t where t.id = :id")
     Optional<SupportTicket> findByIdForUpdate(@Param("id") Long id);

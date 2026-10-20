@@ -164,11 +164,37 @@ public class BingoGameService {
     }
 
     @Transactional(readOnly = true)
+    public TicketResponse getAdminTicket(Long ticketId) {
+        Ticket ticket = ticketRepository.findById(ticketId)
+                .orElseThrow(() -> new NotFoundException("TICKET_NOT_FOUND", "Ticket not found"));
+        return toTicketResponse(ticket);
+    }
+
+    @Transactional(readOnly = true)
+    public WinClaimResponse getAdminWinClaim(Long claimId) {
+        WinClaim claim = winClaimRepository.findById(claimId)
+                .orElseThrow(() -> new NotFoundException("WIN_CLAIM_NOT_FOUND", "Win claim not found"));
+        return toWinClaimResponse(claim);
+    }
+
+    @Transactional(readOnly = true)
     public Page<TicketResponse> getMyTickets(Long sessionId, BingoUserPrincipal principal, Pageable pageable) {
         User player = requirePlayer(principal);
         requireSession(sessionId);
         return ticketRepository.findBySessionIdAndOwnerId(sessionId, player.getId(), pageable)
                 .map(this::toTicketResponse);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<TicketResponse> getAdminPlayerTickets(Long playerId, Pageable pageable) {
+        return ticketRepository.findByOwnerIdOrderByPurchasedAtDesc(playerId, pageable)
+                .map(this::toTicketResponse);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<WinClaimResponse> getAdminPlayerWinClaims(Long playerId, Pageable pageable) {
+        return winClaimRepository.findByClaimantIdOrderByCreatedAtDesc(playerId, pageable)
+                .map(this::toWinClaimResponse);
     }
 
     @Transactional(readOnly = true)

@@ -50,6 +50,7 @@ import com.equar.bingo.backend.feature.wallet.entity.DepositClaimStatus;
 import com.equar.bingo.backend.feature.wallet.entity.Wallet;
 import com.equar.bingo.backend.feature.wallet.repository.DepositClaimRepository;
 import com.equar.bingo.backend.feature.wallet.repository.WalletRepository;
+import com.equar.bingo.backend.feature.wallet.repository.WalletTransactionRepository;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
@@ -73,6 +74,8 @@ class AdminReadServiceTest {
     UserRepository userRepository;
     @Mock
     WalletRepository walletRepository;
+        @Mock
+        WalletTransactionRepository walletTransactionRepository;
     @Mock
     DepositClaimRepository depositClaimRepository;
     @Mock
@@ -114,7 +117,8 @@ class AdminReadServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new AdminReadService(userRepository, walletRepository, depositClaimRepository, ticketRepository,
+        service = new AdminReadService(userRepository, walletRepository, walletTransactionRepository,
+                depositClaimRepository, ticketRepository,
                 drawEventRepository, gameSessionRepository, agentRepository, agentFloatRepository,
                 agentFloatTransactionRepository, floatTopUpRequestRepository, payoutVerificationRecordRepository,
                 winClaimRepository, prizeEntitlementRepository, supportTicketRepository, auditLogRepository,
@@ -189,19 +193,22 @@ class AdminReadServiceTest {
         when(userRepository.findAdminUsers(eq(List.of(UserRole.PLAYER)), isNull(), eq(AccountStatus.ACTIVE),
                 eq(playersPage)))
                 .thenReturn(new PageImpl<>(List.of(player)));
-        when(walletRepository.countByOwnerId(player.getId())).thenReturn(1L);
-        when(depositClaimRepository.findByPlayerId(player.getId(), Pageable.unpaged()))
-                .thenReturn(new PageImpl<>(List.of()));
-        when(supportTicketRepository.findByRequesterIdOrderByCreatedAtDesc(player.getId(), Pageable.unpaged()))
-                .thenReturn(new PageImpl<>(List.of(supportTicket)));
+        when(walletTransactionRepository.countByOwnerId(player.getId())).thenReturn(15L);
+        when(depositClaimRepository.countByPlayerId(player.getId())).thenReturn(3L);
+        when(supportTicketRepository.countByRequesterId(player.getId())).thenReturn(1L);
         assertThat(service.searchPlayers(null, null, playersPage)).hasSize(1);
         assertThat(service.searchPlayers(" Player ", null, playersPage)).hasSize(1);
         assertThat(service.searchPlayers(null, AccountStatus.ACTIVE, playersPage)).hasSize(1);
 
         when(userRepository.findById(anyLong())).thenReturn(Optional.of(player));
+        when(walletRepository.findByOwnerId(player.getId())).thenReturn(Optional.of(wallet));
         when(ticketRepository.countByOwnerId(player.getId())).thenReturn(2L);
-        when(winClaimRepository.findAll()).thenReturn(List.of(makeWinClaim(player)));
-        assertThat(service.playerDetail(player.getId()).ticketCount()).isEqualTo(2L);
+        when(winClaimRepository.countByClaimantId(player.getId())).thenReturn(1L);
+        var playerDetail = service.playerDetail(player.getId());
+        assertThat(playerDetail.ticketCount()).isEqualTo(2L);
+        assertThat(playerDetail.walletTransactionCount()).isEqualTo(15L);
+        assertThat(playerDetail.walletCurrency()).isEqualTo("ETB");
+        assertThat(playerDetail.walletAvailableBalance()).isEqualByComparingTo("50.00");
     }
 
     @Test

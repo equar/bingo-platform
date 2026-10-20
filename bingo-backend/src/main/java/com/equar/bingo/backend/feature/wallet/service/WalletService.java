@@ -89,9 +89,19 @@ public class WalletService {
     }
 
     @Transactional(readOnly = true)
+    public Page<WalletTransactionResponse> getAdminPlayerTransactions(Long playerId, Pageable pageable) {
+        return walletTransactionRepository.findByOwnerId(playerId, pageable).map(this::toTransactionResponse);
+    }
+
+    @Transactional(readOnly = true)
     public Page<DepositClaimResponse> getOwnDeposits(BingoUserPrincipal principal, Pageable pageable) {
         User player = requirePlayer(principal);
         return depositClaimRepository.findByPlayerId(player.getId(), pageable).map(this::toDepositResponse);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<DepositClaimResponse> getAdminPlayerDeposits(Long playerId, Pageable pageable) {
+        return depositClaimRepository.findByPlayerId(playerId, pageable).map(this::toDepositResponse);
     }
 
     @Transactional(readOnly = true)

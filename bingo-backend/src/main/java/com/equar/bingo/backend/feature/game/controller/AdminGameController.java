@@ -11,6 +11,7 @@ import com.equar.bingo.backend.feature.game.dto.GameSessionResponse;
 import com.equar.bingo.backend.feature.game.dto.GameSessionStateUpdateRequest;
 import com.equar.bingo.backend.feature.game.dto.PrizeEntitlementResponse;
 import com.equar.bingo.backend.feature.game.dto.PrizeEntitlementSettlementRequest;
+import com.equar.bingo.backend.feature.game.dto.TicketResponse;
 import com.equar.bingo.backend.feature.game.dto.WinClaimResponse;
 import com.equar.bingo.backend.feature.game.dto.WinClaimReviewRequest;
 import com.equar.bingo.backend.feature.game.entity.BingoPatternType;
@@ -74,6 +75,11 @@ public class AdminGameController {
         return bingoGameService.getSession(id);
     }
 
+    @GetMapping("/tickets/{id}")
+    public TicketResponse ticket(@PathVariable Long id) {
+        return bingoGameService.getAdminTicket(id);
+    }
+
     @PostMapping("/rooms/{id}/sessions")
     public GameSessionResponse createSession(@PathVariable Long id, @Valid @RequestBody GameSessionRequest request) {
         return bingoGameService.createSession(id, request);
@@ -101,6 +107,11 @@ public class AdminGameController {
             @PageableDefault(size = 20, sort = "createdAt", direction = org.springframework.data.domain.Sort.Direction.DESC) Pageable pageable) {
         return PageResponse.from(
                 bingoGameService.getAdminWinClaims(query, status, pattern, serverValidationPassed, pageable));
+    }
+
+    @GetMapping("/win-claims/{id}")
+    public WinClaimResponse winClaim(@PathVariable Long id) {
+        return bingoGameService.getAdminWinClaim(id);
     }
 
     @PostMapping("/win-claims/{id}/approve")

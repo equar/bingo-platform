@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { type ReactNode, useState } from "react";
 import {
   Alert,
   Box,
   Button,
+  ButtonBase,
   Card,
   CardContent,
   Chip,
@@ -18,10 +19,12 @@ import {
   Typography,
 } from "@mui/material";
 import { useParams } from "react-router-dom";
+import { Link as RouterLink } from "react-router-dom";
 import { adjustWallet, playerDetail } from "../../api/admin";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { StatusState } from "../../components/StatusState";
 import { useIdempotencyKey } from "../common/useIdempotencyKey";
+import { PlayerActivityDialog, type PlayerActivityType } from "./PlayerActivityDialog";
 
 interface AdjustmentDraft {
   amount: string;
@@ -39,25 +42,63 @@ const emptyDraft: AdjustmentDraft = {
   currency: "ETB",
 };
 
+function adjustmentReason(draft: AdjustmentDraft) {
+  const reason = draft.reason.trim();
+  const reference = draft.reference.trim();
+  return reference ? `${reason} (Reference: ${reference})` : reason;
+}
+
+function PlayerActivityCard({
+  title,
+  value,
+  description,
+  onClick,
+}: {
+  title: string;
+  value: ReactNode;
+  description: string;
+  onClick: () => void;
+}) {
+  return (
+    <Card sx={{ border: "1px solid", borderColor: "divider", height: "100%" }}>
+      <ButtonBase
+        onClick={onClick}
+        sx={{ display: "block", height: "100%", textAlign: "left", width: "100%" }}
+        aria-label={`View ${title.toLowerCase()} details`}
+      >
+        <Box sx={{ p: 2 }}>
+          <Typography variant="overline">{title}</Typography>
+          <Typography variant="h5">{value}</Typography>
+          <Typography variant="caption" color="text.secondary">
+            {description}
+          </Typography>
+        </Box>
+      </ButtonBase>
+    </Card>
+  );
+}
+
 export function PlayerDetailPage() {
   const { playerId } = useParams();
   const id = Number(playerId);
+  const validPlayerId = Number.isSafeInteger(id) && id > 0;
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState<AdjustmentDraft | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [activity, setActivity] = useState<PlayerActivityType | null>(null);
   const idempotency = useIdempotencyKey();
 
   const playerQuery = useQuery({
     queryKey: ["player", id],
     queryFn: () => playerDetail(id),
-    enabled: Number.isFinite(id),
+    enabled: validPlayerId,
   });
   const adjustmentMutation = useMutation({
     mutationFn: async (body: AdjustmentDraft) =>
       adjustWallet(id, {
-        amount: Number(body.amount),
-        currency: body.currency,
-        reason: body.reason,
+        amount: Math.abs(Number(body.amount)) * (body.direction === "DEBIT" ? -1 : 1),
+        currency: player?.walletCurrency ?? body.currency,
+        reason: adjustmentReason(body),
         idempotencyKey: idempotency.getKey(),
       }),
     onSuccess: async () => {
@@ -71,23 +112,41 @@ export function PlayerDetailPage() {
   });
 
   const player = playerQuery.data;
-  const showLedgerHint = useMemo(
-    () => Boolean(player?.walletTransactionCount || player?.depositClaimCount || player?.supportTicketCount),
-    [player],
+  const backButton = (
+    <Button component={RouterLink} to="/players" size="small" variant="outlined">
+      Back to players
+    </Button>
   );
 
+  if (!validPlayerId) {
+    return (
+      <Stack spacing={2} alignItems="flex-start">
+        {backButton}
+        <StatusState title="Invalid player ID" message="Open a player profile using a valid player ID." />
+      </Stack>
+    );
+  }
+
   if (playerQuery.isLoading) {
-    return <StatusState title="Loading player" loading message="Fetching player profile" />;
+    return (
+      <Stack spacing={2} alignItems="flex-start">
+        {backButton}
+        <StatusState title="Loading player" loading message="Fetching player profile" />
+      </Stack>
+    );
   }
 
   if (playerQuery.error || !player) {
     return (
-      <StatusState
-        title="Unable to load player"
-        message={(playerQuery.error as Error | undefined)?.message ?? "Player not found"}
-        actionLabel="Retry"
-        onAction={() => playerQuery.refetch()}
-      />
+      <Stack spacing={2} alignItems="flex-start">
+        {backButton}
+        <StatusState
+          title="Unable to load player"
+          message={(playerQuery.error as Error | undefined)?.message ?? "Player not found"}
+          actionLabel="Retry"
+          onAction={() => playerQuery.refetch()}
+        />
+      </Stack>
     );
   }
 
@@ -95,69 +154,178 @@ export function PlayerDetailPage() {
     <Stack spacing={3}>
       <Box display="flex" justifyContent="space-between" alignItems="center" gap={2} flexWrap="wrap">
         <div>
-          <Typography variant="h4">{player.displayName}</Typography>
+          <Box sx={{ mb: 1 }}>{backButton}</Box>
+          <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap">
+            <Typography variant="h4">{player.displayName}</Typography>
+            <Chip
+              label={player.status}
+              size="small"
+              color={
+                player.status === "ACTIVE"
+                  ? "success"
+                  : player.status === "PENDING"
+                    ? "warning"
+                    : player.status === "SUSPENDED"
+                      ? "error"
+                      : "default"
+              }
+            />
+          </Stack>
           <Typography color="text.secondary">
-            {player.normalizedPhone} · {player.roles.join(", ")}
+            Player #{player.id} · {player.normalizedPhone} · {player.email ?? "No email provided"}
           </Typography>
         </div>
-        <Button variant="contained" onClick={() => setDraft({ ...emptyDraft })}>
+        <Button
+          variant="contained"
+          onClick={() => {
+            adjustmentMutation.reset();
+            idempotency.resetKey();
+            setDraft({ ...emptyDraft, currency: player.walletCurrency ?? "ETB" });
+          }}
+          disabled={!player.roles.includes("PLAYER")}
+        >
           Adjust wallet
         </Button>
       </Box>
 
-      <Grid container spacing={2}>
-        <Grid item xs={12} md={4}>
-          <Card sx={{ border: "1px solid", borderColor: "divider" }}>
-            <CardContent>
-              <Typography variant="overline">Wallet transactions</Typography>
-              <Typography variant="h4">{player.walletTransactionCount}</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} md={4}>
-          <Card sx={{ border: "1px solid", borderColor: "divider" }}>
-            <CardContent>
-              <Typography variant="overline">Deposits</Typography>
-              <Typography variant="h4">{player.depositClaimCount}</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} md={4}>
-          <Card sx={{ border: "1px solid", borderColor: "divider" }}>
-            <CardContent>
-              <Typography variant="overline">Support tickets</Typography>
-              <Typography variant="h4">{player.supportTicketCount}</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-
-      {showLedgerHint ? (
-        <Alert severity="info">
-          The backend exposes aggregated activity counts on the player profile, but not a separate admin wallet ledger
-          endpoint. Use claims, deposits, and audit pages for transaction history.
+      {adjustmentMutation.isError ? (
+        <Alert severity="error" onClose={() => adjustmentMutation.reset()}>
+          {(adjustmentMutation.error as Error).message || "Wallet adjustment failed."}
         </Alert>
       ) : null}
 
+      <Grid container spacing={2}>
+        <Grid item xs={12} sm={6} lg={4}>
+          <PlayerActivityCard
+            title="Wallet transactions"
+            value={player.walletTransactionCount}
+            description="View wallet history"
+            onClick={() => setActivity("wallet")}
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} lg={4}>
+          <PlayerActivityCard
+            title="Deposits"
+            value={player.depositClaimCount}
+            description="View deposit claims"
+            onClick={() => setActivity("deposits")}
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} lg={4}>
+          <PlayerActivityCard
+            title="Support tickets"
+            value={player.supportTicketCount}
+            description="View support history"
+            onClick={() => setActivity("support")}
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} lg={4}>
+          <PlayerActivityCard
+            title="Available balance"
+            value={
+              player.walletAvailableBalance == null
+                ? "No wallet"
+                : `${player.walletAvailableBalance} ${player.walletCurrency ?? ""}`
+            }
+            description="View wallet history"
+            onClick={() => setActivity("wallet")}
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} lg={4}>
+          <PlayerActivityCard
+            title="Promotional balance"
+            value={
+              player.walletPromotionalBalance == null
+                ? "No wallet"
+                : `${player.walletPromotionalBalance} ${player.walletCurrency ?? ""}`
+            }
+            description="View wallet history"
+            onClick={() => setActivity("wallet")}
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} lg={4}>
+          <PlayerActivityCard
+            title="Game tickets"
+            value={player.ticketCount}
+            description="View purchased tickets"
+            onClick={() => setActivity("tickets")}
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} lg={4}>
+          <PlayerActivityCard
+            title="Win claims"
+            value={player.winClaimCount}
+            description="View win claim history"
+            onClick={() => setActivity("wins")}
+          />
+        </Grid>
+      </Grid>
+
       <Card sx={{ border: "1px solid", borderColor: "divider" }}>
         <CardContent>
-          <Stack spacing={1.25}>
-            <Typography variant="h6">Player summary</Typography>
-            <Typography>Created: {new Date(player.createdAt).toLocaleString()}</Typography>
-            <Typography>Updated: {new Date(player.updatedAt).toLocaleString()}</Typography>
-            <Typography>Status: {player.status}</Typography>
-            <Stack direction="row" spacing={1} flexWrap="wrap">
-              <Chip label={`Wallet tx ${player.walletTransactionCount}`} size="small" />
-              <Chip label={`Deposits ${player.depositClaimCount}`} size="small" />
-              <Chip label={`Support ${player.supportTicketCount}`} size="small" />
-              <Chip label={`Tickets ${player.ticketCount}`} size="small" />
-              <Chip label={`Wins ${player.winClaimCount}`} size="small" />
-            </Stack>
+          <Stack spacing={2}>
+            <Typography variant="h6">Account details</Typography>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6} md={4}>
+                <Typography variant="overline" color="text.secondary">
+                  Player ID
+                </Typography>
+                <Typography>{player.id}</Typography>
+              </Grid>
+              <Grid item xs={12} sm={6} md={4}>
+                <Typography variant="overline" color="text.secondary">
+                  Phone
+                </Typography>
+                <Typography>{player.normalizedPhone}</Typography>
+              </Grid>
+              <Grid item xs={12} sm={6} md={4}>
+                <Typography variant="overline" color="text.secondary">
+                  Email
+                </Typography>
+                <Typography>{player.email ?? "Not provided"}</Typography>
+              </Grid>
+              <Grid item xs={12} sm={6} md={4}>
+                <Typography variant="overline" color="text.secondary">
+                  Roles
+                </Typography>
+                <Typography>{player.roles.join(", ") || "None"}</Typography>
+              </Grid>
+              <Grid item xs={12} sm={6} md={4}>
+                <Typography variant="overline" color="text.secondary">
+                  Created
+                </Typography>
+                <Typography>{new Date(player.createdAt).toLocaleString()}</Typography>
+              </Grid>
+              <Grid item xs={12} sm={6} md={4}>
+                <Typography variant="overline" color="text.secondary">
+                  Last updated
+                </Typography>
+                <Typography>{new Date(player.updatedAt).toLocaleString()}</Typography>
+              </Grid>
+            </Grid>
           </Stack>
         </CardContent>
       </Card>
 
-      <Dialog open={Boolean(draft)} onClose={() => setDraft(null)} fullWidth maxWidth="sm">
+      <PlayerActivityDialog
+        key={activity ?? "closed"}
+        open={activity != null}
+        playerId={player.id}
+        initialActivity={activity ?? "wallet"}
+        onClose={() => setActivity(null)}
+      />
+
+      <Dialog
+        open={Boolean(draft)}
+        onClose={() => {
+          if (!adjustmentMutation.isPending) {
+            setDraft(null);
+            idempotency.resetKey();
+          }
+        }}
+        fullWidth
+        maxWidth="sm"
+      >
         <DialogTitle>Adjust wallet</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
@@ -178,7 +346,15 @@ export function PlayerDetailPage() {
               type="number"
               value={draft?.amount ?? ""}
               onChange={(event) => draft && setDraft({ ...draft, amount: event.target.value })}
+              inputProps={{ min: 0.01, step: 0.01 }}
               fullWidth
+              required
+              error={Boolean(draft?.amount && (!Number.isFinite(Number(draft.amount)) || Number(draft.amount) <= 0))}
+              helperText={
+                draft?.amount && (!Number.isFinite(Number(draft.amount)) || Number(draft.amount) <= 0)
+                  ? "Enter an amount greater than zero."
+                  : "Enter a positive amount; direction determines whether it is credited or debited."
+              }
             />
             <TextField
               label="Reason"
@@ -188,28 +364,45 @@ export function PlayerDetailPage() {
               multiline
               minRows={2}
               required
+              inputProps={{ maxLength: 350 }}
             />
             <TextField
               label="Currency"
               value={draft?.currency ?? "ETB"}
-              onChange={(event) => draft && setDraft({ ...draft, currency: event.target.value.toUpperCase() })}
+              disabled
               fullWidth
+              helperText="Wallet currency is fixed by the platform."
             />
             <TextField
               label="Reference"
               value={draft?.reference ?? ""}
               onChange={(event) => draft && setDraft({ ...draft, reference: event.target.value })}
+              inputProps={{ maxLength: 120 }}
               fullWidth
-              helperText="Optional note for the audit trail"
+              helperText="Optional reference included in the audit reason."
             />
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDraft(null)}>Cancel</Button>
+          <Button
+            onClick={() => {
+              setDraft(null);
+              idempotency.resetKey();
+            }}
+            disabled={adjustmentMutation.isPending}
+          >
+            Cancel
+          </Button>
           <Button
             variant="contained"
             onClick={() => setConfirmOpen(true)}
-            disabled={!draft?.reason || adjustmentMutation.isPending}
+            disabled={
+              !draft?.reason.trim() ||
+              !Number.isFinite(Number(draft?.amount)) ||
+              Number(draft?.amount) <= 0 ||
+              Boolean(draft && adjustmentReason(draft).length > 500) ||
+              adjustmentMutation.isPending
+            }
           >
             Review
           </Button>
@@ -219,7 +412,7 @@ export function PlayerDetailPage() {
       <ConfirmDialog
         open={confirmOpen}
         title="Confirm wallet adjustment"
-        description={`Apply a ${draft?.direction?.toLowerCase()} of ${draft?.amount} to ${player.displayName}? The backend will enforce authorization and idempotency.`}
+        description={`Apply a ${draft?.direction?.toLowerCase()} of ${draft?.amount} ${player.walletCurrency ?? draft?.currency} to ${player.displayName}? This action is recorded in the wallet audit trail.`}
         confirmLabel="Confirm adjustment"
         cancelLabel="Back"
         confirming={adjustmentMutation.isPending}

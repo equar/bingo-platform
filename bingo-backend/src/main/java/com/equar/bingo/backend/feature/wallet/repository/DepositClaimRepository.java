@@ -16,6 +16,8 @@ public interface DepositClaimRepository extends JpaRepository<DepositClaim, Long
     @Query("select d from DepositClaim d where d.player.id = :playerId order by d.submittedAt desc, d.id desc")
     Page<DepositClaim> findByPlayerId(@Param("playerId") Long playerId, Pageable pageable);
 
+    long countByPlayerId(Long playerId);
+
     @Query("select d from DepositClaim d order by d.submittedAt desc, d.id desc")
     Page<DepositClaim> findAllOrderBySubmittedAt(Pageable pageable);
 

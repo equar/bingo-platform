@@ -27,6 +27,7 @@ import com.equar.bingo.backend.feature.user.repository.UserRepository;
 import com.equar.bingo.backend.feature.wallet.entity.DepositClaimStatus;
 import com.equar.bingo.backend.feature.wallet.repository.DepositClaimRepository;
 import com.equar.bingo.backend.feature.wallet.repository.WalletRepository;
+import com.equar.bingo.backend.feature.wallet.repository.WalletTransactionRepository;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
@@ -41,6 +42,7 @@ public class AdminReadService {
 
         private final UserRepository userRepository;
         private final WalletRepository walletRepository;
+        private final WalletTransactionRepository walletTransactionRepository;
         private final DepositClaimRepository depositClaimRepository;
         private final TicketRepository ticketRepository;
         private final DrawEventRepository drawEventRepository;
@@ -58,6 +60,7 @@ public class AdminReadService {
 
         public AdminReadService(UserRepository userRepository,
                         WalletRepository walletRepository,
+                        WalletTransactionRepository walletTransactionRepository,
                         DepositClaimRepository depositClaimRepository,
                         TicketRepository ticketRepository,
                         DrawEventRepository drawEventRepository,
@@ -74,6 +77,7 @@ public class AdminReadService {
                         BusinessProperties businessProperties) {
                 this.userRepository = userRepository;
                 this.walletRepository = walletRepository;
+                this.walletTransactionRepository = walletTransactionRepository;
                 this.depositClaimRepository = depositClaimRepository;
                 this.ticketRepository = ticketRepository;
                 this.drawEventRepository = drawEventRepository;
@@ -131,31 +135,26 @@ public class AdminReadService {
                                 .map(user -> new AdminPlayerSummaryResponse(user.getId(),
                                 user.getDisplayName(), user.getNormalizedPhone(), user.getRoles(), user.getStatus(),
                                 user.getCreatedAt(),
-                                user.getUpdatedAt(), walletRepository.countByOwnerId(user.getId()),
-                                depositClaimRepository.findByPlayerId(user.getId(), Pageable.unpaged())
-                                                .getTotalElements(),
-                                supportTicketRepository
-                                                .findByRequesterIdOrderByCreatedAtDesc(user.getId(), Pageable.unpaged())
-                                                .getTotalElements()));
+                                user.getUpdatedAt(), walletTransactionRepository.countByOwnerId(user.getId()),
+                                depositClaimRepository.countByPlayerId(user.getId()),
+                                supportTicketRepository.countByRequesterId(user.getId())));
         }
 
         public AdminPlayerDetailResponse playerDetail(Long playerId) {
                 User user = userRepository.findById(playerId)
                                 .orElseThrow(() -> new NotFoundException("PLAYER_NOT_FOUND",
                                                 "Player account not found"));
+                var wallet = walletRepository.findByOwnerId(user.getId()).orElse(null);
                 return new AdminPlayerDetailResponse(user.getId(), user.getDisplayName(), user.getNormalizedPhone(),
-                                user.getRoles(),
-                                user.getStatus(), user.getCreatedAt(), user.getUpdatedAt(),
-                                walletRepository.countByOwnerId(user.getId()),
-                                depositClaimRepository.findByPlayerId(user.getId(), Pageable.unpaged())
-                                                .getTotalElements(),
-                                supportTicketRepository
-                                                .findByRequesterIdOrderByCreatedAtDesc(user.getId(), Pageable.unpaged())
-                                                .getTotalElements(),
+                                user.getEmail(), user.getRoles(), user.getStatus(), user.getCreatedAt(),
+                                user.getUpdatedAt(), wallet == null ? null : wallet.getCurrency(),
+                                wallet == null ? null : wallet.getAvailableBalance(),
+                                wallet == null ? null : wallet.getPromotionalBalance(),
+                                walletTransactionRepository.countByOwnerId(user.getId()),
+                                depositClaimRepository.countByPlayerId(user.getId()),
+                                supportTicketRepository.countByRequesterId(user.getId()),
                                 ticketRepository.countByOwnerId(user.getId()),
-                                winClaimRepository.findAll().stream()
-                                                .filter(claim -> claim.getClaimant().getId().equals(user.getId()))
-                                                .count());
+                                winClaimRepository.countByClaimantId(user.getId()));
         }
 
         @Transactional(readOnly = true)
