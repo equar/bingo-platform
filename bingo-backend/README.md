@@ -1,11 +1,11 @@
 # bingo-backend
 
-Spring Boot 3 backend foundation for the Bingo platform.
+Spring Boot 4.1.1 backend foundation for the Bingo platform.
 
 ## Stack
 
 - Java 25
-- Spring Boot 3
+- Spring Boot 4.1.1
 - Spring Security
 - Spring Data JPA
 - MySQL

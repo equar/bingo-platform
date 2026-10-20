@@ -12,7 +12,7 @@ The layout follows the same general pattern as the BillPay deployment folder:
 
 ## What is deployed
 
-- `bingo-backend` Spring Boot 3.5 / Java 25 / Maven / MySQL / Flyway
+- `bingo-backend` Spring Boot 4.1.1 / Java 25 / Maven / MySQL / Flyway
 - `bingo-admin` React / TypeScript / Vite SPA
 - `bingo-website` Astro static site deployed to AWS S3, with optional CloudFront invalidation
 

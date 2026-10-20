@@ -8,7 +8,7 @@
 
 ## Target Projects
 
-- `bingo-backend`: Spring Boot 3.5, Java 25, Maven, PostgreSQL, Flyway.
+- `bingo-backend`: Spring Boot 4.1.1, Java 25, Maven, PostgreSQL, Flyway.
 - `bingo-app`: Flutter player app for Android and iOS.
 - `bingo-admin`: React 18, TypeScript, Vite, MUI, TanStack Query, Axios.
 - `bingo-agent`: Flutter counter-service agent app for Android, iOS, and web.
