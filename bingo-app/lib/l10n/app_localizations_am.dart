@@ -88,7 +88,40 @@ class AppLocalizationsAm extends AppLocalizations {
   String get homeWallet => 'ቦርሳ';
 
   @override
+  String get homeSupport => 'ድጋፍ';
+
+  @override
   String get homeProfile => 'መገለጫ';
+
+  @override
+  String get supportTitle => 'የድጋፍ ጥያቄዎች';
+
+  @override
+  String get supportIntro => 'ጥያቄ ይፍጠሩ እና ከድጋፍ ቡድኑ የሚመጡ ምላሾችን ይመልከቱ።';
+
+  @override
+  String get supportCreateTicket => 'አዲስ የድጋፍ ጥያቄ';
+
+  @override
+  String get supportSubject => 'ርዕስ';
+
+  @override
+  String get supportDescription => 'ችግኙን ይግለጹ';
+
+  @override
+  String get supportCategory => 'ምድብ';
+
+  @override
+  String get supportPriority => 'ቅድሚያ';
+
+  @override
+  String get supportSubmit => 'ጥያቄ ላክ';
+
+  @override
+  String get supportEmpty => 'እስካሁን የድጋፍ ጥያቄ የለዎትም።';
+
+  @override
+  String get supportSubmitted => 'የድጋፍ ጥያቄዎ ተልኳል።';
 
   @override
   String get roomsTitle => 'ክፍሎች';

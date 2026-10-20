@@ -254,11 +254,77 @@ abstract class AppLocalizations {
   /// **'Wallet'**
   String get homeWallet;
 
+  /// No description provided for @homeSupport.
+  ///
+  /// In en, this message translates to:
+  /// **'Support'**
+  String get homeSupport;
+
   /// No description provided for @homeProfile.
   ///
   /// In en, this message translates to:
   /// **'Profile'**
   String get homeProfile;
+
+  /// No description provided for @supportTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Support tickets'**
+  String get supportTitle;
+
+  /// No description provided for @supportIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Create a request and review updates from the support team.'**
+  String get supportIntro;
+
+  /// No description provided for @supportCreateTicket.
+  ///
+  /// In en, this message translates to:
+  /// **'New support request'**
+  String get supportCreateTicket;
+
+  /// No description provided for @supportSubject.
+  ///
+  /// In en, this message translates to:
+  /// **'Subject'**
+  String get supportSubject;
+
+  /// No description provided for @supportDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Describe the issue'**
+  String get supportDescription;
+
+  /// No description provided for @supportCategory.
+  ///
+  /// In en, this message translates to:
+  /// **'Category'**
+  String get supportCategory;
+
+  /// No description provided for @supportPriority.
+  ///
+  /// In en, this message translates to:
+  /// **'Priority'**
+  String get supportPriority;
+
+  /// No description provided for @supportSubmit.
+  ///
+  /// In en, this message translates to:
+  /// **'Send request'**
+  String get supportSubmit;
+
+  /// No description provided for @supportEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'You have no support requests yet.'**
+  String get supportEmpty;
+
+  /// No description provided for @supportSubmitted.
+  ///
+  /// In en, this message translates to:
+  /// **'Your support request was sent.'**
+  String get supportSubmitted;
 
   /// No description provided for @roomsTitle.
   ///

@@ -10,13 +10,21 @@ void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   const phase = String.fromEnvironment('BINGO_E2E_PHASE', defaultValue: 'all');
-  const runId = String.fromEnvironment('BINGO_E2E_RUN_ID', defaultValue: 'local');
-  const apiBaseUrl = String.fromEnvironment('API_BASE_URL', defaultValue: 'http://127.0.0.1:8080');
-  const primaryPhone = String.fromEnvironment('BINGO_E2E_PRIMARY_PHONE', defaultValue: '251911000003');
-  const primaryPassword = String.fromEnvironment('BINGO_E2E_PRIMARY_PASSWORD', defaultValue: '123456');
-  const invalidPassword = String.fromEnvironment('BINGO_E2E_INVALID_PASSWORD', defaultValue: '000000');
-  const depositAmount = String.fromEnvironment('BINGO_E2E_DEPOSIT_AMOUNT', defaultValue: '100.00');
-  const secondDepositAmount = String.fromEnvironment('BINGO_E2E_SECOND_DEPOSIT_AMOUNT', defaultValue: '50.00');
+  const runId =
+      String.fromEnvironment('BINGO_E2E_RUN_ID', defaultValue: 'local');
+  const apiBaseUrl = String.fromEnvironment('API_BASE_URL',
+      defaultValue: 'http://127.0.0.1:8080');
+  const primaryPhone = String.fromEnvironment('BINGO_E2E_PRIMARY_PHONE',
+      defaultValue: '251911000003');
+  const primaryPassword = String.fromEnvironment('BINGO_E2E_PRIMARY_PASSWORD',
+      defaultValue: '123456');
+  const invalidPassword = String.fromEnvironment('BINGO_E2E_INVALID_PASSWORD',
+      defaultValue: '000000');
+  const depositAmount = String.fromEnvironment('BINGO_E2E_DEPOSIT_AMOUNT',
+      defaultValue: '100.00');
+  const secondDepositAmount = String.fromEnvironment(
+      'BINGO_E2E_SECOND_DEPOSIT_AMOUNT',
+      defaultValue: '50.00');
 
   testWidgets('player setup and deposits', (tester) async {
     if (!phaseEnabled(phase, 'setup')) {
@@ -25,26 +33,34 @@ void main() {
 
     await pumpApp(tester);
 
-    await enterText(tester, find.byKey(const ValueKey('auth-phone-field')), primaryPhone);
-    await enterText(tester, find.byKey(const ValueKey('auth-password-field')), invalidPassword);
+    await enterText(
+        tester, find.byKey(const ValueKey('auth-phone-field')), primaryPhone);
+    await enterText(tester, find.byKey(const ValueKey('auth-password-field')),
+        invalidPassword);
     await tap(tester, find.byKey(const ValueKey('auth-submit-button')));
     await pumpAndSettleBriefly(tester);
     expect(find.byKey(const ValueKey('auth-phone-field')), findsOneWidget);
 
-    await enterText(tester, find.byKey(const ValueKey('auth-password-field')), primaryPassword);
+    await enterText(tester, find.byKey(const ValueKey('auth-password-field')),
+        primaryPassword);
     await tap(tester, find.byKey(const ValueKey('auth-submit-button')));
     await pumpUntil(tester, find.byType(NavigationBar));
 
     await tap(tester, find.text('Wallet'));
-    await pumpUntil(tester, find.byKey(const ValueKey('wallet-submit-deposit-button')));
+    await pumpUntil(
+        tester, find.byKey(const ValueKey('wallet-submit-deposit-button')));
 
     final firstDepositRef = 'E2E-$runId-DEP-1';
-    final normalizedFirstDepositRef = normalizeTelebirrReference(firstDepositRef);
-    await ensureDepositVisibleOrSubmit(tester, depositAmount, firstDepositRef, normalizedFirstDepositRef);
+    final normalizedFirstDepositRef =
+        normalizeTelebirrReference(firstDepositRef);
+    await ensureDepositVisibleOrSubmit(
+        tester, depositAmount, firstDepositRef, normalizedFirstDepositRef);
 
     final secondDepositRef = 'E2E-$runId-DEP-2';
-    final normalizedSecondDepositRef = normalizeTelebirrReference(secondDepositRef);
-    await ensureDepositVisibleOrSubmit(tester, secondDepositAmount, secondDepositRef, normalizedSecondDepositRef);
+    final normalizedSecondDepositRef =
+        normalizeTelebirrReference(secondDepositRef);
+    await ensureDepositVisibleOrSubmit(tester, secondDepositAmount,
+        secondDepositRef, normalizedSecondDepositRef);
 
     await submitDeposit(tester, depositAmount, firstDepositRef);
     await pumpAndSettleBriefly(tester);
@@ -59,8 +75,10 @@ void main() {
     final secondaryPhone = generateSecondaryPhone(runId);
     final secondaryPassword = '246810';
     final secondaryName = 'E2E Secondary $runId';
-    await enterText(tester, find.byKey(const ValueKey('auth-phone-field')), secondaryPhone);
-    await enterText(tester, find.byKey(const ValueKey('auth-password-field')), secondaryPassword);
+    await enterText(
+        tester, find.byKey(const ValueKey('auth-phone-field')), secondaryPhone);
+    await enterText(tester, find.byKey(const ValueKey('auth-password-field')),
+        secondaryPassword);
     await tap(tester, find.byKey(const ValueKey('auth-submit-button')));
     await pumpUntil(tester, find.byType(NavigationBar));
 
@@ -78,7 +96,10 @@ void main() {
       },
       'deposits': [
         {'reference': normalizedFirstDepositRef, 'amount': depositAmount},
-        {'reference': normalizedSecondDepositRef, 'amount': secondDepositAmount},
+        {
+          'reference': normalizedSecondDepositRef,
+          'amount': secondDepositAmount
+        },
       ],
     });
   });
@@ -99,11 +120,13 @@ void main() {
     }
 
     await pumpApp(tester);
-    await loginPlayer(tester, primary['primaryPhone'] as String, primary['primaryPassword'] as String);
+    await loginPlayer(tester, primary['primaryPhone'] as String,
+        primary['primaryPassword'] as String);
 
     await tap(tester, find.text('Lobby'));
     await pumpUntil(tester, find.byKey(const ValueKey('session-id-field')));
-    await enterText(tester, find.byKey(const ValueKey('session-id-field')), sessionId.toString());
+    await enterText(tester, find.byKey(const ValueKey('session-id-field')),
+        sessionId.toString());
     await tap(tester, find.byTooltip('Load session'));
     await pumpUntil(tester, find.byKey(const ValueKey('buy-ticket-button')));
 
@@ -111,16 +134,20 @@ void main() {
     await pumpUntil(tester, find.byType(ChoiceChip));
     await tap(tester, find.byType(ChoiceChip).first);
     final pageScrollable = find.byWidgetPredicate(
-      (widget) => widget is Scrollable && widget.physics is AlwaysScrollableScrollPhysics,
+      (widget) =>
+          widget is Scrollable &&
+          widget.physics is AlwaysScrollableScrollPhysics,
     );
     final firstTicketCell = find.byKey(const ValueKey('ticket-cell-0-0'));
-    await tester.scrollUntilVisible(firstTicketCell, 300, scrollable: pageScrollable);
+    await tester.scrollUntilVisible(firstTicketCell, 300,
+        scrollable: pageScrollable);
     await tester.pumpAndSettle();
 
     final winningDraws = <int>[];
     for (var column = 0; column < 5; column += 1) {
       final finder = find.byKey(ValueKey('ticket-cell-0-$column'));
-      final textFinder = find.descendant(of: finder, matching: find.byType(Text));
+      final textFinder =
+          find.descendant(of: finder, matching: find.byType(Text));
       final text = tester.widget<Text>(textFinder.first).data?.trim();
       if (text == null) {
         fail('Unable to read ticket cell 0,$column');
@@ -152,7 +179,8 @@ void main() {
     }
 
     await pumpApp(tester);
-    await loginPlayer(tester, primary['primaryPhone'] as String, primary['primaryPassword'] as String);
+    await loginPlayer(tester, primary['primaryPhone'] as String,
+        primary['primaryPassword'] as String);
 
     final primaryLogin = await backendLogin(
       apiBaseUrl,
@@ -165,10 +193,47 @@ void main() {
       '/api/v1/wallet/transactions?page=0&size=50',
       token: primaryLogin['accessToken'] as String,
     )) as Map<String, dynamic>;
-    final primaryTransactions = (primaryWallet['content'] as List<dynamic>).cast<Map<String, dynamic>>();
-    expect(primaryTransactions.any((item) => item['transactionType'] == 'TICKET_PURCHASE_DEBIT'), isTrue);
-    expect(primaryTransactions.any((item) => item['transactionType'] == 'PRIZE_CREDIT'), isTrue);
+    final primaryTransactions = (primaryWallet['content'] as List<dynamic>)
+        .cast<Map<String, dynamic>>();
+    expect(
+        primaryTransactions
+            .any((item) => item['transactionType'] == 'TICKET_PURCHASE_DEBIT'),
+        isTrue);
+    expect(
+        primaryTransactions
+            .any((item) => item['transactionType'] == 'PRIZE_CREDIT'),
+        isTrue);
+  });
 
+  testWidgets('player creates support ticket from the app', (tester) async {
+    if (!phaseEnabled(phase, 'support')) {
+      return;
+    }
+
+    final phone = const String.fromEnvironment('BINGO_E2E_PRIMARY_PHONE',
+        defaultValue: '251911000003');
+    final password = const String.fromEnvironment('BINGO_E2E_PRIMARY_PASSWORD',
+        defaultValue: '123456');
+    final subject =
+        'Player app support verification ${DateTime.now().toUtc().toIso8601String()}';
+
+    await pumpApp(tester);
+    await loginPlayer(tester, phone, password);
+    await tap(tester, find.byKey(const ValueKey('support-tab')));
+    await pumpUntil(
+        tester, find.byKey(const ValueKey('support-create-button')));
+    await tap(tester, find.byKey(const ValueKey('support-create-button')));
+    await pumpUntil(
+        tester, find.byKey(const ValueKey('support-subject-field')));
+    await enterText(
+        tester, find.byKey(const ValueKey('support-subject-field')), subject);
+    await enterText(
+      tester,
+      find.byKey(const ValueKey('support-description-field')),
+      'Created through the player app to verify the admin support queue.',
+    );
+    await tap(tester, find.byKey(const ValueKey('support-submit-button')));
+    await pumpUntil(tester, find.text(subject));
   });
 
   testWidgets('player submits winning claim', (tester) async {
@@ -187,7 +252,8 @@ void main() {
     }
 
     await pumpApp(tester);
-    await loginPlayer(tester, primary['primaryPhone'] as String, primary['primaryPassword'] as String);
+    await loginPlayer(tester, primary['primaryPhone'] as String,
+        primary['primaryPassword'] as String);
 
     final loginResponse = await backendLogin(
       apiBaseUrl,
@@ -200,7 +266,8 @@ void main() {
       '/api/v1/sessions/$sessionId/my-tickets?page=0&size=20',
       token: loginResponse['accessToken'] as String,
     ) as Map<String, dynamic>;
-    final tickets = (ticketsResponse['content'] as List<dynamic>).cast<Map<String, dynamic>>();
+    final tickets = (ticketsResponse['content'] as List<dynamic>)
+        .cast<Map<String, dynamic>>();
     if (tickets.isEmpty) {
       fail('No tickets found for session $sessionId');
     }
@@ -248,18 +315,24 @@ bool phaseEnabled(String selectedPhase, String expectedPhase) {
   return selectedPhase == 'all' || selectedPhase == expectedPhase;
 }
 
-Future<void> loginPlayer(WidgetTester tester, String phone, String password) async {
-  await enterText(tester, find.byKey(const ValueKey('auth-phone-field')), phone);
-  await enterText(tester, find.byKey(const ValueKey('auth-password-field')), password);
+Future<void> loginPlayer(
+    WidgetTester tester, String phone, String password) async {
+  await enterText(
+      tester, find.byKey(const ValueKey('auth-phone-field')), phone);
+  await enterText(
+      tester, find.byKey(const ValueKey('auth-password-field')), password);
   await tap(tester, find.byKey(const ValueKey('auth-submit-button')));
   await pumpUntil(tester, find.byType(NavigationBar));
 }
 
-Future<void> submitDeposit(WidgetTester tester, String amount, String reference) async {
+Future<void> submitDeposit(
+    WidgetTester tester, String amount, String reference) async {
   await tap(tester, find.byKey(const ValueKey('wallet-submit-deposit-button')));
   await pumpUntil(tester, find.byKey(const ValueKey('deposit-amount-field')));
-  await enterText(tester, find.byKey(const ValueKey('deposit-amount-field')), amount);
-  await enterText(tester, find.byKey(const ValueKey('deposit-reference-field')), reference);
+  await enterText(
+      tester, find.byKey(const ValueKey('deposit-amount-field')), amount);
+  await enterText(
+      tester, find.byKey(const ValueKey('deposit-reference-field')), reference);
   await tap(tester, find.text('Confirm'));
   await pumpAndSettleBriefly(tester);
 }
@@ -281,26 +354,31 @@ Future<void> ensureDepositVisibleOrSubmit(
   }
 }
 
-Future<void> enterClaimPatternAndSubmit(WidgetTester tester, String pattern) async {
+Future<void> enterClaimPatternAndSubmit(
+    WidgetTester tester, String pattern) async {
   final claimPatternField = find.byKey(const ValueKey('claim-pattern-field'));
   final pageScrollable = find.byWidgetPredicate(
-    (widget) => widget is Scrollable && widget.physics is AlwaysScrollableScrollPhysics,
+    (widget) =>
+        widget is Scrollable && widget.physics is AlwaysScrollableScrollPhysics,
   );
-  await tester.scrollUntilVisible(claimPatternField, 300, scrollable: pageScrollable);
+  await tester.scrollUntilVisible(claimPatternField, 300,
+      scrollable: pageScrollable);
   await tester.pumpAndSettle();
   await tap(tester, claimPatternField);
   await pumpAndSettleBriefly(tester);
   await tap(tester, find.text(pattern).last);
   await pumpAndSettleBriefly(tester);
   final claimSubmitButton = find.byKey(const ValueKey('claim-submit-button'));
-  await tester.scrollUntilVisible(claimSubmitButton, 300, scrollable: pageScrollable);
+  await tester.scrollUntilVisible(claimSubmitButton, 300,
+      scrollable: pageScrollable);
   await tester.pumpAndSettle();
   await tap(tester, claimSubmitButton);
   await pumpAndSettleBriefly(tester);
 }
 
 Future<void> enterText(WidgetTester tester, Finder finder, String value) async {
-  final textField = find.descendant(of: finder, matching: find.byType(EditableText));
+  final textField =
+      find.descendant(of: finder, matching: find.byType(EditableText));
   await tester.enterText(textField, value);
   await tester.pump();
 }
@@ -310,7 +388,8 @@ Future<void> tap(WidgetTester tester, Finder finder) async {
   await tester.pump();
 }
 
-Future<void> pumpUntil(WidgetTester tester, Finder finder, {Duration timeout = const Duration(seconds: 15)}) async {
+Future<void> pumpUntil(WidgetTester tester, Finder finder,
+    {Duration timeout = const Duration(seconds: 15)}) async {
   final deadline = DateTime.now().add(timeout);
   while (DateTime.now().isBefore(deadline)) {
     if (finder.evaluate().isNotEmpty) {
@@ -327,7 +406,8 @@ Future<void> pumpAndSettleBriefly(WidgetTester tester) async {
 }
 
 Future<Map<String, dynamic>> readManifest() async {
-  final path = const String.fromEnvironment('BINGO_E2E_MANIFEST_PATH', defaultValue: '');
+  final path =
+      const String.fromEnvironment('BINGO_E2E_MANIFEST_PATH', defaultValue: '');
   if (path.isNotEmpty) {
     final file = File(path);
     if (await file.exists()) {
@@ -347,18 +427,30 @@ Future<Map<String, dynamic>> readManifest() async {
   }
 
   final bootstrap = <String, dynamic>{
-    'runId': const String.fromEnvironment('BINGO_E2E_RUN_ID', defaultValue: 'local'),
-    'backendBaseUrl': const String.fromEnvironment('BINGO_E2E_BACKEND_URL', defaultValue: 'http://localhost:8080'),
-    'adminBaseUrl': const String.fromEnvironment('BINGO_E2E_ADMIN_URL', defaultValue: 'http://localhost:5173'),
+    'runId':
+        const String.fromEnvironment('BINGO_E2E_RUN_ID', defaultValue: 'local'),
+    'backendBaseUrl': const String.fromEnvironment('BINGO_E2E_BACKEND_URL',
+        defaultValue: 'http://localhost:8080'),
+    'adminBaseUrl': const String.fromEnvironment('BINGO_E2E_ADMIN_URL',
+        defaultValue: 'http://localhost:5173'),
     'session': {
-      'id': int.tryParse(const String.fromEnvironment('BINGO_E2E_SESSION_ID', defaultValue: '')),
+      'id': int.tryParse(const String.fromEnvironment('BINGO_E2E_SESSION_ID',
+          defaultValue: '')),
     },
     'player': {
-      'primaryPhone': const String.fromEnvironment('BINGO_E2E_PRIMARY_PHONE', defaultValue: '251911000003'),
-      'primaryPassword': const String.fromEnvironment('BINGO_E2E_PRIMARY_PASSWORD', defaultValue: '123456'),
-      'secondaryPhone': const String.fromEnvironment('BINGO_E2E_SECONDARY_PHONE', defaultValue: ''),
-      'secondaryPassword': const String.fromEnvironment('BINGO_E2E_SECONDARY_PASSWORD', defaultValue: ''),
-      'secondaryName': const String.fromEnvironment('BINGO_E2E_SECONDARY_NAME', defaultValue: ''),
+      'primaryPhone': const String.fromEnvironment('BINGO_E2E_PRIMARY_PHONE',
+          defaultValue: '251911000003'),
+      'primaryPassword': const String.fromEnvironment(
+          'BINGO_E2E_PRIMARY_PASSWORD',
+          defaultValue: '123456'),
+      'secondaryPhone': const String.fromEnvironment(
+          'BINGO_E2E_SECONDARY_PHONE',
+          defaultValue: ''),
+      'secondaryPassword': const String.fromEnvironment(
+          'BINGO_E2E_SECONDARY_PASSWORD',
+          defaultValue: ''),
+      'secondaryName': const String.fromEnvironment('BINGO_E2E_SECONDARY_NAME',
+          defaultValue: ''),
     },
   };
 
@@ -367,7 +459,8 @@ Future<Map<String, dynamic>> readManifest() async {
 }
 
 Future<void> saveManifest(Map<String, dynamic> patch) async {
-  final path = const String.fromEnvironment('BINGO_E2E_MANIFEST_PATH', defaultValue: '');
+  final path =
+      const String.fromEnvironment('BINGO_E2E_MANIFEST_PATH', defaultValue: '');
   final file = File(path);
   final current = await readManifest();
   final next = <String, dynamic>{...current, ...patch};
@@ -384,7 +477,8 @@ Future<void> saveManifest(Map<String, dynamic> patch) async {
   }
 }
 
-Future<Map<String, dynamic>> backendLogin(String baseUrl, String phoneNumber, String password) async {
+Future<Map<String, dynamic>> backendLogin(
+    String baseUrl, String phoneNumber, String password) async {
   return (await backendJson(
     baseUrl,
     'POST',
@@ -418,7 +512,8 @@ Future<dynamic> backendJson(
     final response = await request.close();
     final responseBody = await utf8.decodeStream(response);
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw StateError('$method $path failed: ${response.statusCode} $responseBody');
+      throw StateError(
+          '$method $path failed: ${response.statusCode} $responseBody');
     }
     if (responseBody.isEmpty) {
       return null;
