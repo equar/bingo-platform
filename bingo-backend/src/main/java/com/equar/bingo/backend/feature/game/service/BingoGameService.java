@@ -60,6 +60,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -137,8 +138,18 @@ public class BingoGameService {
     }
 
     @Transactional(readOnly = true)
-    public List<BingoRoomResponse> listAdminRooms() {
-        return bingoRoomRepository.findAllByOrderByActiveDescNameAsc().stream().map(this::toRoomResponse).toList();
+    public Page<BingoRoomResponse> listAdminRooms(String query, Boolean active, Pageable pageable) {
+        String normalizedQuery = query == null || query.isBlank() ? null : query.trim().toLowerCase(Locale.ROOT);
+        Long roomId = null;
+        if (normalizedQuery != null) {
+            try {
+                roomId = Long.valueOf(normalizedQuery);
+            } catch (NumberFormatException ignored) {
+                roomId = null;
+            }
+        }
+        return bingoRoomRepository.searchAdminRooms(normalizedQuery, roomId, active, pageable)
+                .map(this::toRoomResponse);
     }
 
     @Transactional(readOnly = true)
@@ -461,8 +472,19 @@ public class BingoGameService {
     }
 
     @Transactional(readOnly = true)
-    public Page<WinClaimResponse> getAdminWinClaims(Pageable pageable) {
-        return winClaimRepository.findAll(pageable).map(this::toWinClaimResponse);
+    public Page<WinClaimResponse> getAdminWinClaims(String query, WinClaimStatus status, BingoPatternType pattern,
+            Boolean validationPassed, Pageable pageable) {
+        String search = query == null || query.isBlank() ? null : query.trim().toLowerCase(Locale.ROOT);
+        Long referenceId = null;
+        if (search != null) {
+            try {
+                referenceId = Long.valueOf(search);
+            } catch (NumberFormatException ignored) {
+                // Text searches still match claimant name and phone.
+            }
+        }
+        return winClaimRepository.searchAdminClaims(search, referenceId, status, pattern, validationPassed, pageable)
+                .map(this::toWinClaimResponse);
     }
 
     @Transactional

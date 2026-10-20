@@ -1,17 +1,20 @@
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import {
+  Alert,
   Box,
   Card,
   CardContent,
   Chip,
   Grid,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemText,
   MenuItem,
   Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TablePagination,
+  TableRow,
   TextField,
   Typography,
 } from "@mui/material";
@@ -23,19 +26,33 @@ export function WalletTransfersPage() {
   const [status, setStatus] = useState("");
   const [senderPhone, setSenderPhone] = useState("");
   const [recipientPhone, setRecipientPhone] = useState("");
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const normalizedQuery = query.trim();
+  const normalizedSenderPhone = senderPhone.trim();
+  const normalizedRecipientPhone = recipientPhone.trim();
 
   const transfersQuery = useQuery({
-    queryKey: ["wallet-transfers", query, status, senderPhone, recipientPhone],
+    queryKey: [
+      "wallet-transfers",
+      normalizedQuery,
+      status,
+      normalizedSenderPhone,
+      normalizedRecipientPhone,
+      page,
+      pageSize,
+    ],
     queryFn: () =>
       walletTransfers(
-        query.trim() || undefined,
+        normalizedQuery || undefined,
         status.trim() || undefined,
-        senderPhone.trim() || undefined,
-        recipientPhone.trim() || undefined,
-        0,
-        50,
+        normalizedSenderPhone || undefined,
+        normalizedRecipientPhone || undefined,
+        page,
+        pageSize,
       ),
+    placeholderData: keepPreviousData,
   });
 
   const selectedTransfer = useMemo(
@@ -69,67 +86,136 @@ export function WalletTransfersPage() {
         </Typography>
       </Box>
 
-      <Card elevation={0} sx={{ border: "1px solid", borderColor: "divider" }}>
-        <CardContent>
-          <Grid container spacing={2}>
-            <Grid item xs={12} md={3}>
-              <TextField label="Search" value={query} onChange={(event) => setQuery(event.target.value)} fullWidth />
-            </Grid>
-            <Grid item xs={12} md={3}>
-              <TextField
-                select
-                label="Status"
-                value={status}
-                onChange={(event) => setStatus(event.target.value)}
-                fullWidth
-              >
-                <MenuItem value="">All</MenuItem>
-                <MenuItem value="COMPLETED">Completed</MenuItem>
-                <MenuItem value="FAILED">Failed</MenuItem>
-              </TextField>
-            </Grid>
-            <Grid item xs={12} md={3}>
-              <TextField
-                label="Sender phone"
-                value={senderPhone}
-                onChange={(event) => setSenderPhone(event.target.value)}
-                fullWidth
-              />
-            </Grid>
-            <Grid item xs={12} md={3}>
-              <TextField
-                label="Recipient phone"
-                value={recipientPhone}
-                onChange={(event) => setRecipientPhone(event.target.value)}
-                fullWidth
-              />
-            </Grid>
-          </Grid>
-        </CardContent>
-      </Card>
+      <Stack direction={{ xs: "column", lg: "row" }} spacing={2}>
+        <TextField
+          label="Search sender, recipient, note, or operation"
+          value={query}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setPage(0);
+            setSelectedId(null);
+          }}
+          fullWidth
+        />
+        <TextField
+          select
+          label="Status"
+          value={status}
+          onChange={(event) => {
+            setStatus(event.target.value);
+            setPage(0);
+            setSelectedId(null);
+          }}
+          sx={{ minWidth: { xs: "100%", lg: 180 } }}
+        >
+          <MenuItem value="">All statuses</MenuItem>
+          <MenuItem value="COMPLETED">Completed</MenuItem>
+          <MenuItem value="FAILED">Failed</MenuItem>
+        </TextField>
+        <TextField
+          label="Sender phone"
+          value={senderPhone}
+          onChange={(event) => {
+            setSenderPhone(event.target.value);
+            setPage(0);
+            setSelectedId(null);
+          }}
+          fullWidth
+        />
+        <TextField
+          label="Recipient phone"
+          value={recipientPhone}
+          onChange={(event) => {
+            setRecipientPhone(event.target.value);
+            setPage(0);
+            setSelectedId(null);
+          }}
+          fullWidth
+        />
+      </Stack>
+
+      {transfersQuery.isFetching && !transfersQuery.isLoading ? (
+        <Alert severity="info">Updating transfer results...</Alert>
+      ) : null}
 
       <Grid container spacing={2}>
         <Grid item xs={12} lg={7}>
-          <Card elevation={0} sx={{ border: "1px solid", borderColor: "divider" }}>
-            <CardContent>
-              <List dense>
-                {transfersQuery.data?.content.map((transfer) => (
-                  <ListItemButton
+          <Box sx={{ overflowX: "auto", border: 1, borderColor: "divider", borderRadius: 1 }}>
+            <Table size="small" aria-label="wallet transfers table">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Sender / recipient</TableCell>
+                  <TableCell align="right">Amount</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell>Created</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {(transfersQuery.data?.content ?? []).map((transfer) => (
+                  <TableRow
                     key={transfer.id}
+                    hover
                     selected={selectedId === transfer.id}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Transfer from ${transfer.senderPhoneNumber} to ${transfer.recipientPhoneNumber}`}
+                    aria-pressed={selectedId === transfer.id}
                     onClick={() => setSelectedId(transfer.id)}
-                    sx={{ borderRadius: 2, mb: 0.5 }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        setSelectedId(transfer.id);
+                      }
+                    }}
+                    sx={{ cursor: "pointer" }}
+                    data-testid={`wallet-transfer-row-${transfer.id}`}
                   >
-                    <ListItemText
-                      primary={`${transfer.senderPhoneNumber} → ${transfer.recipientPhoneNumber}`}
-                      secondary={`${transfer.amount} ${transfer.currency} · ${new Date(transfer.createdAt).toLocaleString()} · ${transfer.note ?? "No note"}`}
-                    />
-                    <Chip label={transfer.status} size="small" />
-                  </ListItemButton>
+                    <TableCell>
+                      <Stack spacing={0.25}>
+                        <Typography fontWeight={600}>{transfer.senderPhoneNumber}</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          To {transfer.recipientPhoneNumber}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {transfer.note ?? "No note"}
+                        </Typography>
+                      </Stack>
+                    </TableCell>
+                    <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>
+                      {transfer.amount} {transfer.currency}
+                    </TableCell>
+                    <TableCell>
+                      <Chip label={transfer.status} size="small" />
+                    </TableCell>
+                    <TableCell sx={{ whiteSpace: "nowrap" }}>{new Date(transfer.createdAt).toLocaleString()}</TableCell>
+                  </TableRow>
                 ))}
-              </List>
-            </CardContent>
-          </Card>
+                {transfersQuery.data && transfersQuery.data.content.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4}>
+                      <Alert severity="info">No transfers match the current search and filters.</Alert>
+                    </TableCell>
+                  </TableRow>
+                ) : null}
+              </TableBody>
+            </Table>
+          </Box>
+          <TablePagination
+            component="div"
+            count={transfersQuery.data?.totalElements ?? 0}
+            page={page}
+            onPageChange={(_, nextPage) => {
+              setPage(nextPage);
+              setSelectedId(null);
+            }}
+            rowsPerPage={pageSize}
+            onRowsPerPageChange={(event) => {
+              setPageSize(Number(event.target.value));
+              setPage(0);
+              setSelectedId(null);
+            }}
+            rowsPerPageOptions={[10, 20, 50]}
+          />
         </Grid>
         <Grid item xs={12} lg={5}>
           <Card elevation={0} sx={{ border: "1px solid", borderColor: "divider", minHeight: 260 }}>

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.when;
 
 import com.equar.bingo.backend.feature.agent.entity.Agent;
@@ -68,21 +69,36 @@ import org.springframework.test.util.ReflectionTestUtils;
 @ExtendWith(MockitoExtension.class)
 class AdminReadServiceTest {
 
-    @Mock UserRepository userRepository;
-    @Mock WalletRepository walletRepository;
-    @Mock DepositClaimRepository depositClaimRepository;
-    @Mock TicketRepository ticketRepository;
-    @Mock DrawEventRepository drawEventRepository;
-    @Mock GameSessionRepository gameSessionRepository;
-    @Mock AgentRepository agentRepository;
-    @Mock AgentFloatRepository agentFloatRepository;
-    @Mock AgentFloatTransactionRepository agentFloatTransactionRepository;
-    @Mock FloatTopUpRequestRepository floatTopUpRequestRepository;
-    @Mock PayoutVerificationRecordRepository payoutVerificationRecordRepository;
-    @Mock WinClaimRepository winClaimRepository;
-    @Mock PrizeEntitlementRepository prizeEntitlementRepository;
-    @Mock SupportTicketRepository supportTicketRepository;
-    @Mock AuditLogRepository auditLogRepository;
+    @Mock
+    UserRepository userRepository;
+    @Mock
+    WalletRepository walletRepository;
+    @Mock
+    DepositClaimRepository depositClaimRepository;
+    @Mock
+    TicketRepository ticketRepository;
+    @Mock
+    DrawEventRepository drawEventRepository;
+    @Mock
+    GameSessionRepository gameSessionRepository;
+    @Mock
+    AgentRepository agentRepository;
+    @Mock
+    AgentFloatRepository agentFloatRepository;
+    @Mock
+    AgentFloatTransactionRepository agentFloatTransactionRepository;
+    @Mock
+    FloatTopUpRequestRepository floatTopUpRequestRepository;
+    @Mock
+    PayoutVerificationRecordRepository payoutVerificationRecordRepository;
+    @Mock
+    WinClaimRepository winClaimRepository;
+    @Mock
+    PrizeEntitlementRepository prizeEntitlementRepository;
+    @Mock
+    SupportTicketRepository supportTicketRepository;
+    @Mock
+    AuditLogRepository auditLogRepository;
 
     BusinessProperties businessProperties = new BusinessProperties("Africa/Addis_Ababa");
 
@@ -165,12 +181,22 @@ class AdminReadServiceTest {
         assertThat(metrics.openSupportTickets()).isEqualTo(1L);
         assertThat(metrics.playerWalletBalanceTotal()).isEqualTo(new BigDecimal("50.00"));
 
-        when(userRepository.findAll(PageRequest.of(0, 20))).thenReturn(new PageImpl<>(List.of(player)));
+        Pageable playersPage = PageRequest.of(0, 20);
+        when(userRepository.findAdminUsers(eq(List.of(UserRole.PLAYER)), isNull(), isNull(), eq(playersPage)))
+                .thenReturn(new PageImpl<>(List.of(player)));
+        when(userRepository.findAdminUsers(eq(List.of(UserRole.PLAYER)), eq("player"), isNull(), eq(playersPage)))
+                .thenReturn(new PageImpl<>(List.of(player)));
+        when(userRepository.findAdminUsers(eq(List.of(UserRole.PLAYER)), isNull(), eq(AccountStatus.ACTIVE),
+                eq(playersPage)))
+                .thenReturn(new PageImpl<>(List.of(player)));
         when(walletRepository.countByOwnerId(player.getId())).thenReturn(1L);
-        when(depositClaimRepository.findByPlayerId(player.getId(), Pageable.unpaged())).thenReturn(new PageImpl<>(List.of()));
+        when(depositClaimRepository.findByPlayerId(player.getId(), Pageable.unpaged()))
+                .thenReturn(new PageImpl<>(List.of()));
         when(supportTicketRepository.findByRequesterIdOrderByCreatedAtDesc(player.getId(), Pageable.unpaged()))
                 .thenReturn(new PageImpl<>(List.of(supportTicket)));
-        assertThat(service.searchPlayers(null, PageRequest.of(0, 20))).hasSize(1);
+        assertThat(service.searchPlayers(null, null, playersPage)).hasSize(1);
+        assertThat(service.searchPlayers(" Player ", null, playersPage)).hasSize(1);
+        assertThat(service.searchPlayers(null, AccountStatus.ACTIVE, playersPage)).hasSize(1);
 
         when(userRepository.findById(anyLong())).thenReturn(Optional.of(player));
         when(ticketRepository.countByOwnerId(player.getId())).thenReturn(2L);
@@ -180,27 +206,32 @@ class AdminReadServiceTest {
 
     @Test
     void sessionAgentAuditAndReviewQueueViewsAreProjected() {
-        when(gameSessionRepository.findAll(PageRequest.of(0, 20))).thenReturn(new PageImpl<>(List.of(session)));
+        when(gameSessionRepository.searchAdminSessions(isNull(), isNull(), isNull(), isNull(), isNull(),
+                any(Instant.class), eq(PageRequest.of(0, 20))))
+                .thenReturn(new PageImpl<>(List.of(session)));
         when(ticketRepository.countBySessionId(session.getId())).thenReturn(1L);
         when(drawEventRepository.countBySessionId(session.getId())).thenReturn(2L);
-        when(winClaimRepository.findBySessionIdOrderByCreatedAtDesc(session.getId())).thenReturn(List.of(makeWinClaim(player)));
+        when(winClaimRepository.findBySessionIdOrderByCreatedAtDesc(session.getId()))
+                .thenReturn(List.of(makeWinClaim(player)));
         when(gameSessionRepository.findByStateInAndStartedAtIsNotNullAndEndedAtIsNullOrderByScheduledStartAtAsc(
-            List.of(GameSessionState.STARTED, GameSessionState.DRAWING))).thenReturn(List.of(session));
+                List.of(GameSessionState.STARTED, GameSessionState.DRAWING))).thenReturn(List.of(session));
         when(supportTicketRepository.findAll()).thenReturn(List.of(supportTicket));
 
-        assertThat(service.sessions(PageRequest.of(0, 20))).hasSize(1);
+        assertThat(service.sessions(null, null, null, null, PageRequest.of(0, 20))).hasSize(1);
         assertThat(service.liveSessions()).hasSize(1);
 
         when(agentRepository.findAll(PageRequest.of(0, 20))).thenReturn(new PageImpl<>(List.of(agent)));
         when(agentRepository.findById(agent.getId())).thenReturn(Optional.of(agent));
         when(ticketRepository.findAll()).thenReturn(List.of(makeTicket(player, session)));
-        when(agentFloatTransactionRepository.findByAgentFloatAgentIdOrderByCreatedAtDesc(agent.getId())).thenReturn(List.of());
+        when(agentFloatTransactionRepository.findByAgentFloatAgentIdOrderByCreatedAtDesc(agent.getId()))
+                .thenReturn(List.of());
         when(floatTopUpRequestRepository.findByAgentIdOrderByCreatedAtDesc(agent.getId())).thenReturn(List.of());
         when(payoutVerificationRecordRepository.findByAgentIdOrderByCreatedAtDesc(agent.getId())).thenReturn(List.of());
         assertThat(service.agents(PageRequest.of(0, 20))).hasSize(1);
         assertThat(service.agentDetail(agent.getId()).agentId()).isEqualTo(agent.getId());
 
-        AuditLogEntry entry = AuditLogEntry.create(adminUser, "LOGIN", "USER", player.getId(), "reason", UUID.randomUUID().toString(), "{}");
+        AuditLogEntry entry = AuditLogEntry.create(adminUser, "LOGIN", "USER", player.getId(), "reason",
+                UUID.randomUUID().toString(), "{}");
         ReflectionTestUtils.setField(entry, "id", 81L);
         when(auditLogRepository.findAll(PageRequest.of(0, 20))).thenReturn(new PageImpl<>(List.of(entry)));
         assertThat(service.auditLogs(PageRequest.of(0, 20))).hasSize(1);

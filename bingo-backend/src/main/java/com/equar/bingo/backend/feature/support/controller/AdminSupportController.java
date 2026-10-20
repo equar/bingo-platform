@@ -8,6 +8,7 @@ import com.equar.bingo.backend.feature.support.dto.SupportTicketResponse;
 import com.equar.bingo.backend.feature.support.dto.SupportTicketStatusUpdateRequest;
 import com.equar.bingo.backend.feature.support.dto.SupportTicketSummaryResponse;
 import com.equar.bingo.backend.feature.support.entity.SupportTicketCategory;
+import com.equar.bingo.backend.feature.support.entity.SupportTicketPriority;
 import com.equar.bingo.backend.feature.support.entity.SupportTicketStatus;
 import com.equar.bingo.backend.feature.support.service.SupportService;
 import jakarta.validation.Valid;
@@ -39,9 +40,11 @@ public class AdminSupportController {
     public PageResponse<SupportTicketSummaryResponse> search(@RequestParam(required = false) String query,
             @RequestParam(required = false) SupportTicketStatus status,
             @RequestParam(required = false) SupportTicketCategory category,
+            @RequestParam(required = false) SupportTicketPriority priority,
             @RequestParam(required = false) Long assignedToUserId,
             @PageableDefault(size = 20) Pageable pageable) {
-        return PageResponse.from(supportService.searchTickets(query, status, category, assignedToUserId, pageable));
+        return PageResponse.from(supportService.searchTickets(query, status, category, priority, assignedToUserId,
+                pageable));
     }
 
     @GetMapping("/{ticketId}")

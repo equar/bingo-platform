@@ -62,7 +62,7 @@ export function DashboardPage() {
   const logsQuery = useQuery({ queryKey: ["dashboard", "audit-logs"], queryFn: () => auditLogs(0, 5) });
   const supportPriorityQuery = useQuery({
     queryKey: ["dashboard", "support-priorities"],
-    queryFn: () => supportTickets(undefined, undefined, undefined, undefined, 0, 100),
+    queryFn: () => supportTickets(undefined, undefined, undefined, undefined, undefined, 0, 100),
   });
   const supportPriorityCounts = useMemo(() => {
     const counts: Record<string, number> = { LOW: 0, NORMAL: 0, HIGH: 0, URGENT: 0 };

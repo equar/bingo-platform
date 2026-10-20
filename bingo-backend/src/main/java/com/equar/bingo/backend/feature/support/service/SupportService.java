@@ -106,13 +106,14 @@ public class SupportService {
     }
 
     @Transactional(readOnly = true)
-        public Page<SupportTicketSummaryResponse> searchTickets(String query, SupportTicketStatus status,
-            SupportTicketCategory category, Long assignedToUserId, Pageable pageable) {
+    public Page<SupportTicketSummaryResponse> searchTickets(String query, SupportTicketStatus status,
+            SupportTicketCategory category, SupportTicketPriority priority, Long assignedToUserId, Pageable pageable) {
         List<SupportTicketSummaryResponse> items = supportTicketRepository.findAll().stream()
                 .filter(ticket -> status == null || ticket.getStatus() == status)
                 .filter(ticket -> category == null || ticket.getCategory() == category)
-            .filter(ticket -> assignedToUserId == null
-                || (ticket.getAssignedTo() != null && ticket.getAssignedTo().getId().equals(assignedToUserId)))
+                .filter(ticket -> priority == null || ticket.getPriority() == priority)
+                .filter(ticket -> assignedToUserId == null
+                        || (ticket.getAssignedTo() != null && ticket.getAssignedTo().getId().equals(assignedToUserId)))
                 .filter(ticket -> query == null || matches(ticket, query))
                 .sorted((left, right) -> right.getCreatedAt().compareTo(left.getCreatedAt()))
                 .map(this::toSummaryResponse)

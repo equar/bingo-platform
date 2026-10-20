@@ -1,18 +1,16 @@
-import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import {
   Alert,
   Box,
-  Card,
-  CardContent,
   Chip,
-  Grid,
   MenuItem,
   Stack,
   Table,
   TableBody,
   TableCell,
   TableHead,
+  TablePagination,
   TableRow,
   TextField,
   Typography,
@@ -23,29 +21,34 @@ import { StatusState } from "../../components/StatusState";
 
 const statusOptions = ["", "OPEN", "IN_PROGRESS", "WAITING_FOR_CUSTOMER", "RESOLVED", "CLOSED"];
 const categoryOptions = ["", "ACCOUNT", "WALLET", "GAME", "AGENT", "TECHNICAL", "BILLING", "OTHER"];
-
-function countByPriority(items: { priority: string }[]) {
-  return items.reduce<Record<string, number>>((accumulator, item) => {
-    accumulator[item.priority] = (accumulator[item.priority] ?? 0) + 1;
-    return accumulator;
-  }, {});
-}
+const priorityOptions = ["LOW", "NORMAL", "HIGH", "URGENT"];
 
 export function SupportTicketsPage() {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("");
   const [category, setCategory] = useState("");
+  const [priority, setPriority] = useState("");
   const [assignee, setAssignee] = useState("");
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
+  const normalizedQuery = query.trim();
   const usersQuery = useQuery({ queryKey: ["admin-users"], queryFn: () => adminUsers(0, 100) });
   const ticketsQuery = useQuery({
-    queryKey: ["support-tickets", query, status, category, assignee],
+    queryKey: ["support-tickets", normalizedQuery, status, category, priority, assignee, page, pageSize],
     queryFn: () =>
-      supportTickets(query || undefined, status || undefined, category || undefined, assignee || undefined, 0, 100),
+      supportTickets(
+        normalizedQuery || undefined,
+        status || undefined,
+        category || undefined,
+        assignee || undefined,
+        priority || undefined,
+        page,
+        pageSize,
+      ),
+    placeholderData: keepPreviousData,
   });
 
-  const visibleTickets = useMemo(() => ticketsQuery.data?.content ?? [], [ticketsQuery.data]);
-
-  const priorityCounts = countByPriority(visibleTickets);
+  const visibleTickets = ticketsQuery.data?.content ?? [];
 
   if (ticketsQuery.isLoading || usersQuery.isLoading) {
     return <StatusState title="Loading support tickets" loading message="Fetching call-center queue" />;
@@ -71,70 +74,92 @@ export function SupportTicketsPage() {
         </Typography>
       </Box>
 
-      <Grid container spacing={2}>
-        {["LOW", "NORMAL", "HIGH", "URGENT"].map((priority) => (
-          <Grid item xs={12} sm={6} md={3} key={priority}>
-            <Card sx={{ border: "1px solid", borderColor: "divider" }}>
-              <CardContent>
-                <Typography variant="overline" color="text.secondary">
-                  {priority}
-                </Typography>
-                <Typography variant="h4">{priorityCounts[priority] ?? 0}</Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
+      <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+        <TextField
+          label="Search tickets, subjects, players, or phone"
+          value={query}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setPage(0);
+          }}
+          fullWidth
+        />
+        <TextField
+          select
+          label="Status"
+          value={status}
+          onChange={(event) => {
+            setStatus(event.target.value);
+            setPage(0);
+          }}
+          sx={{ minWidth: { xs: "100%", md: 200 } }}
+        >
+          <MenuItem value="">All statuses</MenuItem>
+          {statusOptions.filter(Boolean).map((option) => (
+            <MenuItem key={option} value={option}>
+              {option.replace(/_/g, " ")}
+            </MenuItem>
+          ))}
+        </TextField>
+        <TextField
+          select
+          label="Category"
+          value={category}
+          onChange={(event) => {
+            setCategory(event.target.value);
+            setPage(0);
+          }}
+          sx={{ minWidth: { xs: "100%", md: 180 } }}
+        >
+          <MenuItem value="">All categories</MenuItem>
+          {categoryOptions.filter(Boolean).map((option) => (
+            <MenuItem key={option} value={option}>
+              {option}
+            </MenuItem>
+          ))}
+        </TextField>
+        <TextField
+          select
+          label="Priority"
+          value={priority}
+          onChange={(event) => {
+            setPriority(event.target.value);
+            setPage(0);
+          }}
+          sx={{ minWidth: { xs: "100%", md: 150 } }}
+        >
+          <MenuItem value="">All priorities</MenuItem>
+          {priorityOptions.map((option) => (
+            <MenuItem key={option} value={option}>
+              {option}
+            </MenuItem>
+          ))}
+        </TextField>
+        <TextField
+          select
+          label="Assignee"
+          value={assignee}
+          onChange={(event) => {
+            setAssignee(event.target.value);
+            setPage(0);
+          }}
+          sx={{ minWidth: { xs: "100%", md: 180 } }}
+        >
+          <MenuItem value="">All assignees</MenuItem>
+          {(usersQuery.data?.content ?? []).map((user) => (
+            <MenuItem key={user.id} value={String(user.id)}>
+              {user.displayName}
+            </MenuItem>
+          ))}
+        </TextField>
+      </Stack>
 
-      <Grid container spacing={2}>
-        <Grid item xs={12} md={3}>
-          <TextField label="Search" value={query} onChange={(event) => setQuery(event.target.value)} fullWidth />
-        </Grid>
-        <Grid item xs={12} md={3}>
-          <TextField select label="Status" value={status} onChange={(event) => setStatus(event.target.value)} fullWidth>
-            {statusOptions.map((option) => (
-              <MenuItem key={option || "all"} value={option}>
-                {option || "All statuses"}
-              </MenuItem>
-            ))}
-          </TextField>
-        </Grid>
-        <Grid item xs={12} md={3}>
-          <TextField
-            select
-            label="Category"
-            value={category}
-            onChange={(event) => setCategory(event.target.value)}
-            fullWidth
-          >
-            {categoryOptions.map((option) => (
-              <MenuItem key={option || "all"} value={option}>
-                {option || "All categories"}
-              </MenuItem>
-            ))}
-          </TextField>
-        </Grid>
-        <Grid item xs={12} md={3}>
-          <TextField
-            select
-            label="Assignee"
-            value={assignee}
-            onChange={(event) => setAssignee(event.target.value)}
-            fullWidth
-          >
-            <MenuItem value="">All assignees</MenuItem>
-            {(usersQuery.data?.content ?? []).map((user) => (
-              <MenuItem key={user.id} value={String(user.id)}>
-                {user.displayName}
-              </MenuItem>
-            ))}
-          </TextField>
-        </Grid>
-      </Grid>
+      {ticketsQuery.isFetching && !ticketsQuery.isLoading ? (
+        <Alert severity="info">Updating ticket results...</Alert>
+      ) : null}
 
-      <Card sx={{ border: "1px solid", borderColor: "divider" }}>
-        <CardContent sx={{ p: 0 }}>
-          <Table size="small" aria-label="support ticket queue">
+      <Box sx={{ overflowX: "auto" }}>
+        <Table size="small" aria-label="support ticket queue">
             <TableHead>
               <TableRow>
                 <TableCell>Ticket</TableCell>
@@ -148,7 +173,7 @@ export function SupportTicketsPage() {
             </TableHead>
             <TableBody>
               {visibleTickets.map((ticket) => (
-                <TableRow key={ticket.id} hover>
+                <TableRow key={ticket.id} hover data-testid={`support-ticket-${ticket.id}`}>
                   <TableCell>
                     <Stack spacing={0.25}>
                       <Typography
@@ -182,9 +207,21 @@ export function SupportTicketsPage() {
                 </TableRow>
               ) : null}
             </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+        </Table>
+      </Box>
+
+      <TablePagination
+        component="div"
+        count={ticketsQuery.data?.totalElements ?? 0}
+        page={page}
+        onPageChange={(_, nextPage) => setPage(nextPage)}
+        rowsPerPage={pageSize}
+        onRowsPerPageChange={(event) => {
+          setPageSize(Number(event.target.value));
+          setPage(0);
+        }}
+        rowsPerPageOptions={[10, 20, 50]}
+      />
     </Stack>
   );
 }

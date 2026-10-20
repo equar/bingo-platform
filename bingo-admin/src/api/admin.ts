@@ -659,9 +659,9 @@ export async function dashboardMetrics() {
   return data;
 }
 
-export async function searchPlayers(query?: string, page = 0, size = 20) {
+export async function searchPlayers(query?: string, page = 0, size = 20, status?: string) {
   const { data } = await http.get<PageResponse<AdminPlayerSummaryResponse>>('/api/v1/admin/players', {
-    params: { query, page, size },
+    params: { query, status, page, size },
   });
   return data;
 }
@@ -699,8 +699,10 @@ export async function listRooms() {
   return data;
 }
 
-export async function listAdminRooms() {
-  const { data } = await http.get<BingoRoomResponse[]>('/api/v1/admin/rooms');
+export async function listAdminRooms(page = 0, size = 20, query?: string, active?: boolean) {
+  const { data } = await http.get<PageResponse<BingoRoomResponse>>('/api/v1/admin/rooms', {
+    params: { page, size, query, active },
+  });
   return data;
 }
 
@@ -714,9 +716,16 @@ export async function updateRoom(roomId: number, body: Partial<BingoRoomResponse
   return data;
 }
 
-export async function listSessions(page = 0, size = 20) {
+export async function listSessions(
+  page = 0,
+  size = 20,
+  query?: string,
+  state?: string,
+  roomId?: number,
+  upcoming?: boolean,
+) {
   const { data } = await http.get<PageResponse<AdminSessionSummaryResponse>>('/api/v1/admin/sessions', {
-    params: { page, size },
+    params: { page, size, query, state, roomId, upcoming },
   });
   return data;
 }
@@ -753,9 +762,16 @@ export async function postDraw(sessionId: number, numberDrawn: number) {
   return data;
 }
 
-export async function winClaims(page = 0, size = 20) {
+export async function winClaims(
+  page = 0,
+  size = 20,
+  query?: string,
+  status?: string,
+  pattern?: string,
+  serverValidationPassed?: boolean,
+) {
   const { data } = await http.get<PageResponse<WinClaimResponse>>('/api/v1/admin/win-claims', {
-    params: { page, size },
+    params: { page, size, query, status, pattern, serverValidationPassed },
   });
   return data;
 }
@@ -774,9 +790,9 @@ export async function rejectWinClaim(claimId: number, body: WinClaimReviewReques
   return data;
 }
 
-export async function prizeEntitlements(page = 0, size = 20) {
+export async function prizeEntitlements(page = 0, size = 20, query?: string, status?: string) {
   const { data } = await http.get<PageResponse<PrizeEntitlementResponse>>('/api/v1/admin/prize-entitlements', {
-    params: { page, size },
+    params: { page, size, query, status },
   });
   return data;
 }
@@ -794,9 +810,9 @@ export async function settlePrizeEntitlement(
   return data;
 }
 
-export async function deposits(page = 0, size = 20) {
+export async function deposits(page = 0, size = 20, query?: string, status?: string) {
   const { data } = await http.get<PageResponse<DepositClaimResponse>>('/api/v1/admin/deposits', {
-    params: { page, size },
+    params: { page, size, query, status },
   });
   return data;
 }
@@ -967,11 +983,12 @@ export async function supportTickets(
   status?: string,
   category?: string,
   assignedToUserId?: string,
+  priority?: string,
   page = 0,
   size = 20,
 ) {
   const { data } = await http.get<PageResponse<SupportTicketSummaryResponse>>('/api/v1/admin/support/tickets', {
-    params: { query, status, category, assignedToUserId, page, size },
+    params: { query, status, category, assignedToUserId, priority, page, size },
   });
   return data;
 }

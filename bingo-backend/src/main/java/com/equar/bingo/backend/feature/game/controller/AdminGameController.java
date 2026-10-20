@@ -13,7 +13,10 @@ import com.equar.bingo.backend.feature.game.dto.PrizeEntitlementResponse;
 import com.equar.bingo.backend.feature.game.dto.PrizeEntitlementSettlementRequest;
 import com.equar.bingo.backend.feature.game.dto.WinClaimResponse;
 import com.equar.bingo.backend.feature.game.dto.WinClaimReviewRequest;
+import com.equar.bingo.backend.feature.game.entity.BingoPatternType;
 import com.equar.bingo.backend.feature.game.entity.PrizeEntitlement;
+import com.equar.bingo.backend.feature.game.entity.PrizeEntitlementStatus;
+import com.equar.bingo.backend.feature.game.entity.WinClaimStatus;
 import com.equar.bingo.backend.feature.game.repository.PrizeEntitlementRepository;
 import com.equar.bingo.backend.feature.game.service.BingoGameService;
 import jakarta.validation.Valid;
@@ -29,9 +32,11 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Locale;
 
 @RestController
 @RequestMapping("/api/v1/admin")
@@ -49,8 +54,9 @@ public class AdminGameController {
     }
 
     @GetMapping("/rooms")
-    public List<BingoRoomResponse> rooms() {
-        return bingoGameService.listAdminRooms();
+    public PageResponse<BingoRoomResponse> rooms(@RequestParam(required = false) String query,
+            @RequestParam(required = false) Boolean active, @PageableDefault(size = 20) Pageable pageable) {
+        return PageResponse.from(bingoGameService.listAdminRooms(query, active, pageable));
     }
 
     @PostMapping("/rooms")
@@ -87,8 +93,14 @@ public class AdminGameController {
     }
 
     @GetMapping("/win-claims")
-    public PageResponse<WinClaimResponse> winClaims(@PageableDefault(size = 20) Pageable pageable) {
-        return PageResponse.from(bingoGameService.getAdminWinClaims(pageable));
+    public PageResponse<WinClaimResponse> winClaims(
+            @RequestParam(required = false) String query,
+            @RequestParam(required = false) WinClaimStatus status,
+            @RequestParam(required = false) BingoPatternType pattern,
+            @RequestParam(required = false) Boolean serverValidationPassed,
+            @PageableDefault(size = 20, sort = "createdAt", direction = org.springframework.data.domain.Sort.Direction.DESC) Pageable pageable) {
+        return PageResponse.from(
+                bingoGameService.getAdminWinClaims(query, status, pattern, serverValidationPassed, pageable));
     }
 
     @PostMapping("/win-claims/{id}/approve")
@@ -106,8 +118,21 @@ public class AdminGameController {
     }
 
     @GetMapping("/prize-entitlements")
-    public PageResponse<PrizeEntitlementResponse> prizeEntitlements(@PageableDefault(size = 20) Pageable pageable) {
-        return PageResponse.from(prizeEntitlementRepository.findAll(pageable).map(this::toPrizeEntitlementResponse));
+    public PageResponse<PrizeEntitlementResponse> prizeEntitlements(@RequestParam(required = false) String query,
+            @RequestParam(required = false) PrizeEntitlementStatus status,
+            @PageableDefault(size = 20, sort = "createdAt", direction = org.springframework.data.domain.Sort.Direction.DESC) Pageable pageable) {
+        String normalizedQuery = query == null || query.isBlank() ? null : query.trim().toLowerCase(Locale.ROOT);
+        Long numericQuery = null;
+        if (normalizedQuery != null) {
+            try {
+                numericQuery = Long.valueOf(normalizedQuery);
+            } catch (NumberFormatException ignored) {
+                numericQuery = null;
+            }
+        }
+        return PageResponse.from(prizeEntitlementRepository
+                .searchAdmin(normalizedQuery, numericQuery, status, pageable)
+                .map(this::toPrizeEntitlementResponse));
     }
 
     @PostMapping("/prize-entitlements/{id}/settle")

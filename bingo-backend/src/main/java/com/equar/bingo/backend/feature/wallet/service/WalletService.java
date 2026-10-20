@@ -31,6 +31,7 @@ import com.equar.bingo.backend.feature.wallet.repository.WalletRepository;
 import com.equar.bingo.backend.feature.wallet.repository.WalletTransactionRepository;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.Locale;
 import java.util.UUID;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
@@ -94,10 +95,18 @@ public class WalletService {
     }
 
     @Transactional(readOnly = true)
-    public Page<DepositClaimResponse> getAdminDeposits(DepositClaimStatus status, Pageable pageable) {
-        Page<DepositClaim> page = status == null
-                ? depositClaimRepository.findAllOrderBySubmittedAt(pageable)
-                : depositClaimRepository.findByStatus(status, pageable);
+    public Page<DepositClaimResponse> getAdminDeposits(DepositClaimStatus status, String query, Pageable pageable) {
+        String normalizedQuery = query == null || query.isBlank() ? null : query.trim().toLowerCase(Locale.ROOT);
+        Long referenceId = null;
+        if (normalizedQuery != null) {
+            try {
+                referenceId = Long.valueOf(normalizedQuery);
+            } catch (NumberFormatException ignored) {
+                referenceId = null;
+            }
+        }
+        Page<DepositClaim> page = depositClaimRepository.searchAdminDeposits(status, normalizedQuery, referenceId,
+                pageable);
         return page.map(this::toDepositResponse);
     }
 

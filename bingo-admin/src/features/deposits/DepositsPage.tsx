@@ -1,29 +1,43 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import {
   Alert,
   Box,
   Button,
-  Card,
-  CardContent,
   Chip,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
-  Grid,
+  MenuItem,
   Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TablePagination,
+  TableRow,
   TextField,
   Typography,
 } from "@mui/material";
 import { approveDeposit, deposits, rejectDeposit } from "../../api/admin";
-import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { StatusState } from "../../components/StatusState";
 import { useIdempotencyKey } from "../common/useIdempotencyKey";
 
+const statusOptions = ["PENDING", "APPROVED", "REJECTED"] as const;
+
 export function DepositsPage() {
   const queryClient = useQueryClient();
-  const depositsQuery = useQuery({ queryKey: ["deposits"], queryFn: () => deposits(0, 50) });
+  const [query, setQuery] = useState("");
+  const [status, setStatus] = useState("");
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
+  const normalizedQuery = query.trim();
+  const depositsQuery = useQuery({
+    queryKey: ["deposits", normalizedQuery, status, page, pageSize],
+    queryFn: () => deposits(page, pageSize, normalizedQuery || undefined, status || undefined),
+    placeholderData: keepPreviousData,
+  });
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [comment, setComment] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -72,36 +86,88 @@ export function DepositsPage() {
         <Typography color="text.secondary">Verify payment references, snapshots, and review history.</Typography>
       </Box>
 
-      {(depositsQuery.data?.content ?? []).length === 0 ? (
-        <Alert severity="info">No deposit reviews are pending.</Alert>
+      <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+        <TextField
+          label="Search deposit, player, payment reference, or operation"
+          value={query}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setPage(0);
+          }}
+          fullWidth
+        />
+        <TextField
+          select
+          label="Status"
+          value={status}
+          onChange={(event) => {
+            setStatus(event.target.value);
+            setPage(0);
+          }}
+          sx={{ minWidth: { xs: "100%", md: 220 } }}
+        >
+          <MenuItem value="">All statuses</MenuItem>
+          {statusOptions.map((option) => (
+            <MenuItem key={option} value={option}>
+              {option}
+            </MenuItem>
+          ))}
+        </TextField>
+      </Stack>
+
+      {depositsQuery.isFetching && !depositsQuery.isLoading ? (
+        <Alert severity="info">Updating deposit results...</Alert>
       ) : null}
 
-      <Grid container spacing={2}>
-        {(depositsQuery.data?.content ?? []).map((deposit) => (
-          <Grid item xs={12} md={6} key={deposit.id}>
-            <Card data-testid={`deposit-card-${deposit.id}`} sx={{ border: "1px solid", borderColor: "divider", height: "100%" }}>
-              <CardContent>
-                <Stack spacing={1.25}>
-                  <Box display="flex" justifyContent="space-between" gap={2}>
-                    <div>
-                      <Typography variant="h6">Deposit #{deposit.id}</Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Player {deposit.playerId}
-                      </Typography>
-                    </div>
-                    <Chip label={deposit.status} color="warning" size="small" />
-                  </Box>
-                  <Typography>
-                    Submitted cash: {deposit.submittedCashAmount} {deposit.currency}
-                  </Typography>
-                  <Typography>Credit amount: {deposit.calculatedCreditAmount}</Typography>
-                  <Typography>Telebirr ref: {deposit.normalizedTelebirrReference}</Typography>
-                  <Typography>Review note: {deposit.reviewNote ?? "n/a"}</Typography>
-                  <Typography variant="body2">Operation: {deposit.operationId}</Typography>
-                  <Stack direction="row" spacing={1}>
+      <Box sx={{ overflowX: "auto" }}>
+        <Table size="small" aria-label="deposit reviews table">
+          <TableHead>
+            <TableRow>
+              <TableCell>Deposit / player</TableCell>
+              <TableCell>Payment reference</TableCell>
+              <TableCell align="right">Submitted cash</TableCell>
+              <TableCell align="right">Credit</TableCell>
+              <TableCell>Status</TableCell>
+              <TableCell>Submitted</TableCell>
+              <TableCell>Review note</TableCell>
+              <TableCell align="right">Actions</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {(depositsQuery.data?.content ?? []).map((deposit) => (
+              <TableRow key={deposit.id} hover data-testid={`deposit-row-${deposit.id}`}>
+                <TableCell>
+                  <Stack spacing={0.25}>
+                    <Typography fontWeight={600}>Deposit #{deposit.id}</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Player {deposit.playerId}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {deposit.operationId}
+                    </Typography>
+                  </Stack>
+                </TableCell>
+                <TableCell>{deposit.normalizedTelebirrReference}</TableCell>
+                <TableCell align="right">
+                  {deposit.submittedCashAmount} {deposit.currency}
+                </TableCell>
+                <TableCell align="right">{deposit.calculatedCreditAmount}</TableCell>
+                <TableCell>
+                  <Chip
+                    label={deposit.status}
+                    color={deposit.status === "PENDING" ? "warning" : "default"}
+                    size="small"
+                  />
+                </TableCell>
+                <TableCell>{new Date(deposit.submittedAt).toLocaleString()}</TableCell>
+                <TableCell>{deposit.reviewNote ?? "n/a"}</TableCell>
+                <TableCell align="right">
+                  <Stack direction="row" spacing={1} justifyContent="flex-end">
                     <Button
                       data-testid={`deposit-approve-${deposit.id}`}
+                      size="small"
                       variant="contained"
+                      disabled={deposit.status !== "PENDING"}
                       onClick={() => {
                         setMode("APPROVE");
                         setSelectedId(deposit.id);
@@ -112,7 +178,9 @@ export function DepositsPage() {
                     </Button>
                     <Button
                       data-testid={`deposit-reject-${deposit.id}`}
+                      size="small"
                       variant="outlined"
+                      disabled={deposit.status !== "PENDING"}
                       onClick={() => {
                         setMode("REJECT");
                         setSelectedId(deposit.id);
@@ -122,12 +190,32 @@ export function DepositsPage() {
                       Reject
                     </Button>
                   </Stack>
-                </Stack>
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
+                </TableCell>
+              </TableRow>
+            ))}
+            {depositsQuery.data && depositsQuery.data.content.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={8}>
+                  <Alert severity="info">No deposits match the current search and filters.</Alert>
+                </TableCell>
+              </TableRow>
+            ) : null}
+          </TableBody>
+        </Table>
+      </Box>
+
+      <TablePagination
+        component="div"
+        count={depositsQuery.data?.totalElements ?? 0}
+        page={page}
+        onPageChange={(_, nextPage) => setPage(nextPage)}
+        rowsPerPage={pageSize}
+        onRowsPerPageChange={(event) => {
+          setPageSize(Number(event.target.value));
+          setPage(0);
+        }}
+        rowsPerPageOptions={[10, 20, 50]}
+      />
 
       <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>{mode === "APPROVE" ? "Approve deposit" : "Reject deposit"}</DialogTitle>

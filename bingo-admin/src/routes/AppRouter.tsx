@@ -44,7 +44,11 @@ export function AppRouter() {
           <Route path="deposits" element={<DepositsPage />} />
           <Route path="agents" element={<AgentsPage />} />
           <Route path="agents/:agentId" element={<AgentDetailPage />} />
-          <Route path="wallet" element={<WalletPoliciesPage />} />
+          <Route path="wallet">
+            <Route index element={<Navigate to="signup-reward" replace />} />
+            <Route path="signup-reward" element={<WalletPoliciesPage />} />
+            <Route path="transfer-policy" element={<WalletPoliciesPage />} />
+          </Route>
           <Route path="wallet/transfers" element={<WalletTransfersPage />} />
           <Route path="support/tickets" element={<SupportTicketsPage />} />
           <Route path="support/tickets/:ticketId" element={<SupportTicketDetailPage />} />

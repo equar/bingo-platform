@@ -1,5 +1,5 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import {
   Alert,
   Box,
@@ -12,13 +12,13 @@ import {
   Link,
   MenuItem,
   Paper,
-  InputAdornment,
   Stack,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
+  TablePagination,
   TableRow,
   TextField,
   Typography,
@@ -53,15 +53,30 @@ const allowedStates: Record<string, string[]> = {
 export function SessionsPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const sessionsQuery = useQuery({ queryKey: ["sessions"], queryFn: () => listSessions(0, 50) });
   const roomsQuery = useQuery({ queryKey: ["rooms"], queryFn: listRooms });
   const [draft, setDraft] = useState<SessionDraft | null>(null);
   const [search, setSearch] = useState("");
   const [stateFilter, setStateFilter] = useState("ALL");
   const [roomFilter, setRoomFilter] = useState("ALL");
   const [startFilter, setStartFilter] = useState("ALL");
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingTransition, setPendingTransition] = useState<{ sessionId: number; nextState: string } | null>(null);
+  const normalizedSearch = search.trim();
+  const sessionsQuery = useQuery({
+    queryKey: ["sessions", normalizedSearch, stateFilter, roomFilter, startFilter, page, pageSize],
+    queryFn: () =>
+      listSessions(
+        page,
+        pageSize,
+        normalizedSearch || undefined,
+        stateFilter === "ALL" ? undefined : stateFilter,
+        roomFilter === "ALL" ? undefined : Number(roomFilter),
+        startFilter === "ALL" ? undefined : startFilter === "UPCOMING",
+      ),
+    placeholderData: keepPreviousData,
+  });
 
   const createMutation = useMutation({
     mutationFn: (body: SessionDraft) =>
@@ -91,24 +106,7 @@ export function SessionsPage() {
 
   const rooms = roomsQuery.data ?? [];
   const sessions = sessionsQuery.data?.content ?? [];
-  const filteredSessions = sessions.filter((session) => {
-    const query = search.trim().toLocaleLowerCase();
-    const matchesSearch =
-      !query ||
-      session.sessionName.toLocaleLowerCase().includes(query) ||
-      session.roomName.toLocaleLowerCase().includes(query) ||
-      String(session.id).includes(query);
-    const matchesState = stateFilter === "ALL" || session.state === stateFilter;
-    const matchesRoom = roomFilter === "ALL" || String(session.roomId) === roomFilter;
-    const scheduledStart = new Date(session.scheduledStartAt).getTime();
-    const now = Date.now();
-    const matchesStart =
-      startFilter === "ALL" ||
-      (startFilter === "UPCOMING" && scheduledStart >= now) ||
-      (startFilter === "PAST" && scheduledStart < now);
-    return matchesSearch && matchesState && matchesRoom && matchesStart;
-  });
-  const title = useMemo(() => (draft ? "Create session" : ""), [draft]);
+  const title = draft ? "Create session" : "";
 
   if (sessionsQuery.isLoading) {
     return <StatusState title="Loading sessions" loading message="Fetching session list" />;
@@ -137,27 +135,27 @@ export function SessionsPage() {
         </Button>
       </Box>
 
-      {sessions.length === 0 ? <Alert severity="info">No sessions found.</Alert> : null}
-
-      {sessions.length > 0 ? (
-        <Stack spacing={1.5}>
+      <Stack spacing={1.5}>
           <Stack direction={{ xs: "column", md: "row" }} spacing={1.5}>
             <TextField
               label="Search sessions"
               placeholder="Name, room, or ID"
               value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              onChange={(event) => {
+                setSearch(event.target.value);
+                setPage(0);
+              }}
               size="small"
               sx={{ flex: 2, minWidth: { md: 260 } }}
-              InputProps={{
-                startAdornment: <InputAdornment position="start">⌕</InputAdornment>,
-              }}
             />
             <TextField
               select
               label="Status"
               value={stateFilter}
-              onChange={(event) => setStateFilter(event.target.value)}
+              onChange={(event) => {
+                setStateFilter(event.target.value);
+                setPage(0);
+              }}
               size="small"
               sx={{ flex: 1, minWidth: 150 }}
             >
@@ -172,7 +170,10 @@ export function SessionsPage() {
               select
               label="Room"
               value={roomFilter}
-              onChange={(event) => setRoomFilter(event.target.value)}
+              onChange={(event) => {
+                setRoomFilter(event.target.value);
+                setPage(0);
+              }}
               size="small"
               sx={{ flex: 1, minWidth: 150 }}
             >
@@ -187,7 +188,10 @@ export function SessionsPage() {
               select
               label="Start date"
               value={startFilter}
-              onChange={(event) => setStartFilter(event.target.value)}
+              onChange={(event) => {
+                setStartFilter(event.target.value);
+                setPage(0);
+              }}
               size="small"
               sx={{ flex: 1, minWidth: 150 }}
             >
@@ -197,8 +201,11 @@ export function SessionsPage() {
             </TextField>
           </Stack>
           <Typography variant="body2" color="text.secondary">
-            Showing {filteredSessions.length} of {sessions.length} sessions
+            Showing {sessions.length} of {sessionsQuery.data?.totalElements ?? 0} sessions
           </Typography>
+          {sessionsQuery.isFetching && !sessionsQuery.isLoading ? (
+            <Alert severity="info">Updating session results...</Alert>
+          ) : null}
         <TableContainer component={Paper} variant="outlined">
           <Table size="small" sx={{ minWidth: 1050 }} aria-label="Sessions">
             <TableHead>
@@ -215,7 +222,7 @@ export function SessionsPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {filteredSessions.map((session) => (
+              {sessions.map((session) => (
                 <TableRow key={session.id} hover>
                   <TableCell component="th" scope="row">
                     <Link component={RouterLink} to={`/sessions/${session.id}`} fontWeight={600}>
@@ -263,7 +270,7 @@ export function SessionsPage() {
                   </TableCell>
                 </TableRow>
               ))}
-              {filteredSessions.length === 0 ? (
+              {sessionsQuery.data && sessions.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
                     No sessions match your search and filters.
@@ -273,8 +280,19 @@ export function SessionsPage() {
             </TableBody>
           </Table>
         </TableContainer>
-        </Stack>
-      ) : null}
+        <TablePagination
+          component="div"
+          count={sessionsQuery.data?.totalElements ?? 0}
+          page={page}
+          onPageChange={(_, nextPage) => setPage(nextPage)}
+          rowsPerPage={pageSize}
+          onRowsPerPageChange={(event) => {
+            setPageSize(Number(event.target.value));
+            setPage(0);
+          }}
+          rowsPerPageOptions={[10, 20, 50]}
+        />
+      </Stack>
 
       <Dialog open={Boolean(draft)} onClose={() => setDraft(null)} fullWidth maxWidth="sm">
         <DialogTitle>{title}</DialogTitle>

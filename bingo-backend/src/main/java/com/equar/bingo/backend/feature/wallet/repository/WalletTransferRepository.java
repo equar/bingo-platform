@@ -27,6 +27,7 @@ public interface WalletTransferRepository extends JpaRepository<WalletTransfer, 
             + "(:senderPhone is null or lower(t.senderPhoneSnapshot) like concat('%', lower(:senderPhone), '%')) and "
             + "(:recipientPhone is null or lower(t.recipientPhoneSnapshot) like concat('%', lower(:recipientPhone), '%')) and "
             + "(:query is null or :query = '' or lower(t.note) like concat('%', lower(:query), '%') "
+            + "or lower(t.operationId) like concat('%', lower(:query), '%') "
             + "or lower(t.senderPhoneSnapshot) like concat('%', lower(:query), '%') "
             + "or lower(t.recipientPhoneSnapshot) like concat('%', lower(:query), '%'))")
     Page<WalletTransfer> search(@Param("query") String query,
