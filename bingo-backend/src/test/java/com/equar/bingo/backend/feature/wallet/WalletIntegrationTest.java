@@ -1,5 +1,6 @@
 package com.equar.bingo.backend.feature.wallet;
 
+import com.equar.bingo.backend.MySqlIntegrationTest;
 import com.equar.bingo.backend.common.idempotency.IdempotentResult;
 import com.equar.bingo.backend.feature.auth.dto.LoginRequest;
 import com.equar.bingo.backend.feature.auth.dto.AdminLoginRequest;
@@ -76,7 +77,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-class WalletIntegrationTest {
+class WalletIntegrationTest extends MySqlIntegrationTest {
 
         @Autowired
         MockMvc mockMvc;

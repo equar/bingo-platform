@@ -12,6 +12,8 @@ spring:
       ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:update}
   flyway:
     enabled: true
+  config:
+    import: optional:file:.env[.properties]
   main:
     allow-bean-definition-overriding: false
   mail:
@@ -37,10 +39,12 @@ management:
   endpoints:
     web:
       exposure:
-        include: "*"
+        include: health,env,beans
   endpoint:
     health:
-      show-details: always
+      show-details: never
+    env:
+      show-values: never
   health:
     mail:
       enabled: false
@@ -54,8 +58,13 @@ app:
   business-timezone: ${APP_BUSINESS_TIMEZONE:Africa/Addis_Ababa}
   security:
     jwt:
-      secret: ${JWT_SECRET:0123456789abcdef0123456789abcdef}
+      secret: ${JWT_SECRET:}
       access-token-ttl-seconds: ${JWT_ACCESS_TOKEN_TTL_SECONDS:3600}
+    authentication:
+      account-attempt-limit: ${APP_AUTH_ACCOUNT_ATTEMPT_LIMIT:5}
+      network-attempt-limit: ${APP_AUTH_NETWORK_ATTEMPT_LIMIT:50}
+      window: ${APP_AUTH_ATTEMPT_WINDOW:PT15M}
+      lockout: ${APP_AUTH_LOCKOUT:PT15M}
   wallet:
     currency: ${APP_WALLET_CURRENCY:ETB}
     deposit-conversion-rate: ${APP_WALLET_DEPOSIT_CONVERSION_RATE:1.000000}

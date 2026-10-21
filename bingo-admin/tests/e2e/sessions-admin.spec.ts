@@ -2,9 +2,17 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 
 const runtimeEnv = (globalThis as any)['process']?.env ?? {};
 const backendBaseUrl = runtimeEnv.BINGO_E2E_BACKEND_URL ?? 'http://localhost:8080';
-const adminEmail = runtimeEnv.BINGO_E2E_ADMIN_EMAIL ?? 'kirshipay+admin@gmail.com';
-const adminPassword = runtimeEnv.BINGO_E2E_ADMIN_PASSWORD ?? 'admin@123';
+const adminEmail = requiredEnv('BINGO_E2E_ADMIN_EMAIL');
+const adminPassword = requiredEnv('BINGO_E2E_ADMIN_PASSWORD');
 const runId = `Sessions E2E ${new Date().toISOString().replace(/[:.]/g, '-')}`;
+
+function requiredEnv(name: string): string {
+  const value = runtimeEnv[name];
+  if (typeof value !== 'string' || !value.trim()) {
+    throw new Error(`${name} must be set to run the admin E2E tests`);
+  }
+  return value;
+}
 
 function dateTimeLocal(offsetMinutes: number) {
   const date = new Date(Date.now() + offsetMinutes * 60_000);

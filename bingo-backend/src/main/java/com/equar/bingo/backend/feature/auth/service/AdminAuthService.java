@@ -19,16 +19,23 @@ public class AdminAuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final AuthenticationAttemptThrottleService throttleService;
 
-    public AdminAuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService) {
+    public AdminAuthService(
+            UserRepository userRepository,
+            PasswordEncoder passwordEncoder,
+            JwtService jwtService,
+            AuthenticationAttemptThrottleService throttleService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
+        this.throttleService = throttleService;
     }
 
     @Transactional
     public AuthResponse login(AdminLoginRequest request) {
         String email = normalizeEmail(request.email());
+        throttleService.requireAccountAllowed("admin", email);
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new BadCredentialsException("Invalid credentials"));
 

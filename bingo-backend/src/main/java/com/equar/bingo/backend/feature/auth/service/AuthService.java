@@ -17,6 +17,7 @@ import java.time.Instant;
 import java.util.Set;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -32,6 +33,7 @@ public class AuthService {
     private final JwtService jwtService;
     private final WalletService walletService;
     private final SignupRewardService signupRewardService;
+    private final AuthenticationAttemptThrottleService throttleService;
 
     public AuthService(UserRepository userRepository,
             PasswordEncoder passwordEncoder,
@@ -39,7 +41,8 @@ public class AuthService {
             EthiopianPhoneNormalizer phoneNormalizer,
             JwtService jwtService,
             WalletService walletService,
-            SignupRewardService signupRewardService) {
+            SignupRewardService signupRewardService,
+            AuthenticationAttemptThrottleService throttleService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager;
@@ -47,6 +50,7 @@ public class AuthService {
         this.jwtService = jwtService;
         this.walletService = walletService;
         this.signupRewardService = signupRewardService;
+        this.throttleService = throttleService;
     }
 
     @Transactional
@@ -73,8 +77,15 @@ public class AuthService {
 
     public AuthResponse login(LoginRequest request) {
         String normalizedPhone = phoneNormalizer.normalize(request.phoneNumber());
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(normalizedPhone, request.password()));
+        throttleService.requireAccountAllowed("player", normalizedPhone);
+        Authentication authentication;
+        try {
+            authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(normalizedPhone, request.password()));
+        } catch (AuthenticationException exception) {
+            throw new org.springframework.security.authentication.BadCredentialsException(
+                    "Invalid credentials", exception);
+        }
 
         BingoUserPrincipal principal = (BingoUserPrincipal) authentication.getPrincipal();
         User user = principal.getUser();

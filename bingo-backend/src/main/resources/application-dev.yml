@@ -15,7 +15,4 @@ spring:
 
 app:
   dev:
-    seed-enabled: true
-  security:
-    jwt:
-      secret: ${JWT_SECRET:0123456789abcdef0123456789abcdef}
+    seed-enabled: ${APP_DEV_SEED_ENABLED:false}

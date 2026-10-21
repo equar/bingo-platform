@@ -20,27 +20,49 @@ import org.springframework.transaction.annotation.Transactional;
 @Profile("dev")
 public class DevelopmentDataSeeder implements CommandLineRunner {
 
-    private static final String DEV_ADMIN_EMAIL = "kirshipay+admin@gmail.com";
-    private static final String DEV_ADMIN_PASSWORD = "admin@123";
-    private static final String DEV_ADMIN_PHONE = "251911000001";
-    private static final String DEV_ADMIN_NAME = "Dev Admin";
-
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final PasswordEncoder agentPinEncoder;
     private final WalletService walletService;
     private final boolean enabled;
+    private final String adminEmail;
+    private final String adminPassword;
+    private final String adminPhone;
+    private final String adminName;
+    private final String agentPhone;
+    private final String agentPassword;
+    private final String agentPin;
+    private final String playerPhone;
+    private final String playerPin;
 
     public DevelopmentDataSeeder(UserRepository userRepository,
             PasswordEncoder passwordEncoder,
             @Qualifier("agentPinEncoder") PasswordEncoder agentPinEncoder,
             WalletService walletService,
-            @Value("${app.dev.seed-enabled:true}") boolean enabled) {
+            @Value("${app.dev.seed-enabled:false}") boolean enabled,
+            @Value("${DEV_ADMIN_EMAIL:}") String adminEmail,
+            @Value("${DEV_ADMIN_PASSWORD:}") String adminPassword,
+            @Value("${DEV_ADMIN_PHONE:}") String adminPhone,
+            @Value("${DEV_ADMIN_NAME:}") String adminName,
+            @Value("${DEV_AGENT_PHONE:}") String agentPhone,
+            @Value("${DEV_AGENT_PASSWORD:}") String agentPassword,
+            @Value("${DEV_AGENT_PIN:}") String agentPin,
+            @Value("${DEV_PLAYER_PHONE:}") String playerPhone,
+            @Value("${DEV_PLAYER_PIN:}") String playerPin) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.agentPinEncoder = agentPinEncoder;
         this.walletService = walletService;
         this.enabled = enabled;
+        this.adminEmail = adminEmail;
+        this.adminPassword = adminPassword;
+        this.adminPhone = adminPhone;
+        this.adminName = adminName;
+        this.agentPhone = agentPhone;
+        this.agentPassword = agentPassword;
+        this.agentPin = agentPin;
+        this.playerPhone = playerPhone;
+        this.playerPin = playerPin;
     }
 
     @Override
@@ -49,76 +71,91 @@ public class DevelopmentDataSeeder implements CommandLineRunner {
         if (!enabled) {
             return;
         }
+        requireConfigured("DEV_ADMIN_EMAIL", adminEmail);
+        requireConfigured("DEV_ADMIN_PASSWORD", adminPassword);
+        requireConfigured("DEV_ADMIN_PHONE", adminPhone);
+        requireConfigured("DEV_ADMIN_NAME", adminName);
+        requireConfigured("DEV_AGENT_PHONE", agentPhone);
+        requireConfigured("DEV_AGENT_PASSWORD", agentPassword);
+        requireConfigured("DEV_AGENT_PIN", agentPin);
+        requireConfigured("DEV_PLAYER_PHONE", playerPhone);
+        requireConfigured("DEV_PLAYER_PIN", playerPin);
 
         Instant now = Instant.now();
         User admin = upsertAdmin(now);
         User agent = upsertAgent(now);
         User player = upsertPlayer(now);
 
-        agent.setAgentPinHash(agentPinEncoder.encode("2468"));
+        agent.setAgentPinHash(agentPinEncoder.encode(agentPin));
         userRepository.save(agent);
 
         walletService.createWalletIfMissing(player);
     }
 
     private User upsertAdmin(Instant now) {
-        return userRepository.findByEmail(DEV_ADMIN_EMAIL)
-                .or(() -> userRepository.findByNormalizedPhone(DEV_ADMIN_PHONE))
+        return userRepository.findByEmail(adminEmail)
+                .or(() -> userRepository.findByNormalizedPhone(adminPhone))
                 .map(existing -> {
-                    existing.setNormalizedPhone(DEV_ADMIN_PHONE);
-                    existing.setEmail(DEV_ADMIN_EMAIL);
-                    existing.setDisplayName(DEV_ADMIN_NAME);
-                    existing.setPasswordHash(passwordEncoder.encode(DEV_ADMIN_PASSWORD));
+                    existing.setNormalizedPhone(adminPhone);
+                    existing.setEmail(adminEmail);
+                    existing.setDisplayName(adminName);
+                    existing.setPasswordHash(passwordEncoder.encode(adminPassword));
                     existing.setStatus(AccountStatus.ACTIVE);
                     existing.setRoles(new LinkedHashSet<>(Set.of(UserRole.ADMIN)));
                     return userRepository.save(existing);
                 })
                 .orElseGet(() -> {
                     User admin = User.create(
-                            DEV_ADMIN_PHONE,
-                            DEV_ADMIN_NAME,
-                            passwordEncoder.encode(DEV_ADMIN_PASSWORD),
+                            adminPhone,
+                            adminName,
+                            passwordEncoder.encode(adminPassword),
                             AccountStatus.ACTIVE,
                             Set.of(UserRole.ADMIN),
                             now);
-                    admin.setEmail(DEV_ADMIN_EMAIL);
+                    admin.setEmail(adminEmail);
                     return userRepository.save(admin);
                 });
     }
 
     private User upsertAgent(Instant now) {
-        return userRepository.findByNormalizedPhone("251911000002")
+        return userRepository.findByNormalizedPhone(agentPhone)
                 .map(existing -> {
                     existing.setDisplayName("Dev Agent");
-                    existing.setPasswordHash(passwordEncoder.encode("DevAgent123!"));
+                    existing.setPasswordHash(passwordEncoder.encode(agentPassword));
                     existing.setStatus(AccountStatus.ACTIVE);
                     existing.setRoles(new LinkedHashSet<>(Set.of(UserRole.AGENT)));
                     return userRepository.save(existing);
                 })
                 .orElseGet(() -> userRepository.save(User.create(
-                        "251911000002",
+                        agentPhone,
                         "Dev Agent",
-                        passwordEncoder.encode("DevAgent123!"),
+                        passwordEncoder.encode(agentPassword),
                         AccountStatus.ACTIVE,
                         Set.of(UserRole.AGENT),
                         now)));
     }
 
     private User upsertPlayer(Instant now) {
-        return userRepository.findByNormalizedPhone("251911000003")
+        return userRepository.findByNormalizedPhone(playerPhone)
                 .map(existing -> {
                     existing.setDisplayName("Dev Player");
-                    existing.setPasswordHash(passwordEncoder.encode("123456"));
+                    existing.setPasswordHash(passwordEncoder.encode(playerPin));
                     existing.setStatus(AccountStatus.ACTIVE);
                     existing.setRoles(new LinkedHashSet<>(Set.of(UserRole.PLAYER)));
                     return userRepository.save(existing);
                 })
                 .orElseGet(() -> userRepository.save(User.create(
-                        "251911000003",
+                        playerPhone,
                         "Dev Player",
-                        passwordEncoder.encode("123456"),
+                        passwordEncoder.encode(playerPin),
                         AccountStatus.ACTIVE,
                         Set.of(UserRole.PLAYER),
                         now)));
+    }
+
+    private void requireConfigured(String name, String value) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalStateException(name + " must be set when development seeding is enabled");
+        }
     }
 }

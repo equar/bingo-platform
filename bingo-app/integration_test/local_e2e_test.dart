@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:bingo_app/src/app.dart';
 import 'package:flutter/material.dart';
@@ -15,11 +16,9 @@ void main() {
   const apiBaseUrl = String.fromEnvironment('API_BASE_URL',
       defaultValue: 'http://127.0.0.1:8080');
   const primaryPhone = String.fromEnvironment('BINGO_E2E_PRIMARY_PHONE',
-      defaultValue: '251911000003');
-  const primaryPassword = String.fromEnvironment('BINGO_E2E_PRIMARY_PASSWORD',
-      defaultValue: '123456');
-  const invalidPassword = String.fromEnvironment('BINGO_E2E_INVALID_PASSWORD',
-      defaultValue: '000000');
+      defaultValue: '');
+  const primaryPassword =
+      String.fromEnvironment('BINGO_E2E_PRIMARY_PASSWORD', defaultValue: '');
   const depositAmount = String.fromEnvironment('BINGO_E2E_DEPOSIT_AMOUNT',
       defaultValue: '100.00');
   const secondDepositAmount = String.fromEnvironment(
@@ -30,13 +29,14 @@ void main() {
     if (!phaseEnabled(phase, 'setup')) {
       return;
     }
+    requirePrimaryCredentials(primaryPhone, primaryPassword);
 
     await pumpApp(tester);
 
     await enterText(
         tester, find.byKey(const ValueKey('auth-phone-field')), primaryPhone);
     await enterText(tester, find.byKey(const ValueKey('auth-password-field')),
-        invalidPassword);
+        generateSixDigitPin(except: primaryPassword));
     await tap(tester, find.byKey(const ValueKey('auth-submit-button')));
     await pumpAndSettleBriefly(tester);
     expect(find.byKey(const ValueKey('auth-phone-field')), findsOneWidget);
@@ -73,7 +73,7 @@ void main() {
     await pumpUntil(tester, find.byKey(const ValueKey('auth-submit-button')));
 
     final secondaryPhone = generateSecondaryPhone(runId);
-    final secondaryPassword = '246810';
+    final secondaryPassword = generateSixDigitPin(except: primaryPassword);
     final secondaryName = 'E2E Secondary $runId';
     await enterText(
         tester, find.byKey(const ValueKey('auth-phone-field')), secondaryPhone);
@@ -89,9 +89,7 @@ void main() {
       'backendBaseUrl': apiBaseUrl,
       'player': {
         'primaryPhone': primaryPhone,
-        'primaryPassword': primaryPassword,
         'secondaryPhone': secondaryPhone,
-        'secondaryPassword': secondaryPassword,
         'secondaryName': secondaryName,
       },
       'deposits': [
@@ -114,14 +112,8 @@ void main() {
     if (sessionId == null) {
       fail('Session id missing from manifest');
     }
-    final primary = manifest['player'] as Map<String, dynamic>?;
-    if (primary == null) {
-      fail('Primary player missing from manifest');
-    }
-
     await pumpApp(tester);
-    await loginPlayer(tester, primary['primaryPhone'] as String,
-        primary['primaryPassword'] as String);
+    await loginPrimaryPlayer(tester, primaryPhone, primaryPassword);
 
     await tap(tester, find.text('Lobby'));
     await pumpUntil(tester, find.byKey(const ValueKey('session-id-field')));
@@ -172,20 +164,13 @@ void main() {
       return;
     }
 
-    final manifest = await readManifest();
-    final primary = manifest['player'] as Map<String, dynamic>?;
-    if (primary == null) {
-      fail('Primary player missing from manifest');
-    }
-
     await pumpApp(tester);
-    await loginPlayer(tester, primary['primaryPhone'] as String,
-        primary['primaryPassword'] as String);
+    await loginPrimaryPlayer(tester, primaryPhone, primaryPassword);
 
     final primaryLogin = await backendLogin(
       apiBaseUrl,
-      primary['primaryPhone'] as String,
-      primary['primaryPassword'] as String,
+      primaryPhone,
+      primaryPassword,
     );
     final primaryWallet = (await backendJson(
       apiBaseUrl,
@@ -210,15 +195,12 @@ void main() {
       return;
     }
 
-    final phone = const String.fromEnvironment('BINGO_E2E_PRIMARY_PHONE',
-        defaultValue: '251911000003');
-    final password = const String.fromEnvironment('BINGO_E2E_PRIMARY_PASSWORD',
-        defaultValue: '123456');
+    requirePrimaryCredentials(primaryPhone, primaryPassword);
     final subject =
         'Player app support verification ${DateTime.now().toUtc().toIso8601String()}';
 
     await pumpApp(tester);
-    await loginPlayer(tester, phone, password);
+    await loginPrimaryPlayer(tester, primaryPhone, primaryPassword);
     await tap(tester, find.byKey(const ValueKey('support-tab')));
     await pumpUntil(
         tester, find.byKey(const ValueKey('support-create-button')));
@@ -246,19 +228,13 @@ void main() {
     if (sessionId == null) {
       fail('Session id missing from manifest');
     }
-    final primary = manifest['player'] as Map<String, dynamic>?;
-    if (primary == null) {
-      fail('Primary player missing from manifest');
-    }
-
     await pumpApp(tester);
-    await loginPlayer(tester, primary['primaryPhone'] as String,
-        primary['primaryPassword'] as String);
+    await loginPrimaryPlayer(tester, primaryPhone, primaryPassword);
 
     final loginResponse = await backendLogin(
       apiBaseUrl,
-      primary['primaryPhone'] as String,
-      primary['primaryPassword'] as String,
+      primaryPhone,
+      primaryPassword,
     );
     final ticketsResponse = await backendJson(
       apiBaseUrl,
@@ -323,6 +299,30 @@ Future<void> loginPlayer(
       tester, find.byKey(const ValueKey('auth-password-field')), password);
   await tap(tester, find.byKey(const ValueKey('auth-submit-button')));
   await pumpUntil(tester, find.byType(NavigationBar));
+}
+
+Future<void> loginPrimaryPlayer(
+    WidgetTester tester, String phone, String password) async {
+  requirePrimaryCredentials(phone, password);
+  await loginPlayer(tester, phone, password);
+}
+
+void requirePrimaryCredentials(String phone, String password) {
+  if (phone.trim().isEmpty) {
+    fail('BINGO_E2E_PRIMARY_PHONE must be provided');
+  }
+  if (password.trim().isEmpty) {
+    fail('BINGO_E2E_PRIMARY_PASSWORD must be provided');
+  }
+}
+
+String generateSixDigitPin({String except = ''}) {
+  final random = math.Random.secure();
+  var pin = random.nextInt(1000000).toString().padLeft(6, '0');
+  while (pin == except) {
+    pin = random.nextInt(1000000).toString().padLeft(6, '0');
+  }
+  return pin;
 }
 
 Future<void> submitDeposit(
@@ -414,6 +414,13 @@ Future<Map<String, dynamic>> readManifest() async {
       try {
         final raw = await file.readAsString();
         final parsed = jsonDecode(raw) as Map<String, dynamic>;
+        parsed.remove('primaryPassword');
+        parsed.remove('secondaryPassword');
+        final player = parsed['player'];
+        if (player is Map<String, dynamic>) {
+          player.remove('primaryPassword');
+          player.remove('secondaryPassword');
+        }
         _manifestCache = parsed;
         return parsed;
       } catch (_) {
@@ -439,15 +446,9 @@ Future<Map<String, dynamic>> readManifest() async {
     },
     'player': {
       'primaryPhone': const String.fromEnvironment('BINGO_E2E_PRIMARY_PHONE',
-          defaultValue: '251911000003'),
-      'primaryPassword': const String.fromEnvironment(
-          'BINGO_E2E_PRIMARY_PASSWORD',
-          defaultValue: '123456'),
+          defaultValue: ''),
       'secondaryPhone': const String.fromEnvironment(
           'BINGO_E2E_SECONDARY_PHONE',
-          defaultValue: ''),
-      'secondaryPassword': const String.fromEnvironment(
-          'BINGO_E2E_SECONDARY_PASSWORD',
           defaultValue: ''),
       'secondaryName': const String.fromEnvironment('BINGO_E2E_SECONDARY_NAME',
           defaultValue: ''),

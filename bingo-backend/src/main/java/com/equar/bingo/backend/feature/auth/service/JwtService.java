@@ -19,7 +19,11 @@ public class JwtService {
 
     public JwtService(JwtProperties jwtProperties) {
         this.jwtProperties = jwtProperties;
-        this.secretKey = Keys.hmacShaKeyFor(jwtProperties.secret().getBytes(StandardCharsets.UTF_8));
+        byte[] secretBytes = jwtProperties.secret().getBytes(StandardCharsets.UTF_8);
+        if (secretBytes.length < 32) {
+            throw new IllegalArgumentException("JWT signing secret must contain at least 32 UTF-8 bytes");
+        }
+        this.secretKey = Keys.hmacShaKeyFor(secretBytes);
     }
 
     public String generateToken(User user) {
@@ -32,7 +36,7 @@ public class JwtService {
                 .expiration(Date.from(expiresAt))
                 .claim("uid", user.getId())
                 .claim("roles", user.getRoles().stream().map(Enum::name).toList())
-                .signWith(secretKey)
+                .signWith(secretKey, Jwts.SIG.HS256)
                 .compact();
     }
 

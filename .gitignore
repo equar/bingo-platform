@@ -20,6 +20,8 @@ target/
 /bingo-admin/tsconfig.node.tsbuildinfo
 .env.local
 .env.*.local
+**/.env
+**/e2e-secrets.json
 /test-results/
 /bingo-admin/test-results/
 /bingo-app/test-results/

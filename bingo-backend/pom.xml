@@ -21,6 +21,7 @@
         <jjwt.version>0.12.5</jjwt.version>
         <springdoc.version>3.1.1</springdoc.version>
         <jacoco.version>0.8.14</jacoco.version>
+        <testcontainers.version>1.21.3</testcontainers.version>
     </properties>
 
     <dependencies>
@@ -130,9 +131,9 @@
             <artifactId>spring-security-messaging</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.h2database</groupId>
-            <artifactId>h2</artifactId>
-            <version>2.2.220</version>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>mysql</artifactId>
+            <version>${testcontainers.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

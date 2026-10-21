@@ -1,5 +1,6 @@
 package com.equar.bingo.backend.feature.agent;
 
+import com.equar.bingo.backend.MySqlIntegrationTest;
 import com.equar.bingo.backend.common.exception.BadRequestException;
 import com.equar.bingo.backend.feature.agent.dto.AgentFloatTransferRequest;
 import com.equar.bingo.backend.feature.agent.dto.AgentPayoutVerificationRequest;
@@ -65,7 +66,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest
 @ActiveProfiles("test")
-class AgentServiceIntegrationTest {
+class AgentServiceIntegrationTest extends MySqlIntegrationTest {
 
         @Autowired
         AgentService agentService;

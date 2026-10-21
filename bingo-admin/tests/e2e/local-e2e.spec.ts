@@ -8,10 +8,17 @@ const runtimeEnv = (globalThis as any)['process']?.env ?? {};
 const phase = runtimeEnv.BINGO_E2E_PHASE ?? 'all';
 const runId = runtimeEnv.BINGO_E2E_RUN_ID ?? 'local';
 const backendBaseUrl = runtimeEnv.BINGO_E2E_BACKEND_URL ?? 'http://localhost:8080';
-const adminEmail = runtimeEnv.BINGO_E2E_ADMIN_EMAIL ?? 'kirshipay+admin@gmail.com';
-const adminPassword = runtimeEnv.BINGO_E2E_ADMIN_PASSWORD ?? 'admin@123';
-const primaryPhone = runtimeEnv.BINGO_E2E_PRIMARY_PHONE ?? '251911000003';
-const primaryPassword = runtimeEnv.BINGO_E2E_PRIMARY_PASSWORD ?? '123456';
+const adminEmail = requiredEnv('BINGO_E2E_ADMIN_EMAIL');
+const adminPassword = requiredEnv('BINGO_E2E_ADMIN_PASSWORD');
+const primaryPhone = requiredEnv('BINGO_E2E_PRIMARY_PHONE');
+
+function requiredEnv(name: string): string {
+  const value = runtimeEnv[name];
+  if (typeof value !== 'string' || !value.trim()) {
+    throw new Error(`${name} must be set to run the admin E2E tests`);
+  }
+  return value;
+}
 
 function phaseEnabled(expectedPhase: string) {
   return phase === 'all' || phase === expectedPhase;

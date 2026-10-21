@@ -1,5 +1,6 @@
 package com.equar.bingo.backend.feature.game;
 
+import com.equar.bingo.backend.MySqlIntegrationTest;
 import com.equar.bingo.backend.common.idempotency.IdempotentResult;
 import com.equar.bingo.backend.feature.auth.dto.LoginRequest;
 import com.equar.bingo.backend.feature.auth.service.BingoUserPrincipal;
@@ -76,7 +77,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-class BingoGameIntegrationTest {
+class BingoGameIntegrationTest extends MySqlIntegrationTest {
 
         @Autowired
         MockMvc mockMvc;

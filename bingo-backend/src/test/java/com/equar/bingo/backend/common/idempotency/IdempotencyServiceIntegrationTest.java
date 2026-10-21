@@ -1,5 +1,6 @@
 package com.equar.bingo.backend.common.idempotency;
 
+import com.equar.bingo.backend.MySqlIntegrationTest;
 import com.equar.bingo.backend.common.exception.ConflictException;
 import com.equar.bingo.backend.feature.wallet.repository.IdempotencyRecordRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -13,7 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @SpringBootTest
 @ActiveProfiles("test")
-class IdempotencyServiceIntegrationTest {
+class IdempotencyServiceIntegrationTest extends MySqlIntegrationTest {
 
     @Autowired
     IdempotencyService idempotencyService;
