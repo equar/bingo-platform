@@ -1,10 +1,10 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { type PropsWithChildren } from "react";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { deposits } from "../../api/admin";
+import { approveDeposit, deposits, rejectDeposit } from "../../api/admin";
 import { DepositsPage } from "./DepositsPage";
 
 vi.mock("../../api/admin", () => ({
@@ -13,7 +13,9 @@ vi.mock("../../api/admin", () => ({
   rejectDeposit: vi.fn(),
 }));
 
+const approveDepositMock = vi.mocked(approveDeposit);
 const depositsMock = vi.mocked(deposits);
+const rejectDepositMock = vi.mocked(rejectDeposit);
 
 function createWrapper({ children }: PropsWithChildren) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -29,6 +31,8 @@ describe("DepositsPage", () => {
 
   beforeEach(() => {
     depositsMock.mockReset();
+    approveDepositMock.mockReset().mockResolvedValue({} as Awaited<ReturnType<typeof approveDeposit>>);
+    rejectDepositMock.mockReset().mockResolvedValue({} as Awaited<ReturnType<typeof rejectDeposit>>);
     depositsMock.mockResolvedValue({
       content: [
         {
@@ -91,5 +95,61 @@ describe("DepositsPage", () => {
     await user.click(screen.getByRole("button", { name: "Go to next page" }));
 
     await waitFor(() => expect(depositsMock).toHaveBeenLastCalledWith(1, 20, undefined, undefined));
+  });
+
+  it("approves and rejects pending deposits with a review reason", async () => {
+    const user = userEvent.setup();
+    render(<DepositsPage />, { wrapper: createWrapper });
+    await screen.findByTestId("deposit-row-32");
+
+    await user.click(screen.getByTestId("deposit-approve-32"));
+    await user.type(screen.getByRole("textbox", { name: "Review note" }), "Payment verified");
+    await user.click(screen.getByRole("button", { name: "Confirm" }));
+    await waitFor(() =>
+      expect(approveDepositMock).toHaveBeenCalledWith(32, {
+        reviewNote: "Payment verified",
+        idempotencyKey: expect.any(String),
+      }),
+    );
+
+    await screen.findByTestId("deposit-row-32");
+    await user.click(screen.getByTestId("deposit-reject-32"));
+    await user.type(screen.getByRole("textbox", { name: "Rejection reason" }), "Reference not found");
+    await user.click(screen.getByRole("button", { name: "Confirm" }));
+    await waitFor(() =>
+      expect(rejectDepositMock).toHaveBeenCalledWith(32, {
+        reviewNote: "Reference not found",
+        idempotencyKey: expect.any(String),
+      }),
+    );
+  });
+
+  it("prevents duplicate review requests while the deposit action is pending", async () => {
+    const user = userEvent.setup();
+    approveDepositMock.mockReturnValue(new Promise(() => {}));
+    render(<DepositsPage />, { wrapper: createWrapper });
+    await screen.findByTestId("deposit-row-32");
+
+    await user.click(screen.getByTestId("deposit-approve-32"));
+    await user.type(screen.getByRole("textbox", { name: "Review note" }), "Payment verified");
+    const confirmButton = screen.getByRole("button", { name: "Confirm" });
+    await user.click(confirmButton);
+    await waitFor(() => expect(confirmButton).toBeDisabled());
+    fireEvent.click(confirmButton);
+
+    expect(approveDepositMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows a deposit review API failure", async () => {
+    const user = userEvent.setup();
+    approveDepositMock.mockRejectedValue(new Error("Permission denied"));
+    render(<DepositsPage />, { wrapper: createWrapper });
+    await screen.findByTestId("deposit-row-32");
+
+    await user.click(screen.getByTestId("deposit-approve-32"));
+    await user.type(screen.getByRole("textbox", { name: "Review note" }), "Payment verified");
+    await user.click(screen.getByRole("button", { name: "Confirm" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Permission denied");
   });
 });

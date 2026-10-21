@@ -43,7 +43,7 @@ Local machine:
 - Bash-compatible shell
 - `ssh` and `scp`
 - Maven 3.9+ and Java 25 for the backend build
-- Node.js 18+ and npm for the admin build
+- Node.js 22.13+ and npm for the admin build, lint, and test toolchain
 - Access to the production SSH key
 
 Server:
@@ -128,6 +128,8 @@ Examples:
 - `https://admin.bingo.example.com` if the reverse proxy serves the SPA on a dedicated host
 
 The Vite bundle must not include backend secrets.
+
+`VITE_API_BASE_URL` is public build-time configuration. Provide it in the deployment build environment or admin environment file; never put passwords, signing keys, access tokens, or private backend credentials in a `VITE_*` variable. The admin currently stores its bearer session in `localStorage`; a Content Security Policy and other response headers are configured in the Nginx template, but XSS could still expose a token. Moving to `HttpOnly` cookies requires a coordinated backend session and CSRF design and is not part of this deployment change.
 
 ## First-time server setup
 

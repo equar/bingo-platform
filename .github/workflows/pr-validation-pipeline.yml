@@ -73,7 +73,7 @@ jobs:
           if-no-files-found: ignore
 
   admin:
-    name: Admin install, test, typecheck, and build
+    name: Admin install, lint, test, typecheck, and build
     runs-on: ubuntu-latest
     timeout-minutes: 35
     env:
@@ -85,7 +85,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22.13.0"
           cache: npm
           cache-dependency-path: bingo-admin/package-lock.json
 
@@ -93,11 +93,15 @@ jobs:
         working-directory: bingo-admin
         run: npm ci
 
-      - name: Run admin tests
+      - name: Lint admin source
+        working-directory: bingo-admin
+        run: npm run lint
+
+      - name: Run admin tests with coverage
         working-directory: bingo-admin
         run: |
           mkdir -p test-results
-          npm test -- --reporter=junit --outputFile=test-results/vitest-junit.xml
+          npm run test:coverage -- --maxWorkers=1 --reporter=junit --outputFile=test-results/vitest-junit.xml
 
       - name: Run TypeScript check
         working-directory: bingo-admin
@@ -113,6 +117,14 @@ jobs:
         with:
           name: bingo-admin-test-results
           path: bingo-admin/test-results/**
+          if-no-files-found: ignore
+
+      - name: Upload admin coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bingo-admin-coverage
+          path: bingo-admin/coverage/**
           if-no-files-found: ignore
 
       - name: Upload admin build artifact

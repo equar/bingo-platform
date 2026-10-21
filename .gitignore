@@ -14,6 +14,7 @@ target/
 **/node_modules/
 **/dist/
 **/*.tsbuildinfo
+/bingo-admin/.env.local
 /bingo-admin/vite.config.d.ts
 /bingo-admin/vite.config.js
 /bingo-admin/coverage/

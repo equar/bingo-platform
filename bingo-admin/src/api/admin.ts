@@ -144,7 +144,7 @@ export interface AdminAgentSummaryResponse {
   payoutVerificationCount: number;
 }
 
-export interface AdminAgentDetailResponse extends AdminAgentSummaryResponse {}
+export type AdminAgentDetailResponse = AdminAgentSummaryResponse;
 
 export interface AgentProfileResponse {
   agentId: number | null;

@@ -416,6 +416,7 @@ export function PlayerDetailPage() {
         confirmLabel="Confirm adjustment"
         cancelLabel="Back"
         confirming={adjustmentMutation.isPending}
+        error={adjustmentMutation.isError ? adjustmentMutation.error.message : undefined}
         onCancel={() => setConfirmOpen(false)}
         onConfirm={() => draft && adjustmentMutation.mutate(draft)}
       />

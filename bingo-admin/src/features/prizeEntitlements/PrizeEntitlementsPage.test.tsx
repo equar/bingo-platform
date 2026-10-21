@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { type PropsWithChildren } from "react";
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -109,6 +109,42 @@ describe("PrizeEntitlementsPage", () => {
         settlementNote: undefined,
       }),
     );
+  });
+
+  it("requires a settlement reference and exposes settlement failures", async () => {
+    const user = userEvent.setup();
+    settlePrizeEntitlementMock.mockRejectedValue(new Error("Settlement permission denied"));
+    render(<PrizeEntitlementsPage />, { wrapper: createWrapper });
+    await screen.findByTestId("entitlement-row-24");
+    await user.click(screen.getByTestId("entitlement-settle-24"));
+
+    const confirm = screen.getByRole("button", { name: "Confirm settlement" });
+    expect(confirm).toBeDisabled();
+    await user.type(screen.getByRole("textbox", { name: "Settlement reference" }), "PAYOUT-24");
+    expect(confirm).toBeEnabled();
+    await user.click(confirm);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Settlement permission denied");
+    expect(settlePrizeEntitlementMock).toHaveBeenCalledWith(24, {
+      settlementReference: "PAYOUT-24",
+      settlementNote: undefined,
+    });
+  });
+
+  it("prevents duplicate settlement requests while the request is pending", async () => {
+    const user = userEvent.setup();
+    settlePrizeEntitlementMock.mockReturnValue(new Promise(() => {}));
+    render(<PrizeEntitlementsPage />, { wrapper: createWrapper });
+    await screen.findByTestId("entitlement-row-24");
+    await user.click(screen.getByTestId("entitlement-settle-24"));
+    await user.type(screen.getByRole("textbox", { name: "Settlement reference" }), "PAYOUT-24");
+
+    const confirm = screen.getByRole("button", { name: "Confirm settlement" });
+    await user.click(confirm);
+    await waitFor(() => expect(confirm).toBeDisabled());
+    fireEvent.click(confirm);
+
+    expect(settlePrizeEntitlementMock).toHaveBeenCalledTimes(1);
   });
 
   it("opens player, claim, session, and ticket details in popups", async () => {

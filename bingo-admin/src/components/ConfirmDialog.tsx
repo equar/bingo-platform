@@ -1,4 +1,4 @@
-import { Dialog, DialogActions, DialogContent, DialogTitle, Button, Stack, Typography } from "@mui/material";
+import { Alert, Dialog, DialogActions, DialogContent, DialogTitle, Button, Stack, Typography } from "@mui/material";
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -7,6 +7,7 @@ interface ConfirmDialogProps {
   confirmLabel: string;
   cancelLabel: string;
   confirming?: boolean;
+  error?: string;
   onCancel: () => void;
   onConfirm: () => void;
 }
@@ -18,6 +19,7 @@ export function ConfirmDialog({
   confirmLabel,
   cancelLabel,
   confirming,
+  error,
   onCancel,
   onConfirm,
 }: ConfirmDialogProps) {
@@ -27,6 +29,7 @@ export function ConfirmDialog({
       <DialogContent>
         <Stack spacing={2} sx={{ pt: 1 }}>
           <Typography>{description}</Typography>
+          {error ? <Alert severity="error">{error}</Alert> : null}
         </Stack>
       </DialogContent>
       <DialogActions>

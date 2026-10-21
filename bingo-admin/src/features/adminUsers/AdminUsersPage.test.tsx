@@ -78,7 +78,7 @@ describe("AdminUsersPage", () => {
         roles: ["ADMIN"],
       });
     });
-  }, 10000);
+  }, 20000);
 
   it("opens an edit dialog and saves changes", async () => {
     adminUsersMock.mockResolvedValue({

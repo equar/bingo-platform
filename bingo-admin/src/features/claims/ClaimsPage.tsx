@@ -22,7 +22,6 @@ import {
 } from "@mui/material";
 import { keepPreviousData } from "@tanstack/react-query";
 import { approveWinClaim, rejectWinClaim, winClaims } from "../../api/admin";
-import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { StatusState } from "../../components/StatusState";
 import { useIdempotencyKey } from "../common/useIdempotencyKey";
 
@@ -266,6 +265,9 @@ export function ClaimsPage() {
         <DialogTitle>{mode === "APPROVE" ? "Approve claim" : "Reject claim"}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
+            {actionMutation.isError ? (
+              <Alert severity="error">{actionMutation.error.message}</Alert>
+            ) : null}
             <TextField
               label={mode === "APPROVE" ? "Validation note" : "Rejection reason"}
               value={reason}
