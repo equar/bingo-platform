@@ -54,68 +54,71 @@ TicketResponse _ticket() {
 }
 
 void main() {
-  test('retains the pending claim idempotency key after a failed submit and reuses it on retry', () async {
-    final repo = _FakeRepo();
-    final transport = _NoopTransport();
-    final controller = LiveGameController(
-      sessionId: 42,
-      repository: repo,
-      readAuthSession: () => AuthSessionState(
-        isLoading: false,
-        session: AuthSession(
-          accessToken: 'token',
-          expiresAt: DateTime.utc(2026, 1, 2),
-          user: UserProfile(
-            id: 7,
-            displayName: 'Player',
-            phoneNumber: '+251911000000',
-            roles: const ['PLAYER'],
-            status: 'ACTIVE',
-            createdAt: DateTime.utc(2026, 1, 1),
-            updatedAt: DateTime.utc(2026, 1, 1),
+  test(
+    'retains the pending claim idempotency key after a failed submit and reuses it on retry',
+    () async {
+      final repo = _FakeRepo();
+      final transport = _NoopTransport();
+      final controller = LiveGameController(
+        sessionId: 42,
+        repository: repo,
+        readAuthSession: () => AuthSessionState(
+          isLoading: false,
+          session: AuthSession(
+            accessToken: 'token',
+            expiresAt: DateTime.utc(2026, 1, 2),
+            user: UserProfile(
+              id: 7,
+              displayName: 'Player',
+              phoneNumber: '+251911000000',
+              roles: const ['PLAYER'],
+              status: 'ACTIVE',
+              createdAt: DateTime.utc(2026, 1, 1),
+              updatedAt: DateTime.utc(2026, 1, 1),
+            ),
           ),
         ),
-      ),
-      clearAuthSession: ({String? reason}) async {},
-      appConfig: const AppConfig(apiBaseUrl: 'https://example.com', apiBaseUrlLabel: 'API_BASE_URL'),
-      transport: transport,
-    );
+        clearAuthSession: ({String? reason}) async {},
+        appConfig: const AppConfig(
+          apiBaseUrl: 'https://example.com',
+          apiBaseUrlLabel: 'API_BASE_URL',
+        ),
+        transport: transport,
+      );
 
-    controller.state = LiveGameState(
-      isLoading: false,
-      connectionState: LiveGameConnectionState.connected,
-      session: _session(),
-      ticketPageIndex: 0,
-      selectedTicketIndex: 0,
-      ticketPage: PageResult<TicketResponse>(
-        content: [
-          _ticket(),
-        ],
-        page: 0,
-        size: 10,
-        totalElements: 1,
-        totalPages: 1,
-        first: true,
-        last: true,
-      ),
-      selectedClaimPattern: 'LINE',
-    );
+      controller.state = LiveGameState(
+        isLoading: false,
+        connectionState: LiveGameConnectionState.connected,
+        session: _session(),
+        ticketPageIndex: 0,
+        selectedTicketIndex: 0,
+        ticketPage: PageResult<TicketResponse>(
+          content: [_ticket()],
+          page: 0,
+          size: 10,
+          totalElements: 1,
+          totalPages: 1,
+          first: true,
+          last: true,
+        ),
+        selectedClaimPattern: 'LINE',
+      );
 
-    await controller.submitClaim();
-    final firstKey = controller.state.pendingClaimIdempotencyKey;
-    expect(firstKey, isNotNull);
-    expect(controller.state.errorMessage, isNotNull);
-    expect(repo.submittedKeys, hasLength(1));
-    expect(repo.submittedKeys.first, firstKey);
+      await controller.submitClaim();
+      final firstKey = controller.state.pendingClaimIdempotencyKey;
+      expect(firstKey, isNotNull);
+      expect(controller.state.errorMessage, isNotNull);
+      expect(repo.submittedKeys, hasLength(1));
+      expect(repo.submittedKeys.first, firstKey);
 
-    await controller.submitClaim();
+      await controller.submitClaim();
 
-    expect(repo.submittedKeys, hasLength(2));
-    expect(repo.submittedKeys[1], firstKey);
-    expect(controller.state.pendingClaimIdempotencyKey, isNull);
-    expect(controller.state.infoMessage, 'CLAIM_SUBMITTED');
-  });
-
+      expect(repo.submittedKeys, hasLength(2));
+      expect(repo.submittedKeys[1], firstKey);
+      expect(controller.state.pendingClaimIdempotencyKey, isNull);
+      expect(controller.state.infoMessage, 'CLAIM_SUBMITTED');
+    },
+  );
 }
 
 class _FakeRepo implements LiveGameRepository {
@@ -123,13 +126,20 @@ class _FakeRepo implements LiveGameRepository {
   var _failNext = true;
 
   @override
-  Future<GameSession> getSession(int sessionId) async => throw UnimplementedError();
+  Future<GameSession> getSession(int sessionId) async =>
+      throw UnimplementedError();
 
   @override
-  Future<List<LiveDrawEvent>> getDraws(int sessionId, {int? afterSequence}) async => const [];
+  Future<List<LiveDrawEvent>> getDraws(
+    int sessionId, {
+    int? afterSequence,
+  }) async => const [];
 
   @override
-  Future<PageResult<WinClaimRecord>> getMyWinClaims({required int page, required int size}) async {
+  Future<PageResult<WinClaimRecord>> getMyWinClaims({
+    required int page,
+    required int size,
+  }) async {
     return PageResult<WinClaimRecord>(
       content: const [],
       page: page,
@@ -142,17 +152,28 @@ class _FakeRepo implements LiveGameRepository {
   }
 
   @override
-  Future<PageResult<TicketResponse>> getMyTickets(int sessionId, {required int page, required int size}) async {
+  Future<PageResult<TicketResponse>> getMyTickets(
+    int sessionId, {
+    required int page,
+    required int size,
+  }) async {
     throw UnimplementedError();
   }
 
   @override
-  Future<TicketPurchaseResponse> purchaseTicket(int sessionId, String idempotencyKey) async {
+  Future<TicketPurchaseResponse> purchaseTicket(
+    int sessionId,
+    String idempotencyKey,
+  ) async {
     throw UnimplementedError();
   }
 
   @override
-  Future<WinClaimRecord> submitWinClaim(int ticketId, String claimedPattern, String idempotencyKey) async {
+  Future<WinClaimRecord> submitWinClaim(
+    int ticketId,
+    String claimedPattern,
+    String idempotencyKey,
+  ) async {
     submittedKeys.add(idempotencyKey);
     if (_failNext) {
       _failNext = false;
@@ -184,7 +205,17 @@ class _FakeRepo implements LiveGameRepository {
 
 class _NoopTransport implements LiveGameTransport {
   @override
-  Future<void> connect({required Uri uri, required String accessToken, required int sessionId, required void Function(LiveDrawEvent event) onDraw, required void Function(Object error) onError, required void Function() onDisconnected}) async {}
+  bool get isConnected => true;
+
+  @override
+  Future<void> connect({
+    required Uri uri,
+    required String accessToken,
+    required int sessionId,
+    required void Function(LiveDrawEvent event) onDraw,
+    required void Function(Object error) onError,
+    required void Function() onDisconnected,
+  }) async {}
 
   @override
   Future<void> disconnect() async {}

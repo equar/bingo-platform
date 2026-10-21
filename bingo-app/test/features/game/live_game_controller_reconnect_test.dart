@@ -106,77 +106,95 @@ AuthSessionState _authenticatedState() {
 }
 
 void main() {
-  test('replays missing draws after a sequence gap and ignores duplicates', () async {
-    final repo = FakeLiveGameRepository(
-      session: _session(state: 'STARTED'),
-      ticketPage: _ticketPage(),
-      claimPage: _claimPage(),
-      drawResponses: {
-        0: [_draw(sequenceNo: 1, numberDrawn: 7)],
-        1: [_draw(sequenceNo: 2, numberDrawn: 18), _draw(sequenceNo: 3, numberDrawn: 44)],
-      },
-    );
-    final transport = FakeLiveGameTransport();
-    final controller = LiveGameController(
-      sessionId: 42,
-      repository: repo,
-      readAuthSession: () => _authenticatedState(),
-      clearAuthSession: ({String? reason}) async {},
-      appConfig: const AppConfig(apiBaseUrl: 'https://example.com', apiBaseUrlLabel: 'API_BASE_URL'),
-      transport: transport,
-    );
+  test(
+    'replays missing draws after a sequence gap and ignores duplicates',
+    () async {
+      final repo = FakeLiveGameRepository(
+        session: _session(state: 'STARTED'),
+        ticketPage: _ticketPage(),
+        claimPage: _claimPage(),
+        drawResponses: {
+          0: [_draw(sequenceNo: 1, numberDrawn: 7)],
+          1: [
+            _draw(sequenceNo: 2, numberDrawn: 18),
+            _draw(sequenceNo: 3, numberDrawn: 44),
+          ],
+        },
+      );
+      final transport = FakeLiveGameTransport();
+      final controller = LiveGameController(
+        sessionId: 42,
+        repository: repo,
+        readAuthSession: () => _authenticatedState(),
+        clearAuthSession: ({String? reason}) async {},
+        appConfig: const AppConfig(
+          apiBaseUrl: 'https://example.com',
+          apiBaseUrlLabel: 'API_BASE_URL',
+        ),
+        transport: transport,
+      );
 
-    await controller.start();
-    expect(controller.state.draws.map((event) => event.sequenceNo), [1]);
+      await controller.start();
+      expect(controller.state.draws.map((event) => event.sequenceNo), [1]);
 
-    transport.emitDraw(_draw(sequenceNo: 3, numberDrawn: 44));
-    await Future<void>.delayed(Duration.zero);
+      transport.emitDraw(_draw(sequenceNo: 3, numberDrawn: 44));
+      await Future<void>.delayed(Duration.zero);
 
-    expect(controller.state.draws.map((event) => event.sequenceNo), [1, 2, 3]);
-    expect(repo.drawRequests, [0, 1]);
-  });
+      expect(controller.state.draws.map((event) => event.sequenceNo), [
+        1,
+        2,
+        3,
+      ]);
+      expect(repo.drawRequests, [0, 1]);
+    },
+  );
 
-  test('reconnects after transport disconnect and preserves server claim outcomes', () async {
-    final submittedClaims = <WinClaimRecord>[];
-    final repo = FakeLiveGameRepository(
-      session: _session(state: 'STARTED'),
-      ticketPage: _ticketPage(),
-      claimPage: _claimPage(),
-      drawResponses: {
-        0: [_draw(sequenceNo: 1, numberDrawn: 7)],
-        1: const [],
-      },
-      onSubmitClaim: (claim) {
-        submittedClaims.add(claim);
-      },
-    );
-    final transport = FakeLiveGameTransport();
-    final controller = LiveGameController(
-      sessionId: 42,
-      repository: repo,
-      readAuthSession: () => _authenticatedState(),
-      clearAuthSession: ({String? reason}) async {},
-      appConfig: const AppConfig(apiBaseUrl: 'https://example.com', apiBaseUrlLabel: 'API_BASE_URL'),
-      transport: transport,
-    );
+  test(
+    'reconnects after transport disconnect and preserves server claim outcomes',
+    () async {
+      final submittedClaims = <WinClaimRecord>[];
+      final repo = FakeLiveGameRepository(
+        session: _session(state: 'STARTED'),
+        ticketPage: _ticketPage(),
+        claimPage: _claimPage(),
+        drawResponses: {
+          0: [_draw(sequenceNo: 1, numberDrawn: 7)],
+          1: const [],
+        },
+        onSubmitClaim: (claim) {
+          submittedClaims.add(claim);
+        },
+      );
+      final transport = FakeLiveGameTransport();
+      final controller = LiveGameController(
+        sessionId: 42,
+        repository: repo,
+        readAuthSession: () => _authenticatedState(),
+        clearAuthSession: ({String? reason}) async {},
+        appConfig: const AppConfig(
+          apiBaseUrl: 'https://example.com',
+          apiBaseUrlLabel: 'API_BASE_URL',
+        ),
+        transport: transport,
+      );
 
-    await controller.start();
-    expect(transport.connectCount, 1);
+      await controller.start();
+      expect(transport.connectCount, 1);
 
-    transport.triggerDisconnect();
-    await Future<void>.delayed(Duration.zero);
+      transport.triggerDisconnect();
+      await Future<void>.delayed(Duration.zero);
 
-    expect(transport.connectCount, 2);
+      expect(transport.connectCount, 2);
 
-    controller.selectClaimPattern('FULL_HOUSE');
-    await controller.submitClaim();
+      controller.selectClaimPattern('FULL_HOUSE');
+      await controller.submitClaim();
 
-    expect(submittedClaims, hasLength(1));
-    expect(submittedClaims.first.status, 'REJECTED');
-    expect(controller.state.claimPage?.content.first.status, 'REJECTED');
-    expect(controller.state.pendingClaimIdempotencyKey, isNull);
-  });
-
+      expect(submittedClaims, hasLength(1));
+      expect(submittedClaims.first.status, 'REJECTED');
+      expect(controller.state.claimPage?.content.first.status, 'REJECTED');
+      expect(controller.state.pendingClaimIdempotencyKey, isNull);
+    },
+  );
 }
 
 class FakeLiveGameRepository implements LiveGameRepository {
@@ -200,13 +218,19 @@ class FakeLiveGameRepository implements LiveGameRepository {
   Future<GameSession> getSession(int sessionId) async => session;
 
   @override
-  Future<List<LiveDrawEvent>> getDraws(int sessionId, {int? afterSequence}) async {
+  Future<List<LiveDrawEvent>> getDraws(
+    int sessionId, {
+    int? afterSequence,
+  }) async {
     drawRequests.add(afterSequence);
     return drawResponses[afterSequence] ?? const [];
   }
 
   @override
-  Future<PageResult<WinClaimRecord>> getMyWinClaims({required int page, required int size}) async {
+  Future<PageResult<WinClaimRecord>> getMyWinClaims({
+    required int page,
+    required int size,
+  }) async {
     return PageResult<WinClaimRecord>(
       content: List<WinClaimRecord>.from(_claims),
       page: page,
@@ -219,17 +243,28 @@ class FakeLiveGameRepository implements LiveGameRepository {
   }
 
   @override
-  Future<PageResult<TicketResponse>> getMyTickets(int sessionId, {required int page, required int size}) async {
+  Future<PageResult<TicketResponse>> getMyTickets(
+    int sessionId, {
+    required int page,
+    required int size,
+  }) async {
     return ticketPage;
   }
 
   @override
-  Future<TicketPurchaseResponse> purchaseTicket(int sessionId, String idempotencyKey) {
+  Future<TicketPurchaseResponse> purchaseTicket(
+    int sessionId,
+    String idempotencyKey,
+  ) {
     throw UnimplementedError();
   }
 
   @override
-  Future<WinClaimRecord> submitWinClaim(int ticketId, String claimedPattern, String idempotencyKey) async {
+  Future<WinClaimRecord> submitWinClaim(
+    int ticketId,
+    String claimedPattern,
+    String idempotencyKey,
+  ) async {
     final claim = WinClaimRecord(
       id: 501,
       ticketId: ticketId,
@@ -239,7 +274,8 @@ class FakeLiveGameRepository implements LiveGameRepository {
       status: 'REJECTED',
       serverValidationPassed: false,
       serverValidationCode: 'CLAIM_DOES_NOT_MATCH_DRAWN_NUMBERS',
-      serverValidationMessage: 'The ticket does not satisfy the claimed pattern at the recorded draw sequence',
+      serverValidationMessage:
+          'The ticket does not satisfy the claimed pattern at the recorded draw sequence',
       drawSequenceSnapshot: 1,
       calledNumbersSnapshot: const [7],
       evidenceJson: '{}',
@@ -259,9 +295,13 @@ class FakeLiveGameRepository implements LiveGameRepository {
 
 class FakeLiveGameTransport implements LiveGameTransport {
   int connectCount = 0;
+  bool _isConnected = false;
   void Function(LiveDrawEvent event)? _onDraw;
   void Function(Object error)? _onError;
   void Function()? _onDisconnected;
+
+  @override
+  bool get isConnected => _isConnected;
 
   @override
   Future<void> connect({
@@ -273,19 +313,23 @@ class FakeLiveGameTransport implements LiveGameTransport {
     required void Function() onDisconnected,
   }) async {
     connectCount += 1;
+    _isConnected = true;
     _onDraw = onDraw;
     _onError = onError;
     _onDisconnected = onDisconnected;
   }
 
   @override
-  Future<void> disconnect() async {}
+  Future<void> disconnect() async {
+    _isConnected = false;
+  }
 
   void emitDraw(LiveDrawEvent event) {
     _onDraw?.call(event);
   }
 
   void triggerDisconnect() {
+    _isConnected = false;
     _onDisconnected?.call();
   }
 

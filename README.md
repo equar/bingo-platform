@@ -15,7 +15,8 @@ Before starting the apps locally, make sure you have:
 - Java 25 or newer for the backend
 - Maven 3.9+ or a compatible Maven installation
 - Node.js 18+ and npm
-- Flutter 3.22+ for the mobile apps
+- Flutter 3.41.0+ (Dart 3.11.0+) for both mobile apps. CI validates the minimum
+  supported Flutter version (3.41.0) and the current pinned version (3.47.7).
 - MySQL 8 running locally
 
 The backend uses local MySQL by default and does not require Docker.
@@ -83,10 +84,13 @@ From `bingo-app`:
 ```bash
 flutter pub get
 flutter gen-l10n
-flutter run --dart-define=API_BASE_URL=http://localhost:8080
+flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8080
 ```
 
-The app reads the backend URL only from `--dart-define=API_BASE_URL=...` and stops at startup if the value is missing.
+Pass `API_BASE_URL` explicitly. The example above is for an Android emulator;
+use `http://localhost:8080` for desktop or an iOS simulator. Local HTTP is
+accepted only in debug builds. Release/profile builds require an HTTPS endpoint
+and reject loopback addresses.
 For live draws, it connects to the backend WebSocket endpoint and uses the same host as the REST API.
 
 ## Agent App
@@ -98,10 +102,12 @@ From `bingo-agent`:
 ```bash
 flutter pub get
 flutter gen-l10n
-flutter run
+flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8080
 ```
 
-This module is currently a scaffold, so check its own README before wiring it into a specific workflow.
+The example URL is for an Android emulator; use the appropriate explicitly
+configured API URL for other targets. Both Flutter apps require Flutter 3.41.0
+or newer and Dart 3.11.0 or newer.
 
 ## API And Contract Notes
 

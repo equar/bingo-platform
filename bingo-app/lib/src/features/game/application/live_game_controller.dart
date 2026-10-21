@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:bingo_app/src/core/config/app_config.dart';
 import 'package:bingo_app/src/core/models/page_result.dart';
@@ -16,23 +17,33 @@ const int _ticketPageSize = 10;
 const int _claimPageSize = 20;
 const Object _stateUnset = Object();
 
-final liveGameControllerProvider = StateNotifierProvider.autoDispose.family<LiveGameController, LiveGameState, int>(
-  (ref, sessionId) {
-    final controller = LiveGameController(
-      sessionId: sessionId,
-      repository: ref.watch(gameRepositoryProvider),
-      readAuthSession: () => ref.read(authSessionControllerProvider),
-      clearAuthSession: ({String? reason}) => ref.read(authSessionControllerProvider.notifier).clearSession(reason: reason),
-      appConfig: ref.watch(appConfigProvider),
-      transport: StompLiveGameTransport(),
-    );
-    unawaited(controller.start());
-    ref.onDispose(controller.dispose);
-    return controller;
-  },
-);
+final liveGameControllerProvider = StateNotifierProvider.autoDispose
+    .family<LiveGameController, LiveGameState, int>((ref, sessionId) {
+      final controller = LiveGameController(
+        sessionId: sessionId,
+        repository: ref.watch(gameRepositoryProvider),
+        readAuthSession: () => ref.read(authSessionControllerProvider),
+        clearAuthSession: ({String? reason}) => ref
+            .read(authSessionControllerProvider.notifier)
+            .clearSession(reason: reason),
+        appConfig: ref.watch(appConfigProvider),
+        transport: StompLiveGameTransport(),
+      );
+      unawaited(controller.start());
+      ref.onDispose(controller.dispose);
+      return controller;
+    });
 
-enum LiveGameConnectionState { idle, connecting, connected, reconnecting, paused, finished, expired, disconnected }
+enum LiveGameConnectionState {
+  idle,
+  connecting,
+  connected,
+  reconnecting,
+  paused,
+  finished,
+  expired,
+  disconnected,
+}
 
 class LiveGameState {
   const LiveGameState({
@@ -80,13 +91,16 @@ class LiveGameState {
 
   TicketResponse? get selectedTicket {
     final tickets = ticketPage?.content ?? const [];
-    if (tickets.isEmpty || selectedTicketIndex < 0 || selectedTicketIndex >= tickets.length) {
+    if (tickets.isEmpty ||
+        selectedTicketIndex < 0 ||
+        selectedTicketIndex >= tickets.length) {
       return null;
     }
     return tickets[selectedTicketIndex];
   }
 
-  List<int> get calledNumbers => draws.map((draw) => draw.numberDrawn).toList(growable: false);
+  List<int> get calledNumbers =>
+      draws.map((draw) => draw.numberDrawn).toList(growable: false);
 
   LiveGameState copyWith({
     bool? isLoading,
@@ -109,14 +123,19 @@ class LiveGameState {
       isLoading: isLoading ?? this.isLoading,
       connectionState: connectionState ?? this.connectionState,
       session: session ?? this.session,
-      ticketPage: ticketPage == _stateUnset ? this.ticketPage : ticketPage as PageResult<TicketResponse>?,
+      ticketPage: ticketPage == _stateUnset
+          ? this.ticketPage
+          : ticketPage as PageResult<TicketResponse>?,
       ticketPageIndex: ticketPageIndex ?? this.ticketPageIndex,
       selectedTicketIndex: selectedTicketIndex ?? this.selectedTicketIndex,
-      claimPage: claimPage == _stateUnset ? this.claimPage : claimPage as PageResult<WinClaimRecord>?,
+      claimPage: claimPage == _stateUnset
+          ? this.claimPage
+          : claimPage as PageResult<WinClaimRecord>?,
       draws: draws == _stateUnset ? this.draws : draws as List<LiveDrawEvent>,
-        isPurchasingTicket: isPurchasingTicket ?? this.isPurchasingTicket,
+      isPurchasingTicket: isPurchasingTicket ?? this.isPurchasingTicket,
       isSubmittingClaim: isSubmittingClaim ?? this.isSubmittingClaim,
-        pendingPurchaseIdempotencyKey: pendingPurchaseIdempotencyKey == _stateUnset
+      pendingPurchaseIdempotencyKey:
+          pendingPurchaseIdempotencyKey == _stateUnset
           ? this.pendingPurchaseIdempotencyKey
           : pendingPurchaseIdempotencyKey as String?,
       selectedClaimPattern: selectedClaimPattern == _stateUnset
@@ -125,8 +144,12 @@ class LiveGameState {
       pendingClaimIdempotencyKey: pendingClaimIdempotencyKey == _stateUnset
           ? this.pendingClaimIdempotencyKey
           : pendingClaimIdempotencyKey as String?,
-      infoMessage: infoMessage == _stateUnset ? this.infoMessage : infoMessage as String?,
-      errorMessage: errorMessage == _stateUnset ? this.errorMessage : errorMessage as String?,
+      infoMessage: infoMessage == _stateUnset
+          ? this.infoMessage
+          : infoMessage as String?,
+      errorMessage: errorMessage == _stateUnset
+          ? this.errorMessage
+          : errorMessage as String?,
     );
   }
 }
@@ -139,18 +162,22 @@ class LiveGameController extends StateNotifier<LiveGameState> {
     required Future<void> Function({String? reason}) clearAuthSession,
     required AppConfig appConfig,
     required LiveGameTransport transport,
-  })  : _repository = repository,
-        _readAuthSession = readAuthSession,
-        _clearAuthSession = clearAuthSession,
-        _appConfig = appConfig,
-        _transport = transport,
-        _timeline = LiveGameTimeline(),
-        super(const LiveGameState(
-          isLoading: true,
-          connectionState: LiveGameConnectionState.idle,
-          ticketPageIndex: 0,
-          selectedTicketIndex: 0,
-        ));
+    this.reconnectInitialDelay = const Duration(seconds: 1),
+    this.reconnectMaxDelay = const Duration(seconds: 30),
+  }) : _repository = repository,
+       _readAuthSession = readAuthSession,
+       _clearAuthSession = clearAuthSession,
+       _appConfig = appConfig,
+       _transport = transport,
+       _timeline = LiveGameTimeline(),
+       super(
+         const LiveGameState(
+           isLoading: true,
+           connectionState: LiveGameConnectionState.idle,
+           ticketPageIndex: 0,
+           selectedTicketIndex: 0,
+         ),
+       );
 
   final int sessionId;
   final LiveGameRepository _repository;
@@ -159,6 +186,8 @@ class LiveGameController extends StateNotifier<LiveGameState> {
   final AppConfig _appConfig;
   final LiveGameTransport _transport;
   final LiveGameTimeline _timeline;
+  final Duration reconnectInitialDelay;
+  final Duration reconnectMaxDelay;
   final Map<int, LiveDrawEvent> _bufferedDraws = <int, LiveDrawEvent>{};
   final Uuid _uuid = const Uuid();
 
@@ -166,11 +195,16 @@ class LiveGameController extends StateNotifier<LiveGameState> {
   bool _pauseRequested = false;
   bool _recoveringGap = false;
   bool _reconnectInFlight = false;
+  bool _connecting = false;
+  int _reconnectAttempt = 0;
+  Timer? _reconnectTimer;
 
   Future<void> start() async {
-    if (_disposed) {
+    if (_disposed || _connecting) {
       return;
     }
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
     _pauseRequested = false;
     await _connectAndSync(isResume: false);
   }
@@ -185,13 +219,18 @@ class LiveGameController extends StateNotifier<LiveGameState> {
   }
 
   Future<void> pause() async {
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
     _pauseRequested = true;
-    state = state.copyWith(connectionState: LiveGameConnectionState.paused, infoMessage: null);
+    state = state.copyWith(
+      connectionState: LiveGameConnectionState.paused,
+      infoMessage: null,
+    );
     await _transport.disconnect();
   }
 
   Future<void> refresh() async {
-    if (_disposed) {
+    if (_disposed || _connecting) {
       return;
     }
     await _connectAndSync(isResume: true);
@@ -217,7 +256,10 @@ class LiveGameController extends StateNotifier<LiveGameState> {
     );
 
     try {
-      final purchase = await _repository.purchaseTicket(sessionId, idempotencyKey);
+      final purchase = await _repository.purchaseTicket(
+        sessionId,
+        idempotencyKey,
+      );
       await _loadSnapshotAndHistory(selectedTicketId: purchase.ticket.id);
       if (_disposed) {
         return;
@@ -257,11 +299,19 @@ class LiveGameController extends StateNotifier<LiveGameState> {
     if (index < 0 || index >= tickets.length) {
       return;
     }
-    state = state.copyWith(selectedTicketIndex: index, pendingClaimIdempotencyKey: null, errorMessage: null);
+    state = state.copyWith(
+      selectedTicketIndex: index,
+      pendingClaimIdempotencyKey: null,
+      errorMessage: null,
+    );
   }
 
   void selectClaimPattern(String pattern) {
-    state = state.copyWith(selectedClaimPattern: pattern, pendingClaimIdempotencyKey: null, errorMessage: null);
+    state = state.copyWith(
+      selectedClaimPattern: pattern,
+      pendingClaimIdempotencyKey: null,
+      errorMessage: null,
+    );
   }
 
   Future<void> submitClaim() async {
@@ -280,7 +330,11 @@ class LiveGameController extends StateNotifier<LiveGameState> {
     );
 
     try {
-      await _repository.submitWinClaim(selectedTicket.id, selectedPattern, idempotencyKey);
+      await _repository.submitWinClaim(
+        selectedTicket.id,
+        selectedPattern,
+        idempotencyKey,
+      );
       await _refreshClaims();
       state = state.copyWith(
         isSubmittingClaim: false,
@@ -305,18 +359,22 @@ class LiveGameController extends StateNotifier<LiveGameState> {
       return;
     }
     _disposed = true;
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
     _transport.disconnect();
     super.dispose();
   }
 
   Future<void> _connectAndSync({required bool isResume}) async {
-    if (_disposed) {
+    if (_disposed || _connecting) {
       return;
     }
+    _connecting = true;
     final authSession = _readAuthSession().session;
     final wsUri = _appConfig.liveGameWebSocketUri;
     if (authSession == null || authSession.isExpired) {
       await _expireSession();
+      _connecting = false;
       return;
     }
     if (wsUri == null) {
@@ -325,12 +383,15 @@ class LiveGameController extends StateNotifier<LiveGameState> {
         connectionState: LiveGameConnectionState.disconnected,
         errorMessage: 'API_BASE_URL is missing or invalid.',
       );
+      _connecting = false;
       return;
     }
 
     state = state.copyWith(
       isLoading: state.session == null,
-      connectionState: isResume ? LiveGameConnectionState.reconnecting : LiveGameConnectionState.connecting,
+      connectionState: isResume
+          ? LiveGameConnectionState.reconnecting
+          : LiveGameConnectionState.connecting,
       errorMessage: null,
       infoMessage: null,
     );
@@ -349,9 +410,22 @@ class LiveGameController extends StateNotifier<LiveGameState> {
       if (_disposed) {
         return;
       }
+      if (!_transport.isConnected) {
+        state = state.copyWith(
+          isLoading: false,
+          connectionState: LiveGameConnectionState.reconnecting,
+        );
+        _scheduleReconnect();
+        return;
+      }
+      _reconnectAttempt = 0;
+      _reconnectTimer?.cancel();
+      _reconnectTimer = null;
       state = state.copyWith(
         isLoading: false,
-        connectionState: state.isTerminalSession ? LiveGameConnectionState.finished : LiveGameConnectionState.connected,
+        connectionState: state.isTerminalSession
+            ? LiveGameConnectionState.finished
+            : LiveGameConnectionState.connected,
       );
       if (state.isTerminalSession) {
         await _transport.disconnect();
@@ -361,11 +435,17 @@ class LiveGameController extends StateNotifier<LiveGameState> {
         await _expireSession();
         return;
       }
+      if (_disposed || _pauseRequested) {
+        return;
+      }
       state = state.copyWith(
         isLoading: false,
         connectionState: LiveGameConnectionState.disconnected,
         errorMessage: error.toString(),
       );
+      _scheduleReconnect();
+    } finally {
+      _connecting = false;
     }
   }
 
@@ -374,15 +454,25 @@ class LiveGameController extends StateNotifier<LiveGameState> {
     if (_disposed) {
       return;
     }
-    final ticketPage = await _repository.getMyTickets(sessionId, page: state.ticketPageIndex, size: _ticketPageSize);
+    final ticketPage = await _repository.getMyTickets(
+      sessionId,
+      page: state.ticketPageIndex,
+      size: _ticketPageSize,
+    );
     if (_disposed) {
       return;
     }
-    final claimPage = await _repository.getMyWinClaims(page: 0, size: _claimPageSize);
+    final claimPage = await _repository.getMyWinClaims(
+      page: 0,
+      size: _claimPageSize,
+    );
     if (_disposed) {
       return;
     }
-    final missingDraws = await _repository.getDraws(sessionId, afterSequence: _timeline.lastSequence);
+    final missingDraws = await _repository.getDraws(
+      sessionId,
+      afterSequence: _timeline.lastSequence,
+    );
     if (_disposed) {
       return;
     }
@@ -396,7 +486,8 @@ class LiveGameController extends StateNotifier<LiveGameState> {
       ticketPage: ticketPage,
       selectedTicketIndex: selectedTicketIndex,
       claimPage: claimPage,
-      selectedClaimPattern: state.selectedClaimPattern ?? _defaultClaimPattern(session),
+      selectedClaimPattern:
+          state.selectedClaimPattern ?? _defaultClaimPattern(session),
       infoMessage: null,
       errorMessage: null,
     );
@@ -408,7 +499,11 @@ class LiveGameController extends StateNotifier<LiveGameState> {
 
   Future<void> _loadTicketPage(int pageIndex) async {
     try {
-      final ticketPage = await _repository.getMyTickets(sessionId, page: pageIndex, size: _ticketPageSize);
+      final ticketPage = await _repository.getMyTickets(
+        sessionId,
+        page: pageIndex,
+        size: _ticketPageSize,
+      );
       if (_disposed) {
         return;
       }
@@ -427,7 +522,10 @@ class LiveGameController extends StateNotifier<LiveGameState> {
   }
 
   Future<void> _refreshClaims() async {
-    final claimPage = await _repository.getMyWinClaims(page: 0, size: _claimPageSize);
+    final claimPage = await _repository.getMyWinClaims(
+      page: 0,
+      size: _claimPageSize,
+    );
     if (_disposed) {
       return;
     }
@@ -438,7 +536,8 @@ class LiveGameController extends StateNotifier<LiveGameState> {
     if (_disposed || event.sessionId != sessionId) {
       return;
     }
-    if (_timeline.containsSequence(event.sequenceNo) || _bufferedDraws.containsKey(event.sequenceNo)) {
+    if (_timeline.containsSequence(event.sequenceNo) ||
+        _bufferedDraws.containsKey(event.sequenceNo)) {
       return;
     }
     _bufferedDraws[event.sequenceNo] = event;
@@ -454,7 +553,10 @@ class LiveGameController extends StateNotifier<LiveGameState> {
     }
     _recoveringGap = true;
     try {
-      final missingDraws = await _repository.getDraws(sessionId, afterSequence: _timeline.lastSequence);
+      final missingDraws = await _repository.getDraws(
+        sessionId,
+        afterSequence: _timeline.lastSequence,
+      );
       for (final draw in missingDraws) {
         _bufferedDraws.putIfAbsent(draw.sequenceNo, () => draw);
       }
@@ -485,27 +587,44 @@ class LiveGameController extends StateNotifier<LiveGameState> {
       }
     }
     if (changed) {
-      state = state.copyWith(draws: _timeline.orderedDraws, infoMessage: null, errorMessage: null);
+      state = state.copyWith(
+        draws: _timeline.orderedDraws,
+        infoMessage: null,
+        errorMessage: null,
+      );
     }
   }
 
   Future<void> _handleTransportError(Object error) async {
-    if (_disposed || _pauseRequested || _reconnectInFlight) {
+    if (_disposed || _pauseRequested) {
       return;
     }
     if (_isAuthError(error)) {
       await _expireSession();
       return;
     }
-    state = state.copyWith(connectionState: LiveGameConnectionState.reconnecting, errorMessage: error.toString());
+    state = state.copyWith(
+      connectionState: LiveGameConnectionState.reconnecting,
+      errorMessage: error.toString(),
+    );
+    if (_connecting || _reconnectInFlight) {
+      _scheduleReconnect();
+      return;
+    }
     await _attemptReconnect();
   }
 
   Future<void> _handleTransportDisconnected() async {
-    if (_disposed || _pauseRequested || state.isTerminalSession || _reconnectInFlight) {
+    if (_disposed || _pauseRequested || state.isTerminalSession) {
       return;
     }
-    state = state.copyWith(connectionState: LiveGameConnectionState.reconnecting);
+    state = state.copyWith(
+      connectionState: LiveGameConnectionState.reconnecting,
+    );
+    if (_connecting || _reconnectInFlight) {
+      _scheduleReconnect();
+      return;
+    }
     await _attemptReconnect();
   }
 
@@ -513,12 +632,40 @@ class LiveGameController extends StateNotifier<LiveGameState> {
     if (_disposed || _pauseRequested || _reconnectInFlight) {
       return;
     }
+    if (_connecting) {
+      _scheduleReconnect();
+      return;
+    }
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
     _reconnectInFlight = true;
     try {
       await _connectAndSync(isResume: true);
     } finally {
       _reconnectInFlight = false;
     }
+  }
+
+  void _scheduleReconnect() {
+    if (_disposed ||
+        _pauseRequested ||
+        state.isTerminalSession ||
+        _reconnectTimer != null) {
+      return;
+    }
+    final multiplier = 1 << _reconnectAttempt.clamp(0, 5);
+    final delayMilliseconds = math.min(
+      reconnectMaxDelay.inMilliseconds,
+      reconnectInitialDelay.inMilliseconds * multiplier,
+    );
+    _reconnectAttempt += 1;
+    state = state.copyWith(
+      connectionState: LiveGameConnectionState.reconnecting,
+    );
+    _reconnectTimer = Timer(Duration(milliseconds: delayMilliseconds), () {
+      _reconnectTimer = null;
+      unawaited(_attemptReconnect());
+    });
   }
 
   Future<void> _expireSession() async {
@@ -528,7 +675,10 @@ class LiveGameController extends StateNotifier<LiveGameState> {
     if (_disposed) {
       return;
     }
-    state = state.copyWith(connectionState: LiveGameConnectionState.expired, isLoading: false);
+    state = state.copyWith(
+      connectionState: LiveGameConnectionState.expired,
+      isLoading: false,
+    );
   }
 
   int _clampSelectedTicketIndex(PageResult<TicketResponse> ticketPage) {
@@ -545,7 +695,9 @@ class LiveGameController extends StateNotifier<LiveGameState> {
   }
 
   int _ticketIndexForId(PageResult<TicketResponse> ticketPage, int ticketId) {
-    final index = ticketPage.content.indexWhere((ticket) => ticket.id == ticketId);
+    final index = ticketPage.content.indexWhere(
+      (ticket) => ticket.id == ticketId,
+    );
     if (index >= 0) {
       return index;
     }
@@ -561,6 +713,10 @@ class LiveGameController extends StateNotifier<LiveGameState> {
 
   bool _isAuthError(Object error) {
     final text = error.toString().toLowerCase();
-    return text.contains('401') || text.contains('unauthorized') || text.contains('forbidden') || text.contains('token') || text.contains('expired');
+    return text.contains('401') ||
+        text.contains('unauthorized') ||
+        text.contains('forbidden') ||
+        text.contains('token') ||
+        text.contains('expired');
   }
 }

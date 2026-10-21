@@ -6,6 +6,8 @@ target/
 **/.metadata
 **/.flutter-plugins
 **/.flutter-plugins-dependencies
+/bingo-app/lib/l10n/app_localizations*.dart
+/bingo-agent/lib/src/l10n/generated/
 /.idea/
 /.vscode/
 /node_modules/

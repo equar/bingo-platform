@@ -3,6 +3,8 @@
   "appTitle": "Sunset Bingo",
   "missingApiBaseUrlTitle": "API base URL is missing",
   "missingApiBaseUrlBody": "Start the app with --dart-define=API_BASE_URL=... so the client can reach the backend.",
+  "invalidApiBaseUrlTitle": "API base URL is invalid",
+  "invalidApiBaseUrlBody": "Set API_BASE_URL to an absolute http:// or https:// URL. Local HTTP is for development only; production builds require HTTPS and cannot use localhost.",
   "loading": "Loading...",
   "retry": "Retry",
   "errorGeneric": "Something went wrong.",

@@ -3,6 +3,8 @@
   "appTitle": "Sunset Bingo",
   "missingApiBaseUrlTitle": "የAPI መሠረት URL አልተገለጸም",
   "missingApiBaseUrlBody": "አፕሊኬሽኑን --dart-define=API_BASE_URL=... በማስነሳት ወደ backend ይደርሱ።",
+  "invalidApiBaseUrlTitle": "የAPI መሠረታዊ አድራሻ ልክ አይደለም",
+  "invalidApiBaseUrlBody": "API_BASE_URL እንደ ፍጹም http:// ወይም https:// አድራሻ ያስቀምጡ። የአካባቢ HTTP ለልማት ብቻ ነው፤ የምርት ስሪቶች HTTPS ይፈልጋሉ እና localhost አይቀበሉም።",
   "loading": "በመጫን ላይ...",
   "retry": "ድገም",
   "errorGeneric": "ችግኝ ተፈጥሯል።",
