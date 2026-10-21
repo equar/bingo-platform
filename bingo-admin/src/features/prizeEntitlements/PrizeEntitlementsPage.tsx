@@ -1,31 +1,48 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import {
   Alert,
   Box,
   Button,
-  Card,
-  CardContent,
   Chip,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
-  Grid,
+  MenuItem,
+  Paper,
   Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TablePagination,
+  TableRow,
   TextField,
   Typography,
 } from "@mui/material";
 import { prizeEntitlements, settlePrizeEntitlement } from "../../api/admin";
 import { StatusState } from "../../components/StatusState";
+import { EntitlementReferenceDialog, type EntitlementReference } from "./EntitlementReferenceDialog";
 
 export function PrizeEntitlementsPage() {
   const queryClient = useQueryClient();
-  const entitlementsQuery = useQuery({ queryKey: ["prize-entitlements"], queryFn: () => prizeEntitlements(0, 50) });
+  const [query, setQuery] = useState("");
+  const [status, setStatus] = useState("");
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [settlementReference, setSettlementReference] = useState("");
   const [settlementNote, setSettlementNote] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [reference, setReference] = useState<EntitlementReference | null>(null);
+  const normalizedQuery = query.trim();
+  const entitlementsQuery = useQuery({
+    queryKey: ["prize-entitlements", normalizedQuery, status, page, pageSize],
+    queryFn: () => prizeEntitlements(page, pageSize, normalizedQuery || undefined, status || undefined),
+    placeholderData: keepPreviousData,
+  });
 
   const settleMutation = useMutation({
     mutationFn: async () => {
@@ -62,6 +79,8 @@ export function PrizeEntitlementsPage() {
     );
   }
 
+  const entitlements = entitlementsQuery.data?.content ?? [];
+
   return (
     <Stack spacing={3}>
       <Box>
@@ -82,37 +101,134 @@ export function PrizeEntitlementsPage() {
         </Alert>
       ) : null}
 
-      {(entitlementsQuery.data?.content ?? []).length === 0 ? (
-        <Alert severity="info">No prize entitlements are pending settlement.</Alert>
-      ) : null}
+      {entitlementsQuery.isFetching ? <Alert severity="info">Updating entitlement results...</Alert> : null}
 
-      <Grid container spacing={2}>
-        {(entitlementsQuery.data?.content ?? []).map((entitlement) => (
-          <Grid item xs={12} md={6} key={entitlement.id}>
-            <Card data-testid={`entitlement-card-${entitlement.id}`} sx={{ border: "1px solid", borderColor: "divider", height: "100%" }}>
-              <CardContent>
-                <Stack spacing={1.25}>
-                  <Box display="flex" justifyContent="space-between" gap={2} alignItems="start">
-                    <div>
-                      <Typography variant="h6">Entitlement #{entitlement.id}</Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Claim {entitlement.winClaimId} · Ticket {entitlement.ticketId} · Session {entitlement.sessionId}
+      <Paper variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
+        <Stack
+          direction={{ xs: "column", md: "row" }}
+          spacing={2}
+          sx={{ p: 2, borderBottom: 1, borderColor: "divider" }}
+        >
+          <TextField
+            label="Search entitlements"
+            value={query}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setPage(0);
+            }}
+            placeholder="IDs, player, prize, operation, or reference"
+            size="small"
+            fullWidth
+          />
+          <TextField
+            select
+            label="Status"
+            value={status}
+            onChange={(event) => {
+              setStatus(event.target.value);
+              setPage(0);
+            }}
+            size="small"
+            sx={{ minWidth: { xs: "100%", md: 200 } }}
+          >
+            <MenuItem value="">All statuses</MenuItem>
+            <MenuItem value="PENDING">Pending</MenuItem>
+            <MenuItem value="SETTLED">Settled</MenuItem>
+            <MenuItem value="VOID">Void</MenuItem>
+          </TextField>
+        </Stack>
+
+        <TableContainer>
+          <Table size="small" aria-label="prize entitlements table">
+            <TableHead>
+              <TableRow>
+                <TableCell>Entitlement</TableCell>
+                <TableCell>Player</TableCell>
+                <TableCell>Claim</TableCell>
+                <TableCell>Session</TableCell>
+                <TableCell>Ticket</TableCell>
+                <TableCell>Prize</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell>Created</TableCell>
+                <TableCell>Settlement reference</TableCell>
+                <TableCell align="right">Action</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {entitlements.map((entitlement) => (
+                <TableRow key={entitlement.id} hover data-testid={`entitlement-row-${entitlement.id}`}>
+                  <TableCell>#{entitlement.id}</TableCell>
+                  <TableCell>
+                    <Button
+                      size="small"
+                      aria-label={`View player ${entitlement.claimantId} details`}
+                      sx={{ minWidth: 0, p: 0 }}
+                      onClick={() => setReference({ kind: "player", id: entitlement.claimantId })}
+                    >
+                      #{entitlement.claimantId}
+                    </Button>
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      size="small"
+                      aria-label={`View claim ${entitlement.winClaimId} details`}
+                      sx={{ minWidth: 0, p: 0 }}
+                      onClick={() => setReference({ kind: "claim", id: entitlement.winClaimId })}
+                    >
+                      #{entitlement.winClaimId}
+                    </Button>
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      size="small"
+                      aria-label={`View session ${entitlement.sessionId} details`}
+                      sx={{ minWidth: 0, p: 0 }}
+                      onClick={() => setReference({ kind: "session", id: entitlement.sessionId })}
+                    >
+                      #{entitlement.sessionId}
+                    </Button>
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      size="small"
+                      aria-label={`View ticket ${entitlement.ticketId} details`}
+                      sx={{ minWidth: 0, p: 0 }}
+                      onClick={() => setReference({ kind: "ticket", id: entitlement.ticketId })}
+                    >
+                      #{entitlement.ticketId}
+                    </Button>
+                  </TableCell>
+                  <TableCell>
+                    <Stack spacing={0.25}>
+                      <Typography variant="body2" fontWeight={600}>
+                        {entitlement.prizeAmount} {entitlement.currency}
                       </Typography>
-                    </div>
-                    <Chip label={entitlement.status} color="success" size="small" />
-                  </Box>
-                  <Typography>Prize type: {entitlement.prizeType}</Typography>
-                  <Typography>Settlement path: {entitlement.settlementPath}</Typography>
-                  <Typography>
-                    Prize amount: {entitlement.prizeAmount} {entitlement.currency}
-                  </Typography>
-                  <Typography>Settlement reference: {entitlement.settlementReference ?? "n/a"}</Typography>
-                  <Typography>Settlement note: {entitlement.settlementNote ?? "n/a"}</Typography>
-                  <Stack direction="row" spacing={1}>
+                      <Typography variant="caption" color="text.secondary">
+                        {entitlement.prizeType} · {entitlement.settlementPath}
+                      </Typography>
+                    </Stack>
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      label={entitlement.status}
+                      color={
+                        entitlement.status === "PENDING"
+                          ? "warning"
+                          : entitlement.status === "SETTLED"
+                            ? "success"
+                            : "default"
+                      }
+                      size="small"
+                    />
+                  </TableCell>
+                  <TableCell>{new Date(entitlement.createdAt).toLocaleString()}</TableCell>
+                  <TableCell>{entitlement.settlementReference ?? "Not settled"}</TableCell>
+                  <TableCell align="right">
                     <Button
                       data-testid={`entitlement-settle-${entitlement.id}`}
-                      variant="contained"
-                      disabled={entitlement.status === "SETTLED"}
+                      variant="outlined"
+                      size="small"
+                      disabled={entitlement.status !== "PENDING"}
                       onClick={() => {
                         setSelectedId(entitlement.id);
                         setSettlementReference("");
@@ -122,13 +238,34 @@ export function PrizeEntitlementsPage() {
                     >
                       Settle
                     </Button>
-                  </Stack>
-                </Stack>
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {entitlementsQuery.data && entitlements.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={10}>
+                    <Alert severity="info">No prize entitlements match the current filters.</Alert>
+                  </TableCell>
+                </TableRow>
+              ) : null}
+            </TableBody>
+          </Table>
+        </TableContainer>
+        <TablePagination
+          component="div"
+          count={entitlementsQuery.data?.totalElements ?? 0}
+          page={page}
+          onPageChange={(_, nextPage) => setPage(nextPage)}
+          rowsPerPage={pageSize}
+          onRowsPerPageChange={(event) => {
+            setPageSize(Number(event.target.value));
+            setPage(0);
+          }}
+          rowsPerPageOptions={[10, 20, 50]}
+        />
+      </Paper>
+
+      <EntitlementReferenceDialog reference={reference} onClose={() => setReference(null)} />
 
       <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>Settle entitlement</DialogTitle>
@@ -162,7 +299,6 @@ export function PrizeEntitlementsPage() {
           </Button>
         </DialogActions>
       </Dialog>
-
     </Stack>
   );
 }

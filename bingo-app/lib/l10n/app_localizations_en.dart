@@ -88,7 +88,41 @@ class AppLocalizationsEn extends AppLocalizations {
   String get homeWallet => 'Wallet';
 
   @override
+  String get homeSupport => 'Support';
+
+  @override
   String get homeProfile => 'Profile';
+
+  @override
+  String get supportTitle => 'Support tickets';
+
+  @override
+  String get supportIntro =>
+      'Create a request and review updates from the support team.';
+
+  @override
+  String get supportCreateTicket => 'New support request';
+
+  @override
+  String get supportSubject => 'Subject';
+
+  @override
+  String get supportDescription => 'Describe the issue';
+
+  @override
+  String get supportCategory => 'Category';
+
+  @override
+  String get supportPriority => 'Priority';
+
+  @override
+  String get supportSubmit => 'Send request';
+
+  @override
+  String get supportEmpty => 'You have no support requests yet.';
+
+  @override
+  String get supportSubmitted => 'Your support request was sent.';
 
   @override
   String get roomsTitle => 'Rooms';

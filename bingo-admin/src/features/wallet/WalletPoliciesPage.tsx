@@ -13,10 +13,13 @@ import {
   ListItemText,
   Stack,
   Switch,
+  Tab,
+  Tabs,
   TextField,
   Typography,
   FormControlLabel,
 } from "@mui/material";
+import { Link as RouterLink, useLocation } from "react-router-dom";
 import {
   currentSignupRewardSettings,
   currentWalletTransferSettings,
@@ -41,20 +44,33 @@ function toIsoValue(localValue: string) {
 
 export function WalletPoliciesPage() {
   const queryClient = useQueryClient();
+  const location = useLocation();
+  const isTransferPolicy = location.pathname === "/wallet/transfer-policy";
   const rewardQuery = useQuery({
     queryKey: ["wallet-policies", "signup-reward"],
     queryFn: currentSignupRewardSettings,
+    enabled: !isTransferPolicy,
   });
-  const transferQuery = useQuery({ queryKey: ["wallet-policies", "transfer"], queryFn: currentWalletTransferSettings });
+  const transferQuery = useQuery({
+    queryKey: ["wallet-policies", "transfer"],
+    queryFn: currentWalletTransferSettings,
+    enabled: isTransferPolicy,
+  });
   const rewardHistoryQuery = useQuery({
     queryKey: ["wallet-policies", "signup-reward-history"],
     queryFn: () => signupRewardSettingsHistory(0, 8),
+    enabled: !isTransferPolicy,
   });
   const transferHistoryQuery = useQuery({
     queryKey: ["wallet-policies", "transfer-history"],
     queryFn: () => walletTransferSettingsHistory(0, 8),
+    enabled: isTransferPolicy,
   });
-  const grantsQuery = useQuery({ queryKey: ["wallet-policies", "grants"], queryFn: () => signupRewardGrants(0, 8) });
+  const grantsQuery = useQuery({
+    queryKey: ["wallet-policies", "grants"],
+    queryFn: () => signupRewardGrants(0, 8),
+    enabled: !isTransferPolicy,
+  });
 
   const [rewardDraft, setRewardDraft] = useState({
     enabled: false,
@@ -136,24 +152,25 @@ export function WalletPoliciesPage() {
   const transferHistory = transferHistoryQuery.data?.content ?? [];
   const grants = grantsQuery.data?.content ?? [];
 
-  if (rewardQuery.isLoading || transferQuery.isLoading) {
-    return <StatusState title="Loading wallet policies" loading message="Fetching reward and transfer settings" />;
-  }
+  const activePolicyQuery = isTransferPolicy ? transferQuery : rewardQuery;
 
-  if (rewardQuery.error || transferQuery.error) {
+  if (activePolicyQuery.isLoading) {
     return (
       <StatusState
-        title="Unable to load wallet policies"
-        message={
-          (rewardQuery.error as Error | undefined)?.message ??
-          (transferQuery.error as Error | undefined)?.message ??
-          "Failed to load wallet policy data"
-        }
+        title={isTransferPolicy ? "Loading transfer policy" : "Loading signup reward"}
+        loading
+        message="Fetching wallet policy settings"
+      />
+      );
+  }
+
+  if (activePolicyQuery.error) {
+    return (
+      <StatusState
+        title={isTransferPolicy ? "Unable to load transfer policy" : "Unable to load signup reward"}
+        message={(activePolicyQuery.error as Error).message}
         actionLabel="Retry"
-        onAction={() => {
-          rewardQuery.refetch();
-          transferQuery.refetch();
-        }}
+        onAction={() => activePolicyQuery.refetch()}
       />
     );
   }
@@ -165,12 +182,27 @@ export function WalletPoliciesPage() {
           Wallet policies
         </Typography>
         <Typography color="text.secondary">
-          Configure signup rewards and wallet transfer limits with a versioned history.
+          Manage player incentives and wallet transfer limits.
         </Typography>
       </Box>
 
+      <Tabs value={isTransferPolicy ? "transfer" : "signup-reward"} aria-label="Wallet policy sections">
+        <Tab
+          component={RouterLink}
+          to="/wallet/signup-reward"
+          value="signup-reward"
+          label="Signup reward"
+        />
+        <Tab
+          component={RouterLink}
+          to="/wallet/transfer-policy"
+          value="transfer"
+          label="Transfer policy"
+        />
+      </Tabs>
+
       <Grid container spacing={2}>
-        <Grid item xs={12} lg={6}>
+        {!isTransferPolicy ? <Grid item xs={12}>
           <Card elevation={0} sx={{ border: "1px solid", borderColor: "divider" }}>
             <CardContent>
               <Stack spacing={2}>
@@ -256,9 +288,9 @@ export function WalletPoliciesPage() {
               </Stack>
             </CardContent>
           </Card>
-        </Grid>
+        </Grid> : null}
 
-        <Grid item xs={12} lg={6}>
+        {isTransferPolicy ? <Grid item xs={12}>
           <Card elevation={0} sx={{ border: "1px solid", borderColor: "divider" }}>
             <CardContent>
               <Stack spacing={2}>
@@ -357,11 +389,35 @@ export function WalletPoliciesPage() {
               </Stack>
             </CardContent>
           </Card>
-        </Grid>
+        </Grid> : null}
       </Grid>
 
-      <Grid container spacing={2}>
-        <Grid item xs={12} lg={4}>
+      {isTransferPolicy ? (
+        <Grid container spacing={2}>
+          <Grid item xs={12}>
+            <Card elevation={0} sx={{ border: "1px solid", borderColor: "divider" }}>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Transfer policy history
+                </Typography>
+                <List dense>
+                  {transferHistory.map((entry) => (
+                    <ListItem key={entry.id} divider>
+                      <ListItemText
+                        primary={`${entry.maxSingleTransferAmount} / ${entry.dailyOutgoingLimitAmount} ${entry.currency}`}
+                        secondary={`${entry.enabled ? "enabled" : "disabled"} · ${new Date(entry.createdAt).toLocaleString()}`}
+                      />
+                      <Chip label={entry.activeNow ? "active" : "inactive"} size="small" />
+                    </ListItem>
+                  ))}
+                </List>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+      ) : (
+        <Grid container spacing={2}>
+        <Grid item xs={12} lg={6}>
           <Card elevation={0} sx={{ border: "1px solid", borderColor: "divider", height: "100%" }}>
             <CardContent>
               <Typography variant="h6" gutterBottom>
@@ -400,27 +456,8 @@ export function WalletPoliciesPage() {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} lg={4}>
-          <Card elevation={0} sx={{ border: "1px solid", borderColor: "divider", height: "100%" }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Transfer policy history
-              </Typography>
-              <List dense>
-                {transferHistory.map((entry) => (
-                  <ListItem key={entry.id} divider>
-                    <ListItemText
-                      primary={`${entry.maxSingleTransferAmount} / ${entry.dailyOutgoingLimitAmount} ${entry.currency}`}
-                      secondary={`${entry.enabled ? "enabled" : "disabled"} · ${new Date(entry.createdAt).toLocaleString()}`}
-                    />
-                    <Chip label={entry.activeNow ? "active" : "inactive"} size="small" />
-                  </ListItem>
-                ))}
-              </List>
-            </CardContent>
-          </Card>
         </Grid>
-      </Grid>
+      )}
     </Stack>
   );
 }

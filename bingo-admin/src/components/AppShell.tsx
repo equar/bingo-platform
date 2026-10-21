@@ -58,12 +58,19 @@ const navGroups = [
   {
     title: "Policies",
     items: [
-      { to: "/wallet", label: "Wallet Policies" },
+      { to: "/wallet/signup-reward", label: "Wallet Policies" },
       { to: "/wallet/transfers", label: "Transfer History" },
       { to: "/prize-entitlements", label: "Prize Entitlements" },
     ],
   },
 ];
+
+function isNavItemActive(pathname: string, itemPath: string) {
+  if (itemPath === "/wallet/signup-reward") {
+    return ["/wallet", "/wallet/signup-reward", "/wallet/transfer-policy"].includes(pathname);
+  }
+  return pathname === itemPath || pathname.startsWith(`${itemPath}/`);
+}
 
 export function AppShell() {
   const session = useSession();
@@ -75,7 +82,7 @@ export function AppShell() {
   const accountMenuOpen = Boolean(accountMenuAnchor);
 
   const activeGroupTitles = useMemo(
-    () => navGroups.filter((group) => group.items.some((item) => location.pathname === item.to || location.pathname.startsWith(`${item.to}/`))).map((group) => group.title),
+    () => navGroups.filter((group) => group.items.some((item) => isNavItemActive(location.pathname, item.to))).map((group) => group.title),
     [location.pathname],
   );
 
@@ -227,7 +234,7 @@ export function AppShell() {
                       key={item.to}
                       component={NavLink}
                       to={item.to}
-                      selected={location.pathname === item.to || location.pathname.startsWith(`${item.to}/`)}
+                      selected={isNavItemActive(location.pathname, item.to)}
                       sx={{ borderRadius: 2, mb: 0.5, ml: 1 }}
                     >
                       <ListItemText primary={item.label} />

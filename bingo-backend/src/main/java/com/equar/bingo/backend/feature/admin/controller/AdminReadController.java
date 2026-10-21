@@ -3,6 +3,8 @@ package com.equar.bingo.backend.feature.admin.controller;
 import com.equar.bingo.backend.common.api.PageResponse;
 import com.equar.bingo.backend.feature.admin.dto.*;
 import com.equar.bingo.backend.feature.admin.service.AdminReadService;
+import com.equar.bingo.backend.feature.user.entity.AccountStatus;
+import com.equar.bingo.backend.feature.game.entity.GameSessionState;
 import com.equar.bingo.backend.feature.audit.dto.AuditLogDetailResponse;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -32,8 +34,9 @@ public class AdminReadController {
 
     @GetMapping("/players")
     public PageResponse<AdminPlayerSummaryResponse> players(@RequestParam(required = false) String query,
+            @RequestParam(required = false) AccountStatus status,
             @PageableDefault(size = 20) Pageable pageable) {
-        return PageResponse.from(adminReadService.searchPlayers(query, pageable));
+        return PageResponse.from(adminReadService.searchPlayers(query, status, pageable));
     }
 
     @GetMapping("/players/{playerId}")
@@ -42,8 +45,12 @@ public class AdminReadController {
     }
 
     @GetMapping("/sessions")
-    public PageResponse<AdminSessionSummaryResponse> sessions(@PageableDefault(size = 20) Pageable pageable) {
-        return PageResponse.from(adminReadService.sessions(pageable));
+    public PageResponse<AdminSessionSummaryResponse> sessions(@RequestParam(required = false) String query,
+            @RequestParam(required = false) GameSessionState state,
+            @RequestParam(required = false) Long roomId,
+            @RequestParam(required = false) Boolean upcoming,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return PageResponse.from(adminReadService.sessions(query, state, roomId, upcoming, pageable));
     }
 
     @GetMapping("/sessions/live")

@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import {
   Alert,
@@ -25,6 +25,7 @@ import {
   TableCell,
   TableContainer,
   TableHead,
+  TablePagination,
   TableRow,
   ListItemText,
 } from "@mui/material";
@@ -139,36 +140,28 @@ function formatDraftSummary(draft: RoomDraft) {
   ].join(" • ");
 }
 
-function matchesRoomSearch(room: BingoRoomResponse, searchText: string) {
-  if (!searchText) {
-    return true;
-  }
-
-  const searchable = [
-    room.name,
-    room.description ?? "",
-    room.currency,
-    room.scheduleRule,
-    String(room.sessionCapacity),
-    String(room.maxTicketsPerPlayer),
-    room.active ? "active" : "inactive",
-    room.configuredPatterns.join(" "),
-  ]
-    .join(" ")
-    .toLowerCase();
-
-  return searchable.includes(searchText.toLowerCase());
-}
-
 export function RoomsPage() {
   const queryClient = useQueryClient();
-  const roomsQuery = useQuery({ queryKey: ["admin-rooms"], queryFn: listAdminRooms });
   const [draft, setDraft] = useState<RoomDraft | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingSubmit, setPendingSubmit] = useState(false);
   const [pendingError, setPendingError] = useState<string | null>(null);
   const [roomSearch, setRoomSearch] = useState("");
   const [roomStatusFilter, setRoomStatusFilter] = useState<"all" | "active" | "inactive">("all");
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
+  const normalizedSearch = roomSearch.trim();
+  const roomsQuery = useQuery({
+    queryKey: ["admin-rooms", normalizedSearch, roomStatusFilter, page, pageSize],
+    queryFn: () =>
+      listAdminRooms(
+        page,
+        pageSize,
+        normalizedSearch || undefined,
+        roomStatusFilter === "all" ? undefined : roomStatusFilter === "active",
+      ),
+    placeholderData: keepPreviousData,
+  });
 
   const createMutation = useMutation({
     mutationFn: (body: RoomDraft) =>
@@ -237,14 +230,7 @@ export function RoomsPage() {
     createMutation.mutate(draft);
   };
 
-  const rooms = roomsQuery.data ?? [];
-  const filteredRooms = useMemo(() => {
-    return rooms.filter((room) => {
-      const statusMatches =
-        roomStatusFilter === "all" || (roomStatusFilter === "active" ? room.active : !room.active);
-      return statusMatches && matchesRoomSearch(room, roomSearch.trim());
-    });
-  }, [roomSearch, roomStatusFilter, rooms]);
+  const rooms = roomsQuery.data?.content ?? [];
   const title = useMemo(() => (draft?.id ? "Edit room" : "Create room"), [draft?.id]);
 
   if (roomsQuery.isLoading) {
@@ -291,7 +277,10 @@ export function RoomsPage() {
           <TextField
             label="Search rooms"
             value={roomSearch}
-            onChange={(event) => setRoomSearch(event.target.value)}
+            onChange={(event) => {
+              setRoomSearch(event.target.value);
+              setPage(0);
+            }}
             placeholder="Name, description, schedule, or pattern"
             size="small"
             sx={{ minWidth: { xs: "100%", md: 360 }, flex: 1 }}
@@ -300,7 +289,10 @@ export function RoomsPage() {
             select
             label="Status"
             value={roomStatusFilter}
-            onChange={(event) => setRoomStatusFilter(event.target.value as "all" | "active" | "inactive")}
+            onChange={(event) => {
+              setRoomStatusFilter(event.target.value as "all" | "active" | "inactive");
+              setPage(0);
+            }}
             size="small"
             sx={{ minWidth: 180 }}
           >
@@ -325,7 +317,7 @@ export function RoomsPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {filteredRooms.map((room) => (
+              {rooms.map((room) => (
                 <TableRow key={room.id} hover>
                   <TableCell>
                     <Stack spacing={0.5}>
@@ -364,7 +356,7 @@ export function RoomsPage() {
                   </TableCell>
                 </TableRow>
               ))}
-              {filteredRooms.length === 0 ? (
+              {roomsQuery.data && rooms.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={8}>
                     <Alert severity="info" sx={{ my: 1 }}>
@@ -376,9 +368,19 @@ export function RoomsPage() {
             </TableBody>
           </Table>
         </TableContainer>
+        <TablePagination
+          component="div"
+          count={roomsQuery.data?.totalElements ?? 0}
+          page={page}
+          onPageChange={(_, nextPage) => setPage(nextPage)}
+          rowsPerPage={pageSize}
+          onRowsPerPageChange={(event) => {
+            setPageSize(Number(event.target.value));
+            setPage(0);
+          }}
+          rowsPerPageOptions={[10, 20, 50]}
+        />
       </Paper>
-
-      {rooms.length === 0 ? <Alert severity="info">No rooms have been configured yet.</Alert> : null}
 
       <Dialog open={Boolean(draft)} onClose={() => setDraft(null)} fullWidth maxWidth="md">
         <DialogTitle>{title}</DialogTitle>

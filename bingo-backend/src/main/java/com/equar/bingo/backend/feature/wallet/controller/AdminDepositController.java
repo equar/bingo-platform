@@ -35,8 +35,9 @@ public class AdminDepositController {
 
     @GetMapping
     public PageResponse<DepositClaimResponse> list(@RequestParam(required = false) DepositClaimStatus status,
+            @RequestParam(required = false) String query,
             @PageableDefault(size = 20) Pageable pageable) {
-        return PageResponse.from(walletService.getAdminDeposits(status, pageable));
+        return PageResponse.from(walletService.getAdminDeposits(status, query, pageable));
     }
 
     @PostMapping("/{id}/approve")

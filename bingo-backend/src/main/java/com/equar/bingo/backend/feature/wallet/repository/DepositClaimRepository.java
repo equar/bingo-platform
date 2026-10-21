@@ -16,8 +16,24 @@ public interface DepositClaimRepository extends JpaRepository<DepositClaim, Long
     @Query("select d from DepositClaim d where d.player.id = :playerId order by d.submittedAt desc, d.id desc")
     Page<DepositClaim> findByPlayerId(@Param("playerId") Long playerId, Pageable pageable);
 
+    long countByPlayerId(Long playerId);
+
     @Query("select d from DepositClaim d order by d.submittedAt desc, d.id desc")
     Page<DepositClaim> findAllOrderBySubmittedAt(Pageable pageable);
+
+    @Query("""
+            select d from DepositClaim d
+            where (:status is null or d.status = :status)
+                and (:search is null
+                    or lower(d.normalizedTelebirrReference) like concat('%', :search, '%')
+                    or lower(d.operationId) like concat('%', :search, '%')
+                    or lower(d.player.displayName) like concat('%', :search, '%')
+                    or lower(d.player.normalizedPhone) like concat('%', :search, '%'))
+                and (:referenceId is null or d.id = :referenceId or d.player.id = :referenceId)
+            order by d.submittedAt desc, d.id desc
+            """)
+    Page<DepositClaim> searchAdminDeposits(@Param("status") DepositClaimStatus status,
+            @Param("search") String search, @Param("referenceId") Long referenceId, Pageable pageable);
 
     boolean existsByNormalizedTelebirrReference(String normalizedTelebirrReference);
 

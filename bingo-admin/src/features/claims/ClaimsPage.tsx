@@ -4,26 +4,53 @@ import {
   Alert,
   Box,
   Button,
-  Card,
-  CardContent,
   Chip,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
-  Grid,
+  MenuItem,
   Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TablePagination,
+  TableRow,
   TextField,
   Typography,
 } from "@mui/material";
+import { keepPreviousData } from "@tanstack/react-query";
 import { approveWinClaim, rejectWinClaim, winClaims } from "../../api/admin";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { StatusState } from "../../components/StatusState";
 import { useIdempotencyKey } from "../common/useIdempotencyKey";
 
+const statusOptions = ["PENDING_REVIEW", "APPROVED", "REJECTED", "FAILED_SERVER_VALIDATION"] as const;
+const patternOptions = ["LINE", "TWO_LINES", "FULL_HOUSE"] as const;
+
 export function ClaimsPage() {
   const queryClient = useQueryClient();
-  const claimsQuery = useQuery({ queryKey: ["win-claims"], queryFn: () => winClaims(0, 50) });
+  const [query, setQuery] = useState("");
+  const [status, setStatus] = useState("");
+  const [pattern, setPattern] = useState("");
+  const [validation, setValidation] = useState("");
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
+  const normalizedQuery = query.trim();
+  const claimsQuery = useQuery({
+    queryKey: ["win-claims", normalizedQuery, status, pattern, validation, page, pageSize],
+    queryFn: () =>
+      winClaims(
+        page,
+        pageSize,
+        normalizedQuery || undefined,
+        status || undefined,
+        pattern || undefined,
+        validation === "" ? undefined : validation === "true",
+      ),
+    placeholderData: keepPreviousData,
+  });
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [reason, setReason] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -72,33 +99,120 @@ export function ClaimsPage() {
         <Typography color="text.secondary">Review submitted claims and record validation evidence.</Typography>
       </Box>
 
-      {(claimsQuery.data?.content ?? []).length === 0 ? (
-        <Alert severity="info">No win claims awaiting review.</Alert>
-      ) : null}
+      <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+        <TextField
+          label="Search claim, player, ticket, or session"
+          value={query}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setPage(0);
+          }}
+          fullWidth
+        />
+        <TextField
+          select
+          label="Status"
+          value={status}
+          onChange={(event) => {
+            setStatus(event.target.value);
+            setPage(0);
+          }}
+          sx={{ minWidth: { xs: "100%", md: 220 } }}
+        >
+          <MenuItem value="">All statuses</MenuItem>
+          {statusOptions.map((option) => (
+            <MenuItem key={option} value={option}>
+              {option.replace(/_/g, " ")}
+            </MenuItem>
+          ))}
+        </TextField>
+        <TextField
+          select
+          label="Pattern"
+          value={pattern}
+          onChange={(event) => {
+            setPattern(event.target.value);
+            setPage(0);
+          }}
+          sx={{ minWidth: { xs: "100%", md: 180 } }}
+        >
+          <MenuItem value="">All patterns</MenuItem>
+          {patternOptions.map((option) => (
+            <MenuItem key={option} value={option}>
+              {option.replace(/_/g, " ")}
+            </MenuItem>
+          ))}
+        </TextField>
+        <TextField
+          select
+          label="Validation"
+          value={validation}
+          onChange={(event) => {
+            setValidation(event.target.value);
+            setPage(0);
+          }}
+          sx={{ minWidth: { xs: "100%", md: 180 } }}
+        >
+          <MenuItem value="">All results</MenuItem>
+          <MenuItem value="true">Passed</MenuItem>
+          <MenuItem value="false">Failed</MenuItem>
+        </TextField>
+      </Stack>
 
-      <Grid container spacing={2}>
-        {(claimsQuery.data?.content ?? []).map((claim) => (
-          <Grid item xs={12} md={6} key={claim.id}>
-            <Card data-testid={`claim-card-${claim.id}`} sx={{ border: "1px solid", borderColor: "divider", height: "100%" }}>
-              <CardContent>
-                <Stack spacing={1.25}>
-                  <Box display="flex" justifyContent="space-between" gap={2}>
-                    <div>
-                      <Typography variant="h6">Claim #{claim.id}</Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Ticket {claim.ticketId} · Session {claim.sessionId}
-                      </Typography>
-                    </div>
-                    <Chip label={claim.status} color="warning" size="small" />
-                  </Box>
-                  <Typography>Pattern: {claim.claimedPattern}</Typography>
-                  <Typography>Validation: {claim.serverValidationPassed ? "Passed" : "Pending / failed"}</Typography>
-                  <Typography>Draw sequence snapshot: {claim.drawSequenceSnapshot}</Typography>
-                  <Typography variant="body2">Evidence: {claim.evidenceJson ?? "n/a"}</Typography>
-                  <Stack direction="row" spacing={1}>
+      {claimsQuery.isFetching && !claimsQuery.isLoading ? <Alert severity="info">Updating claim results...</Alert> : null}
+
+      <Box sx={{ overflowX: "auto" }}>
+        <Table size="small" aria-label="win claims table">
+          <TableHead>
+            <TableRow>
+              <TableCell>Claim</TableCell>
+              <TableCell>Player</TableCell>
+              <TableCell>Ticket / session</TableCell>
+              <TableCell>Pattern</TableCell>
+              <TableCell>Status</TableCell>
+              <TableCell>Validation</TableCell>
+              <TableCell align="right">Draw seq.</TableCell>
+              <TableCell>Submitted</TableCell>
+              <TableCell align="right">Actions</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {(claimsQuery.data?.content ?? []).map((claim) => (
+              <TableRow key={claim.id} hover data-testid={`claim-row-${claim.id}`}>
+                <TableCell>
+                  <Stack spacing={0.5}>
+                    <Typography fontWeight={600}>#{claim.id}</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {claim.serverValidationCode ?? "No validation code"}
+                    </Typography>
+                  </Stack>
+                </TableCell>
+                <TableCell>{claim.claimantId}</TableCell>
+                <TableCell>
+                  <Typography variant="body2">Ticket {claim.ticketId}</Typography>
+                  <Typography variant="caption" color="text.secondary">Session {claim.sessionId}</Typography>
+                </TableCell>
+                <TableCell>{claim.claimedPattern.replace(/_/g, " ")}</TableCell>
+                <TableCell>
+                  <Chip label={claim.status.replace(/_/g, " ")} size="small" />
+                </TableCell>
+                <TableCell>
+                  <Chip
+                    label={claim.serverValidationPassed ? "Passed" : "Failed"}
+                    color={claim.serverValidationPassed ? "success" : "error"}
+                    variant="outlined"
+                    size="small"
+                  />
+                </TableCell>
+                <TableCell align="right">{claim.drawSequenceSnapshot}</TableCell>
+                <TableCell>{new Date(claim.createdAt).toLocaleString()}</TableCell>
+                <TableCell align="right">
+                  <Stack direction="row" spacing={1} justifyContent="flex-end">
                     <Button
                       data-testid={`claim-approve-${claim.id}`}
+                      size="small"
                       variant="contained"
+                      disabled={!claim.serverValidationPassed || claim.status !== "PENDING_REVIEW"}
                       onClick={() => {
                         setMode("APPROVE");
                         setSelectedId(claim.id);
@@ -109,7 +223,9 @@ export function ClaimsPage() {
                     </Button>
                     <Button
                       data-testid={`claim-reject-${claim.id}`}
+                      size="small"
                       variant="outlined"
+                      disabled={!claim.serverValidationPassed || claim.status !== "PENDING_REVIEW"}
                       onClick={() => {
                         setMode("REJECT");
                         setSelectedId(claim.id);
@@ -119,12 +235,32 @@ export function ClaimsPage() {
                       Reject
                     </Button>
                   </Stack>
-                </Stack>
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
+                </TableCell>
+              </TableRow>
+            ))}
+            {claimsQuery.data && claimsQuery.data.content.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={9}>
+                  <Alert severity="info">No claims match the current search and filters.</Alert>
+                </TableCell>
+              </TableRow>
+            ) : null}
+          </TableBody>
+        </Table>
+      </Box>
+
+      <TablePagination
+        component="div"
+        count={claimsQuery.data?.totalElements ?? 0}
+        page={page}
+        onPageChange={(_, nextPage) => setPage(nextPage)}
+        rowsPerPage={pageSize}
+        onRowsPerPageChange={(event) => {
+          setPageSize(Number(event.target.value));
+          setPage(0);
+        }}
+        rowsPerPageOptions={[10, 20, 50]}
+      />
 
       <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>{mode === "APPROVE" ? "Approve claim" : "Reject claim"}</DialogTitle>

@@ -54,10 +54,14 @@ export interface AdminPlayerDetailResponse {
   id: number;
   displayName: string;
   normalizedPhone: string;
+  email: string | null;
   roles: string[];
   status: string;
   createdAt: string;
   updatedAt: string;
+  walletCurrency: string | null;
+  walletAvailableBalance: string | null;
+  walletPromotionalBalance: string | null;
   walletTransactionCount: number;
   depositClaimCount: number;
   supportTicketCount: number;
@@ -659,9 +663,9 @@ export async function dashboardMetrics() {
   return data;
 }
 
-export async function searchPlayers(query?: string, page = 0, size = 20) {
+export async function searchPlayers(query?: string, page = 0, size = 20, status?: string) {
   const { data } = await http.get<PageResponse<AdminPlayerSummaryResponse>>('/api/v1/admin/players', {
-    params: { query, page, size },
+    params: { query, status, page, size },
   });
   return data;
 }
@@ -671,8 +675,53 @@ export async function playerDetail(playerId: number) {
   return data;
 }
 
+export async function adminSessionDetail(sessionId: number) {
+  const { data } = await http.get<GameSessionResponse>(`/api/v1/admin/sessions/${sessionId}`);
+  return data;
+}
+
+export async function adminTicketDetail(ticketId: number) {
+  const { data } = await http.get<TicketResponse>(`/api/v1/admin/tickets/${ticketId}`);
+  return data;
+}
+
+export async function adminWinClaimDetail(claimId: number) {
+  const { data } = await http.get<WinClaimResponse>(`/api/v1/admin/win-claims/${claimId}`);
+  return data;
+}
+
 export async function playerWalletTransactions(playerId: number, page = 0, size = 20) {
-  const { data } = await http.get<PageResponse<WalletTransactionResponse>>('/api/v1/wallet/transactions', {
+  const { data } = await http.get<PageResponse<WalletTransactionResponse>>(
+    `/api/v1/admin/players/${playerId}/wallet-transactions`,
+    { params: { page, size } },
+  );
+  return data;
+}
+
+export async function playerDeposits(playerId: number, page = 0, size = 20) {
+  const { data } = await http.get<PageResponse<DepositClaimResponse>>(`/api/v1/admin/players/${playerId}/deposits`, {
+    params: { page, size },
+  });
+  return data;
+}
+
+export async function playerSupportTickets(playerId: number, page = 0, size = 20) {
+  const { data } = await http.get<PageResponse<SupportTicketSummaryResponse>>(
+    `/api/v1/admin/players/${playerId}/support-tickets`,
+    { params: { page, size } },
+  );
+  return data;
+}
+
+export async function playerTickets(playerId: number, page = 0, size = 20) {
+  const { data } = await http.get<PageResponse<TicketResponse>>(`/api/v1/admin/players/${playerId}/tickets`, {
+    params: { page, size },
+  });
+  return data;
+}
+
+export async function playerWinClaims(playerId: number, page = 0, size = 20) {
+  const { data } = await http.get<PageResponse<WinClaimResponse>>(`/api/v1/admin/players/${playerId}/win-claims`, {
     params: { page, size },
   });
   return data;
@@ -699,8 +748,10 @@ export async function listRooms() {
   return data;
 }
 
-export async function listAdminRooms() {
-  const { data } = await http.get<BingoRoomResponse[]>('/api/v1/admin/rooms');
+export async function listAdminRooms(page = 0, size = 20, query?: string, active?: boolean) {
+  const { data } = await http.get<PageResponse<BingoRoomResponse>>('/api/v1/admin/rooms', {
+    params: { page, size, query, active },
+  });
   return data;
 }
 
@@ -714,9 +765,16 @@ export async function updateRoom(roomId: number, body: Partial<BingoRoomResponse
   return data;
 }
 
-export async function listSessions(page = 0, size = 20) {
+export async function listSessions(
+  page = 0,
+  size = 20,
+  query?: string,
+  state?: string,
+  roomId?: number,
+  upcoming?: boolean,
+) {
   const { data } = await http.get<PageResponse<AdminSessionSummaryResponse>>('/api/v1/admin/sessions', {
-    params: { page, size },
+    params: { page, size, query, state, roomId, upcoming },
   });
   return data;
 }
@@ -753,9 +811,16 @@ export async function postDraw(sessionId: number, numberDrawn: number) {
   return data;
 }
 
-export async function winClaims(page = 0, size = 20) {
+export async function winClaims(
+  page = 0,
+  size = 20,
+  query?: string,
+  status?: string,
+  pattern?: string,
+  serverValidationPassed?: boolean,
+) {
   const { data } = await http.get<PageResponse<WinClaimResponse>>('/api/v1/admin/win-claims', {
-    params: { page, size },
+    params: { page, size, query, status, pattern, serverValidationPassed },
   });
   return data;
 }
@@ -774,9 +839,9 @@ export async function rejectWinClaim(claimId: number, body: WinClaimReviewReques
   return data;
 }
 
-export async function prizeEntitlements(page = 0, size = 20) {
+export async function prizeEntitlements(page = 0, size = 20, query?: string, status?: string) {
   const { data } = await http.get<PageResponse<PrizeEntitlementResponse>>('/api/v1/admin/prize-entitlements', {
-    params: { page, size },
+    params: { page, size, query, status },
   });
   return data;
 }
@@ -794,9 +859,9 @@ export async function settlePrizeEntitlement(
   return data;
 }
 
-export async function deposits(page = 0, size = 20) {
+export async function deposits(page = 0, size = 20, query?: string, status?: string) {
   const { data } = await http.get<PageResponse<DepositClaimResponse>>('/api/v1/admin/deposits', {
-    params: { page, size },
+    params: { page, size, query, status },
   });
   return data;
 }
@@ -967,11 +1032,12 @@ export async function supportTickets(
   status?: string,
   category?: string,
   assignedToUserId?: string,
+  priority?: string,
   page = 0,
   size = 20,
 ) {
   const { data } = await http.get<PageResponse<SupportTicketSummaryResponse>>('/api/v1/admin/support/tickets', {
-    params: { query, status, category, assignedToUserId, page, size },
+    params: { query, status, category, assignedToUserId, priority, page, size },
   });
   return data;
 }

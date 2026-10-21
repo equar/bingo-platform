@@ -23,5 +23,7 @@ target/
 /test-results/
 /bingo-admin/test-results/
 /bingo-app/test-results/
+/.playwright-mcp/
+/support-tickets-verification.png
 .tmp/
 *.log
