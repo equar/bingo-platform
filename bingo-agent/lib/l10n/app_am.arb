@@ -1,0 +1,154 @@
+{
+  "@@locale": "am",
+  "appTitle": "ቢንጎ ኤጀንት",
+  "loginTitle": "ወደ ኤጀንት መለያ ይግቡ",
+  "passwordLabel": "የይለፍ ቃል",
+  "pinLabel": "ፒን",
+  "phoneLabel": "ስልክ ቁጥር",
+  "signIn": "ግባ",
+  "logout": "ውጣ",
+  "loading": "በመጫን ላይ…",
+  "offline": "ከመስመር ውጭ",
+  "online": "በመስመር ላይ",
+  "dashboardTitle": "ዳሽቦርድ",
+  "playersTitle": "ተጫዋቾች",
+  "ticketsTitle": "ቲኬቶች",
+  "walletTitle": "የተጫዋች ቦርሳ",
+  "payoutsTitle": "ክፍያዎች",
+  "floatTitle": "ፍሎት",
+  "supportTitle": "ድጋፍ",
+  "historyTitle": "ታሪክ",
+  "connectionLost": "ግንኙነት ተቋርጧል",
+  "financialActionDisabled": "ከመስመር ውጭ የገንዘብ እንቅስቃሴ አይፈቀድም",
+  "missingApiBaseUrlTitle": "የAPI አድራሻ የለም",
+  "missingApiBaseUrlBody": "የጀርባ አገልጋዩን መሠረታዊ አድራሻ በ{label} ያዋቅሩ።",
+  "@missingApiBaseUrlBody": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "requiredField": "ይህ መስክ ያስፈልጋል።",
+  "signInFailed": "መግባት አልተሳካም። መረጃዎን ያረጋግጡና እንደገና ይሞክሩ።",
+  "requestFailed": "ጥያቄው አልተሳካም። ግንኙነትዎን ያረጋግጡና እንደገና ይሞክሩ።",
+  "availableFloat": "ያለ ፍሎት",
+  "clearingFloat": "የማጣሪያ ፍሎት",
+  "ticketsSold": "የተሸጡ ቲኬቶች",
+  "commissions": "ኮሚሽኖች",
+  "pendingTopUps": "በመጠባበቅ ላይ ያሉ ጭማሪዎች",
+  "floatHistoryTitle": "የፍሎት ታሪክ",
+  "availableBalance": "ያለ: {amount} {currency}",
+  "@availableBalance": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "currency": {
+        "type": "String"
+      }
+    }
+  },
+  "requestFloatTopUp": "የፍሎት ጭማሪ ይጠይቁ",
+  "topUpAmount": "መጠን",
+  "topUpNote": "ማስታወሻ",
+  "optional": "አማራጭ",
+  "confirmTopUpTitle": "የጭማሪ ጥያቄውን ያረጋግጡ",
+  "confirmTopUpBody": "ለኤጀንት ፍሎትዎ {amount} {currency} እንዲጨመር ይጠይቁ?",
+  "@confirmTopUpBody": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "currency": {
+        "type": "String"
+      }
+    }
+  },
+  "cancel": "ሰርዝ",
+  "confirm": "አረጋግጥ",
+  "submitRequest": "ጥያቄውን ላክ",
+  "positiveAmountRequired": "ከዜሮ በላይ የሆነ መጠን ያስገቡ።",
+  "topUpRequestSubmitted": "የጭማሪ ጥያቄው ለአስተዳዳሪ ግምገማ ተልኳል።",
+  "topUpRequestFailed": "ጥያቄውን መላክ አልተቻለም። ተመሳሳይ ጥያቄን በደህና ለመፈተሽ እንደገና ይሞክሩ።",
+  "topUpRequests": "የፍሎት ጭማሪ ጥያቄዎች",
+  "pending": "በመጠባበቅ ላይ",
+  "approved": "ጸድቋል",
+  "rejected": "ውድቅ ተደርጓል",
+  "submittedAt": "የተላከበት {date}",
+  "@submittedAt": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "financialHistoryTitle": "የገንዘብ እንቅስቃሴ ታሪክ",
+  "filterByType": "የእንቅስቃሴ ዓይነት",
+  "filterByStatus": "ሁኔታ",
+  "filterByDate": "የቀን ክልል",
+  "allTypes": "ሁሉም ዓይነቶች",
+  "allStatuses": "ሁሉም ሁኔታዎች",
+  "anyDate": "ማንኛውም ቀን",
+  "clearFilters": "ማጣሪያዎችን አጽዳ",
+  "noTransactions": "ከእነዚህ ማጣሪያዎች ጋር የሚዛመድ እንቅስቃሴ የለም።",
+  "transactionDetails": "የእንቅስቃሴ ዝርዝር",
+  "transactionTypeLabel": "የእንቅስቃሴ ዓይነት",
+  "transactionAmount": "መጠን",
+  "transactionDate": "ቀን እና ሰዓት",
+  "transactionStatus": "ሁኔታ",
+  "transactionReference": "ማጣቀሻ",
+  "counterparty": "ተዛማጅ ወገን",
+  "relatedRecord": "ተዛማጅ መዝገብ",
+  "noCounterparty": "መረጃ የለም",
+  "close": "ዝጋ",
+  "completed": "ተጠናቋል",
+  "accrued": "ተቀምጧል",
+  "settled": "ተከፍሏል",
+  "openingBalance": "የመነሻ ቀሪ ሂሳብ",
+  "floatTopUp": "የፍሎት ጭማሪ",
+  "ticketSale": "የቲኬት ሽያጭ",
+  "playerWalletTopUp": "ወደ ተጫዋች ቦርሳ ጭማሪ",
+  "payoutDisbursement": "የሽልማት ክፍያ",
+  "payoutClearing": "የሽልማት ማጣሪያ",
+  "commissionCredit": "የኮሚሽን ክፍያ",
+  "manualAdjustment": "በእጅ ማስተካከያ",
+  "otherTransaction": "ሌላ እንቅስቃሴ",
+  "commissionAccrual": "የተቀመጠ ኮሚሽን",
+  "floatTopUpRequest": "የፍሎት ጭማሪ ጥያቄ",
+  "playerLookupRegistration": "ተጫዋችን በፍጥነት ፈልግ ወይም መዝግብ",
+  "displayName": "የሚታይ ስም",
+  "lookup": "ፈልግ",
+  "register": "መዝግብ",
+  "playerWalletTopUpTitle": "ወደ ተጫዋች ቦርሳ ጭማሪ",
+  "playerPhone": "የተጫዋች ስልክ",
+  "topUp": "ጨምር",
+  "serverBalance": "የአገልጋይ ቀሪ ሂሳብ: {amount}",
+  "@serverBalance": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "approvedAgentCashPayout": "የጸደቀ የኤጀንት ገንዘብ ክፍያ",
+  "payoutCode": "የክፍያ ኮድ",
+  "verifyAndDisburse": "አረጋግጥና ክፈል",
+  "ticketSaleTitle": "የቲኬት ሽያጭ",
+  "sessionId": "የዙር መለያ",
+  "sellTicket": "ቲኬት ሽጥ",
+  "publicTicketCode": "የሕዝብ ቲኬት ኮድ",
+  "supportTickets": "የድጋፍ ጥያቄዎች",
+  "availableCommission": "የኮሚሽን መጠን",
+  "commissionAmountValue": "ኮሚሽን: {amount}",
+  "@commissionAmountValue": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "enterAmount": "መጠን ያስገቡ",
+  "retry": "እንደገና ሞክር",
+  "noData": "መዝገቦች አልተገኙም።"
+}
