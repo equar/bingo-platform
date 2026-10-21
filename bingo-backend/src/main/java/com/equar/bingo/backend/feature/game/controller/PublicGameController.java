@@ -12,6 +12,7 @@ import com.equar.bingo.backend.feature.game.dto.WinClaimResponse;
 import com.equar.bingo.backend.feature.game.service.BingoGameService;
 import jakarta.validation.Valid;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -57,6 +58,7 @@ public class PublicGameController {
 
     @PostMapping("/sessions/{id}/tickets")
     @PreAuthorize("hasRole('PLAYER')")
+    @ApiResponse(responseCode = "201", description = "Ticket purchased", useReturnTypeSchema = true)
     public ResponseEntity<TicketPurchaseResponse> purchaseTicket(@PathVariable Long id,
             @AuthenticationPrincipal BingoUserPrincipal principal,
             @RequestHeader("Idempotency-Key") String idempotencyKey) {
@@ -81,6 +83,7 @@ public class PublicGameController {
 
     @PostMapping("/tickets/{id}/win-claims")
     @PreAuthorize("hasRole('PLAYER')")
+    @ApiResponse(responseCode = "201", description = "Win claim submitted", useReturnTypeSchema = true)
     public ResponseEntity<WinClaimResponse> submitWinClaim(@PathVariable Long id,
             @AuthenticationPrincipal BingoUserPrincipal principal,
             @Valid @RequestBody WinClaimRequest request,

@@ -13,6 +13,7 @@ import com.equar.bingo.backend.feature.wallet.dto.WalletTransactionResponse;
 import com.equar.bingo.backend.feature.wallet.service.WalletService;
 import com.equar.bingo.backend.feature.wallet.service.WalletTransferService;
 import jakarta.validation.Valid;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
@@ -51,6 +52,7 @@ public class WalletController {
     }
 
     @PostMapping("/deposits")
+    @ApiResponse(responseCode = "201", description = "Deposit claim created", useReturnTypeSchema = true)
     public ResponseEntity<DepositClaimResponse> createDeposit(@AuthenticationPrincipal BingoUserPrincipal principal,
             @Valid @RequestBody DepositClaimRequest request,
             @RequestHeader("Idempotency-Key") String idempotencyKey) {

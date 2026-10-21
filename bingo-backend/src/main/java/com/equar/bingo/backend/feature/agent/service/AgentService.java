@@ -14,6 +14,7 @@ import com.equar.bingo.backend.feature.agent.repository.*;
 import com.equar.bingo.backend.feature.auth.dto.AuthResponse;
 import com.equar.bingo.backend.feature.auth.dto.UserProfileResponse;
 import com.equar.bingo.backend.feature.auth.service.BingoUserPrincipal;
+import com.equar.bingo.backend.feature.auth.service.AuthenticationAttemptThrottleService;
 import com.equar.bingo.backend.feature.auth.service.EthiopianPhoneNormalizer;
 import com.equar.bingo.backend.feature.auth.service.JwtService;
 import com.equar.bingo.backend.feature.game.dto.TicketPurchaseResponse;
@@ -74,7 +75,7 @@ public class AgentService {
     private final JwtService jwtService;
     private final IdempotencyService idempotencyService;
     private final RequestHashService requestHashService;
-    private final AgentAttemptThrottleService throttleService;
+    private final AuthenticationAttemptThrottleService throttleService;
     private final SignupRewardService signupRewardService;
 
     public AgentService(AgentRepository agentRepository,
@@ -100,7 +101,7 @@ public class AgentService {
             JwtService jwtService,
             IdempotencyService idempotencyService,
             RequestHashService requestHashService,
-            AgentAttemptThrottleService throttleService,
+            AuthenticationAttemptThrottleService throttleService,
             SignupRewardService signupRewardService) {
         this.agentRepository = agentRepository;
         this.agentFloatRepository = agentFloatRepository;
@@ -132,8 +133,11 @@ public class AgentService {
     @Transactional
     public AuthResponse login(AgentLoginRequest request) {
         String normalizedPhone = phoneNormalizer.normalize(request.phoneNumber());
-        throttleService.requireAllowed("agent-login:" + normalizedPhone, agentProperties.loginAttemptLimit(),
-                agentProperties.attemptWindow(), "AGENT_LOGIN_RATE_LIMITED", "Too many agent login attempts");
+        throttleService.requireAccountAllowed(
+                "agent",
+                normalizedPhone,
+                agentProperties.loginAttemptLimit(),
+                agentProperties.attemptWindow());
 
         var authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(normalizedPhone, request.password()));
@@ -142,7 +146,6 @@ public class AgentService {
         if (!agentPinEncoder.matches(request.pin(), user.getAgentPinHash())) {
             throw new BadRequestException("INVALID_PIN", "Invalid agent PIN");
         }
-        throttleService.clear("agent-login:" + normalizedPhone);
         String token = jwtService.generateToken(user);
         return new AuthResponse(token, "Bearer", jwtService.getExpirationSeconds(), toProfile(user));
     }
@@ -231,12 +234,14 @@ public class AgentService {
 
                     BigDecimal before = wallet.getAvailableBalance();
                     BigDecimal after = MoneyValues.money(before.add(amount));
+                    BigDecimal promotionalBalance = wallet.getPromotionalBalance();
                     wallet.setAvailableBalance(after);
                     walletRepository.save(wallet);
                     walletTransactionRepository.save(WalletTransaction.create(wallet, operationId,
                             WalletTransactionType.AGENT_FLOAT_TRANSFER_CREDIT, amount, before, after,
+                            promotionalBalance, promotionalBalance,
                             wallet.getCurrency(),
-                            "AGENT_TRANSFER", agent.getId(), request.note(), Instant.now()));
+                            "AGENT_TRANSFER", agent.getId(), request.note(), null, Instant.now()));
                     return toFloatResponse(agentFloat);
                 });
     }
@@ -244,8 +249,12 @@ public class AgentService {
     @Transactional(readOnly = true)
     public AgentPayoutLookupResponse lookupApprovedPayout(BingoUserPrincipal principal, String payoutCode) {
         requireApprovedAgent(principal.getUser().getId());
-        throttleService.requireAllowed("agent-payout-code:" + payoutCode, agentProperties.payoutCodeAttemptLimit(),
-                agentProperties.attemptWindow(), "AGENT_PAYOUT_CODE_RATE_LIMITED", "Too many payout code attempts");
+        throttleService.requireAllowed(
+                "agent-payout-code:" + payoutCode,
+                agentProperties.payoutCodeAttemptLimit(),
+                agentProperties.attemptWindow(),
+                "AGENT_PAYOUT_CODE_RATE_LIMITED",
+                "Too many payout code attempts");
         PrizeEntitlement entitlement = prizeEntitlementRepository.findByPayoutCode(payoutCode)
                 .orElseThrow(() -> new NotFoundException("PAYOUT_CODE_NOT_FOUND", "Payout code not found"));
         if (entitlement.getSettlementPath() != PrizeSettlementPath.AGENT_CASH) {
@@ -263,9 +272,12 @@ public class AgentService {
             AgentPayoutVerificationRequest request,
             String idempotencyKey) {
         Agent agent = requireApprovedAgent(principal.getUser().getId());
-        throttleService.requireAllowed("agent-payout-code:" + request.payoutCode(),
-                agentProperties.payoutCodeAttemptLimit(), agentProperties.attemptWindow(),
-                "AGENT_PAYOUT_CODE_RATE_LIMITED", "Too many payout code attempts");
+        throttleService.requireAllowed(
+                "agent-payout-code:" + request.payoutCode(),
+                agentProperties.payoutCodeAttemptLimit(),
+                agentProperties.attemptWindow(),
+                "AGENT_PAYOUT_CODE_RATE_LIMITED",
+                "Too many payout code attempts");
         verifyPin(agent.getUser(), request.pin());
         String requestHash = requestHashService.hash("POST", "/api/v1/agent/payouts/verify", request);
         String operationId = UUID.randomUUID().toString();

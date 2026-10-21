@@ -50,7 +50,7 @@ jobs:
           java-version: "25"
           cache: maven
 
-      - name: Run Maven verify against MySQL
+      - name: Run Maven verify and OpenAPI contract check against MySQL
         working-directory: bingo-backend
         run: mvn -q verify
 

@@ -40,7 +40,11 @@ class AdminAuthServiceTest {
         userRepository = mock(UserRepository.class);
         passwordEncoder = mock(PasswordEncoder.class);
         jwtService = new JwtService(new JwtProperties("01234567890123456789012345678901", 3600L));
-        service = new AdminAuthService(userRepository, passwordEncoder, jwtService);
+        service = new AdminAuthService(
+                userRepository,
+                passwordEncoder,
+                jwtService,
+                mock(AuthenticationAttemptThrottleService.class));
 
         Instant now = Instant.parse("2026-01-01T00:00:00Z");
         admin = User.create("251911000001", "Admin One", "hash", AccountStatus.ACTIVE, Set.of(UserRole.ADMIN), now);

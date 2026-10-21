@@ -193,7 +193,10 @@ public class WalletTransferService {
         if (senderBefore.compareTo(amount) < 0) {
             throw new ConflictException("INSUFFICIENT_BALANCE", "Wallet balance cannot go below zero");
         }
+
         BigDecimal recipientBefore = lockedRecipientWallet.getAvailableBalance();
+        BigDecimal senderPromotionalBalance = lockedSenderWallet.getPromotionalBalance();
+        BigDecimal recipientPromotionalBalance = lockedRecipientWallet.getPromotionalBalance();
         BigDecimal senderAfter = MoneyValues.money(senderBefore.subtract(amount));
         BigDecimal recipientAfter = MoneyValues.money(recipientBefore.add(amount));
 
@@ -216,14 +219,12 @@ public class WalletTransferService {
                 amount,
                 senderBefore,
                 senderAfter,
+                senderPromotionalBalance,
+                senderPromotionalBalance,
                 lockedSenderWallet.getCurrency(),
                 "WALLET_TRANSFER",
                 transfer.getId(),
                 request.note(),
-                senderBefore,
-                senderAfter,
-                lockedSenderWallet.getPromotionalBalance(),
-                lockedSenderWallet.getPromotionalBalance(),
                 metadataJson,
                 now));
         walletTransactionRepository.save(WalletTransaction.create(
@@ -233,14 +234,12 @@ public class WalletTransferService {
                 amount,
                 recipientBefore,
                 recipientAfter,
+                recipientPromotionalBalance,
+                recipientPromotionalBalance,
                 lockedRecipientWallet.getCurrency(),
                 "WALLET_TRANSFER",
                 transfer.getId(),
                 request.note(),
-                recipientBefore,
-                recipientAfter,
-                lockedRecipientWallet.getPromotionalBalance(),
-                lockedRecipientWallet.getPromotionalBalance(),
                 metadataJson,
                 now));
 

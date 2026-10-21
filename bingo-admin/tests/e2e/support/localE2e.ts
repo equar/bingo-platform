@@ -12,9 +12,7 @@ export interface LocalE2eManifest {
     phoneNumber: string;
     displayName: string;
     primaryPhone?: string;
-    primaryPassword?: string;
     secondaryPhone?: string;
-    secondaryPassword?: string;
     secondaryName?: string;
   };
   deposits?: Array<{
@@ -68,7 +66,14 @@ export async function ensureRunDir() {
 export async function readManifest(): Promise<LocalE2eManifest | null> {
   try {
     const content = await fs.readFile(getManifestPath(), 'utf8');
-    return JSON.parse(content) as LocalE2eManifest;
+    const manifest = JSON.parse(content) as LocalE2eManifest;
+    delete (manifest as LocalE2eManifest & { primaryPassword?: string }).primaryPassword;
+    delete (manifest as LocalE2eManifest & { secondaryPassword?: string }).secondaryPassword;
+    if (manifest.player) {
+      delete (manifest.player as typeof manifest.player & { primaryPassword?: string }).primaryPassword;
+      delete (manifest.player as typeof manifest.player & { secondaryPassword?: string }).secondaryPassword;
+    }
+    return manifest;
   } catch {
     return null;
   }

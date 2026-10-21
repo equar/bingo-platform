@@ -337,7 +337,6 @@ public class BingoGameService {
                     BigDecimal transferableUsed = MoneyValues.money(price.subtract(promotionalUsed));
                     BigDecimal transferableAfter = MoneyValues.money(transferableBefore.subtract(transferableUsed));
                     BigDecimal promotionalAfter = MoneyValues.money(promotionalBefore.subtract(promotionalUsed));
-                    BigDecimal balanceAfter = MoneyValues.money(transferableAfter.add(promotionalAfter));
 
                     wallet.setAvailableBalance(transferableAfter);
                     wallet.setPromotionalBalance(promotionalAfter);
@@ -358,16 +357,14 @@ public class BingoGameService {
                             operationId,
                             WalletTransactionType.TICKET_PURCHASE_DEBIT,
                             price,
-                            balanceBefore,
-                            balanceAfter,
-                            wallet.getCurrency(),
-                            "BINGO_TICKET",
-                            ticket.getId(),
-                            "Bingo ticket purchase",
                             transferableBefore,
                             transferableAfter,
                             promotionalBefore,
                             promotionalAfter,
+                            wallet.getCurrency(),
+                            "BINGO_TICKET",
+                            ticket.getId(),
+                            "Bingo ticket purchase",
                             ticket.getWalletFundingSnapshotJson(),
                             Instant.now()));
 
@@ -557,21 +554,25 @@ public class BingoGameService {
 
         if (entitlement.getSettlementPath() == PrizeSettlementPath.PLAYER_WALLET) {
             Wallet wallet = ensureWallet(entitlement.getClaimant());
-            BigDecimal before = wallet.getAvailableBalance();
-            BigDecimal after = MoneyValues.money(before.add(entitlement.getPrizeAmount()));
-            wallet.setAvailableBalance(after);
+            BigDecimal transferableBefore = wallet.getAvailableBalance();
+            BigDecimal transferableAfter = MoneyValues.money(transferableBefore.add(entitlement.getPrizeAmount()));
+            BigDecimal promotionalBalance = wallet.getPromotionalBalance();
+            wallet.setAvailableBalance(transferableAfter);
             walletRepository.save(wallet);
             walletTransactionRepository.save(WalletTransaction.create(
                     wallet,
                     entitlement.getOperationId(),
                     WalletTransactionType.PRIZE_CREDIT,
                     entitlement.getPrizeAmount(),
-                    before,
-                    after,
+                    transferableBefore,
+                    transferableAfter,
+                    promotionalBalance,
+                    promotionalBalance,
                     wallet.getCurrency(),
                     "PRIZE_ENTITLEMENT",
                     entitlement.getId(),
                     request.settlementNote(),
+                    null,
                     Instant.now()));
         }
 

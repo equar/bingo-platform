@@ -1,5 +1,6 @@
 package com.equar.bingo.backend.feature.agent;
 
+import com.equar.bingo.backend.MySqlIntegrationTest;
 import com.equar.bingo.backend.common.exception.BadRequestException;
 import com.equar.bingo.backend.feature.agent.dto.AgentFloatTransferRequest;
 import com.equar.bingo.backend.feature.agent.dto.AgentPayoutVerificationRequest;
@@ -46,6 +47,7 @@ import com.equar.bingo.backend.feature.wallet.repository.DepositClaimRepository;
 import com.equar.bingo.backend.feature.wallet.repository.IdempotencyRecordRepository;
 import com.equar.bingo.backend.feature.wallet.repository.WalletRepository;
 import com.equar.bingo.backend.feature.wallet.repository.WalletTransactionRepository;
+import com.equar.bingo.backend.feature.wallet.entity.WalletTransaction;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
@@ -65,7 +67,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest
 @ActiveProfiles("test")
-class AgentServiceIntegrationTest {
+class AgentServiceIntegrationTest extends MySqlIntegrationTest {
 
         @Autowired
         AgentService agentService;
@@ -275,6 +277,13 @@ class AgentServiceIntegrationTest {
                 assertEquals(1L, walletTransactionRepository.count());
                 assertEquals(new BigDecimal("10.00"), walletRepository.findByOwnerId(playerUser.getId()).orElseThrow()
                                 .getAvailableBalance());
+                WalletTransaction transaction = walletTransactionRepository.findAll().get(0);
+                assertEquals(new BigDecimal("0.00"), transaction.getBalanceBefore());
+                assertEquals(new BigDecimal("10.00"), transaction.getBalanceAfter());
+                assertEquals(new BigDecimal("0.00"), transaction.getTransferableBalanceBefore());
+                assertEquals(new BigDecimal("10.00"), transaction.getTransferableBalanceAfter());
+                assertEquals(new BigDecimal("0.00"), transaction.getPromotionalBalanceBefore());
+                assertEquals(new BigDecimal("0.00"), transaction.getPromotionalBalanceAfter());
                 assertEquals(1, agentService.getFloatHistory(agentPrincipal).size());
         }
 

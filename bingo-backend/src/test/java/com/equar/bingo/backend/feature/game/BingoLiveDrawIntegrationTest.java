@@ -1,5 +1,6 @@
 package com.equar.bingo.backend.feature.game;
 
+import com.equar.bingo.backend.MySqlIntegrationTest;
 import com.equar.bingo.backend.feature.auth.dto.LoginRequest;
 import com.equar.bingo.backend.feature.auth.service.BingoUserPrincipal;
 import com.equar.bingo.backend.feature.auth.service.EthiopianPhoneNormalizer;
@@ -90,7 +91,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Import(BingoLiveDrawIntegrationTest.TestMessagingConfig.class)
-class BingoLiveDrawIntegrationTest {
+class BingoLiveDrawIntegrationTest extends MySqlIntegrationTest {
 
         @LocalServerPort
         int port;

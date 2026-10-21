@@ -75,8 +75,6 @@ public class SignupRewardService {
         BigDecimal rewardAmount = MoneyValues.money(policy.getRewardAmount());
         BigDecimal promotionalBefore = wallet.getPromotionalBalance();
         BigDecimal promotionalAfter = MoneyValues.money(promotionalBefore.add(rewardAmount));
-        BigDecimal totalBefore = wallet.getTotalBalance();
-        BigDecimal totalAfter = MoneyValues.money(totalBefore.add(rewardAmount));
         wallet.setPromotionalBalance(promotionalAfter);
         walletRepository.save(wallet);
 
@@ -90,16 +88,14 @@ public class SignupRewardService {
                 operationId,
                 WalletTransactionType.SIGNUP_REWARD_CREDIT,
                 rewardAmount,
-                totalBefore,
-                totalAfter,
-                wallet.getCurrency(),
-                "SIGNUP_REWARD",
-                grant.getId(),
-                policy.getReason(),
                 wallet.getAvailableBalance(),
                 wallet.getAvailableBalance(),
                 promotionalBefore,
                 promotionalAfter,
+                wallet.getCurrency(),
+                "SIGNUP_REWARD",
+                grant.getId(),
+                policy.getReason(),
                 null,
                 now));
     }

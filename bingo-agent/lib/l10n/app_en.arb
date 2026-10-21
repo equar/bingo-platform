@@ -1,0 +1,154 @@
+{
+  "@@locale": "en",
+  "appTitle": "Bingo Agent",
+  "loginTitle": "Agent login",
+  "passwordLabel": "Password",
+  "pinLabel": "PIN",
+  "phoneLabel": "Phone number",
+  "signIn": "Sign in",
+  "logout": "Logout",
+  "loading": "Loading…",
+  "offline": "Offline",
+  "online": "Online",
+  "dashboardTitle": "Dashboard",
+  "playersTitle": "Players",
+  "ticketsTitle": "Tickets",
+  "walletTitle": "Wallet",
+  "payoutsTitle": "Payouts",
+  "floatTitle": "Float",
+  "supportTitle": "Support",
+  "historyTitle": "History",
+  "connectionLost": "Connection lost",
+  "financialActionDisabled": "Financial actions are disabled offline",
+  "missingApiBaseUrlTitle": "Missing API URL",
+  "missingApiBaseUrlBody": "Configure the backend base URL with {label}.",
+  "@missingApiBaseUrlBody": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "requiredField": "This field is required.",
+  "signInFailed": "Sign-in failed. Check your details and try again.",
+  "requestFailed": "Request failed. Check your connection and try again.",
+  "availableFloat": "Available float",
+  "clearingFloat": "Clearing float",
+  "ticketsSold": "Tickets sold",
+  "commissions": "Commissions",
+  "pendingTopUps": "Pending top-ups",
+  "floatHistoryTitle": "Float history",
+  "availableBalance": "Available: {amount} {currency}",
+  "@availableBalance": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "currency": {
+        "type": "String"
+      }
+    }
+  },
+  "requestFloatTopUp": "Request float top-up",
+  "topUpAmount": "Amount",
+  "topUpNote": "Note",
+  "optional": "Optional",
+  "confirmTopUpTitle": "Confirm top-up request",
+  "confirmTopUpBody": "Request {amount} {currency} for your agent float?",
+  "@confirmTopUpBody": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "currency": {
+        "type": "String"
+      }
+    }
+  },
+  "cancel": "Cancel",
+  "confirm": "Confirm",
+  "submitRequest": "Submit request",
+  "positiveAmountRequired": "Enter an amount greater than zero.",
+  "topUpRequestSubmitted": "Top-up request submitted for admin review.",
+  "topUpRequestFailed": "Could not submit the request. Retry to safely check the same request.",
+  "topUpRequests": "Top-up requests",
+  "pending": "Pending",
+  "approved": "Approved",
+  "rejected": "Rejected",
+  "submittedAt": "Submitted {date}",
+  "@submittedAt": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "financialHistoryTitle": "Financial history",
+  "filterByType": "Transaction type",
+  "filterByStatus": "Status",
+  "filterByDate": "Date range",
+  "allTypes": "All types",
+  "allStatuses": "All statuses",
+  "anyDate": "Any date",
+  "clearFilters": "Clear filters",
+  "noTransactions": "No transactions match these filters.",
+  "transactionDetails": "Transaction details",
+  "transactionTypeLabel": "Transaction type",
+  "transactionAmount": "Amount",
+  "transactionDate": "Date and time",
+  "transactionStatus": "Status",
+  "transactionReference": "Reference",
+  "counterparty": "Counterparty",
+  "relatedRecord": "Related record",
+  "noCounterparty": "Not available",
+  "close": "Close",
+  "completed": "Completed",
+  "accrued": "Accrued",
+  "settled": "Settled",
+  "openingBalance": "Opening balance",
+  "floatTopUp": "Float top-up",
+  "ticketSale": "Ticket sale",
+  "playerWalletTopUp": "Player wallet top-up",
+  "payoutDisbursement": "Payout disbursement",
+  "payoutClearing": "Payout clearing",
+  "commissionCredit": "Commission payout",
+  "manualAdjustment": "Manual adjustment",
+  "otherTransaction": "Other transaction",
+  "commissionAccrual": "Commission accrued",
+  "floatTopUpRequest": "Float top-up request",
+  "playerLookupRegistration": "Fast player lookup and registration",
+  "displayName": "Display name",
+  "lookup": "Lookup",
+  "register": "Register",
+  "playerWalletTopUpTitle": "Player wallet top-up",
+  "playerPhone": "Player phone",
+  "topUp": "Top up",
+  "serverBalance": "Server balance: {amount}",
+  "@serverBalance": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "approvedAgentCashPayout": "Approved agent cash payout",
+  "payoutCode": "Payout code",
+  "verifyAndDisburse": "Verify and disburse",
+  "ticketSaleTitle": "Ticket sale",
+  "sessionId": "Session ID",
+  "sellTicket": "Sell ticket",
+  "publicTicketCode": "Public ticket code",
+  "supportTickets": "Support tickets",
+  "availableCommission": "Commission amount",
+  "commissionAmountValue": "Commission: {amount}",
+  "@commissionAmountValue": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "enterAmount": "Enter an amount",
+  "retry": "Retry",
+  "noData": "No records found."
+}

@@ -1,5 +1,6 @@
 package com.equar.bingo.backend.feature.support;
 
+import com.equar.bingo.backend.MySqlIntegrationTest;
 import com.equar.bingo.backend.feature.auth.dto.LoginRequest;
 import com.equar.bingo.backend.feature.auth.service.EthiopianPhoneNormalizer;
 import com.equar.bingo.backend.feature.support.dto.SupportTicketCreateRequest;
@@ -42,7 +43,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-class SupportIntegrationTest {
+class SupportIntegrationTest extends MySqlIntegrationTest {
 
         @Autowired
         MockMvc mockMvc;

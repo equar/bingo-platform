@@ -40,3 +40,9 @@ The React admin now includes agents and call-center support screens, but a few r
 - Support ticket assignee filtering and dashboard priority totals are not available as aggregate backend endpoints, so the UI derives them from the loaded page.
 
 The session live draw page also expects the existing websocket transport used by the backend session feed.
+
+## Playwright E2E credentials
+
+The Playwright specs require `BINGO_E2E_ADMIN_EMAIL`, `BINGO_E2E_ADMIN_PASSWORD`, and `BINGO_E2E_PRIMARY_PHONE` from the test environment; they do not contain fallback accounts or passwords. `BINGO_E2E_BACKEND_URL` and `BINGO_E2E_ADMIN_URL` can override the local service URLs. The tracked `.env.example` contains placeholders only and is not automatically loaded by Playwright. Supply the values through your shell environment or CI secret store. Do not print secrets in CI steps, and keep traces disabled for credential-bearing runs.
+
+If a credential used by an earlier E2E configuration was real or reused, rotate it before running tests or deploying.

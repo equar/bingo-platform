@@ -7,6 +7,9 @@ import com.equar.bingo.backend.feature.auth.dto.RegisterRequest;
 import com.equar.bingo.backend.feature.auth.service.AuthService;
 import com.equar.bingo.backend.feature.auth.service.BingoUserPrincipal;
 import jakarta.validation.Valid;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -27,11 +30,16 @@ public class AuthController {
     }
 
     @PostMapping("/register")
+    @Operation
+    @SecurityRequirements
+    @ApiResponse(responseCode = "201", description = "Player account created", useReturnTypeSchema = true)
     public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(authService.register(request));
     }
 
     @PostMapping("/login")
+    @Operation
+    @SecurityRequirements
     public AuthResponse login(@Valid @RequestBody LoginRequest request) {
         return authService.login(request);
     }

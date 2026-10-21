@@ -1,6 +1,6 @@
 import 'package:bingo_agent/src/features/auth/data/auth_models.dart';
 import 'package:bingo_agent/src/features/auth/data/auth_session_controller.dart';
-import 'package:bingo_agent/src/l10n/app_localizations.dart';
+import 'package:bingo_agent/src/l10n/generated/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -43,8 +43,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
               pin: _pinController.text.trim(),
             ),
           );
-    } catch (error) {
-      setState(() => _error = error.toString());
+    } catch (_) {
+      setState(() => _error = AppLocalizations.of(context)!.signInFailed);
     } finally {
       if (mounted) {
         setState(() => _busy = false);
@@ -54,7 +54,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       body: Center(
         child: SingleChildScrollView(
@@ -69,37 +69,52 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Text(l10n.appTitle, style: Theme.of(context).textTheme.headlineMedium),
+                      Text(l10n.appTitle,
+                          style: Theme.of(context).textTheme.headlineMedium),
                       const SizedBox(height: 8),
                       Text(l10n.loginTitle),
                       const SizedBox(height: 20),
                       TextFormField(
                         controller: _phoneController,
                         decoration: InputDecoration(labelText: l10n.phoneLabel),
-                        validator: (value) => (value == null || value.trim().isEmpty) ? 'Required' : null,
+                        validator: (value) =>
+                            (value == null || value.trim().isEmpty)
+                                ? l10n.requiredField
+                                : null,
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: _passwordController,
-                        decoration: InputDecoration(labelText: l10n.passwordLabel),
+                        decoration:
+                            InputDecoration(labelText: l10n.passwordLabel),
                         obscureText: true,
-                        validator: (value) => (value == null || value.length < 8) ? 'Required' : null,
+                        validator: (value) =>
+                            (value == null || value.length < 8)
+                                ? l10n.requiredField
+                                : null,
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: _pinController,
                         decoration: InputDecoration(labelText: l10n.pinLabel),
                         keyboardType: TextInputType.number,
-                        validator: (value) => (value == null || value.trim().length < 4) ? 'Required' : null,
+                        validator: (value) =>
+                            (value == null || value.trim().length < 4)
+                                ? l10n.requiredField
+                                : null,
                       ),
                       if (_error != null) ...[
                         const SizedBox(height: 12),
-                        Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                        Text(_error!,
+                            style: TextStyle(
+                                color: Theme.of(context).colorScheme.error)),
                       ],
                       const SizedBox(height: 20),
                       FilledButton(
                         onPressed: _busy ? null : _submit,
-                        child: _busy ? const CircularProgressIndicator.adaptive() : Text(l10n.signIn),
+                        child: _busy
+                            ? const CircularProgressIndicator.adaptive()
+                            : Text(l10n.signIn),
                       ),
                     ],
                   ),
