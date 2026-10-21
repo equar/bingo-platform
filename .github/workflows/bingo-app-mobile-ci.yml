@@ -1,9 +1,10 @@
-name: Bingo App Mobile CI
+name: Flutter Apps CI
 
 on:
   pull_request:
     paths:
       - bingo-app/**
+      - bingo-agent/**
       - .github/workflows/bingo-app-mobile-ci.yml
   workflow_dispatch:
 
@@ -16,15 +17,20 @@ concurrency:
 
 jobs:
   validate:
-    name: Analyze, test, and build the Flutter app
+    name: ${{ matrix.app }} on Flutter ${{ matrix.flutter_version }}
     runs-on: ubuntu-latest
     timeout-minutes: 40
     defaults:
       run:
         shell: bash
-        working-directory: bingo-app
+        working-directory: ${{ matrix.app }}
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [bingo-app, bingo-agent]
+        flutter_version: ['3.38.4', '3.47.7']
     env:
-      MOBILE_API_BASE_URL: http://127.0.0.1:8080
+      MOBILE_API_BASE_URL: https://api.example.invalid
     steps:
       - name: Check out repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -32,11 +38,14 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@f2c4f6686ca8e8d6e6d0f28410eeef506ed66aff
         with:
-          flutter-version: 3.47.7
+          flutter-version: ${{ matrix.flutter_version }}
           channel: stable
 
       - name: Install dependencies
-        run: flutter pub get
+        run: flutter pub get --enforce-lockfile
+
+      - name: Generate localizations
+        run: flutter gen-l10n
 
       - name: Analyze the app
         run: flutter analyze
@@ -45,4 +54,5 @@ jobs:
         run: flutter test
 
       - name: Build Android release bundle
+        if: matrix.app == 'bingo-app' && matrix.flutter_version == '3.47.7'
         run: flutter build appbundle --release --dart-define=API_BASE_URL="${MOBILE_API_BASE_URL}"

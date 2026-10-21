@@ -7,11 +7,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bingo_app/l10n/app_localizations.dart';
 
 class BingoApp extends StatelessWidget {
-  const BingoApp({super.key});
+  const BingoApp({super.key, this.config});
+
+  final AppConfig? config;
 
   @override
   Widget build(BuildContext context) {
-    return const ProviderScope(child: _BingoAppView());
+    return ProviderScope(
+      overrides: config == null
+          ? const []
+          : [appConfigProvider.overrideWithValue(config!)],
+      child: const _BingoAppView(),
+    );
   }
 }
 
@@ -38,17 +45,17 @@ class _BingoAppView extends ConsumerWidget {
         GlobalWidgetsLocalizations.delegate,
       ],
       supportedLocales: AppLocalizations.supportedLocales,
-      home: appConfig.apiBaseUrl.isEmpty
-          ? _MissingConfigView(apiBaseUrlLabel: appConfig.apiBaseUrlLabel)
+      home: !appConfig.isValid
+          ? _MissingConfigView(problem: appConfig.problem!)
           : const AuthGate(),
     );
   }
 }
 
 class _MissingConfigView extends StatelessWidget {
-  const _MissingConfigView({required this.apiBaseUrlLabel});
+  const _MissingConfigView({required this.problem});
 
-  final String apiBaseUrlLabel;
+  final ApiBaseUrlProblem problem;
 
   @override
   Widget build(BuildContext context) {
@@ -63,10 +70,18 @@ class _MissingConfigView extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(localizations.missingApiBaseUrlTitle,
-                    style: Theme.of(context).textTheme.headlineSmall),
+                Text(
+                  problem == ApiBaseUrlProblem.missing
+                      ? localizations.missingApiBaseUrlTitle
+                      : localizations.invalidApiBaseUrlTitle,
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
                 const SizedBox(height: 12),
-                Text(localizations.missingApiBaseUrlBody),
+                Text(
+                  problem == ApiBaseUrlProblem.missing
+                      ? localizations.missingApiBaseUrlBody
+                      : localizations.invalidApiBaseUrlBody,
+                ),
               ],
             ),
           ),

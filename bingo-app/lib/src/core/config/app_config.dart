@@ -6,43 +6,56 @@ final appConfigProvider = Provider<AppConfig>((ref) {
 });
 
 class AppConfig {
-  const AppConfig({required this.apiBaseUrl, required this.apiBaseUrlLabel});
+  const AppConfig({
+    required String apiBaseUrl,
+    required this.apiBaseUrlLabel,
+    this.isProduction = false,
+  }) : _apiBaseUrl = apiBaseUrl;
 
   AppConfig.fromEnvironment()
-      : apiBaseUrl = _resolveApiBaseUrl(),
-        apiBaseUrlLabel = 'API_BASE_URL';
+    : this(
+        apiBaseUrl: const String.fromEnvironment('API_BASE_URL'),
+        apiBaseUrlLabel: 'API_BASE_URL',
+        isProduction: !kDebugMode,
+      );
 
-  static String _resolveApiBaseUrl() {
-    const configuredApiBaseUrl = String.fromEnvironment('API_BASE_URL');
-    if (configuredApiBaseUrl.isNotEmpty) {
-      return configuredApiBaseUrl;
+  final String _apiBaseUrl;
+  final String apiBaseUrlLabel;
+  final bool isProduction;
+
+  String get apiBaseUrl => _apiBaseUrl.trim();
+
+  ApiBaseUrlProblem? get problem {
+    final baseUrl = apiBaseUrl;
+    if (baseUrl.isEmpty) {
+      return ApiBaseUrlProblem.missing;
     }
 
-    if (kIsWeb) {
-      return 'http://localhost:8080';
+    final uri = Uri.tryParse(baseUrl);
+    if (uri == null || !uri.hasAuthority || uri.host.isEmpty) {
+      return ApiBaseUrlProblem.invalid;
     }
 
-    switch (defaultTargetPlatform) {
-      case TargetPlatform.android:
-        return 'http://10.0.2.2:8080';
-      case TargetPlatform.iOS:
-      case TargetPlatform.macOS:
-      case TargetPlatform.windows:
-      case TargetPlatform.linux:
-        return 'http://localhost:8080';
-      case TargetPlatform.fuchsia:
-        return '';
+    if (uri.scheme != 'http' && uri.scheme != 'https') {
+      return ApiBaseUrlProblem.unsupportedScheme;
     }
+
+    if (isProduction && _isLoopback(uri.host)) {
+      return ApiBaseUrlProblem.productionLoopback;
+    }
+    if (isProduction && uri.scheme != 'https') {
+      return ApiBaseUrlProblem.productionRequiresHttps;
+    }
+    return null;
   }
 
-  final String apiBaseUrl;
-  final String apiBaseUrlLabel;
+  bool get isValid => problem == null;
 
   Uri? get apiBaseUri {
-    if (apiBaseUrl.isEmpty) {
+    if (!isValid) {
       return null;
     }
-    return Uri.tryParse(apiBaseUrl);
+    return Uri.parse(apiBaseUrl);
   }
 
   Uri? get liveGameWebSocketUri {
@@ -58,4 +71,26 @@ class AppConfig {
       queryParameters: null,
     );
   }
+
+  static bool _isLoopback(String host) {
+    final normalizedHost = host
+        .toLowerCase()
+        .replaceAll(RegExp(r'^\[|\]$'), '')
+        .replaceFirst(RegExp(r'\.$'), '');
+    return normalizedHost == 'localhost' ||
+        normalizedHost.endsWith('.localhost') ||
+        normalizedHost == '127.0.0.1' ||
+        normalizedHost.startsWith('127.') ||
+        normalizedHost == '::1' ||
+        normalizedHost == '0.0.0.0' ||
+        normalizedHost == '10.0.2.2';
+  }
+}
+
+enum ApiBaseUrlProblem {
+  missing,
+  invalid,
+  unsupportedScheme,
+  productionLoopback,
+  productionRequiresHttps,
 }
