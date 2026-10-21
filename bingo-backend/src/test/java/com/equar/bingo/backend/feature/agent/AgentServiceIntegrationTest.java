@@ -47,6 +47,7 @@ import com.equar.bingo.backend.feature.wallet.repository.DepositClaimRepository;
 import com.equar.bingo.backend.feature.wallet.repository.IdempotencyRecordRepository;
 import com.equar.bingo.backend.feature.wallet.repository.WalletRepository;
 import com.equar.bingo.backend.feature.wallet.repository.WalletTransactionRepository;
+import com.equar.bingo.backend.feature.wallet.entity.WalletTransaction;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
@@ -276,6 +277,13 @@ class AgentServiceIntegrationTest extends MySqlIntegrationTest {
                 assertEquals(1L, walletTransactionRepository.count());
                 assertEquals(new BigDecimal("10.00"), walletRepository.findByOwnerId(playerUser.getId()).orElseThrow()
                                 .getAvailableBalance());
+                WalletTransaction transaction = walletTransactionRepository.findAll().get(0);
+                assertEquals(new BigDecimal("0.00"), transaction.getBalanceBefore());
+                assertEquals(new BigDecimal("10.00"), transaction.getBalanceAfter());
+                assertEquals(new BigDecimal("0.00"), transaction.getTransferableBalanceBefore());
+                assertEquals(new BigDecimal("10.00"), transaction.getTransferableBalanceAfter());
+                assertEquals(new BigDecimal("0.00"), transaction.getPromotionalBalanceBefore());
+                assertEquals(new BigDecimal("0.00"), transaction.getPromotionalBalanceAfter());
                 assertEquals(1, agentService.getFloatHistory(agentPrincipal).size());
         }
 

@@ -250,9 +250,29 @@ class BingoGameIntegrationTest extends MySqlIntegrationTest {
                 String playerToken = loginToken("0911000202", "123456");
                 String adminToken = loginToken("0911000201", "123456");
 
+                Wallet ticketWalletBefore = walletRepository.findByOwnerId(playerOne.getId()).orElseThrow();
+                ticketWalletBefore.setPromotionalBalance(new BigDecimal("5.00"));
+                walletRepository.save(ticketWalletBefore);
+                BigDecimal transferableBeforeTicket = ticketWalletBefore.getAvailableBalance();
+                BigDecimal promotionalBeforeTicket = ticketWalletBefore.getPromotionalBalance();
+                BigDecimal totalBeforeTicket = transferableBeforeTicket.add(promotionalBeforeTicket);
+
                 IdempotentResult<TicketPurchaseResponse> purchase = bingoGameService.purchaseTicket(session.id(),
                                 playerPrincipal, "ticket-1");
                 Ticket ticket = ticketRepository.findById(purchase.body().ticket().id()).orElseThrow();
+                Wallet ticketWalletAfter = walletRepository.findByOwnerId(playerOne.getId()).orElseThrow();
+                WalletTransaction ticketTransaction = walletTransactionRepository.findAll().stream()
+                                .filter(transaction -> transaction.getTransactionType()
+                                                == WalletTransactionType.TICKET_PURCHASE_DEBIT)
+                                .findFirst().orElseThrow();
+                assertEquals(transferableBeforeTicket, ticketTransaction.getTransferableBalanceBefore());
+                assertEquals(ticketWalletAfter.getAvailableBalance(),
+                                ticketTransaction.getTransferableBalanceAfter());
+                assertEquals(promotionalBeforeTicket, ticketTransaction.getPromotionalBalanceBefore());
+                assertEquals(ticketWalletAfter.getPromotionalBalance(),
+                                ticketTransaction.getPromotionalBalanceAfter());
+                assertEquals(totalBeforeTicket, ticketTransaction.getBalanceBefore());
+                assertEquals(ticketWalletAfter.getTotalBalance(), ticketTransaction.getBalanceAfter());
 
                 String purchaseAgainJson = mockMvc.perform(post("/api/v1/sessions/" + session.id() + "/tickets")
                                 .header("Authorization", "Bearer " + playerToken)
@@ -301,10 +321,24 @@ class BingoGameIntegrationTest extends MySqlIntegrationTest {
                 var entitlement = prizeEntitlementRepository.findAll().get(0);
                 assertEquals(PrizeEntitlementStatus.PENDING, entitlement.getStatus());
 
+                Wallet walletBeforePrize = walletRepository.findByOwnerId(playerOne.getId()).orElseThrow();
+                BigDecimal transferableBeforePrize = walletBeforePrize.getAvailableBalance();
+                BigDecimal promotionalBeforePrize = walletBeforePrize.getPromotionalBalance();
                 bingoGameService.settleEntitlement(entitlement.getId(), adminPrincipal,
                                 new PrizeEntitlementSettlementRequest("SETTLEMENT-1", "wallet payout"));
                 Wallet wallet = walletRepository.findByOwnerId(playerOne.getId()).orElseThrow();
-                assertEquals(new BigDecimal("1006.00"), wallet.getAvailableBalance());
+                assertEquals(new BigDecimal("1010.00"), wallet.getAvailableBalance());
+                WalletTransaction prizeTransaction = walletTransactionRepository.findAll().stream()
+                                .filter(transaction -> transaction.getTransactionType()
+                                                == WalletTransactionType.PRIZE_CREDIT)
+                                .findFirst().orElseThrow();
+                assertEquals(transferableBeforePrize, prizeTransaction.getTransferableBalanceBefore());
+                assertEquals(wallet.getAvailableBalance(), prizeTransaction.getTransferableBalanceAfter());
+                assertEquals(promotionalBeforePrize, prizeTransaction.getPromotionalBalanceBefore());
+                assertEquals(promotionalBeforePrize, prizeTransaction.getPromotionalBalanceAfter());
+                assertEquals(transferableBeforePrize.add(promotionalBeforePrize),
+                                prizeTransaction.getBalanceBefore());
+                assertEquals(wallet.getTotalBalance(), prizeTransaction.getBalanceAfter());
 
                 assertThrows(Exception.class,
                                 () -> bingoGameService.settleEntitlement(entitlement.getId(), adminPrincipal,

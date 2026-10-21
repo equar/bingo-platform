@@ -13,6 +13,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.Objects;
 
 @Entity
 @Table(name = "wallet_transactions")
@@ -79,40 +80,28 @@ public class WalletTransaction {
             String operationId,
             WalletTransactionType transactionType,
             BigDecimal amount,
-            BigDecimal balanceBefore,
-            BigDecimal balanceAfter,
-            String currency,
-            String referenceType,
-            Long referenceId,
-            String note,
-            Instant createdAt) {
-        return create(wallet, operationId, transactionType, amount, balanceBefore, balanceAfter, currency,
-                referenceType, referenceId, note, null, null, null, null, null, createdAt);
-    }
-
-    public static WalletTransaction create(Wallet wallet,
-            String operationId,
-            WalletTransactionType transactionType,
-            BigDecimal amount,
-            BigDecimal balanceBefore,
-            BigDecimal balanceAfter,
-            String currency,
-            String referenceType,
-            Long referenceId,
-            String note,
             BigDecimal transferableBalanceBefore,
             BigDecimal transferableBalanceAfter,
             BigDecimal promotionalBalanceBefore,
             BigDecimal promotionalBalanceAfter,
+            String currency,
+            String referenceType,
+            Long referenceId,
+            String note,
             String metadataJson,
             Instant createdAt) {
+        Objects.requireNonNull(transferableBalanceBefore, "transferableBalanceBefore");
+        Objects.requireNonNull(transferableBalanceAfter, "transferableBalanceAfter");
+        Objects.requireNonNull(promotionalBalanceBefore, "promotionalBalanceBefore");
+        Objects.requireNonNull(promotionalBalanceAfter, "promotionalBalanceAfter");
+
         WalletTransaction transaction = new WalletTransaction();
         transaction.wallet = wallet;
         transaction.operationId = operationId;
         transaction.transactionType = transactionType;
         transaction.amount = amount;
-        transaction.balanceBefore = balanceBefore;
-        transaction.balanceAfter = balanceAfter;
+        transaction.balanceBefore = transferableBalanceBefore.add(promotionalBalanceBefore);
+        transaction.balanceAfter = transferableBalanceAfter.add(promotionalBalanceAfter);
         transaction.currency = currency;
         transaction.referenceType = referenceType;
         transaction.referenceId = referenceId;

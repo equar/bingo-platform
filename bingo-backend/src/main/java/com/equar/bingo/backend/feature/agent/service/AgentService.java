@@ -234,12 +234,14 @@ public class AgentService {
 
                     BigDecimal before = wallet.getAvailableBalance();
                     BigDecimal after = MoneyValues.money(before.add(amount));
+                    BigDecimal promotionalBalance = wallet.getPromotionalBalance();
                     wallet.setAvailableBalance(after);
                     walletRepository.save(wallet);
                     walletTransactionRepository.save(WalletTransaction.create(wallet, operationId,
                             WalletTransactionType.AGENT_FLOAT_TRANSFER_CREDIT, amount, before, after,
+                            promotionalBalance, promotionalBalance,
                             wallet.getCurrency(),
-                            "AGENT_TRANSFER", agent.getId(), request.note(), Instant.now()));
+                            "AGENT_TRANSFER", agent.getId(), request.note(), null, Instant.now()));
                     return toFloatResponse(agentFloat);
                 });
     }

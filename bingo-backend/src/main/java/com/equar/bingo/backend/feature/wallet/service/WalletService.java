@@ -181,31 +181,31 @@ public class WalletService {
                     }
 
                     Wallet wallet = lockWalletForUpdate(claim.getPlayer());
-                    BigDecimal balanceBefore = wallet.getAvailableBalance();
-                    BigDecimal balanceAfter = MoneyValues.money(balanceBefore.add(claim.getCalculatedCreditAmount()));
+                    BigDecimal transferableBefore = wallet.getAvailableBalance();
+                    BigDecimal transferableAfter = MoneyValues.money(
+                            transferableBefore.add(claim.getCalculatedCreditAmount()));
+                    BigDecimal promotionalBalance = wallet.getPromotionalBalance();
 
                     claim.setStatus(DepositClaimStatus.APPROVED);
                     claim.setReviewedBy(reviewer);
                     claim.setReviewedAt(Instant.now());
                     claim.setReviewNote(request.reviewNote());
 
-                    wallet.setAvailableBalance(balanceAfter);
+                    wallet.setAvailableBalance(transferableAfter);
                     walletRepository.save(wallet);
                     walletTransactionRepository.save(WalletTransaction.create(
                             wallet,
                             operationId,
                             WalletTransactionType.DEPOSIT_CREDIT,
                             claim.getCalculatedCreditAmount(),
-                            balanceBefore,
-                            balanceAfter,
+                            transferableBefore,
+                            transferableAfter,
+                            promotionalBalance,
+                            promotionalBalance,
                             wallet.getCurrency(),
                             "DEPOSIT_CLAIM",
                             claim.getId(),
                             request.reviewNote(),
-                            balanceBefore,
-                            balanceAfter,
-                            wallet.getPromotionalBalance(),
-                            wallet.getPromotionalBalance(),
                             null,
                             Instant.now()));
 
@@ -272,30 +272,29 @@ public class WalletService {
                     }
 
                     Wallet wallet = lockWalletForUpdate(player);
-                    BigDecimal balanceBefore = wallet.getAvailableBalance();
+                    BigDecimal transferableBefore = wallet.getAvailableBalance();
+                    BigDecimal promotionalBalance = wallet.getPromotionalBalance();
                     BigDecimal amount = MoneyValues.money(request.amount());
-                    BigDecimal balanceAfter = MoneyValues.money(balanceBefore.add(amount));
-                    if (balanceAfter.compareTo(BigDecimal.ZERO) < 0) {
+                    BigDecimal transferableAfter = MoneyValues.money(transferableBefore.add(amount));
+                    if (transferableAfter.compareTo(BigDecimal.ZERO) < 0) {
                         throw new ConflictException("INSUFFICIENT_BALANCE", "Wallet balance cannot go below zero");
                     }
 
-                    wallet.setAvailableBalance(balanceAfter);
+                    wallet.setAvailableBalance(transferableAfter);
                     walletRepository.save(wallet);
                     walletTransactionRepository.save(WalletTransaction.create(
                             wallet,
                             operationId,
                             WalletTransactionType.WALLET_ADJUSTMENT,
                             amount,
-                            balanceBefore,
-                            balanceAfter,
+                            transferableBefore,
+                            transferableAfter,
+                            promotionalBalance,
+                            promotionalBalance,
                             wallet.getCurrency(),
                             "WALLET_ADJUSTMENT",
                             player.getId(),
                             request.reason(),
-                            balanceBefore,
-                            balanceAfter,
-                            wallet.getPromotionalBalance(),
-                            wallet.getPromotionalBalance(),
                             null,
                             Instant.now()));
 
@@ -304,8 +303,8 @@ public class WalletService {
                             wallet.getId(),
                             player.getId(),
                             amount,
-                            balanceBefore,
-                            balanceAfter,
+                            transferableBefore,
+                            transferableAfter,
                             request.reason(),
                             Instant.now());
                 });

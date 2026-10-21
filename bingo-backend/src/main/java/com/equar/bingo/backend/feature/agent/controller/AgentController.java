@@ -9,6 +9,9 @@ import com.equar.bingo.backend.feature.auth.dto.UserProfileResponse;
 import com.equar.bingo.backend.feature.auth.service.BingoUserPrincipal;
 import com.equar.bingo.backend.feature.game.dto.TicketPurchaseResponse;
 import jakarta.validation.Valid;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import java.util.List;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
@@ -36,6 +39,8 @@ public class AgentController {
     }
 
     @PostMapping("/login")
+    @Operation
+    @SecurityRequirements
     public AuthResponse login(@Valid @RequestBody AgentLoginRequest request) {
         return agentService.login(request);
     }
@@ -60,6 +65,7 @@ public class AgentController {
 
     @PostMapping("/tickets")
     @PreAuthorize("hasRole('AGENT')")
+    @ApiResponse(responseCode = "201", description = "Ticket sold", useReturnTypeSchema = true)
     public ResponseEntity<TicketPurchaseResponse> sellTicket(@AuthenticationPrincipal BingoUserPrincipal principal,
             @RequestHeader("Idempotency-Key") String idempotencyKey,
             @Valid @RequestBody AgentTicketSaleRequest request) {
@@ -108,6 +114,7 @@ public class AgentController {
 
     @PostMapping("/float-top-up-requests")
     @PreAuthorize("hasRole('AGENT')")
+    @ApiResponse(responseCode = "201", description = "Float top-up request created", useReturnTypeSchema = true)
     public ResponseEntity<FloatTopUpRequestResponse> submitTopUp(
             @AuthenticationPrincipal BingoUserPrincipal principal,
             @RequestHeader("Idempotency-Key") String idempotencyKey,

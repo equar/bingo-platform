@@ -6,6 +6,8 @@ import com.equar.bingo.backend.feature.auth.dto.AuthResponse;
 import com.equar.bingo.backend.feature.auth.service.AdminAuthService;
 import com.equar.bingo.backend.feature.auth.service.BingoUserPrincipal;
 import jakarta.validation.Valid;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -24,6 +26,8 @@ public class AdminAuthController {
     }
 
     @PostMapping("/login")
+    @Operation
+    @SecurityRequirements
     public AuthResponse login(@Valid @RequestBody AdminLoginRequest request) {
         return adminAuthService.login(request);
     }

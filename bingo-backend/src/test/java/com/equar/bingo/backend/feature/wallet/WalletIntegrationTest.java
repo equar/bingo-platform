@@ -262,6 +262,10 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
                                 .andExpect(jsonPath("$.currency").value("ETB"))
                                 .andExpect(jsonPath("$.availableBalance").value(0));
 
+                Wallet walletBeforeDeposit = walletRepository.findByOwnerId(playerUser.getId()).orElseThrow();
+                walletBeforeDeposit.setPromotionalBalance(new BigDecimal("12.00"));
+                walletRepository.save(walletBeforeDeposit);
+
                 String approveResponse = mockMvc.perform(post("/api/v1/admin/deposits/" + depositId + "/approve")
                                 .header("Authorization", "Bearer " + adminToken)
                                 .header("Idempotency-Key", "approve-1")
@@ -290,6 +294,52 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
 
                 Wallet wallet = walletRepository.findByOwnerId(playerUser.getId()).orElseThrow();
                 assertEquals(new BigDecimal("100.00"), wallet.getAvailableBalance());
+                WalletTransaction depositTransaction = walletTransactionRepository.findAll().stream()
+                                .filter(transaction -> transaction.getTransactionType()
+                                                == WalletTransactionType.DEPOSIT_CREDIT)
+                                .findFirst().orElseThrow();
+                assertWalletSnapshot(depositTransaction, "0.00", "100.00", "12.00", "12.00");
+        }
+
+        @Test
+        void malformedDepositRequestsReturnStructuredBadRequests() throws Exception {
+                String playerToken = loginToken("0911000102", "123456");
+                String validRequest = objectMapper.writeValueAsString(
+                                new DepositClaimRequest(new BigDecimal("20.00"), "ETB", "TBR-400-TEST"));
+
+                mockMvc.perform(post("/api/v1/wallet/deposits")
+                                .header("Authorization", "Bearer " + playerToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(validRequest))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.code").value("MISSING_REQUIRED_HEADER"))
+                                .andExpect(jsonPath("$.status").value(400))
+                                .andExpect(jsonPath("$.path").value("/api/v1/wallet/deposits"))
+                                .andExpect(jsonPath("$.details[0].field").value("Idempotency-Key"));
+
+                mockMvc.perform(post("/api/v1/wallet/deposits")
+                                .header("Authorization", "Bearer " + playerToken)
+                                .header("Idempotency-Key", "malformed-body")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{"))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.code").value("INVALID_REQUEST_BODY"))
+                                .andExpect(jsonPath("$.message").value("Request body is missing or malformed"));
+
+                mockMvc.perform(post("/api/v1/wallet/deposits")
+                                .header("Authorization", "Bearer " + playerToken)
+                                .header("Idempotency-Key", "missing-body")
+                                .contentType(MediaType.APPLICATION_JSON))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.code").value("INVALID_REQUEST_BODY"));
+
+                mockMvc.perform(post("/api/v1/wallet/deposits")
+                                .header("Authorization", "Bearer " + playerToken)
+                                .header("Idempotency-Key", "invalid-body")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"submittedCashAmount\":0,\"currency\":\"ETB\",\"telebirrReference\":\"TBR-400-INVALID\"}"))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
         }
 
         @Test
@@ -393,6 +443,8 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
                 assertEquals(1L, walletTransactionRepository.count());
                 assertEquals(WalletTransactionType.SIGNUP_REWARD_CREDIT,
                                 walletTransactionRepository.findAll().get(0).getTransactionType());
+                assertWalletSnapshot(walletTransactionRepository.findAll().get(0),
+                                "0.00", "0.00", "0.00", "25.00");
         }
 
         @Test
@@ -409,7 +461,11 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
 
                 Wallet senderWallet = walletRepository.findByOwnerId(playerUser.getId()).orElseThrow();
                 senderWallet.setAvailableBalance(new BigDecimal("100.00"));
+                senderWallet.setPromotionalBalance(new BigDecimal("10.00"));
                 walletRepository.save(senderWallet);
+                Wallet recipientWallet = walletRepository.findByOwnerId(recipient.getId()).orElseThrow();
+                recipientWallet.setPromotionalBalance(new BigDecimal("4.00"));
+                walletRepository.save(recipientWallet);
 
                 String requestJson = objectMapper.writeValueAsString(
                                 new com.equar.bingo.backend.feature.wallet.dto.WalletTransferRequest(
@@ -446,6 +502,33 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
                 Wallet recipientAfter = walletRepository.findByOwnerId(recipient.getId()).orElseThrow();
                 assertEquals(new BigDecimal("70.00"), senderAfter.getAvailableBalance());
                 assertEquals(new BigDecimal("30.00"), recipientAfter.getAvailableBalance());
+                assertWalletSnapshot(walletTransactionRepository.findAll().stream()
+                                .filter(transaction -> transaction.getTransactionType()
+                                                == WalletTransactionType.WALLET_TRANSFER_DEBIT)
+                                .findFirst().orElseThrow(),
+                                "100.00", "70.00", "10.00", "10.00");
+                assertWalletSnapshot(walletTransactionRepository.findAll().stream()
+                                .filter(transaction -> transaction.getTransactionType()
+                                                == WalletTransactionType.WALLET_TRANSFER_CREDIT)
+                                .findFirst().orElseThrow(),
+                                "0.00", "30.00", "4.00", "4.00");
+        }
+
+        private void assertWalletSnapshot(WalletTransaction transaction,
+                        String transferableBefore,
+                        String transferableAfter,
+                        String promotionalBefore,
+                        String promotionalAfter) {
+                BigDecimal transferableBeforeAmount = new BigDecimal(transferableBefore);
+                BigDecimal transferableAfterAmount = new BigDecimal(transferableAfter);
+                BigDecimal promotionalBeforeAmount = new BigDecimal(promotionalBefore);
+                BigDecimal promotionalAfterAmount = new BigDecimal(promotionalAfter);
+                assertEquals(transferableBeforeAmount, transaction.getTransferableBalanceBefore());
+                assertEquals(transferableAfterAmount, transaction.getTransferableBalanceAfter());
+                assertEquals(promotionalBeforeAmount, transaction.getPromotionalBalanceBefore());
+                assertEquals(promotionalAfterAmount, transaction.getPromotionalBalanceAfter());
+                assertEquals(transferableBeforeAmount.add(promotionalBeforeAmount), transaction.getBalanceBefore());
+                assertEquals(transferableAfterAmount.add(promotionalAfterAmount), transaction.getBalanceAfter());
         }
 
         private String approveInParallel(BingoUserPrincipal adminPrincipal,
