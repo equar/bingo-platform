@@ -9,11 +9,11 @@
 |---|---|---|
 | 1,000 concurrent players | BLOCKED | Not run. No load harness/script and no isolated load environment were available. |
 | 10-ticket-per-player limit under concurrency | BLOCKED | Not measured under load. A configured maximum is not proof of enforcement under concurrent requests. |
-| Concurrent ticket purchases | FAIL | A targeted real-HTTP same-actor/key duplicate-sale test returned HTTP 500 due to an idempotency-record unique-key race. See G3 in [production-readiness-report.md](./production-readiness-report.md). |
+| Concurrent ticket purchases | PASS (focused case) | The targeted real-HTTP same-actor/key duplicate-sale regression now passes: both requests receive the same result, with one ticket, one float debit, and one commission accrual. This does not substitute for load testing many concurrent players. See G3 in [production-readiness-report.md](./production-readiness-report.md). |
 | Concurrent deposits, approvals, settlements, and transfers | BLOCKED | Not run against an isolated backend/database. |
-| Draw broadcast latency and ordering under load | BLOCKED | The authenticated real STOMP connection test failed before delivery; no load latency was measured. |
+| Draw broadcast latency and ordering under load | BLOCKED | Authenticated real STOMP delivery, ordering, reconnect, and replay now pass the focused integration test; no load latency was measured. |
 | Throughput, failure rate, and database contention | BLOCKED | No load run; no metrics exist. |
-| Overselling, duplicate credits, lost updates, or negative balances at target capacity | BLOCKED | No capacity run. The targeted idempotency race is an observed failure and must be resolved. |
+| Overselling, duplicate credits, lost updates, or negative balances at target capacity | BLOCKED | No capacity run. The focused same-key agent-sale test now verifies no duplicate ticket, float debit, or commission accrual; other invariants at target capacity remain unmeasured. |
 
 ## Environment and safety
 

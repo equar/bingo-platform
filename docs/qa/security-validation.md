@@ -13,33 +13,34 @@ This is a bounded validation record for Phase 6, not a penetration test or a com
 | Sequential same-key agent sale replay does not duplicate ticket/float debit | PASS | The normal HTTP flow replayed the same ticket and confirmed one ticket plus expected float movement. |
 | Insufficient agent float does not create/debit a sale | PASS | The request returned 4xx; ticket and commission counts and float balance remained unchanged. |
 | Existing WebSocket JWT channel-interceptor unit checks | PASS | The backend full-suite run included 2 passing `GameWebSocketJwtChannelInterceptorTest` cases. This is unit-level evidence only. |
-| Real authenticated STOMP session and protected subscription | FAIL | The real client connection closed before receiving `CONNECTED`. Protected-channel behavior was therefore not established at the broker boundary. |
-| Concurrent idempotency and financial integrity | FAIL | Concurrent same-actor/key agent sale produced HTTP 500 from a duplicate key in `idempotency_records`. |
+| Real authenticated STOMP session, subscription, draw replay, and invalid-token denial | PASS | Real CONNECT, subscription, draw sequence, replay after reconnect, and malformed-token rejection pass. Bearer JWT authentication and the endpoint origin allowlist remain active. |
+| Concurrent idempotency and financial integrity | PASS | Concurrent same-actor/key agent sale requests replay the same result; the test verifies one ticket, one float debit, and one commission accrual. |
 | Production security scans / external penetration testing | BLOCKED | Not part of the executed tests; no external assessment evidence is available in this Phase 6 run. |
 | Login throttling/lockout, actuator authorization, JWT secret startup policy, and secret scanning | BLOCKED | Those earlier-phase controls were not re-exercised as dedicated Phase 6 gates in this run. Do not treat historic remediation claims as current independent verification. |
 
-## Important security findings
+## Resolved failures
 
-### Concurrent idempotency failure
+### Concurrent idempotency race
 
-Two simultaneous authenticated agent sale requests using the same idempotency actor/key do not both receive the prior successful result. One returns 500 while MySQL rejects a duplicate row under `uk_idempotency_records_actor_key`. This blocks release until the backend safely resolves the concurrent insert/replay race and tests confirm no duplicate financial movement.
+The original failure was caused by relying on a process-local `ReentrantLock`. It did not coordinate multiple backend instances, and it was released when `IdempotencyService.execute()` returned—before the surrounding transactional service method committed. A concurrent request could therefore observe no committed idempotency row and collide on the unique constraint.
 
-Reproduction:
+The fix now applies a database pessimistic lock to the actor row and performs the idempotency record lookup as a locking/current read inside a transaction. The lock remains held through the enclosing transaction commit. The focused regression and full suite both pass:
 
 ```powershell
 Set-Location .\bingo-backend
 mvn -Dtest=AgentTicketSaleHttpIntegrationTest#concurrentDuplicateSaleReturnsTheSameResultWithoutADuplicateDebit test
 ```
 
-### Real-time authentication remains unverified
+### STOMP bearer authentication
 
-The integration test authenticates through the application and starts a real STOMP client, but the WebSocket closes before STOMP `CONNECTED`. The available evidence does not identify whether the cause is origin, handshake, security configuration, token handling, or another issue. Do not infer a root cause from the disconnect alone.
+The server's default STOMP CSRF channel interceptor required an HTTP-session CSRF token on CONNECT, while the platform's clients authenticate with a bearer JWT in the STOMP CONNECT frame. The WebSocket security configuration now substitutes the CSRF channel interceptor while keeping `GameWebSocketJwtChannelInterceptor` mandatory and retaining configured origin restrictions. The real integration test verifies valid authentication, draw delivery/order/replay, and rejection of a malformed JWT. It also uses the application's configured Jackson mapper so the test client can deserialize the `Instant` in draw events.
 
-Rerun after diagnosis:
+Verification:
 
 ```powershell
 Set-Location .\bingo-backend
 mvn -Dtest=AuthenticatedStompIntegrationTest test
+mvn clean verify
 ```
 
 ## Credential handling and E2E constraints
@@ -52,9 +53,7 @@ mvn -Dtest=AuthenticatedStompIntegrationTest test
 
 ## Required security release gates
 
-1. Resolve and rerun the concurrent sale idempotency test, including persisted wallet/float/ledger checks.
-2. Establish real STOMP authentication, prove invalid/expired token rejection, channel authorization, reconnect, replay, and ordering.
-3. Run dedicated Phase 1 security regression tests on the release candidate for JWT configuration, auth throttling, Actuator access, and credential handling.
-4. Complete an independent security review and deployment configuration review before any GO decision.
+1. Run dedicated Phase 1 security regression tests on the release candidate for JWT configuration, auth throttling, Actuator access, and credential handling.
+2. Complete an independent security review and deployment configuration review before any GO decision.
 
-**Decision:** NO-GO until the FAIL findings are fixed and all blocked mandatory gates have passing evidence.
+**Decision:** The two Phase 6 security-relevant failures are resolved and verified. Overall production release remains NO-GO until the blocked mandatory gates and independent security review have passing evidence.

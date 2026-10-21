@@ -33,6 +33,7 @@ import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -84,6 +85,7 @@ class AuthenticatedStompIntegrationTest extends MySqlIntegrationTest {
 
     private String playerPhone;
     private Long sessionId;
+    private WebSocketStompClient stompClient;
 
     @BeforeEach
     void setUp() {
@@ -138,6 +140,13 @@ class AuthenticatedStompIntegrationTest extends MySqlIntegrationTest {
         sessionId = session.id();
     }
 
+    @AfterEach
+    void stopStompClient() {
+        if (stompClient != null) {
+            stompClient.stop();
+        }
+    }
+
     @Test
     void authenticatedClientReceivesOrderedDrawsAndReplaysMissedSequenceAfterReconnect() throws Exception {
         String token = loginToken();
@@ -170,13 +179,12 @@ class AuthenticatedStompIntegrationTest extends MySqlIntegrationTest {
 
         reconnected.disconnect();
         assertThrows(Exception.class, () -> connect(client, "not-a-valid-token"));
-        client.stop();
     }
 
     private WebSocketStompClient createClient() {
-        WebSocketStompClient client = new WebSocketStompClient(new StandardWebSocketClient());
-        client.setMessageConverter(new MappingJackson2MessageConverter());
-        return client;
+        stompClient = new WebSocketStompClient(new StandardWebSocketClient());
+        stompClient.setMessageConverter(new MappingJackson2MessageConverter(objectMapper));
+        return stompClient;
     }
 
     private StompSession connect(WebSocketStompClient client, String token) throws Exception {

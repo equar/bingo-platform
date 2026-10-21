@@ -1,16 +1,14 @@
 package com.equar.bingo.backend.common.idempotency;
 
 import com.equar.bingo.backend.common.exception.ConflictException;
+import com.equar.bingo.backend.feature.user.repository.UserRepository;
 import com.equar.bingo.backend.feature.wallet.entity.IdempotencyRecord;
 import com.equar.bingo.backend.feature.wallet.repository.IdempotencyRecordRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.UncheckedIOException;
 import java.time.Instant;
-import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,14 +17,19 @@ import org.springframework.transaction.annotation.Transactional;
 public class IdempotencyService {
 
     private final IdempotencyRecordRepository idempotencyRecordRepository;
+    private final UserRepository userRepository;
     private final ObjectMapper objectMapper;
-    private final Map<String, ReentrantLock> locks = new ConcurrentHashMap<>();
 
-    public IdempotencyService(IdempotencyRecordRepository idempotencyRecordRepository, ObjectMapper objectMapper) {
+    public IdempotencyService(
+            IdempotencyRecordRepository idempotencyRecordRepository,
+            UserRepository userRepository,
+            ObjectMapper objectMapper) {
         this.idempotencyRecordRepository = idempotencyRecordRepository;
+        this.userRepository = userRepository;
         this.objectMapper = objectMapper;
     }
 
+    @Transactional
     public <T> IdempotentResult<T> execute(Long actorId,
             String idempotencyKey,
             String requestHash,
@@ -35,29 +38,11 @@ public class IdempotencyService {
             Class<T> responseType,
             Supplier<T> supplier) {
         Objects.requireNonNull(actorId, "actorId must not be null");
-        String lockKey = actorId + ":" + idempotencyKey;
-        ReentrantLock lock = locks.computeIfAbsent(lockKey, ignored -> new ReentrantLock());
-        lock.lock();
-        try {
-            return executeWithinLock(actorId, idempotencyKey, requestHash, operationId, successStatus, responseType,
-                    supplier);
-        } finally {
-            lock.unlock();
-            if (!lock.hasQueuedThreads()) {
-                locks.remove(lockKey, lock);
-            }
-        }
-    }
+        userRepository.findByIdForUpdate(actorId)
+                .orElseThrow(() -> new IllegalStateException("Idempotency actor does not exist"));
 
-    @Transactional
-    protected <T> IdempotentResult<T> executeWithinLock(Long actorId,
-            String idempotencyKey,
-            String requestHash,
-            String operationId,
-            int successStatus,
-            Class<T> responseType,
-            Supplier<T> supplier) {
-        IdempotencyRecord existing = idempotencyRecordRepository.findByActorIdAndIdempotencyKey(actorId, idempotencyKey)
+        IdempotencyRecord existing = idempotencyRecordRepository
+                .findByActorIdAndIdempotencyKeyForUpdate(actorId, idempotencyKey)
                 .orElse(null);
         if (existing != null) {
             if (!existing.getRequestHash().equals(requestHash)) {

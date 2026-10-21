@@ -6,7 +6,7 @@
 
 ## Release decision
 
-**NO-GO.** Phase 6 produced positive verification for MySQL/Flyway migration paths, the normal agent sale/payout/commission flow, and existing admin/mobile unit checks. Release is blocked by a reproducible concurrent idempotency failure and a real authenticated STOMP connection failure. The required 1,000-player load test, onboarding-mail flow, complete Playwright flow, and device E2E flows were not run in an isolated environment.
+**NO-GO.** The concurrent agent-sale idempotency failure and authenticated STOMP failure from the initial Phase 6 run have been fixed and now pass regression tests. Release remains blocked because the required 1,000-player load test, onboarding-mail flow, complete Playwright flow, device E2E flows, and database restore rehearsal were not completed in isolated environments.
 
 The configured capacity of 1,000 players and maximum of 10 tickets per player are configuration values, not measured capacity evidence.
 
@@ -28,16 +28,16 @@ The configured capacity of 1,000 players and maximum of 10 tickets per player ar
 |---|---|---|
 | Clean/upgrade migration execution on MySQL 8 | PASS | `mvn -Dtest=FlywayUpgradeRecoveryIntegrationTest test` passed (1/1) on MySQL 8.0.36, upgrading V6 through V12. `FlywayV7MigrationIntegrationTest` passed in the full suite and verified the V7 constraints. |
 | Flyway history checksum verification/repair | PASS | The upgrade test checked stored checksums, detected deliberately altered history, ran Flyway `repair()`, and validated the repaired history. |
-| Full backend suite against MySQL | FAIL | Final `mvn clean verify`: 73 tests, 1 failure, 1 error, 0 skipped. The two release-blocking tests are detailed under G2/G3. |
+| Full backend suite against MySQL | PASS | Final `mvn clean verify`: 73 tests, 0 failures, 0 errors, 0 skipped on Testcontainers MySQL 8.0.36. |
 | Database backup restore / rollback recovery rehearsal | BLOCKED | The test verifies forward migration and Flyway history repair; it does not restore a production-like backup. The migration chain is forward-only and no disposable backup/restore rehearsal environment was provided. |
 
 ### G2 — Live WebSocket draw verification
 
 | Scenario | Status | Evidence |
 |---|---|---|
-| Authenticated STOMP connection to the live backend | FAIL | `AuthenticatedStompIntegrationTest` fails before receiving `CONNECTED`: `ConnectionLostException: Connection closed` in `connect()` at test line 190. |
-| Ordered draw delivery, reconnect, and missed-sequence replay | BLOCKED | Assertions were not reached because the authenticated handshake closed. |
-| Invalid-token denial on the live broker | BLOCKED | The live authenticated connection failed before subscription checks could run. Existing interceptor unit tests passed in the backend suite but are not a substitute for broker-level proof. |
+| Authenticated STOMP connection to the live backend | PASS | The integration test receives `CONNECTED` after configuring bearer-JWT authentication rather than HTTP-session CSRF on STOMP CONNECT. |
+| Ordered draw delivery, reconnect, and missed-sequence replay | PASS | The real client received sequence 1, replay API returned missed sequence 2 after disconnect, and the reconnected client received sequence 3 in order. |
+| Invalid-token denial on the live broker | PASS | The same test verifies a malformed JWT cannot establish a STOMP session. |
 
 ### G3 — Agent ticket sales and payouts
 
@@ -47,7 +47,7 @@ The configured capacity of 1,000 players and maximum of 10 tickets per player ar
 | Normal agent sale, sequential idempotency replay, and wallet float movement | PASS | The test verified a 201 sale and replay returning the same ticket, one ticket persisted, and the expected float balance. |
 | Payout verification and replay | PASS | The test verified 200 responses, the same payout record on replay, and the expected available/clearing balances. |
 | Insufficient-float rejection | PASS | Sale returned a 4xx without creating another ticket or commission accrual, and the available balance remained unchanged. |
-| Concurrent duplicate sale using the same actor/key | FAIL | Concurrent requests return 500 for one request. MySQL reports a duplicate key on `idempotency_records.uk_idempotency_records_actor_key` instead of replaying the prior result. This is an observed money-flow/idempotency defect; production code was not changed during this verification task. |
+| Concurrent duplicate sale using the same actor/key | PASS | Database-level actor locking and a locking idempotency-record lookup serialize retries through transaction commit. Both requests now replay the same ticket, with one ticket, one float debit, and one commission accrual. |
 
 ### G4 — Commission accrual
 
@@ -55,7 +55,7 @@ The configured capacity of 1,000 players and maximum of 10 tickets per player ar
 |---|---|---|
 | Enabled rule, persistence, rounding, and sequential retry | PASS | HTTP integration flow persisted one accrual for a 4.25 sale at 2.5%, rounded to 0.11; replay did not duplicate the sale/accrual. |
 | Disabled commission rule | PASS | A subsequent sale after disabling the rule created no additional accrual. |
-| Duplicate concurrent sale/event | FAIL | The concurrent idempotency failure in G3 means a concurrent retry is not proven safe and can return HTTP 500. |
+| Duplicate concurrent sale/event | PASS | The concurrent same-key sale regression confirms one persisted ticket/accrual and the expected float balance after both requests complete. |
 
 ### G5 — Admin Playwright
 
@@ -88,7 +88,7 @@ The configured capacity of 1,000 players and maximum of 10 tickets per player ar
 | Scenario | Status | Evidence |
 |---|---|---|
 | 1,000 concurrent players / 10-ticket limit under load | BLOCKED | `k6` is unavailable, no load-test harness was present, and no isolated load environment was supplied. Capacity and the 10-ticket enforcement behavior under concurrency were not measured. |
-| Concurrent purchases, deposits, approvals, settlements, and transfers | BLOCKED | No safe isolated environment/load harness was available. The targeted same-key concurrent agent sale test did run and failed as described in G3. |
+| Concurrent purchases, deposits, approvals, settlements, and transfers | BLOCKED | The targeted same-key concurrent agent sale test now passes as described in G3. Other concurrent money-flow scenarios remain untested because no safe isolated load environment/harness was available. |
 | Throughput, latency, failure rate, contention, and financial invariants at capacity | BLOCKED | No load measurements were made; no capacity claims are made. |
 
 ## Test commands
@@ -96,6 +96,8 @@ The configured capacity of 1,000 players and maximum of 10 tickets per player ar
 Commands run in this phase included:
 
 ```text
+mvn -Dtest=AgentTicketSaleHttpIntegrationTest#concurrentDuplicateSaleReturnsTheSameResultWithoutADuplicateDebit test
+mvn -Dtest=AuthenticatedStompIntegrationTest test
 mvn clean verify
 mvn -Dtest=FlywayUpgradeRecoveryIntegrationTest test
 mvn -Dtest=AgentTicketSaleHttpIntegrationTest test
