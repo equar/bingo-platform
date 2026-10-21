@@ -42,7 +42,8 @@ jobs:
           channel: stable
 
       - name: Install dependencies
-        run: flutter pub get --enforce-lockfile
+        # Flutter SDKs pin different intl versions, so resolve against each matrix SDK.
+        run: flutter pub get
 
       - name: Generate localizations
         run: flutter gen-l10n
