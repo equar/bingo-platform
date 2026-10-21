@@ -88,19 +88,6 @@ export function PrizeEntitlementsPage() {
         <Typography color="text.secondary">Settle approved claims into the winner wallet or external path.</Typography>
       </Box>
 
-      {settleMutation.isError ? (
-        <Alert
-          severity="error"
-          action={
-            <Button color="inherit" size="small" onClick={() => settleMutation.reset()}>
-              Dismiss
-            </Button>
-          }
-        >
-          {(settleMutation.error as Error)?.message ?? "Unable to settle entitlement."}
-        </Alert>
-      ) : null}
-
       {entitlementsQuery.isFetching ? <Alert severity="info">Updating entitlement results...</Alert> : null}
 
       <Paper variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
@@ -271,6 +258,18 @@ export function PrizeEntitlementsPage() {
         <DialogTitle>Settle entitlement</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
+            {settleMutation.isError ? (
+              <Alert
+                severity="error"
+                action={
+                  <Button color="inherit" size="small" onClick={() => settleMutation.reset()}>
+                    Dismiss
+                  </Button>
+                }
+              >
+                {settleMutation.error.message}
+              </Alert>
+            ) : null}
             <TextField
               label="Settlement reference"
               value={settlementReference}

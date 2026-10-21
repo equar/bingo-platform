@@ -56,22 +56,6 @@ interface AgentDecisionDraft {
   };
 }
 
-const emptyDecisionDraft: AgentDecisionDraft = {
-  mode: "APPROVE",
-  reason: "",
-  profile: {
-    displayName: "",
-    phoneNumber: "",
-    status: "APPROVED",
-    city: "",
-    territory: "",
-    idDocumentType: "",
-    idDocumentNumber: "",
-    idDocumentFrontReference: "",
-    idDocumentBackReference: "",
-  },
-};
-
 function formatNullable(value: string | null | undefined) {
   return value?.trim() ? value : "n/a";
 }
@@ -91,6 +75,8 @@ export function AgentsPage() {
   const [commissionRateBps, setCommissionRateBps] = useState("0");
   const [commissionEffectiveFrom, setCommissionEffectiveFrom] = useState(new Date().toISOString().slice(0, 16));
   const [commissionActive, setCommissionActive] = useState(true);
+  const floatRequestIdValue = Number(floatRequestId);
+  const isValidFloatRequestId = Number.isSafeInteger(floatRequestIdValue) && floatRequestIdValue > 0;
   const idempotency = useIdempotencyKey();
 
   const approveMutation = useMutation({
@@ -127,13 +113,13 @@ export function AgentsPage() {
 
   const floatReviewMutation = useMutation({
     mutationFn: async () => {
-      if (!floatRequestId.trim()) {
-        throw new Error("Enter a float top-up request id");
+      if (!isValidFloatRequestId) {
+        throw new Error("Enter a positive integer request id");
       }
       idempotency.getKey();
-      return reviewFloatTopUpRequest(Number(floatRequestId), {
+      return reviewFloatTopUpRequest(floatRequestIdValue, {
         approve: floatApprove,
-        reviewNote: floatReviewNote,
+        reviewNote: floatReviewNote.trim(),
       });
     },
     onSuccess: async () => {
@@ -282,8 +268,16 @@ export function AgentsPage() {
                   <Grid item xs={12} md={4}>
                     <TextField
                       label="Request id"
+                      type="number"
                       value={floatRequestId}
                       onChange={(event) => setFloatRequestId(event.target.value)}
+                      inputProps={{ min: 1, step: 1 }}
+                      error={Boolean(floatRequestId) && !isValidFloatRequestId}
+                      helperText={
+                        Boolean(floatRequestId) && !isValidFloatRequestId
+                          ? "Enter a positive whole number."
+                          : "Use the positive request id from the review queue."
+                      }
                       fullWidth
                     />
                   </Grid>
@@ -310,10 +304,19 @@ export function AgentsPage() {
                     />
                   </Grid>
                 </Grid>
+                {floatReviewMutation.isError ? (
+                  <Alert severity="error" role="alert">
+                    {floatReviewMutation.error.message}
+                  </Alert>
+                ) : null}
                 <Button
                   variant="outlined"
                   onClick={() => floatReviewMutation.mutate()}
-                  disabled={floatReviewMutation.isPending || !floatReviewNote}
+                  disabled={
+                    floatReviewMutation.isPending ||
+                    !isValidFloatRequestId ||
+                    !floatReviewNote.trim()
+                  }
                 >
                   Review request
                 </Button>

@@ -221,6 +221,9 @@ export function DepositsPage() {
         <DialogTitle>{mode === "APPROVE" ? "Approve deposit" : "Reject deposit"}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
+            {actionMutation.isError ? (
+              <Alert severity="error">{actionMutation.error.message}</Alert>
+            ) : null}
             <TextField
               label={mode === "APPROVE" ? "Review note" : "Rejection reason"}
               value={comment}

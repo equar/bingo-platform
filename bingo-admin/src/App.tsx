@@ -28,7 +28,7 @@ export default function App() {
     <ThemeProvider theme={adminTheme}>
       <CssBaseline />
       <QueryClientProvider client={queryClient}>
-        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <BrowserRouter>
           {apiBaseUrl ? <AppRouter /> : <MissingConfig />}
         </BrowserRouter>
       </QueryClientProvider>

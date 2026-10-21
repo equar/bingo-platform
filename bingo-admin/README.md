@@ -4,7 +4,7 @@ React 18, TypeScript, and Vite admin console for the Bingo platform.
 
 ## Configuration
 
-Set `VITE_API_BASE_URL` before running the app. The admin shell reads the value at startup and uses it for every backend request.
+Set `VITE_API_BASE_URL` before running the app. Vite embeds this public API origin into the built bundle; it is configuration, not a secret. Do not put credentials, tokens, or private backend addresses in `VITE_*` variables.
 
 For local development, put the backend URL in `.env.local`:
 
@@ -14,11 +14,28 @@ Example:
 VITE_API_BASE_URL=http://localhost:8080
 ```
 
+For production, provide the public HTTPS origin at build/deployment time, for example `VITE_API_BASE_URL=https://bingo.example.com`. The same-origin Nginx deployment serves the SPA and proxies `/api/` and `/ws`.
+
+## Development checks
+
+Use Node.js 22.13 or newer and npm:
+
+```bash
+npm ci
+npm run lint
+npm run test:coverage
+npm run build
+```
+
+## Admin session security
+
+The current backend issues bearer tokens, and the admin client stores the session in `localStorage`. This keeps the existing API contract but means an XSS flaw could expose the active token. Keep dependencies patched, use the deployment Content Security Policy, avoid unsafe HTML rendering, and never log tokens. Migrating to `HttpOnly` cookies requires coordinated backend session and CSRF design and is intentionally not attempted here.
+
 ## Backend contract dependencies
 
 This UI is wired to the backend OpenAPI contract and expects these admin routes to be available:
 
-- `POST /api/v1/auth/login`
+- `POST /api/v1/admin/login`
 - `GET /api/v1/admin/dashboard/metrics`
 - `GET /api/v1/admin/players` and `GET /api/v1/admin/players/{id}`
 - `GET /api/v1/admin/rooms`, `POST /api/v1/admin/rooms`, `PUT /api/v1/admin/rooms/{id}`

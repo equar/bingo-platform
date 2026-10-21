@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { type PropsWithChildren } from "react";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -154,5 +154,61 @@ describe("PlayerDetailPage", () => {
         idempotencyKey: expect.any(String),
       }),
     );
+  });
+
+  it("submits a wallet credit as a positive amount", async () => {
+    const user = userEvent.setup();
+    render(<PlayerDetailPage />, { wrapper: createWrapper });
+    await screen.findByText("Player Six");
+    await user.click(screen.getByRole("button", { name: "Adjust wallet" }));
+    await user.type(screen.getByRole("spinbutton", { name: "Amount" }), "25.75");
+    await user.type(screen.getByRole("textbox", { name: "Reason" }), "Approved correction");
+    await user.click(screen.getByRole("button", { name: "Review" }));
+    await user.click(await screen.findByRole("button", { name: "Confirm adjustment" }));
+
+    await waitFor(() =>
+      expect(adjustWalletMock).toHaveBeenCalledWith(6, {
+        amount: 25.75,
+        currency: "ETB",
+        reason: "Approved correction",
+        idempotencyKey: expect.any(String),
+      }),
+    );
+  });
+
+  it("rejects zero-value adjustments and reports an API permission error", async () => {
+    const user = userEvent.setup();
+    adjustWalletMock.mockRejectedValue(new Error("Permission denied"));
+    render(<PlayerDetailPage />, { wrapper: createWrapper });
+    await screen.findByText("Player Six");
+    await user.click(screen.getByRole("button", { name: "Adjust wallet" }));
+    await user.type(screen.getByRole("spinbutton", { name: "Amount" }), "0");
+    await user.type(screen.getByRole("textbox", { name: "Reason" }), "Invalid adjustment");
+    expect(screen.getByRole("button", { name: "Review" })).toBeDisabled();
+
+    await user.clear(screen.getByRole("spinbutton", { name: "Amount" }));
+    await user.type(screen.getByRole("spinbutton", { name: "Amount" }), "4");
+    await user.click(screen.getByRole("button", { name: "Review" }));
+    await user.click(await screen.findByRole("button", { name: "Confirm adjustment" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Permission denied");
+  });
+
+  it("prevents duplicate wallet adjustments while the confirmation is pending", async () => {
+    const user = userEvent.setup();
+    adjustWalletMock.mockReturnValue(new Promise(() => {}));
+    render(<PlayerDetailPage />, { wrapper: createWrapper });
+    await screen.findByText("Player Six");
+    await user.click(screen.getByRole("button", { name: "Adjust wallet" }));
+    await user.type(screen.getByRole("spinbutton", { name: "Amount" }), "5");
+    await user.type(screen.getByRole("textbox", { name: "Reason" }), "Pending adjustment");
+    await user.click(screen.getByRole("button", { name: "Review" }));
+
+    const confirm = await screen.findByRole("button", { name: "Confirm adjustment" });
+    await user.click(confirm);
+    await waitFor(() => expect(confirm).toBeDisabled());
+    fireEvent.click(confirm);
+
+    expect(adjustWalletMock).toHaveBeenCalledTimes(1);
   });
 });
