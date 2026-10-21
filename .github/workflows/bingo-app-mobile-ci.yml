@@ -28,7 +28,7 @@ jobs:
       fail-fast: false
       matrix:
         app: [bingo-app, bingo-agent]
-        flutter_version: ['3.38.4', '3.47.7']
+        flutter_version: ['3.41.0', '3.47.7']
     env:
       MOBILE_API_BASE_URL: https://api.example.invalid
     steps:

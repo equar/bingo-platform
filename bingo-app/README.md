@@ -2,8 +2,8 @@
 
 Flutter player app for the bingo backend.
 
-Requires Flutter 3.38.4 or newer and Dart 3.11.0 or newer. CI also checks
-dependency resolution, analysis, and tests with Flutter 3.38.4 and 3.47.7.
+Requires Flutter 3.41.0 or newer and Dart 3.11.0 or newer. CI also checks
+dependency resolution, analysis, and tests with Flutter 3.41.0 and 3.47.7.
 
 Run it with:
 

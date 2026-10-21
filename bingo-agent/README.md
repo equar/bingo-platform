@@ -2,8 +2,8 @@
 
 Flutter counter-service agent app for Android, iOS, and web.
 
-Requires Flutter 3.38.4 or newer and Dart 3.11.0 or newer. CI checks both the
-minimum Flutter version (3.38.4) and the current pinned version (3.47.7).
+Requires Flutter 3.41.0 or newer and Dart 3.11.0 or newer. CI checks both the
+minimum Flutter version (3.41.0) and the current pinned version (3.47.7).
 
 Run the app with an explicitly supplied backend URL, for example:
 

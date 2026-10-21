@@ -15,8 +15,8 @@ Before starting the apps locally, make sure you have:
 - Java 25 or newer for the backend
 - Maven 3.9+ or a compatible Maven installation
 - Node.js 18+ and npm
-- Flutter 3.38.4+ (Dart 3.11.0+) for both mobile apps. CI validates the minimum
-  supported Flutter version (3.38.4) and the current pinned version (3.47.7).
+- Flutter 3.41.0+ (Dart 3.11.0+) for both mobile apps. CI validates the minimum
+  supported Flutter version (3.41.0) and the current pinned version (3.47.7).
 - MySQL 8 running locally
 
 The backend uses local MySQL by default and does not require Docker.
@@ -106,7 +106,7 @@ flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8080
 ```
 
 The example URL is for an Android emulator; use the appropriate explicitly
-configured API URL for other targets. Both Flutter apps require Flutter 3.38.4
+configured API URL for other targets. Both Flutter apps require Flutter 3.41.0
 or newer and Dart 3.11.0 or newer.
 
 ## API And Contract Notes
