@@ -58,6 +58,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 
@@ -263,6 +264,43 @@ class AgentServiceIntegrationTest extends MySqlIntegrationTest {
 
                 assertEquals(new BigDecimal("100.00"), agentService.getFloat(agentPrincipal).availableBalance());
                 assertTrue(agentService.getFloatHistory(agentPrincipal).isEmpty());
+        }
+
+        @Test
+        void financialHistoryIsPagedAndFilteredOnTheServer() {
+                agentService.transferFloat(agentPrincipal,
+                                new AgentFloatTransferRequest("0911000302", new BigDecimal("10.00"), "ETB", "2468",
+                                                "page test"),
+                                "history-transfer-key");
+                agentService.submitTopUpRequest(agentPrincipal,
+                                new com.equar.bingo.backend.feature.agent.dto.SubmitFloatTopUpRequest(
+                                                new BigDecimal("15.00"), "ETB", "page test"),
+                                "history-topup-key");
+
+                var firstPage = agentService.getFinancialHistory(
+                                agentPrincipal, PageRequest.of(0, 1), null, null, null, null);
+                var secondPage = agentService.getFinancialHistory(
+                                agentPrincipal, PageRequest.of(1, 1), null, null, null, null);
+
+                assertEquals(1, firstPage.content().size());
+                assertEquals(1, secondPage.content().size());
+                assertEquals(2, firstPage.totalElements());
+                assertEquals(2, firstPage.totalPages());
+                assertTrue(firstPage.content().get(0).createdAt()
+                                .isAfter(secondPage.content().get(0).createdAt())
+                                || firstPage.content().get(0).createdAt()
+                                                .equals(secondPage.content().get(0).createdAt()));
+
+                var filtered = agentService.getFinancialHistory(agentPrincipal, PageRequest.of(0, 20),
+                                "floatTopUpRequest", "PENDING", null, null);
+                assertEquals(1, filtered.totalElements());
+                assertEquals("floatTopUpRequest", filtered.content().get(0).type());
+                assertEquals("PENDING", filtered.content().get(0).status());
+
+                assertThrows(BadRequestException.class, () -> agentService.getFinancialHistory(
+                                agentPrincipal, PageRequest.of(0, 101), null, null, null, null));
+                assertThrows(BadRequestException.class, () -> agentService.getFinancialHistory(
+                                agentPrincipal, PageRequest.of(0, 20), "not-a-type", null, null, null));
         }
 
         @Test

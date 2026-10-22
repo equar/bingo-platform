@@ -42,6 +42,12 @@ public class User {
     @Column(name = "password_hash", nullable = false, length = 100)
     private String passwordHash;
 
+    @Column(name = "must_change_password", nullable = false)
+    private boolean mustChangePassword;
+
+    @Column(name = "temporary_password_expires_at")
+    private Instant temporaryPasswordExpiresAt;
+
     @Column(name = "agent_pin_hash", length = 100)
     private String agentPinHash;
 
@@ -125,6 +131,28 @@ public class User {
 
     public void setPasswordHash(String passwordHash) {
         this.passwordHash = passwordHash;
+    }
+
+    public boolean isMustChangePassword() {
+        return mustChangePassword;
+    }
+
+    public Instant getTemporaryPasswordExpiresAt() {
+        return temporaryPasswordExpiresAt;
+    }
+
+    public boolean isTemporaryPasswordExpired(Instant now) {
+        return temporaryPasswordExpiresAt != null && !temporaryPasswordExpiresAt.isAfter(now);
+    }
+
+    public void requirePasswordChangeUntil(Instant expiresAt) {
+        mustChangePassword = true;
+        temporaryPasswordExpiresAt = expiresAt;
+    }
+
+    public void completePasswordChange() {
+        mustChangePassword = false;
+        temporaryPasswordExpiresAt = null;
     }
 
     public String getAgentPinHash() {

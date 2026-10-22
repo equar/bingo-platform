@@ -38,7 +38,7 @@ export function LoginPage() {
         tokenType: response.tokenType,
         user: response.user,
       });
-      navigate(redirectTo, { replace: true });
+      navigate(response.user.mustChangePassword ? "/change-password" : redirectTo, { replace: true });
     },
     onError: (error) => {
       const parsed = parseApiError(error);

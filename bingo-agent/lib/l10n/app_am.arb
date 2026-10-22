@@ -92,6 +92,19 @@
   "anyDate": "ማንኛውም ቀን",
   "clearFilters": "ማጣሪያዎችን አጽዳ",
   "noTransactions": "ከእነዚህ ማጣሪያዎች ጋር የሚዛመድ እንቅስቃሴ የለም።",
+  "historyPage": "ገጽ {current} ከ {total}",
+  "@historyPage": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "previous": "ቀዳሚ",
+  "next": "ቀጣይ",
   "transactionDetails": "የእንቅስቃሴ ዝርዝር",
   "transactionTypeLabel": "የእንቅስቃሴ ዓይነት",
   "transactionAmount": "መጠን",

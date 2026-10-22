@@ -62,4 +62,6 @@ The session live draw page also expects the existing websocket transport used by
 
 The Playwright specs require `BINGO_E2E_ADMIN_EMAIL`, `BINGO_E2E_ADMIN_PASSWORD`, and `BINGO_E2E_PRIMARY_PHONE` from the test environment; they do not contain fallback accounts or passwords. `BINGO_E2E_BACKEND_URL` and `BINGO_E2E_ADMIN_URL` can override the local service URLs. The tracked `.env.example` contains placeholders only and is not automatically loaded by Playwright. Supply the values through your shell environment or CI secret store. Do not print secrets in CI steps, and keep traces disabled for credential-bearing runs.
 
+Admin-created accounts receive a generated temporary password by email. It expires after 24 hours, and the first successful sign-in is limited to changing that password. If it expires, an administrator must set a new password before the user can sign in.
+
 If a credential used by an earlier E2E configuration was real or reused, rotate it before running tests or deploying.

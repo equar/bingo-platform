@@ -65,6 +65,7 @@ app:
       network-attempt-limit: ${APP_AUTH_NETWORK_ATTEMPT_LIMIT:50}
       window: ${APP_AUTH_ATTEMPT_WINDOW:PT15M}
       lockout: ${APP_AUTH_LOCKOUT:PT15M}
+      trusted-proxy-addresses: ${APP_AUTH_TRUSTED_PROXY_ADDRESSES:127.0.0.1,::1}
   wallet:
     currency: ${APP_WALLET_CURRENCY:ETB}
     deposit-conversion-rate: ${APP_WALLET_DEPOSIT_CONVERSION_RATE:1.000000}

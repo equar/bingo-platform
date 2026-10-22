@@ -83,6 +83,7 @@ public class AuthService {
             authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(normalizedPhone, request.password()));
         } catch (AuthenticationException exception) {
+            throttleService.recordAccountFailure("player", normalizedPhone);
             throw new org.springframework.security.authentication.BadCredentialsException(
                     "Invalid credentials", exception);
         }
@@ -107,6 +108,7 @@ public class AuthService {
                 user.getRoles(),
                 user.getStatus(),
                 user.getCreatedAt(),
-                user.getUpdatedAt());
+                user.getUpdatedAt(),
+                user.isMustChangePassword());
     }
 }

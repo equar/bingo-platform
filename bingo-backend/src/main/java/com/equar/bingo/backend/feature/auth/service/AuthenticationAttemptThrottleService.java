@@ -23,11 +23,8 @@ public class AuthenticationAttemptThrottleService {
     }
 
     public void requireAccountAllowed(String accountType, String normalizedIdentifier) {
-        requireAllowed(
-                "account:" + accountType + ":" + normalizedIdentifier,
-                properties.accountAttemptLimit(),
-                properties.window(),
-                properties.lockout());
+        requireAccountAllowed(
+                accountType, normalizedIdentifier, properties.accountAttemptLimit(), properties.window());
     }
 
     public void requireAccountAllowed(
@@ -35,7 +32,20 @@ public class AuthenticationAttemptThrottleService {
             String normalizedIdentifier,
             int limit,
             Duration window) {
-        requireAllowed("account:" + accountType + ":" + normalizedIdentifier, limit, window, properties.lockout());
+        requireNotLocked("account:" + accountType + ":" + normalizedIdentifier, limit, window);
+    }
+
+    public void recordAccountFailure(String accountType, String normalizedIdentifier) {
+        recordAccountFailure(
+                accountType, normalizedIdentifier, properties.accountAttemptLimit(), properties.window());
+    }
+
+    public void recordAccountFailure(
+            String accountType,
+            String normalizedIdentifier,
+            int limit,
+            Duration window) {
+        recordFailure("account:" + accountType + ":" + normalizedIdentifier, limit, window);
     }
 
     public void requireAllowed(String key, int limit, Duration window, String code, String message) {
@@ -49,15 +59,28 @@ public class AuthenticationAttemptThrottleService {
     }
 
     public void requireNetworkAllowed(String remoteAddress) {
-        requireAllowed(
-                "network:" + remoteAddress,
-                properties.networkAttemptLimit(),
-                properties.window(),
+        requireNotLocked("network:" + remoteAddress, properties.networkAttemptLimit(), properties.window());
+    }
+
+    public void recordNetworkFailure(String remoteAddress) {
+        String key = "network:" + remoteAddress;
+        if (properties.networkAttemptLimit() < 1) {
+            throw new IllegalStateException("Authentication network-attempt limit must be positive");
+        }
+        bucketStore.recordAttempt(hash(key), properties.networkAttemptLimit(), properties.window(),
                 properties.lockout());
     }
 
-    private void requireAllowed(String key, int limit, Duration window, Duration lockout) {
-        if (limit < 1 || !bucketStore.recordAttempt(hash(key), limit, window, lockout)) {
+    private void requireNotLocked(String key, int limit, Duration window) {
+        if (limit < 1 || !bucketStore.isAllowed(hash(key), limit, window, properties.lockout())) {
+            throw new TooManyRequestsException(
+                    "AUTH_RATE_LIMITED",
+                    "Too many authentication attempts. Try again later.");
+        }
+    }
+
+    private void recordFailure(String key, int limit, Duration window) {
+        if (limit < 1 || !bucketStore.recordAttempt(hash(key), limit, window, properties.lockout())) {
             throw new TooManyRequestsException(
                     "AUTH_RATE_LIMITED",
                     "Too many authentication attempts. Try again later.");

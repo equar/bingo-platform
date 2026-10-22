@@ -1,0 +1,42 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Security response headers policy for the Bingo public website CloudFront distribution.",
+  "Resources": {
+    "WebsiteResponseHeadersPolicy": {
+      "Type": "AWS::CloudFront::ResponseHeadersPolicy",
+      "Properties": {
+        "ResponseHeadersPolicyConfig": {
+          "Name": "bingo-website-security-headers",
+          "Comment": "HTTPS and browser security headers for the Bingo public website.",
+          "SecurityHeadersConfig": {
+            "StrictTransportSecurity": {
+              "AccessControlMaxAgeSec": 63072000,
+              "IncludeSubdomains": true,
+              "Preload": false,
+              "Override": true
+            },
+            "ContentTypeOptions": {
+              "Override": true
+            },
+            "FrameOptions": {
+              "FrameOption": "DENY",
+              "Override": true
+            },
+            "ReferrerPolicy": {
+              "ReferrerPolicy": "strict-origin-when-cross-origin",
+              "Override": true
+            }
+          }
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "WebsiteResponseHeadersPolicyId": {
+      "Description": "Attach this policy to the default CloudFront cache behavior.",
+      "Value": {
+        "Ref": "WebsiteResponseHeadersPolicy"
+      }
+    }
+  }
+}

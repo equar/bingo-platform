@@ -3,6 +3,8 @@
 **Release decision:** **NO-GO**
 **Assessment date:** 2026-10-21
 
+> The current independent review is [final-independent-qa-review.md](./final-independent-qa-review.md). Release remains **NO-GO**. D4 proxy-aware throttling changes are in progress and must pass focused and full backend tests before this gate can be reconsidered.
+
 | Release gate | Status | Evidence / required action |
 |---|---|---|
 | MySQL 8 clean migration and V7 constraints | PASS | Testcontainers MySQL 8.0.36 tests passed. |

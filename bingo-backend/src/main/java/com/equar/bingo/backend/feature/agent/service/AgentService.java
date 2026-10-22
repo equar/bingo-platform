@@ -3,6 +3,7 @@ package com.equar.bingo.backend.feature.agent.service;
 import com.equar.bingo.backend.common.exception.BadRequestException;
 import com.equar.bingo.backend.common.exception.ConflictException;
 import com.equar.bingo.backend.common.exception.NotFoundException;
+import com.equar.bingo.backend.common.api.PageResponse;
 import com.equar.bingo.backend.common.idempotency.IdempotentResult;
 import com.equar.bingo.backend.common.idempotency.IdempotencyService;
 import com.equar.bingo.backend.common.money.MoneyValues;
@@ -39,9 +40,15 @@ import com.equar.bingo.backend.feature.wallet.repository.WalletTransactionReposi
 import com.equar.bingo.backend.feature.wallet.service.SignupRewardService;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -51,6 +58,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class AgentService {
+
+    private static final int MAX_HISTORY_PAGE_SIZE = 100;
+    private static final int MAX_HISTORY_SCAN = 10_000;
 
     private final AgentRepository agentRepository;
     private final AgentFloatRepository agentFloatRepository;
@@ -139,11 +149,26 @@ public class AgentService {
                 agentProperties.loginAttemptLimit(),
                 agentProperties.attemptWindow());
 
-        var authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(normalizedPhone, request.password()));
+        org.springframework.security.core.Authentication authentication;
+        try {
+            authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(normalizedPhone, request.password()));
+        } catch (org.springframework.security.core.AuthenticationException exception) {
+            throttleService.recordAccountFailure(
+                    "agent",
+                    normalizedPhone,
+                    agentProperties.loginAttemptLimit(),
+                    agentProperties.attemptWindow());
+            throw exception;
+        }
         User user = ((BingoUserPrincipal) authentication.getPrincipal()).getUser();
         Agent agent = requireApprovedAgent(user.getId());
         if (!agentPinEncoder.matches(request.pin(), user.getAgentPinHash())) {
+            throttleService.recordAccountFailure(
+                    "agent",
+                    normalizedPhone,
+                    agentProperties.loginAttemptLimit(),
+                    agentProperties.attemptWindow());
             throw new BadRequestException("INVALID_PIN", "Invalid agent PIN");
         }
         String token = jwtService.generateToken(user);
@@ -404,6 +429,213 @@ public class AgentService {
                 .map(this::toCommissionResponse).toList();
     }
 
+    @Transactional(readOnly = true)
+    public PageResponse<AgentFinancialHistoryEntryResponse> getFinancialHistory(
+            BingoUserPrincipal principal,
+            Pageable pageable,
+            String type,
+            String status,
+            Instant from,
+            Instant to) {
+        Agent agent = requireApprovedAgent(principal.getUser().getId());
+        if (pageable.getPageSize() > MAX_HISTORY_PAGE_SIZE) {
+            throw new BadRequestException("INVALID_PAGE_SIZE",
+                    "Financial history page size must not exceed " + MAX_HISTORY_PAGE_SIZE);
+        }
+        if (from != null && to != null && !from.isBefore(to)) {
+            throw new BadRequestException("INVALID_DATE_RANGE", "History start must be before history end");
+        }
+
+        long scanLimit = pageable.getOffset() + pageable.getPageSize();
+        if (scanLimit > MAX_HISTORY_SCAN) {
+            throw new BadRequestException("HISTORY_PAGE_TOO_DEEP",
+                    "Use a narrower date range to view older financial activity");
+        }
+
+        String normalizedType = normalizeHistoryType(type);
+        String normalizedStatus = normalizeHistoryStatus(status);
+        HistorySelection selection = selectionFor(normalizedType);
+        Pageable fetchPage = PageRequest.of(0, (int) scanLimit);
+        List<AgentFinancialHistoryEntryResponse> entries = new ArrayList<>();
+        long totalElements = 0;
+
+        if (selection.includeFloat()
+                && (normalizedStatus == null || normalizedStatus.equals("COMPLETED"))) {
+            Page<AgentFloatTransaction> floatPage = agentFloatTransactionRepository.findFinancialHistory(
+                    agent.getId(), selection.floatType(), from, to, fetchPage);
+            totalElements += floatPage.getTotalElements();
+            String currency = requireAgentFloat(agent.getId()).getCurrency();
+            floatPage.getContent().stream()
+                    .map(transaction -> toFinancialHistoryEntry(transaction, currency))
+                    .forEach(entries::add);
+        }
+
+        if (selection.includeCommission()
+                && (normalizedStatus == null
+                        || normalizedStatus.equals(CommissionAccrualStatus.ACCRUED.name())
+                        || normalizedStatus.equals(CommissionAccrualStatus.SETTLED.name()))) {
+            CommissionAccrualStatus commissionStatus = normalizedStatus == null
+                    ? null
+                    : CommissionAccrualStatus.valueOf(normalizedStatus);
+            Page<CommissionAccrual> commissionPage = commissionAccrualRepository.findFinancialHistory(
+                    agent.getId(), commissionStatus, from, to, fetchPage);
+            totalElements += commissionPage.getTotalElements();
+            String currency = requireAgentFloat(agent.getId()).getCurrency();
+            commissionPage.getContent().stream()
+                    .map(accrual -> toFinancialHistoryEntry(accrual, currency))
+                    .forEach(entries::add);
+        }
+
+        if (selection.includeTopUpRequest()
+                && (normalizedStatus == null
+                        || normalizedStatus.equals(FloatTopUpRequestStatus.PENDING.name())
+                        || normalizedStatus.equals(FloatTopUpRequestStatus.APPROVED.name())
+                        || normalizedStatus.equals(FloatTopUpRequestStatus.REJECTED.name()))) {
+            FloatTopUpRequestStatus topUpStatus = normalizedStatus == null
+                    ? null
+                    : FloatTopUpRequestStatus.valueOf(normalizedStatus);
+            Page<FloatTopUpRequest> topUpPage = floatTopUpRequestRepository.findFinancialHistory(
+                    agent.getId(), topUpStatus, from, to, fetchPage);
+            totalElements += topUpPage.getTotalElements();
+            topUpPage.getContent().stream()
+                    .map(this::toFinancialHistoryEntry)
+                    .forEach(entries::add);
+        }
+
+        entries.sort(Comparator.comparing(AgentFinancialHistoryEntryResponse::createdAt).reversed());
+        int start = (int) pageable.getOffset();
+        int end = Math.min(start + pageable.getPageSize(), entries.size());
+        List<AgentFinancialHistoryEntryResponse> content = start >= end
+                ? List.of()
+                : entries.subList(start, end);
+        Pageable responsePageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
+        return PageResponse.from(new PageImpl<>(content, responsePageable, totalElements));
+    }
+
+    private AgentFinancialHistoryEntryResponse toFinancialHistoryEntry(
+            AgentFloatTransaction transaction,
+            String currency) {
+        return new AgentFinancialHistoryEntryResponse(
+                switch (transaction.getTransactionType()) {
+                    case OPENING_BALANCE -> "openingBalance";
+                    case TOP_UP -> "floatTopUp";
+                    case TICKET_SALE_DEBIT -> "ticketSale";
+                    case PLAYER_WALLET_TRANSFER_DEBIT -> "playerWalletTopUp";
+                    case PAYOUT_DISBURSEMENT_DEBIT -> "payoutDisbursement";
+                    case PAYOUT_CLEARING_CREDIT -> "payoutClearing";
+                    case COMMISSION_CREDIT -> "commissionCredit";
+                    case MANUAL_ADJUSTMENT -> "manualAdjustment";
+                },
+                transaction.getAmount(),
+                currency,
+                transaction.getCreatedAt(),
+                "COMPLETED",
+                transaction.getOperationId(),
+                null,
+                transaction.getNote(),
+                transaction.getRelatedEntityType() == null || transaction.getRelatedEntityId() == null
+                        ? null
+                        : transaction.getRelatedEntityType() + "#" + transaction.getRelatedEntityId());
+    }
+
+    private AgentFinancialHistoryEntryResponse toFinancialHistoryEntry(
+            CommissionAccrual accrual,
+            String currency) {
+        return new AgentFinancialHistoryEntryResponse(
+                "commissionAccrual",
+                accrual.getCommissionAmount(),
+                currency,
+                accrual.getSettledAt() == null ? accrual.getCreatedAt() : accrual.getSettledAt(),
+                accrual.getStatus().name(),
+                accrual.getSettlementReference() == null || accrual.getSettlementReference().isBlank()
+                        ? accrual.getOperationId()
+                        : accrual.getSettlementReference(),
+                null,
+                accrual.getSettlementNote(),
+                "TICKET#" + accrual.getTicket().getId());
+    }
+
+    private AgentFinancialHistoryEntryResponse toFinancialHistoryEntry(FloatTopUpRequest request) {
+        return new AgentFinancialHistoryEntryResponse(
+                "floatTopUpRequest",
+                request.getAmount(),
+                request.getCurrency(),
+                request.getCreatedAt(),
+                request.getStatus().name(),
+                request.getOperationId(),
+                request.getReviewedBy() == null ? null : "ADMIN#" + request.getReviewedBy().getId(),
+                request.getReviewNote(),
+                null);
+    }
+
+    private String normalizeHistoryType(String type) {
+        if (type == null || type.isBlank()) {
+            return null;
+        }
+        String normalized = type.trim();
+        if (!List.of(
+                "openingBalance",
+                "floatTopUp",
+                "ticketSale",
+                "playerWalletTopUp",
+                "payoutDisbursement",
+                "payoutClearing",
+                "commissionCredit",
+                "manualAdjustment",
+                "commissionAccrual",
+                "floatTopUpRequest",
+                "other").contains(normalized)) {
+            throw new BadRequestException("INVALID_HISTORY_TYPE", "Unknown financial history type");
+        }
+        return normalized;
+    }
+
+    private String normalizeHistoryStatus(String status) {
+        if (status == null || status.isBlank()) {
+            return null;
+        }
+        String normalized = status.trim().toUpperCase();
+        if (!List.of("COMPLETED", "ACCRUED", "SETTLED", "PENDING", "APPROVED", "REJECTED").contains(normalized)) {
+            throw new BadRequestException("INVALID_HISTORY_STATUS", "Unknown financial history status");
+        }
+        return normalized;
+    }
+
+    private HistorySelection selectionFor(String type) {
+        if (type == null) {
+            return new HistorySelection(true, null, true, true);
+        }
+        return switch (type) {
+            case "openingBalance" -> new HistorySelection(
+                    true, AgentFloatTransactionType.OPENING_BALANCE, false, false);
+            case "floatTopUp" -> new HistorySelection(
+                    true, AgentFloatTransactionType.TOP_UP, false, false);
+            case "ticketSale" -> new HistorySelection(
+                    true, AgentFloatTransactionType.TICKET_SALE_DEBIT, false, false);
+            case "playerWalletTopUp" -> new HistorySelection(
+                    true, AgentFloatTransactionType.PLAYER_WALLET_TRANSFER_DEBIT, false, false);
+            case "payoutDisbursement" -> new HistorySelection(
+                    true, AgentFloatTransactionType.PAYOUT_DISBURSEMENT_DEBIT, false, false);
+            case "payoutClearing" -> new HistorySelection(
+                    true, AgentFloatTransactionType.PAYOUT_CLEARING_CREDIT, false, false);
+            case "commissionCredit" -> new HistorySelection(
+                    true, AgentFloatTransactionType.COMMISSION_CREDIT, false, false);
+            case "manualAdjustment" -> new HistorySelection(
+                    true, AgentFloatTransactionType.MANUAL_ADJUSTMENT, false, false);
+            case "commissionAccrual" -> new HistorySelection(false, null, true, false);
+            case "floatTopUpRequest" -> new HistorySelection(false, null, false, true);
+            case "other" -> new HistorySelection(false, null, false, false);
+            default -> throw new BadRequestException("INVALID_HISTORY_TYPE", "Unknown financial history type");
+        };
+    }
+
+    private record HistorySelection(
+            boolean includeFloat,
+            AgentFloatTransactionType floatType,
+            boolean includeCommission,
+            boolean includeTopUpRequest) {
+    }
+
     @Transactional
     public AgentProfileResponse adminApproveAgent(Long userId, AgentProfileResponse request) {
         User user = userRepository.findById(userId)
@@ -554,7 +786,7 @@ public class AgentService {
 
     private UserProfileResponse toProfile(User user) {
         return new UserProfileResponse(user.getId(), user.getDisplayName(), user.getNormalizedPhone(), user.getRoles(),
-                user.getStatus(), user.getCreatedAt(), user.getUpdatedAt());
+                user.getStatus(), user.getCreatedAt(), user.getUpdatedAt(), user.isMustChangePassword());
     }
 
     private AgentProfileResponse toAgentProfileResponse(Agent agent) {

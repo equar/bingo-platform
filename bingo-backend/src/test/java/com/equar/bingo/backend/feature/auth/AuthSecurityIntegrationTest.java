@@ -4,6 +4,7 @@ import com.equar.bingo.backend.MySqlIntegrationTest;
 import com.equar.bingo.backend.feature.auth.dto.LoginRequest;
 import com.equar.bingo.backend.feature.auth.dto.RegisterRequest;
 import com.equar.bingo.backend.feature.auth.service.EthiopianPhoneNormalizer;
+import com.equar.bingo.backend.feature.auth.service.JwtService;
 import com.equar.bingo.backend.feature.game.repository.BingoRoomRepository;
 import com.equar.bingo.backend.feature.game.repository.DrawEventRepository;
 import com.equar.bingo.backend.feature.game.repository.GameSessionRepository;
@@ -71,6 +72,9 @@ class AuthSecurityIntegrationTest extends MySqlIntegrationTest {
         EthiopianPhoneNormalizer phoneNormalizer;
 
         @Autowired
+        JwtService jwtService;
+
+        @Autowired
         WalletTransactionRepository walletTransactionRepository;
 
         @Autowired
@@ -121,6 +125,9 @@ class AuthSecurityIntegrationTest extends MySqlIntegrationTest {
 
         @Autowired
         org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+
+        @Autowired
+        com.equar.bingo.backend.feature.auth.service.AuthenticationAttemptThrottleService throttleService;
 
         @BeforeEach
         void setUp() {
@@ -273,20 +280,25 @@ class AuthSecurityIntegrationTest extends MySqlIntegrationTest {
         }
 
         @Test
-        void successfulLoginDoesNotClearAccountOrNetworkAttemptCounters() throws Exception {
+        void successfulLoginDoesNotConsumeOrClearAccountOrNetworkFailureCounters() throws Exception {
+                String normalizedPhone = phoneNormalizer.normalize("0911000004");
+                throttleService.recordAccountFailure("player", normalizedPhone);
+                throttleService.recordNetworkFailure("127.0.0.1");
                 String validLogin = objectMapper.writeValueAsString(new LoginRequest("0911000004", "123456"));
-                for (int attempt = 0; attempt < 3; attempt++) {
-                        mockMvc.perform(post("/api/v1/auth/login")
-                                        .contentType(MediaType.APPLICATION_JSON)
-                                        .content(validLogin))
-                                        .andExpect(status().isOk());
-                }
+                mockMvc.perform(post("/api/v1/auth/login")
+                                .with(request -> {
+                                        request.setRemoteAddr("127.0.0.1");
+                                        return request;
+                                })
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(validLogin))
+                                .andExpect(status().isOk());
 
                 assertEquals(2, jdbcTemplate.queryForObject(
                                 "select count(*) from authentication_attempt_buckets",
                                 Integer.class));
                 assertEquals(2, jdbcTemplate.queryForObject(
-                                "select count(*) from authentication_attempt_buckets where attempt_count = 3",
+                                "select sum(attempt_count) from authentication_attempt_buckets",
                                 Integer.class));
         }
 
@@ -370,5 +382,28 @@ class AuthSecurityIntegrationTest extends MySqlIntegrationTest {
                                 org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors
                                                 .user("admin").roles("ADMIN")))
                                 .andExpect(status().isOk());
+        }
+
+        @Test
+        void actuatorAuthorizationUsesIssuedRoleBearerTokens() throws Exception {
+                String playerToken = issueTokenFor("0911000004");
+                String agentToken = issueTokenFor("0911000002");
+                String adminToken = issueTokenFor("0911000001");
+
+                mockMvc.perform(get("/actuator/env")
+                                .header("Authorization", "Bearer " + playerToken))
+                                .andExpect(status().isForbidden());
+                mockMvc.perform(get("/actuator/env")
+                                .header("Authorization", "Bearer " + agentToken))
+                                .andExpect(status().isForbidden());
+                mockMvc.perform(get("/actuator/env")
+                                .header("Authorization", "Bearer " + adminToken))
+                                .andExpect(status().isOk());
+        }
+
+        private String issueTokenFor(String phone) {
+                User user = userRepository.findByNormalizedPhone(phoneNormalizer.normalize(phone))
+                                .orElseThrow();
+                return jwtService.generateToken(user);
         }
 }

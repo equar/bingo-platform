@@ -12,7 +12,10 @@ class PageResponse<T> {
           .whereType<Map>()
           .map((item) => fromJson(Map<String, dynamic>.from(item)))
           .toList(),
-      page: (json['pageable']?['pageNumber'] as num?)?.toInt() ?? (json['number'] as num?)?.toInt() ?? 0,
+      page: (json['page'] as num?)?.toInt() ??
+          (json['pageable']?['pageNumber'] as num?)?.toInt() ??
+          (json['number'] as num?)?.toInt() ??
+          0,
       totalPages: (json['totalPages'] as num?)?.toInt() ?? 1,
       totalElements: (json['totalElements'] as num?)?.toInt() ?? 0,
     );

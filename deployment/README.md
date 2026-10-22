@@ -14,7 +14,7 @@ The layout follows the same general pattern as the BillPay deployment folder:
 
 - `bingo-backend` Spring Boot 4.1.1 / Java 25 / Maven / MySQL / Flyway
 - `bingo-admin` React / TypeScript / Vite SPA
-- `bingo-website` Astro static site deployed to AWS S3, with optional CloudFront invalidation
+- `bingo-website` Astro static site deployed to AWS S3 and CloudFront
 
 The Flutter player app and the agent app are intentionally not part of this deployment set.
 
@@ -32,6 +32,7 @@ The Flutter player app and the agent app are intentionally not part of this depl
 - [admin/health-check-admin.sh](admin/health-check-admin.sh)
 - [admin/admin.env.example](admin/admin.env.example)
 - [admin/nginx-bingo.conf](admin/nginx-bingo.conf)
+- [website/cloudfront-response-headers-policy.json](website/cloudfront-response-headers-policy.json)
 - [deploy-all.sh](deploy-all.sh)
 - [.github/workflows/deploy-website.yml](../.github/workflows/deploy-website.yml)
 - [.github/workflows/deploy-aws.yml](../.github/workflows/deploy-aws.yml)
@@ -74,6 +75,24 @@ If you want automatic deployment on merge to `main`, also configure these GitHub
 - Secret `BINGO_SSH_KEY_B64` containing the base64-encoded SSH private key
 - Secret `BINGO_BACKEND_ENV_FILE_B64` containing the base64-encoded backend env file
 
+For the manual public website deployment workflow, configure these variables in the
+`bingo-website-production` environment:
+
+- `BINGO_AWS_REGION`, `BINGO_AWS_ROLE_ARN`, and `BINGO_WEBSITE_BUCKET`
+- `BINGO_WEBSITE_CLOUDFRONT_DISTRIBUTION_ID`
+- `BINGO_WEBSITE_RESPONSE_HEADERS_POLICY_ID`
+- `BINGO_PUBLIC_SITE_URL` as the production HTTPS origin
+- `BINGO_PUBLIC_SITE_INDEXABLE` as `true` only when the public site should be indexed
+- Optional public values: `BINGO_PUBLIC_ANDROID_AVAILABILITY`, `BINGO_PUBLIC_ANDROID_URL`,
+  `BINGO_PUBLIC_IOS_AVAILABILITY`, `BINGO_PUBLIC_IOS_URL`, `BINGO_PUBLIC_SUPPORT_EMAIL`,
+  `BINGO_PUBLIC_SUPPORT_TELEGRAM_URL`, and `BINGO_PUBLIC_SUPPORT_WHATSAPP_URL`
+
+Deploy the CloudFront response headers policy template and attach its output policy ID
+to the distribution's default cache behavior before running the website workflow.
+The workflow now rejects deployment when the distribution does not have the configured
+policy attached or when required security headers are absent. Apply the policy to every
+additional cache behavior if the distribution defines any.
+
 The workflow in [.github/workflows/deploy-aws.yml](../.github/workflows/deploy-aws.yml) runs automatically on push to `main` and can also be launched manually with a dry-run flag.
 
 Recommended production values:
@@ -111,6 +130,8 @@ Required settings:
 Notes:
 
 - `JWT_SECRET` must be strong and unique.
+- `APP_AUTH_TRUSTED_PROXY_ADDRESSES` is a comma-separated list of proxy peer IPs permitted to supply `X-Real-IP`; it defaults to loopback for the checked-in same-host Nginx setup. Restrict direct backend access and update this list if the proxy runs elsewhere.
+- The Nginx proxy must overwrite `X-Real-IP` with the connected client address. Do not append or trust client-supplied forwarded-address chains for authentication throttling.
 - Do not use any fallback JWT secret in production.
 - `APP_DEV_SEED_ENABLED=false` is included to keep development seed users off in production.
 - Flyway remains enabled and should run on startup.

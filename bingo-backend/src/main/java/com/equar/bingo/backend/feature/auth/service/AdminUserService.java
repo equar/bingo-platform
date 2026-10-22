@@ -10,6 +10,7 @@ import com.equar.bingo.backend.feature.user.entity.User;
 import com.equar.bingo.backend.feature.user.entity.UserRole;
 import com.equar.bingo.backend.feature.user.repository.UserRepository;
 import java.time.Instant;
+import java.time.Duration;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -57,15 +58,17 @@ public class AdminUserService {
         ensurePhoneAvailable(normalizedPhone, null);
 
         String generatedPassword = passwordGenerator.generate();
+        Instant createdAt = Instant.now();
 
         User user = User.create(
                 normalizedPhone,
                 request.displayName().trim(),
-            passwordEncoder.encode(generatedPassword),
+                passwordEncoder.encode(generatedPassword),
                 request.status(),
                 new LinkedHashSet<>(request.roles()),
-                Instant.now());
+                createdAt);
         user.setEmail(normalizedEmail);
+        user.requirePasswordChangeUntil(createdAt.plus(Duration.ofHours(24)));
         User savedUser = userRepository.save(user);
         notificationService.sendGeneratedPassword(savedUser, generatedPassword);
         return toSummary(savedUser);
@@ -90,6 +93,7 @@ public class AdminUserService {
 
         if (request.password() != null && !request.password().isBlank()) {
             user.setPasswordHash(passwordEncoder.encode(request.password()));
+            user.completePasswordChange();
         }
 
         return toSummary(userRepository.save(user));

@@ -2,6 +2,8 @@
 
 Statuses describe evidence obtained on 2026-10-21. A PASS is limited to the scenario stated; it does not imply production readiness.
 
+> This Phase 6 gap matrix is supplemented by the independent D1–D16 review in [final-independent-qa-review.md](./final-independent-qa-review.md). The later review identifies D4 proxy-aware login throttling as in progress and unverified; do not interpret the earlier Phase 6 PASS rows as covering that follow-up patch.
+
 | Gap | Scenario | Status | Evidence / remaining work | Rerun command |
 |---|---|---|---|---|
 | G1 | MySQL 8 V6-to-V12 Flyway upgrade | PASS | Testcontainers MySQL 8.0.36; upgrade regression test passed. | `cd bingo-backend; mvn -Dtest=FlywayUpgradeRecoveryIntegrationTest test` |

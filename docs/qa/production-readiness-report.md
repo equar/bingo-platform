@@ -4,6 +4,8 @@
 **Baseline:** October 20, 2026 End-to-End QA Report
 **Branch:** `muse-code-review`
 
+> **Independent audit update:** See [final-independent-qa-review.md](./final-independent-qa-review.md) for the D1–D16 matrix, fresh cross-platform verification, and current release decision. It confirms **NO-GO**. A follow-up D4 code change is in progress and unverified; its focused test rerun was interrupted.
+
 ## Release decision
 
 **NO-GO.** The concurrent agent-sale idempotency failure and authenticated STOMP failure from the initial Phase 6 run have been fixed and now pass regression tests. Release remains blocked because the required 1,000-player load test, onboarding-mail flow, complete Playwright flow, device E2E flows, and database restore rehearsal were not completed in isolated environments.

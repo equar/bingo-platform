@@ -1,5 +1,6 @@
 import 'package:bingo_agent/src/features/agents/data/agent_models.dart';
 import 'package:bingo_agent/src/features/agents/data/agent_repository.dart';
+import 'package:bingo_agent/src/core/models/page_response.dart';
 import 'package:bingo_agent/src/features/history/data/financial_history_entry.dart';
 import 'package:bingo_agent/src/features/history/presentation/financial_history_screen.dart';
 import 'package:bingo_agent/src/features/home/presentation/home_shell.dart';
@@ -67,6 +68,36 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('financial history pages are fetched and navigable', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          agentRepositoryProvider.overrideWithValue(
+            _HistoryRepository(includeManyRecords: true),
+          ),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const Scaffold(body: FinancialHistoryScreen()),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('Page 1 of 2'),
+      400,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.ensureVisible(find.text('Next'));
+    await tester.tap(find.text('Next'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Page 2 of 2'), findsOneWidget);
+    expect(find.text('Previous'), findsOneWidget);
+  });
+
   testWidgets('Amharic navigation labels fit the agent mobile shell',
       (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 844));
@@ -90,7 +121,9 @@ void main() {
 }
 
 class _HistoryRepository extends AgentRepository {
-  _HistoryRepository() : super(Dio());
+  _HistoryRepository({this.includeManyRecords = false}) : super(Dio());
+
+  final bool includeManyRecords;
 
   @override
   Future<AgentDashboard> dashboard() async => AgentDashboard(
@@ -151,4 +184,59 @@ class _HistoryRepository extends AgentRepository {
 
   @override
   Future<List<FloatTopUpRequest>> topUpRequests() async => [];
+
+  @override
+  Future<PageResponse<FinancialHistoryEntry>> financialHistory({
+    int page = 0,
+    int size = 20,
+    String? type,
+    String? status,
+    String? from,
+    String? to,
+  }) async {
+    final records = includeManyRecords
+        ? List<FinancialHistoryEntry>.generate(
+            21,
+            (index) => FinancialHistoryEntry(
+              type: FinancialActivityType.ticketSale,
+              amount: '25.00',
+              currency: 'ETB',
+              createdAt: DateTime.utc(2026, 10, 20, 12, 0)
+                  .subtract(Duration(minutes: index)),
+              status: 'COMPLETED',
+              reference: 'ticket-operation-$index',
+            ),
+          )
+        : FinancialHistoryEntry.combine(
+            currency: (await floatBalance()).currency,
+            floatTransactions: await floatHistory(),
+            commissions: await commissionHistory(),
+            topUpRequests: await topUpRequests(),
+          );
+    final filtered = records.where((entry) {
+      if (type != null && entry.type.name != type) return false;
+      if (status != null && entry.status != status) return false;
+      final lowerBound = from == null ? null : DateTime.parse(from);
+      final upperBound = to == null ? null : DateTime.parse(to);
+      if (lowerBound != null && entry.createdAt.isBefore(lowerBound)) {
+        return false;
+      }
+      if (upperBound != null && !entry.createdAt.isBefore(upperBound)) {
+        return false;
+      }
+      return true;
+    }).toList()
+      ..sort((left, right) => right.createdAt.compareTo(left.createdAt));
+    final start = page * size;
+    final end = (start + size).clamp(0, filtered.length).toInt();
+    final content = start >= filtered.length
+        ? <FinancialHistoryEntry>[]
+        : filtered.sublist(start, end);
+    return PageResponse(
+      content: content,
+      page: page,
+      totalPages: (filtered.length / size).ceil(),
+      totalElements: filtered.length,
+    );
+  }
 }

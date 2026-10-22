@@ -1,26 +1,32 @@
 import 'package:bingo_agent/src/features/agents/data/agent_repository.dart';
-import 'package:bingo_agent/src/features/agents/data/agent_models.dart';
 import 'package:bingo_agent/src/features/history/data/financial_history_entry.dart';
 import 'package:bingo_agent/src/l10n/generated/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
-final financialHistoryProvider = FutureProvider.autoDispose((ref) async {
-  final repository = ref.watch(agentRepositoryProvider);
-  final results = await Future.wait<dynamic>([
-    repository.floatBalance(),
-    repository.floatHistory(),
-    repository.commissionHistory(),
-    repository.topUpRequests(),
-  ]);
-  return FinancialHistoryEntry.combine(
-    currency: (results[0] as AgentFloatBalance).currency,
-    floatTransactions: results[1] as List<AgentFloatTransaction>,
-    commissions: results[2] as List<CommissionAccrual>,
-    topUpRequests: results[3] as List<FloatTopUpRequest>,
-  );
+typedef FinancialHistoryQuery = ({
+  int page,
+  FinancialActivityType? type,
+  String? status,
+  String? from,
+  String? to,
 });
+
+const _financialHistoryPageSize = 20;
+
+final financialHistoryProvider = FutureProvider.autoDispose.family(
+  (ref, FinancialHistoryQuery query) {
+    return ref.watch(agentRepositoryProvider).financialHistory(
+          page: query.page,
+          size: _financialHistoryPageSize,
+          type: query.type?.name,
+          status: query.status,
+          from: query.from,
+          to: query.to,
+        );
+  },
+);
 
 class FinancialHistoryScreen extends ConsumerStatefulWidget {
   const FinancialHistoryScreen({super.key});
@@ -35,24 +41,48 @@ class _FinancialHistoryScreenState
   FinancialActivityType? _type;
   String? _status;
   DateTimeRange? _dateRange;
+  int _page = 0;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final asyncValue = ref.watch(financialHistoryProvider);
+    final dateRangeEndExclusive = _dateRange == null
+        ? null
+        : DateTime(
+            _dateRange!.end.year,
+            _dateRange!.end.month,
+            _dateRange!.end.day + 1,
+          );
+    final query = (
+      page: _page,
+      type: _type,
+      status: _status,
+      from: _dateRange == null
+          ? null
+          : DateTime(
+              _dateRange!.start.year,
+              _dateRange!.start.month,
+              _dateRange!.start.day,
+            ).toUtc().toIso8601String(),
+      to: dateRangeEndExclusive?.toUtc().toIso8601String(),
+    );
+    final asyncValue = ref.watch(financialHistoryProvider(query));
     return asyncValue.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, stack) => _HistoryError(
-          onRetry: () => ref.invalidate(financialHistoryProvider)),
-      data: (entries) {
-        final statuses = entries
-            .map((entry) => entry.status.toUpperCase())
-            .toSet()
-            .toList()
-          ..sort();
-        final filtered = entries.where(_matchesFilters).toList();
+          onRetry: () => ref.invalidate(financialHistoryProvider(query))),
+      data: (historyPage) {
+        final entries = historyPage.content;
+        const statuses = [
+          'ACCRUED',
+          'APPROVED',
+          'COMPLETED',
+          'PENDING',
+          'REJECTED',
+          'SETTLED',
+        ];
         return RefreshIndicator(
-          onRefresh: () async => ref.invalidate(financialHistoryProvider),
+          onRefresh: () async => ref.invalidate(financialHistoryProvider(query)),
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(16),
@@ -83,7 +113,10 @@ class _FinancialHistoryScreenState
                                 maxLines: 1, overflow: TextOverflow.ellipsis),
                           ),
                       ],
-                      onChanged: (value) => setState(() => _type = value),
+                      onChanged: (value) => setState(() {
+                        _type = value;
+                        _page = 0;
+                      }),
                     ),
                   ),
                   SizedBox(
@@ -106,7 +139,10 @@ class _FinancialHistoryScreenState
                                 maxLines: 1, overflow: TextOverflow.ellipsis),
                           ),
                       ],
-                      onChanged: (value) => setState(() => _status = value),
+                      onChanged: (value) => setState(() {
+                        _status = value;
+                        _page = 0;
+                      }),
                     ),
                   ),
                   OutlinedButton.icon(
@@ -120,37 +156,50 @@ class _FinancialHistoryScreenState
                               _type = null;
                               _status = null;
                               _dateRange = null;
+                              _page = 0;
                             }),
                         child: Text(l10n.clearFilters)),
                 ],
               ),
               const SizedBox(height: 12),
-              if (filtered.isEmpty)
+              if (entries.isEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 32),
                   child: Center(child: Text(l10n.noTransactions)),
                 )
               else
-                ...filtered.map((entry) => _entryTile(context, l10n, entry)),
+                ...entries.map((entry) => _entryTile(context, l10n, entry)),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(l10n.historyPage(
+                    historyPage.page + 1,
+                    historyPage.totalPages == 0 ? 1 : historyPage.totalPages,
+                  )),
+                  Row(
+                    children: [
+                      TextButton(
+                        onPressed: historyPage.page > 0
+                            ? () => setState(() => _page -= 1)
+                            : null,
+                        child: Text(l10n.previous),
+                      ),
+                      TextButton(
+                        onPressed: historyPage.page + 1 < historyPage.totalPages
+                            ? () => setState(() => _page += 1)
+                            : null,
+                        child: Text(l10n.next),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ],
           ),
         );
       },
     );
-  }
-
-  bool _matchesFilters(FinancialHistoryEntry entry) {
-    if (_type != null && entry.type != _type) return false;
-    if (_status != null && entry.status.toUpperCase() != _status) return false;
-    if (_dateRange != null) {
-      final date = entry.createdAt;
-      final endExclusive = DateTime(
-          _dateRange!.end.year, _dateRange!.end.month, _dateRange!.end.day + 1);
-      if (date.isBefore(_dateRange!.start) || !date.isBefore(endExclusive)) {
-        return false;
-      }
-    }
-    return true;
   }
 
   Future<void> _selectDateRange(AppLocalizations l10n) async {
@@ -165,7 +214,12 @@ class _FinancialHistoryScreenState
       confirmText: l10n.confirm,
       locale: Locale(locale),
     );
-    if (mounted && selected != null) setState(() => _dateRange = selected);
+    if (mounted && selected != null) {
+      setState(() {
+        _dateRange = selected;
+        _page = 0;
+      });
+    }
   }
 
   String _dateLabel(AppLocalizations l10n) {

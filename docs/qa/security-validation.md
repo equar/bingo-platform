@@ -3,6 +3,12 @@
 **Date:** 2026-10-21
 **Result:** **NOT CLEARED FOR RELEASE**
 
+> The broader independent security and release review is recorded in [final-independent-qa-review.md](./final-independent-qa-review.md). It identified a proxy-address aggregation risk in D4 and an Actuator JWT test gap.
+
+## D4 follow-up status
+
+After the reviewed commit, code changes were started to count authentication failures rather than successful logins and to resolve `X-Real-IP` only when the request peer matches configured trusted proxy addresses. The checked-in Nginx proxy is changed to overwrite the forwarding header with the connected client address. This follow-up is **not verified**: the first focused run had one test-fixture failure, the fixture was corrected, and the rerun was interrupted before a result was returned. Do not mark D4 security validation as PASS until the focused test and full backend suite pass and the production trusted-proxy configuration is confirmed.
+
 This is a bounded validation record for Phase 6, not a penetration test or a complete security audit. No secrets, passwords, PINs, or bearer tokens were added to the reports or emitted as test evidence.
 
 ## Executed security-relevant checks
