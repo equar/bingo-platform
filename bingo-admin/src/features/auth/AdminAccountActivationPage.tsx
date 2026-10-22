@@ -42,7 +42,7 @@ export function AdminAccountActivationPage() {
         <Stack spacing={3}>
           <div>
             <Typography variant="h4" fontWeight={700} gutterBottom>
-              Set up your Bingo Admin account
+              Set up your Sunset Bingo Admin account
             </Typography>
             <Typography color="text.secondary">
               Choose a password to activate your account. The activation link can only be used once.

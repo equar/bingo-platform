@@ -136,7 +136,7 @@ export function AppShell() {
       <AppBar position="fixed" sx={{ zIndex: (theme: Theme) => theme.zIndex.drawer + 1 }}>
         <Toolbar>
           <Typography variant="h6" noWrap sx={{ flexGrow: 1 }}>
-            Bingo Admin
+            Sunset Bingo Admin
           </Typography>
           <Button
             color="inherit"

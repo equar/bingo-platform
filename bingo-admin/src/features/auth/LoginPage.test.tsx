@@ -82,6 +82,8 @@ describe("LoginPage", () => {
     const user = userEvent.setup();
     render(<LoginPage />, { wrapper: createWrapper() });
 
+    expect(screen.getByRole("heading", { name: "Sunset Bingo Admin" })).toBeInTheDocument();
+    expect(screen.getByText(/Welcome to Sunset Bingo's operations hub/i)).toBeInTheDocument();
     expect(await screen.findByLabelText(/email address/i)).toHaveValue("saved@bingo.local");
 
     await user.clear(screen.getByLabelText(/email address/i));
