@@ -1,6 +1,7 @@
 package com.equar.bingo.backend.feature.auth.service;
 
 import com.equar.bingo.backend.common.exception.NotFoundException;
+import com.equar.bingo.backend.common.exception.ConflictException;
 import com.equar.bingo.backend.feature.auth.dto.ChangePasswordRequest;
 import com.equar.bingo.backend.feature.auth.dto.AdminLoginRequest;
 import com.equar.bingo.backend.feature.auth.dto.AuthResponse;
@@ -8,6 +9,7 @@ import com.equar.bingo.backend.feature.user.entity.User;
 import com.equar.bingo.backend.feature.user.entity.UserRole;
 import com.equar.bingo.backend.feature.user.repository.UserRepository;
 import java.util.Locale;
+import java.time.Instant;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -36,19 +38,28 @@ public class AdminAuthService {
     public AuthResponse login(AdminLoginRequest request) {
         String email = normalizeEmail(request.email());
         throttleService.requireAccountAllowed("admin", email);
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new BadCredentialsException("Invalid credentials"));
+        try {
+            User user = userRepository.findByEmail(email)
+                    .orElseThrow(() -> new BadCredentialsException("Invalid credentials"));
 
-        if (!(user.hasRole(UserRole.ADMIN) || user.hasRole(UserRole.SUPPORT))) {
-            throw new BadCredentialsException("Invalid credentials");
+            if (!(user.hasRole(UserRole.ADMIN) || user.hasRole(UserRole.SUPPORT))) {
+                throw new BadCredentialsException("Invalid credentials");
+            }
+
+            if (user.isMustChangePassword() && user.isTemporaryPasswordExpired(Instant.now())) {
+                throw new BadCredentialsException("Invalid credentials");
+            }
+
+            if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
+                throw new BadCredentialsException("Invalid credentials");
+            }
+
+            String token = jwtService.generateToken(user);
+            return new AuthResponse(token, "Bearer", jwtService.getExpirationSeconds(), toProfile(user));
+        } catch (BadCredentialsException exception) {
+            throttleService.recordAccountFailure("admin", email);
+            throw exception;
         }
-
-        if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
-            throw new BadCredentialsException("Invalid credentials");
-        }
-
-        String token = jwtService.generateToken(user);
-        return new AuthResponse(token, "Bearer", jwtService.getExpirationSeconds(), toProfile(user));
     }
 
     @Transactional
@@ -60,7 +71,12 @@ public class AdminAuthService {
             throw new BadCredentialsException("Current password is incorrect");
         }
 
+        if (passwordEncoder.matches(request.newPassword(), user.getPasswordHash())) {
+            throw new ConflictException("PASSWORD_REUSE_NOT_ALLOWED", "Choose a password different from the current password");
+        }
+
         user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
+        user.completePasswordChange();
         userRepository.save(user);
     }
 
@@ -79,6 +95,7 @@ public class AdminAuthService {
                 user.getRoles(),
                 user.getStatus(),
                 user.getCreatedAt(),
-                user.getUpdatedAt());
+                user.getUpdatedAt(),
+                user.isMustChangePassword());
     }
 }

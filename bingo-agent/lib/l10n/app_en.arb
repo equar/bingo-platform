@@ -92,6 +92,19 @@
   "anyDate": "Any date",
   "clearFilters": "Clear filters",
   "noTransactions": "No transactions match these filters.",
+  "historyPage": "Page {current} of {total}",
+  "@historyPage": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "previous": "Previous",
+  "next": "Next",
   "transactionDetails": "Transaction details",
   "transactionTypeLabel": "Transaction type",
   "transactionAmount": "Amount",

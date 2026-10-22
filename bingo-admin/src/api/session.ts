@@ -8,6 +8,7 @@ export interface AdminUserProfile {
   status: string;
   createdAt: string;
   updatedAt: string;
+  mustChangePassword?: boolean;
 }
 
 export interface AdminAuthSession {

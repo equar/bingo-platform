@@ -86,12 +86,14 @@ GameSession _session({required String state}) {
   );
 }
 
-AuthSessionState _authenticatedState() {
+AuthSessionState _authenticatedState({
+  DateTime? expiresAt,
+}) {
   return AuthSessionState(
     isLoading: false,
     session: AuthSession(
       accessToken: 'token',
-      expiresAt: DateTime.utc(2030, 1, 2),
+      expiresAt: expiresAt ?? DateTime.utc(2030, 1, 2),
       user: UserProfile(
         id: 7,
         displayName: 'Player',
@@ -195,6 +197,77 @@ void main() {
       expect(controller.state.pendingClaimIdempotencyKey, isNull);
     },
   );
+
+  test('pauses the live connection in background and resyncs on resume', () async {
+    final repo = FakeLiveGameRepository(
+      session: _session(state: 'STARTED'),
+      ticketPage: _ticketPage(),
+      claimPage: _claimPage(),
+      drawResponses: {0: const []},
+    );
+    final transport = FakeLiveGameTransport();
+    final controller = LiveGameController(
+      sessionId: 42,
+      repository: repo,
+      readAuthSession: _authenticatedState,
+      clearAuthSession: ({String? reason}) async {},
+      appConfig: const AppConfig(
+        apiBaseUrl: 'https://example.com',
+        apiBaseUrlLabel: 'API_BASE_URL',
+      ),
+      transport: transport,
+    );
+    addTearDown(controller.dispose);
+
+    await controller.start();
+    expect(transport.connectCount, 1);
+    expect(transport.isConnected, isTrue);
+
+    await controller.pause();
+    expect(controller.state.connectionState, LiveGameConnectionState.paused);
+    expect(transport.isConnected, isFalse);
+
+    await controller.resume();
+    expect(transport.connectCount, 2);
+    expect(controller.state.connectionState, LiveGameConnectionState.connected);
+  });
+
+  test('expires the session instead of reconnecting with an expired token', () async {
+    final repo = FakeLiveGameRepository(
+      session: _session(state: 'STARTED'),
+      ticketPage: _ticketPage(),
+      claimPage: _claimPage(),
+      drawResponses: {0: const []},
+    );
+    final transport = FakeLiveGameTransport();
+    final clearedSessionReasons = <String?>[];
+    var authState = _authenticatedState();
+    final controller = LiveGameController(
+      sessionId: 42,
+      repository: repo,
+      readAuthSession: () => authState,
+      clearAuthSession: ({String? reason}) async {
+        clearedSessionReasons.add(reason);
+      },
+      appConfig: const AppConfig(
+        apiBaseUrl: 'https://example.com',
+        apiBaseUrlLabel: 'API_BASE_URL',
+      ),
+      transport: transport,
+    );
+    addTearDown(controller.dispose);
+
+    await controller.start();
+    authState = _authenticatedState(expiresAt: DateTime.utc(2020));
+
+    await controller.pause();
+    await controller.resume();
+
+    expect(controller.state.connectionState, LiveGameConnectionState.expired);
+    expect(clearedSessionReasons, ['SESSION_EXPIRED']);
+    expect(transport.connectCount, 1);
+    expect(transport.isConnected, isFalse);
+  });
 }
 
 class FakeLiveGameRepository implements LiveGameRepository {

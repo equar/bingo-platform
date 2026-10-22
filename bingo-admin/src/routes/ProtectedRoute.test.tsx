@@ -51,4 +51,34 @@ describe("ProtectedRoute", () => {
 
     expect(screen.getByText("Access denied")).toBeInTheDocument();
   });
+
+  it("requires temporary-password users to change their password before opening other pages", () => {
+    writeSession({
+      accessToken: "temporary-token",
+      tokenType: "Bearer",
+      user: {
+        id: 3,
+        displayName: "Temporary Admin",
+        phoneNumber: "251911000003",
+        roles: ["ADMIN"],
+        status: "ACTIVE",
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+        mustChangePassword: true,
+      },
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/dashboard"]}>
+        <Routes>
+          <Route element={<ProtectedRoute />}>
+            <Route path="/dashboard" element={<div>dashboard</div>} />
+            <Route path="/change-password" element={<div>change password</div>} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("change password")).toBeInTheDocument();
+  });
 });

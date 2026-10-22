@@ -2,7 +2,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { clearSession, readSession, writeSession } from "../../api/session";
 import { ChangePasswordPage } from "./ChangePasswordPage";
 
 const changeAdminPasswordMock = vi.fn();
@@ -42,6 +43,24 @@ describe("ChangePasswordPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     changeAdminPasswordMock.mockResolvedValue(undefined);
+    writeSession({
+      accessToken: "temporary-token",
+      tokenType: "Bearer",
+      user: {
+        id: 3,
+        displayName: "Temporary Admin",
+        phoneNumber: "251911000003",
+        roles: ["ADMIN"],
+        status: "ACTIVE",
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+        mustChangePassword: true,
+      },
+    });
+  });
+
+  afterEach(() => {
+    clearSession();
   });
 
   it("submits the password change form", async () => {
@@ -68,5 +87,7 @@ describe("ChangePasswordPage", () => {
 
     expect(await screen.findByText("Password updated successfully.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Back to profile" })).toBeInTheDocument();
+    expect(readSession()?.user.mustChangePassword).toBe(false);
+    expect(navigateMock).toHaveBeenCalledWith("/dashboard", { replace: true });
   });
 });

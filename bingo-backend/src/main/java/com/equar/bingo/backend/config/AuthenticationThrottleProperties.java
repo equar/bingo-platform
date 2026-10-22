@@ -3,6 +3,7 @@ package com.equar.bingo.backend.config;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import java.time.Duration;
+import java.util.List;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
@@ -12,7 +13,8 @@ public record AuthenticationThrottleProperties(
         @Min(1) int accountAttemptLimit,
         @Min(1) int networkAttemptLimit,
         @NotNull Duration window,
-        @NotNull Duration lockout) {
+        @NotNull Duration lockout,
+        @NotNull List<String> trustedProxyAddresses) {
 
     public AuthenticationThrottleProperties {
         if (window == null || window.isNegative() || window.isZero()) {

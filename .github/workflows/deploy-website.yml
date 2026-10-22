@@ -25,7 +25,17 @@ jobs:
       AWS_REGION: ${{ vars.BINGO_AWS_REGION }}
       WEBSITE_BUCKET: ${{ vars.BINGO_WEBSITE_BUCKET }}
       CLOUDFRONT_DISTRIBUTION_ID: ${{ vars.BINGO_WEBSITE_CLOUDFRONT_DISTRIBUTION_ID }}
+      WEBSITE_RESPONSE_HEADERS_POLICY_ID: ${{ vars.BINGO_WEBSITE_RESPONSE_HEADERS_POLICY_ID }}
       DRY_RUN: ${{ inputs.dry_run }}
+      PUBLIC_SITE_URL: ${{ vars.BINGO_PUBLIC_SITE_URL }}
+      PUBLIC_SITE_INDEXABLE: ${{ vars.BINGO_PUBLIC_SITE_INDEXABLE }}
+      PUBLIC_ANDROID_AVAILABILITY: ${{ vars.BINGO_PUBLIC_ANDROID_AVAILABILITY }}
+      PUBLIC_ANDROID_URL: ${{ vars.BINGO_PUBLIC_ANDROID_URL }}
+      PUBLIC_IOS_AVAILABILITY: ${{ vars.BINGO_PUBLIC_IOS_AVAILABILITY }}
+      PUBLIC_IOS_URL: ${{ vars.BINGO_PUBLIC_IOS_URL }}
+      PUBLIC_SUPPORT_EMAIL: ${{ vars.BINGO_PUBLIC_SUPPORT_EMAIL }}
+      PUBLIC_SUPPORT_TELEGRAM_URL: ${{ vars.BINGO_PUBLIC_SUPPORT_TELEGRAM_URL }}
+      PUBLIC_SUPPORT_WHATSAPP_URL: ${{ vars.BINGO_PUBLIC_SUPPORT_WHATSAPP_URL }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -51,6 +61,41 @@ jobs:
           npm run validate:links
           npm run build
 
+      - name: Validate production website metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${PUBLIC_SITE_URL:-}" ]]; then
+            echo 'ERROR: BINGO_PUBLIC_SITE_URL variable is required.' >&2
+            exit 1
+          fi
+
+          node -e 'const u = new URL(process.env.PUBLIC_SITE_URL); if (u.protocol !== "https:" || ["localhost", "127.0.0.1", "::1"].includes(u.hostname)) process.exit(1)' || {
+            echo 'ERROR: BINGO_PUBLIC_SITE_URL must be an HTTPS public origin.' >&2
+            exit 1
+          }
+
+          if [[ "${PUBLIC_SITE_INDEXABLE:-}" != "true" && "${PUBLIC_SITE_INDEXABLE:-}" != "false" ]]; then
+            echo 'ERROR: BINGO_PUBLIC_SITE_INDEXABLE must be set to true or false.' >&2
+            exit 1
+          fi
+
+          node <<'NODE'
+          const fs = require('node:fs');
+          const html = fs.readFileSync('bingo-website/dist/index.html', 'utf8');
+          const expectedCanonical = new URL('/', process.env.PUBLIC_SITE_URL).toString();
+          if (!html.includes(`<link rel="canonical" href="${expectedCanonical}"`)) {
+            throw new Error(`Production canonical URL is missing: ${expectedCanonical}`);
+          }
+          const expectedRobots = process.env.PUBLIC_SITE_INDEXABLE === 'true'
+            ? 'index,follow'
+            : 'noindex,nofollow';
+          if (!html.includes(`<meta name="robots" content="${expectedRobots}"`)) {
+            throw new Error(`Production robots metadata is missing: ${expectedRobots}`);
+          }
+          NODE
+
       - name: Validate website deployment inputs
         shell: bash
         run: |
@@ -65,6 +110,46 @@ jobs:
             echo 'ERROR: BINGO_WEBSITE_BUCKET variable is required.' >&2
             exit 1
           fi
+
+          if [[ -z "${CLOUDFRONT_DISTRIBUTION_ID:-}" ]]; then
+            echo 'ERROR: BINGO_WEBSITE_CLOUDFRONT_DISTRIBUTION_ID variable is required.' >&2
+            exit 1
+          fi
+
+          if [[ -z "${WEBSITE_RESPONSE_HEADERS_POLICY_ID:-}" ]]; then
+            echo 'ERROR: BINGO_WEBSITE_RESPONSE_HEADERS_POLICY_ID variable is required.' >&2
+            exit 1
+          fi
+
+      - name: Verify CloudFront response security headers
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          distribution_config="$(aws cloudfront get-distribution-config \
+            --id "$CLOUDFRONT_DISTRIBUTION_ID" \
+            --query 'DistributionConfig' \
+            --output json)"
+          attached_policy_id="$(jq -r '.DefaultCacheBehavior.ResponseHeadersPolicyId // empty' <<< "$distribution_config")"
+          if [[ "$attached_policy_id" != "$WEBSITE_RESPONSE_HEADERS_POLICY_ID" ]]; then
+            echo 'ERROR: The configured response headers policy is not attached to the default cache behavior.' >&2
+            exit 1
+          fi
+
+          policy_config="$(aws cloudfront get-response-headers-policy \
+            --id "$WEBSITE_RESPONSE_HEADERS_POLICY_ID" \
+            --query 'ResponseHeadersPolicy.ResponseHeadersPolicyConfig' \
+            --output json)"
+          jq -e '
+            .SecurityHeadersConfig.StrictTransportSecurity.AccessControlMaxAgeSec >= 31536000 and
+            .SecurityHeadersConfig.StrictTransportSecurity.IncludeSubdomains == true and
+            .SecurityHeadersConfig.StrictTransportSecurity.Override == true and
+            .SecurityHeadersConfig.ContentTypeOptions.Override == true and
+            .SecurityHeadersConfig.FrameOptions.FrameOption == "DENY" and
+            .SecurityHeadersConfig.FrameOptions.Override == true and
+            .SecurityHeadersConfig.ReferrerPolicy.ReferrerPolicy == "strict-origin-when-cross-origin" and
+            .SecurityHeadersConfig.ReferrerPolicy.Override == true
+          ' <<< "$policy_config" > /dev/null
 
       - name: Dry run website deploy
         if: ${{ env.DRY_RUN == 'true' }}
@@ -82,7 +167,7 @@ jobs:
           aws s3 sync bingo-website/dist "s3://${WEBSITE_BUCKET}" --delete
 
       - name: Invalidate CloudFront cache
-        if: ${{ env.DRY_RUN != 'true' && env.CLOUDFRONT_DISTRIBUTION_ID != '' }}
+        if: ${{ env.DRY_RUN != 'true' }}
         run: |
           aws cloudfront create-invalidation \
             --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \

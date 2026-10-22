@@ -23,5 +23,9 @@ export function ProtectedRoute({ allowedRoles = ["ADMIN"] }: ProtectedRouteProps
     );
   }
 
+  if (session.user.mustChangePassword && location.pathname !== "/change-password") {
+    return <Navigate to="/change-password" replace />;
+  }
+
   return <Outlet />;
 }

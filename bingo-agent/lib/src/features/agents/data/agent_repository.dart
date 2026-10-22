@@ -1,6 +1,8 @@
 import 'package:bingo_agent/src/core/network/api_client.dart';
+import 'package:bingo_agent/src/core/models/page_response.dart';
 import 'package:bingo_agent/src/features/agents/data/agent_models.dart';
 import 'package:bingo_agent/src/features/auth/data/auth_models.dart';
+import 'package:bingo_agent/src/features/history/data/financial_history_entry.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -30,6 +32,31 @@ class AgentRepository {
   Future<List<FloatTopUpRequest>> topUpRequests() async {
     final response = await _dio.get<List<dynamic>>('/api/v1/agent/float-top-up-requests');
     return (response.data ?? const []).whereType<Map>().map((item) => FloatTopUpRequest.fromJson(Map<String, dynamic>.from(item))).toList();
+  }
+
+  Future<PageResponse<FinancialHistoryEntry>> financialHistory({
+    int page = 0,
+    int size = 20,
+    String? type,
+    String? status,
+    String? from,
+    String? to,
+  }) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/v1/agent/financial-history',
+      queryParameters: {
+        'page': page,
+        'size': size,
+        if (type != null) 'type': type,
+        if (status != null) 'status': status,
+        if (from != null) 'from': from,
+        if (to != null) 'to': to,
+      },
+    );
+    return PageResponse.fromJson(
+      response.data ?? const <String, dynamic>{},
+      FinancialHistoryEntry.fromJson,
+    );
   }
 
   Future<PayoutLookup> lookupPayout(String code) async =>

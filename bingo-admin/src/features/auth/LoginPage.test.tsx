@@ -1,8 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LoginPage } from "./LoginPage";
 
 const loginMock = vi.fn();
@@ -52,6 +52,10 @@ function createWrapper() {
 }
 
 describe("LoginPage", () => {
+  afterEach(() => {
+    cleanup();
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     window.localStorage.clear();
@@ -84,5 +88,38 @@ describe("LoginPage", () => {
     await user.type(screen.getByLabelText(/email address/i), "new@bingo.local");
 
     expect(window.localStorage.getItem("bingo-admin-login-email")).toBe("new@bingo.local");
+  });
+
+  it("routes temporary-password users directly to password change", async () => {
+    loginMock.mockResolvedValue({
+      accessToken: "temporary-token",
+      tokenType: "Bearer",
+      expiresInSeconds: 3600,
+      user: {
+        id: 3,
+        displayName: "Temporary Admin",
+        phoneNumber: "251911000003",
+        roles: ["ADMIN"],
+        status: "ACTIVE",
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+        mustChangePassword: true,
+      },
+    });
+
+    const user = userEvent.setup();
+    const { container } = render(<LoginPage />, { wrapper: createWrapper() });
+
+    await user.type(await screen.findByLabelText(/email address/i), "temporary@bingo.local");
+    const passwordInput = container.querySelector('input[name="password"]');
+    if (!passwordInput) {
+      throw new Error("Password input was not rendered");
+    }
+    await user.type(passwordInput, "temporary-password");
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+
+    await waitFor(() => {
+      expect(navigateMock).toHaveBeenCalledWith("/change-password", { replace: true });
+    });
   });
 });

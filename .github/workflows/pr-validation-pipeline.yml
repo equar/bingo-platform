@@ -134,3 +134,36 @@ jobs:
           name: bingo-admin-dist
           path: bingo-admin/dist/**
           if-no-files-found: ignore
+
+  website:
+    name: Website check, links, and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.13.0"
+          cache: npm
+          cache-dependency-path: bingo-website/package-lock.json
+
+      - name: Install website dependencies
+        working-directory: bingo-website
+        run: npm ci
+
+      - name: Check website
+        working-directory: bingo-website
+        run: npm run check
+
+      - name: Validate website links
+        working-directory: bingo-website
+        run: npm run validate:links
+
+      - name: Build website
+        working-directory: bingo-website
+        env:
+          PUBLIC_SITE_URL: https://example.invalid
+        run: npm run build

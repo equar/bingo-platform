@@ -84,10 +84,10 @@ class _WalletScreenState extends ConsumerState<WalletScreen> with SingleTickerPr
         title: Text(localizations.balanceTitle),
         bottom: TabBar(
           controller: _tabController,
-          tabs: const [
-            Tab(text: 'Transactions'),
-            Tab(text: 'Deposits'),
-            Tab(text: 'Transfers'),
+        tabs: [
+          Tab(text: localizations.walletTransactionsTab),
+          Tab(text: localizations.walletDepositsTab),
+          Tab(text: localizations.walletTransfersTab),
           ],
         ),
       ),
@@ -110,8 +110,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen> with SingleTickerPr
                     const SizedBox(height: 8),
                     Text('${balance.totalBalance} ${balance.currency}', style: Theme.of(context).textTheme.headlineMedium),
                     const SizedBox(height: 12),
-                    Text('Available: ${balance.availableBalance} ${balance.currency}'),
-                    Text('Promotional: ${balance.promotionalBalance} ${balance.currency}'),
+                    Text('${localizations.availableBalanceLabel}: ${balance.availableBalance} ${balance.currency}'),
+                    Text('${localizations.promotionalBalanceLabel}: ${balance.promotionalBalance} ${balance.currency}'),
                     Text(localizations.balanceDisclaimer),
                     const SizedBox(height: 12),
                     FilledButton(
@@ -206,7 +206,7 @@ class _TransfersPaneState extends ConsumerState<_TransfersPane> {
   Future<void> _lookupRecipient() async {
     final phone = _phoneController.text.trim();
     if (phone.isEmpty) {
-      setState(() => _errorMessage = 'Enter a phone number to look up a recipient.');
+      setState(() => _errorMessage = AppLocalizations.of(context)!.recipientPhoneRequired);
       return;
     }
 
@@ -233,11 +233,11 @@ class _TransfersPaneState extends ConsumerState<_TransfersPane> {
   Future<void> _submitTransfer() async {
     final amount = num.tryParse(_amountController.text.trim());
     if (_recipient == null) {
-      setState(() => _errorMessage = 'Look up the recipient first.');
+      setState(() => _errorMessage = AppLocalizations.of(context)!.lookupRecipientFirst);
       return;
     }
     if (amount == null || amount <= 0) {
-      setState(() => _errorMessage = 'Enter a valid transfer amount.');
+      setState(() => _errorMessage = AppLocalizations.of(context)!.transferAmountInvalid);
       return;
     }
 
@@ -257,7 +257,9 @@ class _TransfersPaneState extends ConsumerState<_TransfersPane> {
             const Uuid().v4(),
           );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Transfer submitted.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppLocalizations.of(context)!.transferSubmitted)),
+      );
       setState(() {
         _recipient = null;
         _phoneController.clear();
@@ -277,6 +279,7 @@ class _TransfersPaneState extends ConsumerState<_TransfersPane> {
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context)!;
     return SingleChildScrollView(
       child: Column(
         children: [
@@ -284,23 +287,23 @@ class _TransfersPaneState extends ConsumerState<_TransfersPane> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Send money', style: Theme.of(context).textTheme.titleLarge),
+                Text(localizations.sendMoneyTitle, style: Theme.of(context).textTheme.titleLarge),
                 const SizedBox(height: 12),
                 TextField(
                   controller: _phoneController,
                   keyboardType: TextInputType.phone,
-                  decoration: const InputDecoration(labelText: 'Recipient phone number'),
+                  decoration: InputDecoration(labelText: localizations.recipientPhoneLabel),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: _amountController,
                   keyboardType: TextInputType.number,
-                  decoration: InputDecoration(labelText: 'Amount (${widget.currency})'),
+                  decoration: InputDecoration(labelText: '${localizations.amountLabel} (${widget.currency})'),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: _noteController,
-                  decoration: const InputDecoration(labelText: 'Note (optional)'),
+                  decoration: InputDecoration(labelText: localizations.transferNoteOptionalLabel),
                   maxLines: 2,
                 ),
                 const SizedBox(height: 12),
@@ -308,12 +311,12 @@ class _TransfersPaneState extends ConsumerState<_TransfersPane> {
                   children: [
                     OutlinedButton(
                       onPressed: _lookingUp ? null : _lookupRecipient,
-                      child: _lookingUp ? const Text('Looking up...') : const Text('Lookup recipient'),
+                      child: Text(_lookingUp ? localizations.lookingUpRecipient : localizations.lookupRecipient),
                     ),
                     const SizedBox(width: 12),
                     FilledButton(
                       onPressed: _submitting ? null : _submitTransfer,
-                      child: _submitting ? const Text('Sending...') : const Text('Send transfer'),
+                      child: Text(_submitting ? localizations.sendingTransfer : localizations.sendTransfer),
                     ),
                   ],
                 ),
@@ -329,10 +332,10 @@ class _TransfersPaneState extends ConsumerState<_TransfersPane> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Recipient preview', style: Theme.of(context).textTheme.titleMedium),
+                Text(localizations.recipientPreviewTitle, style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 8),
                 if (_recipient == null)
-                  const Text('Look up a phone number to confirm the recipient before sending.')
+                  Text(localizations.lookupRecipientHint)
                 else ...[
                   Text(_recipient!.displayName),
                   Text(_recipient!.normalizedPhone),
@@ -382,7 +385,7 @@ class _TransactionsPane extends StatelessWidget {
                 itemBuilder: (context, index) {
                   final entry = result.content[index];
                   final bucketSummary = entry.transferableBalanceAfter != null || entry.promotionalBalanceAfter != null
-                      ? '\nTransferable: ${entry.transferableBalanceAfter ?? entry.balanceAfter} · Promo: ${entry.promotionalBalanceAfter ?? 0}'
+                      ? '\n${localizations.walletTransferableBalanceLabel}: ${entry.transferableBalanceAfter ?? entry.balanceAfter} · ${localizations.walletPromotionalShortLabel}: ${entry.promotionalBalanceAfter ?? 0}'
                       : '';
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
@@ -402,11 +405,11 @@ class _TransactionsPane extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Page ${page + 1}/${max(1, result.totalPages)}'),
+                Text('${localizations.walletPageLabel} ${page + 1}/${max(1, result.totalPages)}'),
                 Row(
                   children: [
-                    TextButton(onPressed: canGoPrevious ? onPrev : null, child: const Text('Prev')),
-                    TextButton(onPressed: canGoNext ? onNext : null, child: const Text('Next')),
+                    TextButton(onPressed: canGoPrevious ? onPrev : null, child: Text(localizations.previous)),
+                    TextButton(onPressed: canGoNext ? onNext : null, child: Text(localizations.next)),
                   ],
                 ),
               ],
@@ -471,11 +474,11 @@ class _DepositsPane extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Page ${page + 1}/${max(1, result.totalPages)}'),
+                Text('${localizations.walletPageLabel} ${page + 1}/${max(1, result.totalPages)}'),
                 Row(
                   children: [
-                    TextButton(onPressed: canGoPrevious ? onPrev : null, child: const Text('Prev')),
-                    TextButton(onPressed: canGoNext ? onNext : null, child: const Text('Next')),
+                    TextButton(onPressed: canGoPrevious ? onPrev : null, child: Text(localizations.previous)),
+                    TextButton(onPressed: canGoNext ? onNext : null, child: Text(localizations.next)),
                   ],
                 ),
               ],

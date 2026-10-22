@@ -37,6 +37,25 @@ class FinancialHistoryEntry {
   final String? note;
   final String? relatedEntity;
 
+  factory FinancialHistoryEntry.fromJson(Map<String, dynamic> json) {
+    final typeName = json['type']?.toString() ?? 'other';
+    return FinancialHistoryEntry(
+      type: FinancialActivityType.values.firstWhere(
+        (type) => type.name == typeName,
+        orElse: () => FinancialActivityType.other,
+      ),
+      amount: json['amount']?.toString() ?? '0',
+      currency: json['currency']?.toString() ?? '',
+      createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '') ??
+          DateTime.now(),
+      status: json['status']?.toString() ?? '',
+      reference: json['reference']?.toString() ?? '',
+      counterparty: json['counterparty']?.toString(),
+      note: json['note']?.toString(),
+      relatedEntity: json['relatedEntity']?.toString(),
+    );
+  }
+
   static List<FinancialHistoryEntry> combine({
     required String currency,
     required List<AgentFloatTransaction> floatTransactions,

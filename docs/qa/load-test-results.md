@@ -3,6 +3,8 @@
 **Execution date:** 2026-10-21
 **Overall status:** **BLOCKED; no capacity claim is supported**
 
+> The final independent review in [final-independent-qa-review.md](./final-independent-qa-review.md) rechecked this gate. No load run or capacity measurement has since been performed; the 1,000-player setting remains unverified.
+
 ## Results
 
 | Scenario / metric | Status | Result |

@@ -3,6 +3,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { changeAdminPassword } from "../../api/admin";
+import { readSession, writeSession } from "../../api/session";
 import { parseApiError } from "../../api/types";
 
 export function ChangePasswordPage() {
@@ -18,6 +19,13 @@ export function ChangePasswordPage() {
   const passwordMutation = useMutation({
     mutationFn: () => changeAdminPassword({ currentPassword, newPassword }),
     onSuccess: () => {
+      const session = readSession();
+      if (session) {
+        writeSession({
+          ...session,
+          user: { ...session.user, mustChangePassword: false },
+        });
+      }
       setSuccessMessage("Password updated successfully.");
       setErrorMessage(null);
       setCurrentPassword("");
@@ -25,6 +33,7 @@ export function ChangePasswordPage() {
       setConfirmPassword("");
       setShowCurrentPassword(false);
       setShowNewPassword(false);
+      navigate("/dashboard", { replace: true });
     },
     onError: (error) => {
       const parsed = parseApiError(error);

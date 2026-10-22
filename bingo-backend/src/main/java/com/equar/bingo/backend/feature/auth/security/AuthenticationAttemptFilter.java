@@ -25,14 +25,17 @@ public class AuthenticationAttemptFilter extends OncePerRequestFilter {
 
     private final AuthenticationAttemptThrottleService throttleService;
     private final AuthenticationAttemptAuditService auditService;
+    private final AuthenticationClientAddressResolver addressResolver;
     private final ApiErrorResponseWriter errorWriter;
 
     public AuthenticationAttemptFilter(
             AuthenticationAttemptThrottleService throttleService,
             AuthenticationAttemptAuditService auditService,
+            AuthenticationClientAddressResolver addressResolver,
             ObjectMapper objectMapper) {
         this.throttleService = throttleService;
         this.auditService = auditService;
+        this.addressResolver = addressResolver;
         this.errorWriter = new ApiErrorResponseWriter(objectMapper);
     }
 
@@ -46,8 +49,9 @@ public class AuthenticationAttemptFilter extends OncePerRequestFilter {
             HttpServletRequest request,
             HttpServletResponse response,
             FilterChain filterChain) throws ServletException, IOException {
+        String clientAddress = addressResolver.resolve(request);
         try {
-            throttleService.requireNetworkAllowed(request.getRemoteAddr());
+            throttleService.requireNetworkAllowed(clientAddress);
         } catch (TooManyRequestsException exception) {
             auditService.auditNetworkRateLimit(request.getRequestURI());
             errorWriter.write(
@@ -60,5 +64,9 @@ public class AuthenticationAttemptFilter extends OncePerRequestFilter {
             return;
         }
         filterChain.doFilter(request, response);
+        if (response.getStatus() >= 400 && response.getStatus() < 500
+                && response.getStatus() != HttpStatus.TOO_MANY_REQUESTS.value()) {
+            throttleService.recordNetworkFailure(clientAddress);
+        }
     }
 }

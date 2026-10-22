@@ -12,8 +12,11 @@ import jakarta.validation.Valid;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
+import java.time.Instant;
 import java.util.List;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -134,5 +137,17 @@ public class AgentController {
     @PreAuthorize("hasRole('AGENT')")
     public List<CommissionAccrualResponse> commissionHistory(@AuthenticationPrincipal BingoUserPrincipal principal) {
         return agentService.getCommissionHistory(principal);
+    }
+
+    @GetMapping("/financial-history")
+    @PreAuthorize("hasRole('AGENT')")
+    public PageResponse<AgentFinancialHistoryEntryResponse> financialHistory(
+            @AuthenticationPrincipal BingoUserPrincipal principal,
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
+            @RequestParam(required = false) String type,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to) {
+        return agentService.getFinancialHistory(principal, pageable, type, status, from, to);
     }
 }
