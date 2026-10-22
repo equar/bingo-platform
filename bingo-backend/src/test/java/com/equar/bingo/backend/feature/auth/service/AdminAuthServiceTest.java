@@ -2,12 +2,14 @@ package com.equar.bingo.backend.feature.auth.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.equar.bingo.backend.config.JwtProperties;
+import com.equar.bingo.backend.common.exception.ConflictException;
 import com.equar.bingo.backend.feature.auth.dto.ChangePasswordRequest;
 import com.equar.bingo.backend.feature.auth.dto.AdminLoginRequest;
 import com.equar.bingo.backend.feature.user.entity.AccountStatus;
@@ -48,6 +50,7 @@ class AdminAuthServiceTest {
 
         Instant now = Instant.parse("2026-01-01T00:00:00Z");
         admin = User.create("251911000001", "Admin One", "hash", AccountStatus.ACTIVE, Set.of(UserRole.ADMIN), now);
+        admin.setEmail("admin@example.com");
         support = User.create("251911000002", "Support One", "hash", AccountStatus.ACTIVE, Set.of(UserRole.SUPPORT), now);
         player = User.create("251911000003", "Player One", "hash", AccountStatus.ACTIVE, Set.of(UserRole.PLAYER), now);
         ReflectionTestUtils.setField(admin, "id", 11L);
@@ -100,11 +103,32 @@ class AdminAuthServiceTest {
         when(userRepository.findById(11L)).thenReturn(Optional.of(admin));
         when(passwordEncoder.matches("OldPass123!", admin.getPasswordHash())).thenReturn(true);
         when(passwordEncoder.encode("NewPass123!")).thenReturn("new-hash");
+        admin.requirePasswordChangeUntil(Instant.now().plusSeconds(3600));
 
         service.changePassword(11L, new ChangePasswordRequest("OldPass123!", "NewPass123!"));
 
         assertThat(admin.getPasswordHash()).isEqualTo("new-hash");
+        assertFalse(admin.isMustChangePassword());
+        assertThat(admin.getTemporaryPasswordExpiresAt()).isNull();
         verify(userRepository).save(admin);
+    }
+
+    @Test
+    void loginRejectsExpiredTemporaryPassword() {
+        admin.requirePasswordChangeUntil(Instant.now().minusSeconds(1));
+        when(userRepository.findByEmail("admin@example.com")).thenReturn(Optional.of(admin));
+
+        assertThrows(BadCredentialsException.class,
+                () -> service.login(new AdminLoginRequest("admin@example.com", "Secret123!")));
+    }
+
+    @Test
+    void changePasswordRejectsReusingCurrentPassword() {
+        when(userRepository.findById(11L)).thenReturn(Optional.of(admin));
+        when(passwordEncoder.matches("OldPass123!", admin.getPasswordHash())).thenReturn(true);
+
+        assertThrows(ConflictException.class,
+                () -> service.changePassword(11L, new ChangePasswordRequest("OldPass123!", "OldPass123!")));
     }
 
     @Test

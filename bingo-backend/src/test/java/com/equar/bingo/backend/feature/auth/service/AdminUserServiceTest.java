@@ -18,6 +18,7 @@ import com.equar.bingo.backend.feature.user.entity.User;
 import com.equar.bingo.backend.feature.user.entity.UserRole;
 import com.equar.bingo.backend.feature.user.repository.UserRepository;
 import java.time.Instant;
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -100,9 +101,14 @@ class AdminUserServiceTest {
 
                 ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
                 verify(userRepository).save(userCaptor.capture());
-                assertThat(userCaptor.getValue().getDisplayName()).isEqualTo("New Admin");
-                assertThat(userCaptor.getValue().getEmail()).isEqualTo("admin@example.com");
-                assertThat(userCaptor.getValue().getPasswordHash()).isEqualTo("encoded-password");
+                User createdUser = userCaptor.getValue();
+                assertThat(createdUser.getDisplayName()).isEqualTo("New Admin");
+                assertThat(createdUser.getEmail()).isEqualTo("admin@example.com");
+                assertThat(createdUser.getPasswordHash()).isEqualTo("encoded-password");
+                assertThat(createdUser.isMustChangePassword()).isTrue();
+                Duration timeUntilExpiry = Duration.between(Instant.now(), createdUser.getTemporaryPasswordExpiresAt());
+                assertThat(timeUntilExpiry).isBetween(Duration.ofHours(23).plusMinutes(59),
+                                Duration.ofHours(24).plusSeconds(5));
                 assertThat(notificationService.lastUser).isSameAs(saved);
                 assertThat(notificationService.lastPassword).isEqualTo("Secret123!");
         }

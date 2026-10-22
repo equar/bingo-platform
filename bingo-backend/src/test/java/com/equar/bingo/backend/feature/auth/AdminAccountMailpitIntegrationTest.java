@@ -17,7 +17,6 @@ import java.net.http.HttpResponse;
 import java.time.Instant;
 import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -28,8 +27,6 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
-import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.utility.DockerImageName;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -38,32 +35,27 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest(properties = "app.security.authentication.account-attempt-limit=20")
+@SpringBootTest(properties = {
+        "app.security.authentication.account-attempt-limit=20",
+        "spring.mail.properties[mail.smtp.auth]=false",
+        "spring.mail.properties[mail.smtp.starttls.enable]=false",
+        "spring.mail.properties[mail.smtp.starttls.required]=false"
+})
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 class AdminAccountMailpitIntegrationTest extends MySqlIntegrationTest {
 
-    private static final String OPERATOR_EMAIL = "qa-mailpit-operator@example.invalid";
-    private static final String NEW_ADMIN_EMAIL = "qa-mailpit-admin@example.invalid";
-    private static final String OPERATOR_PHONE = "0999999990";
-    private static final String NEW_ADMIN_PHONE = "0999999991";
-    private static final GenericContainer<?> MAILPIT = new GenericContainer<>(
-            DockerImageName.parse("axllent/mailpit:v1.27"))
-                    .withExposedPorts(1025, 8025);
-
-    static {
-        MAILPIT.start();
-    }
-
-    @AfterAll
-    static void stopMailpit() {
-        MAILPIT.stop();
-    }
+    private static final String RUN_ID = java.util.UUID.randomUUID().toString().replace("-", "");
+    private static final long PHONE_SUFFIX = Math.floorMod(System.nanoTime(), 100_000_000L);
+    private static final String OPERATOR_EMAIL = "qa-mailpit-operator-" + RUN_ID + "@example.invalid";
+    private static final String NEW_ADMIN_EMAIL = "qa-mailpit-admin-" + RUN_ID + "@example.invalid";
+    private static final String OPERATOR_PHONE = String.format("2519%08d", PHONE_SUFFIX);
+    private static final String NEW_ADMIN_PHONE = String.format("09%08d", (PHONE_SUFFIX + 1) % 100_000_000L);
 
     @DynamicPropertySource
     static void registerMailpitProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.mail.host", MAILPIT::getHost);
-        registry.add("spring.mail.port", () -> MAILPIT.getMappedPort(1025));
+        registry.add("spring.mail.host", AdminAccountMailpitIntegrationTest::mailpitHost);
+        registry.add("spring.mail.port", AdminAccountMailpitIntegrationTest::mailpitSmtpPort);
     }
 
     @Autowired
@@ -167,7 +159,7 @@ class AdminAccountMailpitIntegrationTest extends MySqlIntegrationTest {
 
     private String awaitMailText(String recipient) throws Exception {
         HttpClient client = HttpClient.newHttpClient();
-        String apiBaseUrl = "http://" + MAILPIT.getHost() + ":" + MAILPIT.getMappedPort(8025) + "/api/v1";
+        String apiBaseUrl = "http://" + mailpitHost() + ":" + mailpitHttpPort() + "/api/v1";
         long deadline = System.nanoTime() + java.time.Duration.ofSeconds(15).toNanos();
 
         while (System.nanoTime() < deadline) {
@@ -203,5 +195,17 @@ class AdminAccountMailpitIntegrationTest extends MySqlIntegrationTest {
         }
 
         throw new AssertionError("Mailpit did not receive an onboarding message for " + recipient);
+    }
+
+    private static String mailpitHost() {
+        return System.getenv().getOrDefault("BINGO_TEST_MAILPIT_HOST", "127.0.0.1");
+    }
+
+    private static int mailpitSmtpPort() {
+        return Integer.parseInt(System.getenv().getOrDefault("BINGO_TEST_MAILPIT_SMTP_PORT", "1025"));
+    }
+
+    private static int mailpitHttpPort() {
+        return Integer.parseInt(System.getenv().getOrDefault("BINGO_TEST_MAILPIT_HTTP_PORT", "8025"));
     }
 }

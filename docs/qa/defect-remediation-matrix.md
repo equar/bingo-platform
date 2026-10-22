@@ -1,15 +1,15 @@
 # Phase 6 Defect and Verification Matrix
 
-Statuses describe evidence obtained on 2026-10-21. A PASS is limited to the scenario stated; it does not imply production readiness.
+Statuses describe evidence obtained through 2026-10-22. A PASS is limited to the scenario stated; it does not imply production readiness.
 
-> This Phase 6 gap matrix is supplemented by the independent D1–D16 review in [final-independent-qa-review.md](./final-independent-qa-review.md). The later review identifies D4 proxy-aware login throttling as in progress and unverified; do not interpret the earlier Phase 6 PASS rows as covering that follow-up patch.
+> This Phase 6 gap matrix is supplemented by the independent D1–D16 review in [final-independent-qa-review.md](./final-independent-qa-review.md). Follow-up D4 proxy-aware login throttling, D5 issued-JWT Actuator tests, D9 pagination, G6 Mailpit onboarding, and the OpenAPI comparison passed. A clean backend build from a temporary copy passed all 85 tests and completed packaging; the isolated MySQL dump/drop/restore rehearsal also passed.
 
 | Gap | Scenario | Status | Evidence / remaining work | Rerun command |
 |---|---|---|---|---|
-| G1 | MySQL 8 V6-to-V12 Flyway upgrade | PASS | Testcontainers MySQL 8.0.36; upgrade regression test passed. | `cd bingo-backend; mvn -Dtest=FlywayUpgradeRecoveryIntegrationTest test` |
+| G1 | MySQL 8 V6-to-V13 Flyway upgrade | PASS | Isolated MySQL 8.0.36; upgrade regression test passed through V13. | `cd bingo-backend; mvn -Dtest=FlywayUpgradeRecoveryIntegrationTest test` |
 | G1 | V7 constraints and migration checksum validation/repair | PASS | V7 integration test passed; upgrade test verified checksum drift detection and repair. | `cd bingo-backend; mvn -Dtest=FlywayV7MigrationIntegrationTest,FlywayUpgradeRecoveryIntegrationTest test` |
-| G1 | Backup restore / full rollback drill | BLOCKED | No disposable backup/restore environment. Flyway migrations are forward-only; checksum repair is not a database rollback. | Provision isolated MySQL 8 plus a pre-upgrade backup, then run the documented backup restore procedure; retain the restore and post-restore validation logs. |
-| G1 | Complete backend suite with all new tests | PASS | `mvn clean verify`: 73 run, 0 failures, 0 errors, 0 skipped on Testcontainers MySQL 8.0.36. | `cd bingo-backend; mvn clean verify` |
+| G1 | Backup restore / full rollback drill | PASS (isolated restore) | Created a MySQL dump, dropped the disposable database, restored it, and verified Flyway V13 plus 30 tables. Production backup retention and recovery objectives remain operator-specific. | Repeat against the production backup mechanism in an approved recovery environment; retain restore and post-restore validation logs. |
+| G1 | Complete backend suite with all new tests | PASS | `mvn clean verify` completed with 85 tests, 0 failures, 0 errors, 0 skips, and successful packaging from a temporary copy of current backend source against isolated MySQL 8.0.36/Mailpit. | `cd bingo-backend; mvn clean verify` (use isolated MySQL/Mailpit endpoints; if the workspace JAR is locked, run from a temporary source copy) |
 | G2 | Authenticated real STOMP CONNECT | PASS | Real client receives `CONNECTED`; the bearer-token interceptor remains responsible for CONNECT authentication. | `cd bingo-backend; mvn -Dtest=AuthenticatedStompIntegrationTest test` |
 | G2 | Live draw order, reconnect, and replay | PASS | The test receives draw 1, obtains missed draw 2 from replay while disconnected, and receives draw 3 after reconnect. The client converter uses the application ObjectMapper. | `cd bingo-backend; mvn -Dtest=AuthenticatedStompIntegrationTest test` |
 | G2 | Invalid JWT cannot connect to the protected broker | PASS | The integration test verifies a malformed token cannot establish a STOMP session. | `cd bingo-backend; mvn -Dtest=AuthenticatedStompIntegrationTest test` |
@@ -20,13 +20,13 @@ Statuses describe evidence obtained on 2026-10-21. A PASS is limited to the scen
 | G4 | Enabled commission calculation, rounding, persistence, retry | PASS | 2.5% of 4.25 persisted once as 0.11. | `cd bingo-backend; mvn -Dtest=AgentTicketSaleHttpIntegrationTest#ticketSaleAndPayoutEndpointsAreIdempotentAndAccrueOnlyEligibleCommission test` |
 | G4 | Disabled commission rule | PASS | Subsequent sale created no new accrual. | Same targeted command as above. |
 | G4 | Concurrent duplicate commission event | PASS | The concurrent retry test confirms a single ticket and one commission accrual after both same-key requests complete. | `cd bingo-backend; mvn -Dtest=AgentTicketSaleHttpIntegrationTest#concurrentDuplicateSaleReturnsTheSameResultWithoutADuplicateDebit test` |
-| G5 | Admin unit/component/API suite | PASS | 68 tests passed; coverage 62.86% statements. | `cd bingo-admin; npm run test:coverage -- --maxWorkers=1` |
-| G5 | Admin lint and build | PASS | Lint and production build passed; main bundle 414.41 kB raw / 137.80 kB gzip. | `cd bingo-admin; npm run lint; npm run build` |
+| G5 | Admin unit/component/API suite | PASS | 70 tests passed; coverage 63.72% statements, 61.81% branches, 50.69% functions, 63.56% lines. | `cd bingo-admin; npm run test:coverage -- --maxWorkers=1` |
+| G5 | Admin lint and build | PASS | Lint and production build passed; main bundle 414.52 kB raw / 137.81 kB gzip. | `cd bingo-admin; npm run lint; npm run build` |
 | G5 | Playwright test discovery | PASS | Five existing tests listed with non-secret placeholder environment variables. | Set non-secret placeholders for `BINGO_E2E_ADMIN_EMAIL`, `BINGO_E2E_ADMIN_PASSWORD`, and `BINGO_E2E_PRIMARY_PHONE`; then `cd bingo-admin; npx playwright test --list`. |
 | G5 | Five real browser E2E flows | BLOCKED | No disposable credentials or isolated backend/admin environment. Existing occupied ports were not used. | Supply isolated `BINGO_E2E_BACKEND_URL`, `BINGO_E2E_ADMIN_URL`, `BINGO_E2E_ADMIN_EMAIL`, `BINGO_E2E_ADMIN_PASSWORD`, `BINGO_E2E_PRIMARY_PHONE`, then run `cd bingo-admin; npx playwright test`. |
-| G6 | SMTP onboarding, email, first login, expiry and credential reuse | BLOCKED | Mailpit and an isolated backend were unavailable; no end-to-end evidence exists. | Start an isolated Mailpit: `docker run --rm --name bingo-qa-mailpit -p 127.0.0.1:1025:1025 -p 127.0.0.1:8025:8025 axllent/mailpit:v1.27`; configure the isolated backend to use SMTP port 1025 and add the missing Mailpit-backed onboarding integration test; then run `cd bingo-backend; mvn -Dtest=AdminUserOnboardingMailpitIntegrationTest test`. The test must exercise creation, received email, first login, expiry, invalid credentials, and reuse before this gate can pass. |
-| G7 | Player Flutter unit tests/analyzer | PASS | 17 tests passed; analyzer passed. | `cd bingo-app; flutter test; flutter analyze` |
-| G7 | Agent Flutter unit tests/analyzer/web build | PASS | 9 tests passed; analyzer and web build passed. | `cd bingo-agent; flutter test; flutter analyze; flutter build web` |
+| G6 | SMTP onboarding, email, first login, expiry and credential reuse | PASS | Temporary passwords expire after 24 hours, first login is restricted to password change, and changing the password invalidates the temporary password. The DB-backed expiry test and actual Mailpit SMTP onboarding/login/reuse flow passed. SMTP failures are surfaced rather than silently ignored. | `cd bingo-backend; mvn -Dtest=AdminTemporaryPasswordIntegrationTest,AdminAccountMailpitIntegrationTest test` |
+| G7 | Player Flutter unit tests/analyzer | PASS | 20 tests passed; analyzer passed. | `cd bingo-app; flutter test; flutter analyze` |
+| G7 | Agent Flutter unit tests/analyzer/web build | PASS | 10 tests passed; analyzer and web build passed. | `cd bingo-agent; flutter test; flutter analyze; flutter build web` |
 | G7 | Android player E2E | BLOCKED | Emulator exists; isolated backend and disposable account/manifest missing. | Create ignored `bingo-app/e2e-secrets.json` from the example using secret-store values; then `cd bingo-app; flutter test integration_test/local_e2e_test.dart -d emulator-5554 --dart-define-from-file=e2e-secrets.json`. |
 | G7 | iOS E2E | BLOCKED | No Xcode/iOS simulator on this Windows host. | On a supported macOS runner: `cd bingo-app && flutter test integration_test/local_e2e_test.dart -d <ios-simulator-id> --dart-define-from-file=e2e-secrets.json`. |
 | G7 | Player web build | FAIL | Build command failed because the player app is not configured for web. | `cd bingo-app; flutter build web --dart-define=API_BASE_URL=https://api.example.invalid` |
@@ -35,8 +35,8 @@ Statuses describe evidence obtained on 2026-10-21. A PASS is limited to the scen
 
 ## Findings requiring remediation before release
 
-1. Complete a database backup/restore rehearsal.
-2. Run the blocked onboarding, browser, device, and load scenarios in isolated test infrastructure.
-3. Keep the idempotency and STOMP regression tests passing on the release candidate.
+1. Validate the production backup/restore mechanism and recovery objectives; the isolated MySQL restore rehearsal passed.
+2. Run the blocked browser, device, and load scenarios in isolated test infrastructure.
+3. Keep the idempotency, STOMP, onboarding, and OpenAPI regression tests passing on the release candidate.
 
 Production changes in the follow-up fix include database-level idempotency locking and a bearer-token-compatible WebSocket CSRF configuration. Regression coverage and the Phase 6 reports were updated.

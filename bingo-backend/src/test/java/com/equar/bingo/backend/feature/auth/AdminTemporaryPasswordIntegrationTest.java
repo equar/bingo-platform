@@ -35,8 +35,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles("test")
 class AdminTemporaryPasswordIntegrationTest extends MySqlIntegrationTest {
 
-    private static final String EMAIL = "temporary-admin@example.invalid";
-    private static final String PHONE = "0912345678";
     private static final String TEMPORARY_PASSWORD = "Temporary-Admin-42!";
 
     @Autowired
@@ -51,17 +49,21 @@ class AdminTemporaryPasswordIntegrationTest extends MySqlIntegrationTest {
     @Autowired
     PasswordEncoder passwordEncoder;
 
+    private String email;
+
     @BeforeEach
     void setUp() {
-        userRepository.findByEmail(EMAIL).ifPresent(userRepository::delete);
+        String runId = java.util.UUID.randomUUID().toString().replace("-", "");
+        long phoneSuffix = Math.floorMod(System.nanoTime(), 100_000_000L);
+        email = "temporary-admin-" + runId + "@example.invalid";
         User user = User.create(
-                PHONE,
+                String.format("2519%08d", phoneSuffix),
                 "Temporary Admin",
                 passwordEncoder.encode(TEMPORARY_PASSWORD),
                 AccountStatus.ACTIVE,
                 Set.of(UserRole.ADMIN),
                 Instant.now());
-        user.setEmail(EMAIL);
+        user.setEmail(email);
         user.requirePasswordChangeUntil(Instant.now().plus(Duration.ofHours(24)));
         userRepository.save(user);
     }
@@ -91,10 +93,10 @@ class AdminTemporaryPasswordIntegrationTest extends MySqlIntegrationTest {
                                 new ChangePasswordRequest(TEMPORARY_PASSWORD, newPassword))))
                 .andExpect(status().isOk());
 
-        assertFalse(userRepository.findByEmail(EMAIL).orElseThrow().isMustChangePassword());
+        assertFalse(userRepository.findByEmail(email).orElseThrow().isMustChangePassword());
         mockMvc.perform(post("/api/v1/admin/login")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(new AdminLoginRequest(EMAIL, TEMPORARY_PASSWORD))))
+                        .content(objectMapper.writeValueAsString(new AdminLoginRequest(email, TEMPORARY_PASSWORD))))
                 .andExpect(status().isUnauthorized());
 
         AuthResponse subsequentLogin = login(newPassword);
@@ -103,20 +105,20 @@ class AdminTemporaryPasswordIntegrationTest extends MySqlIntegrationTest {
 
     @Test
     void expiredTemporaryPasswordCannotBeUsed() throws Exception {
-        User user = userRepository.findByEmail(EMAIL).orElseThrow();
+        User user = userRepository.findByEmail(email).orElseThrow();
         user.requirePasswordChangeUntil(Instant.now().minusSeconds(1));
         userRepository.save(user);
 
         mockMvc.perform(post("/api/v1/admin/login")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(new AdminLoginRequest(EMAIL, TEMPORARY_PASSWORD))))
+                        .content(objectMapper.writeValueAsString(new AdminLoginRequest(email, TEMPORARY_PASSWORD))))
                 .andExpect(status().isUnauthorized());
     }
 
     private AuthResponse login(String password) throws Exception {
         String response = mockMvc.perform(post("/api/v1/admin/login")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(new AdminLoginRequest(EMAIL, password))))
+                        .content(objectMapper.writeValueAsString(new AdminLoginRequest(email, password))))
                 .andExpect(status().isOk())
                 .andReturn()
                 .getResponse()
