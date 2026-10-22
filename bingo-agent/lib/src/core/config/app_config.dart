@@ -6,7 +6,7 @@ class AppConfig {
   const AppConfig({required this.apiBaseUrl, required this.apiBaseUrlLabel});
 
   AppConfig.fromEnvironment()
-      : apiBaseUrl = String.fromEnvironment('API_BASE_URL'),
+      : apiBaseUrl = const String.fromEnvironment('API_BASE_URL'),
         apiBaseUrlLabel = 'API_BASE_URL';
 
   final String apiBaseUrl;

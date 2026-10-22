@@ -2,7 +2,7 @@ package com.equar.bingo.backend.feature.auth;
 
 import com.equar.bingo.backend.MySqlIntegrationTest;
 import com.equar.bingo.backend.feature.auth.dto.AdminLoginRequest;
-import com.equar.bingo.backend.feature.auth.dto.ChangePasswordRequest;
+import com.equar.bingo.backend.feature.auth.dto.AdminAccountActivationRequest;
 import com.equar.bingo.backend.feature.auth.service.JwtService;
 import com.equar.bingo.backend.feature.user.entity.AccountStatus;
 import com.equar.bingo.backend.feature.user.entity.User;
@@ -29,9 +29,10 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -92,7 +93,7 @@ class AdminAccountMailpitIntegrationTest extends MySqlIntegrationTest {
     }
 
     @Test
-    void createdAdminReceivesTemporaryPasswordAndCanCompleteFirstLogin() throws Exception {
+    void createdAdminActivatesWithSingleUseLinkWithoutEmailingPassword() throws Exception {
         String createRequest = """
                 {
                   "displayName": "QA Mailpit Admin",
@@ -116,39 +117,34 @@ class AdminAccountMailpitIntegrationTest extends MySqlIntegrationTest {
         JsonNode createdUser = objectMapper.readTree(createdResponse);
         User storedUser = userRepository.findById(createdUser.path("id").asLong()).orElseThrow();
         assertTrue(storedUser.isMustChangePassword());
-        assertNotNull(storedUser.getTemporaryPasswordExpiresAt());
+        assertNotNull(storedUser.getAccountActivationTokenHash());
+        assertNotNull(storedUser.getAccountActivationExpiresAt());
 
         String emailText = awaitMailText(NEW_ADMIN_EMAIL);
-        String temporaryPassword = emailText.lines()
-                .filter(line -> line.startsWith("Password: "))
-                .map(line -> line.substring("Password: ".length()))
+        assertFalse(emailText.contains("Password:"));
+        String activationLink = emailText.lines()
+                .map(String::trim)
+                .filter(line -> line.startsWith("http://localhost:5173/activate-account#token="))
                 .findFirst()
-                .orElseThrow(() -> new AssertionError("Onboarding email did not include the generated password"));
-
-        String loginResponse = mockMvc.perform(post("/api/v1/admin/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(new AdminLoginRequest(
-                                NEW_ADMIN_EMAIL,
-                                temporaryPassword))))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.user.mustChangePassword").value(true))
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-        String temporaryToken = objectMapper.readTree(loginResponse).path("accessToken").asText();
+                .orElseThrow(() -> new AssertionError("Onboarding email did not include an activation link"));
+        String activationToken = URI.create(activationLink).getFragment().substring("token=".length());
         String newPassword = "QA-New-Admin-Password-42!";
 
-        mockMvc.perform(put("/api/v1/admin/me/password")
-                        .header("Authorization", "Bearer " + temporaryToken)
+        mockMvc.perform(post("/api/v1/admin/activate")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
-                                new ChangePasswordRequest(temporaryPassword, newPassword))))
+                                new AdminAccountActivationRequest(activationToken, newPassword))))
                 .andExpect(status().isOk());
 
-        mockMvc.perform(post("/api/v1/admin/login")
+        User activatedUser = userRepository.findByEmail(NEW_ADMIN_EMAIL).orElseThrow();
+        assertFalse(activatedUser.isMustChangePassword());
+        assertNull(activatedUser.getAccountActivationTokenHash());
+        assertNull(activatedUser.getAccountActivationExpiresAt());
+
+        mockMvc.perform(post("/api/v1/admin/activate")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
-                                new AdminLoginRequest(NEW_ADMIN_EMAIL, temporaryPassword))))
+                                new AdminAccountActivationRequest(activationToken, newPassword))))
                 .andExpect(status().isUnauthorized());
         mockMvc.perform(post("/api/v1/admin/login")
                         .contentType(MediaType.APPLICATION_JSON)

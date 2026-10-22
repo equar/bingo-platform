@@ -83,8 +83,8 @@ export async function writeManifest(patch: Partial<LocalE2eManifest>) {
   await ensureRunDir();
   const current: LocalE2eManifest = (await readManifest()) ?? {
     runId: getRunId(),
-    backendBaseUrl: env('BINGO_E2E_BACKEND_URL') ?? 'http://localhost:8080',
-    adminBaseUrl: env('BINGO_E2E_ADMIN_URL') ?? 'http://localhost:5173',
+    backendBaseUrl: env('BINGO_E2E_BACKEND_URL') ?? 'http://localhost:8081',
+    adminBaseUrl: env('BINGO_E2E_ADMIN_URL') ?? 'http://localhost:5174',
     createdAt: new Date().toISOString(),
     notes: [],
   };

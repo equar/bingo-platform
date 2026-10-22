@@ -97,7 +97,7 @@ jobs:
         run: flutter build appbundle --release --dart-define=API_BASE_URL="${MOBILE_API_BASE_URL}"
 
       - name: Install Fastlane
-        run: sudo gem install fastlane --no-document
+        run: sudo gem install fastlane -v 2.241.1 --no-document
 
       - name: Upload to Google Play internal testing
         run: fastlane android internal_testing

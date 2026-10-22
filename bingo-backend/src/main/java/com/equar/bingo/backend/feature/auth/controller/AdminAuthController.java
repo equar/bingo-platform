@@ -1,6 +1,7 @@
 package com.equar.bingo.backend.feature.auth.controller;
 
 import com.equar.bingo.backend.feature.auth.dto.ChangePasswordRequest;
+import com.equar.bingo.backend.feature.auth.dto.AdminAccountActivationRequest;
 import com.equar.bingo.backend.feature.auth.dto.AdminLoginRequest;
 import com.equar.bingo.backend.feature.auth.dto.AuthResponse;
 import com.equar.bingo.backend.feature.auth.service.AdminAuthService;
@@ -30,6 +31,13 @@ public class AdminAuthController {
     @SecurityRequirements
     public AuthResponse login(@Valid @RequestBody AdminLoginRequest request) {
         return adminAuthService.login(request);
+    }
+
+    @PostMapping("/activate")
+    @Operation
+    @SecurityRequirements
+    public void activate(@Valid @RequestBody AdminAccountActivationRequest request) {
+        adminAuthService.activateAccount(request);
     }
 
     @PutMapping("/me/password")

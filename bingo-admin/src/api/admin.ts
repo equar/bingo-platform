@@ -650,6 +650,10 @@ export async function login(request: LoginRequest) {
   return data;
 }
 
+export async function activateAdminAccount(request: { token: string; newPassword: string }) {
+  await http.post('/api/v1/admin/activate', request);
+}
+
 export async function changeAdminPassword(request: ChangeAdminPasswordRequest) {
   await http.put('/api/v1/admin/me/password', request);
 }

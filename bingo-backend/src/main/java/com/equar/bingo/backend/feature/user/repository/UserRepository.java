@@ -23,6 +23,12 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     Optional<User> findByEmail(String email);
 
+    Optional<User> findByAccountActivationTokenHash(String accountActivationTokenHash);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select u from User u where u.accountActivationTokenHash = :tokenHash")
+    Optional<User> findByAccountActivationTokenHashForUpdate(@Param("tokenHash") String tokenHash);
+
     @Query(value = "select distinct u from User u join u.roles role where role in :roles",
             countQuery = "select count(distinct u) from User u join u.roles role where role in :roles")
     Page<User> findByAnyRole(@Param("roles") Collection<UserRole> roles, Pageable pageable);

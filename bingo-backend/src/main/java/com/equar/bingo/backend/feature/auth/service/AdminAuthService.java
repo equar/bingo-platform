@@ -2,6 +2,7 @@ package com.equar.bingo.backend.feature.auth.service;
 
 import com.equar.bingo.backend.common.exception.NotFoundException;
 import com.equar.bingo.backend.common.exception.ConflictException;
+import com.equar.bingo.backend.feature.auth.dto.AdminAccountActivationRequest;
 import com.equar.bingo.backend.feature.auth.dto.ChangePasswordRequest;
 import com.equar.bingo.backend.feature.auth.dto.AdminLoginRequest;
 import com.equar.bingo.backend.feature.auth.dto.AuthResponse;
@@ -22,16 +23,19 @@ public class AdminAuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationAttemptThrottleService throttleService;
+    private final AdminAccountActivationTokenGenerator activationTokenGenerator;
 
     public AdminAuthService(
             UserRepository userRepository,
             PasswordEncoder passwordEncoder,
             JwtService jwtService,
-            AuthenticationAttemptThrottleService throttleService) {
+            AuthenticationAttemptThrottleService throttleService,
+            AdminAccountActivationTokenGenerator activationTokenGenerator) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.throttleService = throttleService;
+        this.activationTokenGenerator = activationTokenGenerator;
     }
 
     @Transactional
@@ -43,6 +47,10 @@ public class AdminAuthService {
                     .orElseThrow(() -> new BadCredentialsException("Invalid credentials"));
 
             if (!(user.hasRole(UserRole.ADMIN) || user.hasRole(UserRole.SUPPORT))) {
+                throw new BadCredentialsException("Invalid credentials");
+            }
+
+            if (user.getAccountActivationTokenHash() != null) {
                 throw new BadCredentialsException("Invalid credentials");
             }
 
@@ -60,6 +68,21 @@ public class AdminAuthService {
             throttleService.recordAccountFailure("admin", email);
             throw exception;
         }
+    }
+
+    @Transactional
+    public void activateAccount(AdminAccountActivationRequest request) {
+        String tokenHash = activationTokenGenerator.hashToken(request.token());
+        Instant now = Instant.now();
+        User user = userRepository.findByAccountActivationTokenHashForUpdate(tokenHash)
+                .filter(candidate -> !candidate.isAccountActivationExpired(now))
+                .filter(candidate -> candidate.isActive()
+                        && (candidate.hasRole(UserRole.ADMIN) || candidate.hasRole(UserRole.SUPPORT)))
+                .orElseThrow(() -> new BadCredentialsException("Activation link is invalid or expired"));
+
+        user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
+        user.completePasswordChange();
+        userRepository.save(user);
     }
 
     @Transactional

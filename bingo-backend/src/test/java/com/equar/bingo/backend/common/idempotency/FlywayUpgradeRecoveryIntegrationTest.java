@@ -67,7 +67,7 @@ class FlywayUpgradeRecoveryIntegrationTest {
                 .locations("classpath:db/migration")
                 .load();
         current.migrate();
-        assertEquals("13", current.info().current().getVersion().getVersion());
+        assertEquals("14", current.info().current().getVersion().getVersion());
         assertDoesNotThrow(current::validate);
 
         JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSource);

@@ -15,11 +15,13 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.util.UriComponentsBuilder;
 
 @Service
 public class AdminUserService {
@@ -29,17 +31,23 @@ public class AdminUserService {
     private final EthiopianPhoneNormalizer phoneNormalizer;
     private final AdminPasswordGenerator passwordGenerator;
     private final AdminAccountNotificationService notificationService;
+    private final AdminAccountActivationTokenGenerator activationTokenGenerator;
+    private final String activationUrl;
 
     public AdminUserService(UserRepository userRepository,
             PasswordEncoder passwordEncoder,
             EthiopianPhoneNormalizer phoneNormalizer,
             AdminPasswordGenerator passwordGenerator,
-            AdminAccountNotificationService notificationService) {
+            AdminAccountNotificationService notificationService,
+            AdminAccountActivationTokenGenerator activationTokenGenerator,
+            @Value("${app.admin-account-email.activation-url:http://localhost:5173/activate-account}") String activationUrl) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.phoneNormalizer = phoneNormalizer;
         this.passwordGenerator = passwordGenerator;
         this.notificationService = notificationService;
+        this.activationTokenGenerator = activationTokenGenerator;
+        this.activationUrl = activationUrl;
     }
 
     @Transactional(readOnly = true)
@@ -57,20 +65,27 @@ public class AdminUserService {
         ensureEmailAvailable(normalizedEmail, null);
         ensurePhoneAvailable(normalizedPhone, null);
 
-        String generatedPassword = passwordGenerator.generate();
+        String unsharedPassword = passwordGenerator.generate();
+        String activationToken = activationTokenGenerator.generateToken();
         Instant createdAt = Instant.now();
 
         User user = User.create(
                 normalizedPhone,
                 request.displayName().trim(),
-                passwordEncoder.encode(generatedPassword),
+                passwordEncoder.encode(unsharedPassword),
                 request.status(),
                 new LinkedHashSet<>(request.roles()),
                 createdAt);
         user.setEmail(normalizedEmail);
-        user.requirePasswordChangeUntil(createdAt.plus(Duration.ofHours(24)));
+        user.requireAccountActivation(
+                activationTokenGenerator.hashToken(activationToken),
+                createdAt.plus(Duration.ofHours(24)));
         User savedUser = userRepository.save(user);
-        notificationService.sendGeneratedPassword(savedUser, generatedPassword);
+        String activationLink = UriComponentsBuilder.fromUriString(activationUrl)
+                .fragment("token=" + activationToken)
+                .build()
+                .toUriString();
+        notificationService.sendActivationLink(savedUser, activationLink);
         return toSummary(savedUser);
     }
 

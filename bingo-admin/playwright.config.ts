@@ -1,6 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const baseURL = process.env.BINGO_E2E_ADMIN_URL ?? 'http://localhost:5173';
+const baseURL = process.env.BINGO_E2E_ADMIN_URL ?? 'http://localhost:5174';
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -13,9 +13,9 @@ export default defineConfig({
   reporter: [['list']],
   use: {
     baseURL,
-    trace: 'retain-on-failure',
-    screenshot: 'only-on-failure',
-    video: 'retain-on-failure',
+    trace: 'off',
+    screenshot: 'off',
+    video: 'off',
   },
   projects: [
     {
