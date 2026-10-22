@@ -9,6 +9,8 @@ spring:
       ddl-auto: validate
   flyway:
     enabled: true
+    clean-disabled: true
+    validate-on-migrate: true
 
 app:
   security:

@@ -21,7 +21,7 @@ This setup uses the existing Windows MySQL 8 installation and keeps QA data in a
 
 ## QA database
 
-`bingo_qa` was created after explicit confirmation, then the current migrations were applied. Two local-only accounts are scoped to this schema:
+`bingo_qa` was created after explicit confirmation, then the current migrations were applied. Two local-only database users are scoped to this schema:
 
 - `bingo_qa_app`: `SELECT`, `INSERT`, `UPDATE`, and `DELETE` on `bingo_qa.*` for application runtime.
 - `bingo_qa_migrator`: the same data permissions plus `CREATE`, `ALTER`, `INDEX`, and `REFERENCES` on `bingo_qa.*` for Flyway migrations. No global privileges are needed.
@@ -43,13 +43,37 @@ For a local QA run:
 
 The `qa` profile explicitly disables database auto-creation, sets Hibernate to `validate`, disables Flyway clean/baseline, and uses separate runtime and migration credentials. `.env.qa` points only to the dedicated schema. The database was created after explicit confirmation; the existing `bingo` schema was not used or modified by QA setup.
 
+The QA profile's one-time account bootstrap is disabled by default. For this local setup it was enabled for a single startup using `APP_QA_BOOTSTRAP_ENABLED=true` and `BINGO_QA_BOOTSTRAP_CONFIRMATION=bingo_qa`; it independently checked the JDBC catalog and required zero existing users and agents before writing. It used the app's BCrypt password/PIN encoders, agent approval service, and player registration service. Credentials and test numbers are in ignored `.env.qa`; only the account names, non-secret IDs, roles, and statuses are in [test-data-registry.md](test-data-registry.md). After the bootstrap, the backend was restarted with the default disabled setting. The bootstrap refuses to start if enabled against an already populated QA account schema. Player suspension has no supported player service and was skipped.
+
+## Isolated integration-test database
+
+The separate `bingo_qa_test` database was created on the same local MySQL 8.0.36 instance. The test account `bingo_qa_test_runner` has `ALL PRIVILEGES` only on `bingo_qa_test.*`; its global grant is `USAGE` only. MySQL denied this account access to both `bingo` and `bingo_qa`. The password and JDBC URL are in ignored `bingo-backend/.env.test`; use [`.env.test.example`](../../bingo-backend/.env.test.example) to configure another local machine.
+
+`MySqlIntegrationTest` requires `BINGO_TEST_MYSQL_URL`, username, and password. Before a Spring integration context starts it checks for a local MySQL URL on port 3306 whose database path is exactly `/bingo_qa_test`, confirms the connected catalog, and verifies that the test user is denied access to `bingo` and `bingo_qa`. Missing settings, another host/database, or access to either persistent schema fail closed. There is no implicit Testcontainers fallback. Surefire runs `A00FlywayUpgradeRecoveryIntegrationTest` first; it cleans only `bingo_qa_test`, tests migration from V6 through V14 and checksum repair, and leaves the schema migrated at V14 for the rest of the suite.
+
+For the current workspace, run from `bingo-backend` after loading the ignored file into the current PowerShell process:
+
+```powershell
+$testEnv = @{}
+Get-Content .env.test | ForEach-Object {
+  if ($_ -match '^([^#=]+)=(.*)$') { $key = $matches[1]; $value = $matches[2]; $testEnv[$key] = $value }
+}
+$env:BINGO_TEST_MYSQL_URL = $testEnv['BINGO_TEST_MYSQL_URL']
+$env:BINGO_TEST_MYSQL_USERNAME = $testEnv['BINGO_TEST_MYSQL_USERNAME']
+$env:BINGO_TEST_MYSQL_PASSWORD = $testEnv['BINGO_TEST_MYSQL_PASSWORD']
+mvn -s ../.tmp/maven-settings.xml '-Dmaven.repo.local=../.tmp/m2' test
+Remove-Item Env:\BINGO_TEST_MYSQL_URL, Env:\BINGO_TEST_MYSQL_USERNAME, Env:\BINGO_TEST_MYSQL_PASSWORD
+```
+
+Do not point these variables at `bingo_qa` or `bingo`. The admin activation integration test captures its outgoing message in-process, so the backend suite does not require an external SMTP catcher.
+
 Environment variables are listed in `.env.qa.example`. `BINGO_QA_JWT_SECRET` must be a unique random secret of at least 32 UTF-8 bytes. SMTP is directed to local `127.0.0.1:1025`; account-email flows remain unavailable until a local SMTP catcher is installed and started.
 
 ## Browser QA
 
 Admin and website URLs can be set with `BINGO_E2E_ADMIN_URL` and `BINGO_E2E_WEBSITE_URL`; the QA backend URL is `BINGO_E2E_BACKEND_URL`. Defaults for reusable helpers and Playwright are `http://localhost:5174`, `http://localhost:4321`, and `http://localhost:8081`. The QA admin can be started from `bingo-admin` with `npm run dev -- --mode qa --host 0.0.0.0 --port 5174`; its ignored `.env.qa` is copied from `.env.qa.example`. Admin E2E credentials must be supplied as `BINGO_E2E_ADMIN_EMAIL` and `BINGO_E2E_ADMIN_PASSWORD`; player credentials use `BINGO_E2E_PRIMARY_PHONE` and `BINGO_E2E_PRIMARY_PASSWORD`. Do not place credentials in tracked files or `VITE_*` variables.
 
-`bingo-admin/tests/e2e/support/qaHelpers.ts` provides admin login, navigation, screenshots, HTTP response checks, and failure artifacts. Playwright defaults and E2E manifest URLs target the isolated QA admin/backend ports. Existing specs can create permanent business records; they have not been run as part of Module 0. Supply the E2E admin/player credential variables after suitable permanent QA accounts are provisioned.
+`bingo-admin/tests/e2e/support/qaHelpers.ts` provides admin login, navigation, screenshots, HTTP response checks, and failure artifacts. Playwright defaults and E2E manifest URLs target the isolated QA admin/backend ports. Existing specs can create permanent business records; they have not been run as part of Module 0. QA admin/player credentials are available in ignored `bingo-backend/.env.qa` for local E2E setup; never commit or print them.
 
 ## Mobile QA
 
@@ -73,9 +97,9 @@ Both APKs were built for the running x64 emulator with the QA API explicitly sup
 flutter build apk --debug --target-platform=android-x64 --dart-define=API_BASE_URL=http://10.0.2.2:8081
 ```
 
-The player and agent login screenshots are [player](evidence/module-00-player-login.png) and [agent](evidence/module-00-agent-login.png). Their processes reached the foreground without Flutter exceptions. A read-only HTTP GET from the emulator to `http://10.0.2.2:8081/actuator/health` returned HTTP 200 with `status: UP`. No login request or business E2E action was sent; QA accounts are not yet available. Debug manifests alone allow cleartext HTTP; the app manifests include internet permission for HTTPS production endpoints. The agent Android scaffold was generated because its repository had no `android/` directory despite its README listing Android support.
+The player and agent login screenshots are [player](evidence/module-00-player-login.png) and [agent](evidence/module-00-agent-login.png). Their processes reached the foreground without Flutter exceptions. A read-only HTTP GET from the emulator to `http://10.0.2.2:8081/actuator/health` returned HTTP 200 with `status: UP`. After provisioning, admin, approved agent, and player login API requests succeeded. No business E2E action was sent. Debug manifests alone allow cleartext HTTP; the app manifests include internet permission for HTTPS production endpoints. The agent Android scaffold was generated because its repository had no `android/` directory despite its README listing Android support.
 
-`flutter doctor -v` reports Flutter and Android toolchain healthy, detects the API 37 emulator, and lists only Visual Studio for Windows desktop as missing (irrelevant to Android). `flutter pub get`, `flutter analyze`, and `flutter test` passed for both apps. Unit/widget results: 20 player tests and 10 agent tests passed. Do not run the integration E2E command until persistent QA identities and a safe database-backed test setup are available. Helpers are under each app's `integration_test/support/` directory.
+`flutter doctor -v` reports Flutter and Android toolchain healthy, detects the API 37 emulator, and lists only Visual Studio for Windows desktop as missing (irrelevant to Android). `flutter pub get`, `flutter analyze`, and `flutter test` passed for both apps. Unit/widget results: 20 player tests and 10 agent tests passed. Do not run the integration E2E command until a safe database-backed test setup is available. Helpers are under each app's `integration_test/support/` directory.
 
 ## Data retention
 

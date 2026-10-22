@@ -1,8 +1,8 @@
 package com.equar.bingo.backend.feature.auth;
 
 import com.equar.bingo.backend.MySqlIntegrationTest;
-import com.equar.bingo.backend.feature.auth.dto.AdminLoginRequest;
 import com.equar.bingo.backend.feature.auth.dto.AdminAccountActivationRequest;
+import com.equar.bingo.backend.feature.auth.dto.AdminLoginRequest;
 import com.equar.bingo.backend.feature.auth.service.JwtService;
 import com.equar.bingo.backend.feature.user.entity.AccountStatus;
 import com.equar.bingo.backend.feature.user.entity.User;
@@ -11,9 +11,6 @@ import com.equar.bingo.backend.feature.user.repository.UserRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.time.Instant;
 import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
@@ -22,42 +19,34 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest(properties = {
-        "app.security.authentication.account-attempt-limit=20",
-        "spring.mail.properties[mail.smtp.auth]=false",
-        "spring.mail.properties[mail.smtp.starttls.enable]=false",
-        "spring.mail.properties[mail.smtp.starttls.required]=false"
-})
+@SpringBootTest(properties = "app.security.authentication.account-attempt-limit=20")
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-class AdminAccountMailpitIntegrationTest extends MySqlIntegrationTest {
+class AdminAccountActivationIntegrationTest extends MySqlIntegrationTest {
 
     private static final String RUN_ID = java.util.UUID.randomUUID().toString().replace("-", "");
     private static final long PHONE_SUFFIX = Math.floorMod(System.nanoTime(), 100_000_000L);
-    private static final String OPERATOR_EMAIL = "qa-mailpit-operator-" + RUN_ID + "@example.invalid";
-    private static final String NEW_ADMIN_EMAIL = "qa-mailpit-admin-" + RUN_ID + "@example.invalid";
+    private static final String OPERATOR_EMAIL = "qa-activation-operator-" + RUN_ID + "@example.invalid";
+    private static final String NEW_ADMIN_EMAIL = "qa-activation-admin-" + RUN_ID + "@example.invalid";
     private static final String OPERATOR_PHONE = String.format("2519%08d", PHONE_SUFFIX);
     private static final String NEW_ADMIN_PHONE = String.format("09%08d", (PHONE_SUFFIX + 1) % 100_000_000L);
-
-    @DynamicPropertySource
-    static void registerMailpitProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.mail.host", AdminAccountMailpitIntegrationTest::mailpitHost);
-        registry.add("spring.mail.port", AdminAccountMailpitIntegrationTest::mailpitSmtpPort);
-    }
 
     @Autowired
     MockMvc mockMvc;
@@ -74,16 +63,25 @@ class AdminAccountMailpitIntegrationTest extends MySqlIntegrationTest {
     @Autowired
     JwtService jwtService;
 
+    @MockitoBean
+    JavaMailSender mailSender;
+
     private String operatorToken;
+    private SimpleMailMessage activationEmail;
 
     @BeforeEach
     void setUp() {
         userRepository.findByEmail(OPERATOR_EMAIL).ifPresent(userRepository::delete);
         userRepository.findByEmail(NEW_ADMIN_EMAIL).ifPresent(userRepository::delete);
+        activationEmail = null;
+        doAnswer(invocation -> {
+            activationEmail = invocation.getArgument(0);
+            return null;
+        }).when(mailSender).send(any(SimpleMailMessage.class));
 
         User operator = User.create(
                 OPERATOR_PHONE,
-                "QA Mailpit Operator",
+                "QA Activation Operator",
                 passwordEncoder.encode("Operator-Only-Password-42!"),
                 AccountStatus.ACTIVE,
                 Set.of(UserRole.ADMIN),
@@ -96,7 +94,7 @@ class AdminAccountMailpitIntegrationTest extends MySqlIntegrationTest {
     void createdAdminActivatesWithSingleUseLinkWithoutEmailingPassword() throws Exception {
         String createRequest = """
                 {
-                  "displayName": "QA Mailpit Admin",
+                  "displayName": "QA Activation Admin",
                   "email": "%s",
                   "phoneNumber": "%s",
                   "status": "ACTIVE",
@@ -120,7 +118,10 @@ class AdminAccountMailpitIntegrationTest extends MySqlIntegrationTest {
         assertNotNull(storedUser.getAccountActivationTokenHash());
         assertNotNull(storedUser.getAccountActivationExpiresAt());
 
-        String emailText = awaitMailText(NEW_ADMIN_EMAIL);
+        assertNotNull(activationEmail, "Admin creation should send the activation email");
+        assertNotNull(activationEmail.getTo());
+        assertTrue(Set.of(activationEmail.getTo()).contains(NEW_ADMIN_EMAIL));
+        String emailText = activationEmail.getText();
         assertFalse(emailText.contains("Password:"));
         String activationLink = emailText.lines()
                 .map(String::trim)
@@ -151,57 +152,5 @@ class AdminAccountMailpitIntegrationTest extends MySqlIntegrationTest {
                         .content(objectMapper.writeValueAsString(new AdminLoginRequest(NEW_ADMIN_EMAIL, newPassword))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.user.mustChangePassword").value(false));
-    }
-
-    private String awaitMailText(String recipient) throws Exception {
-        HttpClient client = HttpClient.newHttpClient();
-        String apiBaseUrl = "http://" + mailpitHost() + ":" + mailpitHttpPort() + "/api/v1";
-        long deadline = System.nanoTime() + java.time.Duration.ofSeconds(15).toNanos();
-
-        while (System.nanoTime() < deadline) {
-            HttpResponse<String> listResponse = client.send(
-                    HttpRequest.newBuilder(URI.create(apiBaseUrl + "/messages")).GET().build(),
-                    HttpResponse.BodyHandlers.ofString());
-            if (listResponse.statusCode() != 200) {
-                throw new AssertionError("Mailpit returned HTTP " + listResponse.statusCode());
-            }
-
-            JsonNode messages = objectMapper.readTree(listResponse.body()).path("messages");
-            for (JsonNode message : messages) {
-                boolean addressedToRecipient = false;
-                for (JsonNode address : message.path("To")) {
-                    if (recipient.equalsIgnoreCase(address.path("Address").asText())) {
-                        addressedToRecipient = true;
-                        break;
-                    }
-                }
-                if (addressedToRecipient) {
-                    String id = message.path("ID").asText();
-                    HttpResponse<String> detailResponse = client.send(
-                            HttpRequest.newBuilder(URI.create(apiBaseUrl + "/message/" + id)).GET().build(),
-                            HttpResponse.BodyHandlers.ofString());
-                    if (detailResponse.statusCode() != 200) {
-                        throw new AssertionError("Mailpit message lookup returned HTTP " + detailResponse.statusCode());
-                    }
-                    return objectMapper.readTree(detailResponse.body()).path("Text").asText();
-                }
-            }
-
-            Thread.sleep(250);
-        }
-
-        throw new AssertionError("Mailpit did not receive an onboarding message for " + recipient);
-    }
-
-    private static String mailpitHost() {
-        return System.getenv().getOrDefault("BINGO_TEST_MAILPIT_HOST", "127.0.0.1");
-    }
-
-    private static int mailpitSmtpPort() {
-        return Integer.parseInt(System.getenv().getOrDefault("BINGO_TEST_MAILPIT_SMTP_PORT", "1025"));
-    }
-
-    private static int mailpitHttpPort() {
-        return Integer.parseInt(System.getenv().getOrDefault("BINGO_TEST_MAILPIT_HTTP_PORT", "8025"));
     }
 }

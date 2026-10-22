@@ -25,6 +25,7 @@ target/
 .env.*.local
 **/.env
 **/.env.qa
+**/.env.test
 **/e2e-secrets.json
 /test-results/
 /bingo-admin/test-results/
