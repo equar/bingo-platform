@@ -280,6 +280,9 @@ export function WalletPoliciesPage() {
                 >
                   Save reward policy
                 </Button>
+                {saveRewardMutation.isError ? (
+                  <Alert severity="error" role="alert">{saveRewardMutation.error.message}</Alert>
+                ) : null}
                 <Alert severity={rewardQuery.data?.activeNow ? "success" : "info"}>
                   {rewardQuery.data?.activeNow
                     ? "A reward policy is active now."
@@ -381,6 +384,9 @@ export function WalletPoliciesPage() {
                 >
                   Save transfer policy
                 </Button>
+                {saveTransferMutation.isError ? (
+                  <Alert severity="error" role="alert">{saveTransferMutation.error.message}</Alert>
+                ) : null}
                 <Alert severity={transferQuery.data?.activeNow ? "success" : "info"}>
                   {transferQuery.data?.activeNow
                     ? "A transfer policy is active now."

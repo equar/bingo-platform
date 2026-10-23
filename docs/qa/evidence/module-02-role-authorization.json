@@ -1,0 +1,9 @@
+{
+  "playerAdminReadHttp": 403,
+  "agentAdminReadHttp": 403,
+  "playerAdminMutationHttp": 403,
+  "agentAdminMutationHttp": 403,
+  "playerPolicyMutationHttp": 403,
+  "agentPolicyMutationHttp": 403,
+  "deniedResponsesContainSecretFields": false
+}

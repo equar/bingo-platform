@@ -1,0 +1,19 @@
+{
+  "agentOne": {
+    "agentId": 3,
+    "statusAfterReload": "APPROVED",
+    "login": 200,
+    "authorizedDashboard": 200
+  },
+  "agentTwo": {
+    "agentId": 4,
+    "statusAfterApproval": "APPROVED",
+    "login": 200
+  },
+  "authorization": {
+    "playerApproval": 403,
+    "agentApproval": 403,
+    "duplicateApproval": 409,
+    "genericUserMutation": 409
+  }
+}

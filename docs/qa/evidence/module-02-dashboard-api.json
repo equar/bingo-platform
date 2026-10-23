@@ -1,0 +1,66 @@
+{
+  "metrics": {
+    "generatedAt": "2026-10-23T06:31:41.113748100Z",
+    "businessTimezone": "Africa/Addis_Ababa",
+    "activePlayers": 2,
+    "activeAgents": 1,
+    "openSupportTickets": 5,
+    "openDepositReviews": 0,
+    "openAgentFloatReviews": 0,
+    "openWinClaims": 0,
+    "activeSessions": 0,
+    "playerWalletBalanceTotal": 0,
+    "agentFloatAvailableTotal": 0,
+    "agentFloatClearingTotal": 0
+  },
+  "successfulDashboardCalls": [
+    {
+      "path": "/api/v1/admin/login",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/admin/sessions/live",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/admin/support/tickets",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/admin/audit-logs",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/admin/review-queue",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/admin/dashboard/metrics",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/admin/sessions/live",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/admin/support/tickets",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/admin/audit-logs",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/admin/review-queue",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/admin/dashboard/metrics",
+      "status": 200
+    }
+  ],
+  "mobileDimensions": {
+    "clientWidth": 390,
+    "scrollWidth": 390
+  }
+}

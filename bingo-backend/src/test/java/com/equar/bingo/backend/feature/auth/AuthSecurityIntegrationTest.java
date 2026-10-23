@@ -19,6 +19,12 @@ import com.equar.bingo.backend.feature.agent.repository.AgentFloatRepository;
 import com.equar.bingo.backend.feature.agent.repository.AgentRepository;
 import com.equar.bingo.backend.feature.agent.repository.AgentFloatTransactionRepository;
 import com.equar.bingo.backend.feature.agent.repository.PayoutVerificationRecordRepository;
+import com.equar.bingo.backend.feature.agent.entity.Agent;
+import com.equar.bingo.backend.feature.agent.entity.AgentStatus;
+import com.equar.bingo.backend.feature.agent.dto.CommissionRuleRequest;
+import com.equar.bingo.backend.feature.agent.dto.AgentApplicationRequest;
+import com.equar.bingo.backend.feature.agent.dto.AgentLoginRequest;
+import com.equar.bingo.backend.feature.agent.repository.CommissionRuleRepository;
 import com.equar.bingo.backend.feature.support.repository.InternalNoteRepository;
 import com.equar.bingo.backend.feature.support.repository.SupportMessageRepository;
 import com.equar.bingo.backend.feature.support.repository.SupportTicketRepository;
@@ -49,6 +55,7 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -98,6 +105,9 @@ class AuthSecurityIntegrationTest extends MySqlIntegrationTest {
         AgentFloatRepository agentFloatRepository;
         @Autowired
         AgentRepository agentRepository;
+
+        @Autowired
+        CommissionRuleRepository commissionRuleRepository;
 
         @Autowired
         SupportTicketRepository supportTicketRepository;
@@ -154,6 +164,8 @@ class AuthSecurityIntegrationTest extends MySqlIntegrationTest {
                 walletRepository.deleteAllInBatch();
                 idempotencyRecordRepository.deleteAllInBatch();
                 payoutVerificationRecordRepository.deleteAllInBatch();
+                jdbcTemplate.update("delete from commission_accruals");
+                commissionRuleRepository.deleteAllInBatch();
                 agentFloatTransactionRepository.deleteAllInBatch();
                 agentFloatRepository.deleteAllInBatch();
                 agentRepository.deleteAllInBatch();
@@ -232,6 +244,207 @@ class AuthSecurityIntegrationTest extends MySqlIntegrationTest {
                                 .header("Authorization", "Bearer " + playerToken))
                                 .andExpect(status().isForbidden())
                                 .andExpect(jsonPath("$.correlationId").exists());
+        }
+
+        @Test
+        void adminDashboardCountsOnlyActivePlayersAndAgentReadRoutesLoadLazyProfiles() throws Exception {
+                Instant now = Instant.now();
+                User pendingPlayer = User.create(phoneNormalizer.normalize("0911000005"), "Pending Player",
+                                passwordEncoder.encode("123456"), AccountStatus.PENDING,
+                                Set.of(UserRole.PLAYER), now);
+                userRepository.save(pendingPlayer);
+
+                User agentUser = userRepository.findByNormalizedPhone(phoneNormalizer.normalize("0911000002"))
+                                .orElseThrow();
+                Agent agent = agentRepository.save(Agent.create(agentUser, AgentStatus.APPROVED, "QA City",
+                                "QA Territory", "TEST", "QA-DOC-02", null, null));
+
+                String adminToken = issueTokenFor("0911000001");
+                mockMvc.perform(get("/api/v1/admin/dashboard/metrics")
+                                .header("Authorization", "Bearer " + adminToken))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.activePlayers").value(1));
+
+                mockMvc.perform(get("/api/v1/admin/agents")
+                                .header("Authorization", "Bearer " + adminToken))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.content", hasSize(1)))
+                                .andExpect(jsonPath("$.content[0].agentId").value(agent.getId()))
+                                .andExpect(jsonPath("$.content[0].displayName").value("Agent User"));
+
+                mockMvc.perform(get("/api/v1/admin/agents/{agentId}", agent.getId())
+                                .header("Authorization", "Bearer " + adminToken))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.agentId").value(agent.getId()))
+                                .andExpect(jsonPath("$.displayName").value("Agent User"));
+        }
+
+        @Test
+        void commissionRulesAreVersionedAndCurrentRuleCanBeReadAfterSaving() throws Exception {
+                String adminToken = issueTokenFor("0911000001");
+                String inactiveRule = objectMapper.writeValueAsString(new CommissionRuleRequest(0,
+                                Instant.parse("2000-01-01T00:00:00Z"), false));
+
+                mockMvc.perform(get("/api/v1/admin/agents/commission-rules/current")
+                                .header("Authorization", "Bearer " + adminToken))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.versionNumber").value(0));
+
+                mockMvc.perform(post("/api/v1/admin/agents/commission-rules")
+                                .header("Authorization", "Bearer " + adminToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(inactiveRule))
+                                .andExpect(status().isOk());
+                mockMvc.perform(get("/api/v1/admin/agents/commission-rules/current")
+                                .header("Authorization", "Bearer " + adminToken))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.versionNumber").value(1))
+                                .andExpect(jsonPath("$.commissionRateBps").value(0))
+                                .andExpect(jsonPath("$.active").value(false));
+
+                mockMvc.perform(post("/api/v1/admin/agents/commission-rules")
+                                .header("Authorization", "Bearer " + adminToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(inactiveRule))
+                                .andExpect(status().isOk());
+                mockMvc.perform(get("/api/v1/admin/agents/commission-rules/current")
+                                .header("Authorization", "Bearer " + adminToken))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.versionNumber").value(2));
+                assertEquals(2, commissionRuleRepository.count());
+                mockMvc.perform(get("/api/v1/admin/agents/commission-rules/current")
+                                .header("Authorization", "Bearer " + issueTokenFor("0911000004")))
+                                .andExpect(status().isForbidden());
+        }
+
+        @Test
+        void agentApplicationApprovalAndSuspensionEnforceLifecycleAndAudit() throws Exception {
+                String phone = "0911000601";
+                AgentApplicationRequest application = new AgentApplicationRequest("M02A Agent One", phone,
+                                "M02A-AgentPass-001", "860001", "Addis Ababa", "Bole", "NID",
+                                "M02A-NID-001", null, null);
+                String requestJson = objectMapper.writeValueAsString(application);
+                String responseJson = mockMvc.perform(post("/api/v1/agent/register")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(requestJson))
+                                .andExpect(status().isCreated())
+                                .andExpect(jsonPath("$.status").value("PENDING"))
+                                .andExpect(jsonPath("$.idDocumentType").value("NID"))
+                                .andReturn().getResponse().getContentAsString();
+                var applicationResult = objectMapper.readTree(responseJson);
+                long agentId = applicationResult.get("agentId").asLong();
+                long userId = applicationResult.get("userId").asLong();
+                User pendingUser = userRepository.findById(userId).orElseThrow();
+                assertEquals(AccountStatus.PENDING, pendingUser.getStatus());
+                org.junit.jupiter.api.Assertions.assertTrue(pendingUser.hasRole(UserRole.AGENT));
+                assertEquals(0, jdbcTemplate.queryForObject("select count(*) from agent_floats where agent_id = ?",
+                                Integer.class, agentId));
+                assertEquals(0, jdbcTemplate.queryForObject("select count(*) from wallets where owner_id = ?",
+                                Integer.class, userId));
+
+                mockMvc.perform(post("/api/v1/agent/register").contentType(MediaType.APPLICATION_JSON)
+                                .content(requestJson))
+                                .andExpect(status().isConflict());
+                AgentApplicationRequest duplicateDocument = new AgentApplicationRequest("Duplicate ID", "0911000602",
+                                "M02A-AgentPass-002", "860002", "Addis Ababa", "Bole", "nid",
+                                "m02a-nid-001", null, null);
+                mockMvc.perform(post("/api/v1/agent/register").contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(duplicateDocument)))
+                                .andExpect(status().isConflict());
+                AgentApplicationRequest invalidPhone = new AgentApplicationRequest("Bad Phone", "12345",
+                                "M02A-AgentPass-003", "860003", "Addis Ababa", "Bole", "NID",
+                                "M02A-NID-003", null, null);
+                mockMvc.perform(post("/api/v1/agent/register").contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(invalidPhone)))
+                                .andExpect(status().isBadRequest());
+                AgentApplicationRequest invalidPin = new AgentApplicationRequest("Bad PIN", "0911000604",
+                                "M02A-AgentPass-004", "12", "Addis Ababa", "Bole", "NID",
+                                "M02A-NID-004", null, null);
+                mockMvc.perform(post("/api/v1/agent/register").contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(invalidPin)))
+                                .andExpect(status().isBadRequest());
+                assertEquals(1, jdbcTemplate.queryForObject("select count(*) from users where id = ?", Integer.class,
+                                userId));
+
+                String pendingToken = jwtService.generateToken(pendingUser);
+                mockMvc.perform(get("/api/v1/agent/dashboard").header("Authorization", "Bearer " + pendingToken))
+                                .andExpect(status().isUnauthorized());
+                mockMvc.perform(post("/api/v1/agent/login").contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(new AgentLoginRequest(phone,
+                                                application.password(), application.pin()))))
+                                .andExpect(status().isUnauthorized());
+
+                String playerToken = issueTokenFor("0911000004");
+                String agentRoleToken = issueTokenFor("0911000002");
+                mockMvc.perform(post("/api/v1/admin/agents/{agentId}/approve", agentId)
+                                .header("Authorization", "Bearer " + playerToken))
+                                .andExpect(status().isForbidden());
+                mockMvc.perform(post("/api/v1/admin/agents/{agentId}/approve", agentId)
+                                .header("Authorization", "Bearer " + agentRoleToken))
+                                .andExpect(status().isForbidden());
+
+                String adminToken = issueTokenFor("0911000001");
+                String attemptedClientStatus = "{\"status\":\"SUSPENDED\",\"city\":\"Client City\"}";
+                mockMvc.perform(post("/api/v1/admin/agents/{agentId}/approve", agentId)
+                                .header("Authorization", "Bearer " + adminToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(attemptedClientStatus))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.status").value("APPROVED"));
+                assertEquals(AgentStatus.APPROVED, agentRepository.findById(agentId).orElseThrow().getStatus());
+                assertEquals("Addis Ababa", agentRepository.findById(agentId).orElseThrow().getCity());
+                assertEquals(AccountStatus.ACTIVE, userRepository.findById(userId).orElseThrow().getStatus());
+                assertEquals(1, jdbcTemplate.queryForObject(
+                                "select count(*) from audit_log_entries where action = 'APPROVE_AGENT_APPLICATION' and target_id = ?",
+                                Integer.class, agentId));
+                assertEquals(1, jdbcTemplate.queryForObject("select count(*) from agent_floats where agent_id = ?",
+                                Integer.class, agentId));
+
+                mockMvc.perform(post("/api/v1/admin/agents/{agentId}/approve", agentId)
+                                .header("Authorization", "Bearer " + adminToken))
+                                .andExpect(status().isConflict());
+                mockMvc.perform(put("/api/v1/admin/users/{userId}", userId)
+                                .header("Authorization", "Bearer " + adminToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"displayName\":\"M02A Agent One\",\"email\":\"agent@example.test\",\"phoneNumber\":\"0911000601\",\"status\":\"SUSPENDED\",\"roles\":[\"SUPPORT\"]}"))
+                                .andExpect(status().isConflict());
+
+                String loginJson = objectMapper.writeValueAsString(new AgentLoginRequest(phone,
+                                application.password(), application.pin()));
+                String loginBody = mockMvc.perform(post("/api/v1/agent/login")
+                                .contentType(MediaType.APPLICATION_JSON).content(loginJson))
+                                .andExpect(status().isOk())
+                                .andReturn().getResponse().getContentAsString();
+                String approvedToken = objectMapper.readTree(loginBody).get("accessToken").asText();
+                mockMvc.perform(get("/api/v1/agent/dashboard").header("Authorization", "Bearer " + approvedToken))
+                                .andExpect(status().isOk());
+                mockMvc.perform(get("/api/v1/agent/float").header("Authorization", "Bearer " + approvedToken))
+                                .andExpect(status().isOk());
+                assertEquals(0, agentFloatRepository.findByAgentId(agentId).orElseThrow()
+                                .getAvailableBalance().compareTo(java.math.BigDecimal.ZERO));
+
+                mockMvc.perform(post("/api/v1/admin/agents/{agentId}/suspend", agentId)
+                                .header("Authorization", "Bearer " + adminToken))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.status").value("SUSPENDED"));
+                assertEquals(AccountStatus.SUSPENDED, userRepository.findById(userId).orElseThrow().getStatus());
+                mockMvc.perform(get("/api/v1/agent/dashboard").header("Authorization", "Bearer " + approvedToken))
+                                .andExpect(status().isUnauthorized());
+                mockMvc.perform(get("/api/v1/agent/float").header("Authorization", "Bearer " + approvedToken))
+                                .andExpect(status().isUnauthorized());
+                mockMvc.perform(post("/api/v1/agent/float/transfers")
+                                .header("Authorization", "Bearer " + approvedToken)
+                                .header("Idempotency-Key", "m02a-suspended-float-transfer")
+                                .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                                .andExpect(status().isUnauthorized());
+                mockMvc.perform(post("/api/v1/agent/login").contentType(MediaType.APPLICATION_JSON)
+                                .content(loginJson))
+                                .andExpect(status().isUnauthorized());
+                assertEquals(1, jdbcTemplate.queryForObject(
+                                "select count(*) from audit_log_entries where action = 'ADMIN_SUSPEND_AGENT' and target_id = ?",
+                                Integer.class, agentId));
+                assertEquals(0, agentFloatRepository.findByAgentId(agentId).orElseThrow()
+                                .getAvailableBalance().compareTo(java.math.BigDecimal.ZERO));
         }
 
         @Test

@@ -7,7 +7,8 @@ Status values: PASS, FAIL, BLOCKED, NOT RUN. A module is COMPLETE only when all 
 | 00 — Local QA environment | COMPLETE | MySQL, backend, admin and public website, Flutter toolchain, API 37 emulator, APK launches, and persistent QA accounts are verified. Database-backed tests use guarded bingo_qa_test; persistent bingo_qa accounts were preserved. The latest complete backend regression run passed 94 tests. See [Module 00](modules/module-00-environment.md). |
 | 01 — Authentication and authorization | COMPLETE | Prior admin Chromium suite: 7/7 PASS. A11 valid expired signed JWT in the actual admin browser: PASS. P17 restricted player flow through registration, admin status management, and Android login: PASS. Player/agent Android authentication and process-restart checks: PASS. Latest full backend suite: 94/94 PASS. QA_PLAYER_003 is retained as PENDING; the original five users and two agent profiles are unchanged. See [Module 01](modules/module-01-authentication.md). |
 
-Module 02 has not been started.
+| 02 — Admin dashboard and management | INCOMPLETE | Prior Module 02 baseline: Chromium 12/12, frontend 76/76, focused backend 15/15. Module 02A agent lifecycle now passes; the separate float-review queue and financial workflows remain unverified. See [Module 02](modules/module-02-admin-management.md), [the route matrix](modules/module-02-admin-test-matrix.md), and [Module 02A](modules/module-02a-agent-lifecycle.md). |
+| 02A — Agent onboarding, approval and suspension | PASS | Real Chromium roster/approval/suspension 3/3; Flutter Android onboarding, pending denial, approved login (two agents), and suspended login passed on emulator-5554; backend focused regression 24/24; read-only `bingo_qa` confirms new records and V15. Original agent profiles remain unchanged. See [Module 02A](modules/module-02a-agent-lifecycle.md). |
 
 ## Isolated integration-test database
 

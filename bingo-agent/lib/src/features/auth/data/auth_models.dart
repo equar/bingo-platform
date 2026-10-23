@@ -99,3 +99,36 @@ class AgentLoginRequest {
     'pin': pin,
   };
 }
+
+class AgentApplicationRequest {
+  const AgentApplicationRequest({
+    required this.displayName,
+    required this.phoneNumber,
+    required this.password,
+    required this.pin,
+    required this.city,
+    required this.territory,
+    required this.idDocumentType,
+    required this.idDocumentNumber,
+  });
+
+  final String displayName;
+  final String phoneNumber;
+  final String password;
+  final String pin;
+  final String city;
+  final String territory;
+  final String idDocumentType;
+  final String idDocumentNumber;
+
+  Map<String, dynamic> toJson() => {
+    'displayName': displayName,
+    'phoneNumber': phoneNumber,
+    'password': password,
+    'pin': pin,
+    'city': city,
+    'territory': territory,
+    'idDocumentType': idDocumentType,
+    'idDocumentNumber': idDocumentNumber,
+  };
+}

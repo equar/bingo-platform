@@ -1,0 +1,10 @@
+{
+  "ticketId": 5,
+  "ticketNumber": "ST-B6B0DFA3",
+  "status": "WAITING_FOR_CUSTOMER",
+  "assignmentHttp": 200,
+  "replyHttp": 200,
+  "internalNoteHttp": 200,
+  "statusUpdateHttp": 200,
+  "refreshVerified": true
+}

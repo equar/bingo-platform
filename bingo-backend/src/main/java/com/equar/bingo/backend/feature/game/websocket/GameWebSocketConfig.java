@@ -22,7 +22,7 @@ public class GameWebSocketConfig implements WebSocketMessageBrokerConfigurer {
     private final List<String> allowedOrigins;
 
     public GameWebSocketConfig(GameWebSocketJwtChannelInterceptor jwtChannelInterceptor,
-            @Value("${WEBSOCKET_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173,http://localhost:3001,http://127.0.0.1:3001}") String allowedOrigins) {
+            @Value("${WEBSOCKET_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173,http://localhost:3001,http://127.0.0.1:3001,http://localhost:5174,http://127.0.0.1:5174}") String allowedOrigins) {
         this.jwtChannelInterceptor = jwtChannelInterceptor;
         this.allowedOrigins = parseOrigins(allowedOrigins);
     }

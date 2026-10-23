@@ -295,7 +295,7 @@ public class AuditLogAspect {
                 }
             }
         }
-        for (String accessor : List.of("id", "getId")) {
+        for (String accessor : List.of("id", "getId", "agentId", "getAgentId")) {
             try {
                 Method method = value.getClass().getMethod(accessor);
                 Object id = method.invoke(value);

@@ -358,11 +358,9 @@ class AgentServiceIntegrationTest extends MySqlIntegrationTest {
                                                 passwordEncoder.encode("AgentPass123!"), AccountStatus.PENDING,
                                                 Set.of(UserRole.AGENT), Instant.now()));
 
-                var approved = agentService.adminApproveAgent(pendingUser.getId(),
-                                new AgentProfileResponse(null, null, null,
-                                                "Pending Agent", AgentStatus.APPROVED, "City", "Territory", "NID",
-                                                "N-001", null, null,
-                                                null, null));
+                var pendingAgent = agentRepository.save(Agent.create(pendingUser, AgentStatus.PENDING,
+                                "City", "Territory", "NID", "N-001", null, null));
+                var approved = agentService.approveAgentApplication(pendingAgent.getId());
                 assertEquals(AgentStatus.APPROVED, approved.status());
 
                 var suspended = agentService.adminSuspendAgent(approved.agentId());

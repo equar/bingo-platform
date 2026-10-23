@@ -108,6 +108,7 @@ class AdminReadServiceTest {
     AdminReadService service;
 
     User player;
+    User pendingPlayer;
     User adminUser;
     Agent agent;
     Wallet wallet;
@@ -127,6 +128,9 @@ class AdminReadServiceTest {
         Instant now = Instant.parse("2026-01-01T00:00:00Z");
         player = User.create("251911000001", "Player One", "pw", AccountStatus.ACTIVE, Set.of(UserRole.PLAYER), now);
         ReflectionTestUtils.setField(player, "id", 11L);
+        pendingPlayer = User.create("251911000003", "Pending Player", "pw", AccountStatus.PENDING,
+                Set.of(UserRole.PLAYER), now);
+        ReflectionTestUtils.setField(pendingPlayer, "id", 13L);
         adminUser = User.create("251911000002", "Admin One", "pw", AccountStatus.ACTIVE, Set.of(UserRole.ADMIN), now);
         ReflectionTestUtils.setField(adminUser, "id", 12L);
 
@@ -167,7 +171,7 @@ class AdminReadServiceTest {
     void dashboardMetricsAndPlayerLookupsAreProjected() {
         when(walletRepository.findAll()).thenReturn(List.of(wallet));
         when(agentFloatRepository.findAll()).thenReturn(List.of(agentFloat));
-        when(userRepository.findAll()).thenReturn(List.of(player, adminUser));
+        when(userRepository.findAll()).thenReturn(List.of(player, pendingPlayer, adminUser));
         when(agentRepository.countByStatus(AgentStatus.APPROVED)).thenReturn(1L);
         when(supportTicketRepository.findAll()).thenReturn(List.of(supportTicket));
         when(depositClaimRepository.findByStatus(DepositClaimStatus.PENDING, Pageable.unpaged()))

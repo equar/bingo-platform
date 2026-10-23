@@ -3,12 +3,14 @@ package com.equar.bingo.backend.feature.agent.controller;
 import com.equar.bingo.backend.feature.agent.dto.AgentProfileResponse;
 import com.equar.bingo.backend.feature.agent.dto.FloatTopUpRequestResponse;
 import com.equar.bingo.backend.feature.agent.dto.CommissionRuleRequest;
+import com.equar.bingo.backend.feature.agent.dto.AdminCommissionRuleResponse;
 import com.equar.bingo.backend.feature.agent.dto.ReviewFloatTopUpRequest;
 import com.equar.bingo.backend.feature.agent.service.AgentService;
 import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -25,14 +27,19 @@ public class AdminAgentController {
         this.agentService = agentService;
     }
 
-    @PostMapping("/{userId}/approve")
-    public AgentProfileResponse approve(@PathVariable Long userId, @Valid @RequestBody AgentProfileResponse request) {
-        return agentService.adminApproveAgent(userId, request);
+    @PostMapping("/{agentId}/approve")
+    public AgentProfileResponse approve(@PathVariable Long agentId) {
+        return agentService.approveAgentApplication(agentId);
     }
 
     @PostMapping("/{agentId}/suspend")
     public AgentProfileResponse suspend(@PathVariable Long agentId) {
         return agentService.adminSuspendAgent(agentId);
+    }
+
+    @GetMapping("/commission-rules/current")
+    public AdminCommissionRuleResponse currentCommissionRule() {
+        return agentService.currentCommissionRule();
     }
 
     @PostMapping("/commission-rules")

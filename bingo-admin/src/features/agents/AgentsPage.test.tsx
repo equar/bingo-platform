@@ -4,19 +4,21 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { adminAgents, reviewFloatTopUpRequest } from "../../api/admin";
+import { adminAgents, currentCommissionRule, reviewFloatTopUpRequest } from "../../api/admin";
 import { AgentsPage } from "./AgentsPage";
 
 vi.mock("../../api/admin", () => ({
   adminAgents: vi.fn(),
   approveAgent: vi.fn(),
   commissionRule: vi.fn(),
+  currentCommissionRule: vi.fn(),
   reviewFloatTopUpRequest: vi.fn(),
   suspendAgent: vi.fn(),
 }));
 
 const adminAgentsMock = vi.mocked(adminAgents);
 const reviewFloatTopUpRequestMock = vi.mocked(reviewFloatTopUpRequest);
+const currentCommissionRuleMock = vi.mocked(currentCommissionRule);
 
 function createWrapper({ children }: PropsWithChildren) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -41,6 +43,10 @@ describe("AgentsPage float top-up review", () => {
       last: true,
     });
     reviewFloatTopUpRequestMock.mockReset();
+    currentCommissionRuleMock.mockReset().mockResolvedValue({
+      id: null, versionNumber: 0, commissionRateBps: 0, effectiveFrom: "1970-01-01T00:00:00Z",
+      active: false, createdAt: null, updatedAt: null,
+    });
   });
 
   it("requires a positive whole request id and a review note", async () => {
@@ -94,5 +100,16 @@ describe("AgentsPage float top-up review", () => {
 
     expect(await screen.findByText("Permission denied")).toBeInTheDocument();
     expect(reviewFloatTopUpRequestMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("loads the persisted current commission rule", async () => {
+    currentCommissionRuleMock.mockResolvedValue({
+      id: 8, versionNumber: 3, commissionRateBps: 0, effectiveFrom: "2000-01-01T00:00:00Z",
+      active: false, createdAt: "2000-01-01T00:00:00Z", updatedAt: "2000-01-01T00:00:00Z",
+    });
+    render(<AgentsPage />, { wrapper: createWrapper });
+    expect(await screen.findByText("Current version 3 · Inactive")).toBeInTheDocument();
+    expect(screen.getByRole("spinbutton", { name: "Commission rate (bps)" })).toHaveValue(0);
+    expect(screen.getByRole("checkbox", { name: "Active" })).not.toBeChecked();
   });
 });

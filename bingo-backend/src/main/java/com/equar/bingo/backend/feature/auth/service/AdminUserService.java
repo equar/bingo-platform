@@ -2,6 +2,7 @@ package com.equar.bingo.backend.feature.auth.service;
 
 import com.equar.bingo.backend.common.exception.ConflictException;
 import com.equar.bingo.backend.common.exception.NotFoundException;
+import com.equar.bingo.backend.common.exception.ConflictException;
 import com.equar.bingo.backend.feature.auth.dto.AdminUserCreateRequest;
 import com.equar.bingo.backend.feature.auth.dto.AdminUserUpdateRequest;
 import com.equar.bingo.backend.feature.auth.dto.UserSummaryResponse;
@@ -93,6 +94,10 @@ public class AdminUserService {
     public UserSummaryResponse updateUser(Long userId, AdminUserUpdateRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException("USER_NOT_FOUND", "User account not found"));
+        if (user.hasRole(UserRole.AGENT)) {
+            throw new ConflictException("AGENT_LIFECYCLE_REQUIRED",
+                    "Agent account status and role must be changed through the agent lifecycle workflow");
+        }
 
         String normalizedEmail = normalizeEmail(request.email());
         String normalizedPhone = phoneNormalizer.normalize(request.phoneNumber());

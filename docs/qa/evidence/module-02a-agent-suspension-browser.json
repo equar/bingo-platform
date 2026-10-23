@@ -1,0 +1,20 @@
+{
+  "agent": {
+    "agentId": 4,
+    "statusAfterRefresh": "SUSPENDED"
+  },
+  "beforeSuspend": {
+    "login": 200,
+    "dashboard": 200,
+    "float": 200
+  },
+  "afterSuspend": {
+    "newLogin": 401,
+    "oldTokenDashboard": 401,
+    "oldTokenFloat": 401,
+    "oldTokenFloatMutation": 401
+  },
+  "authorization": {
+    "unauthenticatedApproval": 401
+  }
+}

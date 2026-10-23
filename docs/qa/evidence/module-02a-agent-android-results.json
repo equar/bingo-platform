@@ -1,0 +1,20 @@
+{
+  "date": "2026-10-23",
+  "device": "emulator-5554",
+  "flutterTest": "integration_test/module_02a_agent_lifecycle_test.dart",
+  "result": "All tests passed",
+  "phases": [
+    "apply both applications and deny login while pending",
+    "login as approved agent 1",
+    "login as approved agent 2",
+    "deny login after agent 2 suspension"
+  ],
+  "screenshots": [
+    "module-02a-agent-application-one-submitted.png",
+    "module-02a-agent-application-two-submitted.png",
+    "module-02a-agent-pending-login-denied.png",
+    "module-02a-agent-approved-login.png",
+    "module-02a-agent-suspended-login-denied.png"
+  ],
+  "credentialsInEvidence": false
+}

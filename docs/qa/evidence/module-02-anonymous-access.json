@@ -1,0 +1,4 @@
+{
+  "protectedRouteRedirect": "/login",
+  "anonymousDashboardMetricsHttp": 401
+}

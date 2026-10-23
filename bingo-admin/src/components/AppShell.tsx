@@ -14,6 +14,7 @@ import {
   Stack,
   Toolbar,
   Typography,
+  useMediaQuery,
 } from "@mui/material";
 import type { Theme } from "@mui/material/styles";
 import { useEffect, useMemo, useState } from "react";
@@ -77,6 +78,8 @@ export function AppShell() {
   const location = useLocation();
   const navigate = useNavigate();
   const [accountMenuAnchor, setAccountMenuAnchor] = useState<null | HTMLElement>(null);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const isMobile = useMediaQuery("(max-width:899.95px)");
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set(navGroups.map((group) => group.title)));
 
   const accountMenuOpen = Boolean(accountMenuAnchor);
@@ -135,6 +138,17 @@ export function AppShell() {
       <CssBaseline />
       <AppBar position="fixed" sx={{ zIndex: (theme: Theme) => theme.zIndex.drawer + 1 }}>
         <Toolbar>
+          {isMobile ? (
+            <Button
+              color="inherit"
+              aria-label="Open navigation"
+              aria-expanded={mobileNavOpen}
+              onClick={() => setMobileNavOpen(true)}
+              sx={{ minWidth: 0, mr: 1, textTransform: "none" }}
+            >
+              Menu
+            </Button>
+          ) : null}
           <Typography variant="h6" noWrap sx={{ flexGrow: 1 }}>
             Sunset Bingo Admin
           </Typography>
@@ -192,7 +206,9 @@ export function AppShell() {
         </Toolbar>
       </AppBar>
       <Drawer
-        variant="permanent"
+        variant={isMobile ? "temporary" : "permanent"}
+        open={!isMobile || mobileNavOpen}
+        onClose={() => setMobileNavOpen(false)}
         sx={{
           width: drawerWidth,
           flexShrink: 0,
@@ -234,6 +250,7 @@ export function AppShell() {
                       key={item.to}
                       component={NavLink}
                       to={item.to}
+                      onClick={() => setMobileNavOpen(false)}
                       selected={isNavItemActive(location.pathname, item.to)}
                       sx={{ borderRadius: 2, mb: 0.5, ml: 1 }}
                     >

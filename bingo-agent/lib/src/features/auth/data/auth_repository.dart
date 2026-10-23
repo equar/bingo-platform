@@ -26,6 +26,14 @@ class AuthRepository {
     }
   }
 
+  Future<void> registerApplication(AgentApplicationRequest request) async {
+    try {
+      await _dio.post<Map<String, dynamic>>('/api/v1/agent/register', data: request.toJson());
+    } on DioException catch (error) {
+      throw _mapError(error);
+    }
+  }
+
   Future<void> persist(AuthResponse response) async {
     await _storage.saveSession(accessToken: response.accessToken, sessionJson: jsonEncode(response.toJson()));
   }

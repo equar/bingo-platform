@@ -9,5 +9,7 @@ public interface CommissionRuleRepository extends JpaRepository<CommissionRule, 
 
     Optional<CommissionRule> findFirstByActiveTrueOrderByVersionNumberDesc();
 
+    Optional<CommissionRule> findFirstByOrderByVersionNumberDesc();
+
     List<CommissionRule> findAllByOrderByVersionNumberDesc();
 }

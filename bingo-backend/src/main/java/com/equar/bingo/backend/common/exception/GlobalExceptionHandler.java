@@ -16,6 +16,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.BindException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -143,6 +144,16 @@ public class GlobalExceptionHandler {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                                 .body(error(HttpStatus.UNAUTHORIZED, "AUTH_INVALID_CREDENTIALS", "Invalid credentials",
                                                 request, List.of()));
+        }
+
+        @ExceptionHandler(AuthenticationException.class)
+        @ApiResponse(responseCode = "401", description = "Authentication is not permitted",
+                        content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
+        public ResponseEntity<ApiErrorResponse> handleAuthentication(AuthenticationException exception,
+                        HttpServletRequest request) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                                .body(error(HttpStatus.UNAUTHORIZED, "AUTHENTICATION_DENIED",
+                                                "Authentication is not permitted", request, List.of()));
         }
 
         @ExceptionHandler(Exception.class)
