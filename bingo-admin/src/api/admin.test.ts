@@ -2,6 +2,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   adjustWallet,
   adminAgents,
+  adminAgentFloatBalance,
+  adminAgentFloatHistory,
+  adminFloatBankAccounts,
+  createFloatBankAccount,
+  setFloatBankAccountActive,
+  recordSyntheticFloatBankStatement,
+  verifyFloatTopUp,
+  floatTopUpVerificationHistory,
+  postVerifiedFloatTopUp,
+  dailyFloatReconciliation,
+  adminFloatTopUpRequests,
   approveDeposit,
   approveWinClaim,
   deposits,
@@ -144,12 +155,44 @@ describe("admin API client", () => {
 
   it("lists agents and submits an explicit float-review decision", async () => {
     await adminAgents(1, 30);
+    await adminFloatTopUpRequests(0, 100, "PENDING", "251911000001");
+    await adminAgentFloatBalance(4);
+    await adminAgentFloatHistory(4, 1, 10);
     await reviewFloatTopUpRequest(17, { approve: false, reviewNote: "Insufficient evidence" });
 
-    expect(httpMock.get).toHaveBeenCalledWith("/api/v1/admin/agents", { params: { page: 1, size: 30 } });
+    expect(httpMock.get).toHaveBeenNthCalledWith(1, "/api/v1/admin/agents", { params: { page: 1, size: 30 } });
+    expect(httpMock.get).toHaveBeenNthCalledWith(2, "/api/v1/admin/agents/float-top-up-requests", {
+      params: { page: 0, size: 100, status: "PENDING", query: "251911000001" },
+    });
+    expect(httpMock.get).toHaveBeenNthCalledWith(3, "/api/v1/admin/agents/4/float");
+    expect(httpMock.get).toHaveBeenNthCalledWith(4, "/api/v1/admin/agents/4/float/history", {
+      params: { page: 1, size: 10 },
+    });
     expect(httpMock.post).toHaveBeenCalledWith(
       "/api/v1/admin/agents/float-top-up-requests/17/review",
       { approve: false, reviewNote: "Insufficient evidence" },
     );
+  });
+
+  it("uses the manual funding verification, posting, and reconciliation routes", async () => {
+    const account = { bankName: "QA Bank", accountNumber: "0000123456", accountHolderName: "QA Synthetic", currency: "ETB" as const };
+    const statement = { receivingBankAccountId: 5, transactionReference: "QA-REF-1", amount: "25.00", currency: "ETB" as const, transactionDate: "2026-10-23", settlementState: "SETTLED" as const };
+    await adminFloatBankAccounts();
+    await createFloatBankAccount(account);
+    await setFloatBankAccountActive(5, false);
+    await recordSyntheticFloatBankStatement(statement);
+    await verifyFloatTopUp(17, { statementEntryId: 9 });
+    await floatTopUpVerificationHistory(17);
+    await postVerifiedFloatTopUp(17, "Independent QA review");
+    await dailyFloatReconciliation("2026-10-23");
+
+    expect(httpMock.get).toHaveBeenNthCalledWith(1, "/api/v1/admin/float-bank-accounts");
+    expect(httpMock.post).toHaveBeenNthCalledWith(1, "/api/v1/admin/float-bank-accounts", account);
+    expect(httpMock.put).toHaveBeenCalledWith("/api/v1/admin/float-bank-accounts/5/active", null, { params: { active: false } });
+    expect(httpMock.post).toHaveBeenNthCalledWith(2, "/api/v1/admin/float-bank-statements/synthetic", statement);
+    expect(httpMock.post).toHaveBeenNthCalledWith(3, "/api/v1/admin/agents/float-top-up-requests/17/verify", { statementEntryId: 9 });
+    expect(httpMock.get).toHaveBeenNthCalledWith(2, "/api/v1/admin/agents/float-top-up-requests/17/verifications");
+    expect(httpMock.post).toHaveBeenNthCalledWith(4, "/api/v1/admin/agents/float-top-up-requests/17/post", { approve: true, reviewNote: "Independent QA review" });
+    expect(httpMock.get).toHaveBeenNthCalledWith(3, "/api/v1/admin/float-reconciliation/daily", { params: { date: "2026-10-23" } });
   });
 });

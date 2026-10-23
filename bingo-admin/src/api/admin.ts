@@ -239,6 +239,18 @@ export interface FloatTopUpRequestResponse {
   reviewedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  submissionNote?: string | null;
+    receivingBankAccountId?: number | null;
+    bankNameSnapshot?: string | null;
+    maskedAccountSnapshot?: string | null;
+    accountHolderSnapshot?: string | null;
+    transferReference?: string | null;
+    supportingEvidenceNote?: string | null;
+}
+
+export interface AdminFloatTopUpRequestResponse extends FloatTopUpRequestResponse {
+  agentDisplayName: string;
+  agentPhoneNumber: string;
 }
 
 export interface CommissionRuleRequest {
@@ -257,6 +269,69 @@ export interface AdminCommissionRuleResponse extends CommissionRuleRequest {
 export interface ReviewFloatTopUpRequest {
   approve: boolean;
   reviewNote: string;
+}
+
+export interface FloatBankAccountResponse {
+  id: number;
+  bankName: string;
+  maskedAccountNumber: string;
+  accountHolderName: string;
+  currency: string;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FloatBankAccountRequest {
+  bankName: string;
+  accountNumber: string;
+  accountHolderName: string;
+  currency: "ETB";
+}
+
+export interface FloatVerificationResponse {
+  id: number | null;
+  requestId: number | null;
+  statementEntryId: number | null;
+  reviewerUserId: number;
+  outcome: string;
+  exceptionReason: string | null;
+  evidenceSource: string;
+  actualReceivingBankAccountId: number | null;
+  bankTransactionReference: string | null;
+  verifiedAmount: string | null;
+  bankTransactionDate: string | null;
+  verifiedAt: string;
+  synthetic: boolean;
+}
+
+export interface FloatPostingResponse {
+  journalId: number;
+  requestId: number;
+  postingReference: string;
+  simulated: boolean;
+  currency: string;
+  amount: string;
+  availableBalance: string;
+  verifierUserId: number;
+  approverUserId: number;
+  postedAt: string;
+}
+
+export interface FloatReconciliationResponse {
+  statementDate: string;
+  syntheticQaData: boolean;
+  settledStatementCount: number;
+  settledStatementAmount: string;
+  postingCount: number;
+  postedAmount: string;
+  debitTotal: string;
+  creditTotal: string;
+  unmatchedSettledStatementCount: number;
+  verifiedUnpostedRequestCount: number;
+  unresolvedExceptionCount: number;
+  statementToPostingDifference: string;
+  journalBalanced: boolean;
 }
 
 export interface SupportMessageResponse {
@@ -1038,6 +1113,18 @@ export async function adminAgentDetail(agentId: number) {
   return data;
 }
 
+export async function adminAgentFloatBalance(agentId: number) {
+  const { data } = await http.get<AgentFloatResponse>(`/api/v1/admin/agents/${agentId}/float`);
+  return data;
+}
+
+export async function adminAgentFloatHistory(agentId: number, page = 0, size = 20) {
+  const { data } = await http.get<PageResponse<AgentFloatTransactionResponse>>(
+    `/api/v1/admin/agents/${agentId}/float/history`, { params: { page, size } },
+  );
+  return data;
+}
+
 export async function approveAgent(agentId: number) {
   const { data } = await http.post<AgentProfileResponse>(`/api/v1/admin/agents/${agentId}/approve`);
   return data;
@@ -1050,6 +1137,69 @@ export async function suspendAgent(agentId: number) {
 
 export async function reviewFloatTopUpRequest(requestId: number, body: ReviewFloatTopUpRequest) {
   const { data } = await http.post<FloatTopUpRequestResponse>(`/api/v1/admin/agents/float-top-up-requests/${requestId}/review`, body);
+  return data;
+}
+
+export async function adminFloatTopUpRequests(page = 0, size = 20, status = "PENDING", query?: string) {
+  const { data } = await http.get<PageResponse<AdminFloatTopUpRequestResponse>>(
+    "/api/v1/admin/agents/float-top-up-requests",
+    { params: { page, size, status, query } },
+  );
+  return data;
+}
+
+export async function adminFloatBankAccounts() {
+  const { data } = await http.get<FloatBankAccountResponse[]>("/api/v1/admin/float-bank-accounts");
+  return data;
+}
+
+export async function createFloatBankAccount(body: FloatBankAccountRequest) {
+  const { data } = await http.post<FloatBankAccountResponse>("/api/v1/admin/float-bank-accounts", body);
+  return data;
+}
+
+export async function setFloatBankAccountActive(accountId: number, active: boolean) {
+  const { data } = await http.put<FloatBankAccountResponse>(
+    `/api/v1/admin/float-bank-accounts/${accountId}/active`, null, { params: { active } },
+  );
+  return data;
+}
+
+export async function recordSyntheticFloatBankStatement(body: {
+  receivingBankAccountId: number; transactionReference: string; amount: string; currency: "ETB";
+  transactionDate: string; settlementState: "SETTLED" | "UNSETTLED" | "REVERSED";
+}) {
+  const { data } = await http.post<FloatVerificationResponse>("/api/v1/admin/float-bank-statements/synthetic", body);
+  return data;
+}
+
+export async function verifyFloatTopUp(requestId: number, body: {
+  statementEntryId?: number; exceptionOutcome?: string; exceptionReason?: string;
+}) {
+  const { data } = await http.post<FloatVerificationResponse>(
+    `/api/v1/admin/agents/float-top-up-requests/${requestId}/verify`, body,
+  );
+  return data;
+}
+
+export async function floatTopUpVerificationHistory(requestId: number) {
+  const { data } = await http.get<FloatVerificationResponse[]>(
+    `/api/v1/admin/agents/float-top-up-requests/${requestId}/verifications`,
+  );
+  return data;
+}
+
+export async function postVerifiedFloatTopUp(requestId: number, reviewNote: string) {
+  const { data } = await http.post<FloatPostingResponse>(
+    `/api/v1/admin/agents/float-top-up-requests/${requestId}/post`, { approve: true, reviewNote },
+  );
+  return data;
+}
+
+export async function dailyFloatReconciliation(date: string) {
+  const { data } = await http.get<FloatReconciliationResponse>(
+    "/api/v1/admin/float-reconciliation/daily", { params: { date } },
+  );
   return data;
 }
 

@@ -9,6 +9,9 @@ spring:
       ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:validate}
 
 app:
+  agent:
+    float-simulation-enabled: false
+    bank-account-encryption-key: ${BINGO_FLOAT_BANK_ENCRYPTION_KEY:}
   admin-account-email:
     activation-url: ${ADMIN_ACCOUNT_ACTIVATION_URL}
   dev:

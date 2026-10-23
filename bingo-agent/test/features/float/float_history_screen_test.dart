@@ -27,12 +27,14 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextFormField).first, '0');
+    await tester.enterText(find.byType(TextFormField).at(1), 'QA-TEST-REF');
     await tester.tap(find.text('Submit request'));
     await tester.pumpAndSettle();
     expect(find.text('Enter an amount greater than zero.'), findsOneWidget);
     expect(repository.submissionKeys, isEmpty);
 
     await tester.enterText(find.byType(TextFormField).first, '12.50');
+    await tester.enterText(find.byType(TextFormField).at(1), 'QA-TEST-REF');
     await tester.tap(find.text('Submit request'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Confirm'));
@@ -59,6 +61,17 @@ class _FakeAgentRepository extends AgentRepository {
   bool failFirstSubmission = false;
   final submissionKeys = <String>[];
   final submittedBodies = <Map<String, dynamic>>[];
+
+  @override
+  Future<List<AgentFloatBankAccount>> floatBankAccounts() async => const [
+        AgentFloatBankAccount(
+          id: 1,
+          bankName: 'QA Test Bank',
+          maskedAccountNumber: '••••0001',
+          accountHolderName: 'QA Test Holder',
+          currency: 'ETB',
+        ),
+      ];
 
   @override
   Future<AgentFloatBalance> floatBalance() async => AgentFloatBalance(

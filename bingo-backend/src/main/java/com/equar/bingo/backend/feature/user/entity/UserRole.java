@@ -4,5 +4,7 @@ public enum UserRole {
     PLAYER,
     AGENT,
     ADMIN,
-    SUPPORT
+    SUPPORT,
+    FINANCE_VERIFIER,
+    FINANCE_APPROVER
 }

@@ -40,7 +40,7 @@ public class FloatTopUpRequest {
     private String currency;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false, length = 20)
+    @Column(name = "status", nullable = false, length = 40)
     private FloatTopUpRequestStatus status;
 
     @Column(name = "operation_id", nullable = false, length = 36, unique = true)
@@ -48,6 +48,27 @@ public class FloatTopUpRequest {
 
     @Column(name = "review_note", length = 500)
     private String reviewNote;
+
+    @Column(name = "submission_note", length = 500)
+    private String submissionNote;
+
+    @Column(name = "receiving_bank_account_id")
+    private Long receivingBankAccountId;
+
+    @Column(name = "bank_name_snapshot", length = 120)
+    private String bankNameSnapshot;
+
+    @Column(name = "masked_account_snapshot", length = 32)
+    private String maskedAccountSnapshot;
+
+    @Column(name = "account_holder_snapshot", length = 120)
+    private String accountHolderSnapshot;
+
+    @Column(name = "transfer_reference", length = 120)
+    private String transferReference;
+
+    @Column(name = "supporting_evidence_note", length = 500)
+    private String supportingEvidenceNote;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "reviewed_by_user_id")
@@ -129,6 +150,31 @@ public class FloatTopUpRequest {
 
     public void setReviewNote(String reviewNote) {
         this.reviewNote = reviewNote;
+    }
+
+    public String getSubmissionNote() {
+        return submissionNote;
+    }
+
+    public void setReceivingBankSnapshot(Long bankAccountId, String bankName, String maskedAccount,
+            String accountHolder, String reference, String evidenceNote) {
+        this.receivingBankAccountId = bankAccountId;
+        this.bankNameSnapshot = bankName;
+        this.maskedAccountSnapshot = maskedAccount;
+        this.accountHolderSnapshot = accountHolder;
+        this.transferReference = reference;
+        this.supportingEvidenceNote = evidenceNote;
+    }
+
+    public Long getReceivingBankAccountId() { return receivingBankAccountId; }
+    public String getBankNameSnapshot() { return bankNameSnapshot; }
+    public String getMaskedAccountSnapshot() { return maskedAccountSnapshot; }
+    public String getAccountHolderSnapshot() { return accountHolderSnapshot; }
+    public String getTransferReference() { return transferReference; }
+    public String getSupportingEvidenceNote() { return supportingEvidenceNote; }
+
+    public void setSubmissionNote(String submissionNote) {
+        this.submissionNote = submissionNote;
     }
 
     public User getReviewedBy() {

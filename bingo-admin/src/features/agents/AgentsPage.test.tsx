@@ -1,24 +1,35 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { type PropsWithChildren } from "react";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { adminAgents, currentCommissionRule, reviewFloatTopUpRequest } from "../../api/admin";
+import { adminAgents, adminFloatBankAccounts, adminFloatTopUpRequests, currentCommissionRule, floatTopUpVerificationHistory } from "../../api/admin";
 import { AgentsPage } from "./AgentsPage";
 
 vi.mock("../../api/admin", () => ({
   adminAgents: vi.fn(),
+  adminFloatTopUpRequests: vi.fn(),
+  adminFloatBankAccounts: vi.fn(),
   approveAgent: vi.fn(),
   commissionRule: vi.fn(),
   currentCommissionRule: vi.fn(),
   reviewFloatTopUpRequest: vi.fn(),
+  createFloatBankAccount: vi.fn(),
+  setFloatBankAccountActive: vi.fn(),
+  recordSyntheticFloatBankStatement: vi.fn(),
+  verifyFloatTopUp: vi.fn(),
+  floatTopUpVerificationHistory: vi.fn(),
+  postVerifiedFloatTopUp: vi.fn(),
+  dailyFloatReconciliation: vi.fn(),
   suspendAgent: vi.fn(),
 }));
 
 const adminAgentsMock = vi.mocked(adminAgents);
-const reviewFloatTopUpRequestMock = vi.mocked(reviewFloatTopUpRequest);
+const adminFloatTopUpRequestsMock = vi.mocked(adminFloatTopUpRequests);
+const adminFloatBankAccountsMock = vi.mocked(adminFloatBankAccounts);
 const currentCommissionRuleMock = vi.mocked(currentCommissionRule);
+const floatTopUpVerificationHistoryMock = vi.mocked(floatTopUpVerificationHistory);
 
 function createWrapper({ children }: PropsWithChildren) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -42,64 +53,38 @@ describe("AgentsPage float top-up review", () => {
       first: true,
       last: true,
     });
-    reviewFloatTopUpRequestMock.mockReset();
+    adminFloatBankAccountsMock.mockReset().mockResolvedValue([]);
+    floatTopUpVerificationHistoryMock.mockReset().mockResolvedValue([]);
+    adminFloatTopUpRequestsMock.mockReset().mockResolvedValue({
+      content: [{
+        id: 17, agentId: 3, agentDisplayName: "Test Agent", agentPhoneNumber: "251911000001",
+        requestedByUserId: 11, amount: "25.00", currency: "ETB", status: "PENDING", operationId: "op",
+        reviewNote: null, reviewedByUserId: null, reviewedAt: null, createdAt: "2026-10-23T08:00:00Z",
+        updatedAt: "2026-10-23T08:00:00Z", submissionNote: "QA-REF-17", transferReference: "QA-REF-17",
+        bankNameSnapshot: "QA Bank", maskedAccountSnapshot: "••••0001",
+      }], page: 0, size: 10, totalElements: 1, totalPages: 1, first: true, last: true,
+    });
     currentCommissionRuleMock.mockReset().mockResolvedValue({
       id: null, versionNumber: 0, commissionRateBps: 0, effectiveFrom: "1970-01-01T00:00:00Z",
       active: false, createdAt: null, updatedAt: null,
     });
   });
 
-  it("requires a positive whole request id and a review note", async () => {
+  it("shows the queued transfer and opens its independent review details", async () => {
     const user = userEvent.setup();
     render(<AgentsPage />, { wrapper: createWrapper });
     await screen.findByText("Float top-up review");
+    expect(await screen.findByText("QA-REF-17")).toBeInTheDocument();
+    const requestRow = screen.getAllByRole("row").find((row) => row.textContent?.includes("QA-REF-17"));
+    expect(requestRow).toHaveTextContent("Test Agent");
+    expect(requestRow).toHaveTextContent("251911000001");
 
-    const reviewButton = screen.getByRole("button", { name: "Review request" });
-    expect(reviewButton).toBeDisabled();
-
-    await user.type(screen.getByRole("spinbutton", { name: "Request id" }), "1.5");
-    expect(screen.getByText("Enter a positive whole number.")).toBeInTheDocument();
-    expect(reviewButton).toBeDisabled();
-
-    await user.clear(screen.getByRole("spinbutton", { name: "Request id" }));
-    await user.type(screen.getByRole("spinbutton", { name: "Request id" }), "17");
-    expect(reviewButton).toBeDisabled();
-
-    await user.type(screen.getByRole("textbox", { name: "Review note" }), "Reviewed");
-    expect(reviewButton).toBeEnabled();
-  });
-
-  it("submits one review for rapid repeated clicks and disables the action while pending", async () => {
-    const user = userEvent.setup();
-    reviewFloatTopUpRequestMock.mockReturnValue(new Promise(() => {}));
-    render(<AgentsPage />, { wrapper: createWrapper });
-    await screen.findByText("Float top-up review");
-    await user.type(screen.getByRole("spinbutton", { name: "Request id" }), "17");
-    await user.type(screen.getByRole("textbox", { name: "Review note" }), "Verified");
-
-    const reviewButton = screen.getByRole("button", { name: "Review request" });
-    await user.click(reviewButton);
-    await waitFor(() => expect(reviewButton).toBeDisabled());
-    fireEvent.click(reviewButton);
-
-    expect(reviewFloatTopUpRequestMock).toHaveBeenCalledTimes(1);
-    expect(reviewFloatTopUpRequestMock).toHaveBeenCalledWith(17, {
-      approve: true,
-      reviewNote: "Verified",
-    });
-  });
-
-  it("shows API permission and review errors", async () => {
-    const user = userEvent.setup();
-    reviewFloatTopUpRequestMock.mockRejectedValue(new Error("Permission denied"));
-    render(<AgentsPage />, { wrapper: createWrapper });
-    await screen.findByText("Float top-up review");
-    await user.type(screen.getByRole("spinbutton", { name: "Request id" }), "17");
-    await user.type(screen.getByRole("textbox", { name: "Review note" }), "Verified");
-    await user.click(screen.getByRole("button", { name: "Review request" }));
-
-    expect(await screen.findByText("Permission denied")).toBeInTheDocument();
-    expect(reviewFloatTopUpRequestMock).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: "Post verified request (QA simulation)" })).toBeDisabled();
+    await user.click(within(requestRow!).getByRole("button", { name: "Details" }));
+    expect(await screen.findByText(/Request #17: 25.00 ETB/)).toBeInTheDocument();
+    await user.type(screen.getByRole("textbox", { name: "Review note" }), "QA rejection");
+    expect(screen.getByRole("button", { name: "Review request (reject, no credit)" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Post verified request (QA simulation)" })).toBeDisabled();
   });
 
   it("loads the persisted current commission rule", async () => {

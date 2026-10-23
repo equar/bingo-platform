@@ -5,8 +5,14 @@ import com.equar.bingo.backend.feature.agent.dto.FloatTopUpRequestResponse;
 import com.equar.bingo.backend.feature.agent.dto.CommissionRuleRequest;
 import com.equar.bingo.backend.feature.agent.dto.AdminCommissionRuleResponse;
 import com.equar.bingo.backend.feature.agent.dto.ReviewFloatTopUpRequest;
+import com.equar.bingo.backend.common.api.PageResponse;
+import com.equar.bingo.backend.feature.agent.dto.AdminFloatTopUpRequestResponse;
+import com.equar.bingo.backend.feature.agent.dto.AgentFloatResponse;
+import com.equar.bingo.backend.feature.agent.dto.AgentFloatTransactionResponse;
 import com.equar.bingo.backend.feature.agent.service.AgentService;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -14,6 +20,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -54,5 +61,25 @@ public class AdminAgentController {
             @AuthenticationPrincipal com.equar.bingo.backend.feature.auth.service.BingoUserPrincipal principal,
             @Valid @RequestBody ReviewFloatTopUpRequest request) {
         return agentService.reviewTopUpRequest(requestId, principal, request);
+    }
+
+    @GetMapping("/float-top-up-requests")
+    public PageResponse<AdminFloatTopUpRequestResponse> floatTopUpRequests(
+            @PageableDefault(size = 20, sort = { "createdAt", "id" }, direction = org.springframework.data.domain.Sort.Direction.DESC) Pageable pageable,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String query) {
+        return agentService.adminTopUpRequests(pageable, status, query);
+    }
+
+    @GetMapping("/{agentId}/float")
+    public AgentFloatResponse floatBalance(@PathVariable Long agentId) {
+        return agentService.adminFloatBalance(agentId);
+    }
+
+    @GetMapping("/{agentId}/float/history")
+    public PageResponse<AgentFloatTransactionResponse> floatHistory(
+            @PathVariable Long agentId,
+            @PageableDefault(size = 20, sort = { "createdAt", "id" }, direction = org.springframework.data.domain.Sort.Direction.DESC) Pageable pageable) {
+        return agentService.adminFloatHistory(agentId, pageable);
     }
 }

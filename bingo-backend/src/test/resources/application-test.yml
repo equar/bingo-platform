@@ -13,6 +13,9 @@ spring:
     validate-on-migrate: true
 
 app:
+  agent:
+    float-simulation-enabled: true
+    bank-account-encryption-key: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
   security:
     jwt:
       secret: test-secret-key-test-secret-key-test-secret-key

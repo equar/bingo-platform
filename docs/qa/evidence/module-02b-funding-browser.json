@@ -1,0 +1,14 @@
+{
+  "reference": "QA-M02B-TRANSFER-20261023-131900",
+  "amount": "25.50",
+  "agentPhone": "251911000601",
+  "requestId": 5,
+  "statementEntryId": 2,
+  "verifierUserId": 15,
+  "approverUserId": 16,
+  "journalId": 2,
+  "approvedBalance": 51,
+  "repeatedPostJournalId": 2,
+  "distinctReviewerAndApprover": true,
+  "qaSimulationOnly": true
+}

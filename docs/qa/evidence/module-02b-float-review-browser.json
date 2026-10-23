@@ -1,0 +1,12 @@
+{
+  "requestId": 3,
+  "submissionReference": "QA-M02B-AGENT3-20261023-1140",
+  "browserReviewHttpStatus": 200,
+  "browserReviewAction": "REJECTED_IN_BROWSER",
+  "reviewedStatus": "REJECTED",
+  "reviewerUserId": 1,
+  "reviewedAt": "2026-10-23T08:35:05.026578900Z",
+  "balanceBefore": 0,
+  "balanceAfter": 0,
+  "floatTransactionCountAfter": 0
+}
