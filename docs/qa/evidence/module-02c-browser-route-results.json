@@ -1,0 +1,66 @@
+{
+  "desktopRoutes": [
+    "/dashboard",
+    "/admin-users",
+    "/rooms",
+    "/sessions",
+    "/players",
+    "/claims",
+    "/prize-entitlements",
+    "/deposits",
+    "/agents",
+    "/wallet/signup-reward",
+    "/wallet/transfer-policy",
+    "/wallet/transfers",
+    "/support/tickets",
+    "/audit-logs",
+    "/profile",
+    "/change-password"
+  ],
+  "mobileRoutes": [
+    "/dashboard",
+    "/players",
+    "/agents",
+    "/deposits",
+    "/wallet/transfers",
+    "/support/tickets"
+  ],
+  "mobileViewport": {
+    "width": 390,
+    "height": 844
+  },
+  "mobileWidths": [
+    {
+      "route": "/dashboard",
+      "viewport": 390,
+      "document": 390
+    },
+    {
+      "route": "/players",
+      "viewport": 390,
+      "document": 390
+    },
+    {
+      "route": "/agents",
+      "viewport": 390,
+      "document": 390
+    },
+    {
+      "route": "/deposits",
+      "viewport": 390,
+      "document": 390
+    },
+    {
+      "route": "/wallet/transfers",
+      "viewport": 390,
+      "document": 390
+    },
+    {
+      "route": "/support/tickets",
+      "viewport": 390,
+      "document": 390
+    }
+  ],
+  "pageErrors": [],
+  "consoleErrors": []
+}

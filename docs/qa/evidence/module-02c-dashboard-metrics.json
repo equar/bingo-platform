@@ -1,0 +1,18 @@
+{
+  "anonymousStatus": 401,
+  "authenticatedStatus": 200,
+  "metrics": {
+    "generatedAt": "2026-10-23T10:58:33.328682500Z",
+    "businessTimezone": "Africa/Addis_Ababa",
+    "activePlayers": 2,
+    "activeAgents": 2,
+    "openSupportTickets": 5,
+    "openDepositReviews": 0,
+    "openAgentFloatReviews": 0,
+    "openWinClaims": 0,
+    "activeSessions": 0,
+    "playerWalletBalanceTotal": 0,
+    "agentFloatAvailableTotal": 51,
+    "agentFloatClearingTotal": 0
+  }
+}

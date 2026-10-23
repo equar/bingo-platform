@@ -142,6 +142,10 @@ public class SupportService {
                 .orElseThrow(() -> new NotFoundException("SUPPORT_TICKET_NOT_FOUND", "Support ticket not found"));
         User assignee = userRepository.findById(request.assignedToUserId())
                 .orElseThrow(() -> new NotFoundException("USER_NOT_FOUND", "Assignee not found"));
+        if (!assignee.hasRole(UserRole.ADMIN) && !assignee.hasRole(UserRole.SUPPORT)) {
+            throw new BadRequestException("SUPPORT_ASSIGNEE_REQUIRED",
+                    "Tickets can only be assigned to admin or support accounts");
+        }
         ticket.setAssignedTo(assignee);
         ticket.setStatus(SupportTicketStatus.IN_PROGRESS);
         supportTicketRepository.save(ticket);

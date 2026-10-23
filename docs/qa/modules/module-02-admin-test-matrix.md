@@ -13,7 +13,7 @@ All admin pages are protected by the ADMIN role. The actual app route map is def
 | `/claims` | `/api/v1/admin/win-claims` GET/detail/approve/reject | Route/list render | No claim fixture; no approve/reject attempt. |
 | `/prize-entitlements` | `/api/v1/admin/prize-entitlements` GET/settle | Route/list render | No entitlement fixture; settlement not attempted. |
 | `/deposits` | `/api/v1/admin/deposits` GET/approve/reject | Route/list render | No pending deposit fixture; no financial decision. |
-| `/agents`, `/agents/{id}` | `/api/v1/admin/agents`, detail, approve, suspend, commission rules, float review | PASS (search/detail/approval/suspension/commission); BLOCKED (float review) | Lifecycle covered by [Module 02A](module-02a-agent-lifecycle.md); float review queue and balance APIs remain unavailable. Original profiles unchanged. |
+| `/agents`, `/agents/{id}` | `/api/v1/admin/agents`, detail, approve, suspend, commission rules, float review and balance/history | PASS for documented 02A/02B cases; route render reconfirmed in 02C | Lifecycle covered by [Module 02A](module-02a-agent-lifecycle.md); synthetic funding flow, separate verifier/approver, journals and reconciliation covered by [Module 02B](module-02b-agent-float.md). Production funding remains blocked. |
 | `/wallet/signup-reward` | signup reward current/history/grants/save APIs | PASS | Saved disabled, expired, zero ETB settings; invalid currency returned 400 and UI displayed error. |
 | `/wallet/transfer-policy` | transfer policy current/history/save APIs | PASS | Saved disabled, expired, zero limits; no actual transfer executed. |
 | `/wallet/transfers` | transfer list/detail | Route/list render | No transfer fixture. |
@@ -21,7 +21,9 @@ All admin pages are protected by the ADMIN role. The actual app route map is def
 | `/audit-logs` | audit list/detail | Route render/read | Audit trail also checked for the player restriction and support mutations. |
 | `/profile`, `/change-password` | `/api/v1/me`, `/api/v1/admin/me/password` | Route render | Password was not changed. |
 | `/`, `/management`, `/wallet`, unknown path | redirects to dashboard/default policy route | PASS | Redirect behavior checked in Chromium. |
-| All admin API families | role-based security | PASS | Anonymous receives 401; player and agent reads/mutations are denied 403. |
+| All admin API families | role-based security | PASS for covered routes; not every state-changing endpoint individually exercised | Anonymous receives 401; player and agent reads/mutations are denied 403 in prior browser/backend regressions. See [Module 02C closure matrix](module-02c-closure-matrix.md) for route-specific action gaps. |
+
+The route matrix is a summary. The [Module 02C closure matrix](module-02c-closure-matrix.md) inventories each implemented route and controller operation, distinguishes render/read from state-changing coverage, and records remaining risks and final statuses. Module 02C real Chromium results and the read-only QA database cross-check are documented in [the closure report](module-02c-admin-closure.md).
 
 ## Backend and UI details
 
