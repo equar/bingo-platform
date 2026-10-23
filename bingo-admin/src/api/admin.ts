@@ -606,6 +606,26 @@ export interface WalletTransferResponse {
   failureReason: string | null;
 }
 
+export interface WalletTransferLedgerEntryResponse {
+  id: number;
+  walletId: number;
+  walletOwnerId: number;
+  operationId: string;
+  transactionType: string;
+  amount: string;
+  balanceBefore: string;
+  balanceAfter: string;
+  currency: string;
+  referenceType: string | null;
+  referenceId: number | null;
+  createdAt: string;
+}
+
+export interface WalletTransferDetailResponse {
+  transfer: WalletTransferResponse;
+  ledgerEntries: WalletTransferLedgerEntryResponse[];
+}
+
 export interface SignupRewardSettingsResponse {
   id: number;
   enabled: boolean;
@@ -1160,7 +1180,7 @@ export async function walletTransfers(
 }
 
 export async function walletTransferDetail(transferId: number) {
-  const { data } = await http.get<WalletTransferResponse>(`/api/v1/admin/wallet/transfers/${transferId}`);
+  const { data } = await http.get<WalletTransferDetailResponse>(`/api/v1/admin/wallet/transfers/${transferId}`);
   return data;
 }
 

@@ -17,6 +17,8 @@ import com.equar.bingo.backend.feature.wallet.dto.SignupRewardSettingsResponse;
 import com.equar.bingo.backend.feature.wallet.dto.WalletRecipientLookupResponse;
 import com.equar.bingo.backend.feature.wallet.dto.WalletTransferRequest;
 import com.equar.bingo.backend.feature.wallet.dto.WalletTransferResponse;
+import com.equar.bingo.backend.feature.wallet.dto.WalletTransferDetailResponse;
+import com.equar.bingo.backend.feature.wallet.dto.WalletTransferLedgerEntryResponse;
 import com.equar.bingo.backend.feature.wallet.dto.WalletTransferSettingsRequest;
 import com.equar.bingo.backend.feature.wallet.dto.WalletTransferSettingsResponse;
 import com.equar.bingo.backend.feature.wallet.entity.Wallet;
@@ -99,6 +101,13 @@ public class WalletTransferService {
         if (!policy.isEnabled()) {
             throw new BadRequestException("TRANSFERS_DISABLED", "Wallet transfers are currently disabled");
         }
+        Instant policyCheckTime = Instant.now();
+        if (policyCheckTime.isBefore(policy.getEffectiveFrom())
+                || (policy.getEffectiveUntil() != null
+                        && !policyCheckTime.isBefore(policy.getEffectiveUntil()))) {
+            throw new BadRequestException("TRANSFER_POLICY_INACTIVE",
+                    "Wallet transfers are outside the configured policy effective period");
+        }
         if (!walletProperties.currency().equalsIgnoreCase(request.currency())
                 || !policy.getCurrency().equalsIgnoreCase(request.currency())) {
             throw new BadRequestException("UNSUPPORTED_CURRENCY", "Currency does not match wallet transfer policy");
@@ -127,7 +136,7 @@ public class WalletTransferService {
 
     @Transactional(readOnly = true)
     public Page<WalletTransferSettingsResponse> settingsHistory(Pageable pageable) {
-        return policyRepository.findAllByOrderByCreatedAtDesc(pageable).map(this::toSettingsResponse);
+        return policyRepository.findAllByOrderByCreatedAtDescIdDesc(pageable).map(this::toSettingsResponse);
     }
 
     @Transactional
@@ -158,9 +167,20 @@ public class WalletTransferService {
     }
 
     @Transactional(readOnly = true)
-    public WalletTransferResponse transferDetail(Long transferId) {
-        return toTransferResponse(walletTransferRepository.findById(transferId)
-                .orElseThrow(() -> new NotFoundException("TRANSFER_NOT_FOUND", "Wallet transfer not found")));
+    public WalletTransferDetailResponse getTransferDetail(Long transferId) {
+        WalletTransfer transfer = walletTransferRepository.findById(transferId)
+                .orElseThrow(() -> new NotFoundException("TRANSFER_NOT_FOUND", "Wallet transfer not found"));
+        var ledgerEntries = walletTransactionRepository
+                .findByReferenceTypeAndReferenceIdOrderByCreatedAtAscIdAsc("WALLET_TRANSFER", transferId)
+                .stream()
+                .map(transaction -> new WalletTransferLedgerEntryResponse(
+                        transaction.getId(), transaction.getWallet().getId(),
+                        transaction.getWallet().getOwner().getId(), transaction.getOperationId(),
+                        transaction.getTransactionType().name(), transaction.getAmount(),
+                        transaction.getBalanceBefore(), transaction.getBalanceAfter(), transaction.getCurrency(),
+                        transaction.getReferenceType(), transaction.getReferenceId(), transaction.getCreatedAt()))
+                .toList();
+        return new WalletTransferDetailResponse(toTransferResponse(transfer), ledgerEntries);
     }
 
     private WalletTransferResponse executeTransfer(User sender,
@@ -257,7 +277,7 @@ public class WalletTransferService {
     }
 
     private WalletTransferPolicy currentPolicy() {
-        return policyRepository.findFirstByOrderByCreatedAtDesc()
+        return policyRepository.findFirstByOrderByCreatedAtDescIdDesc()
                 .orElseGet(() -> WalletTransferPolicy.create(false, BigDecimal.ZERO.setScale(2),
                         BigDecimal.ZERO.setScale(2), walletProperties.currency(), Instant.EPOCH, null, null, null,
                         Instant.now()));

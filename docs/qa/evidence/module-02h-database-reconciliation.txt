@@ -1,0 +1,21 @@
+Module 02H read-only persistent QA reconciliation
+Date: 2026-10-23 (Africa/Nairobi)
+Database: bingo_qa (local MySQL 8.0.36)
+Method: SELECT-only queries using the local QA read account; the Playwright test repeated wallet/policy snapshot comparisons before and after browser scenarios.
+
+Observed values:
+- wallet_transfers rows: 0
+- wallet_transactions where reference_type = WALLET_TRANSFER: 0
+- wallet rows: 117
+- wallet_transfer_policies: 5
+- Each retained transfer policy is disabled, expired, currency ETB, max single transfer amount 0.00, and daily outgoing limit 0.00.
+- Policy versions #1–#5 all store effective_from `1999-12-31 21:00:00` and effective_until `2000-01-01 21:00:00` (database timestamp values); none is effective.
+
+Preservation spot-checks, compared with retained Module 02G/02E/02D evidence:
+- Agent profiles #1–#6 remain `APPROVED`, `PENDING`, `APPROVED`, `SUSPENDED`, `APPROVED`, `APPROVED`, respectively. Agent #3 remains ETB 51.00 available / ETB 0.00 clearing, with two float transactions and two finance-reviewed accounting journals.
+- Deposit claims: 19; wallet transactions: 19; support tickets: 53; bingo rooms: 33; bingo sessions: 18; Module 02G users #168–177: 10.
+- Original agents #1/#2 retain their prior statuses. No agent/profile, wallet, float, deposit, ticket, room, session, or Module 02G security fixture was modified by Module 02H.
+
+The Chromium tests observed the same transfer count, linked ledger count, wallet balance snapshot, and policy snapshot after each scenario. No transfer policy was changed, no balance was changed, no transfer or ledger entry was inserted, and no persistent QA record was reset or deleted. All reconciliation queries were SELECT-only. Under the task's safe-fixture instruction, persistent detail scenarios are BLOCKED.
+
+The synthetic transfer, wallet, and ledger cases are isolated to bingo_qa_test by the guarded backend integration test account and application setup. They are not persistent QA settlement evidence.

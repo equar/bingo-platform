@@ -1,0 +1,29 @@
+Module 02I execution results
+Date: 2026-10-23
+
+Backend:
+- Focused policy/transfer integration: WalletIntegrationTest 11/11 passed on local MySQL 8.0.36 bingo_qa_test.
+- Full backend suite: 131/131 passed; 0 failures, 0 errors, 0 skipped.
+- WalletIntegrationTest: 11/11 passed.
+- New cases reject disabled, expired-enabled, and zero max-single policies, reject an invalid recipient, and verify sender/recipient history isolation. The policy denials and invalid recipient produce no transfer or wallet-ledger entry; balances remain unchanged for rejected requests.
+- An initial policy test exposed nondeterministic selection when policy versions shared a creation timestamp. The latest-ID tie-break and effective-date enforcement were added; focused policy and full backend reruns passed.
+
+Admin Chromium:
+- Module 02H transfer admin spec rerun: 4/4 passed against QA admin http://localhost:5174 and backend http://localhost:8081.
+- Covered list/search/status/refresh empty state, safe 404, player denial, and approved-agent phone+PIN denial.
+- Each case compared read-only persistent snapshots; transfer and linked-ledger rows remained empty, and wallet/policy snapshots did not change.
+- Positive transfer details/search results and browser pagination were blocked/not run because no approved persistent fixture exists.
+- The first Playwright invocation lacked the required admin E2E environment variables and stopped at setup (4 setup failures). The rerun loaded the existing local QA admin credentials in process and passed 4/4; no credential values were written to evidence.
+
+Frontend (bingo-admin):
+- Unit tests: 82/82 passed (26 files).
+- ESLint: passed.
+- TypeScript and Vite production build: passed.
+
+Persistent database:
+- No SQL writes or reset were performed against bingo_qa.
+- Existing read-only Module 02H reconciliation: zero wallet_transfers, zero wallet_transactions referencing WALLET_TRANSFER, five policies disabled/expired with zero limits. The Module 02I Chromium snapshots confirmed no changes to these values or wallet balances.
+
+Android: not run; no mobile behavior changed.
+
+No Module 03 work, commit, or push was performed.

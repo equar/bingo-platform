@@ -1,0 +1,25 @@
+Module 02H execution results
+Date: 2026-10-23
+
+Frontend (bingo-admin):
+- Unit tests: 82/82 passed (26 test files).
+- Lint: passed.
+- Production build: passed.
+
+Real Chromium (QA admin :5174, backend :8081):
+- Module 02H Playwright cases: 4/4 passed.
+- Covered empty transfer listing, reference search and COMPLETED filter request, browser refresh, invalid transfer ID (404 TRANSFER_NOT_FOUND), player token denial (403), and approved-agent phone+PIN token denial (403).
+- Screenshots: module-02h-empty-transfer-list.png, module-02h-invalid-transfer-error.png, module-02h-player-transfer-access-denied.png, module-02h-agent-transfer-access-denied.png.
+- Each case used read-only MySQL checks and retained-state comparisons. No transfer fixture was available in persistent QA.
+
+Backend (guarded local MySQL bingo_qa_test):
+- Focused transfer integration: 1/1 passed; assertions cover detail/list/ledger, insufficient-balance rollback and failure audit, idempotency, concurrent overspend, 404, player/agent denial, and persisted balances/ledger counts.
+- Full backend suite: **130/130 passed**; 0 failures, 0 errors, 0 skipped, using `bingo_qa_test`.
+- Wallet integration class: **10/10 passed**. OpenAPI contract integration: **1/1 passed**.
+- The checked-in OpenAPI contract includes the new transfer detail and ledger-entry response schemas and matches the generated test-profile API.
+
+Persistent QA (read-only):
+- No transfer rows or linked ledger rows; five inactive expired zero-limit transfer policies. Wallet and policy snapshots unchanged by Chromium.
+- See module-02h-database-reconciliation.txt.
+
+Android: NOT RUN; Module 02H changed no mobile behavior. Agent authentication remains phone number plus PIN only.

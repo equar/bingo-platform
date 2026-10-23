@@ -8,7 +8,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface WalletTransferPolicyRepository extends JpaRepository<WalletTransferPolicy, Long> {
 
-    Optional<WalletTransferPolicy> findFirstByOrderByCreatedAtDesc();
+    Optional<WalletTransferPolicy> findFirstByOrderByCreatedAtDescIdDesc();
 
-    Page<WalletTransferPolicy> findAllByOrderByCreatedAtDesc(Pageable pageable);
+    Page<WalletTransferPolicy> findAllByOrderByCreatedAtDescIdDesc(Pageable pageable);
 }
