@@ -33,6 +33,8 @@ server:
   port: ${BINGO_QA_SERVER_PORT:8081}
 
 app:
+  admin-account-email:
+    activation-url: ${BINGO_QA_ADMIN_ACTIVATION_URL:http://localhost:5174/activate-account}
   wallet:
     deposit-simulation-enabled: ${BINGO_DEPOSIT_SIMULATION_ENABLED:false}
     adjustment-simulation-enabled: ${BINGO_ADJUSTMENT_SIMULATION_ENABLED:false}

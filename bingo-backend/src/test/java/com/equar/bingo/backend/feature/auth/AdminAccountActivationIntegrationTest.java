@@ -36,7 +36,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest(properties = "app.security.authentication.account-attempt-limit=20")
+@SpringBootTest(properties = {
+        "app.security.authentication.account-attempt-limit=20",
+        "app.admin-account-email.activation-url=http://localhost:5174/activate-account"
+})
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 class AdminAccountActivationIntegrationTest extends MySqlIntegrationTest {
@@ -125,7 +128,7 @@ class AdminAccountActivationIntegrationTest extends MySqlIntegrationTest {
         assertFalse(emailText.contains("Password:"));
         String activationLink = emailText.lines()
                 .map(String::trim)
-                .filter(line -> line.startsWith("http://localhost:5173/activate-account#token="))
+                .filter(line -> line.startsWith("http://localhost:5174/activate-account#token="))
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("Onboarding email did not include an activation link"));
         String activationToken = URI.create(activationLink).getFragment().substring("token=".length());

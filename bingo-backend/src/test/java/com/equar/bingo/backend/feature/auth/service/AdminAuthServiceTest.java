@@ -92,6 +92,15 @@ class AdminAuthServiceTest {
     }
 
     @Test
+    void loginRejectsSuspendedAdminAccounts() {
+        admin.setStatus(AccountStatus.SUSPENDED);
+        when(userRepository.findByEmail("admin@example.com")).thenReturn(Optional.of(admin));
+
+        assertThrows(BadCredentialsException.class,
+                () -> service.login(new AdminLoginRequest("admin@example.com", "Secret123!")));
+    }
+
+    @Test
     void loginRejectsBadCredentialsAndBlankEmail() {
         assertThrows(BadCredentialsException.class, () -> service.login(new AdminLoginRequest("   ", "Secret123!")));
 

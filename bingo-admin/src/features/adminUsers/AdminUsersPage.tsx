@@ -50,6 +50,13 @@ function roleLabel(role: string) {
   return role;
 }
 
+function toLocalEthiopianPhone(phoneNumber: string) {
+  const normalized = phoneNumber.replace(/\D/g, "");
+  return normalized.startsWith("251") && normalized.length === 12
+    ? `0${normalized.slice(3)}`
+    : phoneNumber;
+}
+
 export function AdminUsersPage() {
   const queryClient = useQueryClient();
   const [page, setPage] = useState(0);
@@ -80,7 +87,9 @@ export function AdminUsersPage() {
     setForm({
       displayName: user.displayName,
       email: user.email,
-      phoneNumber: user.phoneNumber,
+      // The API returns normalized 251… numbers, while its update contract
+      // accepts the 10 digit local form used during account creation.
+      phoneNumber: toLocalEthiopianPhone(user.phoneNumber),
       status: user.status,
       role: user.roles.find((role) => roleOptions.includes(role as (typeof roleOptions)[number])) ?? "ADMIN",
     });

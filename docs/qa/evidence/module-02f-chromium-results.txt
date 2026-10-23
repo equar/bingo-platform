@@ -1,0 +1,14 @@
+Module 02F Chromium execution
+QA UI: http://localhost:5174
+QA backend: http://localhost:8081
+Browser: Chromium through Playwright
+Final result: 5 passed, 0 failed, 0 skipped (one spec; 32.0 seconds)
+
+Scenario results:
+- A00: Retained active Module 02F synthetic admin/support records were suspended using the Admin Users page; response status was checked, refresh state was checked, and the test required at least one matching record.
+- A01-A05: Created a synthetic ADMIN in the UI, confirmed 5174 activation link, activated and authenticated it, changed its password, confirmed the old password failed, suspended through the Admin Users UI, confirmed refresh persistence, denied new login, and confirmed an audit record.
+- A11-A14: Created and activated a synthetic SUPPORT account, confirmed support-only navigation and API access, denied admin-user access, suspended through UI, confirmed persistence, and confirmed its previous token was denied.
+- A06-A07: Password mismatch validation and incorrect current password were rejected; the existing admin session stayed on the password page and the shared QA admin could still log in.
+- A08-A10: Anonymous admin access returned 401; player and agent tokens returned 403 for admin users, finance-role mutation, and float posting.
+
+The run used unique synthetic admin/support identities; no shared player, agent, or finance record was modified. Screenshot: `module-02f-admin-activation-complete.png`.

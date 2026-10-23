@@ -1,0 +1,34 @@
+Module 02F persistent database reconciliation
+Database: bingo_qa on local MySQL 8.0.36
+Method: SELECT-only queries; no database writes, resets, or deletions.
+Flyway: V22.
+
+Module 02F synthetic admin/support test accounts: IDs 151–167. All 17 were retained and are SUSPENDED. Audit query returned 17 UPDATE_USER status-change events. IDs 151–158 are unactivated synthetic records left by interrupted test iterations; IDs 159–167 were activated during lifecycle scenarios. They remain preserved for auditability.
+
+Agent profile reconciliation:
+- Profile 1 / user 2: APPROVED (original profile preserved)
+- Profile 2 / user 3: PENDING (original profile preserved)
+- Profile 3 / user 11: APPROVED (Module 02A synthetic agent)
+- Profile 4 / user 12: SUSPENDED (Module 02A synthetic agent)
+- Agent #3 float: ETB 51.00 available, ETB 0.00 clearing, version 2; two journals total ETB 51.00 debit and ETB 51.00 credit.
+
+Original deposit claims 1–7 preserved: #1–2 PENDING; #3–7 REJECTED.
+
+Financial integrity counts:
+- Unbalanced deposit journals: 0
+- Unbalanced float journals: 0
+- Unbalanced wallet-adjustment journals: 0
+- Orphan deposit journals: 0
+- Orphan float journals: 0
+- Orphan wallet transactions: 0
+- Wallet/latest transaction balance mismatches: 0
+- Duplicate deposit postings: 0
+- Duplicate float postings: 0
+- Duplicate wallet-adjustment postings: 0
+- All-wallet balance/latest-ledger mismatches (empty wallets treated as ETB 0.00): 0
+- Settled prize records without an actor: 0; no prize entitlement or settlement exists in this snapshot.
+
+Game data reconciliation:
+- Rooms: 33; sessions: 18; tickets: 0; draw events: 0; claims: 0; prize entitlements: 0.
+- Duplicate room/start schedules: 0.
+- No session progress, draws, claims, ticket purchases, or prize settlements were written during Module 02F.

@@ -109,6 +109,7 @@ describe("AdminUsersPage", () => {
     expect(await screen.findByText("Alice Admin")).toBeInTheDocument();
     await user.click(await screen.findByRole("button", { name: "Edit" }));
     const editDialog = await screen.findByRole("dialog", { name: "Edit admin user" });
+    expect(within(editDialog).getByRole("textbox", { name: /phone number/i })).toHaveValue("0911000001");
     await waitFor(() => {
       expect(within(editDialog).getByText("ADMIN")).toBeInTheDocument();
     });
@@ -120,7 +121,7 @@ describe("AdminUsersPage", () => {
       expect(updateAdminUserMock).toHaveBeenCalledWith(1, {
         displayName: "Alice Admin",
         email: "alice.admin@bingo.local",
-        phoneNumber: "251911000001",
+        phoneNumber: "0911000001",
         password: undefined,
         status: "ACTIVE",
         roles: ["ADMIN"],

@@ -50,6 +50,10 @@ public class AdminAuthService {
                 throw new BadCredentialsException("Invalid credentials");
             }
 
+            if (!user.isActive()) {
+                throw new BadCredentialsException("Invalid credentials");
+            }
+
             if (user.getAccountActivationTokenHash() != null) {
                 throw new BadCredentialsException("Invalid credentials");
             }
