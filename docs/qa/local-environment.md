@@ -7,7 +7,7 @@ This setup uses the existing Windows MySQL 8 installation and keeps QA data in a
 - MySQL service: `MySQL80`, running automatically.
 - MySQL endpoint: `127.0.0.1:3306`; server version: `8.0.36`.
 - QA schema: `bingo_qa`, MySQL 8.0.36, `utf8mb4_0900_ai_ci`; Flyway schema version 14, 30 tables.
-- Read-only QA account check: 0 users and 0 agents are currently provisioned; latest Flyway migration is version 14 and successful.
+- Read-only QA account check: six users and two agent profiles are provisioned; latest Flyway migration is version 14 and successful. The five original users are unchanged; QA_PLAYER_003 is the retained PENDING Module 01 fixture. See [test-data-registry.md](test-data-registry.md) for non-secret identities and statuses.
 - QA DB users: `bingo_qa_app` has only `SELECT`, `INSERT`, `UPDATE`, and `DELETE` on `bingo_qa.*`. `bingo_qa_migrator` has those plus `CREATE`, `ALTER`, `INDEX`, and `REFERENCES` on `bingo_qa.*`. Neither has global grants. Random passwords and the QA JWT secret are in ignored `bingo-backend/.env.qa`; no secrets are recorded here.
 - Normal backend configuration defaults to schema `bingo` and Hibernate `update`. It is currently stopped; QA scripts use port 8081 and do not use that schema.
 - Existing development admin: `http://localhost:5173/login`, HTTP 200; its ignored `.env.local` still points at port 8080, where no backend is currently running.
@@ -77,30 +77,35 @@ Admin and website URLs can be set with `BINGO_E2E_ADMIN_URL` and `BINGO_E2E_WEBS
 
 ## Mobile QA
 
-The Android emulator reaches a Windows-hosted service using `http://10.0.2.2:8081`, passed at launch time, for example:
+The original adb error was caused by the execution identity, not a missing SDK or broken AVD. The sandbox SID had no registered Windows profile. Although USERPROFILE referred to the account profile, Windows SHGetFolderPath returned FILE_NOT_FOUND for the sandbox identity, so adb tried to create \.android at the filesystem root. Setting HOME and Android home variables could not repair that Windows profile lookup. Running adb and Flutter under the Windows account that owns the existing profile fixed it. No system-wide environment variables were changed and no profile, SDK, or AVD was recreated.
 
-```powershell
-flutter test integration_test/local_e2e_test.dart -d Medium_Phone_API_37.0 --dart-define=API_BASE_URL=http://10.0.2.2:8081
-```
+The existing Medium_Phone_API_37.0 emulator is API 37, detected as emulator-5554 (sdk_gphone64_x86_64). adb version 37.0.1-15733141 starts cleanly, Flutter detects the device, and /data had 7.0 GB free. The apps reached the QA backend through http://10.0.2.2:8081; successful existing-account login verified device-to-host connectivity.
 
-Set Android paths in the same PowerShell process before Flutter or adb commands:
+Set Android paths in the same PowerShell process that runs adb/Flutter, using the current Windows account:
 
-```powershell
-$env:ANDROID_HOME = 'C:\Users\16414\AppData\Local\Android\Sdk'
-$env:ANDROID_SDK_ROOT = $env:ANDROID_HOME
-$env:Path = "$env:ANDROID_HOME\platform-tools;$env:ANDROID_HOME\emulator;$env:Path"
-```
+    $sdk = Join-Path $env:USERPROFILE 'AppData\Local\Android\Sdk'
+    $env:ANDROID_HOME = $sdk
+    $env:ANDROID_SDK_ROOT = $sdk
+    $env:ANDROID_USER_HOME = Join-Path $env:USERPROFILE '.android'
+    $env:ANDROID_EMULATOR_HOME = $env:ANDROID_USER_HOME
+    $env:ANDROID_AVD_HOME = Join-Path $env:ANDROID_USER_HOME 'avd'
+    $env:Path = "$sdk\platform-tools;$sdk\emulator;C:\src\flutter\bin;$env:Path"
+    adb kill-server
+    adb start-server
+    adb devices -l
+    flutter devices
 
-Both APKs were built for the running x64 emulator with the QA API explicitly supplied, installed, and launched:
+Both apps require API_BASE_URL. For the emulator use http://10.0.2.2:8081; this value is supplied by ignored app-local e2e-secrets.json define files. There is no hardcoded API fallback. Debug manifests allow local HTTP; profile/release builds continue to require HTTPS.
 
-```powershell
-flutter build apk --debug --target-platform=android-x64 --dart-define=API_BASE_URL=http://10.0.2.2:8081
-```
+Authentication-only UI suites are under bingo-app/integration_test/module_01_authentication_test.dart and bingo-agent/integration_test/module_01_authentication_test.dart. The host drivers in each app’s test_driver directory export screenshots. Run from the app folder:
 
-The player and agent login screenshots are [player](evidence/module-00-player-login.png) and [agent](evidence/module-00-agent-login.png). Their processes reached the foreground without Flutter exceptions. A read-only HTTP GET from the emulator to `http://10.0.2.2:8081/actuator/health` returned HTTP 200 with `status: UP`. After provisioning, admin, approved agent, and player login API requests succeeded. No business E2E action was sent. Debug manifests alone allow cleartext HTTP; the app manifests include internet permission for HTTPS production endpoints. The agent Android scaffold was generated because its repository had no `android/` directory despite its README listing Android support.
+    flutter drive --keep-app-running --driver=test_driver/module_01_authentication.dart --target=integration_test/module_01_authentication_test.dart -d emulator-5554 --dart-define-from-file=e2e-secrets.json
 
-`flutter doctor -v` reports Flutter and Android toolchain healthy, detects the API 37 emulator, and lists only Visual Studio for Windows desktop as missing (irrelevant to Android). `flutter pub get`, `flutter analyze`, and `flutter test` passed for both apps. Unit/widget results: 20 player tests and 10 agent tests passed. Do not run the integration E2E command until a safe database-backed test setup is available. Helpers are under each app's `integration_test/support/` directory.
+For the process-restart check, first run adb shell am force-stop with the app package, then run the same command with target integration_test/module_01_session_restore_test.dart. The keep-app-running option preserves the installed package and its secure-storage data for the follow-up launch. Credentials remain in ignored local files.
 
+Player and agent authentication E2E and separate process-restart checks passed. The player flow covered login, validation, normalization, throttling, invalid/expired token handling, offline recovery, secure storage, and logout. The agent flow covered approved and pending accounts, throttling, invalid/expired sessions, offline recovery, secure storage, and logout. P17 created QA_PLAYER_003 through Flutter registration, set it to PENDING with the audited admin status workflow, and verified login rejection in the Android UI. Final flutter analyze passed for both apps. Screenshots, sanitized logs, and the read-only bingo_qa account-state verification are under docs/qa/evidence.
+
+No app E2E submitted a game, wallet-transfer, or deposit operation. The authorized P17 registration created its normal wallet/signup reward and the new player remains PENDING. The original five users and two agent profiles were not deleted or changed. The full backend suite ran separately against guarded bingo_qa_test and passed 94 tests. Authentication attempts, status-change audit entries, and hashed rate-limit buckets remain in bingo_qa.
 ## Data retention
 
 Keep QA accounts and business records between modules. Use names such as `QA_PLAYER_001`, `QA_AGENT_001`, and `QA_SESSION_001`, synthetic phone numbers accepted by application validation, and unique references/idempotency keys. Add every persistent record to [test-data-registry.md](test-data-registry.md). Scenarios requiring initial states must create new uniquely identified records; never delete records or reverse terminal states to reuse them.

@@ -70,6 +70,12 @@ export interface AdminPlayerDetailResponse {
   winClaimCount: number;
 }
 
+export interface PlayerStatusResponse {
+  playerId: number;
+  status: string;
+  updatedAt: string;
+}
+
 export interface AdminSessionSummaryResponse {
   id: number;
   roomId: number;
@@ -677,6 +683,14 @@ export async function searchPlayers(query?: string, page = 0, size = 20, status?
 
 export async function playerDetail(playerId: number) {
   const { data } = await http.get<AdminPlayerDetailResponse>(`/api/v1/admin/players/${playerId}`);
+  return data;
+}
+
+export async function updatePlayerStatus(playerId: number, status: string, reason: string) {
+  const { data } = await http.put<PlayerStatusResponse>(`/api/v1/admin/players/${playerId}/status`, {
+    status,
+    reason,
+  });
   return data;
 }
 

@@ -1,0 +1,10 @@
+{
+  "playerId": 6,
+  "statusBefore": "ACTIVE",
+  "statusAfter": "PENDING",
+  "adminStatusUpdateHttp": 200,
+  "oldSessionProtectedWalletHttp": 401,
+  "anonymousProtectedWalletHttp": 401,
+  "walletBalancesUnchanged": true,
+  "adminAuditRecordPresent": true
+}

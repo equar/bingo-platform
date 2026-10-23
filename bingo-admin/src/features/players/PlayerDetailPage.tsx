@@ -20,7 +20,7 @@ import {
 } from "@mui/material";
 import { useParams } from "react-router-dom";
 import { Link as RouterLink } from "react-router-dom";
-import { adjustWallet, playerDetail } from "../../api/admin";
+import { adjustWallet, playerDetail, updatePlayerStatus } from "../../api/admin";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { StatusState } from "../../components/StatusState";
 import { useIdempotencyKey } from "../common/useIdempotencyKey";
@@ -86,6 +86,9 @@ export function PlayerDetailPage() {
   const [draft, setDraft] = useState<AdjustmentDraft | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [activity, setActivity] = useState<PlayerActivityType | null>(null);
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+  const [nextStatus, setNextStatus] = useState("");
+  const [statusReason, setStatusReason] = useState("");
   const idempotency = useIdempotencyKey();
 
   const playerQuery = useQuery({
@@ -108,6 +111,15 @@ export function PlayerDetailPage() {
       idempotency.resetKey();
       setDraft(null);
       setConfirmOpen(false);
+    },
+  });
+  const statusMutation = useMutation({
+    mutationFn: () => updatePlayerStatus(id, nextStatus, statusReason.trim()),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["player", id] });
+      await queryClient.invalidateQueries({ queryKey: ["players"] });
+      setStatusDialogOpen(false);
+      setStatusReason("");
     },
   });
 
@@ -175,18 +187,38 @@ export function PlayerDetailPage() {
             Player #{player.id} · {player.normalizedPhone} · {player.email ?? "No email provided"}
           </Typography>
         </div>
-        <Button
-          variant="contained"
-          onClick={() => {
-            adjustmentMutation.reset();
-            idempotency.resetKey();
-            setDraft({ ...emptyDraft, currency: player.walletCurrency ?? "ETB" });
-          }}
-          disabled={!player.roles.includes("PLAYER")}
-        >
-          Adjust wallet
-        </Button>
+        <Stack direction="row" spacing={1}>
+          <Button
+            variant="outlined"
+            onClick={() => {
+              statusMutation.reset();
+              setNextStatus(player.status);
+              setStatusReason("");
+              setStatusDialogOpen(true);
+            }}
+            disabled={!player.roles.includes("PLAYER")}
+          >
+            Change account status
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => {
+              adjustmentMutation.reset();
+              idempotency.resetKey();
+              setDraft({ ...emptyDraft, currency: player.walletCurrency ?? "ETB" });
+            }}
+            disabled={!player.roles.includes("PLAYER")}
+          >
+            Adjust wallet
+          </Button>
+        </Stack>
       </Box>
+
+      {statusMutation.isError ? (
+        <Alert severity="error" onClose={() => statusMutation.reset()}>
+          {(statusMutation.error as Error).message || "Unable to update player status."}
+        </Alert>
+      ) : null}
 
       {adjustmentMutation.isError ? (
         <Alert severity="error" onClose={() => adjustmentMutation.reset()}>
@@ -314,6 +346,54 @@ export function PlayerDetailPage() {
         initialActivity={activity ?? "wallet"}
         onClose={() => setActivity(null)}
       />
+
+      <Dialog
+        open={statusDialogOpen}
+        onClose={() => !statusMutation.isPending && setStatusDialogOpen(false)}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle>Change player account status</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ pt: 1 }}>
+            <Alert severity="info">
+              Non-active players cannot sign in or use protected APIs. This action is recorded in the audit log.
+            </Alert>
+            <TextField
+              select
+              label="Account status"
+              value={nextStatus}
+              onChange={(event) => setNextStatus(event.target.value)}
+              fullWidth
+            >
+              {["ACTIVE", "PENDING", "SUSPENDED", "DISABLED"].map((status) => (
+                <MenuItem key={status} value={status}>{status}</MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              label="Reason"
+              value={statusReason}
+              onChange={(event) => setStatusReason(event.target.value)}
+              inputProps={{ maxLength: 500 }}
+              required
+              multiline
+              minRows={2}
+              fullWidth
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setStatusDialogOpen(false)} disabled={statusMutation.isPending}>Cancel</Button>
+          <Button
+            variant="contained"
+            color="warning"
+            onClick={() => statusMutation.mutate()}
+            disabled={!nextStatus || nextStatus === player.status || !statusReason.trim() || statusMutation.isPending}
+          >
+            {statusMutation.isPending ? "Saving..." : "Save status"}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog
         open={Boolean(draft)}

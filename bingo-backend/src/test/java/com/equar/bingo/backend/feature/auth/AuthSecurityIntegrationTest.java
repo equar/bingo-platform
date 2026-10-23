@@ -28,7 +28,12 @@ import com.equar.bingo.backend.feature.wallet.repository.WalletRepository;
 import com.equar.bingo.backend.feature.wallet.repository.WalletTransactionRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Instant;
+import java.util.Base64;
+import java.util.Date;
 import java.util.Set;
+import javax.crypto.SecretKey;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,6 +42,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.hamcrest.Matchers.hasSize;
@@ -73,6 +79,9 @@ class AuthSecurityIntegrationTest extends MySqlIntegrationTest {
 
         @Autowired
         JwtService jwtService;
+
+        @Value("${app.security.jwt.secret}")
+        String jwtSecret;
 
         @Autowired
         WalletTransactionRepository walletTransactionRepository;
@@ -186,10 +195,9 @@ class AuthSecurityIntegrationTest extends MySqlIntegrationTest {
 
         @Test
         void registerLoginAndProtectionWork() throws Exception {
-                String registerJson = objectMapper.writeValueAsString(new RegisterRequest(
-                                "Player One",
-                                "09 11 00 00 03",
-                                "123456"));
+                String registerJson = """
+                                {"displayName":"Player One","phoneNumber":"09 11 00 00 03","password":"123456","roles":["ADMIN"],"status":"ACTIVE"}
+                                """;
 
                 mockMvc.perform(post("/api/v1/auth/register")
                                 .contentType(MediaType.APPLICATION_JSON)
@@ -227,6 +235,52 @@ class AuthSecurityIntegrationTest extends MySqlIntegrationTest {
         }
 
         @Test
+        void adminCanChangePlayerStatusAndRestrictedAccountsCannotLoginOrReuseJwt() throws Exception {
+                User player = userRepository.findByNormalizedPhone(phoneNormalizer.normalize("0911000004"))
+                                .orElseThrow();
+                String adminToken = issueTokenFor("0911000001");
+                String playerToken = issueTokenFor("0911000004");
+                int walletCountBefore = jdbcTemplate.queryForObject(
+                                "select count(*) from wallets where owner_id = ?", Integer.class, player.getId());
+
+                mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put(
+                                "/api/v1/admin/players/" + player.getId() + "/status")
+                                .header("Authorization", "Bearer " + playerToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"status\":\"PENDING\",\"reason\":\"QA status enforcement\"}"))
+                                .andExpect(status().isForbidden());
+
+                for (String restrictedStatus : new String[] { "PENDING", "DISABLED" }) {
+                        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put(
+                                        "/api/v1/admin/players/" + player.getId() + "/status")
+                                        .header("Authorization", "Bearer " + adminToken)
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content("{\"status\":\"" + restrictedStatus
+                                                        + "\",\"reason\":\"QA status enforcement\"}"))
+                                        .andExpect(status().isOk())
+                                        .andExpect(jsonPath("$.status").value(restrictedStatus));
+
+                        mockMvc.perform(post("/api/v1/auth/login")
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(objectMapper.writeValueAsString(new LoginRequest("0911000004", "123456"))))
+                                        .andExpect(status().isUnauthorized());
+                        mockMvc.perform(get("/api/v1/wallet/balance")
+                                        .header("Authorization", "Bearer " + playerToken))
+                                        .andExpect(status().isUnauthorized());
+
+                        assertEquals(walletCountBefore, jdbcTemplate.queryForObject(
+                                        "select count(*) from wallets where owner_id = ?", Integer.class, player.getId()));
+                }
+
+                mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put(
+                                "/api/v1/admin/players/" + player.getId() + "/status")
+                                .header("Authorization", "Bearer " + adminToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"status\":\"ACTIVE\",\"reason\":\"Restore integration fixture\"}"))
+                                .andExpect(status().isOk());
+        }
+
+        @Test
         void adminEndpointIsProtectedByRole() throws Exception {
                 String adminLoginJson = objectMapper.writeValueAsString(new LoginRequest(
                                 "0911000001",
@@ -246,6 +300,83 @@ class AuthSecurityIntegrationTest extends MySqlIntegrationTest {
                                 .andExpect(jsonPath("$.content", hasSize(1)))
                                 .andExpect(jsonPath("$.page").value(0))
                                 .andExpect(jsonPath("$.size").value(20));
+        }
+
+        @Test
+        void missingMalformedWrongSignatureExpiredAndTamperedTokensAreRejected() throws Exception {
+                mockMvc.perform(get("/api/v1/me"))
+                                .andExpect(status().isUnauthorized());
+                mockMvc.perform(get("/api/v1/me").header("Authorization", "Bearer"))
+                                .andExpect(status().isUnauthorized());
+                mockMvc.perform(get("/api/v1/me").header("Authorization", "Bearer not-a-jwt"))
+                                .andExpect(status().isUnauthorized());
+
+                User player = userRepository.findByNormalizedPhone(phoneNormalizer.normalize("0911000004"))
+                                .orElseThrow();
+                Instant now = Instant.now();
+                SecretKey validKey = Keys.hmacShaKeyFor(jwtSecret.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                SecretKey otherKey = Keys.hmacShaKeyFor(
+                                "different-secret-key-different-secret-key".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                String wrongSignature = Jwts.builder()
+                                .subject(player.getNormalizedPhone())
+                                .issuedAt(Date.from(now))
+                                .expiration(Date.from(now.plusSeconds(60)))
+                                .signWith(otherKey, Jwts.SIG.HS256)
+                                .compact();
+                String expired = Jwts.builder()
+                                .subject(player.getNormalizedPhone())
+                                .issuedAt(Date.from(now.minusSeconds(120)))
+                                .expiration(Date.from(now.minusSeconds(60)))
+                                .claim("uid", player.getId())
+                                .claim("roles", java.util.List.of("PLAYER"))
+                                .signWith(validKey, Jwts.SIG.HS256)
+                                .compact();
+                String[] validParts = jwtService.generateToken(player).split("\\.");
+                String tamperedPayload = Base64.getUrlEncoder().withoutPadding().encodeToString(
+                                ("{\"sub\":\"" + player.getNormalizedPhone()
+                                                + "\",\"uid\":" + player.getId()
+                                                + ",\"roles\":[\"ADMIN\"],\"iat\":" + now.getEpochSecond()
+                                                + ",\"exp\":" + now.plusSeconds(60).getEpochSecond() + "}")
+                                                .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                String tamperedClaims = validParts[0] + "." + tamperedPayload + "." + validParts[2];
+
+                for (String token : java.util.List.of(wrongSignature, expired, tamperedClaims)) {
+                        mockMvc.perform(get("/api/v1/me").header("Authorization", "Bearer " + token))
+                                        .andExpect(status().isUnauthorized());
+                }
+        }
+
+        @Test
+        void playerAndAgentTokensCannotCrossRoleBoundaries() throws Exception {
+                String playerToken = issueTokenFor("0911000004");
+                String agentToken = issueTokenFor("0911000002");
+                String adminToken = issueTokenFor("0911000001");
+
+                mockMvc.perform(get("/api/v1/admin/users").header("Authorization", "Bearer " + playerToken))
+                                .andExpect(status().isForbidden());
+                mockMvc.perform(get("/api/v1/admin/users").header("Authorization", "Bearer " + agentToken))
+                                .andExpect(status().isForbidden());
+                mockMvc.perform(get("/api/v1/agent/players").header("Authorization", "Bearer " + playerToken))
+                                .andExpect(status().isForbidden());
+                mockMvc.perform(get("/api/v1/agent/players").header("Authorization", "Bearer " + adminToken))
+                                .andExpect(status().isForbidden());
+        }
+
+        @Test
+        void failedAuthenticationDoesNotChangeAccountOrWalletState() throws Exception {
+                long usersBefore = userRepository.count();
+                long walletsBefore = walletRepository.count();
+                long transactionsBefore = walletTransactionRepository.count();
+                String invalidLogin = objectMapper.writeValueAsString(new LoginRequest("0911000004", "999999"));
+
+                mockMvc.perform(post("/api/v1/auth/login")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(invalidLogin))
+                                .andExpect(status().isUnauthorized());
+
+                assertEquals(usersBefore, userRepository.count());
+                assertEquals(walletsBefore, walletRepository.count());
+                assertEquals(transactionsBefore, walletTransactionRepository.count());
         }
 
         @Test

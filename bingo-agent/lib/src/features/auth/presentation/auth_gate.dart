@@ -19,6 +19,6 @@ class AuthGate extends ConsumerWidget {
       return const HomeShell();
     }
 
-    return const AuthScreen();
+    return AuthScreen(sessionExpired: state.errorCode == 'SESSION_EXPIRED');
   }
 }

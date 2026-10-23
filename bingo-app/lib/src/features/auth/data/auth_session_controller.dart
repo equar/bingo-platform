@@ -40,10 +40,15 @@ class AuthSessionController extends StateNotifier<AuthSessionState> {
     }
 
     final user = UserProfile.fromJson(Map<String, dynamic>.from(jsonDecode(userJson) as Map));
-    state = AuthSessionState(
-      isLoading: false,
-      session: AuthSession(accessToken: token, expiresAt: DateTime.parse(expiresAt), user: user),
-    );
+    final session = AuthSession(accessToken: token, expiresAt: DateTime.parse(expiresAt), user: user);
+    if (session.isExpired) {
+      await _storage.clear();
+      if (mounted) {
+        state = const AuthSessionState(isLoading: false, errorMessage: 'SESSION_EXPIRED');
+      }
+      return;
+    }
+    state = AuthSessionState(isLoading: false, session: session);
   }
 
   Future<void> setSession(AuthResponse response) async {

@@ -31,6 +31,7 @@
   },
   "requiredField": "This field is required.",
   "signInFailed": "Sign-in failed. Check your details and try again.",
+  "sessionExpired": "Your session expired. Please sign in again.",
   "requestFailed": "Request failed. Check your connection and try again.",
   "availableFloat": "Available float",
   "clearingFloat": "Clearing float",

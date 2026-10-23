@@ -6,6 +6,7 @@
   "pinLabel": "ፒን",
   "phoneLabel": "ስልክ ቁጥር",
   "signIn": "ግባ",
+  "sessionExpired": "ስርዓቱ ጊዜው አልፏል። እባክዎ እንደገና ይግቡ።",
   "logout": "ውጣ",
   "loading": "በመጫን ላይ…",
   "offline": "ከመስመር ውጭ",

@@ -7,7 +7,7 @@ Date: 2026-10-22
 | Check | Status | Evidence / notes |
 | --- | --- | --- |
 | Existing MySQL service and version | PASS | `MySQL80` is running; read-only MySQL query returned 8.0.36 on `127.0.0.1:3306`. |
-| Dedicated QA database and restricted users | PASS | Created `bingo_qa` after explicit approval. Runtime and Flyway users are scoped to `bingo_qa.*` with separate credentials held in ignored `.env.qa`. Current read-only query confirms five users, two agent profiles, and latest successful migration V14. |
+| Dedicated QA database and restricted users | PASS | Created `bingo_qa` after explicit approval. Runtime and Flyway users are scoped to `bingo_qa.*` with separate credentials held in ignored `.env.qa`. At Module 00 completion, the read-only query confirmed five users, two agent profiles, and latest successful migration V14. Module 01 later added QA_PLAYER_003; see the current [test-data registry](../test-data-registry.md). |
 | QA Spring profile | PASS | `application-qa.yml` uses `bingo_qa`, separate migration/runtime credentials, Flyway enabled and protected, Hibernate `validate`, and no create-database URL option. |
 | QA backend startup / Flyway / health | PASS | Current source packaged with tests skipped; QA backend started on port 8081. Flyway validated and applied 14 migrations to v14 (30 tables); health is `UP`. QA admin CORS preflight returned HTTP 200. |
 | Admin browser availability | PASS | Existing dev `/login` on port 5173 and isolated QA `/login` on port 5174 returned HTTP 200; QA Vite mode points to port 8081. Playwright 1.64.1 and Chromium binaries are installed. |
@@ -18,7 +18,7 @@ Date: 2026-10-22
 | Flutter pub / analyze / unit-widget tests | PASS | `flutter pub get` and `flutter analyze` passed for both apps. `flutter test`: player 20 passed; agent 10 passed. |
 | Player / agent APK build and launch | PASS | Both debug APKs built x64 with `--dart-define=API_BASE_URL=http://10.0.2.2:8081`, installed, and reached the foreground without Flutter exception logs. Captured [player login](../evidence/module-00-player-login.png) and [agent login](../evidence/module-00-agent-login.png). No auth request/business E2E was sent. |
 | Agent Android project setup | PASS | Added Android platform scaffolding because no Android directory existed. Fixed `API_BASE_URL` lookup to use a Dart compile-time constant. Added internet permission to both app manifests; cleartext HTTP is enabled only in debug manifests. |
-| Persistent QA accounts | PASS | Five accounts are present: admin user 1, approved agent user 2 / agent 1, pending agent user 3 / agent 2, and players users 4 and 5. The guarded one-time bootstrap checked catalog `bingo_qa`, required zero existing users/agents, and used app BCrypt encoders plus agent approval and player registration services. Admin, approved-agent, and player login API requests passed. The user authorized choosing numbers; the five distinct values are recorded in the registry. Player suspension is not supported and was not fabricated. |
+| Persistent QA accounts | PASS | At Module 00 completion, five accounts were present: admin user 1, approved agent user 2 / agent 1, pending agent user 3 / agent 2, and players users 4 and 5. The guarded one-time bootstrap checked catalog `bingo_qa`, required zero existing users/agents, and used app BCrypt encoders plus agent approval and player registration services. Admin, approved-agent, and player login API requests passed. The initial five identities are recorded in the registry. |
 | Earlier read-only contract check | PASS | Before `bingo_qa_test` was created, `OpenApiContractIntegrationTest` ran once against `bingo_qa`; it only GETs `/v3/api-docs` and did not change users or agents. The final full backend suite now uses only `bingo_qa_test`. |
 | Isolated database for backend tests | PASS | Created `bingo_qa_test` on local MySQL 8.0.36. `bingo_qa_test_runner@127.0.0.1` has only schema-scoped privileges on `bingo_qa_test.*`; direct access checks to `bingo` and `bingo_qa` were denied. Credentials are in ignored `.env.test`. |
 | Integration-test database guard and Flyway | PASS | `MySqlIntegrationTest` rejects non-local URLs, any database except `bingo_qa_test`, wrong catalogs, missing environment configuration, or test credentials that can access `bingo`/`bingo_qa`. Testcontainers fallback/dependency was removed. First alphabetically, `A00FlywayUpgradeRecoveryIntegrationTest` cleaned only `bingo_qa_test`, migrated V1–V14 from V6, and repaired checksum drift. |
@@ -54,6 +54,6 @@ Date: 2026-10-22
 ## Remaining environment notes
 
 - Manual SMTP delivery to an external mail service was not exercised. The admin activation integration test captures generated mail locally and verifies the complete activation flow.
-- Player-account suspension is not supported by an application service, so a suspended-player fixture was not created.
+- At Module 00 completion, player status management had not been added and no restricted-player fixture existed. Module 01 added an audited admin player-status workflow for the existing account statuses and preserved its PENDING test fixture.
 
-No Module 1 functionality testing was started.
+No Module 1 functionality testing had started at Module 00 completion; see the [Module 01 report](module-01-authentication.md) for the later authentication work.
