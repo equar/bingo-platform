@@ -433,6 +433,7 @@ export interface BingoPatternConfig {
 
 export interface BingoRoomResponse {
   id: number;
+  version?: number;
   name: string;
   description: string | null;
   ticketPrice: string;

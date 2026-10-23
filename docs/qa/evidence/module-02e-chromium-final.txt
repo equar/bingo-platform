@@ -1,0 +1,11 @@
+
+Running 6 tests using 1 worker
+
+  ok 1 [chromium] › tests\e2e\module-02e-game-admin.spec.ts:34:1 › G01-G07: admin creates a synthetic room configuration and verifies it after refresh (6.0s)
+  ok 2 [chromium] › tests\e2e\module-02e-game-admin.spec.ts:97:1 › S01-S04, S08, S11: admin creates and refreshes a DRAFT session with rule snapshots (5.5s)
+  ok 3 [chromium] › tests\e2e\module-02e-game-admin.spec.ts:140:1 › G09: backend rejects session creation for a disabled room without creating a session (1.6s)
+  ok 4 [chromium] › tests\e2e\module-02e-game-admin.spec.ts:170:1 › S09-S11: admin cancels a synthetic ticket-free DRAFT session and the state survives refresh (3.8s)
+  ok 5 [chromium] › tests\e2e\module-02e-game-admin.spec.ts:220:1 › G02 and S07: anonymous callers cannot view or mutate game administration (115ms)
+  ok 6 [chromium] › tests\e2e\module-02e-game-admin.spec.ts:229:1 › C11: prize settlement remains blocked in the admin UI and API until finance controls are approved (2.1s)
+
+  6 passed (21.2s)

@@ -160,7 +160,7 @@ export function SessionsPage() {
               sx={{ flex: 1, minWidth: 150 }}
             >
               <MenuItem value="ALL">All statuses</MenuItem>
-              {["DRAFT", "OPEN", "STARTED", "DRAWING", "CLOSED", "SETTLED", "CANCELLED"].map((state) => (
+              {["DRAFT", "OPEN"].map((state) => (
                 <MenuItem key={state} value={state}>
                   {state}
                 </MenuItem>

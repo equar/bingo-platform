@@ -1,6 +1,7 @@
 package com.equar.bingo.backend.feature.game;
 
 import com.equar.bingo.backend.MySqlIntegrationTest;
+import com.equar.bingo.backend.common.exception.ConflictException;
 import com.equar.bingo.backend.common.idempotency.IdempotentResult;
 import com.equar.bingo.backend.feature.auth.dto.LoginRequest;
 import com.equar.bingo.backend.feature.auth.service.BingoUserPrincipal;
@@ -49,6 +50,7 @@ import com.equar.bingo.backend.feature.wallet.service.WalletService;
 import com.equar.bingo.backend.feature.wallet.dto.WalletAdjustmentReviewRequest;
 import com.equar.bingo.backend.feature.wallet.dto.WalletAdjustmentSubmissionRequest;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -68,6 +70,7 @@ import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.dao.OptimisticLockingFailureException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -270,7 +273,7 @@ class BingoGameIntegrationTest extends MySqlIntegrationTest {
 
         @Test
         void purchaseClaimReviewAndSingleSettlementWork() throws Exception {
-                var room = bingoGameService.createRoom(roomRequest("Main Hall B", 4, 10, false));
+                var room = bingoGameService.createRoom(roomRequest("Main Hall B", 4, 10, true));
                 var session = bingoGameService.createSession(room.id(), sessionRequest(GameSessionState.OPEN));
                 BingoUserPrincipal playerPrincipal = new BingoUserPrincipal(
                                 userRepository.findById(playerOne.getId()).orElseThrow());
@@ -349,29 +352,29 @@ class BingoGameIntegrationTest extends MySqlIntegrationTest {
                                 true);
                 var entitlement = prizeEntitlementRepository.findAll().get(0);
                 assertEquals(PrizeEntitlementStatus.PENDING, entitlement.getStatus());
+                var duplicateReview = assertThrows(ConflictException.class,
+                                () -> bingoGameService.reviewWinClaim(claim.getId(), adminPrincipal,
+                                                new WinClaimReviewRequest("duplicate review"), true));
+                assertEquals("WIN_CLAIM_ALREADY_REVIEWED", duplicateReview.getCode());
+                assertEquals(1, prizeEntitlementRepository.findAll().size());
 
                 Wallet walletBeforePrize = walletRepository.findByOwnerId(playerOne.getId()).orElseThrow();
                 BigDecimal transferableBeforePrize = walletBeforePrize.getAvailableBalance();
                 BigDecimal promotionalBeforePrize = walletBeforePrize.getPromotionalBalance();
-                bingoGameService.settleEntitlement(entitlement.getId(), adminPrincipal,
-                                new PrizeEntitlementSettlementRequest("SETTLEMENT-1", "wallet payout"));
-                Wallet wallet = walletRepository.findByOwnerId(playerOne.getId()).orElseThrow();
-                assertEquals(new BigDecimal("1010.00"), wallet.getAvailableBalance());
-                WalletTransaction prizeTransaction = walletTransactionRepository.findAll().stream()
-                                .filter(transaction -> transaction.getTransactionType()
-                                                == WalletTransactionType.PRIZE_CREDIT)
-                                .findFirst().orElseThrow();
-                assertEquals(transferableBeforePrize, prizeTransaction.getTransferableBalanceBefore());
-                assertEquals(wallet.getAvailableBalance(), prizeTransaction.getTransferableBalanceAfter());
-                assertEquals(promotionalBeforePrize, prizeTransaction.getPromotionalBalanceBefore());
-                assertEquals(promotionalBeforePrize, prizeTransaction.getPromotionalBalanceAfter());
-                assertEquals(transferableBeforePrize.add(promotionalBeforePrize),
-                                prizeTransaction.getBalanceBefore());
-                assertEquals(wallet.getTotalBalance(), prizeTransaction.getBalanceAfter());
-
-                assertThrows(Exception.class,
-                                () -> bingoGameService.settleEntitlement(entitlement.getId(), adminPrincipal,
-                                                new PrizeEntitlementSettlementRequest("SETTLEMENT-2", "duplicate")));
+                mockMvc.perform(post("/api/v1/admin/prize-entitlements/" + entitlement.getId() + "/settle")
+                                .header("Authorization", "Bearer " + adminToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(
+                                                new PrizeEntitlementSettlementRequest("SETTLEMENT-1", "wallet payout"))))
+                                .andExpect(status().isConflict())
+                                .andExpect(jsonPath("$.code").value("PRIZE_SETTLEMENT_BLOCKED"));
+                Wallet walletAfterBlockedPrize = walletRepository.findByOwnerId(playerOne.getId()).orElseThrow();
+                assertEquals(transferableBeforePrize, walletAfterBlockedPrize.getAvailableBalance());
+                assertEquals(promotionalBeforePrize, walletAfterBlockedPrize.getPromotionalBalance());
+                assertEquals(PrizeEntitlementStatus.PENDING,
+                                prizeEntitlementRepository.findById(entitlement.getId()).orElseThrow().getStatus());
+                assertTrue(walletTransactionRepository.findAll().stream().noneMatch(transaction ->
+                                transaction.getTransactionType() == WalletTransactionType.PRIZE_CREDIT));
         }
 
         @Test
@@ -389,10 +392,14 @@ class BingoGameIntegrationTest extends MySqlIntegrationTest {
                 bingoGameService.updateSessionState(transitionSession.id(),
                                 new GameSessionStateUpdateRequest(GameSessionState.STARTED));
 
-                assertThrows(Exception.class, () -> bingoGameService.updateSessionState(transitionSession.id(),
-                                new GameSessionStateUpdateRequest(GameSessionState.OPEN)));
+                var transitionFailure = assertThrows(ConflictException.class,
+                                () -> bingoGameService.updateSessionState(transitionSession.id(),
+                                                new GameSessionStateUpdateRequest(GameSessionState.OPEN)));
+                assertEquals("INVALID_SESSION_STATE_TRANSITION", transitionFailure.getCode());
+                assertEquals(GameSessionState.STARTED,
+                                gameSessionRepository.findById(transitionSession.id()).orElseThrow().getState());
 
-                var capacityRoom = bingoGameService.createRoom(roomRequest("Main Hall D", 1, 1, false));
+                var capacityRoom = bingoGameService.createRoom(roomRequest("Main Hall D", 1, 1, true));
                 var capacitySession = bingoGameService.createSession(capacityRoom.id(),
                                 sessionRequest(GameSessionState.OPEN));
 
@@ -413,6 +420,226 @@ class BingoGameIntegrationTest extends MySqlIntegrationTest {
 
                 assertTrue(results.contains("OK"));
                 assertTrue(results.contains("CONFLICT"));
+        }
+
+        @Test
+        void inactiveRoomCannotBeScheduledForANewSession() {
+                var inactiveRoom = bingoGameService.createRoom(roomRequest("Inactive room scheduling guard", 1, 1, false));
+
+                var failure = assertThrows(ConflictException.class, () -> bingoGameService.createSession(inactiveRoom.id(),
+                                sessionRequest(GameSessionState.DRAFT)));
+
+                assertEquals("ROOM_INACTIVE", failure.getCode());
+                assertTrue(gameSessionRepository.findByRoomIdOrderByScheduledStartAtDesc(inactiveRoom.id()).isEmpty());
+        }
+
+        @Test
+        void roomConfigurationRejectsStaleVersionsWithoutOverwritingTheLatestValues() {
+                var room = bingoGameService.createRoom(roomRequest("Versioned room configuration", 2, 2, true));
+                var firstUpdate = new BingoRoomRequest(room.name(), room.description(), new BigDecimal("5.00"),
+                                room.currency(), room.timezone(), room.scheduleRule(), room.sessionCapacity(),
+                                room.maxTicketsPerPlayer(), room.ticketSalesCloseOnSessionStart(),
+                                room.allowMultipleWinnersPerPrize(), room.active(), room.configuredPatterns(),
+                                room.configuredPrizes().stream().map(prize -> new BingoPrizeConfigRequest(
+                                                prize.prizeType(), prize.amount(), prize.settlementPath(), prize.maxWinners()))
+                                                .toList(),
+                                room.version());
+                var updated = bingoGameService.updateRoom(room.id(), firstUpdate);
+                assertEquals(room.version() + 1, updated.version());
+                assertEquals(new BigDecimal("5.00"), updated.ticketPrice());
+
+                var staleUpdate = new BingoRoomRequest(room.name(), room.description(), new BigDecimal("8.00"),
+                                room.currency(), room.timezone(), room.scheduleRule(), room.sessionCapacity(),
+                                room.maxTicketsPerPlayer(), room.ticketSalesCloseOnSessionStart(),
+                                room.allowMultipleWinnersPerPrize(), room.active(), room.configuredPatterns(),
+                                firstUpdate.configuredPrizes(), room.version());
+                var failure = assertThrows(ConflictException.class,
+                                () -> bingoGameService.updateRoom(room.id(), staleUpdate));
+
+                assertEquals("ROOM_VERSION_CONFLICT", failure.getCode());
+                var persisted = bingoGameService.getRoom(room.id());
+                assertEquals(updated.version(), persisted.version());
+                assertEquals(new BigDecimal("5.00"), persisted.ticketPrice());
+        }
+
+        @Test
+        void roomMoneyMustFitTheTwoDecimalEtbMinorUnit() throws Exception {
+                String adminToken = loginToken("0911000201", "123456");
+                ObjectNode invalidRoom = (ObjectNode) objectMapper.valueToTree(roomRequest(
+                                "Invalid precision room", 2, 2, true));
+                invalidRoom.put("ticketPrice", new BigDecimal("1.001"));
+                ((ObjectNode) invalidRoom.withArray("configuredPrizes").get(0)).put("amount", new BigDecimal("0.001"));
+
+                mockMvc.perform(post("/api/v1/admin/rooms")
+                                .header("Authorization", "Bearer " + adminToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(invalidRoom)))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+                assertTrue(bingoRoomRepository.findAll().stream()
+                                .noneMatch(room -> room.getName().equals("Invalid precision room")));
+        }
+
+        @Test
+        void concurrentRoomConfigurationUpdatesCannotSilentlyOverwriteEachOther() throws Exception {
+                var room = bingoGameService.createRoom(roomRequest("Concurrent room update", 2, 2, true));
+                var updateA = roomUpdateRequest(room, new BigDecimal("5.00"));
+                var updateB = roomUpdateRequest(room, new BigDecimal("7.00"));
+                ExecutorService executor = Executors.newFixedThreadPool(2);
+                CountDownLatch ready = new CountDownLatch(2);
+                CountDownLatch start = new CountDownLatch(1);
+                Future<String> first = executor.submit(() -> updateRoomAttempt(room.id(), updateA, ready, start));
+                Future<String> second = executor.submit(() -> updateRoomAttempt(room.id(), updateB, ready, start));
+                ready.await(10, TimeUnit.SECONDS);
+                start.countDown();
+                List<String> outcomes = List.of(first.get(20, TimeUnit.SECONDS), second.get(20, TimeUnit.SECONDS));
+                executor.shutdownNow();
+
+                assertEquals(1, outcomes.stream().filter("UPDATED"::equals).count());
+                assertEquals(1, outcomes.stream().filter("CONFLICT"::equals).count());
+                var persisted = bingoGameService.getRoom(room.id());
+                assertEquals(1, persisted.version());
+                assertTrue(persisted.ticketPrice().compareTo(new BigDecimal("5.00")) == 0
+                                || persisted.ticketPrice().compareTo(new BigDecimal("7.00")) == 0);
+        }
+
+        private String updateRoomAttempt(Long roomId, BingoRoomRequest request, CountDownLatch ready,
+                        CountDownLatch start) throws Exception {
+                ready.countDown();
+                start.await(10, TimeUnit.SECONDS);
+                try {
+                        bingoGameService.updateRoom(roomId, request);
+                        return "UPDATED";
+                } catch (ConflictException | OptimisticLockingFailureException exception) {
+                        return "CONFLICT";
+                }
+        }
+
+        private BingoRoomRequest roomUpdateRequest(com.equar.bingo.backend.feature.game.dto.BingoRoomResponse room,
+                        BigDecimal ticketPrice) {
+                return new BingoRoomRequest(room.name(), room.description(), ticketPrice, room.currency(),
+                                room.timezone(), room.scheduleRule(), room.sessionCapacity(), room.maxTicketsPerPlayer(),
+                                room.ticketSalesCloseOnSessionStart(), room.allowMultipleWinnersPerPrize(), room.active(),
+                                room.configuredPatterns(), room.configuredPrizes().stream().map(prize ->
+                                                new BingoPrizeConfigRequest(prize.prizeType(), prize.amount(),
+                                                                prize.settlementPath(), prize.maxWinners())).toList(),
+                                room.version());
+        }
+
+        @Test
+        void sessionCreationCannotSkipIntoAnOperationalState() throws Exception {
+                var room = bingoGameService.createRoom(roomRequest("Initial state guard room", 2, 2, true));
+                String adminToken = loginToken("0911000201", "123456");
+                var request = sessionRequest(GameSessionState.DRAWING);
+
+                mockMvc.perform(post("/api/v1/admin/rooms/" + room.id() + "/sessions")
+                                .header("Authorization", "Bearer " + adminToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.code").value("INVALID_INITIAL_SESSION_STATE"));
+                assertTrue(gameSessionRepository.findByRoomIdOrderByScheduledStartAtDesc(room.id()).isEmpty());
+        }
+
+        @Test
+        void sessionCreationRejectsMissingRequiredFields() throws Exception {
+                var room = bingoGameService.createRoom(roomRequest("Required session fields room", 2, 2, true));
+                String adminToken = loginToken("0911000201", "123456");
+
+                mockMvc.perform(post("/api/v1/admin/rooms/" + room.id() + "/sessions")
+                                .header("Authorization", "Bearer " + adminToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"sessionName\":\"\",\"state\":\"DRAFT\"}"))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+                assertTrue(gameSessionRepository.findByRoomIdOrderByScheduledStartAtDesc(room.id()).isEmpty());
+        }
+
+        @Test
+        void nonAdminCannotChangeSessionState() throws Exception {
+                var room = bingoGameService.createRoom(roomRequest("Session authorization room", 2, 2, true));
+                var session = bingoGameService.createSession(room.id(), sessionRequest(GameSessionState.DRAFT));
+                String playerToken = loginToken("0911000202", "123456");
+
+                mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                                .put("/api/v1/admin/sessions/" + session.id() + "/state")
+                                .header("Authorization", "Bearer " + playerToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(
+                                                new GameSessionStateUpdateRequest(GameSessionState.OPEN))))
+                                .andExpect(status().isForbidden());
+                assertEquals(GameSessionState.DRAFT,
+                                gameSessionRepository.findById(session.id()).orElseThrow().getState());
+        }
+
+        @Test
+        void roomChangesDoNotRewriteHistoricalSessionRulesOrTicketPrice() {
+                var room = bingoGameService.createRoom(roomRequest("Historical snapshot room", 5, 2, true));
+                var session = bingoGameService.createSession(room.id(), sessionRequest(GameSessionState.DRAFT));
+                var updatedRoom = bingoGameService.updateRoom(room.id(), roomUpdateRequest(room, new BigDecimal("9.00")));
+
+                assertEquals(new BigDecimal("9.00"), updatedRoom.ticketPrice());
+                var historical = bingoGameService.getSession(session.id());
+                assertEquals(new BigDecimal("4.00"), historical.ticketPrice());
+                assertEquals(List.of(BingoPatternType.LINE, BingoPatternType.TWO_LINES, BingoPatternType.FULL_HOUSE),
+                                historical.configuredPatterns());
+                assertEquals(0, historical.ticketCount());
+        }
+
+        @Test
+        void aServerRejectedClaimCannotBeApprovedOrPaid() {
+                var room = bingoGameService.createRoom(roomRequest("Unverified claim room", 5, 2, true));
+                var session = bingoGameService.createSession(room.id(), sessionRequest(GameSessionState.OPEN));
+                var player = new BingoUserPrincipal(userRepository.findById(playerOne.getId()).orElseThrow());
+                var admin = new BingoUserPrincipal(userRepository.findById(adminUser.getId()).orElseThrow());
+                var purchased = bingoGameService.purchaseTicket(session.id(), player, "unverified-claim-ticket");
+                var claimResult = bingoGameService.submitWinClaim(purchased.body().ticket().id(), player,
+                                new WinClaimRequest(BingoPatternType.LINE), "unverified-claim-key");
+                var claim = winClaimRepository.findById(claimResult.body().id()).orElseThrow();
+                assertEquals(WinClaimStatus.FAILED_SERVER_VALIDATION, claim.getStatus());
+                assertTrue(!claim.isServerValidationPassed());
+
+                var failure = assertThrows(ConflictException.class,
+                                () -> bingoGameService.reviewWinClaim(claim.getId(), admin,
+                                                new WinClaimReviewRequest("do not override"), true));
+
+                assertEquals("SERVER_VALIDATION_FAILED", failure.getCode());
+                assertTrue(prizeEntitlementRepository.findAll().isEmpty());
+                assertTrue(walletTransactionRepository.findAll().stream().noneMatch(transaction ->
+                                transaction.getTransactionType() == WalletTransactionType.PRIZE_CREDIT));
+        }
+
+        @Test
+        void concurrentCreationForTheSameRoomAndStartTimeProducesOnlyOneSession() throws Exception {
+                var room = bingoGameService.createRoom(roomRequest("Concurrent schedule room", 2, 2, true));
+                Instant scheduledStart = Instant.now().plusSeconds(7200);
+                var request = new GameSessionRequest("Concurrent schedule session", scheduledStart,
+                                GameSessionState.DRAFT, null, null, null, null, null, null, null, null);
+                ExecutorService executor = Executors.newFixedThreadPool(2);
+                CountDownLatch ready = new CountDownLatch(2);
+                CountDownLatch start = new CountDownLatch(1);
+                Future<String> first = executor.submit(() -> createSessionAttempt(room.id(), request, ready, start));
+                Future<String> second = executor.submit(() -> createSessionAttempt(room.id(), request, ready, start));
+                ready.await(10, TimeUnit.SECONDS);
+                start.countDown();
+                List<String> outcomes = List.of(first.get(20, TimeUnit.SECONDS), second.get(20, TimeUnit.SECONDS));
+                executor.shutdownNow();
+
+                assertEquals(1, outcomes.stream().filter("CREATED"::equals).count());
+                assertEquals(1, outcomes.stream().filter("CONFLICT"::equals).count());
+                assertEquals(1, gameSessionRepository.findByRoomIdOrderByScheduledStartAtDesc(room.id()).size());
+        }
+
+        private String createSessionAttempt(Long roomId, GameSessionRequest request, CountDownLatch ready,
+                        CountDownLatch start) throws Exception {
+                ready.countDown();
+                start.await(10, TimeUnit.SECONDS);
+                try {
+                        bingoGameService.createSession(roomId, request);
+                        return "CREATED";
+                } catch (ConflictException exception) {
+                        return "CONFLICT";
+                }
         }
 
         private String purchaseAttempt(Long sessionId, BingoUserPrincipal principal, String key, CountDownLatch ready,
@@ -462,7 +689,8 @@ class BingoGameIntegrationTest extends MySqlIntegrationTest {
                                                                 PrizeSettlementPath.PLAYER_WALLET, 1),
                                                 new BingoPrizeConfigRequest(BingoPatternType.FULL_HOUSE,
                                                                 new BigDecimal("50.00"),
-                                                                PrizeSettlementPath.PLAYER_WALLET, 1)));
+                                                                PrizeSettlementPath.PLAYER_WALLET, 1)),
+                                null);
         }
 
         private GameSessionRequest sessionRequest(GameSessionState state) {

@@ -49,6 +49,7 @@ type PatternValue = (typeof patternOptions)[number]["value"];
 
 interface RoomDraft {
   id?: number;
+  version?: number;
   name: string;
   description: string;
   ticketPrice: string;
@@ -91,6 +92,7 @@ function isPatternValue(value: string): value is PatternValue {
 function roomToDraft(room: BingoRoomResponse): RoomDraft {
   return {
     id: room.id,
+    version: room.version,
     name: room.name,
     description: room.description ?? "",
     ticketPrice: room.ticketPrice,
@@ -193,6 +195,7 @@ export function RoomsPage() {
   const updateMutation = useMutation({
     mutationFn: (body: RoomDraft) =>
       updateRoom(body.id!, {
+        version: body.version,
         name: body.name,
         description: body.description || null,
         ticketPrice: body.ticketPrice,

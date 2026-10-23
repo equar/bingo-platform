@@ -231,6 +231,12 @@ public class BingoGameService {
     @Transactional
     public BingoRoomResponse updateRoom(Long roomId, BingoRoomRequest request) {
         BingoRoom room = requireRoom(roomId);
+        if (request.version() == null) {
+            throw new BadRequestException("ROOM_VERSION_REQUIRED", "Room version is required when updating configuration");
+        }
+        if (request.version().longValue() != room.getVersion()) {
+            throw new ConflictException("ROOM_VERSION_CONFLICT", "Room configuration has changed; reload before updating");
+        }
         room.setName(request.name().trim());
         room.setDescription(request.description());
         room.setTicketPrice(MoneyValues.money(request.ticketPrice()));
@@ -246,12 +252,21 @@ public class BingoGameService {
         room.setActive(request.active());
         room.setConfiguredPatternsJson(writePatterns(request.configuredPatterns()));
         room.setConfiguredPrizesJson(writePrizes(request.configuredPrizes()));
+        bingoRoomRepository.saveAndFlush(room);
         return toRoomResponse(room);
     }
 
     @Transactional
     public GameSessionResponse createSession(Long roomId, GameSessionRequest request) {
         BingoRoom room = requireRoom(roomId);
+        if (!room.isActive()) {
+            throw new ConflictException("ROOM_INACTIVE", "Sessions cannot be created for an inactive room");
+        }
+        if (request.state() != null && request.state() != GameSessionState.DRAFT
+                && request.state() != GameSessionState.OPEN) {
+            throw new BadRequestException("INVALID_INITIAL_SESSION_STATE",
+                    "New sessions must start in DRAFT or OPEN state");
+        }
         if (gameSessionRepository.findByRoomIdAndScheduledStartAt(roomId, request.scheduledStartAt()).isPresent()) {
             throw new ConflictException("SESSION_ALREADY_EXISTS",
                     "A session already exists for that room and start time");
@@ -283,7 +298,15 @@ public class BingoGameService {
         } else {
             session.setPrizesSnapshotJson(writePrizeConfigs(roomPrizes(room)));
         }
-        return toSessionResponse(gameSessionRepository.save(session));
+        try {
+            return toSessionResponse(gameSessionRepository.saveAndFlush(session));
+        } catch (DataIntegrityViolationException exception) {
+            if (isDuplicateRoomScheduleViolation(exception)) {
+                throw new ConflictException("SESSION_ALREADY_EXISTS",
+                        "A session already exists for that room and start time");
+            }
+            throw exception;
+        }
     }
 
     @Transactional
@@ -545,49 +568,29 @@ public class BingoGameService {
     @Transactional
     public PrizeEntitlementResponse settleEntitlement(Long entitlementId, BingoUserPrincipal principal,
             PrizeEntitlementSettlementRequest request) {
-        User reviewer = requireAdmin(principal);
-        PrizeEntitlement entitlement = prizeEntitlementRepository.findByIdForUpdate(entitlementId)
-                .orElseThrow(() -> new NotFoundException("ENTITLEMENT_NOT_FOUND", "Prize entitlement not found"));
-        if (entitlement.getStatus() != PrizeEntitlementStatus.PENDING) {
-            throw new ConflictException("ENTITLEMENT_ALREADY_SETTLED", "Prize entitlement was already settled");
-        }
-
-        if (entitlement.getSettlementPath() == PrizeSettlementPath.PLAYER_WALLET) {
-            Wallet wallet = ensureWallet(entitlement.getClaimant());
-            BigDecimal transferableBefore = wallet.getAvailableBalance();
-            BigDecimal transferableAfter = MoneyValues.money(transferableBefore.add(entitlement.getPrizeAmount()));
-            BigDecimal promotionalBalance = wallet.getPromotionalBalance();
-            wallet.setAvailableBalance(transferableAfter);
-            walletRepository.save(wallet);
-            walletTransactionRepository.save(WalletTransaction.create(
-                    wallet,
-                    entitlement.getOperationId(),
-                    WalletTransactionType.PRIZE_CREDIT,
-                    entitlement.getPrizeAmount(),
-                    transferableBefore,
-                    transferableAfter,
-                    promotionalBalance,
-                    promotionalBalance,
-                    wallet.getCurrency(),
-                    "PRIZE_ENTITLEMENT",
-                    entitlement.getId(),
-                    request.settlementNote(),
-                    null,
-                    Instant.now()));
-        }
-
-        entitlement.setStatus(PrizeEntitlementStatus.SETTLED);
-        entitlement.setSettledAt(Instant.now());
-        entitlement.setSettledBy(reviewer);
-        entitlement.setSettlementReference(request.settlementReference());
-        entitlement.setSettlementNote(request.settlementNote());
-        prizeEntitlementRepository.save(entitlement);
-        return toPrizeEntitlementResponse(entitlement);
+        requireAdmin(principal);
+        throw new ConflictException("PRIZE_SETTLEMENT_BLOCKED",
+                "Prize settlement is disabled pending approved payout and accounting controls");
     }
 
     private BingoRoom requireRoom(Long roomId) {
         return bingoRoomRepository.findById(roomId)
                 .orElseThrow(() -> new NotFoundException("ROOM_NOT_FOUND", "Bingo room not found"));
+    }
+
+    private boolean isDuplicateRoomScheduleViolation(DataIntegrityViolationException exception) {
+        Throwable cause = exception;
+        while (cause != null) {
+            if (cause instanceof org.hibernate.exception.ConstraintViolationException constraintViolation) {
+                String constraintName = constraintViolation.getConstraintName();
+                if (constraintName != null && (constraintName.endsWith("uk_bingo_sessions_room_schedule")
+                        || constraintName.endsWith("uk_bingo_sessions_room_start"))) {
+                    return true;
+                }
+            }
+            cause = cause.getCause();
+        }
+        return false;
     }
 
     private GameSession requireSession(Long sessionId) {
@@ -783,7 +786,8 @@ public class BingoGameService {
                 readPatterns(room.getConfiguredPatternsJson()),
                 readPrizes(room.getConfiguredPrizesJson()),
                 room.getCreatedAt(),
-                room.getUpdatedAt());
+                room.getUpdatedAt(),
+                room.getVersion());
     }
 
     private GameSessionResponse toSessionResponse(GameSession session) {

@@ -93,58 +93,36 @@ describe("PrizeEntitlementsPage", () => {
     await waitFor(() => expect(prizeEntitlementsMock).toHaveBeenLastCalledWith(1, 20, "entitlement-op", "PENDING"));
   });
 
-  it("keeps settlement available only for pending entitlements", async () => {
-    const user = userEvent.setup();
+  it("blocks settlement until payout and accounting policy are approved", async () => {
     render(<PrizeEntitlementsPage />, { wrapper: createWrapper });
 
     await screen.findByTestId("entitlement-row-24");
+    expect(screen.getByRole("alert")).toHaveTextContent("Prize settlement is blocked");
+    expect(screen.getByTestId("entitlement-settle-24")).toBeDisabled();
     expect(screen.getByTestId("entitlement-settle-25")).toBeDisabled();
-    await user.click(screen.getByTestId("entitlement-settle-24"));
-    await user.type(screen.getByRole("textbox", { name: "Settlement reference" }), "PAYOUT-24");
-    await user.click(screen.getByRole("button", { name: "Confirm settlement" }));
-
-    await waitFor(() =>
-      expect(settlePrizeEntitlementMock).toHaveBeenCalledWith(24, {
-        settlementReference: "PAYOUT-24",
-        settlementNote: undefined,
-      }),
-    );
+    expect(settlePrizeEntitlementMock).not.toHaveBeenCalled();
   });
 
-  it("requires a settlement reference and exposes settlement failures", async () => {
-    const user = userEvent.setup();
-    settlePrizeEntitlementMock.mockRejectedValue(new Error("Settlement permission denied"));
+  it("does not submit a settlement request when an operator activates the disabled action", async () => {
     render(<PrizeEntitlementsPage />, { wrapper: createWrapper });
     await screen.findByTestId("entitlement-row-24");
-    await user.click(screen.getByTestId("entitlement-settle-24"));
 
-    const confirm = screen.getByRole("button", { name: "Confirm settlement" });
-    expect(confirm).toBeDisabled();
-    await user.type(screen.getByRole("textbox", { name: "Settlement reference" }), "PAYOUT-24");
-    expect(confirm).toBeEnabled();
-    await user.click(confirm);
+    fireEvent.click(screen.getByTestId("entitlement-settle-24"));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Settlement permission denied");
-    expect(settlePrizeEntitlementMock).toHaveBeenCalledWith(24, {
-      settlementReference: "PAYOUT-24",
-      settlementNote: undefined,
-    });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(settlePrizeEntitlementMock).not.toHaveBeenCalled();
   });
 
-  it("prevents duplicate settlement requests while the request is pending", async () => {
+  it("keeps settlement blocked after refresh data contains pending and settled entries", async () => {
     const user = userEvent.setup();
-    settlePrizeEntitlementMock.mockReturnValue(new Promise(() => {}));
     render(<PrizeEntitlementsPage />, { wrapper: createWrapper });
     await screen.findByTestId("entitlement-row-24");
-    await user.click(screen.getByTestId("entitlement-settle-24"));
-    await user.type(screen.getByRole("textbox", { name: "Settlement reference" }), "PAYOUT-24");
+    await user.click(screen.getByRole("button", { name: "Go to next page" }));
+    await waitFor(() => expect(prizeEntitlementsMock).toHaveBeenLastCalledWith(1, 20, undefined, undefined));
 
-    const confirm = screen.getByRole("button", { name: "Confirm settlement" });
-    await user.click(confirm);
-    await waitFor(() => expect(confirm).toBeDisabled());
-    fireEvent.click(confirm);
-
-    expect(settlePrizeEntitlementMock).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("entitlement-settle-24")).toBeDisabled();
+    expect(screen.getByTestId("entitlement-settle-25")).toBeDisabled();
+    expect(settlePrizeEntitlementMock).not.toHaveBeenCalled();
   });
 
   it("opens player, claim, session, and ticket details in popups", async () => {

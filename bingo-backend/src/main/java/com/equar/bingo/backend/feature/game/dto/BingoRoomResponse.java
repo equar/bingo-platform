@@ -22,5 +22,6 @@ public record BingoRoomResponse(
         List<BingoPatternType> configuredPatterns,
         List<BingoPrizeConfig> configuredPrizes,
         Instant createdAt,
-        Instant updatedAt) {
+        Instant updatedAt,
+        long version) {
 }

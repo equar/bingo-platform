@@ -1,0 +1,7 @@
+Module 02E backend integration verification
+
+Command: Maven full test suite (`mvn ... test`)
+Target: local MySQL 8, bingo_qa_test only (validated BINGO_TEST_MYSQL_URL before launch)
+Result: 32 test suites; 125 tests; 0 failures; 0 errors; 0 skipped.
+Coverage includes Flyway upgrade recovery, game rules/session state, game and live draw integration, room/session configuration, concurrency, snapshot preservation, claim review protections, admin authorization, and settlement guard behavior.
+Persistent `bingo_qa` was not used by backend integration tests.
