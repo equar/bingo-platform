@@ -15,6 +15,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
@@ -164,6 +165,17 @@ public class GlobalExceptionHandler {
                         HttpServletRequest request) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN)
                                 .body(error(HttpStatus.FORBIDDEN, "ACCESS_DENIED", "Access denied", request, List.of()));
+        }
+
+        @ExceptionHandler(OptimisticLockingFailureException.class)
+        @ApiResponse(responseCode = "409", description = "The resource changed during the update",
+                        content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
+        public ResponseEntity<ApiErrorResponse> handleOptimisticLock(OptimisticLockingFailureException exception,
+                        HttpServletRequest request) {
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                                .body(error(HttpStatus.CONFLICT, "CONCURRENT_UPDATE_CONFLICT",
+                                                "The resource changed during the update; reload and retry", request,
+                                                List.of()));
         }
 
         @ExceptionHandler(Exception.class)

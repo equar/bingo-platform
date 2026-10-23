@@ -106,6 +106,44 @@ Deposit journals #4–5 have balanced ETB lines: debit `QA_BANK_CLEARING_ASSET`,
 
 Adjustment journals #5–6 balance between `WALLET_ADJUSTMENT_CLEARING` and `PLAYER_WALLET_LIABILITY`. Audit entries #1821/#1823–1824 record maker #146 and checker #147 for request #12; #1837–1839 record verifier #146 and approver #147 for deposit #16; #1848–1850 record separated roles for concurrent claim #19. Audit #1822 records the denied legacy one-step adjustment. The run created support tickets #42–47; #42 remains `CLOSED`, and #43–47 remain open. Original support tickets #1–5 remain `WAITING_FOR_CUSTOMER`, assigned to admin #1. Agent #3 remains `APPROVED` with ETB 51.00 available / ETB 0.00 clearing, two float transactions, and two balanced ETB 25.50 journals. See [read-only database verification](evidence/module-02d-database-verify.txt), [financial-security report](modules/module-02d-financial-security.md), [browser execution](evidence/module-02d-execution.json), and [test matrix](modules/module-02d-test-matrix.md).
 
+## Module 02E synthetic game administration data
+
+All game records in this section are synthetic admin QA records. They remain in persistent `bingo_qa`; interrupted browser attempts are included. No records are deleted or reset. All listed sessions have zero tickets and zero draw events.
+
+| Room ID | Room name / retained configuration | Session ID and state |
+| --- | --- | --- |
+| 5 | `QA M02E Config 1792770580871-dda8f6`; ETB 2.50, active, v0 (incomplete early attempt) | — |
+| 6 | `QA M02E Session Room 1792770588090-443bf1`; ETB 3.25, active | #5 DRAFT |
+| 7 | `QA M02E Inactive Room 1792770594787-c5ba91`; inactive | — |
+| 8 | `QA M02E Config 1792770663666-a9b516`; ETB 2.75, active, v1 | — |
+| 9 | `QA M02E Session Room 1792770670474-37d0a8`; ETB 3.25, active | #6 DRAFT |
+| 10 | `QA M02E Inactive Room 1792770670474-37d0a8`; inactive | — |
+| 11 | `QA M02E Config 1792771154070-97a602`; ETB 2.75, active, v1 | — |
+| 12 | `QA M02E Session Room 1792771164965-41157d`; ETB 3.25, active | #7 DRAFT |
+| 13 | `QA M02E Inactive Room 1792771164965-41157d`; inactive | — |
+| 14 | `QA M02E Cancel Room 1792771164965-41157d`; ETB 1.00, active | #8 CANCELLED |
+| 15 | `QA M02E Config 1792771210298-2e8340`; ETB 2.75, active, v1 | — |
+| 16 | `QA M02E Session Room 1792771210298-2e8340`; ETB 3.25, active | #9 DRAFT |
+| 17 | `QA M02E Inactive Room 1792771210298-2e8340`; inactive | — |
+| 18 | `QA M02E Cancel Room 1792771210298-2e8340`; ETB 1.00, active | #10 CANCELLED |
+| 19 | `QA M02E Config 1792771312545-b42cb6`; ETB 2.75, active, v1 | — |
+| 20 | `QA M02E Session Room 1792771312545-b42cb6`; ETB 3.25, active | #11 DRAFT |
+| 21 | `QA M02E Inactive Room 1792771312545-b42cb6`; inactive | — |
+| 22 | `QA M02E Cancel Room 1792771312545-b42cb6`; ETB 1.00, active | #12 CANCELLED |
+| 23 | `QA M02E Config 1792771535974-5a17c5`; ETB 2.75, active, v1 | — |
+| 24 | `QA M02E Session Room 1792771535974-5a17c5`; ETB 3.25, active | #13 DRAFT |
+| 25 | `QA M02E Inactive Room 1792771535974-5a17c5`; inactive | — |
+| 26 | `QA M02E Cancel Room 1792771535974-5a17c5`; ETB 1.00, active | #14 CANCELLED |
+| 27 | `QA M02E Session Room 1792771630511-0ab2d5`; ETB 3.25, active | #15 DRAFT |
+| 28 | `QA M02E Inactive Room 1792771630511-0ab2d5`; inactive | — |
+| 29 | `QA M02E Cancel Room 1792771630511-0ab2d5`; ETB 1.00, active | #16 CANCELLED |
+| 30 | `QA M02E Config 1792772678456-14a01a`; ETB 2.75, active, v1 | — |
+| 31 | `QA M02E Session Room 1792772678456-14a01a`; ETB 3.25, active | #17 DRAFT |
+| 32 | `QA M02E Inactive Room 1792772678456-14a01a`; inactive | — |
+| 33 | `QA M02E Cancel Room 1792772678456-14a01a`; ETB 1.00, active | #18 CANCELLED |
+
+Room 5 was retained from a browser iteration that stopped before editing. Other configuration rooms were edited from ETB 2.50 to ETB 2.75 with version increment 0→1. Session rooms use ETB 3.25 and preserve a synthetic LINE pattern/prize snapshot. The final browser run passed 6/6; the backend full suite passed 125/125 against `bingo_qa_test`. No claims, entitlements, tickets, or draws were present in `bingo_qa` at verification time. Duplicate room/start schedule groups: 0. Agent #3 remained APPROVED with ETB 51.00 available and ETB 0.00 clearing, two float transactions and two accounting journals; this verification used SELECT statements only. See [Module 02E report](modules/module-02e-game-admin.md), [case matrix](modules/module-02e-test-matrix.md), and [read-only database evidence](evidence/module-02e-database-verify.txt).
+
 ## Module 01 authentication use
 
 On 2026-10-23 the existing QA admin and player identities were used for authentication-only browser checks. The original five users and two agent profiles were preserved with their roles and statuses unchanged. The player Android registration flow created the dedicated `QA_PLAYER_003` fixture and its normal wallet/signup reward; the admin status action left it `PENDING`. No account or business record was deleted. Authentication attempts, status-change audit entries, and hashed rate-limit buckets remain in `bingo_qa`; backend integration-test setup and cleanup ran only against `bingo_qa_test`.

@@ -1,0 +1,58 @@
+check_name	version	description
+flyway	22	prevent duplicate room sessions
+check_name	id	name	ticket_price	currency	active	version
+room	5	QA M02E Config 1792770580871-dda8f6	2.50	ETB	1	0
+room	6	QA M02E Session Room 1792770588090-443bf1	3.25	ETB	1	0
+room	7	QA M02E Inactive Room 1792770594787-c5ba91	1.00	ETB	0	0
+room	8	QA M02E Config 1792770663666-a9b516	2.75	ETB	1	1
+room	9	QA M02E Session Room 1792770670474-37d0a8	3.25	ETB	1	0
+room	10	QA M02E Inactive Room 1792770670474-37d0a8	1.00	ETB	0	0
+room	11	QA M02E Config 1792771154070-97a602	2.75	ETB	1	1
+room	12	QA M02E Session Room 1792771164965-41157d	3.25	ETB	1	0
+room	13	QA M02E Inactive Room 1792771164965-41157d	1.00	ETB	0	0
+room	14	QA M02E Cancel Room 1792771164965-41157d	1.00	ETB	1	0
+room	15	QA M02E Config 1792771210298-2e8340	2.75	ETB	1	1
+room	16	QA M02E Session Room 1792771210298-2e8340	3.25	ETB	1	0
+room	17	QA M02E Inactive Room 1792771210298-2e8340	1.00	ETB	0	0
+room	18	QA M02E Cancel Room 1792771210298-2e8340	1.00	ETB	1	0
+room	19	QA M02E Config 1792771312545-b42cb6	2.75	ETB	1	1
+room	20	QA M02E Session Room 1792771312545-b42cb6	3.25	ETB	1	0
+room	21	QA M02E Inactive Room 1792771312545-b42cb6	1.00	ETB	0	0
+room	22	QA M02E Cancel Room 1792771312545-b42cb6	1.00	ETB	1	0
+room	23	QA M02E Config 1792771535974-5a17c5	2.75	ETB	1	1
+room	24	QA M02E Session Room 1792771535974-5a17c5	3.25	ETB	1	0
+room	25	QA M02E Inactive Room 1792771535974-5a17c5	1.00	ETB	0	0
+room	26	QA M02E Cancel Room 1792771535974-5a17c5	1.00	ETB	1	0
+room	27	QA M02E Session Room 1792771630511-0ab2d5	3.25	ETB	1	0
+room	28	QA M02E Inactive Room 1792771630511-0ab2d5	1.00	ETB	0	0
+room	29	QA M02E Cancel Room 1792771630511-0ab2d5	1.00	ETB	1	0
+room	30	QA M02E Config 1792772678456-14a01a	2.75	ETB	1	1
+room	31	QA M02E Session Room 1792772678456-14a01a	3.25	ETB	1	0
+room	32	QA M02E Inactive Room 1792772678456-14a01a	1.00	ETB	0	0
+room	33	QA M02E Cancel Room 1792772678456-14a01a	1.00	ETB	1	0
+check_name	id	session_name	state	ticket_price_snapshot	currency_snapshot	tickets	draws
+session	5	QA M02E DRAFT 1792770588090-443bf1	DRAFT	3.25	ETB	0	0
+session	6	QA M02E DRAFT 1792770670474-37d0a8	DRAFT	3.25	ETB	0	0
+session	7	QA M02E DRAFT 1792771164965-41157d	DRAFT	3.25	ETB	0	0
+session	8	QA M02E Cancel DRAFT 1792771164965-41157d	CANCELLED	1.00	ETB	0	0
+session	9	QA M02E DRAFT 1792771210298-2e8340	DRAFT	3.25	ETB	0	0
+session	10	QA M02E Cancel DRAFT 1792771210298-2e8340	CANCELLED	1.00	ETB	0	0
+session	11	QA M02E DRAFT 1792771312545-b42cb6	DRAFT	3.25	ETB	0	0
+session	12	QA M02E Cancel DRAFT 1792771312545-b42cb6	CANCELLED	1.00	ETB	0	0
+session	13	QA M02E DRAFT 1792771535974-5a17c5	DRAFT	3.25	ETB	0	0
+session	14	QA M02E Cancel DRAFT 1792771535974-5a17c5	CANCELLED	1.00	ETB	0	0
+session	15	QA M02E DRAFT 1792771630511-0ab2d5	DRAFT	3.25	ETB	0	0
+session	16	QA M02E Cancel DRAFT 1792771630511-0ab2d5	CANCELLED	1.00	ETB	0	0
+session	17	QA M02E DRAFT 1792772678456-14a01a	DRAFT	3.25	ETB	0	0
+session	18	QA M02E Cancel DRAFT 1792772678456-14a01a	CANCELLED	1.00	ETB	0	0
+check_name	value_count
+duplicate_schedule_groups	0
+check_name	claims	entitlements	tickets	draws
+game_records	0	0	0	0
+check_name	id	status	available_balance	clearing_balance	transactions	journals
+agent3_float	3	APPROVED	51.00	0.00	2	2
+check_name	agent_id	user_id	user_status	agent_status
+agent_profiles	1	2	ACTIVE	APPROVED
+agent_profiles	2	3	PENDING	PENDING
+agent_profiles	3	11	ACTIVE	APPROVED
+agent_profiles	4	12	SUSPENDED	SUSPENDED

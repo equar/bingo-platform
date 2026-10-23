@@ -9,6 +9,7 @@ import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import jakarta.persistence.Version;
 import java.math.BigDecimal;
 import java.time.Instant;
 
@@ -58,6 +59,10 @@ public class BingoRoom {
 
     @Column(name = "configured_prizes_json", nullable = false, columnDefinition = "text")
     private String configuredPrizesJson;
+
+    @Version
+    @Column(name = "version", nullable = false)
+    private long version;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
@@ -184,6 +189,10 @@ public class BingoRoom {
 
     public String getConfiguredPrizesJson() {
         return configuredPrizesJson;
+    }
+
+    public long getVersion() {
+        return version;
     }
 
     public void setConfiguredPrizesJson(String configuredPrizesJson) {

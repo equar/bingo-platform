@@ -14,11 +14,13 @@ import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Version;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import java.math.BigDecimal;
 import java.time.Instant;
 
 @Entity
-@Table(name = "bingo_sessions")
+@Table(name = "bingo_sessions", uniqueConstraints = @UniqueConstraint(
+        name = "uk_bingo_sessions_room_schedule", columnNames = { "room_id", "scheduled_start_at" }))
 public class GameSession {
 
     @Id

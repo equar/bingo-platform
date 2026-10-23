@@ -116,7 +116,8 @@ class AuthenticatedStompIntegrationTest extends MySqlIntegrationTest {
                         BingoPatternType.LINE,
                         new BigDecimal("10.00"),
                         PrizeSettlementPath.PLAYER_WALLET,
-                        1))));
+                        1)),
+                null));
         var session = bingoGameService.createSession(
                 room.id(),
                 new GameSessionRequest(

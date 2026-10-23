@@ -4,6 +4,7 @@ import com.equar.bingo.backend.feature.game.entity.GameSessionState;
 import com.equar.bingo.backend.feature.game.entity.BingoPatternType;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -16,7 +17,7 @@ public record GameSessionRequest(
         @NotBlank String sessionName,
         @NotNull Instant scheduledStartAt,
         GameSessionState state,
-        @DecimalMin(value = "0.01", inclusive = true) BigDecimal ticketPrice,
+        @DecimalMin(value = "0.01", inclusive = true) @Digits(integer = 17, fraction = 2) BigDecimal ticketPrice,
         @Pattern(regexp = "^[A-Z]{3}$") String currency,
         @Min(1) Integer sessionCapacity,
         @Min(1) Integer maxTicketsPerPlayer,

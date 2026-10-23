@@ -396,7 +396,8 @@ class BingoLiveDrawIntegrationTest extends MySqlIntegrationTest {
                                                                 PrizeSettlementPath.PLAYER_WALLET, 1),
                                                 new BingoPrizeConfigRequest(BingoPatternType.FULL_HOUSE,
                                                                 new BigDecimal("50.00"),
-                                                                PrizeSettlementPath.PLAYER_WALLET, 1)));
+                                                                PrizeSettlementPath.PLAYER_WALLET, 1)),
+                                null);
         }
 
         private GameSessionRequest sessionRequest(GameSessionState state) {

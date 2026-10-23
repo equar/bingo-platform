@@ -3,6 +3,7 @@ package com.equar.bingo.backend.feature.game.dto;
 import com.equar.bingo.backend.feature.game.entity.BingoPatternType;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -13,7 +14,7 @@ import java.util.List;
 public record BingoRoomRequest(
         @NotBlank String name,
         String description,
-        @NotNull @DecimalMin(value = "0.01", inclusive = true) BigDecimal ticketPrice,
+        @NotNull @DecimalMin(value = "0.01", inclusive = true) @Digits(integer = 17, fraction = 2) BigDecimal ticketPrice,
         @NotBlank @Pattern(regexp = "^[A-Z]{3}$") String currency,
         @NotBlank String timezone,
         @NotBlank String scheduleRule,
@@ -23,5 +24,6 @@ public record BingoRoomRequest(
         boolean allowMultipleWinnersPerPrize,
         boolean active,
         @Valid List<@NotNull BingoPatternType> configuredPatterns,
-        @Valid List<@NotNull BingoPrizeConfigRequest> configuredPrizes) {
+        @Valid List<@NotNull BingoPrizeConfigRequest> configuredPrizes,
+        Long version) {
 }

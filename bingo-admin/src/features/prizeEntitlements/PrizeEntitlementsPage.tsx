@@ -85,8 +85,12 @@ export function PrizeEntitlementsPage() {
     <Stack spacing={3}>
       <Box>
         <Typography variant="h4">Prize entitlements</Typography>
-        <Typography color="text.secondary">Settle approved claims into the winner wallet or external path.</Typography>
+        <Typography color="text.secondary">Review approved claims and their prize entitlement details.</Typography>
       </Box>
+
+      <Alert severity="warning">
+        Prize settlement is blocked until payout evidence, accounting treatment, and reconciliation controls are approved.
+      </Alert>
 
       {entitlementsQuery.isFetching ? <Alert severity="info">Updating entitlement results...</Alert> : null}
 
@@ -215,7 +219,7 @@ export function PrizeEntitlementsPage() {
                       data-testid={`entitlement-settle-${entitlement.id}`}
                       variant="outlined"
                       size="small"
-                      disabled={entitlement.status !== "PENDING"}
+                      disabled
                       onClick={() => {
                         setSelectedId(entitlement.id);
                         setSettlementReference("");
