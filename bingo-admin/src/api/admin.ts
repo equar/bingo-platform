@@ -278,6 +278,7 @@ export interface FloatBankAccountResponse {
   accountHolderName: string;
   currency: string;
   active: boolean;
+  playerDepositsEnabled: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -672,7 +673,53 @@ export interface DepositClaimResponse {
   reviewedBy: number | null;
   reviewedAt: string | null;
   reviewNote: string | null;
+  verifiedBy: number | null;
+  verifiedAt: string | null;
   paymentInstructions: PaymentInstructionsResponse | null;
+}
+
+export interface DepositVerificationResponse {
+  id: number;
+  depositClaimId: number;
+  statementEntryId: number | null;
+  receivingBankAccountId: number | null;
+  transactionReference: string | null;
+  amount: string | null;
+  currency: string | null;
+  transactionDate: string | null;
+  outcome: string;
+  evidenceSource: string;
+  synthetic: boolean;
+  reviewerUserId: number;
+  createdAt: string;
+}
+
+export interface WalletAdjustmentSubmissionRequest {
+  amount: number;
+  currency: string;
+  reason: string;
+  supportingReference: string;
+}
+
+export interface WalletAdjustmentRequestResponse {
+  id: number;
+  playerId: number;
+  makerUserId: number;
+  amount: string;
+  currency: string;
+  reason: string;
+  supportingReference: string;
+  status: string;
+  operationId: string;
+  checkerUserId: number | null;
+  reviewNote: string | null;
+  submittedAt: string;
+  reviewedAt: string | null;
+  journalId: number | null;
+  postingReference: string | null;
+  balanceBefore: string | null;
+  balanceAfter: string | null;
+  simulated: boolean;
 }
 
 export interface PaymentInstructionsResponse {
@@ -990,6 +1037,51 @@ export async function rejectDeposit(depositId: number, body: DepositReviewReques
   return data;
 }
 
+export async function verifyDeposit(depositId: number, statementEntryId: number) {
+  const { data } = await http.post<DepositVerificationResponse>(
+    `/api/v1/admin/deposits/${depositId}/verify`,
+    { statementEntryId },
+  );
+  return data;
+}
+
+export async function submitWalletAdjustmentRequest(
+  playerId: number,
+  body: WalletAdjustmentSubmissionRequest,
+) {
+  const { data } = await http.post<WalletAdjustmentRequestResponse>(
+    `/api/v1/admin/players/${playerId}/wallet-adjustments/requests`,
+    body,
+  );
+  return data;
+}
+
+export async function walletAdjustmentHistory(playerId: number) {
+  const { data } = await http.get<WalletAdjustmentRequestResponse[]>(
+    `/api/v1/admin/players/${playerId}/wallet-adjustments/requests`,
+  );
+  return data;
+}
+
+export async function pendingWalletAdjustmentRequests() {
+  const { data } = await http.get<WalletAdjustmentRequestResponse[]>(
+    "/api/v1/admin/wallet-adjustment-requests",
+  );
+  return data;
+}
+
+export async function reviewWalletAdjustmentRequest(
+  requestId: number,
+  decision: "approve" | "reject",
+  reviewNote: string,
+) {
+  const { data } = await http.post<WalletAdjustmentRequestResponse>(
+    `/api/v1/admin/wallet-adjustment-requests/${requestId}/${decision}`,
+    { reviewNote },
+  );
+  return data;
+}
+
 export async function adjustWallet(
   playerId: number,
   body: WalletAdjustmentRequest,
@@ -1161,6 +1253,15 @@ export async function createFloatBankAccount(body: FloatBankAccountRequest) {
 export async function setFloatBankAccountActive(accountId: number, active: boolean) {
   const { data } = await http.put<FloatBankAccountResponse>(
     `/api/v1/admin/float-bank-accounts/${accountId}/active`, null, { params: { active } },
+  );
+  return data;
+}
+
+export async function setFloatBankAccountPlayerDepositsEnabled(accountId: number, enabled: boolean) {
+  const { data } = await http.put<FloatBankAccountResponse>(
+    `/api/v1/admin/float-bank-accounts/${accountId}/player-deposit-eligibility`,
+    null,
+    { params: { enabled } },
   );
   return data;
 }

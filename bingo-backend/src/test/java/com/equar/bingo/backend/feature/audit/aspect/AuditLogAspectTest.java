@@ -60,6 +60,24 @@ class AuditLogAspectTest {
     }
 
     @Test
+    void recordsWalletAdjustmentsAsAuditedMutations() throws Throwable {
+        ProceedingJoinPoint joinPoint = mock(ProceedingJoinPoint.class);
+        MethodSignature signature = mock(MethodSignature.class);
+        Method method = MutationService.class.getMethod("adjustPlayerWallet", Long.class);
+        when(joinPoint.getSignature()).thenReturn(signature);
+        when(joinPoint.getTarget()).thenReturn(new MutationService());
+        when(joinPoint.getArgs()).thenReturn(new Object[] { 91L });
+        when(signature.getMethod()).thenReturn(method);
+        when(signature.getParameterNames()).thenReturn(new String[] { "playerId" });
+        when(joinPoint.proceed()).thenReturn(new ChangeResult(91L, "1.25"));
+
+        aspect.recordMutations(joinPoint);
+
+        verify(auditLogService).record(isNull(), eq("ADJUST_PLAYER_WALLET"), eq("ChangeResult"), eq(91L), isNull(),
+                any(), any());
+    }
+
+    @Test
     void recordsFailureOutcomeAndRethrowsTheOriginalFailure() throws Throwable {
         ProceedingJoinPoint joinPoint = mock(ProceedingJoinPoint.class);
         MethodSignature signature = mock(MethodSignature.class);
@@ -114,6 +132,10 @@ class AuditLogAspectTest {
         }
 
         public void deleteSession(Long sessionId) {
+        }
+
+        public ChangeResult adjustPlayerWallet(Long playerId) {
+            return new ChangeResult(playerId, "1.25");
         }
 
         public AuthResult login(LoginRequest request) {

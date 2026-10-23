@@ -44,7 +44,7 @@ public class DepositClaim {
     private String normalizedTelebirrReference;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false, length = 20)
+    @Column(name = "status", nullable = false, length = 40)
     private DepositClaimStatus status;
 
     @Column(name = "submitted_at", nullable = false)
@@ -59,6 +59,13 @@ public class DepositClaim {
 
     @Column(name = "review_note", length = 500)
     private String reviewNote;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "verified_by_user_id")
+    private User verifiedBy;
+
+    @Column(name = "verified_at")
+    private Instant verifiedAt;
 
     @Column(name = "operation_id", nullable = false, length = 36)
     private String operationId;
@@ -153,5 +160,21 @@ public class DepositClaim {
 
     public String getOperationId() {
         return operationId;
+    }
+
+    public User getVerifiedBy() {
+        return verifiedBy;
+    }
+
+    public void setVerifiedBy(User verifiedBy) {
+        this.verifiedBy = verifiedBy;
+    }
+
+    public Instant getVerifiedAt() {
+        return verifiedAt;
+    }
+
+    public void setVerifiedAt(Instant verifiedAt) {
+        this.verifiedAt = verifiedAt;
     }
 }

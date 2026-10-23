@@ -1,0 +1,80 @@
+Module 02D financial-security closure — read-only MySQL verification
+Database: bingo_qa (MySQL 8.0.36)
+Date: 2026-10-23
+Method: SELECT statements only. No direct SQL writes, resets, or deletions were performed.
+
+Schema history (checksum values as stored by Flyway):
+version  checksum
+19       -727947304
+20        59112195
+QA and bingo_qa_test are at V20. Migration V20 is additive; V19 checksum was preserved.
+bingo_qa_test was separately queried through the restricted test account; it also reports V19 checksum -727947304 and V20 checksum 59112195.
+
+Original deposit claims preserved and uncredited:
+id  status   submitted_ETB  wallet_ETB  deposit_journals  deposit_credit_transactions
+1   PENDING  2.50           0.00        0                 0
+2   PENDING  2.50           0.00        0                 0
+3   REJECTED 2.50           0.00        0                 0
+4   REJECTED 2.50           0.00        0                 0
+5   REJECTED 2.50           0.00        0                 0
+6   REJECTED 2.50           0.00        0                 0
+7   REJECTED 2.50           0.00        0                 0
+
+Retained Module 02D deposit claims (IDs >= 8):
+id player status                  claim_ETB verifier approver wallet_ETB journal tx_count
+8  81     PENDING                 2.50      —        —        0.00       —       0
+9  90     APPROVED               2.50      92       93       2.50       1       1
+10 99     APPROVED               2.50      101      102      2.50       2       1
+11 103    VERIFICATION_EXCEPTION 3.00      —        —        0.00       —       0
+12 104    REJECTED                1.50      —        102      0.00       —       0
+13 105    APPROVED               4.25      101      102      4.25       3       1
+14 120    PENDING                 2.50      —        —        0.00       —       0
+15 129    PENDING                 2.50      —        —        0.00       —       0
+16 144    APPROVED               2.50      146      147      2.50       4       1
+17 148    VERIFICATION_EXCEPTION 3.00      —        —        0.00       —       0
+18 149    REJECTED                1.50      —        147      0.00       —       0
+19 150    APPROVED               4.25      146      147      4.25       5       1
+
+Deposit journal lines; each journal has equal ETB debit and credit totals:
+claim journal line account                       debit_ETB credit_ETB
+9     1       1    QA_BANK_CLEARING_ASSET        2.50     0.00
+9     1       2    PLAYER_WALLET_LIABILITY       0.00     2.50
+10    2       1    QA_BANK_CLEARING_ASSET        2.50     0.00
+10    2       2    PLAYER_WALLET_LIABILITY       0.00     2.50
+13    3       1    QA_BANK_CLEARING_ASSET        4.25     0.00
+13    3       2    PLAYER_WALLET_LIABILITY       0.00     4.25
+16    4       1    QA_BANK_CLEARING_ASSET        2.50     0.00
+16    4       2    PLAYER_WALLET_LIABILITY       0.00     2.50
+19    5       1    QA_BANK_CLEARING_ASSET        4.25     0.00
+19    5       2    PLAYER_WALLET_LIABILITY       0.00     4.25
+
+Wallet adjustments:
+request player maker checker status   journal wallet_transaction balance_before balance_after
+1       64     65    —       PENDING  —       —                 —              —
+2       70     71    —       PENDING  —       —                 —              —
+3       76     77    78      APPROVED 1       9                 0.00           1.25
+4       82     83    84      APPROVED 2       10                0.00           1.25
+5       91     92    93      APPROVED 3       11                0.00           1.25
+6       100    101   102     APPROVED 4       13                0.00           1.25
+7       109    110   —       PENDING  —       —                 —              —
+8       115    116   —       PENDING  —       —                 —              —
+9       121    122   —       PENDING  —       —                 —              —
+10      130    131   —       PENDING  —       —                 —              —
+11      139    140   141     APPROVED 5       16                0.00           1.25
+12      145    146   147     APPROVED 6       17                0.00           1.25
+
+Latest E2E run suffix: 69021617
+players 142–145; verifier user 146; approver user 147; receiving account 7.
+Receiving accounts #5–7 are active and `player_deposits_enabled=true` for QA fixtures; all synthetic statements are explicitly marked as synthetic.
+Deposit #16: statement 9, verification 7, journal 4, wallet transaction 18; ETB 2.50.
+Deposit #17: statement 11, verification 8, mismatch ETB 3.00 claim vs ETB 2.99 evidence; no posting.
+Deposit #18: rejected; no posting.
+Deposit #19: statement 12, verification 9, journal 5, wallet transaction 19; ETB 4.25.
+Adjustment #12: maker 146, checker 147, journal 6, wallet transaction 17; ETB 1.25.
+Audit records: #1821 maker submission, #1823–1824 checker approval/replay, #1822 denied legacy direct adjustment, #1837–1839 deposit #16 verification/approval/replay, #1848–1850 deposit #19 verification/approval/replay.
+Support tickets #42–47 were created; #42 is CLOSED and #43–47 remain open. Original tickets #1–5 remain WAITING_FOR_CUSTOMER assigned to user #1.
+
+Preserved shared agent float:
+Agent #3 / user #11 remains APPROVED; available ETB 51.00, clearing ETB 0.00, two float transactions. Float journals #1 and #2 each balance debit ETB 25.50 to credit ETB 25.50 (verifier #15, approver #16).
+
+Counts at verification: users 148, deposit claims 19, adjustment requests 12, support tickets 47. All synthetic bank records are labeled SYNTHETIC_QA_BANK_STATEMENT and are not evidence of real settlement.

@@ -29,7 +29,7 @@ public class FloatBankAccountController {
     public List<FloatBankAccountResponse> available() { return service.activeAccounts(); }
 
     @GetMapping("/admin/float-bank-accounts")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','FINANCE_VERIFIER','FINANCE_APPROVER')")
     public List<FloatBankAccountResponse> all() { return service.allAccounts(); }
 
     @PostMapping("/admin/float-bank-accounts")
@@ -44,5 +44,13 @@ public class FloatBankAccountController {
     public FloatBankAccountResponse setActive(@AuthenticationPrincipal BingoUserPrincipal principal,
             @PathVariable Long accountId, @RequestParam boolean active) {
         return service.updateActiveStatus(principal, accountId, active);
+    }
+
+    @PutMapping("/admin/float-bank-accounts/{accountId}/player-deposit-eligibility")
+    @PreAuthorize("hasRole('ADMIN')")
+    public FloatBankAccountResponse setPlayerDepositEligibility(
+            @AuthenticationPrincipal BingoUserPrincipal principal, @PathVariable Long accountId,
+            @RequestParam boolean enabled) {
+        return service.updatePlayerDepositEligibility(principal, accountId, enabled);
     }
 }

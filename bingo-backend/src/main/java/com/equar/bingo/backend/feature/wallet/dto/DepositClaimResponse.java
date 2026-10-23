@@ -17,5 +17,7 @@ public record DepositClaimResponse(
         Long reviewedBy,
         Instant reviewedAt,
         String reviewNote,
+        Long verifiedBy,
+        Instant verifiedAt,
         PaymentInstructionsResponse paymentInstructions) {
 }

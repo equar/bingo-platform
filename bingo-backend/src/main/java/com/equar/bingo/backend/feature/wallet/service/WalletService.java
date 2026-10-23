@@ -165,53 +165,9 @@ public class WalletService {
             BingoUserPrincipal principal,
             DepositReviewRequest request,
             String idempotencyKey) {
-        User reviewer = requireAdmin(principal);
-        String requestHash = requestHashService.hash("POST", "/api/v1/admin/deposits/" + depositId + "/approve",
-                request);
-        String operationId = UUID.randomUUID().toString();
-
-        return idempotencyService.execute(reviewer.getId(), idempotencyKey, requestHash, operationId,
-                HttpStatus.OK.value(), DepositClaimResponse.class, () -> {
-                    DepositClaim claim = depositClaimRepository.findByIdForUpdate(depositId)
-                            .orElseThrow(() -> new NotFoundException("DEPOSIT_NOT_FOUND", "Deposit claim not found"));
-
-                    if (claim.getStatus() != DepositClaimStatus.PENDING) {
-                        throw new ConflictException("DEPOSIT_ALREADY_REVIEWED",
-                                "Deposit claim has already been reviewed");
-                    }
-
-                    Wallet wallet = lockWalletForUpdate(claim.getPlayer());
-                    BigDecimal transferableBefore = wallet.getAvailableBalance();
-                    BigDecimal transferableAfter = MoneyValues.money(
-                            transferableBefore.add(claim.getCalculatedCreditAmount()));
-                    BigDecimal promotionalBalance = wallet.getPromotionalBalance();
-
-                    claim.setStatus(DepositClaimStatus.APPROVED);
-                    claim.setReviewedBy(reviewer);
-                    claim.setReviewedAt(Instant.now());
-                    claim.setReviewNote(request.reviewNote());
-
-                    wallet.setAvailableBalance(transferableAfter);
-                    walletRepository.save(wallet);
-                    walletTransactionRepository.save(WalletTransaction.create(
-                            wallet,
-                            operationId,
-                            WalletTransactionType.DEPOSIT_CREDIT,
-                            claim.getCalculatedCreditAmount(),
-                            transferableBefore,
-                            transferableAfter,
-                            promotionalBalance,
-                            promotionalBalance,
-                            wallet.getCurrency(),
-                            "DEPOSIT_CLAIM",
-                            claim.getId(),
-                            request.reviewNote(),
-                            null,
-                            Instant.now()));
-
-                    DepositClaim saved = depositClaimRepository.save(claim);
-                    return toDepositResponse(saved);
-                });
+        requireAdmin(principal);
+        throw new ConflictException("DEPOSIT_VERIFICATION_REQUIRED",
+                "An unverified deposit cannot be approved or credited");
     }
 
     @Transactional
@@ -219,7 +175,7 @@ public class WalletService {
             BingoUserPrincipal principal,
             DepositReviewRequest request,
             String idempotencyKey) {
-        User reviewer = requireAdmin(principal);
+        User reviewer = requireFinanceApprover(principal);
         String requestHash = requestHashService.hash("POST", "/api/v1/admin/deposits/" + depositId + "/reject",
                 request);
         String operationId = UUID.randomUUID().toString();
@@ -229,9 +185,12 @@ public class WalletService {
                     DepositClaim claim = depositClaimRepository.findByIdForUpdate(depositId)
                             .orElseThrow(() -> new NotFoundException("DEPOSIT_NOT_FOUND", "Deposit claim not found"));
 
-                    if (claim.getStatus() != DepositClaimStatus.PENDING) {
+                    if (claim.getStatus() != DepositClaimStatus.PENDING
+                            && claim.getStatus() != DepositClaimStatus.AWAITING_VERIFICATION
+                            && claim.getStatus() != DepositClaimStatus.VERIFIED
+                            && claim.getStatus() != DepositClaimStatus.VERIFICATION_EXCEPTION) {
                         throw new ConflictException("DEPOSIT_ALREADY_REVIEWED",
-                                "Deposit claim has already been reviewed");
+                                "Only an unposted deposit claim can be rejected");
                     }
 
                     claim.setStatus(DepositClaimStatus.REJECTED);
@@ -248,66 +207,9 @@ public class WalletService {
             BingoUserPrincipal principal,
             WalletAdjustmentRequest request,
             String idempotencyKey) {
-        User reviewer = requireAdmin(principal);
-        if (!walletProperties.currency().equalsIgnoreCase(request.currency())) {
-            throw new BadRequestException("UNSUPPORTED_CURRENCY",
-                    "Only " + walletProperties.currency() + " adjustments are supported");
-        }
-
-        if (request.amount().compareTo(BigDecimal.ZERO) == 0) {
-            throw new BadRequestException("INVALID_AMOUNT", "Adjustment amount must not be zero");
-        }
-
-        String requestHash = requestHashService.hash("POST",
-                "/api/v1/admin/players/" + playerId + "/wallet-adjustments", request);
-        String operationId = UUID.randomUUID().toString();
-
-        return idempotencyService.execute(reviewer.getId(), idempotencyKey, requestHash, operationId,
-                HttpStatus.OK.value(), WalletAdjustmentResponse.class, () -> {
-                    User player = userRepository.findById(playerId)
-                            .orElseThrow(() -> new NotFoundException("PLAYER_NOT_FOUND", "Player account not found"));
-                    if (!player.hasRole(UserRole.PLAYER)) {
-                        throw new BadRequestException("NOT_A_PLAYER",
-                                "Wallet adjustments can only target player accounts");
-                    }
-
-                    Wallet wallet = lockWalletForUpdate(player);
-                    BigDecimal transferableBefore = wallet.getAvailableBalance();
-                    BigDecimal promotionalBalance = wallet.getPromotionalBalance();
-                    BigDecimal amount = MoneyValues.money(request.amount());
-                    BigDecimal transferableAfter = MoneyValues.money(transferableBefore.add(amount));
-                    if (transferableAfter.compareTo(BigDecimal.ZERO) < 0) {
-                        throw new ConflictException("INSUFFICIENT_BALANCE", "Wallet balance cannot go below zero");
-                    }
-
-                    wallet.setAvailableBalance(transferableAfter);
-                    walletRepository.save(wallet);
-                    walletTransactionRepository.save(WalletTransaction.create(
-                            wallet,
-                            operationId,
-                            WalletTransactionType.WALLET_ADJUSTMENT,
-                            amount,
-                            transferableBefore,
-                            transferableAfter,
-                            promotionalBalance,
-                            promotionalBalance,
-                            wallet.getCurrency(),
-                            "WALLET_ADJUSTMENT",
-                            player.getId(),
-                            request.reason(),
-                            null,
-                            Instant.now()));
-
-                    return new WalletAdjustmentResponse(
-                            operationId,
-                            wallet.getId(),
-                            player.getId(),
-                            amount,
-                            transferableBefore,
-                            transferableAfter,
-                            request.reason(),
-                            Instant.now());
-                });
+        requireAdmin(principal);
+        throw new ConflictException("WALLET_ADJUSTMENT_MAKER_CHECKER_REQUIRED",
+                "Direct wallet adjustments are disabled; submit a maker-checker request instead");
     }
 
     @Transactional(readOnly = true)
@@ -332,6 +234,16 @@ public class WalletService {
         User user = principal.getUser();
         if (!user.hasRole(UserRole.ADMIN)) {
             throw new BadRequestException("ADMIN_ROLE_REQUIRED", "This endpoint is available to admin accounts only");
+        }
+        return user;
+    }
+
+    private User requireFinanceApprover(BingoUserPrincipal principal) {
+        User user = principal.getUser();
+        boolean staffUser = user.hasRole(UserRole.ADMIN) || user.hasRole(UserRole.SUPPORT);
+        if (!user.isActive() || !staffUser || !user.hasRole(UserRole.FINANCE_APPROVER)) {
+            throw new ConflictException("FINANCE_APPROVER_REQUIRED",
+                    "An active finance approver is required");
         }
         return user;
     }
@@ -386,6 +298,8 @@ public class WalletService {
                 claim.getReviewedBy() == null ? null : claim.getReviewedBy().getId(),
                 claim.getReviewedAt(),
                 claim.getReviewNote(),
+                claim.getVerifiedBy() == null ? null : claim.getVerifiedBy().getId(),
+                claim.getVerifiedAt(),
                 toPaymentInstructions());
     }
 

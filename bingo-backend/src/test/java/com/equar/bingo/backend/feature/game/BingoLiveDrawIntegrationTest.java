@@ -29,7 +29,10 @@ import com.equar.bingo.backend.feature.wallet.repository.DepositClaimRepository;
 import com.equar.bingo.backend.feature.wallet.repository.IdempotencyRecordRepository;
 import com.equar.bingo.backend.feature.wallet.repository.WalletRepository;
 import com.equar.bingo.backend.feature.wallet.repository.WalletTransactionRepository;
+import com.equar.bingo.backend.feature.wallet.service.WalletAdjustmentService;
 import com.equar.bingo.backend.feature.wallet.service.WalletService;
+import com.equar.bingo.backend.feature.wallet.dto.WalletAdjustmentReviewRequest;
+import com.equar.bingo.backend.feature.wallet.dto.WalletAdjustmentSubmissionRequest;
 import com.equar.bingo.backend.feature.agent.repository.PayoutVerificationRecordRepository;
 import com.equar.bingo.backend.feature.agent.repository.AgentFloatTransactionRepository;
 import com.equar.bingo.backend.feature.agent.repository.AgentFloatRepository;
@@ -145,6 +148,9 @@ class BingoLiveDrawIntegrationTest extends MySqlIntegrationTest {
         WalletService walletService;
 
         @Autowired
+        WalletAdjustmentService walletAdjustmentService;
+
+        @Autowired
         SupportTicketRepository supportTicketRepository;
 
         @Autowired
@@ -181,6 +187,8 @@ class BingoLiveDrawIntegrationTest extends MySqlIntegrationTest {
 
         private User adminUser;
         private User playerUser;
+        private User financeMaker;
+        private User financeChecker;
 
         @BeforeEach
         void setUp() {
@@ -198,6 +206,9 @@ class BingoLiveDrawIntegrationTest extends MySqlIntegrationTest {
                 agentFloatTransactionRepository.deleteAll();
                 agentFloatRepository.deleteAll();
                 agentRepository.deleteAll();
+                jdbcTemplate.update("delete from wallet_adjustment_accounting_journal_lines");
+                jdbcTemplate.update("delete from wallet_adjustment_accounting_journals");
+                jdbcTemplate.update("delete from wallet_adjustment_requests");
                 prizeEntitlementRepository.deleteAll();
                 winClaimRepository.deleteAll();
                 drawEventRepository.deleteAll();
@@ -229,12 +240,27 @@ class BingoLiveDrawIntegrationTest extends MySqlIntegrationTest {
                                 AccountStatus.ACTIVE,
                                 Set.of(UserRole.PLAYER),
                                 now));
+                financeMaker = userRepository.save(User.create(
+                                phoneNormalizer.normalize("0911000203"),
+                                "Finance Verifier",
+                                passwordEncoder.encode("123456"),
+                                AccountStatus.ACTIVE,
+                                Set.of(UserRole.ADMIN, UserRole.FINANCE_VERIFIER),
+                                now));
+                financeChecker = userRepository.save(User.create(
+                                phoneNormalizer.normalize("0911000204"),
+                                "Finance Approver",
+                                passwordEncoder.encode("123456"),
+                                AccountStatus.ACTIVE,
+                                Set.of(UserRole.ADMIN, UserRole.FINANCE_APPROVER),
+                                now));
                 walletService.createWalletIfMissing(playerUser);
-                walletService.adjustPlayerWallet(playerUser.getId(), new BingoUserPrincipal(adminUser),
-                                new com.equar.bingo.backend.feature.wallet.dto.WalletAdjustmentRequest(
-                                                new BigDecimal("1000.00"), "ETB",
-                                                "seed"),
-                                "seed-player");
+                var adjustment = walletAdjustmentService.submit(playerUser.getId(),
+                                new BingoUserPrincipal(financeMaker),
+                                new WalletAdjustmentSubmissionRequest(new BigDecimal("1000.00"), "ETB",
+                                                "Approved integration fixture funding", "LIVE-DRAW-PLAYER"));
+                walletAdjustmentService.approve(adjustment.id(), new BingoUserPrincipal(financeChecker),
+                                new WalletAdjustmentReviewRequest("Independent integration fixture approval"));
         }
 
         @Test

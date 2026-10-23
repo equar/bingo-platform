@@ -9,6 +9,7 @@ import {
   setFloatBankAccountActive,
   recordSyntheticFloatBankStatement,
   verifyFloatTopUp,
+  setFloatBankAccountPlayerDepositsEnabled,
   floatTopUpVerificationHistory,
   postVerifiedFloatTopUp,
   dailyFloatReconciliation,
@@ -26,6 +27,11 @@ import {
   reviewFloatTopUpRequest,
   sessionDraws,
   settlePrizeEntitlement,
+  verifyDeposit,
+  submitWalletAdjustmentRequest,
+  walletAdjustmentHistory,
+  pendingWalletAdjustmentRequests,
+  reviewWalletAdjustmentRequest,
   submitWalletTransfer,
   winClaims,
 } from "./admin";
@@ -72,6 +78,45 @@ describe("admin API client", () => {
     expect(httpMock.post).toHaveBeenNthCalledWith(2, "/api/v1/admin/deposits/42/reject", {
       reviewNote: "Unverified",
     }, { headers: undefined });
+  });
+
+  it("uses independent bank evidence and maker-checker wallet adjustment routes", async () => {
+    await verifyDeposit(41, 81);
+    await submitWalletAdjustmentRequest(6, {
+      amount: -12.5,
+      currency: "ETB",
+      reason: "Correction",
+      supportingReference: "CASE-18",
+    });
+    await walletAdjustmentHistory(6);
+    await pendingWalletAdjustmentRequests();
+    await reviewWalletAdjustmentRequest(71, "approve", "Checked");
+
+    expect(httpMock.post).toHaveBeenNthCalledWith(
+      1,
+      "/api/v1/admin/deposits/41/verify",
+      { statementEntryId: 81 },
+    );
+    expect(httpMock.post).toHaveBeenNthCalledWith(
+      2,
+      "/api/v1/admin/players/6/wallet-adjustments/requests",
+      {
+        amount: -12.5,
+        currency: "ETB",
+        reason: "Correction",
+        supportingReference: "CASE-18",
+      },
+    );
+    expect(httpMock.get).toHaveBeenNthCalledWith(
+      1,
+      "/api/v1/admin/players/6/wallet-adjustments/requests",
+    );
+    expect(httpMock.get).toHaveBeenNthCalledWith(2, "/api/v1/admin/wallet-adjustment-requests");
+    expect(httpMock.post).toHaveBeenNthCalledWith(
+      3,
+      "/api/v1/admin/wallet-adjustment-requests/71/approve",
+      { reviewNote: "Checked" },
+    );
   });
 
   it("reviews win claims and lists prize entitlements", async () => {
@@ -180,6 +225,7 @@ describe("admin API client", () => {
     await adminFloatBankAccounts();
     await createFloatBankAccount(account);
     await setFloatBankAccountActive(5, false);
+    await setFloatBankAccountPlayerDepositsEnabled(5, true);
     await recordSyntheticFloatBankStatement(statement);
     await verifyFloatTopUp(17, { statementEntryId: 9 });
     await floatTopUpVerificationHistory(17);
@@ -189,6 +235,11 @@ describe("admin API client", () => {
     expect(httpMock.get).toHaveBeenNthCalledWith(1, "/api/v1/admin/float-bank-accounts");
     expect(httpMock.post).toHaveBeenNthCalledWith(1, "/api/v1/admin/float-bank-accounts", account);
     expect(httpMock.put).toHaveBeenCalledWith("/api/v1/admin/float-bank-accounts/5/active", null, { params: { active: false } });
+    expect(httpMock.put).toHaveBeenCalledWith(
+      "/api/v1/admin/float-bank-accounts/5/player-deposit-eligibility",
+      null,
+      { params: { enabled: true } },
+    );
     expect(httpMock.post).toHaveBeenNthCalledWith(2, "/api/v1/admin/float-bank-statements/synthetic", statement);
     expect(httpMock.post).toHaveBeenNthCalledWith(3, "/api/v1/admin/agents/float-top-up-requests/17/verify", { statementEntryId: 9 });
     expect(httpMock.get).toHaveBeenNthCalledWith(2, "/api/v1/admin/agents/float-top-up-requests/17/verifications");

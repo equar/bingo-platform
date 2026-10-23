@@ -8,7 +8,7 @@ import {
   adminFloatBankAccounts, adminFloatTopUpRequests, createFloatBankAccount,
   dailyFloatReconciliation, floatTopUpVerificationHistory, postVerifiedFloatTopUp,
   recordSyntheticFloatBankStatement, reviewFloatTopUpRequest, setFloatBankAccountActive,
-  verifyFloatTopUp,
+  setFloatBankAccountPlayerDepositsEnabled, verifyFloatTopUp,
 } from "../../api/admin";
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -61,6 +61,11 @@ export function FloatFundingPanel() {
     onSuccess: async () => { setAccountName(""); setAccountNumber(""); setAccountHolder(""); await invalidate(); },
   });
   const toggleAccount = useMutation({ mutationFn: ({ id, active }: { id: number; active: boolean }) => setFloatBankAccountActive(id, active), onSuccess: invalidate });
+  const togglePlayerDeposits = useMutation({
+    mutationFn: ({ id, enabled }: { id: number; enabled: boolean }) =>
+      setFloatBankAccountPlayerDepositsEnabled(id, enabled),
+    onSuccess: invalidate,
+  });
   const recordStatement = useMutation({
     mutationFn: () => recordSyntheticFloatBankStatement({
       receivingBankAccountId: Number(statementAccountId), transactionReference: statementReference.trim(),
@@ -83,7 +88,7 @@ export function FloatFundingPanel() {
     onSuccess: async () => { await invalidate(); setStatus("REJECTED"); },
   });
   const reconciliation = useMutation({ mutationFn: () => dailyFloatReconciliation(reconciliationDate) });
-  const error = [createAccount, toggleAccount, recordStatement, verify, addException, post, reject, reconciliation]
+  const error = [createAccount, toggleAccount, togglePlayerDeposits, recordStatement, verify, addException, post, reject, reconciliation]
     .find((mutation) => mutation.isError);
 
   return (
@@ -105,9 +110,9 @@ export function FloatFundingPanel() {
                 <Grid item xs={12} sm={4}><TextField label="Account holder" value={accountHolder} onChange={(e) => setAccountHolder(e.target.value)} fullWidth /></Grid>
               </Grid>
               <Button variant="outlined" onClick={() => createAccount.mutate()} disabled={createAccount.isPending || !accountName.trim() || accountNumber.trim().length < 4 || !accountHolder.trim()}>Add receiving account</Button>
-              <Table size="small" aria-label="receiving bank accounts"><TableHead><TableRow><TableCell>Bank</TableCell><TableCell>Account</TableCell><TableCell>Holder</TableCell><TableCell>State</TableCell><TableCell /></TableRow></TableHead>
-                <TableBody>{accountChoices.map((account) => <TableRow key={account.id}><TableCell>{account.bankName}</TableCell><TableCell>{account.maskedAccountNumber}</TableCell><TableCell>{account.accountHolderName}</TableCell><TableCell>{account.active ? "Active" : "Inactive"}</TableCell><TableCell><Button size="small" onClick={() => toggleAccount.mutate({ id: account.id, active: !account.active })}>{account.active ? "Deactivate" : "Activate"}</Button></TableCell></TableRow>)}
-                  {accountChoices.length === 0 ? <TableRow><TableCell colSpan={5}>No receiving accounts configured.</TableCell></TableRow> : null}</TableBody>
+              <Table size="small" aria-label="receiving bank accounts"><TableHead><TableRow><TableCell>Bank</TableCell><TableCell>Account</TableCell><TableCell>Holder</TableCell><TableCell>State</TableCell><TableCell>Player deposits</TableCell><TableCell /></TableRow></TableHead>
+                <TableBody>{accountChoices.map((account) => <TableRow key={account.id}><TableCell>{account.bankName}</TableCell><TableCell>{account.maskedAccountNumber}</TableCell><TableCell>{account.accountHolderName}</TableCell><TableCell>{account.active ? "Active" : "Inactive"}</TableCell><TableCell>{account.playerDepositsEnabled ? "Enabled" : "Disabled"}<Button size="small" disabled={!account.active && !account.playerDepositsEnabled} onClick={() => togglePlayerDeposits.mutate({ id: account.id, enabled: !account.playerDepositsEnabled })}>{account.playerDepositsEnabled ? "Disable" : "Enable"}</Button></TableCell><TableCell><Button size="small" onClick={() => toggleAccount.mutate({ id: account.id, active: !account.active })}>{account.active ? "Deactivate" : "Activate"}</Button></TableCell></TableRow>)}
+                  {accountChoices.length === 0 ? <TableRow><TableCell colSpan={6}>No receiving accounts configured.</TableCell></TableRow> : null}</TableBody>
               </Table>
             </Stack>
           </CardContent></Card>
@@ -188,4 +193,3 @@ export function FloatFundingPanel() {
     </Stack>
   );
 }
-
