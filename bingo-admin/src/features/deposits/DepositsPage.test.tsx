@@ -4,18 +4,51 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { approveDeposit, deposits, rejectDeposit } from "../../api/admin";
+import { approveDeposit, deposits, rejectDeposit, verifyDeposit } from "../../api/admin";
 import { DepositsPage } from "./DepositsPage";
 
 vi.mock("../../api/admin", () => ({
   approveDeposit: vi.fn(),
   deposits: vi.fn(),
   rejectDeposit: vi.fn(),
+  verifyDeposit: vi.fn(),
 }));
 
 const approveDepositMock = vi.mocked(approveDeposit);
 const depositsMock = vi.mocked(deposits);
 const rejectDepositMock = vi.mocked(rejectDeposit);
+const verifyDepositMock = vi.mocked(verifyDeposit);
+
+function depositResponse(status = "PENDING") {
+  return {
+    content: [
+      {
+        id: 32,
+        operationId: "deposit-operation-32",
+        playerId: 14,
+        submittedCashAmount: "100.00",
+        currency: "ETB",
+        conversionRateSnapshot: "1.000000",
+        calculatedCreditAmount: "100.00",
+        normalizedTelebirrReference: "TXN-8842",
+        status,
+        submittedAt: "2026-10-20T15:07:22Z",
+        reviewedBy: null,
+        reviewedAt: null,
+        reviewNote: null,
+        verifiedBy: status === "VERIFIED" ? 4 : null,
+        verifiedAt: status === "VERIFIED" ? "2026-10-20T15:08:22Z" : null,
+        paymentInstructions: null,
+      },
+    ],
+    page: 0,
+    size: 20,
+    totalElements: 42,
+    totalPages: 3,
+    first: true,
+    last: false,
+  };
+}
 
 function createWrapper({ children }: PropsWithChildren) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -33,40 +66,17 @@ describe("DepositsPage", () => {
     depositsMock.mockReset();
     approveDepositMock.mockReset().mockResolvedValue({} as Awaited<ReturnType<typeof approveDeposit>>);
     rejectDepositMock.mockReset().mockResolvedValue({} as Awaited<ReturnType<typeof rejectDeposit>>);
-    depositsMock.mockResolvedValue({
-      content: [
-        {
-          id: 32,
-          operationId: "deposit-operation-32",
-          playerId: 14,
-          submittedCashAmount: "100.00",
-          currency: "ETB",
-          conversionRateSnapshot: "1.000000",
-          calculatedCreditAmount: "100.00",
-          normalizedTelebirrReference: "TXN-8842",
-          status: "PENDING",
-          submittedAt: "2026-10-20T15:07:22Z",
-          reviewedBy: null,
-          reviewedAt: null,
-          reviewNote: null,
-          paymentInstructions: null,
-        },
-      ],
-      page: 0,
-      size: 20,
-      totalElements: 42,
-      totalPages: 3,
-      first: true,
-      last: false,
-    });
+    verifyDepositMock.mockReset().mockResolvedValue({} as Awaited<ReturnType<typeof verifyDeposit>>);
+    depositsMock.mockResolvedValue(depositResponse());
   });
 
-  it("loads deposits into the table and retains pending review actions", async () => {
+  it("loads deposits and prevents approving a claim before independent verification", async () => {
     render(<DepositsPage />, { wrapper: createWrapper });
 
     expect(await screen.findByTestId("deposit-row-32")).toBeInTheDocument();
     expect(screen.getByText("TXN-8842")).toBeInTheDocument();
-    expect(screen.getByTestId("deposit-approve-32")).toBeEnabled();
+    expect(screen.getByTestId("deposit-verify-32")).toBeEnabled();
+    expect(screen.getByTestId("deposit-approve-32")).toBeDisabled();
     expect(screen.getByTestId("deposit-reject-32")).toBeEnabled();
     expect(depositsMock).toHaveBeenCalledWith(0, 20, undefined, undefined);
   });
@@ -97,10 +107,17 @@ describe("DepositsPage", () => {
     await waitFor(() => expect(depositsMock).toHaveBeenLastCalledWith(1, 20, undefined, undefined));
   });
 
-  it("approves and rejects pending deposits with a review reason", async () => {
+  it("verifies bank evidence before enabling approval", async () => {
     const user = userEvent.setup();
+    depositsMock.mockResolvedValueOnce(depositResponse()).mockResolvedValue(depositResponse("VERIFIED"));
     render(<DepositsPage />, { wrapper: createWrapper });
     await screen.findByTestId("deposit-row-32");
+
+    await user.click(screen.getByTestId("deposit-verify-32"));
+    await user.type(screen.getByRole("spinbutton", { name: "Bank statement entry ID" }), "81");
+    await user.click(screen.getByRole("button", { name: "Verify payment" }));
+    await waitFor(() => expect(verifyDepositMock).toHaveBeenCalledWith(32, 81));
+    await waitFor(() => expect(screen.getByTestId("deposit-approve-32")).toBeEnabled());
 
     await user.click(screen.getByTestId("deposit-approve-32"));
     await user.type(screen.getByRole("textbox", { name: "Review note" }), "Payment verified");
@@ -112,7 +129,13 @@ describe("DepositsPage", () => {
       }),
     );
 
+  });
+
+  it("allows rejection of pending deposits with a reason", async () => {
+    const user = userEvent.setup();
+    render(<DepositsPage />, { wrapper: createWrapper });
     await screen.findByTestId("deposit-row-32");
+
     await user.click(screen.getByTestId("deposit-reject-32"));
     await user.type(screen.getByRole("textbox", { name: "Rejection reason" }), "Reference not found");
     await user.click(screen.getByRole("button", { name: "Confirm" }));
@@ -127,6 +150,7 @@ describe("DepositsPage", () => {
   it("prevents duplicate review requests while the deposit action is pending", async () => {
     const user = userEvent.setup();
     approveDepositMock.mockReturnValue(new Promise(() => {}));
+    depositsMock.mockResolvedValue(depositResponse("VERIFIED"));
     render(<DepositsPage />, { wrapper: createWrapper });
     await screen.findByTestId("deposit-row-32");
 
@@ -143,6 +167,7 @@ describe("DepositsPage", () => {
   it("shows a deposit review API failure", async () => {
     const user = userEvent.setup();
     approveDepositMock.mockRejectedValue(new Error("Permission denied"));
+    depositsMock.mockResolvedValue(depositResponse("VERIFIED"));
     render(<DepositsPage />, { wrapper: createWrapper });
     await screen.findByTestId("deposit-row-32");
 

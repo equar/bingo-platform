@@ -4,11 +4,20 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { adjustWallet, playerDeposits, playerDetail, updatePlayerStatus } from "../../api/admin";
+import {
+  playerDeposits,
+  playerDetail,
+  reviewWalletAdjustmentRequest,
+  submitWalletAdjustmentRequest,
+  updatePlayerStatus,
+  walletAdjustmentHistory,
+} from "../../api/admin";
 import { PlayerDetailPage } from "./PlayerDetailPage";
 
 vi.mock("../../api/admin", () => ({
-  adjustWallet: vi.fn(),
+  submitWalletAdjustmentRequest: vi.fn(),
+  reviewWalletAdjustmentRequest: vi.fn(),
+  walletAdjustmentHistory: vi.fn(),
   updatePlayerStatus: vi.fn(),
   playerDeposits: vi.fn(),
   playerDetail: vi.fn(),
@@ -18,7 +27,9 @@ vi.mock("../../api/admin", () => ({
   playerWinClaims: vi.fn(),
 }));
 
-const adjustWalletMock = vi.mocked(adjustWallet);
+const submitWalletAdjustmentRequestMock = vi.mocked(submitWalletAdjustmentRequest);
+const reviewWalletAdjustmentRequestMock = vi.mocked(reviewWalletAdjustmentRequest);
+const walletAdjustmentHistoryMock = vi.mocked(walletAdjustmentHistory);
 const playerDepositsMock = vi.mocked(playerDeposits);
 const playerDetailMock = vi.mocked(playerDetail);
 const updatePlayerStatusMock = vi.mocked(updatePlayerStatus);
@@ -61,19 +72,31 @@ describe("PlayerDetailPage", () => {
 
   beforeEach(() => {
     playerDetailMock.mockReset();
-    adjustWalletMock.mockReset();
+    submitWalletAdjustmentRequestMock.mockReset();
+    reviewWalletAdjustmentRequestMock.mockReset();
+    walletAdjustmentHistoryMock.mockReset().mockResolvedValue([]);
     updatePlayerStatusMock.mockReset();
     playerDepositsMock.mockReset();
     playerDetailMock.mockResolvedValue(player);
-    adjustWalletMock.mockResolvedValue({
-      operationId: "adjustment-op-1",
-      walletId: 16,
+    submitWalletAdjustmentRequestMock.mockResolvedValue({
+      id: 71,
       playerId: 6,
+      makerUserId: 4,
       amount: "-12.50",
-      balanceBefore: "125.00",
-      balanceAfter: "112.50",
-      reason: "Support correction (Reference: CASE-18)",
-      createdAt: "2026-10-20T00:00:00Z",
+      currency: "ETB",
+      reason: "Support correction",
+      supportingReference: "CASE-18",
+      status: "PENDING",
+      operationId: "adjustment-op-1",
+      checkerUserId: null,
+      reviewNote: null,
+      submittedAt: "2026-10-20T00:00:00Z",
+      reviewedAt: null,
+      journalId: null,
+      postingReference: null,
+      balanceBefore: null,
+      balanceAfter: null,
+      simulated: false,
     });
     updatePlayerStatusMock.mockResolvedValue({
       playerId: 6,
@@ -137,6 +160,8 @@ describe("PlayerDetailPage", () => {
           reviewedBy: 1,
           reviewedAt: "2026-10-01T11:00:00Z",
           reviewNote: "Verified",
+          verifiedBy: 3,
+          verifiedAt: "2026-10-01T10:30:00Z",
           paymentInstructions: null,
         },
       ],
@@ -156,7 +181,7 @@ describe("PlayerDetailPage", () => {
     expect(playerDepositsMock).toHaveBeenCalledWith(6, 0, 10);
   });
 
-  it("submits a debit as a negative amount and includes the reference in the audit reason", async () => {
+  it("submits a debit request with a required supporting reference", async () => {
     const user = userEvent.setup();
     render(<PlayerDetailPage />, { wrapper: createWrapper });
 
@@ -168,41 +193,83 @@ describe("PlayerDetailPage", () => {
     await user.type(screen.getByRole("textbox", { name: "Reason" }), "Support correction");
     await user.type(screen.getByRole("textbox", { name: "Reference" }), "CASE-18");
     await user.click(screen.getByRole("button", { name: "Review" }));
-    await user.click(await screen.findByRole("button", { name: "Confirm adjustment" }));
+    await user.click(await screen.findByRole("button", { name: "Submit request" }));
 
     await waitFor(() =>
-      expect(adjustWalletMock).toHaveBeenCalledWith(6, {
+      expect(submitWalletAdjustmentRequestMock).toHaveBeenCalledWith(6, {
         amount: -12.5,
         currency: "ETB",
-        reason: "Support correction (Reference: CASE-18)",
-        idempotencyKey: expect.any(String),
+        reason: "Support correction",
+        supportingReference: "CASE-18",
       }),
     );
+    expect(await screen.findByText(/wallet balance has not changed/i)).toBeInTheDocument();
   });
 
-  it("submits a wallet credit as a positive amount", async () => {
+  it("submits a wallet credit request as a positive amount", async () => {
     const user = userEvent.setup();
     render(<PlayerDetailPage />, { wrapper: createWrapper });
     await screen.findByText("Player Six");
     await user.click(screen.getByRole("button", { name: "Adjust wallet" }));
     await user.type(screen.getByRole("spinbutton", { name: "Amount" }), "25.75");
     await user.type(screen.getByRole("textbox", { name: "Reason" }), "Approved correction");
+    await user.type(screen.getByRole("textbox", { name: "Reference" }), "CASE-25");
     await user.click(screen.getByRole("button", { name: "Review" }));
-    await user.click(await screen.findByRole("button", { name: "Confirm adjustment" }));
+    await user.click(await screen.findByRole("button", { name: "Submit request" }));
 
     await waitFor(() =>
-      expect(adjustWalletMock).toHaveBeenCalledWith(6, {
+      expect(submitWalletAdjustmentRequestMock).toHaveBeenCalledWith(6, {
         amount: 25.75,
         currency: "ETB",
         reason: "Approved correction",
-        idempotencyKey: expect.any(String),
+        supportingReference: "CASE-25",
       }),
+    );
+  });
+
+  it("allows a checker to review a pending adjustment request", async () => {
+    const user = userEvent.setup();
+    walletAdjustmentHistoryMock.mockResolvedValue([
+      {
+        id: 71,
+        playerId: 6,
+        makerUserId: 4,
+        amount: "25.00",
+        currency: "ETB",
+        reason: "Correction",
+        supportingReference: "CASE-71",
+        status: "PENDING",
+        operationId: "adjustment-op-71",
+        checkerUserId: null,
+        reviewNote: null,
+        submittedAt: "2026-10-20T00:00:00Z",
+        reviewedAt: null,
+        journalId: null,
+        postingReference: null,
+        balanceBefore: null,
+        balanceAfter: null,
+        simulated: false,
+      },
+    ]);
+    reviewWalletAdjustmentRequestMock.mockResolvedValue({} as Awaited<
+      ReturnType<typeof reviewWalletAdjustmentRequest>
+    >);
+    render(<PlayerDetailPage />, { wrapper: createWrapper });
+
+    expect(await screen.findByText("Reason: Correction")).toBeInTheDocument();
+    expect(screen.getByText("Supporting reference: CASE-71")).toBeInTheDocument();
+    await user.click(await screen.findByRole("button", { name: "Approve request" }));
+    await user.type(screen.getByRole("textbox", { name: "Checker review note" }), "Evidence reviewed");
+    await user.click(screen.getByRole("button", { name: "Approve" }));
+
+    await waitFor(() =>
+      expect(reviewWalletAdjustmentRequestMock).toHaveBeenCalledWith(71, "approve", "Evidence reviewed"),
     );
   });
 
   it("rejects zero-value adjustments and reports an API permission error", async () => {
     const user = userEvent.setup();
-    adjustWalletMock.mockRejectedValue(new Error("Permission denied"));
+    submitWalletAdjustmentRequestMock.mockRejectedValue(new Error("Permission denied"));
     render(<PlayerDetailPage />, { wrapper: createWrapper });
     await screen.findByText("Player Six");
     await user.click(screen.getByRole("button", { name: "Adjust wallet" }));
@@ -212,27 +279,29 @@ describe("PlayerDetailPage", () => {
 
     await user.clear(screen.getByRole("spinbutton", { name: "Amount" }));
     await user.type(screen.getByRole("spinbutton", { name: "Amount" }), "4");
+    await user.type(screen.getByRole("textbox", { name: "Reference" }), "CASE-4");
     await user.click(screen.getByRole("button", { name: "Review" }));
-    await user.click(await screen.findByRole("button", { name: "Confirm adjustment" }));
+    await user.click(await screen.findByRole("button", { name: "Submit request" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Permission denied");
   });
 
   it("prevents duplicate wallet adjustments while the confirmation is pending", async () => {
     const user = userEvent.setup();
-    adjustWalletMock.mockReturnValue(new Promise(() => {}));
+    submitWalletAdjustmentRequestMock.mockReturnValue(new Promise(() => {}));
     render(<PlayerDetailPage />, { wrapper: createWrapper });
     await screen.findByText("Player Six");
     await user.click(screen.getByRole("button", { name: "Adjust wallet" }));
     await user.type(screen.getByRole("spinbutton", { name: "Amount" }), "5");
     await user.type(screen.getByRole("textbox", { name: "Reason" }), "Pending adjustment");
+    await user.type(screen.getByRole("textbox", { name: "Reference" }), "CASE-5");
     await user.click(screen.getByRole("button", { name: "Review" }));
 
-    const confirm = await screen.findByRole("button", { name: "Confirm adjustment" });
+    const confirm = await screen.findByRole("button", { name: "Submit request" });
     await user.click(confirm);
     await waitFor(() => expect(confirm).toBeDisabled());
     fireEvent.click(confirm);
 
-    expect(adjustWalletMock).toHaveBeenCalledTimes(1);
+    expect(submitWalletAdjustmentRequestMock).toHaveBeenCalledTimes(1);
   });
 });

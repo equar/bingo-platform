@@ -61,6 +61,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest(properties = {
+                "CORS_ALLOWED_ORIGINS=http://localhost:5174",
                 "app.security.authentication.account-attempt-limit=3",
                 "app.security.authentication.network-attempt-limit=100",
                 "app.security.authentication.window=PT5S",
@@ -573,6 +574,21 @@ class AuthSecurityIntegrationTest extends MySqlIntegrationTest {
                                 .andExpect(jsonPath("$.content", hasSize(1)))
                                 .andExpect(jsonPath("$.page").value(0))
                                 .andExpect(jsonPath("$.size").value(20));
+        }
+
+        @Test
+        void corsPreflightAllowsIdempotencyKeyForAdminFinancialOperations() throws Exception {
+                mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options(
+                                "/api/v1/admin/players/20/wallet-adjustments")
+                                .header("Origin", "http://localhost:5174")
+                                .header("Access-Control-Request-Method", "POST")
+                                .header("Access-Control-Request-Headers", "authorization,content-type,idempotency-key"))
+                                .andExpect(status().isOk())
+                                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
+                                                .string("Access-Control-Allow-Origin", "http://localhost:5174"))
+                                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
+                                                .string("Access-Control-Allow-Headers",
+                                                org.hamcrest.Matchers.containsStringIgnoringCase("idempotency-key")));
         }
 
         @Test

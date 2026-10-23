@@ -44,7 +44,10 @@ import com.equar.bingo.backend.feature.support.repository.SupportTicketRepositor
 import com.equar.bingo.backend.feature.wallet.repository.IdempotencyRecordRepository;
 import com.equar.bingo.backend.feature.wallet.repository.WalletRepository;
 import com.equar.bingo.backend.feature.wallet.repository.WalletTransactionRepository;
+import com.equar.bingo.backend.feature.wallet.service.WalletAdjustmentService;
 import com.equar.bingo.backend.feature.wallet.service.WalletService;
+import com.equar.bingo.backend.feature.wallet.dto.WalletAdjustmentReviewRequest;
+import com.equar.bingo.backend.feature.wallet.dto.WalletAdjustmentSubmissionRequest;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -139,6 +142,9 @@ class BingoGameIntegrationTest extends MySqlIntegrationTest {
         WalletService walletService;
 
         @Autowired
+        WalletAdjustmentService walletAdjustmentService;
+
+        @Autowired
         SupportTicketRepository supportTicketRepository;
 
         @Autowired
@@ -153,6 +159,8 @@ class BingoGameIntegrationTest extends MySqlIntegrationTest {
         private User adminUser;
         private User playerOne;
         private User playerTwo;
+        private User financeMaker;
+        private User financeChecker;
 
         @BeforeEach
         void setUp() {
@@ -170,6 +178,9 @@ class BingoGameIntegrationTest extends MySqlIntegrationTest {
                 agentFloatTransactionRepository.deleteAll();
                 agentFloatRepository.deleteAll();
                 agentRepository.deleteAll();
+                jdbcTemplate.update("delete from wallet_adjustment_accounting_journal_lines");
+                jdbcTemplate.update("delete from wallet_adjustment_accounting_journals");
+                jdbcTemplate.update("delete from wallet_adjustment_requests");
                 walletTransactionRepository.deleteAll();
                 jdbcTemplate.update("delete from signup_reward_grants");
                 jdbcTemplate.update("delete from wallet_transfers");
@@ -207,19 +218,31 @@ class BingoGameIntegrationTest extends MySqlIntegrationTest {
                                 AccountStatus.ACTIVE,
                                 Set.of(UserRole.PLAYER),
                                 now));
+                financeMaker = financeUser("0911000204", UserRole.FINANCE_VERIFIER, now);
+                financeChecker = financeUser("0911000205", UserRole.FINANCE_APPROVER, now);
 
                 walletService.createWalletIfMissing(playerOne);
                 walletService.createWalletIfMissing(playerTwo);
-                walletService.adjustPlayerWallet(playerOne.getId(), new BingoUserPrincipal(adminUser),
-                                new com.equar.bingo.backend.feature.wallet.dto.WalletAdjustmentRequest(
-                                                new BigDecimal("1000.00"), "ETB",
-                                                "seed"),
-                                "seed-player-one");
-                walletService.adjustPlayerWallet(playerTwo.getId(), new BingoUserPrincipal(adminUser),
-                                new com.equar.bingo.backend.feature.wallet.dto.WalletAdjustmentRequest(
-                                                new BigDecimal("1000.00"), "ETB",
-                                                "seed"),
-                                "seed-player-two");
+                fundWallet(playerOne, "GAME-PLAYER-ONE");
+                fundWallet(playerTwo, "GAME-PLAYER-TWO");
+        }
+
+        private User financeUser(String phone, UserRole role, Instant now) {
+                return userRepository.save(User.create(
+                                phoneNormalizer.normalize(phone),
+                                "Finance " + role.name(),
+                                passwordEncoder.encode("123456"),
+                                AccountStatus.ACTIVE,
+                                Set.of(UserRole.ADMIN, role),
+                                now));
+        }
+
+        private void fundWallet(User player, String reference) {
+                var request = walletAdjustmentService.submit(player.getId(), new BingoUserPrincipal(financeMaker),
+                                new WalletAdjustmentSubmissionRequest(new BigDecimal("1000.00"), "ETB",
+                                                "Approved integration fixture funding", reference));
+                walletAdjustmentService.approve(request.id(), new BingoUserPrincipal(financeChecker),
+                                new WalletAdjustmentReviewRequest("Independent integration fixture approval"));
         }
 
         @Test

@@ -41,7 +41,7 @@ class A00FlywayUpgradeRecoveryIntegrationTest extends MySqlIntegrationTest {
         assertEquals("6", throughV6.info().current().getVersion().getVersion());
 
         current.migrate();
-        assertEquals("18", current.info().current().getVersion().getVersion());
+        assertEquals("20", current.info().current().getVersion().getVersion());
         assertDoesNotThrow(current::validate);
 
         JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSource);

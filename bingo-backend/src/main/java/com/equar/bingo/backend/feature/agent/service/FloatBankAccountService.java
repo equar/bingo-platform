@@ -28,7 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class FloatBankAccountService {
-    private static final String SELECT_COLUMNS = "id, bank_name, masked_account_number, account_holder_name, currency, active, created_at, updated_at";
+    private static final String SELECT_COLUMNS = "id, bank_name, masked_account_number, account_holder_name, currency, active, player_deposits_enabled, created_at, updated_at";
     private final JdbcTemplate jdbc;
     private final byte[] encryptionKey;
     private final SecureRandom secureRandom = new SecureRandom();
@@ -77,6 +77,23 @@ public class FloatBankAccountService {
         int updated = jdbc.update("update float_receiving_bank_accounts set active=?, updated_by_user_id=?, updated_at=? where id=?",
                 active, principal.getUser().getId(), Timestamp.from(Instant.now()), id);
         if (updated != 1) throw new NotFoundException("FLOAT_BANK_ACCOUNT_NOT_FOUND", "Receiving account not found");
+        return find(id);
+    }
+
+    @Transactional
+    public FloatBankAccountResponse updatePlayerDepositEligibility(BingoUserPrincipal principal, Long id,
+            boolean enabled) {
+        requireRole(principal.getUser(), UserRole.ADMIN);
+        FloatBankAccountResponse account = find(id);
+        if (enabled && !account.active()) {
+            throw new ConflictException("FLOAT_BANK_ACCOUNT_INACTIVE",
+                    "An inactive receiving account cannot accept player deposits");
+        }
+        jdbc.update("""
+                update float_receiving_bank_accounts
+                set player_deposits_enabled=?, updated_by_user_id=?, updated_at=?
+                where id=?
+                """, enabled, principal.getUser().getId(), Timestamp.from(Instant.now()), id);
         return find(id);
     }
 
@@ -129,7 +146,8 @@ public class FloatBankAccountService {
     private FloatBankAccountResponse map(ResultSet rs, int row) throws SQLException {
         return new FloatBankAccountResponse(rs.getLong("id"), rs.getString("bank_name"),
                 rs.getString("masked_account_number"), rs.getString("account_holder_name"),
-                rs.getString("currency"), rs.getBoolean("active"), instant(rs, "created_at"), instant(rs, "updated_at"));
+                rs.getString("currency"), rs.getBoolean("active"), rs.getBoolean("player_deposits_enabled"),
+                instant(rs, "created_at"), instant(rs, "updated_at"));
     }
 
     private Instant instant(ResultSet rs, String column) throws SQLException {

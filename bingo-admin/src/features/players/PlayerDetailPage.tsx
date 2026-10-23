@@ -20,10 +20,15 @@ import {
 } from "@mui/material";
 import { useParams } from "react-router-dom";
 import { Link as RouterLink } from "react-router-dom";
-import { adjustWallet, playerDetail, updatePlayerStatus } from "../../api/admin";
+import {
+  playerDetail,
+  reviewWalletAdjustmentRequest,
+  submitWalletAdjustmentRequest,
+  updatePlayerStatus,
+  walletAdjustmentHistory,
+} from "../../api/admin";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { StatusState } from "../../components/StatusState";
-import { useIdempotencyKey } from "../common/useIdempotencyKey";
 import { PlayerActivityDialog, type PlayerActivityType } from "./PlayerActivityDialog";
 
 interface AdjustmentDraft {
@@ -89,28 +94,46 @@ export function PlayerDetailPage() {
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [nextStatus, setNextStatus] = useState("");
   const [statusReason, setStatusReason] = useState("");
-  const idempotency = useIdempotencyKey();
+  const [reviewRequestId, setReviewRequestId] = useState<number | null>(null);
+  const [reviewDecision, setReviewDecision] = useState<"approve" | "reject">("approve");
+  const [reviewNote, setReviewNote] = useState("");
 
   const playerQuery = useQuery({
     queryKey: ["player", id],
     queryFn: () => playerDetail(id),
     enabled: validPlayerId,
   });
+  const adjustmentHistoryQuery = useQuery({
+    queryKey: ["wallet-adjustment-history", id],
+    queryFn: () => walletAdjustmentHistory(id),
+    enabled: validPlayerId,
+  });
   const adjustmentMutation = useMutation({
     mutationFn: async (body: AdjustmentDraft) =>
-      adjustWallet(id, {
+      submitWalletAdjustmentRequest(id, {
         amount: Math.abs(Number(body.amount)) * (body.direction === "DEBIT" ? -1 : 1),
         currency: player?.walletCurrency ?? body.currency,
-        reason: adjustmentReason(body),
-        idempotencyKey: idempotency.getKey(),
+        reason: body.reason.trim(),
+        supportingReference: body.reference.trim(),
       }),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["player", id] });
-      await queryClient.invalidateQueries({ queryKey: ["players"] });
-      await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-      idempotency.resetKey();
+      await queryClient.invalidateQueries({ queryKey: ["wallet-adjustment-history", id] });
       setDraft(null);
       setConfirmOpen(false);
+    },
+  });
+  const adjustmentReviewMutation = useMutation({
+    mutationFn: async () => {
+      if (reviewRequestId == null) {
+        throw new Error("Missing wallet adjustment request");
+      }
+      return reviewWalletAdjustmentRequest(reviewRequestId, reviewDecision, reviewNote.trim());
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["wallet-adjustment-history", id] });
+      await queryClient.invalidateQueries({ queryKey: ["player", id] });
+      setReviewRequestId(null);
+      setReviewNote("");
     },
   });
   const statusMutation = useMutation({
@@ -204,8 +227,7 @@ export function PlayerDetailPage() {
             variant="contained"
             onClick={() => {
               adjustmentMutation.reset();
-              idempotency.resetKey();
-              setDraft({ ...emptyDraft, currency: player.walletCurrency ?? "ETB" });
+                setDraft({ ...emptyDraft, currency: player.walletCurrency ?? "ETB" });
             }}
             disabled={!player.roles.includes("PLAYER")}
           >
@@ -223,6 +245,11 @@ export function PlayerDetailPage() {
       {adjustmentMutation.isError ? (
         <Alert severity="error" onClose={() => adjustmentMutation.reset()}>
           {(adjustmentMutation.error as Error).message || "Wallet adjustment failed."}
+        </Alert>
+      ) : null}
+      {adjustmentMutation.isSuccess ? (
+        <Alert severity="success">
+          Adjustment request #{adjustmentMutation.data.id} was submitted for independent approval. The wallet balance has not changed.
         </Alert>
       ) : null}
 
@@ -292,6 +319,72 @@ export function PlayerDetailPage() {
           />
         </Grid>
       </Grid>
+
+      <Card sx={{ border: "1px solid", borderColor: "divider" }}>
+        <CardContent>
+          <Stack spacing={1}>
+            <Typography variant="h6">Wallet adjustment requests</Typography>
+            {adjustmentHistoryQuery.isError ? (
+              <Alert severity="error">Unable to load adjustment history: {(adjustmentHistoryQuery.error as Error).message}</Alert>
+            ) : adjustmentHistoryQuery.isLoading ? (
+              <Typography color="text.secondary">Loading adjustment history...</Typography>
+            ) : adjustmentHistoryQuery.data?.length ? (
+              adjustmentHistoryQuery.data.map((request) => (
+                <Box key={request.id} sx={{ borderBottom: "1px solid", borderColor: "divider", py: 1 }}>
+                  <Typography>
+                    #{request.id}: {request.amount} {request.currency} · {request.status}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Maker #{request.makerUserId}
+                    {request.checkerUserId == null ? "" : ` · Checker #${request.checkerUserId}`}
+                    {request.postingReference == null ? "" : ` · Journal ${request.postingReference}`}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Reason: {request.reason}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Supporting reference: {request.supportingReference}
+                  </Typography>
+                  {request.reviewNote ? (
+                    <Typography variant="caption" color="text.secondary">
+                      Checker review note: {request.reviewNote}
+                    </Typography>
+                  ) : null}
+                  {request.status === "PENDING" ? (
+                    <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                      <Button
+                        size="small"
+                        onClick={() => {
+                          adjustmentReviewMutation.reset();
+                          setReviewDecision("approve");
+                          setReviewNote("");
+                          setReviewRequestId(request.id);
+                        }}
+                      >
+                        Approve request
+                      </Button>
+                      <Button
+                        size="small"
+                        color="error"
+                        onClick={() => {
+                          adjustmentReviewMutation.reset();
+                          setReviewDecision("reject");
+                          setReviewNote("");
+                          setReviewRequestId(request.id);
+                        }}
+                      >
+                        Reject request
+                      </Button>
+                    </Stack>
+                  ) : null}
+                </Box>
+              ))
+            ) : (
+              <Typography color="text.secondary">No wallet adjustment requests.</Typography>
+            )}
+          </Stack>
+        </CardContent>
+      </Card>
 
       <Card sx={{ border: "1px solid", borderColor: "divider" }}>
         <CardContent>
@@ -400,7 +493,6 @@ export function PlayerDetailPage() {
         onClose={() => {
           if (!adjustmentMutation.isPending) {
             setDraft(null);
-            idempotency.resetKey();
           }
         }}
         fullWidth
@@ -459,7 +551,8 @@ export function PlayerDetailPage() {
               onChange={(event) => draft && setDraft({ ...draft, reference: event.target.value })}
               inputProps={{ maxLength: 120 }}
               fullWidth
-              helperText="Optional reference included in the audit reason."
+              required
+              helperText="Required supporting reference for checker review."
             />
           </Stack>
         </DialogContent>
@@ -467,7 +560,6 @@ export function PlayerDetailPage() {
           <Button
             onClick={() => {
               setDraft(null);
-              idempotency.resetKey();
             }}
             disabled={adjustmentMutation.isPending}
           >
@@ -478,6 +570,7 @@ export function PlayerDetailPage() {
             onClick={() => setConfirmOpen(true)}
             disabled={
               !draft?.reason.trim() ||
+              !draft?.reference.trim() ||
               !Number.isFinite(Number(draft?.amount)) ||
               Number(draft?.amount) <= 0 ||
               Boolean(draft && adjustmentReason(draft).length > 500) ||
@@ -489,11 +582,50 @@ export function PlayerDetailPage() {
         </DialogActions>
       </Dialog>
 
+      <Dialog
+        open={reviewRequestId != null}
+        onClose={() => !adjustmentReviewMutation.isPending && setReviewRequestId(null)}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle>{reviewDecision === "approve" ? "Approve adjustment request" : "Reject adjustment request"}</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ pt: 1 }}>
+            <Alert severity="warning">
+              The maker cannot review their own request. Approval posts once; rejection leaves the wallet unchanged.
+            </Alert>
+            {adjustmentReviewMutation.isError ? (
+              <Alert severity="error">{(adjustmentReviewMutation.error as Error).message}</Alert>
+            ) : null}
+            <TextField
+              label="Checker review note"
+              value={reviewNote}
+              onChange={(event) => setReviewNote(event.target.value)}
+              inputProps={{ maxLength: 500 }}
+              multiline
+              minRows={2}
+              required
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setReviewRequestId(null)} disabled={adjustmentReviewMutation.isPending}>Cancel</Button>
+          <Button
+            variant="contained"
+            color={reviewDecision === "approve" ? "primary" : "error"}
+            onClick={() => adjustmentReviewMutation.mutate()}
+            disabled={!reviewNote.trim() || adjustmentReviewMutation.isPending}
+          >
+            {reviewDecision === "approve" ? "Approve" : "Reject"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <ConfirmDialog
         open={confirmOpen}
-        title="Confirm wallet adjustment"
-        description={`Apply a ${draft?.direction?.toLowerCase()} of ${draft?.amount} ${player.walletCurrency ?? draft?.currency} to ${player.displayName}? This action is recorded in the wallet audit trail.`}
-        confirmLabel="Confirm adjustment"
+        title="Submit wallet adjustment request"
+        description={`Submit a ${draft?.direction?.toLowerCase()} request of ${draft?.amount} ${player.walletCurrency ?? draft?.currency} for ${player.displayName}? A different finance approver must review it; no balance changes until approved.`}
+        confirmLabel="Submit request"
         cancelLabel="Back"
         confirming={adjustmentMutation.isPending}
         error={adjustmentMutation.isError ? adjustmentMutation.error.message : undefined}

@@ -44,6 +44,68 @@ Agent 3 submitted three retained requests (ETB 12.34, 12.35, 12.36) that were sa
 
 No persistent users, business rows, policies, agent state, balances, journals, or audit history were changed during Module 02C. Read-only verification found 14 users, two approved agent profiles, one pending and one suspended agent profile, two approved and three rejected float requests, four DRAFT sessions, five open support tickets, and no deposit claims, win claims, or prize entitlements. Dashboard aggregates were independently checked against `bingo_qa`. See [the Module 02C database snapshot](evidence/module-02c-database-verify.txt) and browser metrics evidence. Preserve all existing rows and historical statuses.
 
+## Module 02D player, wallet, deposit, and support operations
+
+All Module 02D identities and business records below were created through the supported registration/player UI/API workflows. A few browser iterations ended after performing some persistent actions; those records were kept and are included here. No record was deleted or reset. Player names use the pattern `QA_M02D_PLAYER_00{slot}_{run}`; slots 1, 3, and 4 are `ACTIVE`, slot 2 is `SUSPENDED` except User 30, which remains `ACTIVE` because that iteration stopped before its status scenario. All listed users have role `PLAYER` and a zero-balance wallet except the eight wallet-adjustment users listed below.
+
+| Run suffix | User IDs (slots 1–4) | Retained state |
+| --- | --- | --- |
+| `56064365` | 17–20 | Slot 2 suspended; other slots active; no wallet transactions |
+| `56684959` | 21–24 | Slot 2 suspended; other slots active; no wallet transactions |
+| `56741781` | 25–28 | Slot 2 suspended; slot 4 has one ETB 1.25 adjustment |
+| `56798154` | 29–32 | All active; no wallet transactions (iteration stopped before lifecycle/adjustment steps) |
+| `56849108` | 33–36 | Slot 2 suspended; slot 4 has one ETB 1.25 adjustment |
+| `56915327` | 37–40 | Slot 2 suspended; slot 4 has one ETB 1.25 adjustment |
+| `56968980` | 41–44 | Slot 2 suspended; slot 4 has one ETB 1.25 adjustment |
+| `57059846` | 45–48 | Slot 2 suspended; slot 4 has one ETB 1.25 adjustment |
+| `57767279` | 49–52 | Slot 2 suspended; slot 4 has one ETB 1.25 adjustment |
+| `57876059` | 53–56 | Slot 2 suspended; slot 4 has one ETB 1.25 adjustment |
+| `58145784` | 57–60 | Final passing E2E: slot 2 suspended; slot 4 has one ETB 1.25 adjustment; nonexistent wallet owner returns 404 |
+
+Users 28, 36, 40, 44, 48, 52, 56, and 60 each have exactly one `WALLET_ADJUSTMENT` transaction for ETB 1.25. The E2E replayed each idempotency key without a second credit. No other Module 02D player has a wallet transaction. The original `QA_PLAYER_003` remains PENDING and was not modified.
+
+| Deposit ID | Player ID | Normalized reference | Status | Amount / wallet effect |
+| --- | --- | --- | --- |
+| 1 | 35 | `QAM02D56849108DEP` | PENDING | ETB 2.50; no credit |
+| 2 | 39 | `QAM02D56915327DEP` | PENDING | ETB 2.50; no credit |
+| 3 | 43 | `QAM02D56968980DEP` | REJECTED | ETB 2.50; no credit |
+| 4 | 47 | `QAM02D57059846DEP` | REJECTED | ETB 2.50; no credit |
+| 5 | 51 | `QAM02D57767279DEP` | REJECTED | ETB 2.50; no credit |
+| 6 | 55 | `QAM02D57876059DEP` | REJECTED | ETB 2.50; no credit |
+| 7 | 59 | `QAM02D58145784DEP` | REJECTED | ETB 2.50; no credit |
+
+Five synthetic support-ticket batches are retained, each in category WALLET with HIGH priority. Tickets 6–11 were created by run `56968980`, tickets 12–17 by `57059846`, tickets 18–23 by `57767279`, tickets 24–29 by `57876059`, and tickets 30–35 by `58145784`. Tickets 6, 12, 24, and 30 are CLOSED and assigned to admin user 1; their corresponding runs verified assignment, public reply, internal note, resolution summary, and reload. All other tickets in these batches remain OPEN and unassigned. The five original support tickets (IDs 1–5) remain `WAITING_FOR_CUSTOMER`, assigned to admin user 1.
+
+Read-only verification is retained in [module-02d-database-verify.txt](evidence/module-02d-database-verify.txt); browser/API results are in the `module-02d-*` evidence files. No phone numbers, credentials, PINs, tokens, or secret values are recorded here. Agent profiles 1–4 and Module 02B float requests, transactions, and balanced journals were read-only checked and remain unchanged; Agent 3 still has ETB 51.00 available and ETB 0.00 clearing.
+
+### Current financial-security verification
+
+QA and `bingo_qa_test` are at Flyway V20; the V19 checksum remains `-727947304`, and V20 was applied additively. Full backend integration: 110/110 passed; the updated wallet integration class: 9/9 passed; focused production-simulation guard: 2/2 passed. Frontend: 78/78, lint and build passed. The latest real Chromium run `69021617` passed 1/1 and exercised D01–D20. Persistent financial verification below used SELECT statements only. No SQL writes, resets, or deletions were performed. Failed/interrupted E2E records remain retained.
+
+The latest run created player users #142–145, finance verifier #146, finance approver #147, and deposit players #148–150. Receiving accounts #5–7 are active and marked player-deposit-eligible for local QA simulation. Their statement entries are explicitly marked `SYNTHETIC_QA_BANK_STATEMENT`; no entry represents real settlement. Earlier partial runs left claims #14–15 pending/uncredited and adjustment requests #7–10 pending/unposted; preserve them.
+
+| Deposit ID | Player ID | Reference suffix / run | Status | Verification / posting / wallet |
+| --- | --- | --- | --- | --- |
+| 14 | 120 | `68516000-DEP` | PENDING | No verifier, journal, or credit; balance 0.00 ETB |
+| 15 | 129 | Earlier interrupted run | PENDING | No verifier, journal, or credit; balance 0.00 ETB |
+| 16 | 144 | `69021617-DEP` | APPROVED | Verification 7 / statement 9; journal 4 / wallet transaction 18; verifier 146 / approver 147; ETB 2.50 |
+| 17 | 148 | `69021617-MISMATCH` | VERIFICATION_EXCEPTION | Verification 8 / statement 11; submitted ETB 3.00 vs statement ETB 2.99; no journal or credit |
+| 18 | 149 | `69021617-REJECT` | REJECTED | No verification, journal, or wallet transaction; balance 0.00 ETB |
+| 19 | 150 | `69021617-CONCURRENT` | APPROVED | Verification 9 / statement 12; journal 5 / wallet transaction 19; verifier 146 / approver 147; ETB 4.25 |
+
+Deposit journals #4–5 have balanced ETB lines: debit `QA_BANK_CLEARING_ASSET`, credit `PLAYER_WALLET_LIABILITY`. Claims #1–7 remain unchanged: #1–2 `PENDING`, #3–7 `REJECTED`; all seven have zero deposit journals and deposit-credit transactions. Earlier simulated deposits #9, #10, and #13 remain preserved and are listed in the financial-security report.
+
+| Adjustment request | Player | Maker / checker | Status | Journal / wallet transaction |
+| --- | --- | --- | --- | --- |
+| 7 | 109 | 110 / — | PENDING | No journal or credit |
+| 8 | 115 | 116 / — | PENDING | No journal or credit |
+| 9 | 121 | 122 / — | PENDING | No journal or credit |
+| 10 | 130 | 131 / — | PENDING | No journal or credit |
+| 11 | 139 | 140 / 141 | APPROVED | Journal 5 / transaction 16; ETB 1.25, balance 0.00 → 1.25 |
+| 12 | 145 | 146 / 147 | APPROVED | Journal 6 / transaction 17; ETB 1.25, balance 0.00 → 1.25 |
+
+Adjustment journals #5–6 balance between `WALLET_ADJUSTMENT_CLEARING` and `PLAYER_WALLET_LIABILITY`. Audit entries #1821/#1823–1824 record maker #146 and checker #147 for request #12; #1837–1839 record verifier #146 and approver #147 for deposit #16; #1848–1850 record separated roles for concurrent claim #19. Audit #1822 records the denied legacy one-step adjustment. The run created support tickets #42–47; #42 remains `CLOSED`, and #43–47 remain open. Original support tickets #1–5 remain `WAITING_FOR_CUSTOMER`, assigned to admin #1. Agent #3 remains `APPROVED` with ETB 51.00 available / ETB 0.00 clearing, two float transactions, and two balanced ETB 25.50 journals. See [read-only database verification](evidence/module-02d-database-verify.txt), [financial-security report](modules/module-02d-financial-security.md), [browser execution](evidence/module-02d-execution.json), and [test matrix](modules/module-02d-test-matrix.md).
+
 ## Module 01 authentication use
 
 On 2026-10-23 the existing QA admin and player identities were used for authentication-only browser checks. The original five users and two agent profiles were preserved with their roles and statuses unchanged. The player Android registration flow created the dedicated `QA_PLAYER_003` fixture and its normal wallet/signup reward; the admin status action left it `PENDING`. No account or business record was deleted. Authentication attempts, status-change audit entries, and hashed rate-limit buckets remain in `bingo_qa`; backend integration-test setup and cleanup ran only against `bingo_qa_test`.

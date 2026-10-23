@@ -43,7 +43,8 @@ public class SecurityConfig {
                 CorsConfiguration configuration = new CorsConfiguration();
                 configuration.setAllowedOrigins(allowedOrigins);
                 configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-                configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Correlation-Id"));
+                configuration.setAllowedHeaders(
+                                List.of("Authorization", "Content-Type", "X-Correlation-Id", "Idempotency-Key"));
                 configuration.setExposedHeaders(List.of("X-Correlation-Id"));
                 configuration.setAllowCredentials(true);
 
@@ -83,6 +84,16 @@ public class SecurityConfig {
                                                 .requestMatchers("/api/v1/admin/me/password").hasAnyRole("ADMIN", "SUPPORT")
                                                 .requestMatchers("/api/v1/admin/support/**")
                                                 .hasAnyRole("ADMIN", "SUPPORT")
+                                                .requestMatchers(
+                                                                "/api/v1/admin/deposits/**",
+                                                                "/api/v1/admin/players/*/wallet-adjustments/requests",
+                                                                "/api/v1/admin/float-bank-statements/**",
+                                                                "/api/v1/admin/agents/float-top-up-requests/**",
+                                                                "/api/v1/admin/float-accounting/**",
+                                                                "/api/v1/admin/float-reconciliation/**",
+                                                                "/api/v1/admin/float-bank-accounts/**",
+                                                                "/api/v1/admin/wallet-adjustment-requests/**")
+                                                .hasAnyRole("ADMIN", "FINANCE_VERIFIER", "FINANCE_APPROVER")
                                                 .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                                                 .requestMatchers("/api/v1/agent/**").hasRole("AGENT")
                                                 .anyRequest().authenticated())

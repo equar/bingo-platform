@@ -5,7 +5,11 @@ import com.equar.bingo.backend.common.idempotency.IdempotentResult;
 import com.equar.bingo.backend.feature.auth.service.BingoUserPrincipal;
 import com.equar.bingo.backend.feature.wallet.dto.DepositClaimResponse;
 import com.equar.bingo.backend.feature.wallet.dto.DepositReviewRequest;
+import com.equar.bingo.backend.feature.wallet.dto.DepositPostingResponse;
+import com.equar.bingo.backend.feature.wallet.dto.DepositVerificationRequest;
+import com.equar.bingo.backend.feature.wallet.dto.DepositVerificationResponse;
 import com.equar.bingo.backend.feature.wallet.entity.DepositClaimStatus;
+import com.equar.bingo.backend.feature.wallet.service.DepositFinancialService;
 import com.equar.bingo.backend.feature.wallet.service.WalletService;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Pageable;
@@ -21,16 +25,19 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/admin/deposits")
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasAnyRole('ADMIN','FINANCE_VERIFIER','FINANCE_APPROVER')")
 public class AdminDepositController {
 
     private final WalletService walletService;
+    private final DepositFinancialService depositFinancialService;
 
-    public AdminDepositController(WalletService walletService) {
+    public AdminDepositController(WalletService walletService, DepositFinancialService depositFinancialService) {
         this.walletService = walletService;
+        this.depositFinancialService = depositFinancialService;
     }
 
     @GetMapping
@@ -45,7 +52,8 @@ public class AdminDepositController {
             @AuthenticationPrincipal BingoUserPrincipal principal,
             @Valid @RequestBody DepositReviewRequest request,
             @RequestHeader("Idempotency-Key") String idempotencyKey) {
-        IdempotentResult<DepositClaimResponse> result = walletService.approveDeposit(id, principal, request,
+        IdempotentResult<DepositClaimResponse> result = depositFinancialService.approve(id, principal,
+                request.reviewNote(),
                 idempotencyKey);
         return ResponseEntity.status(result.statusCode()).body(result.body());
     }
@@ -58,5 +66,24 @@ public class AdminDepositController {
         IdempotentResult<DepositClaimResponse> result = walletService.rejectDeposit(id, principal, request,
                 idempotencyKey);
         return ResponseEntity.status(result.statusCode()).body(result.body());
+    }
+
+    @PostMapping("/{id}/verify")
+    @PreAuthorize("hasRole('FINANCE_VERIFIER')")
+    public DepositVerificationResponse verify(@PathVariable Long id,
+            @AuthenticationPrincipal BingoUserPrincipal principal,
+            @Valid @RequestBody DepositVerificationRequest request) {
+        return depositFinancialService.verify(id, principal, request);
+    }
+
+    @GetMapping("/{id}/verifications")
+    public List<DepositVerificationResponse> verificationHistory(@PathVariable Long id) {
+        return depositFinancialService.verificationHistory(id);
+    }
+
+    @GetMapping("/{id}/posting")
+    @PreAuthorize("hasAnyRole('ADMIN','FINANCE_APPROVER')")
+    public DepositPostingResponse posting(@PathVariable Long id) {
+        return depositFinancialService.getPosting(id);
     }
 }

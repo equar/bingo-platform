@@ -1,0 +1,111 @@
+{
+  "players": [
+    {
+      "id": 142,
+      "name": "QA_M02D_PLAYER_001_69021617"
+    },
+    {
+      "id": 143,
+      "name": "QA_M02D_PLAYER_002_69021617"
+    },
+    {
+      "id": 144,
+      "name": "QA_M02D_PLAYER_003_69021617"
+    },
+    {
+      "id": 145,
+      "name": "QA_M02D_PLAYER_004_69021617"
+    }
+  ],
+  "financeUsers": {
+    "verifierId": 146,
+    "approverId": 147
+  },
+  "playerPagination": {
+    "totalPlayers": 114,
+    "firstPageRows": 10,
+    "secondPageRows": 10
+  },
+  "playerStatus": {
+    "pending": 200,
+    "invalidEnum": 400,
+    "restrictedOldToken": 401,
+    "restrictedLogin": 401,
+    "approved": 200
+  },
+  "suspendedPlayer": {
+    "id": 143,
+    "oldToken": 401,
+    "newLogin": 401
+  },
+  "walletAdjustment": {
+    "playerId": 145,
+    "requestId": 12,
+    "status": "APPROVED",
+    "approvalStatus": 200,
+    "journalId": 6,
+    "balanceBeforeApproval": 0,
+    "balanceAfterApproval": "1.25",
+    "duplicateReplay": 200,
+    "legacySingleStep": 409,
+    "unauthorized": 403,
+    "makerUserId": 146,
+    "checkerUserId": 147
+  },
+  "deposit": {
+    "id": 16,
+    "playerId": 144,
+    "status": "APPROVED",
+    "statementEntryId": 9,
+    "journalId": 4,
+    "verifierUserId": 146,
+    "approverUserId": 147,
+    "balanceBefore": 0,
+    "balanceAfter": 2.5,
+    "unverifiedApproval": 409,
+    "unauthorizedVerification": 403,
+    "duplicateBankReference": 409,
+    "approvalRetry": 200,
+    "mismatchStatus": "VERIFICATION_EXCEPTION",
+    "mismatchBalance": 0,
+    "rejectionStatus": "REJECTED",
+    "rejectionBalance": 0,
+    "invalidTransition": 409,
+    "concurrentApprovalStatuses": [
+      200,
+      200
+    ],
+    "concurrentJournalId": 5,
+    "networkFailure": 503,
+    "receivingBankAccountId": 7,
+    "auditLogged": true
+  },
+  "supportPagination": {
+    "totalSupportTickets": 47,
+    "firstPageRows": 10,
+    "secondPageRows": 10
+  },
+  "support": {
+    "ticketIds": [
+      42,
+      43,
+      44,
+      45,
+      46,
+      47
+    ],
+    "operatedTicket": 42,
+    "invalidPlayerAssignee": 400,
+    "invalidCloseWithoutSummary": 400,
+    "anonymousDetail": 401,
+    "crossAccountDetail": 400,
+    "playerAdminReply": 403,
+    "agentAdminReply": 403,
+    "finalStatus": "CLOSED",
+    "messages": 2,
+    "internalNotes": 1
+  },
+  "pageErrors": [],
+  "consoleErrors": [],
+  "failedRequests": []
+}

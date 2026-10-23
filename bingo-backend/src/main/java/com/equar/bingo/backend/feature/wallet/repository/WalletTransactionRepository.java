@@ -1,6 +1,7 @@
 package com.equar.bingo.backend.feature.wallet.repository;
 
 import com.equar.bingo.backend.feature.wallet.entity.WalletTransaction;
+import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -16,4 +17,7 @@ public interface WalletTransactionRepository extends JpaRepository<WalletTransac
     long countByOwnerId(@Param("ownerId") Long ownerId);
 
     boolean existsByOperationId(String operationId);
+
+    Optional<WalletTransaction> findFirstByReferenceTypeAndReferenceIdOrderByCreatedAtDescIdDesc(
+            String referenceType, Long referenceId);
 }

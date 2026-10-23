@@ -9,6 +9,9 @@ spring:
       ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:validate}
 
 app:
+  wallet:
+    deposit-simulation-enabled: false
+    adjustment-simulation-enabled: false
   agent:
     float-simulation-enabled: false
     bank-account-encryption-key: ${BINGO_FLOAT_BANK_ENCRYPTION_KEY:}

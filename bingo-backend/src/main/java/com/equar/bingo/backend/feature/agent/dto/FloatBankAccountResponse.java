@@ -9,6 +9,7 @@ public record FloatBankAccountResponse(
         String accountHolderName,
         String currency,
         boolean active,
+        boolean playerDepositsEnabled,
         Instant createdAt,
         Instant updatedAt) {
 }

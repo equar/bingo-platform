@@ -13,6 +13,9 @@ spring:
     validate-on-migrate: true
 
 app:
+  wallet:
+    deposit-simulation-enabled: true
+    adjustment-simulation-enabled: true
   agent:
     float-simulation-enabled: true
     bank-account-encryption-key: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
