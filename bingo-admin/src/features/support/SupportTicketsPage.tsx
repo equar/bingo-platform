@@ -16,7 +16,7 @@ import {
   Typography,
 } from "@mui/material";
 import { Link as RouterLink } from "react-router-dom";
-import { adminUsers, supportTickets } from "../../api/admin";
+import { supportAssignees, supportTickets } from "../../api/admin";
 import { StatusState } from "../../components/StatusState";
 
 const statusOptions = ["", "OPEN", "IN_PROGRESS", "WAITING_FOR_CUSTOMER", "RESOLVED", "CLOSED"];
@@ -32,7 +32,7 @@ export function SupportTicketsPage() {
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(20);
   const normalizedQuery = query.trim();
-  const usersQuery = useQuery({ queryKey: ["admin-users"], queryFn: () => adminUsers(0, 100) });
+  const usersQuery = useQuery({ queryKey: ["support-assignees"], queryFn: supportAssignees });
   const ticketsQuery = useQuery({
     queryKey: ["support-tickets", normalizedQuery, status, category, priority, assignee, page, pageSize],
     queryFn: () =>
@@ -146,8 +146,8 @@ export function SupportTicketsPage() {
           sx={{ minWidth: { xs: "100%", md: 180 } }}
         >
           <MenuItem value="">All assignees</MenuItem>
-          {(usersQuery.data?.content ?? []).map((user) => (
-            <MenuItem key={user.id} value={String(user.id)}>
+          {(usersQuery.data ?? []).map((user) => (
+            <MenuItem key={user.userId} value={String(user.userId)}>
               {user.displayName}
             </MenuItem>
           ))}

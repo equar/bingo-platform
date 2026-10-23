@@ -5,6 +5,5 @@ import jakarta.validation.constraints.Pattern;
 
 public record AgentLoginRequest(
         @NotBlank String phoneNumber,
-        @NotBlank String password,
         @NotBlank @Pattern(regexp = "^[0-9]{4,8}$", message = "PIN must contain 4 to 8 digits") String pin) {
 }

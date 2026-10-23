@@ -1,13 +1,18 @@
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { afterEach, describe, expect, it } from "vitest";
-import { clearSession, writeSession } from "../api/session";
+import { afterEach, describe, expect, it, vi, beforeEach } from "vitest";
+import { clearSession, readSession, writeSession } from "../api/session";
 import { ProtectedRoute } from "./ProtectedRoute";
+
+const refreshProfileMock = vi.fn();
+vi.mock("../api/admin", () => ({ refreshAdminUserProfile: (...args: unknown[]) => refreshProfileMock(...args) }));
 
 describe("ProtectedRoute", () => {
   afterEach(() => {
     clearSession();
   });
+
+  beforeEach(() => refreshProfileMock.mockReset());
 
   it("redirects anonymous users to login", () => {
     render(
@@ -80,5 +85,45 @@ describe("ProtectedRoute", () => {
     );
 
     expect(screen.getByText("change password")).toBeInTheDocument();
+  });
+
+  it("reconciles cached roles with the server before showing protected routes", async () => {
+    refreshProfileMock.mockResolvedValue({
+      id: 4,
+      displayName: "Finance Support",
+      phoneNumber: "251911000004",
+      roles: ["SUPPORT"],
+      status: "ACTIVE",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    });
+    writeSession({
+      accessToken: "stale-role-token",
+      tokenType: "Bearer",
+      user: {
+        id: 4,
+        displayName: "Finance Support",
+        phoneNumber: "251911000004",
+        roles: ["SUPPORT", "FINANCE_VERIFIER"],
+        status: "ACTIVE",
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      },
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/deposits"]}>
+        <Routes>
+          <Route element={<ProtectedRoute allowedRoles={["FINANCE_VERIFIER"]} refreshSession />}>
+            <Route path="/deposits" element={<div>finance deposits</div>} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("Access denied")).toBeInTheDocument();
+    expect(screen.queryByText("finance deposits")).not.toBeInTheDocument();
+    expect(readSession()?.user.roles).toEqual(["SUPPORT"]);
+    expect(refreshProfileMock).toHaveBeenCalledTimes(1);
   });
 });

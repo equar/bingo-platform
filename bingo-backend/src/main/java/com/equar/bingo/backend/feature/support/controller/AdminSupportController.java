@@ -3,6 +3,7 @@ package com.equar.bingo.backend.feature.support.controller;
 import com.equar.bingo.backend.common.api.PageResponse;
 import com.equar.bingo.backend.feature.auth.service.BingoUserPrincipal;
 import com.equar.bingo.backend.feature.support.dto.SupportTicketAssignmentRequest;
+import com.equar.bingo.backend.feature.support.dto.SupportAssigneeResponse;
 import com.equar.bingo.backend.feature.support.dto.SupportTicketMessageRequest;
 import com.equar.bingo.backend.feature.support.dto.SupportTicketResponse;
 import com.equar.bingo.backend.feature.support.dto.SupportTicketStatusUpdateRequest;
@@ -45,6 +46,11 @@ public class AdminSupportController {
             @PageableDefault(size = 20) Pageable pageable) {
         return PageResponse.from(supportService.searchTickets(query, status, category, priority, assignedToUserId,
                 pageable));
+    }
+
+    @GetMapping("/assignees")
+    public java.util.List<SupportAssigneeResponse> assignees() {
+        return supportService.listAssignees();
     }
 
     @GetMapping("/{ticketId}")

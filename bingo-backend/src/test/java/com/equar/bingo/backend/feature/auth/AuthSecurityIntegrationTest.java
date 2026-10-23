@@ -38,6 +38,10 @@ import java.time.Instant;
 import java.util.Base64;
 import java.util.Date;
 import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import javax.crypto.SecretKey;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -55,6 +59,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -82,6 +87,10 @@ class AuthSecurityIntegrationTest extends MySqlIntegrationTest {
 
         @Autowired
         PasswordEncoder passwordEncoder;
+
+        @Autowired
+        @org.springframework.beans.factory.annotation.Qualifier("agentPinEncoder")
+        PasswordEncoder agentPinEncoder;
 
         @Autowired
         EthiopianPhoneNormalizer phoneNormalizer;
@@ -165,6 +174,11 @@ class AuthSecurityIntegrationTest extends MySqlIntegrationTest {
                 supportTicketRepository.deleteAllInBatch();
                 walletTransactionRepository.deleteAllInBatch();
                 jdbcTemplate.update("delete from signup_reward_grants");
+                // Wallet adjustment rows reference users directly and must be cleared
+                // before the shared integration fixture removes its user records.
+                jdbcTemplate.update("delete from wallet_adjustment_accounting_journal_lines");
+                jdbcTemplate.update("delete from wallet_adjustment_accounting_journals");
+                jdbcTemplate.update("delete from wallet_adjustment_requests");
                 jdbcTemplate.update("delete from wallet_transfers");
                 jdbcTemplate.update("delete from signup_reward_policies");
                 jdbcTemplate.update("delete from wallet_transfer_policies");
@@ -379,10 +393,148 @@ class AuthSecurityIntegrationTest extends MySqlIntegrationTest {
         }
 
         @Test
+        void financeRoleRevocationTakesEffectForExistingJwtAndIsAudited() throws Exception {
+                String suffix = Long.toString(System.nanoTime() % 100_000_000L);
+                User financeUser = userRepository.save(User.create(
+                                phoneNormalizer.normalize("09" + String.format("%08d", Long.parseLong(suffix))),
+                                "Finance Revocation Target",
+                                passwordEncoder.encode("NotUsedByAgentApp123!"),
+                                AccountStatus.ACTIVE,
+                                Set.of(UserRole.SUPPORT, UserRole.FINANCE_VERIFIER),
+                                Instant.now()));
+                String staleToken = jwtService.generateToken(financeUser);
+                String adminToken = issueTokenFor("0911000001");
+
+                mockMvc.perform(get("/api/v1/admin/deposits").header("Authorization", "Bearer " + staleToken))
+                                .andExpect(status().isOk());
+                mockMvc.perform(post("/api/v1/admin/deposits/999999/verify")
+                                .header("Authorization", "Bearer " + staleToken)
+                                .contentType(MediaType.APPLICATION_JSON).content("{\"statementEntryId\":1}"))
+                                .andExpect(status().isNotFound());
+
+                mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                                .delete("/api/v1/admin/users/{userId}/finance-roles", financeUser.getId())
+                                .param("role", "FINANCE_VERIFIER")
+                                .header("Authorization", "Bearer " + adminToken))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.roles").value(org.hamcrest.Matchers.not(
+                                                org.hamcrest.Matchers.hasItem("FINANCE_VERIFIER"))));
+                mockMvc.perform(post("/api/v1/admin/deposits/999999/verify")
+                                .header("Authorization", "Bearer " + staleToken)
+                                .contentType(MediaType.APPLICATION_JSON).content("{\"statementEntryId\":1}"))
+                                .andExpect(status().isForbidden());
+                mockMvc.perform(get("/api/v1/me").header("Authorization", "Bearer " + staleToken))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.user.roles").value(org.hamcrest.Matchers.hasItem("SUPPORT")))
+                                .andExpect(jsonPath("$.user.roles").value(org.hamcrest.Matchers.not(
+                                                org.hamcrest.Matchers.hasItem("FINANCE_VERIFIER"))));
+                Long adminId = userRepository.findByNormalizedPhone(phoneNormalizer.normalize("0911000001"))
+                                .orElseThrow().getId();
+                assertEquals(1, jdbcTemplate.queryForObject(
+                                "select count(*) from audit_log_entries where action='REVOKE' and actor_user_id=? and target_id=?",
+                                Integer.class, adminId, financeUser.getId()));
+        }
+
+        @Test
+        void adminSupportRoleChangesAndSuspensionApplyToExistingTokens() throws Exception {
+                String phone = String.format("09%08d", Math.floorMod(System.nanoTime(), 100_000_000L));
+                String email = "qa-role-transition-" + UUID.randomUUID() + "@example.invalid";
+                User target = User.create(phoneNormalizer.normalize(phone), "Role Transition Target",
+                                passwordEncoder.encode("NotUsedByAgentApp123!"), AccountStatus.ACTIVE,
+                                Set.of(UserRole.SUPPORT), Instant.now());
+                target.setEmail(email);
+                target = userRepository.save(target);
+                String tokenIssuedAsSupport = jwtService.generateToken(target);
+                String adminToken = issueTokenFor("0911000001");
+                String updateUrl = "/api/v1/admin/users/" + target.getId();
+
+                mockMvc.perform(get("/api/v1/admin/users").header("Authorization", "Bearer " + tokenIssuedAsSupport))
+                                .andExpect(status().isForbidden());
+                mockMvc.perform(put(updateUrl).header("Authorization", "Bearer " + issueTokenFor("0911000004"))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"displayName\":\"Role Transition Target\",\"email\":\"" + email + "\","
+                                                + "\"phoneNumber\":\"" + phone + "\",\"status\":\"ACTIVE\","
+                                                + "\"roles\":[\"ADMIN\"]}"))
+                                .andExpect(status().isForbidden());
+                mockMvc.perform(put(updateUrl).header("Authorization", "Bearer " + adminToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"displayName\":\"Role Transition Target\",\"email\":\"" + email + "\","
+                                                + "\"phoneNumber\":\"" + phone + "\",\"status\":\"ACTIVE\","
+                                                + "\"roles\":[\"ADMIN\"]}"))
+                                .andExpect(status().isOk());
+                mockMvc.perform(get("/api/v1/admin/users").header("Authorization", "Bearer " + tokenIssuedAsSupport))
+                                .andExpect(status().isOk());
+                mockMvc.perform(put(updateUrl).header("Authorization", "Bearer " + adminToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"displayName\":\"Role Transition Target\",\"email\":\"" + email + "\","
+                                                + "\"phoneNumber\":\"" + phone + "\",\"status\":\"ACTIVE\","
+                                                + "\"roles\":[\"SUPPORT\"]}"))
+                                .andExpect(status().isOk());
+                mockMvc.perform(get("/api/v1/admin/users").header("Authorization", "Bearer " + tokenIssuedAsSupport))
+                                .andExpect(status().isForbidden());
+                mockMvc.perform(put(updateUrl).header("Authorization", "Bearer " + adminToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"displayName\":\"Role Transition Target\",\"email\":\"" + email + "\","
+                                                + "\"phoneNumber\":\"" + phone + "\",\"status\":\"SUSPENDED\","
+                                                + "\"roles\":[\"SUPPORT\"]}"))
+                                .andExpect(status().isOk());
+                mockMvc.perform(get("/api/v1/admin/support/tickets").header("Authorization", "Bearer " + tokenIssuedAsSupport))
+                                .andExpect(status().isUnauthorized());
+                assertEquals(3, jdbcTemplate.queryForObject(
+                                "select count(*) from audit_log_entries where action='UPDATE_USER' and target_id=?",
+                                Integer.class, target.getId()));
+        }
+
+        @Test
+        void concurrentFinanceRoleRevocationsDoNotRestoreRemovedPrivileges() throws Exception {
+                String phone = String.format("09%08d", Math.floorMod(System.nanoTime(), 100_000_000L));
+                User target = userRepository.save(User.create(
+                                phoneNormalizer.normalize(phone), "Concurrent Finance Revocation Target",
+                                passwordEncoder.encode("NotUsedByAgentApp123!"), AccountStatus.ACTIVE,
+                                Set.of(UserRole.SUPPORT, UserRole.FINANCE_VERIFIER, UserRole.FINANCE_APPROVER),
+                                Instant.now()));
+                String adminToken = issueTokenFor("0911000001");
+                String url = "/api/v1/admin/users/" + target.getId() + "/finance-roles";
+                var executor = Executors.newFixedThreadPool(2);
+                var ready = new CountDownLatch(2);
+                var start = new CountDownLatch(1);
+                try {
+                        var verifier = executor.submit(() -> {
+                                ready.countDown();
+                                start.await();
+                                return mockMvc.perform(delete(url).param("role", "FINANCE_VERIFIER")
+                                                .header("Authorization", "Bearer " + adminToken))
+                                                .andReturn().getResponse().getStatus();
+                        });
+                        var approver = executor.submit(() -> {
+                                ready.countDown();
+                                start.await();
+                                return mockMvc.perform(delete(url).param("role", "FINANCE_APPROVER")
+                                                .header("Authorization", "Bearer " + adminToken))
+                                                .andReturn().getResponse().getStatus();
+                        });
+                        org.junit.jupiter.api.Assertions.assertTrue(ready.await(5, TimeUnit.SECONDS));
+                        start.countDown();
+                        assertEquals(200, verifier.get(20, TimeUnit.SECONDS));
+                        assertEquals(200, approver.get(20, TimeUnit.SECONDS));
+                } finally {
+                        executor.shutdownNow();
+                }
+
+                User saved = userRepository.findById(target.getId()).orElseThrow();
+                assertEquals(Set.of(UserRole.SUPPORT), saved.getRoles());
+                Long adminId = userRepository.findByNormalizedPhone(phoneNormalizer.normalize("0911000001"))
+                                .orElseThrow().getId();
+                assertEquals(2, jdbcTemplate.queryForObject(
+                                "select count(*) from audit_log_entries where action='REVOKE' and actor_user_id=? and target_id=? and json_unquote(json_extract(metadata_json,'$.outcome'))='SUCCESS'",
+                                Integer.class, adminId, target.getId()));
+        }
+
+        @Test
         void agentApplicationApprovalAndSuspensionEnforceLifecycleAndAudit() throws Exception {
                 String phone = "0911000601";
                 AgentApplicationRequest application = new AgentApplicationRequest("M02A Agent One", phone,
-                                "M02A-AgentPass-001", "860001", "Addis Ababa", "Bole", "NID",
+                                "860001", "Addis Ababa", "Bole", "NID",
                                 "M02A-NID-001", null, null);
                 String requestJson = objectMapper.writeValueAsString(application);
                 String responseJson = mockMvc.perform(post("/api/v1/agent/register")
@@ -407,19 +559,19 @@ class AuthSecurityIntegrationTest extends MySqlIntegrationTest {
                                 .content(requestJson))
                                 .andExpect(status().isConflict());
                 AgentApplicationRequest duplicateDocument = new AgentApplicationRequest("Duplicate ID", "0911000602",
-                                "M02A-AgentPass-002", "860002", "Addis Ababa", "Bole", "nid",
+                                "860002", "Addis Ababa", "Bole", "nid",
                                 "m02a-nid-001", null, null);
                 mockMvc.perform(post("/api/v1/agent/register").contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(duplicateDocument)))
                                 .andExpect(status().isConflict());
                 AgentApplicationRequest invalidPhone = new AgentApplicationRequest("Bad Phone", "12345",
-                                "M02A-AgentPass-003", "860003", "Addis Ababa", "Bole", "NID",
+                                "860003", "Addis Ababa", "Bole", "NID",
                                 "M02A-NID-003", null, null);
                 mockMvc.perform(post("/api/v1/agent/register").contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(invalidPhone)))
                                 .andExpect(status().isBadRequest());
                 AgentApplicationRequest invalidPin = new AgentApplicationRequest("Bad PIN", "0911000604",
-                                "M02A-AgentPass-004", "12", "Addis Ababa", "Bole", "NID",
+                                "12", "Addis Ababa", "Bole", "NID",
                                 "M02A-NID-004", null, null);
                 mockMvc.perform(post("/api/v1/agent/register").contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(invalidPin)))
@@ -431,8 +583,7 @@ class AuthSecurityIntegrationTest extends MySqlIntegrationTest {
                 mockMvc.perform(get("/api/v1/agent/dashboard").header("Authorization", "Bearer " + pendingToken))
                                 .andExpect(status().isUnauthorized());
                 mockMvc.perform(post("/api/v1/agent/login").contentType(MediaType.APPLICATION_JSON)
-                                .content(objectMapper.writeValueAsString(new AgentLoginRequest(phone,
-                                                application.password(), application.pin()))))
+                                .content(objectMapper.writeValueAsString(new AgentLoginRequest(phone, application.pin()))))
                                 .andExpect(status().isUnauthorized());
 
                 String playerToken = issueTokenFor("0911000004");
@@ -461,6 +612,39 @@ class AuthSecurityIntegrationTest extends MySqlIntegrationTest {
                 assertEquals(1, jdbcTemplate.queryForObject("select count(*) from agent_floats where agent_id = ?",
                                 Integer.class, agentId));
 
+                User approvedUser = userRepository.findById(userId).orElseThrow();
+                String originalPinHash = approvedUser.getAgentPinHash();
+                mockMvc.perform(post("/api/v1/admin/users/{userId}/agent-pin", userId)
+                                .header("Authorization", "Bearer " + playerToken)
+                                .contentType(MediaType.APPLICATION_JSON).content("{\"pin\":\"731946\"}"))
+                                .andExpect(status().isForbidden());
+                mockMvc.perform(post("/api/v1/admin/users/{userId}/agent-pin", userId)
+                                .header("Authorization", "Bearer " + agentRoleToken)
+                                .contentType(MediaType.APPLICATION_JSON).content("{\"pin\":\"731946\"}"))
+                                .andExpect(status().isForbidden());
+                mockMvc.perform(post("/api/v1/admin/users/{userId}/agent-pin", userId)
+                                .header("Authorization", "Bearer " + adminToken)
+                                .contentType(MediaType.APPLICATION_JSON).content("{\"pin\":\"12\"}"))
+                                .andExpect(status().isBadRequest());
+                String pinResetResponse = mockMvc.perform(post("/api/v1/admin/users/{userId}/agent-pin", userId)
+                                .header("Authorization", "Bearer " + adminToken)
+                                .contentType(MediaType.APPLICATION_JSON).content("{\"pin\":\"731946\"}"))
+                                .andExpect(status().isOk())
+                                .andReturn().getResponse().getContentAsString();
+                assertEquals("", pinResetResponse);
+                String updatedPinHash = userRepository.findById(userId).orElseThrow().getAgentPinHash();
+                org.junit.jupiter.api.Assertions.assertNotEquals(originalPinHash, updatedPinHash);
+                org.junit.jupiter.api.Assertions.assertFalse(updatedPinHash.contains("731946"));
+                org.junit.jupiter.api.Assertions.assertTrue(agentPinEncoder.matches("731946", updatedPinHash));
+                org.junit.jupiter.api.Assertions.assertFalse(agentPinEncoder.matches("860001", updatedPinHash));
+                assertEquals(1, jdbcTemplate.queryForObject(
+                                "select count(*) from audit_log_entries where action='SET_AGENT_PIN' and target_id=?",
+                                Integer.class, userId));
+                String pinAuditMetadata = jdbcTemplate.queryForObject(
+                                "select metadata_json from audit_log_entries where action='SET_AGENT_PIN' and target_id=? order by id desc limit 1",
+                                String.class, userId);
+                org.junit.jupiter.api.Assertions.assertFalse(pinAuditMetadata.contains("731946"));
+
                 mockMvc.perform(post("/api/v1/admin/agents/{agentId}/approve", agentId)
                                 .header("Authorization", "Bearer " + adminToken))
                                 .andExpect(status().isConflict());
@@ -470,10 +654,17 @@ class AuthSecurityIntegrationTest extends MySqlIntegrationTest {
                                 .content("{\"displayName\":\"M02A Agent One\",\"email\":\"agent@example.test\",\"phoneNumber\":\"0911000601\",\"status\":\"SUSPENDED\",\"roles\":[\"SUPPORT\"]}"))
                                 .andExpect(status().isConflict());
 
-                String loginJson = objectMapper.writeValueAsString(new AgentLoginRequest(phone,
-                                application.password(), application.pin()));
+                String loginJson = objectMapper.writeValueAsString(new AgentLoginRequest(phone, "860001"));
+                org.junit.jupiter.api.Assertions.assertFalse(loginJson.contains("password"));
+                mockMvc.perform(post("/api/v1/agent/login").contentType(MediaType.APPLICATION_JSON)
+                                .content(loginJson))
+                                .andExpect(status().isUnauthorized());
+                mockMvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(new LoginRequest(phone, "123456"))))
+                                .andExpect(status().isUnauthorized());
                 String loginBody = mockMvc.perform(post("/api/v1/agent/login")
-                                .contentType(MediaType.APPLICATION_JSON).content(loginJson))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(new AgentLoginRequest(phone, "731946"))))
                                 .andExpect(status().isOk())
                                 .andReturn().getResponse().getContentAsString();
                 String approvedToken = objectMapper.readTree(loginBody).get("accessToken").asText();

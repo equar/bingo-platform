@@ -6,10 +6,8 @@ import 'package:integration_test/integration_test.dart';
 
 const _phase = String.fromEnvironment('BINGO_M02A_PHASE');
 const _onePhone = String.fromEnvironment('BINGO_M02A_AGENT_ONE_PHONE');
-const _onePassword = String.fromEnvironment('BINGO_M02A_AGENT_ONE_PASSWORD');
 const _onePin = String.fromEnvironment('BINGO_M02A_AGENT_ONE_PIN');
 const _twoPhone = String.fromEnvironment('BINGO_M02A_AGENT_TWO_PHONE');
-const _twoPassword = String.fromEnvironment('BINGO_M02A_AGENT_TWO_PASSWORD');
 const _twoPin = String.fromEnvironment('BINGO_M02A_AGENT_TWO_PIN');
 var _surfaceConverted = false;
 
@@ -38,7 +36,6 @@ void main() {
         phone: _onePhone,
         displayName: 'QA M02A Agent One',
         documentNumber: 'M02A-AGENT-001',
-        password: _onePassword,
         pin: _onePin,
       );
       await _waitFor(
@@ -52,7 +49,6 @@ void main() {
       await _login(
         tester,
         phone: _onePhone,
-        password: _onePassword,
         pin: _onePin,
       );
       await _waitFor(
@@ -69,7 +65,6 @@ void main() {
         phone: _twoPhone,
         displayName: 'QA M02A Agent Two',
         documentNumber: 'M02A-AGENT-002',
-        password: _twoPassword,
         pin: _twoPin,
       );
       await _waitFor(
@@ -83,9 +78,8 @@ void main() {
 
     final isFirst = _phase == 'approved-login';
     final phone = isFirst ? _onePhone : _twoPhone;
-    final password = isFirst ? _onePassword : _twoPassword;
     final pin = isFirst ? _onePin : _twoPin;
-    await _login(tester, phone: phone, password: password, pin: pin);
+    await _login(tester, phone: phone, pin: pin);
     if (_phase == 'approved-login' || _phase == 'approved-login-two') {
       await _waitFor(tester, find.byType(NavigationBar));
       await _waitFor(tester, find.text('Available float'));
@@ -112,11 +106,9 @@ Future<void> _apply(
   required String phone,
   required String displayName,
   required String documentNumber,
-  required String password,
   required String pin,
 }) async {
   final fields = find.byType(TextFormField);
-  expect(fields, findsNWidgets(9));
   final input = <String>[
     displayName,
     phone,
@@ -124,10 +116,9 @@ Future<void> _apply(
     'Bole',
     'M02A-NATIONAL-ID',
     documentNumber,
-    password,
-    password,
     pin,
   ];
+  expect(fields, findsNWidgets(input.length));
   for (var index = 0; index < input.length; index++) {
     await tester.ensureVisible(fields.at(index));
     await tester.enterText(fields.at(index), input[index]);
@@ -139,14 +130,12 @@ Future<void> _apply(
 Future<void> _login(
   WidgetTester tester, {
   required String phone,
-  required String password,
   required String pin,
 }) async {
   final fields = find.byType(TextFormField);
-  expect(fields, findsNWidgets(3));
+  expect(fields, findsNWidgets(2));
   await tester.enterText(fields.at(0), phone);
-  await tester.enterText(fields.at(1), password);
-  await tester.enterText(fields.at(2), pin);
+  await tester.enterText(fields.at(1), pin);
   await tester.tap(find.byType(FilledButton));
   await tester.pump();
 }

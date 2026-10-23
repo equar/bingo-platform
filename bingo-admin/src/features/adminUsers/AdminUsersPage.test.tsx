@@ -7,11 +7,13 @@ import { AdminUsersPage } from "./AdminUsersPage";
 const adminUsersMock = vi.fn();
 const createAdminUserMock = vi.fn();
 const updateAdminUserMock = vi.fn();
+const revokeFinanceRoleMock = vi.fn();
 
 vi.mock("../../api/admin", () => ({
   adminUsers: (...args: unknown[]) => adminUsersMock(...args),
   createAdminUser: (...args: unknown[]) => createAdminUserMock(...args),
   updateAdminUser: (...args: unknown[]) => updateAdminUserMock(...args),
+  revokeFinanceRole: (...args: unknown[]) => revokeFinanceRoleMock(...args),
 }));
 
 function createWrapper() {
@@ -126,6 +128,29 @@ describe("AdminUsersPage", () => {
         status: "ACTIVE",
         roles: ["ADMIN"],
       });
+    });
+  });
+
+  it("revokes a finance role and refreshes the admin user list", async () => {
+    adminUsersMock.mockResolvedValue({
+      content: [{
+        id: 17,
+        displayName: "Finance QA",
+        email: "finance@example.invalid",
+        phoneNumber: "251911000017",
+        roles: ["ADMIN", "FINANCE_VERIFIER"],
+        status: "ACTIVE",
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      }],
+      page: 0, size: 20, totalElements: 1, totalPages: 1, first: true, last: true,
+    });
+    revokeFinanceRoleMock.mockResolvedValue({});
+    const user = userEvent.setup();
+    render(<AdminUsersPage />, { wrapper: createWrapper() });
+    await user.click(await screen.findByRole("button", { name: "Revoke FINANCE_VERIFIER from Finance QA" }));
+    await waitFor(() => {
+      expect(revokeFinanceRoleMock).toHaveBeenCalledWith(17, "FINANCE_VERIFIER");
     });
   });
 });

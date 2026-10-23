@@ -16,11 +16,11 @@ import {
 } from "@mui/material";
 import { Link as RouterLink, useParams } from "react-router-dom";
 import {
-  adminUsers,
   assignSupportTicket,
   noteSupportTicket,
   replySupportTicket,
   supportTicketDetail,
+  supportAssignees,
   updateSupportTicketStatus,
 } from "../../api/admin";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
@@ -37,7 +37,7 @@ export function SupportTicketDetailPage() {
     queryFn: () => supportTicketDetail(id),
     enabled: Number.isFinite(id),
   });
-  const usersQuery = useQuery({ queryKey: ["admin-users"], queryFn: () => adminUsers(0, 100) });
+  const usersQuery = useQuery({ queryKey: ["support-assignees"], queryFn: supportAssignees });
   const [replyBody, setReplyBody] = useState("");
   const [noteBody, setNoteBody] = useState("");
   const [assignedToUserId, setAssignedToUserId] = useState("");
@@ -177,8 +177,8 @@ export function SupportTicketDetailPage() {
                     fullWidth
                   >
                     <MenuItem value="">Unassigned</MenuItem>
-                    {(usersQuery.data?.content ?? []).map((user) => (
-                      <MenuItem key={user.id} value={String(user.id)}>
+                    {(usersQuery.data ?? []).map((user) => (
+                      <MenuItem key={user.userId} value={String(user.userId)}>
                         {user.displayName}
                       </MenuItem>
                     ))}

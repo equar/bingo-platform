@@ -50,8 +50,6 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -79,7 +77,6 @@ public class AgentService {
     private final AgentProperties agentProperties;
     private final WalletProperties walletProperties;
     private final EthiopianPhoneNormalizer phoneNormalizer;
-    private final AuthenticationManager authenticationManager;
     private final PasswordEncoder passwordEncoder;
     private final PasswordEncoder agentPinEncoder;
     private final JwtService jwtService;
@@ -106,7 +103,6 @@ public class AgentService {
             AgentProperties agentProperties,
             WalletProperties walletProperties,
             EthiopianPhoneNormalizer phoneNormalizer,
-            AuthenticationManager authenticationManager,
             PasswordEncoder passwordEncoder,
             @org.springframework.beans.factory.annotation.Qualifier("agentPinEncoder") PasswordEncoder agentPinEncoder,
             JwtService jwtService,
@@ -132,7 +128,6 @@ public class AgentService {
         this.agentProperties = agentProperties;
         this.walletProperties = walletProperties;
         this.phoneNormalizer = phoneNormalizer;
-        this.authenticationManager = authenticationManager;
         this.passwordEncoder = passwordEncoder;
         this.agentPinEncoder = agentPinEncoder;
         this.jwtService = jwtService;
@@ -152,28 +147,20 @@ public class AgentService {
                 agentProperties.loginAttemptLimit(),
                 agentProperties.attemptWindow());
 
-        org.springframework.security.core.Authentication authentication;
-        try {
-            authentication = authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(normalizedPhone, request.password()));
-        } catch (org.springframework.security.core.AuthenticationException exception) {
+        User user = userRepository.findByNormalizedPhone(normalizedPhone).orElse(null);
+        Agent agent = user == null || !user.hasRole(UserRole.AGENT) || !user.isActive()
+                ? null
+                : agentRepository.findByUserId(user.getId()).orElse(null);
+        if (agent == null || agent.getStatus() != AgentStatus.APPROVED
+                || user.getAgentPinHash() == null || !agentPinEncoder.matches(request.pin(), user.getAgentPinHash())) {
             throttleService.recordAccountFailure(
                     "agent",
                     normalizedPhone,
                     agentProperties.loginAttemptLimit(),
                     agentProperties.attemptWindow());
-            throw exception;
+            throw new org.springframework.security.authentication.BadCredentialsException("Invalid credentials");
         }
-        User user = ((BingoUserPrincipal) authentication.getPrincipal()).getUser();
-        Agent agent = requireApprovedAgent(user.getId());
-        if (!agentPinEncoder.matches(request.pin(), user.getAgentPinHash())) {
-            throttleService.recordAccountFailure(
-                    "agent",
-                    normalizedPhone,
-                    agentProperties.loginAttemptLimit(),
-                    agentProperties.attemptWindow());
-            throw new BadRequestException("INVALID_PIN", "Invalid agent PIN");
-        }
+        throttleService.clear("account:agent:" + normalizedPhone);
         String token = jwtService.generateToken(user);
         return new AuthResponse(token, "Bearer", jwtService.getExpirationSeconds(), toProfile(user));
     }
@@ -193,7 +180,8 @@ public class AgentService {
         }
 
         Instant now = Instant.now();
-        User user = User.create(normalizedPhone, request.displayName().trim(), passwordEncoder.encode(request.password()),
+        String internalCredential = UUID.randomUUID().toString() + UUID.randomUUID();
+        User user = User.create(normalizedPhone, request.displayName().trim(), passwordEncoder.encode(internalCredential),
                 AccountStatus.PENDING, Set.of(UserRole.AGENT), now);
         user.setAgentPinHash(agentPinEncoder.encode(request.pin()));
         User savedUser = userRepository.save(user);

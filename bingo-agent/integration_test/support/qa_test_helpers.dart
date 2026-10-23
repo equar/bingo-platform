@@ -13,11 +13,10 @@ class AgentQaTestHelpers {
     await tester.pumpAndSettle();
   }
 
-  Future<void> signIn({required String phone, required String password, required String pin}) async {
+  Future<void> signIn({required String phone, required String pin}) async {
     final fields = find.byType(TextFormField);
     await tester.enterText(fields.at(0), phone);
-    await tester.enterText(fields.at(1), password);
-    await tester.enterText(fields.at(2), pin);
+    await tester.enterText(fields.at(1), pin);
     await tester.tap(find.byType(FilledButton));
     await tester.pumpAndSettle();
   }

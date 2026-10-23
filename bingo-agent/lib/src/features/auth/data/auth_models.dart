@@ -85,17 +85,14 @@ class UserProfile {
 class AgentLoginRequest {
   AgentLoginRequest({
     required this.phoneNumber,
-    required this.password,
     required this.pin,
   });
 
   final String phoneNumber;
-  final String password;
   final String pin;
 
   Map<String, dynamic> toJson() => {
     'phoneNumber': phoneNumber,
-    'password': password,
     'pin': pin,
   };
 }
@@ -104,7 +101,6 @@ class AgentApplicationRequest {
   const AgentApplicationRequest({
     required this.displayName,
     required this.phoneNumber,
-    required this.password,
     required this.pin,
     required this.city,
     required this.territory,
@@ -114,7 +110,6 @@ class AgentApplicationRequest {
 
   final String displayName;
   final String phoneNumber;
-  final String password;
   final String pin;
   final String city;
   final String territory;
@@ -124,7 +119,6 @@ class AgentApplicationRequest {
   Map<String, dynamic> toJson() => {
     'displayName': displayName,
     'phoneNumber': phoneNumber,
-    'password': password,
     'pin': pin,
     'city': city,
     'territory': territory,
