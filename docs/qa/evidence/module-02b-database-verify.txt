@@ -1,0 +1,48 @@
+version	description	success
+18	extend float top up lifecycle status	1
+id	bank_name	visible_account_tail	ciphertext_length	active
+1	QA Synthetic Bank	2002	56	1
+id	agent_id	amount	currency	status	transfer_reference	receiving_bank_account_id
+4	3	25.50	ETB	APPROVED	QA-M02B-TRANSFER-20261023-123001	1
+5	3	25.50	ETB	APPROVED	QA-M02B-TRANSFER-20261023-131900	1
+agent_id	user_id	user_status	agent_status	available_balance	clearing_balance	transaction_count
+1	2	ACTIVE	APPROVED	0.00	0.00	0
+3	11	ACTIVE	APPROVED	51.00	0.00	2
+4	12	SUSPENDED	SUSPENDED	0.00	0.00	0
+id	receiving_bank_account_id	transaction_reference	amount	currency	settlement_state	source	synthetic
+1	1	QA-M02B-TRANSFER-20261023-123001	25.50	ETB	SETTLED	SYNTHETIC_QA_BANK_STATEMENT	1
+2	1	QA-M02B-TRANSFER-20261023-131900	25.50	ETB	SETTLED	SYNTHETIC_QA_BANK_STATEMENT	1
+id	request_id	statement_entry_id	reviewer_user_id	outcome	evidence_source
+1	4	1	15	MATCHED	SYNTHETIC_QA_BANK_STATEMENT
+2	5	2	15	MATCHED	SYNTHETIC_QA_BANK_STATEMENT
+id	request_id	simulated	verifier_user_id	approver_user_id	line_count	debits	credits
+1	4	1	15	16	2	25.50	25.50
+2	5	1	15	16	2	25.50	25.50
+journal_id	line_number	account_code	debit_amount	credit_amount
+1	1	QA_BANK_CLEARING_ASSET	25.50	0.00
+1	2	AGENT_PREPAID_FLOAT_LIABILITY	0.00	25.50
+2	1	QA_BANK_CLEARING_ASSET	25.50	0.00
+2	2	AGENT_PREPAID_FLOAT_LIABILITY	0.00	25.50
+id	transaction_type	amount	available_before	available_after	clearing_before	clearing_after	related_entity_type	related_entity_id
+1	TOP_UP	25.50	0.00	25.50	0.00	0.00	FLOAT_TOP_UP_REQUEST	4
+2	TOP_UP	25.50	25.50	51.00	0.00	0.00	FLOAT_TOP_UP_REQUEST	5
+id	actor_user_id	action	target_type	target_id	reason
+764	11	SUBMIT_TOP_UP_REQUEST	FloatTopUpRequest	4	NULL
+807	15	VERIFY	FloatVerification	1	NULL
+826	16	POST_VERIFIED_REQUEST	FloatPosting	4	Separate approver confirmed the verifier history.
+845	16	POST_VERIFIED_REQUEST	FloatPosting	4	Repeat the already posted QA request idempotently.
+846	16	POST_VERIFIED_REQUEST	FloatPosting	4	Idempotent repeated QA posting attempt.
+857	16	POST_VERIFIED_REQUEST	FloatPosting	4	Repeat the already posted QA request idempotently.
+858	16	POST_VERIFIED_REQUEST	FloatPosting	4	Idempotent repeated QA posting attempt.
+869	16	POST_VERIFIED_REQUEST	FloatPosting	4	Repeat the already posted QA request idempotently.
+870	16	POST_VERIFIED_REQUEST	FloatPosting	4	Idempotent repeated QA posting attempt.
+875	11	SUBMIT_TOP_UP_REQUEST	FloatTopUpRequest	5	NULL
+885	15	VERIFY	FloatVerification	2	NULL
+888	16	POST_VERIFIED_REQUEST	FloatPosting	5	Separate approver confirmed the verifier history.
+889	16	POST_VERIFIED_REQUEST	FloatPosting	5	Idempotent repeated QA posting attempt.
+id	email	status	roles
+15	qa-m02b-verifier-1792748501100-15c9cd@example.test	ACTIVE	ADMIN,FINANCE_VERIFIER
+16	qa-m02b-approver-1792748837131-e02c47@example.test	ACTIVE	ADMIN,FINANCE_APPROVER
+agent_id	user_id	user_status	agent_status
+1	2	ACTIVE	APPROVED
+2	3	PENDING	PENDING

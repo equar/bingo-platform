@@ -16,6 +16,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.BindException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
@@ -154,6 +155,15 @@ public class GlobalExceptionHandler {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                                 .body(error(HttpStatus.UNAUTHORIZED, "AUTHENTICATION_DENIED",
                                                 "Authentication is not permitted", request, List.of()));
+        }
+
+        @ExceptionHandler(AccessDeniedException.class)
+        @ApiResponse(responseCode = "403", description = "Access denied",
+                        content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
+        public ResponseEntity<ApiErrorResponse> handleAccessDenied(AccessDeniedException exception,
+                        HttpServletRequest request) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                                .body(error(HttpStatus.FORBIDDEN, "ACCESS_DENIED", "Access denied", request, List.of()));
         }
 
         @ExceptionHandler(Exception.class)

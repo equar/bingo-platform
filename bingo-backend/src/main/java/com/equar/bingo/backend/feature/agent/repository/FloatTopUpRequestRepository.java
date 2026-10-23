@@ -21,6 +21,24 @@ public interface FloatTopUpRequestRepository extends JpaRepository<FloatTopUpReq
 
     @Query(value = """
             select request from FloatTopUpRequest request
+            where (:status is null or request.status = :status)
+              and (:query is null or lower(request.agent.user.displayName) like lower(concat('%', :query, '%'))
+                   or request.agent.user.normalizedPhone like concat('%', :query, '%'))
+            order by request.createdAt desc, request.id desc
+            """,
+            countQuery = """
+            select count(request) from FloatTopUpRequest request
+            where (:status is null or request.status = :status)
+              and (:query is null or lower(request.agent.user.displayName) like lower(concat('%', :query, '%'))
+                   or request.agent.user.normalizedPhone like concat('%', :query, '%'))
+            """)
+    Page<FloatTopUpRequest> searchForAdmin(
+            @Param("status") FloatTopUpRequestStatus status,
+            @Param("query") String query,
+            Pageable pageable);
+
+    @Query(value = """
+            select request from FloatTopUpRequest request
             where request.agent.id = :agentId
               and (:status is null or request.status = :status)
               and (:from is null or request.createdAt >= :from)

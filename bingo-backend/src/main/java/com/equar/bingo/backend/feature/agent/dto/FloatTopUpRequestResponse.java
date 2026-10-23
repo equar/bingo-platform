@@ -16,5 +16,12 @@ public record FloatTopUpRequestResponse(
         Long reviewedByUserId,
         Instant reviewedAt,
         Instant createdAt,
-        Instant updatedAt) {
+        Instant updatedAt,
+        String submissionNote,
+        Long receivingBankAccountId,
+        String bankNameSnapshot,
+        String maskedAccountSnapshot,
+        String accountHolderSnapshot,
+        String transferReference,
+        String supportingEvidenceNote) {
 }

@@ -33,6 +33,9 @@ server:
   port: ${BINGO_QA_SERVER_PORT:8081}
 
 app:
+  agent:
+    float-simulation-enabled: ${BINGO_FLOAT_SIMULATION_ENABLED:false}
+    bank-account-encryption-key: ${BINGO_FLOAT_BANK_ENCRYPTION_KEY:}
   qa:
     bootstrap:
       enabled: ${APP_QA_BOOTSTRAP_ENABLED:false}

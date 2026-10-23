@@ -20,6 +20,7 @@ import com.equar.bingo.backend.feature.agent.repository.AgentRepository;
 import com.equar.bingo.backend.feature.agent.repository.AgentFloatTransactionRepository;
 import com.equar.bingo.backend.feature.agent.repository.PayoutVerificationRecordRepository;
 import com.equar.bingo.backend.feature.agent.entity.Agent;
+import com.equar.bingo.backend.feature.agent.entity.AgentFloat;
 import com.equar.bingo.backend.feature.agent.entity.AgentStatus;
 import com.equar.bingo.backend.feature.agent.dto.CommissionRuleRequest;
 import com.equar.bingo.backend.feature.agent.dto.AgentApplicationRequest;
@@ -152,6 +153,12 @@ class AuthSecurityIntegrationTest extends MySqlIntegrationTest {
         void setUp() {
                 jdbcTemplate.update("delete from authentication_attempt_buckets");
                 jdbcTemplate.update("delete from audit_log_entries");
+                jdbcTemplate.update("delete from float_accounting_journal_lines");
+                jdbcTemplate.update("delete from float_accounting_journals");
+                jdbcTemplate.update("delete from float_top_up_verification_attempts");
+                jdbcTemplate.update("delete from float_bank_statement_entries");
+                jdbcTemplate.update("delete from agent_float_top_up_requests");
+                jdbcTemplate.update("delete from float_receiving_bank_accounts");
                 internalNoteRepository.deleteAllInBatch();
                 supportMessageRepository.deleteAllInBatch();
                 supportTicketRepository.deleteAllInBatch();
@@ -244,6 +251,59 @@ class AuthSecurityIntegrationTest extends MySqlIntegrationTest {
                                 .header("Authorization", "Bearer " + playerToken))
                                 .andExpect(status().isForbidden())
                                 .andExpect(jsonPath("$.correlationId").exists());
+        }
+
+        @Test
+        void floatRequestSubmissionAndAdminQueueAreRoleProtected() throws Exception {
+                String playerToken = issueTokenFor("0911000004");
+                String agentToken = issueTokenFor("0911000002");
+                String adminToken = issueTokenFor("0911000001");
+                User agentUser = userRepository.findByNormalizedPhone(phoneNormalizer.normalize("0911000002"))
+                                .orElseThrow();
+                Agent agent = agentRepository.save(Agent.create(agentUser, AgentStatus.APPROVED, "QA City",
+                                "QA Territory", "TEST", "M02B-FLOAT-READ-001", null, null));
+                agentFloatRepository.save(AgentFloat.create(agent, "ETB", new java.math.BigDecimal("17.00"),
+                                java.math.BigDecimal.ZERO));
+                String submission = """
+                                {"amount":12.34,"currency":"ETB","note":"QA-M02B-SECURITY"}
+                                """;
+
+                mockMvc.perform(post("/api/v1/agent/float-top-up-requests")
+                                .header("Authorization", "Bearer " + playerToken)
+                                .header("Idempotency-Key", "m02b-player-top-up-denied")
+                                .contentType(MediaType.APPLICATION_JSON).content(submission))
+                                .andExpect(status().isForbidden());
+                String[] invalidAmounts = { "0", "-1", "100000000000000000.00" };
+                for (int index = 0; index < invalidAmounts.length; index++) {
+                        mockMvc.perform(post("/api/v1/agent/float-top-up-requests")
+                                        .header("Authorization", "Bearer " + agentToken)
+                                        .header("Idempotency-Key", "m02b-invalid-amount-" + index)
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content("{\"amount\":" + invalidAmounts[index]
+                                                        + ",\"currency\":\"ETB\",\"note\":\"QA\"}"))
+                                        .andExpect(status().isBadRequest());
+                }
+                mockMvc.perform(get("/api/v1/admin/agents/float-top-up-requests")
+                                .header("Authorization", "Bearer " + playerToken))
+                                .andExpect(status().isForbidden());
+                mockMvc.perform(get("/api/v1/admin/agents/float-top-up-requests")
+                                .header("Authorization", "Bearer " + agentToken))
+                                .andExpect(status().isForbidden());
+                mockMvc.perform(get("/api/v1/admin/agents/float-top-up-requests")
+                                .header("Authorization", "Bearer " + adminToken))
+                                .andExpect(status().isOk());
+                mockMvc.perform(get("/api/v1/admin/agents/{agentId}/float", agent.getId())
+                                .header("Authorization", "Bearer " + playerToken))
+                                .andExpect(status().isForbidden());
+                mockMvc.perform(get("/api/v1/admin/agents/{agentId}/float/history", agent.getId())
+                                .header("Authorization", "Bearer " + agentToken))
+                                .andExpect(status().isForbidden());
+                mockMvc.perform(get("/api/v1/admin/agents/{agentId}/float", agent.getId())
+                                .header("Authorization", "Bearer " + adminToken))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.availableBalance").value(17.00));
+                assertEquals(0, jdbcTemplate.queryForObject("select count(*) from agent_float_top_up_requests",
+                                Integer.class));
         }
 
         @Test

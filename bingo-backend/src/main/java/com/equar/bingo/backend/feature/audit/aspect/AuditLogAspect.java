@@ -44,7 +44,7 @@ public class AuditLogAspect {
             "record", "purchase", "transfer", "save", "close", "open", "disable", "enable", "reply", "add",
             "topUp", "withdraw", "deposit", "send", "upsert", "verify", "suspend", "activate", "cancel",
             "adminSuspend", "adminApprove", "register", "setAgentPin", "issue", "advance", "changePassword",
-            "reset", "revoke", "login", "logout", "configure", "start", "stop");
+            "reset", "revoke", "login", "logout", "configure", "start", "stop", "post", "deactivate");
     private static final List<String> SENSITIVE_KEY_PARTS = List.of(
             "password", "pin", "secret", "token", "credential", "authorization", "otp", "phone", "email",
             "document", "account", "bank", "card", "cvv", "code", "apikey", "accesskey", "message", "comment",

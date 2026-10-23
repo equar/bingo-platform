@@ -14,19 +14,21 @@ import {
   Typography,
 } from "@mui/material";
 import { Link as RouterLink, useParams } from "react-router-dom";
-import { adminAgentDetail, approveAgent, commissionRule, reviewFloatTopUpRequest, suspendAgent } from "../../api/admin";
+import { adminAgentDetail, adminAgentFloatBalance, adminAgentFloatHistory, approveAgent, commissionRule, reviewFloatTopUpRequest, suspendAgent } from "../../api/admin";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { StatusState } from "../../components/StatusState";
-import { useIdempotencyKey } from "../common/useIdempotencyKey";
+
+function formatMoney(value: string | number) {
+  const [whole, fraction = ""] = String(value).split(".");
+  return `${whole}.${(fraction + "00").slice(0, 2)}`;
+}
 
 export function AgentDetailPage() {
   const { agentId } = useParams();
   const id = Number(agentId);
   const queryClient = useQueryClient();
-  const idempotency = useIdempotencyKey();
   const [requestId, setRequestId] = useState("");
   const [reviewNote, setReviewNote] = useState("");
-  const [approveTopUp, setApproveTopUp] = useState(true);
   const [reviewConfirmOpen, setReviewConfirmOpen] = useState(false);
   const [approveConfirmOpen, setApproveConfirmOpen] = useState(false);
   const [suspendConfirmOpen, setSuspendConfirmOpen] = useState(false);
@@ -38,6 +40,16 @@ export function AgentDetailPage() {
   const agentQuery = useQuery({
     queryKey: ["agent", id],
     queryFn: () => adminAgentDetail(id),
+    enabled: Number.isFinite(id),
+  });
+  const floatBalanceQuery = useQuery({
+    queryKey: ["agent-float", id],
+    queryFn: () => adminAgentFloatBalance(id),
+    enabled: Number.isFinite(id),
+  });
+  const floatHistoryQuery = useQuery({
+    queryKey: ["agent-float-history", id],
+    queryFn: () => adminAgentFloatHistory(id),
     enabled: Number.isFinite(id),
   });
 
@@ -57,14 +69,17 @@ export function AgentDetailPage() {
   });
 
   const reviewMutation = useMutation({
-    mutationFn: () => reviewFloatTopUpRequest(Number(requestId), { approve: approveTopUp, reviewNote }),
+    mutationFn: () => reviewFloatTopUpRequest(Number(requestId), { approve: false, reviewNote }),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["agents"] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["agents"] }),
+        queryClient.invalidateQueries({ queryKey: ["agent-float", id] }),
+        queryClient.invalidateQueries({ queryKey: ["agent-float-history", id] }),
+        queryClient.invalidateQueries({ queryKey: ["admin-float-top-ups"] }),
+      ]);
       setRequestId("");
       setReviewNote("");
-      setApproveTopUp(true);
       setReviewConfirmOpen(false);
-      idempotency.resetKey();
     },
   });
 
@@ -169,7 +184,9 @@ export function AgentDetailPage() {
                   {agent.floatTransactionCount} / {agent.topUpRequestCount} / {agent.payoutVerificationCount}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  No admin float ledger detail endpoint is exposed.
+                  Current available float: {floatBalanceQuery.data
+                    ? `${formatMoney(floatBalanceQuery.data.availableBalance)} ${floatBalanceQuery.data.currency}`
+                    : floatBalanceQuery.isLoading ? "Loading…" : "Unavailable"}
                 </Typography>
               </Stack>
             </CardContent>
@@ -177,10 +194,27 @@ export function AgentDetailPage() {
         </Grid>
       </Grid>
 
-      <Alert severity="warning">
-        The backend only exposes summary counts for this agent. Float ledger, payout detail, and commission history
-        endpoints are not available to the admin contract.
-      </Alert>
+      {floatBalanceQuery.isError ? <Alert severity="error">Unable to load agent float: {floatBalanceQuery.error.message}</Alert> : null}
+      {floatHistoryQuery.isError ? <Alert severity="error">Unable to load agent float history: {floatHistoryQuery.error.message}</Alert> : null}
+      <Card sx={{ border: "1px solid", borderColor: "divider" }}>
+        <CardContent>
+          <Stack spacing={1}>
+            <Typography variant="h6">Float transaction history</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Available {floatBalanceQuery.data ? formatMoney(floatBalanceQuery.data.availableBalance) : "—"} {floatBalanceQuery.data?.currency ?? ""} ·
+              Clearing {floatBalanceQuery.data ? formatMoney(floatBalanceQuery.data.clearingBalance) : "—"} {floatBalanceQuery.data?.currency ?? ""}
+            </Typography>
+            {(floatHistoryQuery.data?.content ?? []).length === 0 ? (
+              <Typography color="text.secondary">No float transactions recorded.</Typography>
+            ) : (floatHistoryQuery.data?.content ?? []).map((entry) => (
+              <Typography key={entry.id} variant="body2">
+                {entry.transactionType} · {formatMoney(entry.amount)} · {formatMoney(entry.availableBefore)} → {formatMoney(entry.availableAfter)} ·
+                {entry.relatedEntityType} #{entry.relatedEntityId ?? "n/a"} · {new Date(entry.createdAt).toLocaleString()}
+              </Typography>
+            ))}
+          </Stack>
+        </CardContent>
+      </Card>
 
       <Grid container spacing={2}>
         <Grid item xs={12} lg={6}>
@@ -188,30 +222,19 @@ export function AgentDetailPage() {
             <CardContent>
               <Stack spacing={2}>
                 <Typography variant="h6">Float top-up review</Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Review float top-up requests by id. The contract does not expose a searchable queue, so this form
-                  targets a specific request.
-                </Typography>
+                <Alert severity="warning">Top-up approvals are blocked pending approved funding verification and accounting rules. Rejection is available here.</Alert>
                 <TextField
                   label="Request id"
                   value={requestId}
                   onChange={(event) => setRequestId(event.target.value)}
                   fullWidth
                 />
-                <TextField
-                  select
-                  label="Decision"
-                  value={approveTopUp ? "APPROVE" : "REJECT"}
-                  onChange={(event) => setApproveTopUp(event.target.value === "APPROVE")}
-                  fullWidth
-                >
-                  <MenuItem value="APPROVE">Approve</MenuItem>
-                  <MenuItem value="REJECT">Reject</MenuItem>
-                </TextField>
+                <TextField label="Decision" value="Reject" fullWidth disabled />
                 <TextField
                   label="Review note"
                   value={reviewNote}
                   onChange={(event) => setReviewNote(event.target.value)}
+                  inputProps={{ maxLength: 500 }}
                   fullWidth
                   multiline
                   minRows={3}
@@ -333,7 +356,7 @@ export function AgentDetailPage() {
       <ConfirmDialog
         open={reviewConfirmOpen}
         title="Review float top-up"
-        description={`Review request ${requestId} as ${approveTopUp ? "approved" : "rejected"}?`}
+        description={`Reject request ${requestId}?`}
         confirmLabel="Confirm"
         cancelLabel="Back"
         confirming={reviewMutation.isPending}

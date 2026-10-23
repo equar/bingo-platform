@@ -105,7 +105,7 @@ class CommissionAccrual {
 }
 
 class FloatTopUpRequest {
-  FloatTopUpRequest({required this.id, required this.amount, required this.currency, required this.status, required this.operationId, required this.reviewNote, required this.reviewedByUserId, required this.reviewedAt, required this.createdAt});
+  FloatTopUpRequest({required this.id, required this.amount, required this.currency, required this.status, required this.operationId, required this.reviewNote, required this.reviewedByUserId, required this.reviewedAt, required this.createdAt, this.submissionNote, this.receivingBankAccountId, this.bankNameSnapshot, this.maskedAccountSnapshot, this.accountHolderSnapshot, this.transferReference, this.supportingEvidenceNote});
 
   final int id;
   final String amount;
@@ -116,6 +116,13 @@ class FloatTopUpRequest {
   final int? reviewedByUserId;
   final DateTime? reviewedAt;
   final DateTime createdAt;
+  final String? submissionNote;
+  final int? receivingBankAccountId;
+  final String? bankNameSnapshot;
+  final String? maskedAccountSnapshot;
+  final String? accountHolderSnapshot;
+  final String? transferReference;
+  final String? supportingEvidenceNote;
 
   factory FloatTopUpRequest.fromJson(Map<String, dynamic> json) => FloatTopUpRequest(
         id: (json['id'] as num?)?.toInt() ?? 0,
@@ -127,6 +134,32 @@ class FloatTopUpRequest {
         reviewedByUserId: (json['reviewedByUserId'] as num?)?.toInt(),
         reviewedAt: DateTime.tryParse(json['reviewedAt']?.toString() ?? ''),
         createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '') ?? DateTime.now(),
+        submissionNote: json['submissionNote']?.toString(),
+        receivingBankAccountId: (json['receivingBankAccountId'] as num?)?.toInt(),
+        bankNameSnapshot: json['bankNameSnapshot']?.toString(),
+        maskedAccountSnapshot: json['maskedAccountSnapshot']?.toString(),
+        accountHolderSnapshot: json['accountHolderSnapshot']?.toString(),
+        transferReference: json['transferReference']?.toString(),
+        supportingEvidenceNote: json['supportingEvidenceNote']?.toString(),
+      );
+}
+
+class AgentFloatBankAccount {
+  const AgentFloatBankAccount({required this.id, required this.bankName,
+    required this.maskedAccountNumber, required this.accountHolderName, required this.currency});
+
+  final int id;
+  final String bankName;
+  final String maskedAccountNumber;
+  final String accountHolderName;
+  final String currency;
+
+  factory AgentFloatBankAccount.fromJson(Map<String, dynamic> json) => AgentFloatBankAccount(
+        id: (json['id'] as num?)?.toInt() ?? 0,
+        bankName: json['bankName']?.toString() ?? '',
+        maskedAccountNumber: json['maskedAccountNumber']?.toString() ?? '',
+        accountHolderName: json['accountHolderName']?.toString() ?? '',
+        currency: json['currency']?.toString() ?? '',
       );
 }
 

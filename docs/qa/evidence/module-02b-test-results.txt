@@ -1,0 +1,15 @@
+Module 02B execution summary (2026-10-23 Africa/Nairobi)
+
+Chromium: Playwright module-02b-agent-float.spec.ts — 1 passed, 0 failed on a fresh pending request 5. The browser opened the queue/details, recorded synthetic statement entry 2, verified the request, denied the verifier post with HTTP 403, posted through a separate approver, refreshed to confirm APPROVED, repeated the post idempotently, and ran reconciliation. An earlier attempt exposed a stale queue row after posting; the test now refreshes and this full pending-to-posted browser flow passes.
+
+Android: Flutter drive on emulator-5554/API 37 — request-submission test passed for request 5; posted-state test passed for request 5, asserting reference, ETB 51.00 available balance, a TOP_UP transaction, and Approved. Initial assertions revealed currency order, whole-number formatting, and multiple matching history labels; corrected assertions passed. Earlier Module 02B Android runs also submitted and viewed request 4.
+
+Backend: Full Maven suite against bingo_qa_test — 105 tests, 0 failures, 0 errors, 0 skipped. Targeted OpenApiContractIntegrationTest — 1 passed. First full run had one OpenAPI snapshot mismatch after the new HTTP 403 mapping; snapshot regenerated from QA and full suite rerun passed.
+
+Admin frontend: Vitest 26 test files / 75 tests passed. ESLint passed. Production build passed.
+
+Flutter: Unit suite — 10 passed. flutter analyze — no issues found.
+
+Persistent data: Read-only MySQL verification against bingo_qa — Flyway V18; requests 4 and 5 APPROVED; statement entries 1 and 2 matched; journals 1 and 2 simulated and each balanced at ETB 25.50/25.50; exactly two TOP_UP float transactions; Agent 3 available balance ETB 51.00, clearing ETB 0.00. Verifier user 15 and approver user 16 are distinct. Original agent profiles 1 and 2 remain APPROVED and PENDING.
+
+Production: Simulated QA only. No bank or payment gateway was contacted. Production float credits remain disabled pending approvals.

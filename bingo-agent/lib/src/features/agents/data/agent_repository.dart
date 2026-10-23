@@ -107,4 +107,10 @@ class AgentRepository {
     );
     return FloatTopUpRequest.fromJson(response.data ?? {});
   }
+
+  Future<List<AgentFloatBankAccount>> floatBankAccounts() async {
+    final response = await _dio.get<List<dynamic>>('/api/v1/agent/float-bank-accounts');
+    return (response.data ?? const []).whereType<Map>().map((item) =>
+      AgentFloatBankAccount.fromJson(Map<String, dynamic>.from(item))).toList();
+  }
 }

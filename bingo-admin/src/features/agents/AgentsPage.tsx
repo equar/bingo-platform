@@ -13,7 +13,6 @@ import {
   DialogTitle,
   FormControlLabel,
   Grid,
-  MenuItem,
   Stack,
   Switch,
   Table,
@@ -31,12 +30,11 @@ import {
   adminAgents,
   commissionRule,
   currentCommissionRule,
-  reviewFloatTopUpRequest,
   suspendAgent,
 } from "../../api/admin";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { StatusState } from "../../components/StatusState";
-import { useIdempotencyKey } from "../common/useIdempotencyKey";
+import { FloatFundingPanel } from "./FloatFundingPanel";
 
 function formatNullable(value: string | null | undefined) {
   return value?.trim() ? value : "n/a";
@@ -52,9 +50,6 @@ export function AgentsPage() {
   const [decisionDraft, setDecisionDraft] = useState<{ mode: "APPROVE" } | null>(null);
   const [decisionError, setDecisionError] = useState<string | null>(null);
   const [suspendConfirmOpen, setSuspendConfirmOpen] = useState(false);
-  const [floatRequestId, setFloatRequestId] = useState("");
-  const [floatApprove, setFloatApprove] = useState(true);
-  const [floatReviewNote, setFloatReviewNote] = useState("");
   const [commissionRateBps, setCommissionRateBps] = useState("0");
   const [commissionEffectiveFrom, setCommissionEffectiveFrom] = useState(new Date().toISOString().slice(0, 16));
   const [commissionActive, setCommissionActive] = useState(true);
@@ -65,9 +60,6 @@ export function AgentsPage() {
     setCommissionEffectiveFrom(current.effectiveFrom.slice(0, 16));
     setCommissionActive(current.active);
   }, [commissionRuleQuery.data]);
-  const floatRequestIdValue = Number(floatRequestId);
-  const isValidFloatRequestId = Number.isSafeInteger(floatRequestIdValue) && floatRequestIdValue > 0;
-  const idempotency = useIdempotencyKey();
 
   const approveMutation = useMutation({
     mutationFn: async () => {
@@ -99,26 +91,6 @@ export function AgentsPage() {
       setDecisionError(null);
     },
     onError: (error) => setDecisionError((error as Error).message),
-  });
-
-  const floatReviewMutation = useMutation({
-    mutationFn: async () => {
-      if (!isValidFloatRequestId) {
-        throw new Error("Enter a positive integer request id");
-      }
-      idempotency.getKey();
-      return reviewFloatTopUpRequest(floatRequestIdValue, {
-        approve: floatApprove,
-        reviewNote: floatReviewNote.trim(),
-      });
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["agents"] });
-      setFloatRequestId("");
-      setFloatApprove(true);
-      setFloatReviewNote("");
-      idempotency.resetKey();
-    },
   });
 
   const commissionMutation = useMutation({
@@ -180,11 +152,6 @@ export function AgentsPage() {
         </Button>
       </Box>
 
-      <Alert severity="warning">
-        The backend contract exposes agent summary counts, but not an admin float balance or ledger endpoint. The float
-        column below is marked as unavailable until that API exists.
-      </Alert>
-
       <Grid container spacing={2}>
         <Grid item xs={12} md={6}>
           <Card sx={{ border: "1px solid", borderColor: "divider", height: "100%" }}>
@@ -243,80 +210,9 @@ export function AgentsPage() {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} md={6}>
-          <Card sx={{ border: "1px solid", borderColor: "divider", height: "100%" }}>
-            <CardContent>
-              <Stack spacing={2}>
-                <Typography variant="h6">Float top-up review</Typography>
-                <Typography variant="body2" color="text.secondary">
-                  The backend exposes review-by-id but not a searchable queue, so enter the request id from another
-                  queue or source.
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  A local retry key is retained until the review succeeds, but the backend review endpoint does not
-                  accept an idempotency header.
-                </Typography>
-                <Grid container spacing={2}>
-                  <Grid item xs={12} md={4}>
-                    <TextField
-                      label="Request id"
-                      type="number"
-                      value={floatRequestId}
-                      onChange={(event) => setFloatRequestId(event.target.value)}
-                      inputProps={{ min: 1, step: 1 }}
-                      error={Boolean(floatRequestId) && !isValidFloatRequestId}
-                      helperText={
-                        Boolean(floatRequestId) && !isValidFloatRequestId
-                          ? "Enter a positive whole number."
-                          : "Use the positive request id from the review queue."
-                      }
-                      fullWidth
-                    />
-                  </Grid>
-                  <Grid item xs={12} md={4}>
-                    <TextField
-                      select
-                      label="Decision"
-                      value={floatApprove ? "APPROVE" : "REJECT"}
-                      onChange={(event) => setFloatApprove(event.target.value === "APPROVE")}
-                      fullWidth
-                    >
-                      <MenuItem value="APPROVE">Approve</MenuItem>
-                      <MenuItem value="REJECT">Reject</MenuItem>
-                    </TextField>
-                  </Grid>
-                  <Grid item xs={12} md={4}>
-                    <TextField
-                      label="Review note"
-                      value={floatReviewNote}
-                      onChange={(event) => setFloatReviewNote(event.target.value)}
-                      fullWidth
-                      multiline
-                      minRows={2}
-                    />
-                  </Grid>
-                </Grid>
-                {floatReviewMutation.isError ? (
-                  <Alert severity="error" role="alert">
-                    {floatReviewMutation.error.message}
-                  </Alert>
-                ) : null}
-                <Button
-                  variant="outlined"
-                  onClick={() => floatReviewMutation.mutate()}
-                  disabled={
-                    floatReviewMutation.isPending ||
-                    !isValidFloatRequestId ||
-                    !floatReviewNote.trim()
-                  }
-                >
-                  Review request
-                </Button>
-              </Stack>
-            </CardContent>
-          </Card>
-        </Grid>
       </Grid>
+
+      <FloatFundingPanel />
 
       <TextField
         label="Search agents"
@@ -359,9 +255,7 @@ export function AgentsPage() {
                   <TableCell>
                     <Chip label={agent.status} size="small" />
                   </TableCell>
-                  <TableCell>
-                    <Chip label="Not exposed" variant="outlined" size="small" />
-                  </TableCell>
+                  <TableCell><Chip label="See top-up queue" variant="outlined" size="small" /></TableCell>
                   <TableCell align="right">{agent.ticketSalesCount}</TableCell>
                   <TableCell align="right">{agent.floatTransactionCount}</TableCell>
                   <TableCell align="right">{agent.topUpRequestCount}</TableCell>

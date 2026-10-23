@@ -168,6 +168,12 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
         @BeforeEach
         void setUp() {
                 jdbcTemplate.update("delete from audit_log_entries");
+                jdbcTemplate.update("delete from float_accounting_journal_lines");
+                jdbcTemplate.update("delete from float_accounting_journals");
+                jdbcTemplate.update("delete from float_top_up_verification_attempts");
+                jdbcTemplate.update("delete from float_bank_statement_entries");
+                jdbcTemplate.update("delete from agent_float_top_up_requests");
+                jdbcTemplate.update("delete from float_receiving_bank_accounts");
                 internalNoteRepository.deleteAllInBatch();
                 supportMessageRepository.deleteAllInBatch();
                 supportTicketRepository.deleteAllInBatch();

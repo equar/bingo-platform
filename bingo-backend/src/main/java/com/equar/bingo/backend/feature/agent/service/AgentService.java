@@ -87,6 +87,7 @@ public class AgentService {
     private final RequestHashService requestHashService;
     private final AuthenticationAttemptThrottleService throttleService;
     private final SignupRewardService signupRewardService;
+    private final FloatBankAccountService floatBankAccountService;
 
     public AgentService(AgentRepository agentRepository,
             AgentFloatRepository agentFloatRepository,
@@ -112,7 +113,8 @@ public class AgentService {
             IdempotencyService idempotencyService,
             RequestHashService requestHashService,
             AuthenticationAttemptThrottleService throttleService,
-            SignupRewardService signupRewardService) {
+            SignupRewardService signupRewardService,
+            FloatBankAccountService floatBankAccountService) {
         this.agentRepository = agentRepository;
         this.agentFloatRepository = agentFloatRepository;
         this.agentFloatTransactionRepository = agentFloatTransactionRepository;
@@ -138,6 +140,7 @@ public class AgentService {
         this.requestHashService = requestHashService;
         this.throttleService = throttleService;
         this.signupRewardService = signupRewardService;
+        this.floatBankAccountService = floatBankAccountService;
     }
 
     @Transactional
@@ -394,11 +397,21 @@ public class AgentService {
 
         return idempotencyService.execute(principal.getUser().getId(), idempotencyKey, requestHash, operationId,
                 HttpStatus.CREATED.value(), FloatTopUpRequestResponse.class, () -> {
+                    String currency = requireAgentFloat(agent.getId()).getCurrency();
+                    if (!currency.equalsIgnoreCase(request.currency())) {
+                        throw new BadRequestException("CURRENCY_MISMATCH",
+                                "Top-up request currency must match the agent float currency");
+                    }
                     BigDecimal amount = requirePositiveAmount(request.amount(), "INVALID_AMOUNT",
                             "Top-up amount must be greater than zero");
+                    var receivingAccount = floatBankAccountService.requireActive(
+                            request.receivingBankAccountId(), currency);
                     FloatTopUpRequest topUpRequest = FloatTopUpRequest.create(agent, principal.getUser(), amount,
-                            request.currency().toUpperCase(), operationId);
-                    topUpRequest.setReviewNote(request.note());
+                            currency, operationId);
+                    topUpRequest.setSubmissionNote(request.note());
+                    topUpRequest.setReceivingBankSnapshot(receivingAccount.id(), receivingAccount.bankName(),
+                            receivingAccount.maskedAccountNumber(), receivingAccount.accountHolderName(),
+                            request.transferReference().trim(), request.supportingEvidenceNote());
                     topUpRequest = floatTopUpRequestRepository.save(topUpRequest);
                     return toFloatTopUpResponse(topUpRequest);
                 });
@@ -414,30 +427,56 @@ public class AgentService {
             throw new ConflictException("TOP_UP_REQUEST_ALREADY_REVIEWED", "Float top-up request already reviewed");
         }
 
+        if (request.approve()) {
+            throw new ConflictException("FLOAT_FUNDING_RULE_REQUIRED",
+                    "Float top-up approval is unavailable until funding verification and accounting rules are approved");
+        }
+
         topUpRequest.setReviewedBy(reviewer);
         topUpRequest.setReviewedAt(Instant.now());
         topUpRequest.setReviewNote(request.reviewNote());
-        topUpRequest.setStatus(request.approve() ? FloatTopUpRequestStatus.APPROVED : FloatTopUpRequestStatus.REJECTED);
+        topUpRequest.setStatus(FloatTopUpRequestStatus.REJECTED);
         topUpRequest = floatTopUpRequestRepository.save(topUpRequest);
-        if (request.approve()) {
-            AgentFloat agentFloat = requireAgentFloatForUpdate(topUpRequest.getAgent().getId());
-            BigDecimal before = agentFloat.getAvailableBalance();
-            BigDecimal after = MoneyValues.money(before.add(topUpRequest.getAmount()));
-            agentFloat.setAvailableBalance(after);
-            agentFloatRepository.save(agentFloat);
-            agentFloatTransactionRepository.save(AgentFloatTransaction.create(agentFloat,
-                    AgentFloatTransactionType.TOP_UP,
-                    topUpRequest.getAmount(),
-                    before,
-                    after,
-                    agentFloat.getClearingBalance(),
-                    agentFloat.getClearingBalance(),
-                    "FLOAT_TOP_UP_REQUEST",
-                    topUpRequest.getId(),
-                    UUID.randomUUID().toString(),
-                    request.reviewNote()));
-        }
         return toFloatTopUpResponse(topUpRequest);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<AdminFloatTopUpRequestResponse> adminTopUpRequests(
+            Pageable pageable, String status, String query) {
+        FloatTopUpRequestStatus requestStatus;
+        try {
+            requestStatus = status == null || status.isBlank() ? FloatTopUpRequestStatus.PENDING
+                    : FloatTopUpRequestStatus.valueOf(status.trim().toUpperCase());
+        } catch (IllegalArgumentException exception) {
+            throw new BadRequestException("INVALID_TOP_UP_STATUS", "Unsupported float top-up request status");
+        }
+        String normalizedQuery = query == null || query.isBlank() ? null : query.trim();
+        Page<FloatTopUpRequest> requests = floatTopUpRequestRepository.searchForAdmin(
+                requestStatus, normalizedQuery, pageable);
+        return PageResponse.from(requests.map(request -> new AdminFloatTopUpRequestResponse(
+                request.getId(), request.getAgent().getId(), request.getAgent().getUser().getDisplayName(),
+                request.getAgent().getUser().getNormalizedPhone(), request.getRequestedBy().getId(),
+                request.getAmount(), request.getCurrency(), request.getStatus(), request.getSubmissionNote(),
+                request.getReviewNote(), request.getReviewedBy() == null ? null : request.getReviewedBy().getId(),
+                request.getReviewedAt(), request.getCreatedAt(), request.getUpdatedAt(),
+                request.getReceivingBankAccountId(), request.getBankNameSnapshot(), request.getMaskedAccountSnapshot(),
+                request.getAccountHolderSnapshot(), request.getTransferReference(), request.getSupportingEvidenceNote())));
+    }
+
+    @Transactional(readOnly = true)
+    public AgentFloatResponse adminFloatBalance(Long agentId) {
+        Agent agent = agentRepository.findById(agentId)
+                .orElseThrow(() -> new NotFoundException("AGENT_NOT_FOUND", "Agent profile not found"));
+        return toFloatResponse(requireAgentFloat(agent.getId()));
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<AgentFloatTransactionResponse> adminFloatHistory(Long agentId, Pageable pageable) {
+        Agent agent = agentRepository.findById(agentId)
+                .orElseThrow(() -> new NotFoundException("AGENT_NOT_FOUND", "Agent profile not found"));
+        Page<AgentFloatTransaction> transactions = agentFloatTransactionRepository.findFinancialHistory(
+                agent.getId(), null, null, null, pageable);
+        return PageResponse.from(transactions.map(this::toFloatTransactionResponse));
     }
 
     @Transactional(readOnly = true)
@@ -871,7 +910,9 @@ public class AgentService {
                 request.getRequestedBy().getId(),
                 request.getAmount(), request.getCurrency(), request.getStatus(), request.getOperationId(),
                 request.getReviewNote(), request.getReviewedBy() == null ? null : request.getReviewedBy().getId(),
-                request.getReviewedAt(), request.getCreatedAt(), request.getUpdatedAt());
+                request.getReviewedAt(), request.getCreatedAt(), request.getUpdatedAt(), request.getSubmissionNote(),
+                request.getReceivingBankAccountId(), request.getBankNameSnapshot(), request.getMaskedAccountSnapshot(),
+                request.getAccountHolderSnapshot(), request.getTransferReference(), request.getSupportingEvidenceNote());
     }
 
     private CommissionAccrualResponse toCommissionResponse(CommissionAccrual accrual) {
