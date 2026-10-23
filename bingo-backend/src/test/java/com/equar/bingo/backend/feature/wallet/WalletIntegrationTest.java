@@ -35,6 +35,9 @@ import com.equar.bingo.backend.feature.agent.repository.PayoutVerificationRecord
 import com.equar.bingo.backend.feature.agent.repository.AgentFloatTransactionRepository;
 import com.equar.bingo.backend.feature.agent.repository.AgentFloatRepository;
 import com.equar.bingo.backend.feature.agent.repository.AgentRepository;
+import com.equar.bingo.backend.feature.agent.entity.Agent;
+import com.equar.bingo.backend.feature.agent.entity.AgentStatus;
+import com.equar.bingo.backend.feature.agent.dto.AgentLoginRequest;
 import com.equar.bingo.backend.feature.wallet.repository.DepositClaimRepository;
 import com.equar.bingo.backend.feature.wallet.repository.IdempotencyRecordRepository;
 import com.equar.bingo.backend.feature.wallet.repository.SignupRewardGrantRepository;
@@ -174,6 +177,10 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
 
         @Autowired
         AgentRepository agentRepository;
+
+        @Autowired
+        @org.springframework.beans.factory.annotation.Qualifier("agentPinEncoder")
+        PasswordEncoder agentPinEncoder;
 
         private User adminUser;
         private User playerUser;
@@ -648,8 +655,76 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
         }
 
         @Test
+        void transferRejectsDisabledExpiredAndZeroLimitPolicies() throws Exception {
+                String senderToken = loginToken("0911000102", "123456");
+                User recipient = userRepository.save(User.create(
+                                phoneNormalizer.normalize("0911000104"), "Policy Recipient",
+                                passwordEncoder.encode("123456"), AccountStatus.ACTIVE,
+                                Set.of(UserRole.PLAYER), Instant.now()));
+                walletService.createWalletIfMissing(recipient);
+                var request = objectMapper.writeValueAsString(
+                                new com.equar.bingo.backend.feature.wallet.dto.WalletTransferRequest(
+                                                "0911000104", new BigDecimal("1.00"), "ETB", "Policy regression"));
+                Instant now = Instant.now();
+
+                mockMvc.perform(post("/api/v1/wallet/transfers")
+                                .header("Authorization", "Bearer " + senderToken)
+                                .header("Idempotency-Key", "transfer-invalid-recipient")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(
+                                                new com.equar.bingo.backend.feature.wallet.dto.WalletTransferRequest(
+                                                                "0911000999", new BigDecimal("1.00"), "ETB",
+                                                                "Invalid recipient regression"))))
+                                .andExpect(status().isNotFound())
+                                .andExpect(jsonPath("$.code").value("PLAYER_NOT_FOUND"));
+                assertEquals(0L, walletTransferRepository.count());
+                assertEquals(0L, walletTransactionRepository.count());
+
+                walletTransferPolicyRepository.save(WalletTransferPolicy.create(false,
+                                new BigDecimal("100.00"), new BigDecimal("500.00"), "ETB",
+                                now.minusSeconds(60), now.plusSeconds(3600), adminUser,
+                                "isolated disabled-policy regression", now));
+                mockMvc.perform(post("/api/v1/wallet/transfers")
+                                .header("Authorization", "Bearer " + senderToken)
+                                .header("Idempotency-Key", "policy-disabled")
+                                .contentType(MediaType.APPLICATION_JSON).content(request))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.code").value("TRANSFERS_DISABLED"));
+
+                walletTransferPolicyRepository.save(WalletTransferPolicy.create(true,
+                                new BigDecimal("100.00"), new BigDecimal("500.00"), "ETB",
+                                now.minusSeconds(7200), now.minusSeconds(3600), adminUser,
+                                "isolated expired-policy regression", now));
+                mockMvc.perform(post("/api/v1/wallet/transfers")
+                                .header("Authorization", "Bearer " + senderToken)
+                                .header("Idempotency-Key", "policy-expired")
+                                .contentType(MediaType.APPLICATION_JSON).content(request))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.code").value("TRANSFER_POLICY_INACTIVE"));
+
+                walletTransferPolicyRepository.save(WalletTransferPolicy.create(true,
+                                BigDecimal.ZERO, new BigDecimal("500.00"), "ETB",
+                                now.minusSeconds(60), now.plusSeconds(3600), adminUser,
+                                "isolated zero-limit regression", now));
+                mockMvc.perform(post("/api/v1/wallet/transfers")
+                                .header("Authorization", "Bearer " + senderToken)
+                                .header("Idempotency-Key", "policy-zero-limit")
+                                .contentType(MediaType.APPLICATION_JSON).content(request))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.code").value("TRANSFER_LIMIT_EXCEEDED"));
+
+                assertEquals(0L, walletTransferRepository.count());
+                assertEquals(0L, walletTransactionRepository.count());
+                assertEquals(new BigDecimal("0.00"), walletRepository.findByOwnerId(playerUser.getId())
+                                .orElseThrow().getAvailableBalance());
+                assertEquals(new BigDecimal("0.00"), walletRepository.findByOwnerId(recipient.getId())
+                                .orElseThrow().getAvailableBalance());
+        }
+
+        @Test
         void playerTransferUsesIdempotencyAndMovesTransferableBalance() throws Exception {
                 String senderToken = loginToken("0911000102", "123456");
+                String adminToken = adminLoginToken("admin@example.com", "AdminPass123!");
                 User recipient = userRepository.save(User.create(
                                 phoneNormalizer.normalize("0911000104"),
                                 "Recipient User",
@@ -698,10 +773,146 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
                 assertEquals(1L, walletTransferRepository.count());
                 assertEquals(2L, walletTransactionRepository.count());
 
+                long transferId = first.get("id").asLong();
+                String operationId = first.get("operationId").asText();
+                String recipientToken = loginToken("0911000104", "123456");
+                mockMvc.perform(get("/api/v1/wallet/transactions")
+                                .header("Authorization", "Bearer " + senderToken))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.totalElements").value(1))
+                                .andExpect(jsonPath("$.content[0].transactionType").value("WALLET_TRANSFER_DEBIT"))
+                                .andExpect(jsonPath("$.content[0].referenceId").value(transferId));
+                mockMvc.perform(get("/api/v1/wallet/transactions")
+                                .header("Authorization", "Bearer " + recipientToken))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.totalElements").value(1))
+                                .andExpect(jsonPath("$.content[0].transactionType").value("WALLET_TRANSFER_CREDIT"))
+                                .andExpect(jsonPath("$.content[0].referenceId").value(transferId));
+                mockMvc.perform(get("/api/v1/admin/wallet/transfers")
+                                .header("Authorization", "Bearer " + adminToken)
+                                .param("query", operationId)
+                                .param("status", "COMPLETED")
+                                .param("senderPhone", "251911000102")
+                                .param("recipientPhone", "251911000104")
+                                .param("page", "0")
+                                .param("size", "1"))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.totalElements").value(1))
+                                .andExpect(jsonPath("$.totalPages").value(1))
+                                .andExpect(jsonPath("$.content[0].id").value(transferId))
+                                .andExpect(jsonPath("$.content[0].operationId").value(operationId))
+                                .andExpect(jsonPath("$.content[0].senderPhoneNumber").value("251911000102"))
+                                .andExpect(jsonPath("$.content[0].recipientPhoneNumber").value("251911000104"))
+                                .andExpect(jsonPath("$.content[0].amount").value(30.00))
+                                .andExpect(jsonPath("$.content[0].currency").value("ETB"))
+                                .andExpect(jsonPath("$.content[0].status").value("COMPLETED"));
+
+                mockMvc.perform(get("/api/v1/admin/wallet/transfers")
+                                .header("Authorization", "Bearer " + adminToken)
+                                .param("query", operationId)
+                                .param("status", "COMPLETED")
+                                .param("page", "1")
+                                .param("size", "1"))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.content").isEmpty())
+                                .andExpect(jsonPath("$.totalElements").value(1));
+
+                String detailBody = mockMvc.perform(get("/api/v1/admin/wallet/transfers/{id}", transferId)
+                                .header("Authorization", "Bearer " + adminToken))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.transfer.id").value(transferId))
+                                .andExpect(jsonPath("$.transfer.operationId").value(operationId))
+                                .andExpect(jsonPath("$.transfer.status").value("COMPLETED"))
+                                .andExpect(jsonPath("$.transfer.amount").value(30.00))
+                                .andExpect(jsonPath("$.transfer.currency").value("ETB"))
+                                .andExpect(jsonPath("$.transfer.senderId").value(playerUser.getId()))
+                                .andExpect(jsonPath("$.transfer.recipientId").value(recipient.getId()))
+                                .andExpect(jsonPath("$.ledgerEntries.length()").value(2))
+                                .andExpect(jsonPath("$.ledgerEntries[0].referenceType").value("WALLET_TRANSFER"))
+                                .andExpect(jsonPath("$.ledgerEntries[0].referenceId").value(transferId))
+                                .andReturn().getResponse().getContentAsString();
+                JsonNode detail = objectMapper.readTree(detailBody);
+                assertEquals(operationId, detail.path("ledgerEntries").get(0).path("operationId").asText());
+                assertEquals(operationId, detail.path("ledgerEntries").get(1).path("operationId").asText());
+                assertEquals(2, walletTransactionRepository
+                                .findByReferenceTypeAndReferenceIdOrderByCreatedAtAscIdAsc("WALLET_TRANSFER", transferId)
+                                .size());
+                var persistedTransfer = walletTransferRepository.findById(transferId).orElseThrow();
+                assertEquals(persistedTransfer.getCreatedAt().toEpochMilli(),
+                                java.time.Instant.parse(first.path("createdAt").asText()).toEpochMilli());
+                assertEquals(persistedTransfer.getCompletedAt().toEpochMilli(),
+                                java.time.Instant.parse(first.path("completedAt").asText()).toEpochMilli());
+
+                mockMvc.perform(post("/api/v1/wallet/transfers")
+                                .header("Authorization", "Bearer " + senderToken)
+                                .header("Idempotency-Key", "transfer-insufficient")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(
+                                                new com.equar.bingo.backend.feature.wallet.dto.WalletTransferRequest(
+                                                                "0911000104", new BigDecimal("71.00"), "ETB",
+                                                                "Insufficient balance regression"))))
+                                .andExpect(status().isConflict());
+                assertEquals(new BigDecimal("70.00"),
+                                walletRepository.findByOwnerId(playerUser.getId()).orElseThrow().getAvailableBalance());
+                assertEquals(new BigDecimal("30.00"),
+                                walletRepository.findByOwnerId(recipient.getId()).orElseThrow().getAvailableBalance());
+                assertEquals(1L, walletTransferRepository.count());
+                assertEquals(2L, walletTransactionRepository.count());
+                assertEquals(1, jdbcTemplate.queryForObject(
+                                "SELECT COUNT(*) FROM audit_log_entries WHERE actor_user_id = ? "
+                                                + "AND action = 'TRANSFER' "
+                                                + "AND JSON_UNQUOTE(JSON_EXTRACT(metadata_json, '$.outcome')) = 'FAILURE' "
+                                                + "AND JSON_UNQUOTE(JSON_EXTRACT(metadata_json, '$.method')) = 'transfer'",
+                                Integer.class, playerUser.getId()));
+
+                mockMvc.perform(get("/api/v1/admin/wallet/transfers/{id}", Long.MAX_VALUE)
+                                .header("Authorization", "Bearer " + adminToken))
+                                .andExpect(status().isNotFound())
+                                .andExpect(jsonPath("$.code").value("TRANSFER_NOT_FOUND"));
+                mockMvc.perform(get("/api/v1/admin/wallet/transfers")
+                                .header("Authorization", "Bearer " + senderToken))
+                                .andExpect(status().isForbidden());
+
+                User agent = userRepository.save(User.create(
+                                phoneNormalizer.normalize("0911000105"), "Agent User", passwordEncoder.encode("unused"),
+                                AccountStatus.ACTIVE, Set.of(UserRole.AGENT), Instant.now()));
+                agent.setAgentPinHash(agentPinEncoder.encode("842691"));
+                agent = userRepository.save(agent);
+                agentRepository.save(Agent.create(agent, AgentStatus.APPROVED, "QA City", "QA Territory",
+                                "QA_ID", "M02H-AGENT-01", null, null));
+                String agentToken = agentLoginToken("0911000105", "842691");
+                mockMvc.perform(get("/api/v1/admin/wallet/transfers")
+                                .header("Authorization", "Bearer " + agentToken))
+                                .andExpect(status().isForbidden());
+
+                CountDownLatch ready = new CountDownLatch(2);
+                CountDownLatch start = new CountDownLatch(1);
+                ExecutorService executor = Executors.newFixedThreadPool(2);
+                try {
+                        String concurrentRequest = objectMapper.writeValueAsString(
+                                        new com.equar.bingo.backend.feature.wallet.dto.WalletTransferRequest(
+                                                        "0911000104", new BigDecimal("40.00"), "ETB",
+                                                        "Concurrent overspend regression"));
+                        Future<Integer> resultA = executor.submit(() -> concurrentTransferStatus(
+                                        ready, start, senderToken, "transfer-concurrent-a", concurrentRequest));
+                        Future<Integer> resultB = executor.submit(() -> concurrentTransferStatus(
+                                        ready, start, senderToken, "transfer-concurrent-b", concurrentRequest));
+                        assertTrue(ready.await(10, TimeUnit.SECONDS));
+                        start.countDown();
+                        var statuses = List.of(resultA.get(20, TimeUnit.SECONDS), resultB.get(20, TimeUnit.SECONDS));
+                        assertEquals(1, statuses.stream().filter(code -> code == 200).count());
+                        assertEquals(1, statuses.stream().filter(code -> code == 409).count());
+                } finally {
+                        start.countDown();
+                        executor.shutdownNow();
+                }
+
                 Wallet senderAfter = walletRepository.findByOwnerId(playerUser.getId()).orElseThrow();
                 Wallet recipientAfter = walletRepository.findByOwnerId(recipient.getId()).orElseThrow();
-                assertEquals(new BigDecimal("70.00"), senderAfter.getAvailableBalance());
-                assertEquals(new BigDecimal("30.00"), recipientAfter.getAvailableBalance());
+                assertEquals(new BigDecimal("30.00"), senderAfter.getAvailableBalance());
+                assertEquals(new BigDecimal("70.00"), recipientAfter.getAvailableBalance());
+                assertEquals(2L, walletTransferRepository.count());
+                assertEquals(4L, walletTransactionRepository.count());
                 assertWalletSnapshot(walletTransactionRepository.findAll().stream()
                                 .filter(transaction -> transaction.getTransactionType()
                                                 == WalletTransactionType.WALLET_TRANSFER_DEBIT)
@@ -712,6 +923,20 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
                                                 == WalletTransactionType.WALLET_TRANSFER_CREDIT)
                                 .findFirst().orElseThrow(),
                                 "0.00", "30.00", "4.00", "4.00");
+        }
+
+        private int concurrentTransferStatus(CountDownLatch ready, CountDownLatch start, String token,
+                        String key, String body) throws Exception {
+                ready.countDown();
+                if (!start.await(10, TimeUnit.SECONDS)) {
+                        throw new IllegalStateException("Timed out waiting to start concurrent transfer request");
+                }
+                return mockMvc.perform(post("/api/v1/wallet/transfers")
+                                .header("Authorization", "Bearer " + token)
+                                .header("Idempotency-Key", key)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(body))
+                                .andReturn().getResponse().getStatus();
         }
 
         private void assertWalletSnapshot(WalletTransaction transaction,
@@ -768,6 +993,17 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
                 String response = mockMvc.perform(post("/api/v1/admin/login")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(new AdminLoginRequest(email, password))))
+                                .andExpect(status().isOk())
+                                .andReturn()
+                                .getResponse()
+                                .getContentAsString();
+                return objectMapper.readTree(response).get("accessToken").asText();
+        }
+
+        private String agentLoginToken(String phoneNumber, String pin) throws Exception {
+                String response = mockMvc.perform(post("/api/v1/agent/login")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(new AgentLoginRequest(phoneNumber, pin))))
                                 .andExpect(status().isOk())
                                 .andReturn()
                                 .getResponse()

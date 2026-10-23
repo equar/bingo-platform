@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import {
   Alert,
@@ -18,7 +18,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { walletTransfers } from "../../api/admin";
+import { walletTransferDetail, walletTransfers } from "../../api/admin";
 import { StatusState } from "../../components/StatusState";
 
 export function WalletTransfersPage() {
@@ -55,10 +55,13 @@ export function WalletTransfersPage() {
     placeholderData: keepPreviousData,
   });
 
-  const selectedTransfer = useMemo(
-    () => transfersQuery.data?.content.find((transfer) => transfer.id === selectedId) ?? null,
-    [selectedId, transfersQuery.data],
-  );
+  const transferDetailQuery = useQuery({
+    queryKey: ["wallet-transfer-detail", selectedId],
+    queryFn: () => walletTransferDetail(selectedId as number),
+    enabled: selectedId !== null,
+  });
+
+  const selectedTransfer = transferDetailQuery.data?.transfer ?? null;
 
   if (transfersQuery.isLoading) {
     return <StatusState title="Loading transfers" loading message="Fetching player transfer history" />;
@@ -68,7 +71,7 @@ export function WalletTransfersPage() {
     return (
       <StatusState
         title="Unable to load transfers"
-        message={(transfersQuery.error as Error).message}
+        message="Transfer history could not be loaded. Please try again."
         actionLabel="Retry"
         onAction={() => transfersQuery.refetch()}
       />
@@ -220,7 +223,13 @@ export function WalletTransfersPage() {
         <Grid item xs={12} lg={5}>
           <Card elevation={0} sx={{ border: "1px solid", borderColor: "divider", minHeight: 260 }}>
             <CardContent>
-              {selectedTransfer ? (
+              {selectedId !== null && transferDetailQuery.isLoading ? (
+                <StatusState title="Loading transfer detail" loading message="Fetching transfer and ledger details" />
+              ) : selectedId !== null && transferDetailQuery.error ? (
+                <Alert severity="error" data-testid="wallet-transfer-detail-error">
+                  Transfer details could not be loaded. Please try again.
+                </Alert>
+              ) : selectedTransfer ? (
                 <Stack spacing={1.5}>
                   <Typography variant="h6">Transfer detail</Typography>
                   <Typography>Operation: {selectedTransfer.operationId}</Typography>
@@ -250,6 +259,35 @@ export function WalletTransfersPage() {
                   <Typography color="text.secondary">
                     {selectedTransfer.failureReason ?? "No failure reason"}
                   </Typography>
+                  <Typography variant="subtitle2">Related wallet ledger entries</Typography>
+                  {transferDetailQuery.data?.ledgerEntries.length ? (
+                    <Table size="small" aria-label="transfer ledger entries">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>Entry</TableCell>
+                          <TableCell>Wallet owner</TableCell>
+                          <TableCell>Type</TableCell>
+                          <TableCell align="right">Amount</TableCell>
+                          <TableCell>Balance before → after</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {transferDetailQuery.data.ledgerEntries.map((entry) => (
+                          <TableRow key={entry.id} data-testid={`wallet-transfer-ledger-${entry.id}`}>
+                            <TableCell>{entry.id}</TableCell>
+                            <TableCell>{entry.walletOwnerId}</TableCell>
+                            <TableCell>{entry.transactionType}</TableCell>
+                            <TableCell align="right">{entry.amount} {entry.currency}</TableCell>
+                            <TableCell>{entry.balanceBefore} → {entry.balanceAfter}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  ) : (
+                    <Alert severity="warning" data-testid="wallet-transfer-ledger-missing">
+                      No linked wallet ledger entries were found for this transfer.
+                    </Alert>
+                  )}
                 </Stack>
               ) : (
                 <Typography color="text.secondary">Select a transfer to inspect the details.</Typography>

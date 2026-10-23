@@ -3,6 +3,7 @@ package com.equar.bingo.backend.feature.wallet.controller;
 import com.equar.bingo.backend.common.api.PageResponse;
 import com.equar.bingo.backend.feature.auth.service.BingoUserPrincipal;
 import com.equar.bingo.backend.feature.wallet.dto.WalletTransferResponse;
+import com.equar.bingo.backend.feature.wallet.dto.WalletTransferDetailResponse;
 import com.equar.bingo.backend.feature.wallet.dto.WalletTransferSettingsRequest;
 import com.equar.bingo.backend.feature.wallet.dto.WalletTransferSettingsResponse;
 import com.equar.bingo.backend.feature.wallet.entity.WalletTransferStatus;
@@ -58,7 +59,7 @@ public class AdminWalletTransferController {
     }
 
     @GetMapping("/{id}")
-    public WalletTransferResponse detail(@PathVariable Long id) {
-        return walletTransferService.transferDetail(id);
+    public WalletTransferDetailResponse detail(@PathVariable Long id) {
+        return walletTransferService.getTransferDetail(id);
     }
 }

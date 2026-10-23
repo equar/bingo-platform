@@ -20,4 +20,7 @@ public interface WalletTransactionRepository extends JpaRepository<WalletTransac
 
     Optional<WalletTransaction> findFirstByReferenceTypeAndReferenceIdOrderByCreatedAtDescIdDesc(
             String referenceType, Long referenceId);
+
+    java.util.List<WalletTransaction> findByReferenceTypeAndReferenceIdOrderByCreatedAtAscIdAsc(
+            String referenceType, Long referenceId);
 }

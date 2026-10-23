@@ -1,0 +1,20 @@
+Module 02I read-only persistent QA reconciliation
+Date: 2026-10-23 (Africa/Nairobi)
+Database: bingo_qa, local MySQL 8.0.36
+Method: SELECT-only query using the local QA read account. No persistent data was updated or deleted.
+
+Transfer counts:
+- wallet_transfers: 0
+- wallet_transactions with reference_type=WALLET_TRANSFER: 0
+
+Retained transfer policy versions:
+
+| ID | enabled | currency | max single amount | daily outgoing limit | effective_from (stored) | effective_until (stored) |
+| ---: | ---: | --- | ---: | ---: | --- | --- |
+| 1 | 0 | ETB | 0.00 | 0.00 | 1999-12-31 21:00:00 | 2000-01-01 21:00:00 |
+| 2 | 0 | ETB | 0.00 | 0.00 | 1999-12-31 21:00:00 | 2000-01-01 21:00:00 |
+| 3 | 0 | ETB | 0.00 | 0.00 | 1999-12-31 21:00:00 | 2000-01-01 21:00:00 |
+| 4 | 0 | ETB | 0.00 | 0.00 | 1999-12-31 21:00:00 | 2000-01-01 21:00:00 |
+| 5 | 0 | ETB | 0.00 | 0.00 | 1999-12-31 21:00:00 | 2000-01-01 21:00:00 |
+
+All five policy versions remain disabled, expired, and zero-limit. No wallet, transfer, ledger row, policy, player, or agent was changed for Module 02I. Chromium also compared wallet and policy snapshots before and after each scenario. Existing reconciliation and retained-record preservation details remain in [Module 02H database evidence](module-02h-database-reconciliation.txt).

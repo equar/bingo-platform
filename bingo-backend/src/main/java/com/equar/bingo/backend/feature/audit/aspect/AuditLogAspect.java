@@ -24,6 +24,8 @@ import org.aspectj.lang.reflect.MethodSignature;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
@@ -77,13 +79,30 @@ public class AuditLogAspect {
             result = joinPoint.proceed();
         } catch (Throwable failure) {
             Map<String, Object> metadata = buildMetadata(joinPoint, signature, "FAILURE", actor, null, failure);
-            try {
-                auditLogService.recordFailure(actor, actionName(methodName), targetType(joinPoint, methodName, null),
-                        extractTargetId(arguments, null, signature), extractReason(arguments, signature),
-                        operationId, metadata);
-            } catch (RuntimeException auditFailure) {
-                failure.addSuppressed(auditFailure);
-                log.error("Unable to record failed audit event for {}", methodName, auditFailure);
+            Long targetId = extractTargetId(arguments, null, signature);
+            String action = actionName(methodName);
+            String targetType = targetType(joinPoint, methodName, null);
+            String reason = extractReason(arguments, signature);
+            User failureActor = actor;
+            String failureMethodName = methodName;
+            Runnable recordFailure = () -> {
+                try {
+                    auditLogService.recordFailure(failureActor, action, targetType, targetId, reason, operationId,
+                            metadata);
+                } catch (RuntimeException auditFailure) {
+                    log.error("Unable to record failed audit event for {}", failureMethodName, auditFailure);
+                }
+            };
+            if (TransactionSynchronizationManager.isActualTransactionActive()
+                    && TransactionSynchronizationManager.isSynchronizationActive()) {
+                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                    @Override
+                    public void afterCompletion(int status) {
+                        recordFailure.run();
+                    }
+                });
+            } else {
+                recordFailure.run();
             }
             throw failure;
         }

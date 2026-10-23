@@ -4,12 +4,13 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { walletTransfers } from "../../api/admin";
+import { walletTransferDetail, walletTransfers } from "../../api/admin";
 import { WalletTransfersPage } from "./WalletTransfersPage";
 
-vi.mock("../../api/admin", () => ({ walletTransfers: vi.fn() }));
+vi.mock("../../api/admin", () => ({ walletTransferDetail: vi.fn(), walletTransfers: vi.fn() }));
 
 const walletTransfersMock = vi.mocked(walletTransfers);
+const walletTransferDetailMock = vi.mocked(walletTransferDetail);
 
 function createWrapper({ children }: PropsWithChildren) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -25,6 +26,44 @@ describe("WalletTransfersPage", () => {
 
   beforeEach(() => {
     walletTransfersMock.mockReset();
+    walletTransferDetailMock.mockReset();
+    walletTransferDetailMock.mockResolvedValue({
+      transfer: {
+        id: 24,
+        operationId: "transfer-operation-24",
+        senderId: 12,
+        senderPhoneNumber: "251911000012",
+        recipientId: 18,
+        recipientPhoneNumber: "251911000018",
+        amount: "25.00",
+        currency: "ETB",
+        note: "Shared ticket funds",
+        status: "COMPLETED",
+        senderBalanceBefore: "100.00",
+        senderBalanceAfter: "75.00",
+        recipientBalanceBefore: "10.00",
+        recipientBalanceAfter: "35.00",
+        createdAt: "2026-10-20T15:07:22Z",
+        completedAt: "2026-10-20T15:07:22Z",
+        failureReason: null,
+      },
+      ledgerEntries: [
+        {
+          id: 51,
+          walletId: 12,
+          walletOwnerId: 12,
+          operationId: "transfer-operation-24",
+          transactionType: "WALLET_TRANSFER_DEBIT",
+          amount: "25.00",
+          balanceBefore: "100.00",
+          balanceAfter: "75.00",
+          currency: "ETB",
+          referenceType: "WALLET_TRANSFER",
+          referenceId: 24,
+          createdAt: "2026-10-20T15:07:22Z",
+        },
+      ],
+    });
     walletTransfersMock.mockResolvedValue({
       content: [
         {
@@ -66,7 +105,22 @@ describe("WalletTransfersPage", () => {
 
     expect(screen.getByText("Transfer detail")).toBeInTheDocument();
     expect(screen.getByText("Operation: transfer-operation-24")).toBeInTheDocument();
+    expect(await screen.findByText("WALLET_TRANSFER_DEBIT")).toBeInTheDocument();
+    expect(walletTransferDetailMock).toHaveBeenCalledWith(24);
     expect(walletTransfersMock).toHaveBeenCalledWith(undefined, undefined, undefined, undefined, 0, 20);
+  });
+
+  it("does not display server internals when transfer detail fails", async () => {
+    const user = userEvent.setup();
+    walletTransferDetailMock.mockRejectedValue(new Error("SQL host and query text"));
+    render(<WalletTransfersPage />, { wrapper: createWrapper });
+
+    await user.click(await screen.findByTestId("wallet-transfer-row-24"));
+
+    expect(await screen.findByTestId("wallet-transfer-detail-error")).toHaveTextContent(
+      "Transfer details could not be loaded. Please try again.",
+    );
+    expect(screen.queryByText("SQL host and query text")).not.toBeInTheDocument();
   });
 
   it("passes search and transfer filters to the server", async () => {
