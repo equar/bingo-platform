@@ -61,7 +61,7 @@ class AdminUserServiceTest {
                 notificationService = new RecordingAdminAccountNotificationService();
                 service = new AdminUserService(userRepository, passwordEncoder, phoneNormalizer, passwordGenerator,
                                 notificationService, activationTokenGenerator,
-                                "http://localhost:5173/activate-account");
+                                "http://localhost:5174/activate-account");
         }
 
         @Test
@@ -115,7 +115,7 @@ class AdminUserServiceTest {
                 assertThat(timeUntilExpiry).isBetween(Duration.ofHours(23).plusMinutes(59),
                                 Duration.ofHours(24).plusSeconds(5));
                 assertThat(notificationService.lastUser).isSameAs(saved);
-                assertThat(notificationService.lastActivationLink).startsWith("http://localhost:5173/activate-account#token=");
+                assertThat(notificationService.lastActivationLink).startsWith("http://localhost:5174/activate-account#token=");
                 String rawToken = org.springframework.web.util.UriComponentsBuilder
                                 .fromUriString(notificationService.lastActivationLink)
                                 .build()

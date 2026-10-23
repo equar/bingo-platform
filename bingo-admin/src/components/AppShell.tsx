@@ -80,13 +80,20 @@ export function AppShell() {
   const [accountMenuAnchor, setAccountMenuAnchor] = useState<null | HTMLElement>(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const isMobile = useMediaQuery("(max-width:899.95px)");
+  const supportOnly = Boolean(session?.user.roles.includes("SUPPORT") && !session.user.roles.includes("ADMIN"));
+  const visibleNavGroups = useMemo(
+    () => supportOnly
+      ? [{ title: "Support", items: [{ to: "/support/tickets", label: "Support" }] }]
+      : navGroups,
+    [supportOnly],
+  );
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set(navGroups.map((group) => group.title)));
 
   const accountMenuOpen = Boolean(accountMenuAnchor);
 
   const activeGroupTitles = useMemo(
-    () => navGroups.filter((group) => group.items.some((item) => isNavItemActive(location.pathname, item.to))).map((group) => group.title),
-    [location.pathname],
+    () => visibleNavGroups.filter((group) => group.items.some((item) => isNavItemActive(location.pathname, item.to))).map((group) => group.title),
+    [location.pathname, visibleNavGroups],
   );
 
   useEffect(() => {
@@ -217,8 +224,8 @@ export function AppShell() {
       >
         <Toolbar />
         <Box sx={{ overflow: "auto", p: 1 }}>
-          {navGroups.map((group, groupIndex) => (
-            <Box key={group.title} sx={{ mb: groupIndex === navGroups.length - 1 ? 0 : 2 }}>
+          {visibleNavGroups.map((group, groupIndex) => (
+            <Box key={group.title} sx={{ mb: groupIndex === visibleNavGroups.length - 1 ? 0 : 2 }}>
               <ListItemButton
                 onClick={() => {
                   setExpandedGroups((currentGroups) => {
@@ -259,7 +266,7 @@ export function AppShell() {
                   ))}
                 </List>
               ) : null}
-              {groupIndex < navGroups.length - 1 ? <Divider sx={{ my: 2 }} /> : null}
+              {groupIndex < visibleNavGroups.length - 1 ? <Divider sx={{ my: 2 }} /> : null}
             </Box>
           ))}
           <Typography variant="caption" color="text.secondary">

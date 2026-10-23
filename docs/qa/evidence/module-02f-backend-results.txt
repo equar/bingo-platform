@@ -1,0 +1,20 @@
+Module 02F backend regression
+Date: 2026-10-23
+Database target: local MySQL 8.0.36, bingo_qa_test only (the QA startup guard validated the configured URL before test execution).
+
+Focused regression:
+- AdminAuthServiceTest: 12 passed, 0 failed, 0 errors, 0 skipped.
+- Includes suspended-admin login denial.
+
+Full Maven suite:
+- 124 passed, 0 failed, 0 errors, 0 skipped.
+- BUILD SUCCESS; elapsed 6m33s.
+- AuthSecurityIntegrationTest: 16/16.
+- AdminAccountActivationIntegrationTest: 1/1.
+- AdminTemporaryPasswordIntegrationTest: 2/2.
+- AgentServiceIntegrationTest: 16/16.
+- WalletIntegrationTest: 10/10.
+- LocalFinancialSimulationGuardTest: 2/2.
+- Flyway upgrade recovery: 1/1; `bingo_qa_test` migrated to the current schema as part of the isolated suite.
+
+The persistent `bingo_qa` database was not used by Maven integration tests.

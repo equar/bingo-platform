@@ -88,4 +88,19 @@ describe("HTTP client session handling", () => {
 
     expect(readSession()).toBeNull();
   });
+
+  it("keeps the admin session after an incorrect current-password response", async () => {
+    writeSession(session);
+    http.defaults.adapter = forbiddenAdapter(401);
+
+    await expect(http.put("/api/v1/admin/me/password", {
+      currentPassword: "wrong-current-password",
+      newPassword: "NewPassword123!",
+    })).rejects.toMatchObject({
+      status: 401,
+      message: "Unauthorized",
+    });
+
+    expect(readSession()).toEqual(session);
+  });
 });
