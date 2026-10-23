@@ -139,7 +139,7 @@ class AdminUserServiceTest {
                 ReflectionTestUtils.setField(existing, "id", 31L);
                 existing.setEmail("existing@example.com");
 
-                when(userRepository.findById(31L)).thenReturn(Optional.of(existing));
+                when(userRepository.findByIdForUpdate(31L)).thenReturn(Optional.of(existing));
                 when(userRepository.save(existing)).thenReturn(existing);
 
                 var response = service.updateUser(31L,
@@ -157,7 +157,7 @@ class AdminUserServiceTest {
 
         @Test
         void updateUserThrowsWhenMissing() {
-                when(userRepository.findById(99L)).thenReturn(Optional.empty());
+                when(userRepository.findByIdForUpdate(99L)).thenReturn(Optional.empty());
 
                 assertThrows(NotFoundException.class, () -> service.updateUser(99L, new AdminUserUpdateRequest(
                                 "Admin", "admin@example.com", "0911000005", "Secret123!", AccountStatus.ACTIVE,
@@ -175,7 +175,7 @@ class AdminUserServiceTest {
                 ReflectionTestUtils.setField(other, "id", 41L);
                 other.setEmail("taken@example.com");
 
-                when(userRepository.findById(40L)).thenReturn(Optional.of(existing));
+                when(userRepository.findByIdForUpdate(40L)).thenReturn(Optional.of(existing));
                 when(userRepository.findByEmail("taken@example.com")).thenReturn(Optional.of(other));
 
                 assertThrows(ConflictException.class, () -> service.updateUser(40L, new AdminUserUpdateRequest(

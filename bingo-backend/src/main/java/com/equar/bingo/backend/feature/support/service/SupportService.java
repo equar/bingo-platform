@@ -12,6 +12,7 @@ import com.equar.bingo.backend.feature.support.repository.SupportMessageReposito
 import com.equar.bingo.backend.feature.support.repository.SupportTicketRepository;
 import com.equar.bingo.backend.feature.user.entity.User;
 import com.equar.bingo.backend.feature.user.entity.UserRole;
+import com.equar.bingo.backend.feature.user.entity.AccountStatus;
 import com.equar.bingo.backend.feature.user.repository.UserRepository;
 import com.equar.bingo.backend.feature.wallet.entity.DepositClaim;
 import com.equar.bingo.backend.feature.wallet.repository.DepositClaimRepository;
@@ -128,6 +129,14 @@ public class SupportService {
     }
 
     @Transactional(readOnly = true)
+    public List<SupportAssigneeResponse> listAssignees() {
+        return userRepository.findAdminUsers(List.of(UserRole.ADMIN, UserRole.SUPPORT), null,
+                        AccountStatus.ACTIVE, Pageable.unpaged())
+                .map(user -> new SupportAssigneeResponse(user.getId(), user.getDisplayName(), user.getRoles()))
+                .getContent();
+    }
+
+    @Transactional(readOnly = true)
     public SupportTicketResponse getTicket(Long ticketId) {
         SupportTicket ticket = supportTicketRepository.findById(ticketId)
                 .orElseThrow(() -> new NotFoundException("SUPPORT_TICKET_NOT_FOUND", "Support ticket not found"));
@@ -142,9 +151,9 @@ public class SupportService {
                 .orElseThrow(() -> new NotFoundException("SUPPORT_TICKET_NOT_FOUND", "Support ticket not found"));
         User assignee = userRepository.findById(request.assignedToUserId())
                 .orElseThrow(() -> new NotFoundException("USER_NOT_FOUND", "Assignee not found"));
-        if (!assignee.hasRole(UserRole.ADMIN) && !assignee.hasRole(UserRole.SUPPORT)) {
+        if (!assignee.isActive() || (!assignee.hasRole(UserRole.ADMIN) && !assignee.hasRole(UserRole.SUPPORT))) {
             throw new BadRequestException("SUPPORT_ASSIGNEE_REQUIRED",
-                    "Tickets can only be assigned to admin or support accounts");
+                    "Tickets can only be assigned to active admin or support accounts");
         }
         ticket.setAssignedTo(assignee);
         ticket.setStatus(SupportTicketStatus.IN_PROGRESS);
@@ -181,6 +190,9 @@ public class SupportService {
         User admin = requireAdminOrSupport(principal.getUser());
         SupportTicket ticket = supportTicketRepository.findByIdForUpdate(ticketId)
                 .orElseThrow(() -> new NotFoundException("SUPPORT_TICKET_NOT_FOUND", "Support ticket not found"));
+        if (ticket.getStatus() == SupportTicketStatus.CLOSED && request.status() != SupportTicketStatus.CLOSED) {
+            throw new ConflictException("CLOSED_TICKET_TERMINAL", "A closed ticket cannot transition to another status");
+        }
         if ((request.status() == SupportTicketStatus.RESOLVED || request.status() == SupportTicketStatus.CLOSED)
                 && (request.resolutionSummary() == null || request.resolutionSummary().isBlank())) {
             throw new BadRequestException("RESOLUTION_SUMMARY_REQUIRED",

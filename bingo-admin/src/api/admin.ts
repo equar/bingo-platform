@@ -364,6 +364,12 @@ export interface SupportTicketSummaryResponse {
   updatedAt: string;
 }
 
+export interface SupportAssigneeResponse {
+  userId: number;
+  displayName: string;
+  roles: string[];
+}
+
 export interface SupportTicketResponse {
   id: number;
   ticketNumber: string;
@@ -1184,6 +1190,11 @@ export async function adminUsers(page = 0, size = 20, search = "", status = "") 
   return data;
 }
 
+export async function refreshAdminUserProfile() {
+  const { data } = await http.get<MeResponse>("/api/v1/auth/me");
+  return data.user;
+}
+
 export async function createAdminUser(request: AdminUserCreateRequest) {
   const { data } = await http.post<UserSummaryResponse>('/api/v1/admin/users', request);
   return data;
@@ -1192,6 +1203,17 @@ export async function createAdminUser(request: AdminUserCreateRequest) {
 export async function updateAdminUser(userId: number, request: AdminUserUpdateRequest) {
   const { data } = await http.put<UserSummaryResponse>(`/api/v1/admin/users/${userId}`, request);
   return data;
+}
+
+export async function revokeFinanceRole(userId: number, role: string) {
+  const { data } = await http.delete<UserSummaryResponse>(`/api/v1/admin/users/${userId}/finance-roles`, {
+    params: { role },
+  });
+  return data;
+}
+
+export async function setAgentPin(userId: number, pin: string) {
+  await http.post<void>(`/api/v1/admin/users/${userId}/agent-pin`, { pin });
 }
 
 export async function adminAgents(page = 0, size = 20) {
@@ -1327,6 +1349,11 @@ export async function supportTickets(
   const { data } = await http.get<PageResponse<SupportTicketSummaryResponse>>('/api/v1/admin/support/tickets', {
     params: { query, status, category, assignedToUserId, priority, page, size },
   });
+  return data;
+}
+
+export async function supportAssignees() {
+  const { data } = await http.get<SupportAssigneeResponse[]>("/api/v1/admin/support/tickets/assignees");
   return data;
 }
 

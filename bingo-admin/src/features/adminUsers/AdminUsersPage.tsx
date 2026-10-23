@@ -23,7 +23,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { adminUsers, createAdminUser, updateAdminUser, type UserSummaryResponse } from "../../api/admin";
+import { adminUsers, createAdminUser, revokeFinanceRole, updateAdminUser, type UserSummaryResponse } from "../../api/admin";
 import { StatusState } from "../../components/StatusState";
 
 const roleOptions = ["ADMIN", "SUPPORT"] as const;
@@ -67,6 +67,16 @@ export function AdminUsersPage() {
   const [selectedUser, setSelectedUser] = useState<UserSummaryResponse | null>(null);
   const [form, setForm] = useState<AdminUserFormState>(emptyForm);
   const [formError, setFormError] = useState<string | null>(null);
+  const [roleError, setRoleError] = useState<string | null>(null);
+
+  const revokeFinanceMutation = useMutation({
+    mutationFn: ({ userId, role }: { userId: number; role: string }) => revokeFinanceRole(userId, role),
+    onSuccess: async () => {
+      setRoleError(null);
+      await queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+    },
+    onError: (error) => setRoleError((error as Error).message),
+  });
 
   const usersQuery = useQuery({
     queryKey: ["admin-users", page, pageSize, search, statusFilter],
@@ -158,6 +168,7 @@ export function AdminUsersPage() {
       </Box>
 
       <Alert severity="info">This page manages ADMIN and SUPPORT accounts only.</Alert>
+      {roleError ? <Alert severity="error" role="alert">{roleError}</Alert> : null}
 
       <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
         <TextField
@@ -224,6 +235,18 @@ export function AdminUsersPage() {
                   <Button size="small" onClick={() => openEdit(user)}>
                     Edit
                   </Button>
+                  {user.roles.filter((role) => role === "FINANCE_VERIFIER" || role === "FINANCE_APPROVER").map((role) => (
+                    <Button
+                      key={role}
+                      size="small"
+                      color="warning"
+                      aria-label={`Revoke ${role} from ${user.displayName}`}
+                      disabled={revokeFinanceMutation.isPending}
+                      onClick={() => revokeFinanceMutation.mutate({ userId: user.id, role })}
+                    >
+                      Revoke {role}
+                    </Button>
+                  ))}
                 </TableCell>
               </TableRow>
             ))}

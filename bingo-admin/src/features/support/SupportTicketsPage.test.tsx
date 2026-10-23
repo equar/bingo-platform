@@ -4,15 +4,15 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { adminUsers, supportTickets } from "../../api/admin";
+import { supportAssignees, supportTickets } from "../../api/admin";
 import { SupportTicketsPage } from "./SupportTicketsPage";
 
 vi.mock("../../api/admin", () => ({
-  adminUsers: vi.fn(),
+  supportAssignees: vi.fn(),
   supportTickets: vi.fn(),
 }));
 
-const adminUsersMock = vi.mocked(adminUsers);
+const supportAssigneesMock = vi.mocked(supportAssignees);
 const supportTicketsMock = vi.mocked(supportTickets);
 
 function createWrapper({ children }: PropsWithChildren) {
@@ -28,28 +28,9 @@ describe("SupportTicketsPage", () => {
   afterEach(cleanup);
 
   beforeEach(() => {
-    adminUsersMock.mockReset();
+    supportAssigneesMock.mockReset();
     supportTicketsMock.mockReset();
-    adminUsersMock.mockResolvedValue({
-      content: [
-        {
-          id: 7,
-          displayName: "Support Agent",
-          email: "support@bingo.local",
-          phoneNumber: "251911000007",
-          roles: ["SUPPORT"],
-          status: "ACTIVE",
-          createdAt: "2026-01-01T00:00:00Z",
-          updatedAt: "2026-01-01T00:00:00Z",
-        },
-      ],
-      page: 0,
-      size: 100,
-      totalElements: 1,
-      totalPages: 1,
-      first: true,
-      last: true,
-    });
+    supportAssigneesMock.mockResolvedValue([{ userId: 7, displayName: "Support Agent", roles: ["SUPPORT"] }]);
     supportTicketsMock.mockResolvedValue({
       content: [
         {

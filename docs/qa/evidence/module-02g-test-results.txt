@@ -1,0 +1,29 @@
+Module 02G actual test results
+Date: 2026-10-23
+
+Real Chromium / Playwright
+6 tests passed, 0 failed.
+Cases: finance-role revocation; admin/support role transition; admin PIN management; support assignment; support public reply and status close; unauthorized player mutation denied.
+Screenshots: module-02g-finance-revoke.png, module-02g-role-transition.png, module-02g-agent-pin.png, module-02g-support-assignment.png, module-02g-support-status.png, module-02g-support-unauthorized-mutation.png.
+
+Backend focused MySQL regression (`bingo_qa_test`)
+AuthSecurityIntegrationTest: 19 passed.
+SupportIntegrationTest: 2 passed.
+OpenApiContractIntegrationTest: 1 passed.
+AdminUserServiceTest: 6 passed.
+Total: 28 passed, 0 failures, 0 errors, 0 skipped.
+
+Full backend MySQL regression (`bingo_qa_test`)
+130 passed, 0 failures, 0 errors, 0 skipped.
+
+Flutter Android integration (`emulator-5554`)
+1 agent-authentication integration test passed. Phone/PIN login, pending-agent rejection, authenticated session persistence and logout were exercised. Agent app sends `{phoneNumber, pin}` and exposes no password input.
+Screenshots: module-02g-agent-login.png, module-02g-agent-authenticated.png, module-02g-agent-pending-rejected.png.
+
+Admin frontend
+Unit tests: 81 passed, 0 failed.
+Lint: passed.
+Production build: passed.
+
+Persistent `bingo_qa`
+Read-only SELECT reconciliation; original agent profiles 1–3, support tickets 1–5, deposit claims 1–7 and Agent 3 float remained unchanged. Synthetic Module 02G identities, approved agent profiles and support tickets were retained. See module-02g-database-reconciliation.txt.

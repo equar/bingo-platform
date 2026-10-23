@@ -5,7 +5,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 
 const _phone = String.fromEnvironment('BINGO_M02B_AGENT_PHONE');
-const _password = String.fromEnvironment('BINGO_M02B_AGENT_PASSWORD');
 const _pin = String.fromEnvironment('BINGO_M02B_AGENT_PIN');
 const _amount = String.fromEnvironment('BINGO_M02B_AMOUNT', defaultValue: '12.34');
 const _availableBalance = String.fromEnvironment('BINGO_M02B_AVAILABLE_BALANCE', defaultValue: '25.5');
@@ -18,7 +17,6 @@ void main() {
 
   testWidgets('Module 02B agent submits a float request without balance credit', (tester) async {
     expect(_phone, isNotEmpty);
-    expect(_password, isNotEmpty);
     expect(_pin, isNotEmpty);
     expect(_reference, startsWith('QA-M02B-'));
     await const SessionStorage().clear();
@@ -28,8 +26,7 @@ void main() {
 
     final loginFields = find.byType(TextFormField);
     await tester.enterText(loginFields.at(0), _phone);
-    await tester.enterText(loginFields.at(1), _password);
-    await tester.enterText(loginFields.at(2), _pin);
+    await tester.enterText(loginFields.at(1), _pin);
     await tester.tap(find.byType(FilledButton));
     await _waitFor(tester, find.byType(NavigationBar));
     expect((await const SessionStorage().readSession())['token'], isNotEmpty);

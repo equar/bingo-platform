@@ -33,7 +33,7 @@ public class FinanceRoleService {
                 || !EnumSet.of(UserRole.FINANCE_VERIFIER, UserRole.FINANCE_APPROVER).containsAll(requested)) {
             throw new ConflictException("INVALID_FINANCE_ROLE", "Only finance verifier and approver roles may be assigned");
         }
-        User target = users.findById(targetId)
+        User target = users.findByIdForUpdate(targetId)
                 .orElseThrow(() -> new NotFoundException("USER_NOT_FOUND", "User account not found"));
         if (!target.isActive() || (!target.hasRole(UserRole.ADMIN) && !target.hasRole(UserRole.SUPPORT))) {
             throw new ConflictException("FINANCE_ROLE_TARGET_NOT_ELIGIBLE",
@@ -59,7 +59,7 @@ public class FinanceRoleService {
         if (role != UserRole.FINANCE_VERIFIER && role != UserRole.FINANCE_APPROVER) {
             throw new ConflictException("INVALID_FINANCE_ROLE", "Only finance verifier and approver roles may be revoked");
         }
-        User target = users.findById(targetId)
+        User target = users.findByIdForUpdate(targetId)
                 .orElseThrow(() -> new NotFoundException("USER_NOT_FOUND", "User account not found"));
         Set<UserRole> roles = new LinkedHashSet<>(target.getRoles());
         roles.remove(role);

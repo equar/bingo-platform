@@ -92,7 +92,7 @@ public class AdminUserService {
 
     @Transactional
     public UserSummaryResponse updateUser(Long userId, AdminUserUpdateRequest request) {
-        User user = userRepository.findById(userId)
+        User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new NotFoundException("USER_NOT_FOUND", "User account not found"));
         if (user.hasRole(UserRole.AGENT)) {
             throw new ConflictException("AGENT_LIFECYCLE_REQUIRED",

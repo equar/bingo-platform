@@ -6,6 +6,23 @@ This inventory is reconciled against the React route map, backend controller map
 
 Browser results apply to local QA only. Production financial settlement remains separately blocked. See [Module 02F audit](module-02f-final-admin-audit.md), [Chromium results](../evidence/module-02f-chromium-results.txt), [database reconciliation](../evidence/module-02f-database-reconciliation.txt), and the linked historical module evidence.
 
+## Module 02G follow-up — historical counts retained
+
+The 44 action rows and their 02F status counts below are preserved as the historical 02F snapshot. Module 02G executed follow-up work for four unique gaps: admin/support role transition, finance-role revocation, agent PIN management, and SUPPORT ticket mutations. The duplicate “Agent PIN administration” inventory row is covered by the same PIN execution and is not a second scenario. See [Module 02G report](module-02g-admin-security.md) and [test matrix](module-02g-test-matrix.md).
+
+| Historical 02F gap | Follow-up status | Evidence |
+| --- | --- | --- |
+| Edit admin/support role | PASS in Module 02G | Chromium G02; auth integration stale-token and audit assertions |
+| Revoke finance roles | PASS in Module 02G | Chromium G01; stale JWT loses finance endpoint access and audit assertion |
+| Set agent PIN | PASS in Module 02G | Chromium G03; authorization, hash, invalidation, rate-limit, and redaction regressions |
+| Support ticket mutations as SUPPORT | PASS in Module 02G | Chromium G04–G06; assignment, reply, status, denial, persistence, and audit |
+| Agent PIN administration duplicate row | PASS, same action as “Set agent PIN” | Chromium G03; one unique scenario |
+| Wallet transfer history/detail | NOT RUN; 02C scope | No approved safe transfer fixture; no 02G action taken |
+| Schedule semantics | BLOCKED; Product owner | Recurrence/timezone/DST/past-time policy is not approved |
+| Prize settlement | BLOCKED; Finance/Product owners | Fail-closed until payout, accounting, and compliance controls are approved |
+
+The Module 02G browser and backend run counts are in the [02G test matrix](module-02g-test-matrix.md). The overall Module 02 inventory is still incomplete because the 02C transfer-detail action remains not run and the two policy blockers remain open.
+
 ## Implemented operations
 
 | Functional area | Admin route | Backend endpoint | Required role | Business action | Automated test | Actual execution evidence | Database verification | Security risk | Status | Remaining work | Owning module |

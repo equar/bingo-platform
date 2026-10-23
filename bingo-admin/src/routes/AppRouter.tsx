@@ -81,7 +81,7 @@ export function AppRouter() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/activate-account" element={<AdminAccountActivationPage />} />
-        <Route element={<ProtectedRoute allowedRoles={["ADMIN", "SUPPORT"]} />}>
+        <Route element={<ProtectedRoute allowedRoles={["ADMIN", "SUPPORT"]} refreshSession />}>
           <Route element={<AppShell />}>
             <Route index element={<RoleHomeRedirect />} />
             <Route path="profile" element={<ProfilePage />} />

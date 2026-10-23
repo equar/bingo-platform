@@ -11,12 +11,8 @@ import 'package:dio/dio.dart';
 
 const _apiUrl = String.fromEnvironment('API_BASE_URL');
 const _phone = String.fromEnvironment('BINGO_QA_APPROVED_AGENT_PHONE');
-const _password = String.fromEnvironment('BINGO_QA_APPROVED_AGENT_PASSWORD');
 const _pin = String.fromEnvironment('BINGO_QA_APPROVED_AGENT_PIN');
 const _pendingPhone = String.fromEnvironment('BINGO_QA_PENDING_AGENT_PHONE');
-const _pendingPassword = String.fromEnvironment(
-  'BINGO_QA_PENDING_AGENT_PASSWORD',
-);
 const _pendingPin = String.fromEnvironment('BINGO_QA_PENDING_AGENT_PIN');
 var _surfaceConverted = false;
 
@@ -25,7 +21,6 @@ void main() {
 
   testWidgets('Module 01 agent authentication on Android', (tester) async {
     expect(_phone, isNotEmpty);
-    expect(_password, isNotEmpty);
     expect(_pin, isNotEmpty);
     expect(_pendingPhone, isNotEmpty);
 
@@ -41,11 +36,12 @@ void main() {
     );
     expect(find.byType(NavigationBar), findsNothing);
     final fields = find.byType(TextFormField);
-    expect(fields, findsNWidgets(3));
+    expect(fields, findsNWidgets(2));
     await _captureScreenshot(tester, 'module-01-agent-login');
     await tester.tap(find.byType(FilledButton));
     await tester.pumpAndSettle();
-    expect(find.text('This field is required.'), findsNWidgets(3));
+    expect(find.text('This field is required.'), findsOneWidget);
+    expect(find.text('PIN must contain 4 to 8 digits.'), findsOneWidget);
 
     await tester.pumpWidget(
       BingoAgentApp(
@@ -61,7 +57,6 @@ void main() {
     await _enterAgentCredentials(
       tester,
       phone: _phone,
-      password: _password,
       pin: _pin,
     );
     await _waitFor(
@@ -69,7 +64,7 @@ void main() {
       find.text('Sign-in failed. Check your details and try again.'),
     );
     expect(find.byType(NavigationBar), findsNothing);
-    expect(find.byType(TextFormField), findsNWidgets(3));
+    expect(find.byType(TextFormField), findsNWidgets(2));
     expect(
       find.text('Sign-in failed. Check your details and try again.'),
       findsOneWidget,
@@ -84,7 +79,6 @@ void main() {
     await _enterAgentCredentials(
       tester,
       phone: 'invalid-phone',
-      password: _password,
       pin: _pin,
     );
     await _waitFor(
@@ -98,7 +92,6 @@ void main() {
       await _enterAgentCredentials(
         tester,
         phone: syntheticPhone,
-        password: 'InvalidPassword123',
         pin: '1234',
       );
       await _waitFor(
@@ -112,7 +105,6 @@ void main() {
         '/api/v1/agent/login',
         data: {
           'phoneNumber': syntheticPhone,
-          'password': 'InvalidPassword123',
           'pin': '1234',
         },
       );
@@ -130,7 +122,6 @@ void main() {
     await _enterAgentCredentials(
       tester,
       phone: _phone,
-      password: _password,
       pin: '0000',
     );
     await _waitFor(
@@ -139,13 +130,31 @@ void main() {
     );
     expect(find.byType(NavigationBar), findsNothing);
 
+    // Prove the emulator can reach the real QA login service immediately before
+    // the widget submits the same phone/PIN pair. This also clears the account
+    // throttle after the preceding bad-PIN assertion.
+    final loginProbe = Dio(BaseOptions(baseUrl: _apiUrl));
+    try {
+      final response = await loginProbe.post<Map<String, dynamic>>(
+        '/api/v1/agent/login',
+        data: {'phoneNumber': _phone, 'pin': _pin},
+      );
+      expect(response.statusCode, 200);
+      expect(response.data?['user']?['roles'], contains('AGENT'));
+    } finally {
+      loginProbe.close();
+    }
     await _enterAgentCredentials(
       tester,
       phone: _phone,
-      password: _password,
       pin: _pin,
     );
-    await _waitFor(tester, find.byType(NavigationBar));
+    await _waitForEither(
+      tester,
+      find.byType(NavigationBar),
+      find.text('Sign-in failed. Check your details and try again.'),
+    );
+    expect(find.byType(NavigationBar), findsOneWidget);
     await _captureScreenshot(tester, 'module-01-agent-authenticated');
 
     await tester.pumpWidget(
@@ -161,7 +170,6 @@ void main() {
     await _enterAgentCredentials(
       tester,
       phone: _pendingPhone,
-      password: _pendingPassword,
       pin: _pendingPin,
     );
     await _waitFor(
@@ -213,7 +221,6 @@ void main() {
     await _enterAgentCredentials(
       tester,
       phone: _phone,
-      password: _password,
       pin: _pin,
     );
     await _waitFor(tester, find.byType(NavigationBar));
@@ -231,13 +238,11 @@ void main() {
 Future<void> _enterAgentCredentials(
   WidgetTester tester, {
   required String phone,
-  required String password,
   required String pin,
 }) async {
   final fields = find.byType(TextFormField);
   await tester.enterText(fields.at(0), phone);
-  await tester.enterText(fields.at(1), password);
-  await tester.enterText(fields.at(2), pin);
+  await tester.enterText(fields.at(1), pin);
   await tester.tap(find.byType(FilledButton));
   await tester.pump();
 }

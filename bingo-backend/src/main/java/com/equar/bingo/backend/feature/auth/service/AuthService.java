@@ -78,6 +78,11 @@ public class AuthService {
     public AuthResponse login(LoginRequest request) {
         String normalizedPhone = phoneNormalizer.normalize(request.phoneNumber());
         throttleService.requireAccountAllowed("player", normalizedPhone);
+        if (userRepository.findByNormalizedPhone(normalizedPhone)
+                .filter(user -> user.hasRole(UserRole.AGENT)).isPresent()) {
+            throttleService.recordAccountFailure("player", normalizedPhone);
+            throw new org.springframework.security.authentication.BadCredentialsException("Invalid credentials");
+        }
         Authentication authentication;
         try {
             authentication = authenticationManager.authenticate(

@@ -1,0 +1,35 @@
+Module 02G persistent QA database reconciliation
+Date: 2026-10-23
+Schema: bingo_qa (MySQL 8.0.36)
+Method: mysql client with SELECT statements only; no direct database writes.
+
+Agent profiles observed after Module 02G:
+id  user_id  status
+1   2        APPROVED
+2   3        PENDING
+3   11       APPROVED
+4   12       SUSPENDED (retained from earlier Module 02A lifecycle testing)
+5   173      APPROVED (Module 02G synthetic)
+6   177      APPROVED (Module 02G synthetic)
+Original profiles 1–3 remain in their previous statuses. Agent 3 float remains ETB 51.00 available / ETB 0.00 clearing.
+
+Module 02G synthetic user IDs:
+168 SUPPORT active; 169 SUPPORT active (FINANCE_VERIFIER revoked)
+170 SUPPORT active; 171 SUPPORT active (FINANCE_VERIFIER revoked)
+172 ADMIN active (transitioned from SUPPORT)
+173 AGENT active; Agent profile 5 APPROVED
+174 SUPPORT active; 175 SUPPORT active (FINANCE_VERIFIER revoked)
+176 ADMIN active (transitioned from SUPPORT)
+177 AGENT active; Agent profile 6 APPROVED
+
+Module 02G synthetic tickets:
+48 IN_PROGRESS assigned to support user 170
+49 CLOSED
+50 OPEN (unauthorized status mutation denied)
+51 IN_PROGRESS assigned to support user 174
+52 CLOSED (includes the public support reply)
+53 OPEN (unauthorized status mutation denied)
+
+Audit query confirmed REVOKE entries, SET_AGENT_PIN entries, and UPDATE_USER entries for the lifecycle test population. The browser cases additionally asserted the successful support assignment, reply, and status audit outcomes. PIN values and hashes, phone numbers, credentials, and tokens are intentionally excluded from this evidence.
+
+Original support tickets 1–5 remain WAITING_FOR_CUSTOMER. Original deposit claims 1–7 remain unchanged (1–2 PENDING; 3–7 REJECTED). Later retained deposit claims 8–19 were observed and not modified. No production financial posting was performed.

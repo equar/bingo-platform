@@ -14,7 +14,7 @@ import {
   Typography,
 } from "@mui/material";
 import { Link as RouterLink, useParams } from "react-router-dom";
-import { adminAgentDetail, adminAgentFloatBalance, adminAgentFloatHistory, approveAgent, commissionRule, reviewFloatTopUpRequest, suspendAgent } from "../../api/admin";
+import { adminAgentDetail, adminAgentFloatBalance, adminAgentFloatHistory, approveAgent, commissionRule, reviewFloatTopUpRequest, setAgentPin, suspendAgent } from "../../api/admin";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { StatusState } from "../../components/StatusState";
 
@@ -36,6 +36,9 @@ export function AgentDetailPage() {
   const [commissionRateBps, setCommissionRateBps] = useState("0");
   const [effectiveFrom, setEffectiveFrom] = useState(new Date().toISOString().slice(0, 16));
   const [active, setActive] = useState(true);
+  const [newPin, setNewPin] = useState("");
+  const [pinMessage, setPinMessage] = useState<string | null>(null);
+  const [pinError, setPinError] = useState<string | null>(null);
 
   const agentQuery = useQuery({
     queryKey: ["agent", id],
@@ -109,6 +112,19 @@ export function AgentDetailPage() {
     onError: (error) => setLifecycleError((error as Error).message),
   });
 
+  const pinMutation = useMutation({
+    mutationFn: () => setAgentPin(agentQuery.data!.userId, newPin),
+    onSuccess: () => {
+      setNewPin("");
+      setPinError(null);
+      setPinMessage("Agent PIN updated. The PIN is not displayed again.");
+    },
+    onError: (error) => {
+      setPinMessage(null);
+      setPinError((error as Error).message);
+    },
+  });
+
   if (agentQuery.isLoading) {
     return <StatusState title="Loading agent" loading message="Fetching agent profile" />;
   }
@@ -147,6 +163,36 @@ export function AgentDetailPage() {
       </Box>
 
       {lifecycleError ? <Alert severity="error" role="alert">{lifecycleError}</Alert> : null}
+
+      {agent.status === "APPROVED" ? (
+        <Card sx={{ border: "1px solid", borderColor: "divider" }}>
+          <CardContent>
+            <Stack spacing={2}>
+              <Typography variant="h6">Agent PIN management</Typography>
+              <Alert severity="warning">Set a new PIN only through an approved support process. The PIN is sent directly to the server and is never shown in agent details.</Alert>
+              <TextField
+                label="New agent PIN"
+                type="password"
+                value={newPin}
+                onChange={(event) => setNewPin(event.target.value.replace(/\D/g, "").slice(0, 8))}
+                inputProps={{ inputMode: "numeric", maxLength: 8, pattern: "[0-9]{4,8}", autoComplete: "new-password" }}
+                helperText="Enter 4 to 8 digits."
+              />
+              <Box>
+                <Button
+                  variant="outlined"
+                  onClick={() => pinMutation.mutate()}
+                  disabled={pinMutation.isPending || !/^[0-9]{4,8}$/.test(newPin)}
+                >
+                  {pinMutation.isPending ? "Updating…" : "Set agent PIN"}
+                </Button>
+              </Box>
+              {pinError ? <Alert severity="error" role="alert">{pinError}</Alert> : null}
+              {pinMessage ? <Alert severity="success" role="status">{pinMessage}</Alert> : null}
+            </Stack>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Grid container spacing={2}>
         <Grid item xs={12} md={4}>

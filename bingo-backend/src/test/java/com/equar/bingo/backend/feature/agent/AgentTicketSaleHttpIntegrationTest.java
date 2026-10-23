@@ -325,7 +325,7 @@ class AgentTicketSaleHttpIntegrationTest extends MySqlIntegrationTest {
                 : "/api/v1/agent/login";
         Object request = user == adminUser
                 ? new AdminLoginRequest(adminEmail, ADMIN_PASSWORD)
-                : new AgentLoginRequest(user.getNormalizedPhone(), AGENT_PASSWORD, AGENT_PIN);
+                : new AgentLoginRequest(user.getNormalizedPhone(), AGENT_PIN);
         ResponseEntity<AuthResponse> response = http.postForEntity(
                 url(loginUrl),
                 new HttpEntity<>(request, headers),

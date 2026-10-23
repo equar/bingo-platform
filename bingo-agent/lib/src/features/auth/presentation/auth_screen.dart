@@ -18,8 +18,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   final _formKey = GlobalKey<FormState>();
   final _name = TextEditingController();
   final _phone = TextEditingController();
-  final _password = TextEditingController();
-  final _confirmPassword = TextEditingController();
   final _pin = TextEditingController();
   final _city = TextEditingController();
   final _territory = TextEditingController();
@@ -34,8 +32,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   void dispose() {
     _name.dispose();
     _phone.dispose();
-    _password.dispose();
-    _confirmPassword.dispose();
     _pin.dispose();
     _city.dispose();
     _territory.dispose();
@@ -57,7 +53,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       await ref.read(authSessionControllerProvider.notifier).signIn(
         AgentLoginRequest(
           phoneNumber: _phone.text.trim(),
-          password: _password.text,
           pin: _pin.text.trim(),
         ),
       );
@@ -79,7 +74,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         AgentApplicationRequest(
           displayName: _name.text.trim(),
           phoneNumber: _phone.text.trim(),
-          password: _password.text,
           pin: _pin.text.trim(),
           city: _city.text.trim(),
           territory: _territory.text.trim(),
@@ -103,7 +97,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       _applicationMode = false;
       _applicationSubmitted = false;
       _error = null;
-      _password.clear();
       _pin.clear();
     });
   }
@@ -174,28 +167,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                               _field(controller: _documentType, label: l10n.agentIdDocumentType, l10n: l10n),
                               const SizedBox(height: 12),
                               _field(controller: _documentNumber, label: l10n.agentIdDocumentNumber, l10n: l10n),
-                            ],
-                            const SizedBox(height: 12),
-                            _field(
-                              controller: _password,
-                              label: l10n.passwordLabel,
-                              l10n: l10n,
-                              obscure: true,
-                              validator: (value) => value == null || value.length < 8
-                                  ? l10n.requiredField
-                                  : null,
-                            ),
-                            if (isApplication) ...[
-                              const SizedBox(height: 12),
-                              _field(
-                                controller: _confirmPassword,
-                                label: l10n.agentConfirmPassword,
-                                l10n: l10n,
-                                obscure: true,
-                                validator: (value) => value != _password.text
-                                    ? l10n.agentPasswordsMustMatch
-                                    : null,
-                              ),
                             ],
                             const SizedBox(height: 12),
                             _field(
