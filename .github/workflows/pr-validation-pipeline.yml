@@ -24,7 +24,9 @@ jobs:
         image: mysql:8.0.36
         env:
           MYSQL_ROOT_PASSWORD: root
-          MYSQL_DATABASE: bingo_ci
+          MYSQL_DATABASE: bingo_qa_test
+          MYSQL_USER: bingo_test
+          MYSQL_PASSWORD: bingo_test
         ports:
           - 3306:3306
         options: >-
@@ -34,11 +36,9 @@ jobs:
           --health-retries=12
     env:
       SPRING_PROFILES_ACTIVE: test
-      SPRING_DATASOURCE_URL: "jdbc:mysql://127.0.0.1:3306/bingo_ci?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC"
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: root
-      SPRING_DATASOURCE_DRIVER_CLASS_NAME: com.mysql.cj.jdbc.Driver
-      SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT: org.hibernate.dialect.MySQLDialect
+      BINGO_TEST_MYSQL_URL: "jdbc:mysql://127.0.0.1:3306/bingo_qa_test?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC"
+      BINGO_TEST_MYSQL_USERNAME: bingo_test
+      BINGO_TEST_MYSQL_PASSWORD: bingo_test
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
