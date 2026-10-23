@@ -41,6 +41,21 @@ void main() {
     requirePrimaryCredentials(primaryPhone, primaryPassword);
 
     await pumpApp(tester);
+    final invalidPhone = generateSecondaryPhone('$runId invalid login');
+
+    await enterText(
+      tester,
+      find.byKey(const ValueKey('auth-phone-field')),
+      invalidPhone,
+    );
+    await enterText(
+      tester,
+      find.byKey(const ValueKey('auth-password-field')),
+      generateSixDigitPin(except: primaryPassword),
+    );
+    await tap(tester, find.byKey(const ValueKey('auth-submit-button')));
+    await pumpUntil(tester, find.textContaining('AUTH_INVALID_CREDENTIALS'));
+    expect(find.byKey(const ValueKey('auth-phone-field')), findsOneWidget);
 
     await enterText(
       tester,
@@ -50,16 +65,35 @@ void main() {
     await enterText(
       tester,
       find.byKey(const ValueKey('auth-password-field')),
-      generateSixDigitPin(except: primaryPassword),
-    );
-    await tap(tester, find.byKey(const ValueKey('auth-submit-button')));
-    await pumpAndSettleBriefly(tester);
-    expect(find.byKey(const ValueKey('auth-phone-field')), findsOneWidget);
-
-    await enterText(
-      tester,
-      find.byKey(const ValueKey('auth-password-field')),
       primaryPassword,
+    );
+    expect(
+      tester
+              .widget<EditableText>(
+                find.descendant(
+                  of: find.byKey(const ValueKey('auth-phone-field')),
+                  matching: find.byType(EditableText),
+                ),
+              )
+              .controller
+              .text ==
+          primaryPhone,
+      isTrue,
+      reason: 'The player phone field must retain the configured E2E account.',
+    );
+    expect(
+      tester
+              .widget<EditableText>(
+                find.descendant(
+                  of: find.byKey(const ValueKey('auth-password-field')),
+                  matching: find.byType(EditableText),
+                ),
+              )
+              .controller
+              .text ==
+          primaryPassword,
+      isTrue,
+      reason: 'The password field must contain the configured E2E credential.',
     );
     await tap(tester, find.byKey(const ValueKey('auth-submit-button')));
     await pumpUntil(tester, find.byType(NavigationBar));
@@ -105,6 +139,13 @@ void main() {
     final secondaryPhone = generateSecondaryPhone(runId);
     final secondaryPassword = generateSixDigitPin(except: primaryPassword);
     final secondaryName = 'E2E Secondary $runId';
+    await tap(tester, find.byKey(const ValueKey('auth-toggle-button')));
+    await pumpUntil(tester, find.byKey(const ValueKey('auth-display-name-field')));
+    await enterText(
+      tester,
+      find.byKey(const ValueKey('auth-display-name-field')),
+      secondaryName,
+    );
     await enterText(
       tester,
       find.byKey(const ValueKey('auth-phone-field')),
@@ -497,7 +538,13 @@ Future<void> pumpUntil(
     }
     await tester.pump(const Duration(milliseconds: 200));
   }
-  fail('Timed out waiting for $finder');
+  final visibleText = tester
+      .widgetList<Text>(find.byType(Text))
+      .map((widget) => widget.data?.trim())
+      .whereType<String>()
+      .where((text) => text.isNotEmpty)
+      .join(' | ');
+  fail('Timed out waiting for $finder. Visible text: $visibleText');
 }
 
 Future<void> pumpAndSettleBriefly(WidgetTester tester) async {

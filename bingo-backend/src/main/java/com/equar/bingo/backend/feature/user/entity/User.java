@@ -48,6 +48,12 @@ public class User {
     @Column(name = "temporary_password_expires_at")
     private Instant temporaryPasswordExpiresAt;
 
+    @Column(name = "account_activation_token_hash", length = 64)
+    private String accountActivationTokenHash;
+
+    @Column(name = "account_activation_expires_at")
+    private Instant accountActivationExpiresAt;
+
     @Column(name = "agent_pin_hash", length = 100)
     private String agentPinHash;
 
@@ -141,6 +147,18 @@ public class User {
         return temporaryPasswordExpiresAt;
     }
 
+    public String getAccountActivationTokenHash() {
+        return accountActivationTokenHash;
+    }
+
+    public Instant getAccountActivationExpiresAt() {
+        return accountActivationExpiresAt;
+    }
+
+    public boolean isAccountActivationExpired(Instant now) {
+        return accountActivationExpiresAt == null || !accountActivationExpiresAt.isAfter(now);
+    }
+
     public boolean isTemporaryPasswordExpired(Instant now) {
         return temporaryPasswordExpiresAt != null && !temporaryPasswordExpiresAt.isAfter(now);
     }
@@ -148,11 +166,22 @@ public class User {
     public void requirePasswordChangeUntil(Instant expiresAt) {
         mustChangePassword = true;
         temporaryPasswordExpiresAt = expiresAt;
+        accountActivationTokenHash = null;
+        accountActivationExpiresAt = null;
+    }
+
+    public void requireAccountActivation(String tokenHash, Instant expiresAt) {
+        mustChangePassword = true;
+        temporaryPasswordExpiresAt = null;
+        accountActivationTokenHash = tokenHash;
+        accountActivationExpiresAt = expiresAt;
     }
 
     public void completePasswordChange() {
         mustChangePassword = false;
         temporaryPasswordExpiresAt = null;
+        accountActivationTokenHash = null;
+        accountActivationExpiresAt = null;
     }
 
     public String getAgentPinHash() {

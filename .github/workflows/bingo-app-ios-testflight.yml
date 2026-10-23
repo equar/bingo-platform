@@ -117,7 +117,7 @@ jobs:
           printf 'IOS_IPA_PATH=%s\n' "$PWD/$IPA_FILE_PATH" >> "$GITHUB_ENV"
 
       - name: Install Fastlane
-        run: sudo gem install fastlane --no-document
+        run: sudo gem install fastlane -v 2.241.1 --no-document
 
       - name: Upload to TestFlight
         run: fastlane ios testflight

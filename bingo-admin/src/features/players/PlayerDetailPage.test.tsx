@@ -4,11 +4,12 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { adjustWallet, playerDeposits, playerDetail } from "../../api/admin";
+import { adjustWallet, playerDeposits, playerDetail, updatePlayerStatus } from "../../api/admin";
 import { PlayerDetailPage } from "./PlayerDetailPage";
 
 vi.mock("../../api/admin", () => ({
   adjustWallet: vi.fn(),
+  updatePlayerStatus: vi.fn(),
   playerDeposits: vi.fn(),
   playerDetail: vi.fn(),
   playerSupportTickets: vi.fn(),
@@ -20,6 +21,7 @@ vi.mock("../../api/admin", () => ({
 const adjustWalletMock = vi.mocked(adjustWallet);
 const playerDepositsMock = vi.mocked(playerDeposits);
 const playerDetailMock = vi.mocked(playerDetail);
+const updatePlayerStatusMock = vi.mocked(updatePlayerStatus);
 
 const player = {
   id: 6,
@@ -60,6 +62,7 @@ describe("PlayerDetailPage", () => {
   beforeEach(() => {
     playerDetailMock.mockReset();
     adjustWalletMock.mockReset();
+    updatePlayerStatusMock.mockReset();
     playerDepositsMock.mockReset();
     playerDetailMock.mockResolvedValue(player);
     adjustWalletMock.mockResolvedValue({
@@ -72,6 +75,11 @@ describe("PlayerDetailPage", () => {
       reason: "Support correction (Reference: CASE-18)",
       createdAt: "2026-10-20T00:00:00Z",
     });
+    updatePlayerStatusMock.mockResolvedValue({
+      playerId: 6,
+      status: "PENDING",
+      updatedAt: "2026-10-23T00:00:00Z",
+    });
   });
 
   it("shows player contact, status, wallet balances, and activity totals", async () => {
@@ -82,6 +90,22 @@ describe("PlayerDetailPage", () => {
     expect(screen.getByText("20.00 ETB")).toBeInTheDocument();
     expect(screen.getByText("19")).toBeInTheDocument();
     expect(screen.getByText("Player Six")).toBeInTheDocument();
+  });
+
+  it("requires a reason and sends account status changes through the admin action", async () => {
+    const user = userEvent.setup();
+    render(<PlayerDetailPage />, { wrapper: createWrapper });
+
+    await user.click(await screen.findByRole("button", { name: "Change account status" }));
+    await user.click(screen.getByRole("combobox", { name: "Account status" }));
+    await user.click(await screen.findByRole("option", { name: "PENDING" }));
+    const save = screen.getByRole("button", { name: "Save status" });
+    expect(save).toBeDisabled();
+    await user.type(screen.getByRole("textbox", { name: "Reason" }), "Policy review");
+    expect(save).toBeEnabled();
+    await user.click(save);
+
+    await waitFor(() => expect(updatePlayerStatusMock).toHaveBeenCalledWith(6, "PENDING", "Policy review"));
   });
 
   it("keeps a back-to-players button available while the profile is loading", async () => {

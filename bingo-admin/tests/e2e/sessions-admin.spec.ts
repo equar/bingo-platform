@@ -1,7 +1,8 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import type { BingoRoomResponse } from '../../src/api/admin';
 
 const runtimeEnv = (globalThis as any)['process']?.env ?? {};
-const backendBaseUrl = runtimeEnv.BINGO_E2E_BACKEND_URL ?? 'http://localhost:8080';
+const backendBaseUrl = runtimeEnv.BINGO_E2E_BACKEND_URL ?? 'http://localhost:8081';
 const adminEmail = requiredEnv('BINGO_E2E_ADMIN_EMAIL');
 const adminPassword = requiredEnv('BINGO_E2E_ADMIN_PASSWORD');
 const runId = `Sessions E2E ${new Date().toISOString().replace(/[:.]/g, '-')}`;
@@ -45,48 +46,35 @@ test('sessions page supports creation, search, filters, details, state changes, 
   const createdRoomIds: number[] = [];
 
   // Recover test-created records from an interrupted earlier run before adding fresh data.
-  const previousSessionsResponse = await page.request.get(`${backendBaseUrl}/api/v1/admin/sessions?size=200`, {
+  const previousSessionsResponse = await page.request.get(`${backendBaseUrl}/api/v1/admin/sessions?page=0&size=200`, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
-  if (previousSessionsResponse.ok()) {
-    const previousSessions = (await previousSessionsResponse.json()) as {
-      content: Array<{ id: number; sessionName: string; state: string }>;
-    };
-    for (const session of previousSessions.content.filter((item) => item.sessionName.startsWith('Sessions E2E '))) {
-      if (session.state !== 'CANCELLED' && session.state !== 'SETTLED') {
-        await page.request.put(`${backendBaseUrl}/api/v1/admin/sessions/${session.id}/state`, {
-          headers: { Authorization: `Bearer ${accessToken}` },
-          data: { state: 'CANCELLED' },
-        });
-      }
-    }
+  if (!previousSessionsResponse.ok()) {
+    throw new Error(`Unable to list previous E2E sessions: ${previousSessionsResponse.status()}`);
   }
-  const previousRoomsResponse = await page.request.get(`${backendBaseUrl}/api/v1/admin/rooms`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-  if (previousRoomsResponse.ok()) {
-    const previousRooms = (await previousRoomsResponse.json()) as Array<{
-      id: number;
-      name: string;
-      description: string | null;
-      ticketPrice: string;
-      currency: string;
-      timezone: string;
-      scheduleRule: string;
-      sessionCapacity: number;
-      maxTicketsPerPlayer: number;
-      ticketSalesCloseOnSessionStart: boolean;
-      allowMultipleWinnersPerPrize: boolean;
-      active: boolean;
-      configuredPatterns: string[];
-      configuredPrizes: Array<{ prizeType: string; amount: number; settlementPath: string; maxWinners?: number }>;
-    }>;
-    for (const room of previousRooms.filter((item) => item.name.startsWith('Sessions E2E ') && item.active)) {
-      await page.request.put(`${backendBaseUrl}/api/v1/admin/rooms/${room.id}`, {
+  const previousSessions = (await previousSessionsResponse.json()) as {
+    content: Array<{ id: number; sessionName: string; state: string }>;
+  };
+  for (const session of previousSessions.content.filter((item) => item.sessionName.startsWith('Sessions E2E '))) {
+    if (session.state !== 'CANCELLED' && session.state !== 'SETTLED') {
+      await page.request.put(`${backendBaseUrl}/api/v1/admin/sessions/${session.id}/state`, {
         headers: { Authorization: `Bearer ${accessToken}` },
-        data: { ...room, active: false },
+        data: { state: 'CANCELLED' },
       });
     }
+  }
+  const previousRoomsResponse = await page.request.get(`${backendBaseUrl}/api/v1/admin/rooms?page=0&size=200`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!previousRoomsResponse.ok()) {
+    throw new Error(`Unable to list previous E2E rooms: ${previousRoomsResponse.status()}`);
+  }
+  const previousRooms = (await previousRoomsResponse.json()) as { content: BingoRoomResponse[] };
+  for (const room of previousRooms.content.filter((item) => item.name.startsWith('Sessions E2E ') && item.active)) {
+    await page.request.put(`${backendBaseUrl}/api/v1/admin/rooms/${room.id}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      data: { ...room, active: false },
+    });
   }
   for (const roomName of roomNames) {
     const response = await page.request.post(`${backendBaseUrl}/api/v1/admin/rooms`, {
@@ -216,9 +204,14 @@ test('sessions page supports creation, search, filters, details, state changes, 
       }
     }
     for (const roomId of createdRoomIds) {
-      const room = (await (await page.request.get(`${backendBaseUrl}/api/v1/admin/rooms`, {
+      const roomsResponse = await page.request.get(`${backendBaseUrl}/api/v1/admin/rooms?page=0&size=200`, {
         headers: { Authorization: `Bearer ${accessToken}` },
-      })).json() as Array<any>).find((item) => item.id === roomId);
+      });
+      if (!roomsResponse.ok()) {
+        throw new Error(`Unable to list E2E rooms for cleanup: ${roomsResponse.status()}`);
+      }
+      const rooms = (await roomsResponse.json()) as { content: BingoRoomResponse[] };
+      const room = rooms.content.find((item) => item.id === roomId);
       if (room?.active) {
         await page.request.put(`${backendBaseUrl}/api/v1/admin/rooms/${roomId}`, {
           headers: { Authorization: `Bearer ${accessToken}` },

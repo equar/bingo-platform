@@ -1,9 +1,9 @@
 # Load and Concurrency Test Results
 
-**Execution date:** 2026-10-21
+**Last checked:** 2026-10-22
 **Overall status:** **BLOCKED; no capacity claim is supported**
 
-> The final independent review in [final-independent-qa-review.md](./final-independent-qa-review.md) rechecked this gate. No load run or capacity measurement has since been performed; the 1,000-player setting remains unverified.
+> The latest follow-up in [qa-execution-plan-and-results.md](./qa-execution-plan-and-results.md) did not run a load test. No load run or capacity measurement has been performed; the 1,000-player setting remains unverified.
 
 ## Results
 

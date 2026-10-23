@@ -5,7 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class AuthScreen extends ConsumerStatefulWidget {
-  const AuthScreen({super.key});
+  const AuthScreen({super.key, this.sessionExpired = false});
+
+  final bool sessionExpired;
 
   @override
   ConsumerState<AuthScreen> createState() => _AuthScreenState();
@@ -36,7 +38,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       _error = null;
     });
     try {
-      await ref.read(authSessionControllerProvider.notifier).signIn(
+      await ref
+          .read(authSessionControllerProvider.notifier)
+          .signIn(
             AgentLoginRequest(
               phoneNumber: _phoneController.text.trim(),
               password: _passwordController.text,
@@ -44,7 +48,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
             ),
           );
     } catch (_) {
-      setState(() => _error = AppLocalizations.of(context)!.signInFailed);
+      if (mounted) {
+        setState(() => _error = AppLocalizations.of(context)!.signInFailed);
+      }
     } finally {
       if (mounted) {
         setState(() => _busy = false);
@@ -69,29 +75,36 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Text(l10n.appTitle,
-                          style: Theme.of(context).textTheme.headlineMedium),
+                      Text(
+                        l10n.appTitle,
+                        style: Theme.of(context).textTheme.headlineMedium,
+                      ),
                       const SizedBox(height: 8),
                       Text(l10n.loginTitle),
+                      if (widget.sessionExpired) ...[
+                        const SizedBox(height: 12),
+                        Text(l10n.sessionExpired),
+                      ],
                       const SizedBox(height: 20),
                       TextFormField(
                         controller: _phoneController,
                         decoration: InputDecoration(labelText: l10n.phoneLabel),
                         validator: (value) =>
                             (value == null || value.trim().isEmpty)
-                                ? l10n.requiredField
-                                : null,
+                            ? l10n.requiredField
+                            : null,
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: _passwordController,
-                        decoration:
-                            InputDecoration(labelText: l10n.passwordLabel),
+                        decoration: InputDecoration(
+                          labelText: l10n.passwordLabel,
+                        ),
                         obscureText: true,
                         validator: (value) =>
                             (value == null || value.length < 8)
-                                ? l10n.requiredField
-                                : null,
+                            ? l10n.requiredField
+                            : null,
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
@@ -100,14 +113,17 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                         keyboardType: TextInputType.number,
                         validator: (value) =>
                             (value == null || value.trim().length < 4)
-                                ? l10n.requiredField
-                                : null,
+                            ? l10n.requiredField
+                            : null,
                       ),
                       if (_error != null) ...[
                         const SizedBox(height: 12),
-                        Text(_error!,
-                            style: TextStyle(
-                                color: Theme.of(context).colorScheme.error)),
+                        Text(
+                          _error!,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                        ),
                       ],
                       const SizedBox(height: 20),
                       FilledButton(

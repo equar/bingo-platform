@@ -1,0 +1,60 @@
+import { expect, type APIResponse, type Page } from '@playwright/test';
+import { mkdir, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+
+const runtimeEnv = (globalThis as any).process?.env ?? {};
+
+export function requiredQaEnv(name: string): string {
+  const value = runtimeEnv[name];
+  if (typeof value !== 'string' || !value.trim()) {
+    throw new Error(`${name} must be set for this QA action`);
+  }
+  return value;
+}
+
+export function qaBaseUrls() {
+  return {
+    admin: runtimeEnv.BINGO_E2E_ADMIN_URL ?? 'http://localhost:5174',
+    website: runtimeEnv.BINGO_E2E_WEBSITE_URL ?? 'http://localhost:4321',
+    backend: runtimeEnv.BINGO_E2E_BACKEND_URL ?? 'http://localhost:8081',
+  };
+}
+
+export async function navigateTo(page: Page, route: string, baseUrl?: string) {
+  const destination = new URL(route, baseUrl ?? qaBaseUrls().admin).toString();
+  return page.goto(destination);
+}
+
+export async function loginAdmin(page: Page) {
+  await navigateTo(page, '/login');
+  await page.getByLabel('Email address').fill(requiredQaEnv('BINGO_E2E_ADMIN_EMAIL'));
+  await page.locator('input[name="password"]').fill(requiredQaEnv('BINGO_E2E_ADMIN_PASSWORD'));
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+}
+
+export async function captureScreenshot(page: Page, name: string): Promise<string> {
+  const safeName = name.replace(/[^a-zA-Z0-9_-]+/g, '-');
+  const destination = path.resolve(
+    runtimeEnv.BINGO_E2E_RESULTS_DIR ?? path.join(process.cwd(), 'test-results', 'qa'),
+    `${safeName}.png`,
+  );
+  await mkdir(path.dirname(destination), { recursive: true });
+  await page.screenshot({ path: destination, fullPage: true });
+  return destination;
+}
+
+export async function verifyApiResponse(response: APIResponse, context: string) {
+  if (!response.ok()) {
+    throw new Error(`${context} returned HTTP ${response.status()}`);
+  }
+  expect(response.ok(), `${context} should return a successful response`).toBeTruthy();
+}
+
+export async function reportFailure(page: Page, context: string, error: unknown) {
+  const screenshot = await captureScreenshot(page, `failure-${context}`);
+  const message = error instanceof Error ? error.message : String(error);
+  const reportPath = screenshot.replace(/\.png$/, '.txt');
+  await writeFile(reportPath, `${context}\n${message}\nScreenshot: ${screenshot}\n`, 'utf8');
+  return { screenshot, reportPath };
+}

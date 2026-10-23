@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 
 import com.equar.bingo.backend.config.JwtProperties;
 import com.equar.bingo.backend.common.exception.ConflictException;
+import com.equar.bingo.backend.feature.auth.dto.AdminAccountActivationRequest;
 import com.equar.bingo.backend.feature.auth.dto.ChangePasswordRequest;
 import com.equar.bingo.backend.feature.auth.dto.AdminLoginRequest;
 import com.equar.bingo.backend.feature.user.entity.AccountStatus;
@@ -30,6 +31,7 @@ class AdminAuthServiceTest {
     UserRepository userRepository;
     PasswordEncoder passwordEncoder;
     JwtService jwtService;
+    AdminAccountActivationTokenGenerator activationTokenGenerator;
 
     AdminAuthService service;
 
@@ -42,11 +44,13 @@ class AdminAuthServiceTest {
         userRepository = mock(UserRepository.class);
         passwordEncoder = mock(PasswordEncoder.class);
         jwtService = new JwtService(new JwtProperties("01234567890123456789012345678901", 3600L));
+        activationTokenGenerator = new AdminAccountActivationTokenGenerator();
         service = new AdminAuthService(
                 userRepository,
                 passwordEncoder,
                 jwtService,
-                mock(AuthenticationAttemptThrottleService.class));
+                mock(AuthenticationAttemptThrottleService.class),
+                activationTokenGenerator);
 
         Instant now = Instant.parse("2026-01-01T00:00:00Z");
         admin = User.create("251911000001", "Admin One", "hash", AccountStatus.ACTIVE, Set.of(UserRole.ADMIN), now);
@@ -120,6 +124,46 @@ class AdminAuthServiceTest {
 
         assertThrows(BadCredentialsException.class,
                 () -> service.login(new AdminLoginRequest("admin@example.com", "Secret123!")));
+    }
+
+    @Test
+    void loginRejectsAccountsAwaitingActivation() {
+        admin.requireAccountActivation(activationTokenGenerator.hashToken("activation-token"),
+                Instant.now().plusSeconds(3600));
+        when(userRepository.findByEmail("admin@example.com")).thenReturn(Optional.of(admin));
+
+        assertThrows(BadCredentialsException.class,
+                () -> service.login(new AdminLoginRequest("admin@example.com", "Secret123!")));
+    }
+
+    @Test
+    void activationSetsPasswordAndConsumesTheSingleUseToken() {
+        String rawToken = "activation-token";
+        String tokenHash = activationTokenGenerator.hashToken(rawToken);
+        admin.requireAccountActivation(tokenHash, Instant.now().plusSeconds(3600));
+        when(userRepository.findByAccountActivationTokenHashForUpdate(tokenHash)).thenReturn(Optional.of(admin));
+        when(passwordEncoder.encode("NewPass123!")).thenReturn("new-hash");
+
+        service.activateAccount(new AdminAccountActivationRequest(rawToken, "NewPass123!"));
+
+        assertThat(admin.getPasswordHash()).isEqualTo("new-hash");
+        assertFalse(admin.isMustChangePassword());
+        assertThat(admin.getAccountActivationTokenHash()).isNull();
+        assertThat(admin.getAccountActivationExpiresAt()).isNull();
+        verify(userRepository).save(admin);
+    }
+
+    @Test
+    void activationRejectsExpiredOrUnknownTokens() {
+        String expiredToken = "expired-token";
+        String expiredHash = activationTokenGenerator.hashToken(expiredToken);
+        admin.requireAccountActivation(expiredHash, Instant.now().minusSeconds(1));
+        when(userRepository.findByAccountActivationTokenHashForUpdate(expiredHash)).thenReturn(Optional.of(admin));
+
+        assertThrows(BadCredentialsException.class,
+                () -> service.activateAccount(new AdminAccountActivationRequest(expiredToken, "NewPass123!")));
+        assertThrows(BadCredentialsException.class,
+                () -> service.activateAccount(new AdminAccountActivationRequest("unknown-token", "NewPass123!")));
     }
 
     @Test

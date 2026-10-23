@@ -39,6 +39,8 @@ class AdminUserServiceTest {
 
         AdminPasswordGenerator passwordGenerator;
 
+        AdminAccountActivationTokenGenerator activationTokenGenerator;
+
         RecordingAdminAccountNotificationService notificationService;
 
         EthiopianPhoneNormalizer phoneNormalizer = new EthiopianPhoneNormalizer();
@@ -55,9 +57,11 @@ class AdminUserServiceTest {
                                 return "Secret123!";
                         }
                 };
+                activationTokenGenerator = new AdminAccountActivationTokenGenerator();
                 notificationService = new RecordingAdminAccountNotificationService();
                 service = new AdminUserService(userRepository, passwordEncoder, phoneNormalizer, passwordGenerator,
-                                notificationService);
+                                notificationService, activationTokenGenerator,
+                                "http://localhost:5173/activate-account");
         }
 
         @Test
@@ -106,11 +110,19 @@ class AdminUserServiceTest {
                 assertThat(createdUser.getEmail()).isEqualTo("admin@example.com");
                 assertThat(createdUser.getPasswordHash()).isEqualTo("encoded-password");
                 assertThat(createdUser.isMustChangePassword()).isTrue();
-                Duration timeUntilExpiry = Duration.between(Instant.now(), createdUser.getTemporaryPasswordExpiresAt());
+                assertThat(createdUser.getAccountActivationTokenHash()).matches("[a-f0-9]{64}");
+                Duration timeUntilExpiry = Duration.between(Instant.now(), createdUser.getAccountActivationExpiresAt());
                 assertThat(timeUntilExpiry).isBetween(Duration.ofHours(23).plusMinutes(59),
                                 Duration.ofHours(24).plusSeconds(5));
                 assertThat(notificationService.lastUser).isSameAs(saved);
-                assertThat(notificationService.lastPassword).isEqualTo("Secret123!");
+                assertThat(notificationService.lastActivationLink).startsWith("http://localhost:5173/activate-account#token=");
+                String rawToken = org.springframework.web.util.UriComponentsBuilder
+                                .fromUriString(notificationService.lastActivationLink)
+                                .build()
+                                .getFragment()
+                                .substring("token=".length());
+                assertThat(activationTokenGenerator.hashToken(rawToken))
+                                .isEqualTo(createdUser.getAccountActivationTokenHash());
         }
 
         @Test
@@ -174,16 +186,16 @@ class AdminUserServiceTest {
         private static final class RecordingAdminAccountNotificationService extends AdminAccountNotificationService {
 
                 private User lastUser;
-                private String lastPassword;
+                private String lastActivationLink;
 
                 private RecordingAdminAccountNotificationService() {
                         super(mock(JavaMailSender.class), "no-reply@example.com");
                 }
 
                 @Override
-                public void sendGeneratedPassword(User user, String rawPassword) {
+                public void sendActivationLink(User user, String activationLink) {
                         this.lastUser = user;
-                        this.lastPassword = rawPassword;
+                        this.lastActivationLink = activationLink;
                 }
         }
 }

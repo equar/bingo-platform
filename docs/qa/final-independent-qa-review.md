@@ -4,6 +4,8 @@
 **Reviewed commit:** `efe0a7a` on `muse-code-review`  
 **Release decision:** **NO-GO**
 
+> This document preserves the review snapshot for the commit above. Subsequent account-activation, production-datasource, and workflow-pinning changes plus current test outcomes are recorded in [qa-execution-plan-and-results.md](./qa-execution-plan-and-results.md), [security-validation.md](./security-validation.md), and [release-blockers.md](./release-blockers.md); use those reports for current status.
+
 This is the durable record of the final independent review. The October 20 baseline report containing the original severity ratings was not present in the checked-in repository, so original severities are marked unavailable rather than inferred. Earlier Phase 6 results were rechecked against source and fresh test output; they were not treated as proof by themselves.
 
 ## Decision summary

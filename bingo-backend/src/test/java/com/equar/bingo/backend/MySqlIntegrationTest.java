@@ -1,37 +1,88 @@
 package com.equar.bingo.backend;
 
+import java.net.URI;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.MySQLContainer;
 
+/** Shared database guard for integration tests that create, mutate, or delete data. */
 public abstract class MySqlIntegrationTest {
-
-    private static final String externalUrl = System.getenv("BINGO_TEST_MYSQL_URL");
-    private static final MySQLContainer<?> mysql = externalUrl == null || externalUrl.isBlank()
-            ? new MySQLContainer<>("mysql:8.0.36")
-            : null;
-
-    static {
-        if (mysql != null) {
-            mysql.start();
-        }
-    }
+    public static final String DATABASE = "bingo_qa_test";
+    private static final TestDatabase TEST_DATABASE = requireIsolatedTestDatabase();
 
     @DynamicPropertySource
     public static void registerMySqlProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", () -> mysql == null ? externalUrl : mysql.getJdbcUrl());
-        registry.add("spring.datasource.username",
-                () -> mysql == null ? requiredExternalProperty("BINGO_TEST_MYSQL_USERNAME") : mysql.getUsername());
-        registry.add("spring.datasource.password",
-                () -> mysql == null ? requiredExternalProperty("BINGO_TEST_MYSQL_PASSWORD") : mysql.getPassword());
+        registry.add("spring.datasource.url", () -> TEST_DATABASE.url());
+        registry.add("spring.datasource.username", () -> TEST_DATABASE.username());
+        registry.add("spring.datasource.password", () -> TEST_DATABASE.password());
         registry.add("spring.datasource.driver-class-name", () -> "com.mysql.cj.jdbc.Driver");
+        registry.add("spring.flyway.url", () -> TEST_DATABASE.url());
+        registry.add("spring.flyway.user", () -> TEST_DATABASE.username());
+        registry.add("spring.flyway.password", () -> TEST_DATABASE.password());
     }
 
-    private static String requiredExternalProperty(String name) {
+    public static TestDatabase requireIsolatedTestDatabase() {
+        String url = required("BINGO_TEST_MYSQL_URL");
+        String username = required("BINGO_TEST_MYSQL_USERNAME");
+        String password = required("BINGO_TEST_MYSQL_PASSWORD");
+        if (!url.startsWith("jdbc:mysql://")) {
+            throw new IllegalStateException("BINGO_TEST_MYSQL_URL must be a local MySQL URL for bingo_qa_test");
+        }
+
+        URI uri;
+        try {
+            uri = URI.create(url.substring("jdbc:".length()));
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalStateException("BINGO_TEST_MYSQL_URL is not a valid MySQL JDBC URL", exception);
+        }
+        String path = uri.getPath();
+        boolean localHost = "127.0.0.1".equals(uri.getHost()) || "localhost".equalsIgnoreCase(uri.getHost());
+        if (!localHost || uri.getPort() != 3306 || !("/" + DATABASE).equals(path)) {
+            throw new IllegalStateException(
+                    "Refusing integration tests: BINGO_TEST_MYSQL_URL must target local bingo_qa_test on port 3306");
+        }
+
+        TestDatabase database = new TestDatabase(url, username, password);
+        try (Connection connection = DriverManager.getConnection(url, username, password)) {
+            if (!DATABASE.equals(connection.getCatalog())) {
+                throw new IllegalStateException("Refusing integration tests: connected MySQL catalog is not bingo_qa_test");
+            }
+            assertNoPersistentSchemaAccess(connection, "bingo");
+            assertNoPersistentSchemaAccess(connection, "bingo_qa");
+            try (var statement = connection.createStatement();
+                    var result = statement.executeQuery("SELECT @@hostname, @@port")) {
+                if (!result.next() || result.getInt(2) != 3306) {
+                    throw new IllegalStateException("Refusing integration tests: MySQL server identity check failed");
+                }
+            }
+        } catch (SQLException exception) {
+            throw new IllegalStateException(
+                    "Cannot verify isolated MySQL test database and restricted credentials", exception);
+        }
+        return database;
+    }
+
+    private static void assertNoPersistentSchemaAccess(Connection connection, String schema) throws SQLException {
+        try (var statement = connection.createStatement()) {
+            statement.executeQuery("SELECT 1 FROM `" + schema + "`.flyway_schema_history LIMIT 0").close();
+            throw new IllegalStateException("Refusing integration tests: test credentials can access " + schema);
+        } catch (SQLException exception) {
+            // An authorization denial is required; missing table or other failures are not proof of isolation.
+            if (exception.getErrorCode() != 1044 && exception.getErrorCode() != 1142) {
+                throw exception;
+            }
+        }
+    }
+
+    private static String required(String name) {
         String value = System.getenv(name);
         if (value == null || value.isBlank()) {
-            throw new IllegalStateException(name + " is required when BINGO_TEST_MYSQL_URL is set");
+            throw new IllegalStateException(name + " is required; integration tests never use Testcontainers implicitly");
         }
         return value;
     }
+
+    public record TestDatabase(String url, String username, String password) { }
 }

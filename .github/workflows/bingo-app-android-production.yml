@@ -81,7 +81,7 @@ jobs:
           printf 'GOOGLE_PLAY_JSON_KEY_PATH=%s\n' "$GOOGLE_PLAY_JSON_PATH" >> "$GITHUB_ENV"
 
       - name: Install Fastlane
-        run: sudo gem install fastlane --no-document
+        run: sudo gem install fastlane -v 2.241.1 --no-document
 
       - name: Promote the build to production
         run: fastlane android promote_production

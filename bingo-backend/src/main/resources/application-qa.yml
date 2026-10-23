@@ -1,0 +1,43 @@
+spring:
+  config:
+    import: optional:file:.env.qa[.properties]
+  datasource:
+    url: jdbc:mysql://${BINGO_QA_MYSQL_HOST:127.0.0.1}:${BINGO_QA_MYSQL_PORT:3306}/${BINGO_QA_MYSQL_DATABASE:bingo_qa}?createDatabaseIfNotExist=false&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    username: ${BINGO_QA_MYSQL_USERNAME}
+    password: ${BINGO_QA_MYSQL_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+    clean-disabled: true
+    baseline-on-migrate: false
+    validate-on-migrate: true
+    user: ${BINGO_QA_FLYWAY_USERNAME}
+    password: ${BINGO_QA_FLYWAY_PASSWORD}
+  mail:
+    host: ${BINGO_QA_SMTP_HOST:127.0.0.1}
+    port: ${BINGO_QA_SMTP_PORT:1025}
+    username: ${BINGO_QA_SMTP_USERNAME:}
+    password: ${BINGO_QA_SMTP_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: false
+          starttls:
+            enable: false
+            required: false
+
+server:
+  port: ${BINGO_QA_SERVER_PORT:8081}
+
+app:
+  qa:
+    bootstrap:
+      enabled: ${APP_QA_BOOTSTRAP_ENABLED:false}
+  security:
+    jwt:
+      secret: ${BINGO_QA_JWT_SECRET:}
+  dev:
+    seed-enabled: false

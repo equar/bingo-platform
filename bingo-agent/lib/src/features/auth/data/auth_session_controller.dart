@@ -12,12 +12,14 @@ class AuthSessionState {
   bool get isAuthenticated => session != null;
 }
 
-final authSessionControllerProvider = StateNotifierProvider<AuthSessionController, AuthSessionState>((ref) {
-  return AuthSessionController(ref.watch(authRepositoryProvider));
-});
+final authSessionControllerProvider =
+    StateNotifierProvider<AuthSessionController, AuthSessionState>((ref) {
+      return AuthSessionController(ref.watch(authRepositoryProvider));
+    });
 
 class AuthSessionController extends StateNotifier<AuthSessionState> {
-  AuthSessionController(this._repository) : super(const AuthSessionState(loading: true)) {
+  AuthSessionController(this._repository)
+    : super(const AuthSessionState(loading: true)) {
     _restore();
   }
 
@@ -25,11 +27,18 @@ class AuthSessionController extends StateNotifier<AuthSessionState> {
 
   Future<void> _restore() async {
     final session = await _repository.restore();
+    if (session != null && session.isExpired) {
+      await _repository.clear();
+      state = const AuthSessionState(
+        loading: false,
+        errorCode: 'SESSION_EXPIRED',
+      );
+      return;
+    }
     state = AuthSessionState(loading: false, session: session);
   }
 
   Future<void> signIn(AgentLoginRequest request) async {
-    state = const AuthSessionState(loading: true);
     final response = await _repository.login(request);
     await _repository.persist(response);
     state = AuthSessionState(loading: false, session: response);

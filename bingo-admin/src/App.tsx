@@ -11,7 +11,7 @@ function MissingConfig() {
   return (
     <Container maxWidth="sm" sx={{ py: 8 }}>
       <Stack spacing={2}>
-        <Typography variant="h4">Bingo Admin</Typography>
+        <Typography variant="h4">Sunset Bingo Admin</Typography>
         <Alert severity="warning">
           Missing Vite environment variable <strong>VITE_API_BASE_URL</strong>.
         </Alert>

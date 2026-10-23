@@ -5,6 +5,11 @@ import { ProtectedRoute } from "./ProtectedRoute";
 
 const AppShell = lazy(() => import("../components/AppShell").then((module) => ({ default: module.AppShell })));
 const LoginPage = lazy(() => import("../features/auth/LoginPage").then((module) => ({ default: module.LoginPage })));
+const AdminAccountActivationPage = lazy(() =>
+  import("../features/auth/AdminAccountActivationPage").then((module) => ({
+    default: module.AdminAccountActivationPage,
+  })),
+);
 const DashboardPage = lazy(() =>
   import("../features/dashboard/DashboardPage").then((module) => ({ default: module.DashboardPage })),
 );
@@ -74,6 +79,7 @@ export function AppRouter() {
     >
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/activate-account" element={<AdminAccountActivationPage />} />
         <Route element={<ProtectedRoute allowedRoles={["ADMIN"]} />}>
           <Route element={<AppShell />}>
             <Route index element={<Navigate to="/dashboard" replace />} />

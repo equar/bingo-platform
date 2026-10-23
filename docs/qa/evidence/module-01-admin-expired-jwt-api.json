@@ -1,0 +1,13 @@
+{
+  "protectedRequestPathsBeforeReauthentication": [
+    "/api/v1/admin/players"
+  ],
+  "expiredTokenResponse": {
+    "status": 401,
+    "apiPath": "/api/v1/admin/players",
+    "bodyStatus": 401
+  },
+  "sessionCleared": true,
+  "refreshStayedAtLogin": true,
+  "reauthenticated": true
+}

@@ -7,7 +7,7 @@ const runtimeEnv = (globalThis as any)['process']?.env ?? {};
 
 const phase = runtimeEnv.BINGO_E2E_PHASE ?? 'all';
 const runId = runtimeEnv.BINGO_E2E_RUN_ID ?? 'local';
-const backendBaseUrl = runtimeEnv.BINGO_E2E_BACKEND_URL ?? 'http://localhost:8080';
+const backendBaseUrl = runtimeEnv.BINGO_E2E_BACKEND_URL ?? 'http://localhost:8081';
 const adminEmail = requiredEnv('BINGO_E2E_ADMIN_EMAIL');
 const adminPassword = requiredEnv('BINGO_E2E_ADMIN_PASSWORD');
 const primaryPhone = requiredEnv('BINGO_E2E_PRIMARY_PHONE');
@@ -92,8 +92,8 @@ test('setup local session', async ({ page, request }) => {
 
   await writeManifest({
     runId,
-    backendBaseUrl: runtimeEnv.BINGO_E2E_BACKEND_URL ?? 'http://localhost:8080',
-    adminBaseUrl: runtimeEnv.BINGO_E2E_ADMIN_URL ?? 'http://localhost:5173',
+    backendBaseUrl: runtimeEnv.BINGO_E2E_BACKEND_URL ?? 'http://localhost:8081',
+    adminBaseUrl: runtimeEnv.BINGO_E2E_ADMIN_URL ?? 'http://localhost:5174',
     room: { id: room.id, name: room.name },
     session: { id: session.id, name: session.sessionName },
     player: { phoneNumber: primaryPhone, displayName: 'Dev Player' },

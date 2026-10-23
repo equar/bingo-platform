@@ -85,7 +85,7 @@ jobs:
           printf 'APP_STORE_CONNECT_PRIVATE_KEY_PATH=%s\n' "$PRIVATE_KEY_PATH" >> "$GITHUB_ENV"
 
       - name: Install Fastlane
-        run: sudo gem install fastlane --no-document
+        run: sudo gem install fastlane -v 2.241.1 --no-document
 
       - name: Submit the build for review
         run: fastlane ios app_store_submission

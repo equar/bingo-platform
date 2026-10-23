@@ -22,7 +22,7 @@ class AdminAccountNotificationServiceTest {
     private static final User USER = createUser();
 
     @Test
-    void sendsGeneratedCredentialToAccountEmail() {
+    void sendsSingleUseActivationLinkWithoutPassword() {
         JavaMailSender mailSender = mock(JavaMailSender.class);
         SimpleMailMessage[] sentMessage = new SimpleMailMessage[1];
         doAnswer(invocation -> {
@@ -31,12 +31,14 @@ class AdminAccountNotificationServiceTest {
         }).when(mailSender).send(any(SimpleMailMessage.class));
 
         new AdminAccountNotificationService(mailSender, "no-reply@example.invalid")
-                .sendGeneratedPassword(USER, "Temporary-Admin-42!");
+                .sendActivationLink(USER, "https://admin.example.invalid/activate-account?token=single-use");
 
         assertEquals("no-reply@example.invalid", sentMessage[0].getFrom());
         assertEquals("admin@example.invalid", sentMessage[0].getTo()[0]);
-        assertEquals("Your Bingo Admin account", sentMessage[0].getSubject());
-        org.junit.jupiter.api.Assertions.assertTrue(sentMessage[0].getText().contains("Temporary-Admin-42!"));
+        assertEquals("Complete your Bingo Admin account setup", sentMessage[0].getSubject());
+        org.junit.jupiter.api.Assertions.assertTrue(
+                sentMessage[0].getText().contains("https://admin.example.invalid/activate-account?token=single-use"));
+        org.junit.jupiter.api.Assertions.assertFalse(sentMessage[0].getText().contains("Password:"));
     }
 
     @Test
@@ -46,7 +48,7 @@ class AdminAccountNotificationServiceTest {
 
         assertThrows(MailSendException.class,
                 () -> new AdminAccountNotificationService(mailSender, "no-reply@example.invalid")
-                        .sendGeneratedPassword(USER, "Temporary-Admin-42!"));
+                        .sendActivationLink(USER, "https://admin.example.invalid/activate-account?token=single-use"));
     }
 
     private static User createUser() {

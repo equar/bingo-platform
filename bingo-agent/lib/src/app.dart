@@ -7,11 +7,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class BingoAgentApp extends StatelessWidget {
-  const BingoAgentApp({super.key});
+  const BingoAgentApp({super.key, this.config});
+
+  final AppConfig? config;
 
   @override
   Widget build(BuildContext context) {
-    return const ProviderScope(child: _BingoAgentView());
+    return ProviderScope(
+      overrides: config == null ? const [] : [appConfigProvider.overrideWithValue(config!)],
+      child: const _BingoAgentView(),
+    );
   }
 }
 

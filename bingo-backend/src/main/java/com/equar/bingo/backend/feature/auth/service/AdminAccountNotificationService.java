@@ -18,24 +18,25 @@ public class AdminAccountNotificationService {
         this.fromAddress = fromAddress;
     }
 
-    public void sendGeneratedPassword(User user, String rawPassword) {
+    public void sendActivationLink(User user, String activationLink) {
         SimpleMailMessage message = new SimpleMailMessage();
         message.setFrom(fromAddress);
         message.setTo(user.getEmail());
-        message.setSubject("Your Bingo Admin account");
-        message.setText(buildMessage(user, rawPassword));
+        message.setSubject("Complete your Bingo Admin account setup");
+        message.setText(buildMessage(user, activationLink));
         mailSender.send(message);
     }
 
-    private String buildMessage(User user, String rawPassword) {
+    private String buildMessage(User user, String activationLink) {
         return String.join("\n",
                 "Hello " + user.getDisplayName() + ",",
                 "",
-                "Your Bingo admin account is ready.",
+                "An admin account has been created for you.",
                 "",
                 "Login email: " + user.getEmail(),
-                "Password: " + rawPassword,
+                "Set your password using this single-use link:",
+                activationLink,
                 "",
-                "Please change the password after your first login.");
+                "This link expires in 24 hours and can only be used once.");
     }
 }

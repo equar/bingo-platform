@@ -92,7 +92,7 @@ describe("AppShell", () => {
       </QueryClientProvider>,
     );
 
-    expect(screen.getAllByRole("banner")[0].textContent).toContain("Bingo Admin");
+    expect(screen.getAllByRole("banner")[0].textContent).toContain("Sunset Bingo Admin");
     expect(screen.getAllByText("Admin Tester")[0]).toBeInTheDocument();
     expect(screen.getAllByText("Overview")[0]).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /admin tester/i })[0]).toBeInTheDocument();
