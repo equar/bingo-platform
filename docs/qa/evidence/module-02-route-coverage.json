@@ -1,0 +1,93 @@
+{
+  "visited": [
+    {
+      "route": "/dashboard",
+      "heading": "Dashboard"
+    },
+    {
+      "route": "/admin-users",
+      "heading": "Admin Users"
+    },
+    {
+      "route": "/rooms",
+      "heading": "Rooms"
+    },
+    {
+      "route": "/sessions",
+      "heading": "Sessions"
+    },
+    {
+      "route": "/players",
+      "heading": "Players"
+    },
+    {
+      "route": "/claims",
+      "heading": "Win claims"
+    },
+    {
+      "route": "/prize-entitlements",
+      "heading": "Prize entitlements"
+    },
+    {
+      "route": "/deposits",
+      "heading": "Deposits"
+    },
+    {
+      "route": "/agents",
+      "heading": "Agents"
+    },
+    {
+      "route": "/wallet/signup-reward",
+      "heading": "Wallet policies"
+    },
+    {
+      "route": "/wallet/transfer-policy",
+      "heading": "Wallet policies"
+    },
+    {
+      "route": "/wallet/transfers",
+      "heading": "Transfer history"
+    },
+    {
+      "route": "/support/tickets",
+      "heading": "Support tickets"
+    },
+    {
+      "route": "/audit-logs",
+      "heading": "Audit logs"
+    },
+    {
+      "route": "/profile",
+      "heading": "Profile"
+    },
+    {
+      "route": "/change-password",
+      "heading": "Change password"
+    },
+    {
+      "route": "/players/4",
+      "heading": "QA Player 001"
+    },
+    {
+      "route": "/agents/1",
+      "heading": "QA Approved Agent"
+    },
+    {
+      "route": "/sessions/3",
+      "heading": "M02-1792736957844 QA Session"
+    },
+    {
+      "route": "/support/tickets/4",
+      "heading": "ST-8D9A3A37"
+    },
+    {
+      "route": "/activate-account",
+      "heading": "Set up your Sunset Bingo Admin account"
+    },
+    {
+      "route": "/management",
+      "heading": "redirects to Dashboard"
+    }
+  ],
+  "detailRoutesUnavailableBecauseNoRecords": []
+}

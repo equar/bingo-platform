@@ -1,0 +1,19 @@
+{
+  "playerId": 10,
+  "phone": "251737056953",
+  "statusBefore": "ACTIVE",
+  "statusAfter": "PENDING",
+  "adminStatusUpdateHttp": 200,
+  "oldSessionProtectedWalletHttp": 401,
+  "restrictedLoginHttp": 401,
+  "auditRecordPresent": true,
+  "walletBefore": {
+    "walletId": 7,
+    "currency": "ETB",
+    "availableBalance": 0,
+    "promotionalBalance": 0,
+    "totalBalance": 0,
+    "updatedAt": "2026-10-23T06:30:57.476723Z"
+  },
+  "walletUnchangedByRestriction": true
+}

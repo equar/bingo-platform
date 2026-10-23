@@ -1,0 +1,17 @@
+{
+  "room": {
+    "id": 4,
+    "name": "M02-1792737064944 QA Room",
+    "active": true
+  },
+  "session": {
+    "id": 4,
+    "name": "M02-1792737064944 QA Session",
+    "state": "DRAFT",
+    "roomId": 4
+  },
+  "roomCreateHttp": 200,
+  "sessionCreateHttp": 200,
+  "sessionDetailHttpVerified": true,
+  "sessionSearchFilterVerified": true
+}

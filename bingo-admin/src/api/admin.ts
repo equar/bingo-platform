@@ -151,7 +151,12 @@ export interface AdminAgentSummaryResponse {
   payoutVerificationCount: number;
 }
 
-export type AdminAgentDetailResponse = AdminAgentSummaryResponse;
+export interface AdminAgentDetailResponse extends AdminAgentSummaryResponse {
+  idDocumentType: string;
+  idDocumentNumber: string;
+  idDocumentFrontReference: string | null;
+  idDocumentBackReference: string | null;
+}
 
 export interface AgentProfileResponse {
   agentId: number | null;
@@ -240,6 +245,13 @@ export interface CommissionRuleRequest {
   commissionRateBps: number;
   effectiveFrom: string;
   active: boolean;
+}
+
+export interface AdminCommissionRuleResponse extends CommissionRuleRequest {
+  id: number | null;
+  versionNumber: number;
+  createdAt: string | null;
+  updatedAt: string | null;
 }
 
 export interface ReviewFloatTopUpRequest {
@@ -1026,8 +1038,8 @@ export async function adminAgentDetail(agentId: number) {
   return data;
 }
 
-export async function approveAgent(userId: number, body: AgentProfileResponse) {
-  const { data } = await http.post<AgentProfileResponse>(`/api/v1/admin/agents/${userId}/approve`, body);
+export async function approveAgent(agentId: number) {
+  const { data } = await http.post<AgentProfileResponse>(`/api/v1/admin/agents/${agentId}/approve`);
   return data;
 }
 
@@ -1043,6 +1055,11 @@ export async function reviewFloatTopUpRequest(requestId: number, body: ReviewFlo
 
 export async function commissionRule(body: CommissionRuleRequest) {
   const { data } = await http.post<CommissionRuleRequest>('/api/v1/admin/agents/commission-rules', body);
+  return data;
+}
+
+export async function currentCommissionRule() {
+  const { data } = await http.get<AdminCommissionRuleResponse>('/api/v1/admin/agents/commission-rules/current');
   return data;
 }
 

@@ -13,5 +13,8 @@ public interface AgentRepository extends JpaRepository<Agent, Long> {
 
     boolean existsByUserId(Long userId);
 
+    boolean existsByIdDocumentTypeIgnoreCaseAndIdDocumentNumberIgnoreCase(String idDocumentType,
+            String idDocumentNumber);
+
     long countByStatus(AgentStatus status);
 }

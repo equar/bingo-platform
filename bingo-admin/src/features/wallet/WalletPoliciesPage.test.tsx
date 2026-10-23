@@ -7,6 +7,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   currentSignupRewardSettings,
   currentWalletTransferSettings,
+  saveSignupRewardSettings,
+  saveWalletTransferSettings,
   signupRewardGrants,
   signupRewardSettingsHistory,
   walletTransferSettingsHistory,
@@ -25,6 +27,8 @@ vi.mock("../../api/admin", () => ({
 
 const currentSignupRewardSettingsMock = vi.mocked(currentSignupRewardSettings);
 const currentWalletTransferSettingsMock = vi.mocked(currentWalletTransferSettings);
+const saveSignupRewardSettingsMock = vi.mocked(saveSignupRewardSettings);
+const saveWalletTransferSettingsMock = vi.mocked(saveWalletTransferSettings);
 const signupRewardGrantsMock = vi.mocked(signupRewardGrants);
 const signupRewardSettingsHistoryMock = vi.mocked(signupRewardSettingsHistory);
 const walletTransferSettingsHistoryMock = vi.mocked(walletTransferSettingsHistory);
@@ -71,6 +75,8 @@ describe("WalletPoliciesPage", () => {
   beforeEach(() => {
     currentSignupRewardSettingsMock.mockReset();
     currentWalletTransferSettingsMock.mockReset();
+    saveSignupRewardSettingsMock.mockReset();
+    saveWalletTransferSettingsMock.mockReset();
     signupRewardGrantsMock.mockReset();
     signupRewardSettingsHistoryMock.mockReset();
     walletTransferSettingsHistoryMock.mockReset();
@@ -122,5 +128,17 @@ describe("WalletPoliciesPage", () => {
     expect(screen.getByTestId("current-location")).toHaveTextContent("/wallet/transfer-policy");
     expect(await screen.findByRole("heading", { name: "Transfer policy" })).toBeInTheDocument();
     expect(walletTransferSettingsHistoryMock).toHaveBeenCalledOnce();
+  });
+
+  it("shows backend validation failures for policy saves", async () => {
+    const user = userEvent.setup();
+    saveSignupRewardSettingsMock.mockRejectedValue(new Error("Validation failed"));
+    renderAt("/wallet/signup-reward");
+
+    await screen.findByRole("heading", { name: "Signup reward" });
+    await user.click(screen.getByRole("button", { name: "Save reward policy" }));
+
+    expect(await screen.findByText("Validation failed")).toBeInTheDocument();
+    expect(saveSignupRewardSettingsMock).toHaveBeenCalledOnce();
   });
 });

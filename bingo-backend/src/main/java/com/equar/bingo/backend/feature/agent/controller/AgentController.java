@@ -48,6 +48,13 @@ public class AgentController {
         return agentService.login(request);
     }
 
+    @PostMapping("/register")
+    @Operation
+    @SecurityRequirements
+    public ResponseEntity<AgentProfileResponse> register(@Valid @RequestBody AgentApplicationRequest request) {
+        return ResponseEntity.status(201).body(agentService.registerApplication(request));
+    }
+
     @GetMapping("/dashboard")
     @PreAuthorize("hasRole('AGENT')")
     public AgentDashboardResponse dashboard(@AuthenticationPrincipal BingoUserPrincipal principal) {

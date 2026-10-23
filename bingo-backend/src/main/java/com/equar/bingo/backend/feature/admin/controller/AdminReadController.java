@@ -64,7 +64,7 @@ public class AdminReadController {
     }
 
     @GetMapping("/agents/{agentId}")
-    public AdminAgentSummaryResponse agent(@PathVariable Long agentId) {
+    public AdminAgentDetailResponse agent(@PathVariable Long agentId) {
         return adminReadService.agentDetail(agentId);
     }
 

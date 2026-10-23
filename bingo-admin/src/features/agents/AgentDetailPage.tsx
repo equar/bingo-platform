@@ -14,7 +14,7 @@ import {
   Typography,
 } from "@mui/material";
 import { Link as RouterLink, useParams } from "react-router-dom";
-import { adminAgentDetail, commissionRule, reviewFloatTopUpRequest } from "../../api/admin";
+import { adminAgentDetail, approveAgent, commissionRule, reviewFloatTopUpRequest, suspendAgent } from "../../api/admin";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { StatusState } from "../../components/StatusState";
 import { useIdempotencyKey } from "../common/useIdempotencyKey";
@@ -28,6 +28,9 @@ export function AgentDetailPage() {
   const [reviewNote, setReviewNote] = useState("");
   const [approveTopUp, setApproveTopUp] = useState(true);
   const [reviewConfirmOpen, setReviewConfirmOpen] = useState(false);
+  const [approveConfirmOpen, setApproveConfirmOpen] = useState(false);
+  const [suspendConfirmOpen, setSuspendConfirmOpen] = useState(false);
+  const [lifecycleError, setLifecycleError] = useState<string | null>(null);
   const [commissionRateBps, setCommissionRateBps] = useState("0");
   const [effectiveFrom, setEffectiveFrom] = useState(new Date().toISOString().slice(0, 16));
   const [active, setActive] = useState(true);
@@ -65,6 +68,32 @@ export function AgentDetailPage() {
     },
   });
 
+  const approveMutation = useMutation({
+    mutationFn: () => approveAgent(id),
+    onSuccess: async () => {
+      setApproveConfirmOpen(false);
+      setLifecycleError(null);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["agent", id] }),
+        queryClient.invalidateQueries({ queryKey: ["agents"] }),
+      ]);
+    },
+    onError: (error) => setLifecycleError((error as Error).message),
+  });
+
+  const suspendMutation = useMutation({
+    mutationFn: () => suspendAgent(id),
+    onSuccess: async () => {
+      setSuspendConfirmOpen(false);
+      setLifecycleError(null);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["agent", id] }),
+        queryClient.invalidateQueries({ queryKey: ["agents"] }),
+      ]);
+    },
+    onError: (error) => setLifecycleError((error as Error).message),
+  });
+
   if (agentQuery.isLoading) {
     return <StatusState title="Loading agent" loading message="Fetching agent profile" />;
   }
@@ -91,10 +120,18 @@ export function AgentDetailPage() {
             {agent.normalizedPhone} · {agent.city ?? "n/a"} · {agent.territory ?? "n/a"}
           </Typography>
         </div>
-        <Button component={RouterLink} to="/agents" variant="outlined">
-          Back to agents
-        </Button>
+        <Stack direction="row" spacing={1}>
+          {agent.status === "PENDING" ? (
+            <Button variant="contained" onClick={() => setApproveConfirmOpen(true)}>Approve application</Button>
+          ) : null}
+          {agent.status === "APPROVED" ? (
+            <Button color="warning" variant="outlined" onClick={() => setSuspendConfirmOpen(true)}>Suspend agent</Button>
+          ) : null}
+          <Button component={RouterLink} to="/agents" variant="outlined">Back to agents</Button>
+        </Stack>
       </Box>
+
+      {lifecycleError ? <Alert severity="error" role="alert">{lifecycleError}</Alert> : null}
 
       <Grid container spacing={2}>
         <Grid item xs={12} md={4}>
@@ -255,6 +292,10 @@ export function AgentDetailPage() {
             <Typography variant="h6">Agent profile</Typography>
             <Typography>City: {agent.city ?? "n/a"}</Typography>
             <Typography>Territory: {agent.territory ?? "n/a"}</Typography>
+            <Typography>ID document type: {agent.idDocumentType || "n/a"}</Typography>
+            <Typography>ID document number: {agent.idDocumentNumber || "n/a"}</Typography>
+            <Typography>Front document reference: {agent.idDocumentFrontReference ?? "n/a"}</Typography>
+            <Typography>Back document reference: {agent.idDocumentBackReference ?? "n/a"}</Typography>
             <Typography>Created: {new Date(agent.createdAt).toLocaleString()}</Typography>
             <Typography>Updated: {new Date(agent.updatedAt).toLocaleString()}</Typography>
             <Stack direction="row" spacing={1} flexWrap="wrap">
@@ -266,6 +307,28 @@ export function AgentDetailPage() {
           </Stack>
         </CardContent>
       </Card>
+
+      <ConfirmDialog
+        open={approveConfirmOpen}
+        title="Approve agent application"
+        description={`Approve ${agent.displayName}? This changes the pending account to active and enables agent access.`}
+        confirmLabel="Approve"
+        cancelLabel="Cancel"
+        confirming={approveMutation.isPending}
+        onCancel={() => setApproveConfirmOpen(false)}
+        onConfirm={() => approveMutation.mutate()}
+      />
+
+      <ConfirmDialog
+        open={suspendConfirmOpen}
+        title="Suspend agent"
+        description={`Suspend ${agent.displayName}? Their new login and existing token access will be blocked.`}
+        confirmLabel="Suspend"
+        cancelLabel="Cancel"
+        confirming={suspendMutation.isPending}
+        onCancel={() => setSuspendConfirmOpen(false)}
+        onConfirm={() => suspendMutation.mutate()}
+      />
 
       <ConfirmDialog
         open={reviewConfirmOpen}

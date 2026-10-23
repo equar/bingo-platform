@@ -175,6 +175,31 @@ public class AgentService {
         return new AuthResponse(token, "Bearer", jwtService.getExpirationSeconds(), toProfile(user));
     }
 
+    @Transactional
+    public AgentProfileResponse registerApplication(AgentApplicationRequest request) {
+        String normalizedPhone = phoneNormalizer.normalize(request.phoneNumber());
+        if (userRepository.existsByNormalizedPhone(normalizedPhone)) {
+            throw new ConflictException("PHONE_ALREADY_REGISTERED", "That phone number is already registered");
+        }
+        String documentType = request.idDocumentType().trim();
+        String documentNumber = request.idDocumentNumber().trim();
+        if (agentRepository.existsByIdDocumentTypeIgnoreCaseAndIdDocumentNumberIgnoreCase(documentType,
+                documentNumber)) {
+            throw new ConflictException("AGENT_IDENTITY_ALREADY_REGISTERED",
+                    "That identity document is already registered");
+        }
+
+        Instant now = Instant.now();
+        User user = User.create(normalizedPhone, request.displayName().trim(), passwordEncoder.encode(request.password()),
+                AccountStatus.PENDING, Set.of(UserRole.AGENT), now);
+        user.setAgentPinHash(agentPinEncoder.encode(request.pin()));
+        User savedUser = userRepository.save(user);
+        Agent agent = agentRepository.save(Agent.create(savedUser, AgentStatus.PENDING,
+                request.city().trim(), request.territory().trim(), documentType, documentNumber,
+                blankToNull(request.idDocumentFrontReference()), blankToNull(request.idDocumentBackReference())));
+        return toAgentProfileResponse(agent);
+    }
+
     @Transactional(readOnly = true)
     public AgentDashboardResponse dashboard(BingoUserPrincipal principal) {
         Agent agent = requireApprovedAgent(principal.getUser().getId());
@@ -672,25 +697,57 @@ public class AgentService {
     public AgentProfileResponse adminSuspendAgent(Long agentId) {
         Agent agent = agentRepository.findById(agentId)
                 .orElseThrow(() -> new NotFoundException("AGENT_NOT_FOUND", "Agent not found"));
+        if (agent.getStatus() != AgentStatus.APPROVED) {
+            throw new ConflictException("INVALID_AGENT_STATUS_TRANSITION",
+                    "Only approved agents can be suspended");
+        }
         agent.setStatus(AgentStatus.SUSPENDED);
         agent.getUser().setStatus(AccountStatus.SUSPENDED);
         return toAgentProfileResponse(agentRepository.save(agent));
     }
 
     @Transactional
+    public AgentProfileResponse approveAgentApplication(Long agentId) {
+        Agent agent = agentRepository.findById(agentId)
+                .orElseThrow(() -> new NotFoundException("AGENT_NOT_FOUND", "Agent application not found"));
+        if (agent.getStatus() != AgentStatus.PENDING || !agent.getUser().hasRole(UserRole.AGENT)
+                || agent.getUser().getStatus() != AccountStatus.PENDING) {
+            throw new ConflictException("INVALID_AGENT_STATUS_TRANSITION",
+                    "Only pending agent applications can be approved");
+        }
+        User user = agent.getUser();
+        user.setStatus(AccountStatus.ACTIVE);
+        agent.setStatus(AgentStatus.APPROVED);
+        Agent approved = agentRepository.save(agent);
+        if (agentFloatRepository.findByAgentId(approved.getId()).isEmpty()) {
+            agentFloatRepository.save(AgentFloat.create(approved, walletProperties.currency(),
+                    BigDecimal.ZERO.setScale(2), BigDecimal.ZERO.setScale(2)));
+        }
+        return toAgentProfileResponse(approved);
+    }
+
+    private String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    @Transactional
     public CommissionRuleRequest upsertCommissionRule(BingoUserPrincipal principal, CommissionRuleRequest request) {
         requireAdmin(principal);
-        CommissionRule rule = commissionRuleRepository.findFirstByActiveTrueOrderByVersionNumberDesc()
-                .map(existing -> {
-                    existing.setCommissionRateBps(request.commissionRateBps());
-                    existing.setActive(request.active());
-                    existing.setEffectiveFrom(request.effectiveFrom());
-                    return existing;
-                })
-                .orElseGet(() -> CommissionRule.create(1, request.commissionRateBps(), request.active(),
-                        request.effectiveFrom()));
-        commissionRuleRepository.save(rule);
+        int nextVersion = commissionRuleRepository.findFirstByOrderByVersionNumberDesc()
+                .map(existing -> existing.getVersionNumber() + 1)
+                .orElse(1);
+        commissionRuleRepository.save(CommissionRule.create(nextVersion, request.commissionRateBps(),
+                request.active(), request.effectiveFrom()));
         return request;
+    }
+
+    @Transactional(readOnly = true)
+    public AdminCommissionRuleResponse currentCommissionRule() {
+        return commissionRuleRepository.findFirstByOrderByVersionNumberDesc()
+                .map(rule -> new AdminCommissionRuleResponse(rule.getId(), rule.getVersionNumber(),
+                        rule.getCommissionRateBps(), rule.isActive(), rule.getEffectiveFrom(),
+                        rule.getCreatedAt(), rule.getUpdatedAt()))
+                .orElseGet(() -> new AdminCommissionRuleResponse(null, 0, 0, false, Instant.EPOCH, null, null));
     }
 
     private User requireAdmin(BingoUserPrincipal principal) {
@@ -702,7 +759,7 @@ public class AgentService {
     }
 
     private void createCommissionAccrual(Agent agent, Ticket ticket, BigDecimal saleAmount, String operationId) {
-        commissionRuleRepository.findFirstByActiveTrueOrderByVersionNumberDesc().ifPresent(rule -> {
+        commissionRuleRepository.findFirstByOrderByVersionNumberDesc().filter(CommissionRule::isActive).ifPresent(rule -> {
             BigDecimal commission = MoneyValues.money(saleAmount
                     .multiply(BigDecimal.valueOf(rule.getCommissionRateBps()))
                     .divide(BigDecimal.valueOf(10000)));

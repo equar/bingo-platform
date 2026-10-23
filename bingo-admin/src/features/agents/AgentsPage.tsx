@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Box,
@@ -27,34 +27,16 @@ import {
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 import {
   AdminAgentSummaryResponse,
-  AgentProfileResponse,
   approveAgent,
   adminAgents,
   commissionRule,
+  currentCommissionRule,
   reviewFloatTopUpRequest,
   suspendAgent,
 } from "../../api/admin";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { StatusState } from "../../components/StatusState";
 import { useIdempotencyKey } from "../common/useIdempotencyKey";
-
-type AgentDecisionMode = "APPROVE" | "SUSPEND";
-
-interface AgentDecisionDraft {
-  mode: AgentDecisionMode;
-  reason: string;
-  profile: {
-    displayName: string;
-    phoneNumber: string;
-    status: string;
-    city: string;
-    territory: string;
-    idDocumentType: string;
-    idDocumentNumber: string;
-    idDocumentFrontReference: string;
-    idDocumentBackReference: string;
-  };
-}
 
 function formatNullable(value: string | null | undefined) {
   return value?.trim() ? value : "n/a";
@@ -64,9 +46,10 @@ export function AgentsPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const agentsQuery = useQuery({ queryKey: ["agents"], queryFn: () => adminAgents(0, 100) });
+  const commissionRuleQuery = useQuery({ queryKey: ["commission-rule"], queryFn: currentCommissionRule });
   const [search, setSearch] = useState("");
   const [selectedAgent, setSelectedAgent] = useState<AdminAgentSummaryResponse | null>(null);
-  const [decisionDraft, setDecisionDraft] = useState<AgentDecisionDraft | null>(null);
+  const [decisionDraft, setDecisionDraft] = useState<{ mode: "APPROVE" } | null>(null);
   const [decisionError, setDecisionError] = useState<string | null>(null);
   const [suspendConfirmOpen, setSuspendConfirmOpen] = useState(false);
   const [floatRequestId, setFloatRequestId] = useState("");
@@ -75,16 +58,23 @@ export function AgentsPage() {
   const [commissionRateBps, setCommissionRateBps] = useState("0");
   const [commissionEffectiveFrom, setCommissionEffectiveFrom] = useState(new Date().toISOString().slice(0, 16));
   const [commissionActive, setCommissionActive] = useState(true);
+  useEffect(() => {
+    const current = commissionRuleQuery.data;
+    if (!current || current.versionNumber === 0) return;
+    setCommissionRateBps(String(current.commissionRateBps));
+    setCommissionEffectiveFrom(current.effectiveFrom.slice(0, 16));
+    setCommissionActive(current.active);
+  }, [commissionRuleQuery.data]);
   const floatRequestIdValue = Number(floatRequestId);
   const isValidFloatRequestId = Number.isSafeInteger(floatRequestIdValue) && floatRequestIdValue > 0;
   const idempotency = useIdempotencyKey();
 
   const approveMutation = useMutation({
-    mutationFn: async (body: AgentProfileResponse) => {
+    mutationFn: async () => {
       if (!selectedAgent) {
         throw new Error("Missing selected agent");
       }
-      return approveAgent(selectedAgent.userId, body);
+      return approveAgent(selectedAgent.agentId);
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["agents"] });
@@ -139,10 +129,7 @@ export function AgentsPage() {
         active: commissionActive,
       }),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["agents"] });
-      setCommissionRateBps("0");
-      setCommissionEffectiveFrom(new Date().toISOString().slice(0, 16));
-      setCommissionActive(true);
+      await queryClient.invalidateQueries({ queryKey: ["commission-rule"] });
     },
   });
 
@@ -205,9 +192,14 @@ export function AgentsPage() {
               <Stack spacing={2}>
                 <Typography variant="h6">Commission rules</Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Publish a new version with an effective date. The backend does not expose rule history, so only the
-                  latest submission is visible here.
+                  Publish a versioned rule. The current rule loads again after refresh.
                 </Typography>
+                {commissionRuleQuery.data && commissionRuleQuery.data.versionNumber > 0 ? (
+                  <Typography variant="body2" data-testid="current-commission-rule">
+                    Current version {commissionRuleQuery.data.versionNumber} · {commissionRuleQuery.data.active ? "Active" : "Inactive"}
+                  </Typography>
+                ) : null}
+                {commissionMutation.isError ? <Alert severity="error" role="alert">{commissionMutation.error.message}</Alert> : null}
                 <Grid container spacing={2}>
                   <Grid item xs={12} md={4}>
                     <TextField
@@ -382,23 +374,10 @@ export function AgentsPage() {
                       <Button
                         size="small"
                         variant="outlined"
+                        disabled={agent.status !== "PENDING"}
                         onClick={() => {
                           setSelectedAgent(agent);
-                          setDecisionDraft({
-                            mode: "APPROVE",
-                            reason: "",
-                            profile: {
-                              displayName: agent.displayName,
-                              phoneNumber: agent.normalizedPhone,
-                              status: "APPROVED",
-                              city: agent.city ?? "",
-                              territory: agent.territory ?? "",
-                              idDocumentType: "",
-                              idDocumentNumber: "",
-                              idDocumentFrontReference: "",
-                              idDocumentBackReference: "",
-                            },
-                          });
+                          setDecisionDraft({ mode: "APPROVE" });
                         }}
                       >
                         Approve
@@ -407,6 +386,7 @@ export function AgentsPage() {
                         size="small"
                         color="warning"
                         variant="outlined"
+                        disabled={agent.status !== "APPROVED"}
                         onClick={() => {
                           setSelectedAgent(agent);
                           setSuspendConfirmOpen(true);
@@ -430,182 +410,26 @@ export function AgentsPage() {
         </CardContent>
       </Card>
 
-      <Dialog
-        open={Boolean(decisionDraft?.mode === "APPROVE")}
-        onClose={() => setDecisionDraft(null)}
-        fullWidth
-        maxWidth="md"
-      >
-        <DialogTitle>{decisionDraft?.mode === "APPROVE" ? "Approve agent onboarding" : "Suspend agent"}</DialogTitle>
+      <Dialog open={Boolean(decisionDraft)} onClose={() => setDecisionDraft(null)} fullWidth maxWidth="sm">
+        <DialogTitle>Approve agent application</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
-            {decisionError ? <Alert severity="error">{decisionError}</Alert> : null}
-            <Alert severity="info">
-              The backend contract does not accept a reason parameter for approve/suspend. Reason is operator context
-              only and will not be persisted by the API.
-            </Alert>
-            <Grid container spacing={2}>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  label="Display name"
-                  value={decisionDraft?.profile.displayName ?? ""}
-                  onChange={(event) =>
-                    decisionDraft &&
-                    setDecisionDraft({
-                      ...decisionDraft,
-                      profile: { ...decisionDraft.profile, displayName: event.target.value },
-                    })
-                  }
-                  fullWidth
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  label="Phone number"
-                  value={decisionDraft?.profile.phoneNumber ?? ""}
-                  onChange={(event) =>
-                    decisionDraft &&
-                    setDecisionDraft({
-                      ...decisionDraft,
-                      profile: { ...decisionDraft.profile, phoneNumber: event.target.value },
-                    })
-                  }
-                  fullWidth
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  label="City"
-                  value={decisionDraft?.profile.city ?? ""}
-                  onChange={(event) =>
-                    decisionDraft &&
-                    setDecisionDraft({
-                      ...decisionDraft,
-                      profile: { ...decisionDraft.profile, city: event.target.value },
-                    })
-                  }
-                  fullWidth
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  label="Territory"
-                  value={decisionDraft?.profile.territory ?? ""}
-                  onChange={(event) =>
-                    decisionDraft &&
-                    setDecisionDraft({
-                      ...decisionDraft,
-                      profile: { ...decisionDraft.profile, territory: event.target.value },
-                    })
-                  }
-                  fullWidth
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  label="ID document type"
-                  value={decisionDraft?.profile.idDocumentType ?? ""}
-                  onChange={(event) =>
-                    decisionDraft &&
-                    setDecisionDraft({
-                      ...decisionDraft,
-                      profile: { ...decisionDraft.profile, idDocumentType: event.target.value },
-                    })
-                  }
-                  fullWidth
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  label="ID document number"
-                  value={decisionDraft?.profile.idDocumentNumber ?? ""}
-                  onChange={(event) =>
-                    decisionDraft &&
-                    setDecisionDraft({
-                      ...decisionDraft,
-                      profile: { ...decisionDraft.profile, idDocumentNumber: event.target.value },
-                    })
-                  }
-                  fullWidth
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  label="Front image reference"
-                  value={decisionDraft?.profile.idDocumentFrontReference ?? ""}
-                  onChange={(event) =>
-                    decisionDraft &&
-                    setDecisionDraft({
-                      ...decisionDraft,
-                      profile: { ...decisionDraft.profile, idDocumentFrontReference: event.target.value },
-                    })
-                  }
-                  fullWidth
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  label="Back image reference"
-                  value={decisionDraft?.profile.idDocumentBackReference ?? ""}
-                  onChange={(event) =>
-                    decisionDraft &&
-                    setDecisionDraft({
-                      ...decisionDraft,
-                      profile: { ...decisionDraft.profile, idDocumentBackReference: event.target.value },
-                    })
-                  }
-                  fullWidth
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  label="Operator reason"
-                  value={decisionDraft?.reason ?? ""}
-                  onChange={(event) =>
-                    decisionDraft && setDecisionDraft({ ...decisionDraft, reason: event.target.value })
-                  }
-                  fullWidth
-                  multiline
-                  minRows={3}
-                  helperText="Not sent to the backend; the current contract does not accept a reason field."
-                />
-              </Grid>
-            </Grid>
+            {decisionError ? <Alert severity="error" role="alert">{decisionError}</Alert> : null}
+            <Typography>
+              {selectedAgent ? `Approve ${selectedAgent.displayName} (${selectedAgent.normalizedPhone})?` : "Review the agent application before approving."}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Review the submitted identity details on the agent detail page. Approval activates the agent account; the API ignores client supplied status fields.
+            </Typography>
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDecisionDraft(null)} disabled={approveMutation.isPending}>
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            onClick={() => {
-              if (!selectedAgent || !decisionDraft) {
-                return;
-              }
-              approveMutation.mutate({
-                agentId: selectedAgent.agentId,
-                userId: selectedAgent.userId,
-                phoneNumber: decisionDraft.profile.phoneNumber,
-                displayName: decisionDraft.profile.displayName,
-                status: decisionDraft.profile.status,
-                city: decisionDraft.profile.city || null,
-                territory: decisionDraft.profile.territory || null,
-                idDocumentType: decisionDraft.profile.idDocumentType || null,
-                idDocumentNumber: decisionDraft.profile.idDocumentNumber || null,
-                idDocumentFrontReference: decisionDraft.profile.idDocumentFrontReference || null,
-                idDocumentBackReference: decisionDraft.profile.idDocumentBackReference || null,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-              });
-            }}
-            disabled={approveMutation.isPending}
-          >
-            {decisionDraft?.mode === "APPROVE" ? "Approve" : "Proceed"}
+          <Button onClick={() => setDecisionDraft(null)} disabled={approveMutation.isPending}>Cancel</Button>
+          <Button variant="contained" onClick={() => approveMutation.mutate()} disabled={approveMutation.isPending || selectedAgent?.status !== "PENDING"}>
+            Approve
           </Button>
         </DialogActions>
       </Dialog>
-
       <ConfirmDialog
         open={suspendConfirmOpen}
         title="Suspend agent"

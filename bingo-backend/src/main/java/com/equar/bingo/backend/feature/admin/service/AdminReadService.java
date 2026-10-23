@@ -105,7 +105,8 @@ public class AdminReadService {
                                 .map(floatRow -> floatRow.getClearingBalance())
                                 .reduce(BigDecimal.ZERO, BigDecimal::add);
                 return new AdminDashboardMetricsResponse(Instant.now(), businessProperties.zoneId().getId(),
-                                userRepository.findAll().stream().filter(user -> user.hasRole(UserRole.PLAYER)).count(),
+                                userRepository.findAll().stream()
+                                                .filter(user -> user.hasRole(UserRole.PLAYER) && user.isActive()).count(),
                                 agentRepository.countByStatus(
                                                 com.equar.bingo.backend.feature.agent.entity.AgentStatus.APPROVED),
                                 supportTicketRepository.findAll().stream()
@@ -183,12 +184,14 @@ public class AdminReadService {
                                 .toList();
         }
 
+        @Transactional(readOnly = true)
         public Page<AdminAgentSummaryResponse> agents(Pageable pageable) {
                 return agentRepository.findAll(pageable).map(this::toAgentSummary);
         }
 
-        public AdminAgentSummaryResponse agentDetail(Long agentId) {
-                return toAgentSummary(agentRepository.findById(agentId)
+        @Transactional(readOnly = true)
+        public AdminAgentDetailResponse agentDetail(Long agentId) {
+                return toAgentDetail(agentRepository.findById(agentId)
                                 .orElseThrow(() -> new NotFoundException("AGENT_NOT_FOUND", "Agent not found")));
         }
 
@@ -242,9 +245,25 @@ public class AdminReadService {
 
         private AdminAgentSummaryResponse toAgentSummary(Agent agent) {
                 return new AdminAgentSummaryResponse(agent.getId(), agent.getUser().getId(),
+                                agent.getUser().getDisplayName(), agent.getUser().getNormalizedPhone(),
+                                agent.getStatus(), agent.getCity(), agent.getTerritory(), agent.getCreatedAt(),
+                                agent.getUpdatedAt(), ticketRepository.findAll().stream()
+                                                .filter(ticket -> ticket.getOwner().getId()
+                                                                .equals(agent.getUser().getId()))
+                                                .count(),
+                                agentFloatTransactionRepository
+                                                .findByAgentFloatAgentIdOrderByCreatedAtDesc(agent.getId()).size(),
+                                floatTopUpRequestRepository.findByAgentIdOrderByCreatedAtDesc(agent.getId()).size(),
+                                payoutVerificationRecordRepository.findByAgentIdOrderByCreatedAtDesc(agent.getId())
+                                                .size());
+        }
+
+        private AdminAgentDetailResponse toAgentDetail(Agent agent) {
+                return new AdminAgentDetailResponse(agent.getId(), agent.getUser().getId(),
                                 agent.getUser().getDisplayName(),
                                 agent.getUser().getNormalizedPhone(), agent.getStatus(), agent.getCity(),
-                                agent.getTerritory(),
+                                agent.getTerritory(), agent.getIdDocumentType(), agent.getIdDocumentNumber(),
+                                agent.getIdDocumentFrontReference(), agent.getIdDocumentBackReference(),
                                 agent.getCreatedAt(), agent.getUpdatedAt(),
                                 ticketRepository.findAll().stream()
                                                 .filter(ticket -> ticket.getOwner().getId()
