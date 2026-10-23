@@ -188,4 +188,14 @@ class SupportServiceTest {
                 new SupportTicketStatusUpdateRequest(SupportTicketStatus.CLOSED, "Fixed"));
         assertEquals(SupportTicketStatus.CLOSED, closed.status());
     }
+
+    @Test
+    void rejectsAssignmentToPlayerAccounts() {
+        when(supportTicketRepository.findByIdForUpdate(11L)).thenReturn(Optional.of(ticket));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(player));
+
+        assertThrows(BadRequestException.class,
+                () -> service.assignTicket(11L, new BingoUserPrincipal(admin),
+                        new SupportTicketAssignmentRequest(1L)));
+    }
 }

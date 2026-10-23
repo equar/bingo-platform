@@ -1,0 +1,29 @@
+Module 02C read-only QA database verification
+Observed: 2026-10-23 (Africa/Nairobi)
+Schema: bingo_qa on local MySQL 8.0.36; all queries were SELECT-only.
+
+Dashboard totals cross-check
+- Active PLAYER users: 2
+- APPROVED agent profiles: 2
+- Open support tickets (OPEN, IN_PROGRESS, WAITING_FOR_CUSTOMER): 5
+- PENDING deposit claims: 0
+- PENDING agent float top-up requests: 0
+- PENDING_REVIEW win claims: 0
+- Active sessions (STARTED/DRAWING, started, not ended): 0
+- Player wallet available + promotional total: ETB 0.00
+- Agent float available: ETB 51.00
+- Agent float clearing: ETB 0.00
+- Dashboard API returned the same values (see module-02c-dashboard-metrics.json).
+
+Retained state counts
+- Users: 14 total; ACTIVE 7, PENDING 6, SUSPENDED 1.
+- Agent profiles: APPROVED 2, PENDING 1, SUSPENDED 1.
+- Float requests: APPROVED 2, REJECTED 3, PENDING 0.
+- Sessions: four DRAFT; no sessions are live.
+- Deposits, win claims, and prize entitlements: no rows in this QA snapshot.
+- Support tickets: five WAITING_FOR_CUSTOMER.
+- Successful Flyway migrations: 18; latest version V18.
+- Agent 3 synthetic Module 02B postings remain ETB 51.00 available and ETB 0.00 clearing.
+- Original agent profiles 1 and 2 retain their previously recorded states; no Module 02C database writes were made.
+
+The query inspected statuses and aggregates only. No password hashes, phone identifiers, bank account data, or credentials were selected.

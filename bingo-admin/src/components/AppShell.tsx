@@ -267,7 +267,7 @@ export function AppShell() {
           </Typography>
         </Box>
       </Drawer>
-      <Box component="main" sx={{ flexGrow: 1, p: { xs: 2, md: 3 } }}>
+      <Box component="main" sx={{ flexGrow: 1, minWidth: 0, p: { xs: 2, md: 3 } }}>
         <Toolbar />
         <Outlet />
       </Box>
