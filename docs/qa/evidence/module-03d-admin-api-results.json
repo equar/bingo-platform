@@ -1,0 +1,43 @@
+{
+  "anonymousSettingsHttp": 401,
+  "persistedCurrentPolicy": {
+    "id": 7,
+    "enabled": false,
+    "rewardAmount": 0,
+    "currency": "ETB",
+    "effectiveFrom": "1999-12-31T21:00:00Z",
+    "effectiveUntil": "2000-01-01T21:00:00Z",
+    "activeNow": false,
+    "createdAt": "2026-10-23T06:30:52.914413Z"
+  },
+  "configurationHistoryRows": 7,
+  "configurationHistoryIsDisabledAndZero": true,
+  "positivePolicyPosting": "NOT ATTEMPTED — persistent QA posting has no approval",
+  "settingsUnchangedAfterReload": true,
+  "endpointResponses": [
+    {
+      "path": "/api/v1/admin/wallet/signup-rewards/grants",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/admin/wallet/signup-rewards/settings",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/admin/wallet/signup-rewards/settings/history",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/admin/wallet/signup-rewards/grants",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/admin/wallet/signup-rewards/settings",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/admin/wallet/signup-rewards/settings/history",
+      "status": 200
+    }
+  ]
+}

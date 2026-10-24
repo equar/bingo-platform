@@ -36,6 +36,7 @@ app:
   admin-account-email:
     activation-url: ${BINGO_QA_ADMIN_ACTIVATION_URL:http://localhost:5174/activate-account}
   wallet:
+    signup-reward-test-posting-enabled: false
     deposit-simulation-enabled: ${BINGO_DEPOSIT_SIMULATION_ENABLED:false}
     adjustment-simulation-enabled: ${BINGO_ADJUSTMENT_SIMULATION_ENABLED:false}
   agent:

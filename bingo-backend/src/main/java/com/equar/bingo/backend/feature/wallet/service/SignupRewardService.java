@@ -1,10 +1,12 @@
 package com.equar.bingo.backend.feature.wallet.service;
 
 import com.equar.bingo.backend.common.exception.BadRequestException;
+import com.equar.bingo.backend.common.exception.ConflictException;
 import com.equar.bingo.backend.common.money.MoneyValues;
 import com.equar.bingo.backend.feature.auth.service.BingoUserPrincipal;
 import com.equar.bingo.backend.feature.user.entity.User;
 import com.equar.bingo.backend.feature.user.entity.UserRole;
+import com.equar.bingo.backend.feature.wallet.config.WalletProperties;
 import com.equar.bingo.backend.feature.wallet.dto.SignupRewardGrantResponse;
 import com.equar.bingo.backend.feature.wallet.dto.SignupRewardSettingsRequest;
 import com.equar.bingo.backend.feature.wallet.dto.SignupRewardSettingsResponse;
@@ -19,8 +21,10 @@ import com.equar.bingo.backend.feature.wallet.repository.WalletRepository;
 import com.equar.bingo.backend.feature.wallet.repository.WalletTransactionRepository;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -33,20 +37,30 @@ public class SignupRewardService {
     private final SignupRewardGrantRepository grantRepository;
     private final WalletRepository walletRepository;
     private final WalletTransactionRepository walletTransactionRepository;
+    private final SignupRewardPostingGuard postingGuard;
+    private final WalletProperties walletProperties;
+    private final boolean testPostingEnabled;
 
     public SignupRewardService(SignupRewardPolicyRepository policyRepository,
             SignupRewardGrantRepository grantRepository,
             WalletRepository walletRepository,
-            WalletTransactionRepository walletTransactionRepository) {
+            WalletTransactionRepository walletTransactionRepository,
+            SignupRewardPostingGuard postingGuard,
+            WalletProperties walletProperties,
+            @Value("${app.wallet.signup-reward-test-posting-enabled:false}") boolean testPostingEnabled) {
         this.policyRepository = policyRepository;
         this.grantRepository = grantRepository;
         this.walletRepository = walletRepository;
         this.walletTransactionRepository = walletTransactionRepository;
+        this.postingGuard = postingGuard;
+        this.walletProperties = walletProperties;
+        this.testPostingEnabled = testPostingEnabled;
+        postingGuard.validateConfiguration(testPostingEnabled);
     }
 
     @Transactional
     public void grantForNewPlayer(User player) {
-        if (!player.hasRole(UserRole.PLAYER)) {
+        if (!player.hasRole(UserRole.PLAYER) || !player.isActive()) {
             return;
         }
 
@@ -67,10 +81,16 @@ public class SignupRewardService {
             return;
         }
 
+        postingGuard.requireIsolatedTestPosting(testPostingEnabled);
+
         Wallet wallet = walletRepository.findByOwnerIdForUpdate(player.getId()).orElseGet(() -> {
             Wallet created = Wallet.create(player, policy.getCurrency());
             return walletRepository.save(created);
         });
+        if (!policy.getCurrency().equalsIgnoreCase(wallet.getCurrency())) {
+            throw new ConflictException("SIGNUP_REWARD_CURRENCY_MISMATCH",
+                    "Signup reward currency must match the player's wallet currency");
+        }
 
         BigDecimal rewardAmount = MoneyValues.money(policy.getRewardAmount());
         BigDecimal promotionalBefore = wallet.getPromotionalBalance();
@@ -119,10 +139,25 @@ public class SignupRewardService {
         if (!principal.getUser().hasRole(UserRole.ADMIN)) {
             throw new BadRequestException("ADMIN_ROLE_REQUIRED", "This endpoint is available to admin accounts only");
         }
+        if (request.rewardAmount().signum() < 0) {
+            throw new BadRequestException("INVALID_SIGNUP_REWARD_AMOUNT", "Signup reward amount cannot be negative");
+        }
+        if (request.effectiveUntil() != null && !request.effectiveUntil().isAfter(request.effectiveFrom())) {
+            throw new BadRequestException("INVALID_SIGNUP_REWARD_DATES",
+                    "Effective until must be later than effective from");
+        }
+        String currency = request.currency().trim().toUpperCase(Locale.ROOT);
+        if (!walletProperties.currency().equalsIgnoreCase(currency)) {
+            throw new BadRequestException("UNSUPPORTED_SIGNUP_REWARD_CURRENCY",
+                    "Signup reward currency must match the configured wallet currency");
+        }
+        if (request.enabled() && request.rewardAmount().signum() > 0) {
+            postingGuard.requireIsolatedTestPosting(testPostingEnabled);
+        }
         SignupRewardPolicy policy = policyRepository.save(SignupRewardPolicy.create(
                 request.enabled(),
                 MoneyValues.money(request.rewardAmount()),
-                request.currency().toUpperCase(),
+                currency,
                 request.effectiveFrom(),
                 request.effectiveUntil(),
                 principal.getUser(),

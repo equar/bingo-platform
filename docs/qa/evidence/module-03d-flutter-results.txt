@@ -1,0 +1,10 @@
+Module 03D Flutter verification
+Date: 2026-10-24
+
+flutter analyze: PASS, no issues found.
+flutter test: PASS, 21/21 unit/widget tests.
+Android emulator-5554, --no-uninstall:
+- module_03d_wallet_init_test.dart: PASS, registers synthetic player #180 and verifies ETB 0.00 available/promotional balances.
+- module_03d_wallet_restore_test.dart: PASS, restores the app session and verifies the same zero balances after process restart.
+
+The retained app session for player #178 was explicitly signed out before the synthetic 03D registration. No retained player records or balances were modified.
