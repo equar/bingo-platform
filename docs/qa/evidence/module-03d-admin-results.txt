@@ -1,0 +1,11 @@
+Module 03D admin verification
+Date: 2026-10-24
+
+Admin frontend Vitest: 82/82 pass across 26 files.
+ESLint: PASS.
+TypeScript/Vite production build: PASS.
+Real Chromium QA E2E: 1/1 pass.
+
+Browser checks: anonymous settings request returns 401; admin settings, history, and grants return 200; seven historical settings are disabled and zero ETB; grants list is empty; the admin UI reload shows the same disabled, zero ETB policy.
+
+The browser test does not submit a positive policy. Persistent QA positive posting remains unapproved and blocked. API/status evidence is in module-03d-admin-api-results.json.

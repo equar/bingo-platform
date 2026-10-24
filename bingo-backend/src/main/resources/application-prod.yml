@@ -10,6 +10,7 @@ spring:
 
 app:
   wallet:
+    signup-reward-test-posting-enabled: false
     deposit-simulation-enabled: false
     adjustment-simulation-enabled: false
   agent:

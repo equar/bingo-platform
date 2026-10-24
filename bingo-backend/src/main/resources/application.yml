@@ -68,6 +68,7 @@ app:
       trusted-proxy-addresses: ${APP_AUTH_TRUSTED_PROXY_ADDRESSES:127.0.0.1,::1}
   wallet:
     currency: ${APP_WALLET_CURRENCY:ETB}
+    signup-reward-test-posting-enabled: false
     deposit-simulation-enabled: false
     adjustment-simulation-enabled: false
     deposit-conversion-rate: ${APP_WALLET_DEPOSIT_CONVERSION_RATE:1.000000}

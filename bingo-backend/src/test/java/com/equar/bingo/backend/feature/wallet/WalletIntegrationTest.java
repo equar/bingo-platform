@@ -49,6 +49,7 @@ import com.equar.bingo.backend.feature.wallet.repository.WalletTransferRepositor
 import com.equar.bingo.backend.feature.wallet.service.WalletService;
 import com.equar.bingo.backend.feature.wallet.service.DepositFinancialService;
 import com.equar.bingo.backend.feature.wallet.service.WalletAdjustmentService;
+import com.equar.bingo.backend.feature.wallet.service.SignupRewardService;
 import com.equar.bingo.backend.feature.support.repository.InternalNoteRepository;
 import com.equar.bingo.backend.feature.support.repository.SupportMessageRepository;
 import com.equar.bingo.backend.feature.support.repository.SupportTicketRepository;
@@ -58,6 +59,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
@@ -139,6 +141,9 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
 
         @Autowired
         WalletAdjustmentService walletAdjustmentService;
+
+        @Autowired
+        SignupRewardService signupRewardService;
 
         @Autowired
         SupportTicketRepository supportTicketRepository;
@@ -652,6 +657,134 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
                                 walletTransactionRepository.findAll().get(0).getTransactionType());
                 assertWalletSnapshot(walletTransactionRepository.findAll().get(0),
                                 "0.00", "0.00", "0.00", "25.00");
+        }
+
+        @Test
+        void disabledAndZeroSignupPoliciesLeaveNewWalletsAtZero() throws Exception {
+                Instant now = Instant.now();
+                signupRewardPolicyRepository.save(SignupRewardPolicy.create(false, new BigDecimal("25.00"), "ETB",
+                                now.minusSeconds(60), now.plusSeconds(3600), adminUser, "disabled policy", now));
+
+                registerPlayer("0911000103");
+                assertWalletHasNoSignupReward("0911000103");
+
+                signupRewardPolicyRepository.save(SignupRewardPolicy.create(true, BigDecimal.ZERO.setScale(2), "ETB",
+                                now.minusSeconds(60), now.plusSeconds(3600), adminUser, "zero policy", now));
+                registerPlayer("0911000104");
+                assertWalletHasNoSignupReward("0911000104");
+        }
+
+        @Test
+        void expiredAndFutureSignupPoliciesDoNotGrant() throws Exception {
+                Instant now = Instant.now();
+                signupRewardPolicyRepository.save(SignupRewardPolicy.create(true, new BigDecimal("25.00"), "ETB",
+                                now.minusSeconds(7200), now.minusSeconds(3600), adminUser, "expired policy", now));
+                registerPlayer("0911000103");
+                assertWalletHasNoSignupReward("0911000103");
+
+                signupRewardPolicyRepository.save(SignupRewardPolicy.create(true, new BigDecimal("25.00"), "ETB",
+                                now.plusSeconds(3600), now.plusSeconds(7200), adminUser, "future policy", now));
+                registerPlayer("0911000104");
+                assertWalletHasNoSignupReward("0911000104");
+        }
+
+        @Test
+        void duplicateAndConcurrentRegistrationRetriesCannotDuplicateWalletOrGrant() throws Exception {
+                String phone = "0911000103";
+                String body = objectMapper.writeValueAsString(new RegisterRequest("Retry Player", phone, "123456"));
+                mockMvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON).content(body))
+                                .andExpect(status().isCreated());
+                mockMvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON).content(body))
+                                .andExpect(status().isConflict());
+
+                String concurrentPhone = "0911000104";
+                String concurrentBody = objectMapper.writeValueAsString(
+                                new RegisterRequest("Concurrent Player", concurrentPhone, "123456"));
+                int attempts = 4;
+                ExecutorService executor = Executors.newFixedThreadPool(attempts);
+                CountDownLatch ready = new CountDownLatch(attempts);
+                CountDownLatch start = new CountDownLatch(1);
+                List<Future<Integer>> responses = new java.util.ArrayList<>();
+                for (int i = 0; i < attempts; i++) {
+                        responses.add(executor.submit(() -> {
+                                ready.countDown();
+                                start.await();
+                                return mockMvc.perform(post("/api/v1/auth/register")
+                                                .contentType(MediaType.APPLICATION_JSON).content(concurrentBody))
+                                                .andReturn().getResponse().getStatus();
+                        }));
+                }
+                ready.await(10, TimeUnit.SECONDS);
+                start.countDown();
+                List<Integer> statuses = new java.util.ArrayList<>();
+                for (Future<Integer> response : responses) {
+                        statuses.add(response.get(30, TimeUnit.SECONDS));
+                }
+                executor.shutdownNow();
+
+                assertEquals(1L, statuses.stream().filter(status -> status == 201).count());
+                assertEquals(attempts - 1L, statuses.stream().filter(status -> status == 409).count());
+                assertTrue(userRepository.findByNormalizedPhone(phoneNormalizer.normalize(concurrentPhone)).isPresent());
+                User concurrentPlayer = userRepository
+                                .findByNormalizedPhone(phoneNormalizer.normalize(concurrentPhone)).orElseThrow();
+                assertEquals(1L, walletRepository.countByOwnerId(concurrentPlayer.getId()));
+                assertTrue(signupRewardGrantRepository.existsByPlayerId(concurrentPlayer.getId()));
+                assertEquals(new BigDecimal("25.00"), walletRepository.findByOwnerId(concurrentPlayer.getId())
+                                .orElseThrow().getPromotionalBalance());
+        }
+
+        @Test
+        void signupConfigurationRejectsNegativeUnsupportedCurrencyAndInvalidDates() throws Exception {
+                String adminToken = adminLoginToken("admin@example.com", "AdminPass123!");
+                Instant now = Instant.now();
+                String negativeAmount = objectMapper.writeValueAsString(Map.of(
+                                "enabled", false, "rewardAmount", -1, "currency", "ETB",
+                                "effectiveFrom", now.toString()));
+                String unsupportedCurrency = objectMapper.writeValueAsString(Map.of(
+                                "enabled", false, "rewardAmount", 0, "currency", "USD",
+                                "effectiveFrom", now.toString()));
+                String invalidDates = objectMapper.writeValueAsString(Map.of(
+                                "enabled", false, "rewardAmount", 0, "currency", "ETB",
+                                "effectiveFrom", now.toString(), "effectiveUntil", now.minusSeconds(1).toString()));
+
+                for (String body : List.of(negativeAmount, unsupportedCurrency, invalidDates)) {
+                        mockMvc.perform(post("/api/v1/admin/wallet/signup-rewards/settings")
+                                        .header("Authorization", "Bearer " + adminToken)
+                                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                                        .andExpect(status().isBadRequest());
+                }
+                assertEquals(1L, signupRewardPolicyRepository.count());
+        }
+
+        @Test
+        void restrictedPlayerCannotReceiveSignupReward() {
+                playerUser.setStatus(AccountStatus.PENDING);
+                userRepository.save(playerUser);
+
+                signupRewardService.grantForNewPlayer(playerUser);
+
+                assertEquals(new BigDecimal("0.00"), walletRepository.findByOwnerId(playerUser.getId())
+                                .orElseThrow().getPromotionalBalance());
+                assertEquals(0L, signupRewardGrantRepository.count());
+                assertEquals(0L, walletTransactionRepository.count());
+        }
+
+        private void registerPlayer(String phone) throws Exception {
+                mockMvc.perform(post("/api/v1/auth/register")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(new RegisterRequest("Policy Player", phone,
+                                                "123456"))))
+                                .andExpect(status().isCreated());
+        }
+
+        private void assertWalletHasNoSignupReward(String phone) {
+                User player = userRepository.findByNormalizedPhone(phoneNormalizer.normalize(phone)).orElseThrow();
+                Wallet wallet = walletRepository.findByOwnerId(player.getId()).orElseThrow();
+                assertEquals("ETB", wallet.getCurrency());
+                assertEquals(new BigDecimal("0.00"), wallet.getAvailableBalance());
+                assertEquals(new BigDecimal("0.00"), wallet.getPromotionalBalance());
+                assertTrue(!signupRewardGrantRepository.existsByPlayerId(player.getId()));
+                assertEquals(0L, walletTransactionRepository.countByOwnerId(player.getId()));
         }
 
         @Test

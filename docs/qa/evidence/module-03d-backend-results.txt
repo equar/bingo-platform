@@ -1,0 +1,12 @@
+Module 03D backend verification
+Date: 2026-10-24
+
+Full Maven backend regression: 145 tests, 0 failures, 0 errors, 0 skipped.
+Database integration tests run against guarded bingo_qa_test.
+Focused SignupRewardPostingGuardIntegrationTest: 2/2 pass.
+WalletIntegrationTest: 16/16 pass.
+OpenAPI contract test after request-constraint update: 1/1 pass.
+
+Verified: disabled/zero, expired/future policy behavior; unique grant and wallet ownership; duplicate/concurrent registration; active-player eligibility; negative amount, unsupported currency, and invalid date rejection; anonymous/player admin-route denial; audit behavior; positive grants and balance snapshots only in isolated test profile; positive posting guard and full registration rollback when posting is disabled.
+
+Persistent positive reward posting was not attempted. Positive grant regression uses only bingo_qa_test.
