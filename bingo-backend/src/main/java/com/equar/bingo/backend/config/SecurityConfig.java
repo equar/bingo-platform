@@ -74,6 +74,9 @@ public class SecurityConfig {
                                 .sessionManagement(session -> session
                                                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                                 .authorizeHttpRequests(authorize -> authorize
+                                                .requestMatchers("/api/v1/me", "/api/v1/auth/me")
+                                                .hasAnyRole("PLAYER", "ADMIN", "SUPPORT", "FINANCE_VERIFIER",
+                                                                "FINANCE_APPROVER")
                                                 .requestMatchers("/api/v1/auth/**", "/api/v1/admin/login",
                                                                 "/api/v1/admin/activate",
                                                                 "/api/v1/agent/login", "/api/v1/agent/register", "/v3/api-docs/**",

@@ -971,9 +971,13 @@ class AuthSecurityIntegrationTest extends MySqlIntegrationTest {
         void missingMalformedWrongSignatureExpiredAndTamperedTokensAreRejected() throws Exception {
                 mockMvc.perform(get("/api/v1/me"))
                                 .andExpect(status().isUnauthorized());
+                mockMvc.perform(get("/api/v1/auth/me"))
+                                .andExpect(status().isUnauthorized());
                 mockMvc.perform(get("/api/v1/me").header("Authorization", "Bearer"))
                                 .andExpect(status().isUnauthorized());
                 mockMvc.perform(get("/api/v1/me").header("Authorization", "Bearer not-a-jwt"))
+                                .andExpect(status().isUnauthorized());
+                mockMvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer not-a-jwt"))
                                 .andExpect(status().isUnauthorized());
 
                 User player = userRepository.findByNormalizedPhone(phoneNormalizer.normalize("0911000004"))
@@ -1020,6 +1024,10 @@ class AuthSecurityIntegrationTest extends MySqlIntegrationTest {
                 mockMvc.perform(get("/api/v1/admin/users").header("Authorization", "Bearer " + playerToken))
                                 .andExpect(status().isForbidden());
                 mockMvc.perform(get("/api/v1/admin/users").header("Authorization", "Bearer " + agentToken))
+                                .andExpect(status().isForbidden());
+                mockMvc.perform(get("/api/v1/me").header("Authorization", "Bearer " + agentToken))
+                                .andExpect(status().isForbidden());
+                mockMvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer " + agentToken))
                                 .andExpect(status().isForbidden());
                 mockMvc.perform(get("/api/v1/agent/players").header("Authorization", "Bearer " + playerToken))
                                 .andExpect(status().isForbidden());

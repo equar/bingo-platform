@@ -1,0 +1,11 @@
+Module 03E admin frontend and Chromium verification
+Execution date: 2026-10-24
+
+Admin Vitest: 82/82 tests passed across 26 files.
+ESLint: PASS.
+TypeScript/Vite production build: PASS.
+Real Chromium against http://localhost:5174 and QA backend http://localhost:8081: 1/1 Module 03D signup-reward review test passed.
+
+Browser observations: anonymous settings read returned 401; authorized admin read current policy, history, and grants; all seven historical policies remained disabled, zero ETB, ETB currency and expired; grants list remained empty; page refresh showed the unchanged current policy. No positive policy was submitted. The browser run generated normal admin LOGIN audit telemetry; no reward policy, grant, wallet, deposit, agent float, or journal was changed.
+
+Screenshot and endpoint response evidence: module-03e-signup-policy-admin-readonly.png and module-03e-admin-api-results.json. The original Module 03D screenshot/API files were restored to preserve their historical run. The persistent SELECT-only reconciliation is module-03e-database-readonly.sql/.txt.

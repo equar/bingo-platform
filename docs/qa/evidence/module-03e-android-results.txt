@@ -1,0 +1,14 @@
+Module 03E Android player account verification
+Execution date: 2026-10-24
+Device: emulator-5554, Android API 37, QA backend http://10.0.2.2:8081
+
+Retained synthetic account: user #181, QA Module 03E Regression Player 001. No PIN, token, or credential is included in this evidence.
+
+- Real Android UI journey: 1/1 passed. Registered the player, opened the wallet, checked available and promotional balances at ETB 0.00, logged out, confirmed an incorrect PIN was rejected without a session, logged in with the registered phone/PIN, checked profile identity and PLAYER role, refreshed profile from the server, and logged out. Local logout removed the authenticated navigation/profile from the app.
+- Session preparation and logout/PIN regression: 1/1 passed. Authenticated the same retained user and confirmed a token existed in secure local storage; local logout cleared the stored token, incorrect PIN did not create a token, and a subsequent valid login succeeded.
+- Process restart/session restoration: 1/1 passed. Force-stopped com.example.bingo_app without uninstalling or clearing app data, reopened it, confirmed the same account/profile was restored, then logged out and verified the stored token was null and protected navigation was unavailable.
+- Restricted-player login: 1/1 passed using the retained synthetic pending-player fixture QA_PLAYER_003. The real login UI showed generic credential denial and did not create a session. Fixture status was not changed.
+
+Screenshots: module-03e-player-profile.png and module-03e-session-restored-profile.png. Read-only MySQL verification of user #181 and historical financial data is in module-03e-database-readonly.sql/.txt.
+
+The app has no server-side logout or JWT revocation endpoint. Local logout removes the local token/profile. A copied JWT remains valid on the server until its configured one-hour expiry unless account status changes; protected requests reload account roles/status, so suspended users are denied. This is sufficient for the approved QA session behavior, but it does not establish immediate revocation of copied tokens.

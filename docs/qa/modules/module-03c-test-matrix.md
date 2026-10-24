@@ -1,6 +1,6 @@
 # Module 03C — Player Profile Management Test Matrix
 
-Inspection found a read-only profile surface: display name, phone, roles, and member-since metadata. There is no edit screen or profile write endpoint. For update scenarios, **NOT APPLICABLE** reflects an unsupported operation in the current app/API; it is not a passing update test. Unsupported `PUT /api/v1/me` was separately attempted and rejected with HTTP 405.
+Historical 03C statuses are retained below. Inspection found a read-only profile surface: display name, phone, roles, and member-since metadata. There is no edit screen or profile write endpoint. The original **NOT APPLICABLE** update statuses are not passes; Module 03E carries them forward as **OPEN PRODUCT GAP** in the master matrix. Unsupported `PUT /api/v1/me` was separately attempted and rejected with HTTP 405.
 
 | ID | Requirement / scenario | Flutter screen | Backend endpoint | Expected result | Actual result | Status | Evidence |
 |---|---|---|---|---|---|---|---|
