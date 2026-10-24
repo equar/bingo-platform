@@ -928,6 +928,46 @@ class AuthSecurityIntegrationTest extends MySqlIntegrationTest {
         }
 
         @Test
+        void playerProfileIsPrincipalBoundReadOnlyAndExcludesCredentials() throws Exception {
+                User player = userRepository.findByNormalizedPhone(phoneNormalizer.normalize("0911000004"))
+                                .orElseThrow();
+                String playerToken = issueTokenFor("0911000004");
+
+                mockMvc.perform(get("/api/v1/me")
+                                .header("Authorization", "Bearer " + playerToken))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.user.id").value(player.getId()))
+                                .andExpect(jsonPath("$.user.phoneNumber").value(player.getNormalizedPhone()))
+                                .andExpect(jsonPath("$.user.displayName").value(player.getDisplayName()))
+                                .andExpect(jsonPath("$.user.roles").exists())
+                                .andExpect(jsonPath("$.user.status").exists())
+                                .andExpect(jsonPath("$.user.password").doesNotExist())
+                                .andExpect(jsonPath("$.user.passwordHash").doesNotExist())
+                                .andExpect(jsonPath("$.user.pin").doesNotExist())
+                                .andExpect(jsonPath("$.user.accessToken").doesNotExist());
+
+                mockMvc.perform(get("/api/v1/me").param("userId", "1")
+                                .header("Authorization", "Bearer " + playerToken))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.user.id").value(player.getId()));
+
+                mockMvc.perform(put("/api/v1/me")
+                                .header("Authorization", "Bearer " + playerToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"displayName\":\"Injected Name\",\"phoneNumber\":\"251900000000\",\"roles\":[\"ADMIN\"],\"status\":\"SUSPENDED\",\"walletBalance\":999999}"))
+                                .andExpect(status().isMethodNotAllowed());
+
+                User after = userRepository.findById(player.getId()).orElseThrow();
+                assertEquals(player.getDisplayName(), after.getDisplayName());
+                assertEquals(player.getNormalizedPhone(), after.getNormalizedPhone());
+                assertEquals(player.getStatus(), after.getStatus());
+                assertEquals(player.getRoles(), after.getRoles());
+                assertEquals(0, jdbcTemplate.queryForObject(
+                                "select count(*) from audit_log_entries where target_id = ? and action in ('UPDATE_PROFILE', 'UPDATE_USER') and created_at > ?",
+                                Integer.class, player.getId(), Instant.now().minusSeconds(2)));
+        }
+
+        @Test
         void missingMalformedWrongSignatureExpiredAndTamperedTokensAreRejected() throws Exception {
                 mockMvc.perform(get("/api/v1/me"))
                                 .andExpect(status().isUnauthorized());

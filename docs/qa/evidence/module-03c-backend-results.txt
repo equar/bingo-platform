@@ -1,0 +1,9 @@
+Module 03C automated verification
+Date: 2026-10-24
+
+Focused AuthSecurityIntegrationTest on isolated bingo_qa_test: 28 tests, 0 failures, 0 errors, 0 skipped.
+Full Maven backend suite on isolated bingo_qa_test: 138 tests, 0 failures, 0 errors, 0 skipped; BUILD SUCCESS.
+Flutter analyzer: no issues found.
+Flutter unit/widget suite: 21 tests passed.
+
+The new backend profile integration case confirms GET /api/v1/me is bound to the authenticated principal, does not expose credential/session fields, rejects PUT with HTTP 405, and leaves profile identity/roles/status unchanged. Persistent bingo_qa was not used by backend tests.

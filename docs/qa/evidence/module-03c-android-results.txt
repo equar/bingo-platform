@@ -1,0 +1,11 @@
+Module 03C Android E2E results
+Date: 2026-10-24
+Device: emulator-5554 (API 37 AVD)
+Backend: QA backend at http://10.0.2.2:8081; offline scenario used unreachable http://10.0.2.2:18081.
+
+PASS — module_03c_profile_view_test.dart: signed in with retained active player #178, opened profile, verified server-backed name/phone/role/member-since fields, refreshed profile.
+PASS — module_03c_profile_restore_test.dart: preserved app data across a no-uninstall process relaunch, opened profile, verified retained session and server profile fields.
+PASS — module_03c_profile_network_failure_test.dart: with app session retained and profile API unreachable, cached name/phone and navigation remained available, localized retry error appeared, and session was not treated as expired.
+
+Screenshots: module-03c-profile-loaded.png, module-03c-profile-restored.png, module-03c-profile-network-error.png.
+Sanitized raw Flutter logs are kept under the workspace .tmp directory and are not tracked as product evidence. They contain no credentials or session tokens.
