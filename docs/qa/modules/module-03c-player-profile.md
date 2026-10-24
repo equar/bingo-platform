@@ -4,7 +4,7 @@
 
 The player app profile is a read-only view of the signed-in player's display name, phone number, roles, and account creation date (“Member since”). These fields are immutable through the player app because there is no profile edit screen or write endpoint. In particular, phone number changes are not supported; no phone recovery/verification design was introduced. The profile request uses `GET /api/v1/me`; the backend obtains identity from the authenticated principal and does not accept a target player ID. The response contains profile/account metadata and excludes credential and session secrets.
 
-No profile editor is present, and the backend has no `PUT` or `PATCH` profile route. Therefore profile-write scenarios P11–P18, P20, P24–P25, and P28 are not applicable to the shipped profile surface. Protected-field rejection and no-partial-write behavior are still checked by attempting `PUT /api/v1/me`: it returns HTTP 405, and persisted name, phone, roles, and status remain unchanged. Player profile editing requires a separate product/API feature before the N/A scenarios can be executed.
+No profile editor is present, and the backend has no `PUT` or `PATCH` profile route. The original 03C matrix recorded profile-write scenarios P11–P18, P20, P24–P25, and P28 as NOT APPLICABLE; Module 03E reclassifies these as an **open product gap**, because those requested capabilities do not exist and have not passed. Protected-field rejection and no-partial-write behavior are still checked by attempting `PUT /api/v1/me`: it returns HTTP 405, and persisted name, phone, roles, and status remain unchanged. Product must make an explicit scope decision before editable profile behavior can be implemented and verified.
 
 ## App behavior
 
@@ -20,7 +20,7 @@ The read-only `bingo_qa` reconciliation found player #178 and #179 active, both 
 
 ## Remaining product gap
 
-Player profile editing is not implemented. If product requirements need editable fields, a scoped edit/API feature and its validation, phone verification/recovery policy, protected-field authorization, persistence, and audit behavior must be implemented before the update scenarios marked NOT APPLICABLE can be run. This module did not change Module 02 policy or start Modules 03D/03E.
+Player profile editing is not implemented. If product requirements need editable fields, a scoped edit/API feature and its validation, phone verification/recovery policy, protected-field authorization, persistence, and audit behavior must be implemented before the update scenarios can be run. Module 03E records this as an open product gap; it is outside the approved view-only QA scope. Module 02 remains separate and incomplete.
 
 ## Verification
 

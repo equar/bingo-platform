@@ -1,0 +1,14 @@
+Module 03E backend regression
+Execution date: 2026-10-24
+Database target: guarded MySQL bingo_qa_test only (MySQL 8.0.36). The persistent bingo_qa catalog was not used by Maven tests.
+
+Full Maven integration/unit suite after the authorization repair: 145 run, 0 failures, 0 errors, 0 skipped; BUILD SUCCESS.
+Focused registration/authentication/profile/reward suite after the authorization repair: 49 run, 0 failures, 0 errors, 0 skipped; BUILD SUCCESS.
+The first focused run with a too-strict PLAYER-only rule caught the existing Finance self-profile expectation (expected 200, got 403); the final allowlist preserves supported non-agent roles and denies AGENT.
+Focused classes: AuthSecurityIntegrationTest, AuthenticationAttemptThrottleIntegrationTest, EthiopianPhoneNormalizerTest, SignupRewardPostingGuardIntegrationTest, and WalletIntegrationTest.
+
+Verified in the current source/test suite: Ethiopian phone validation and normalization; duplicate and concurrent registration; role/status enforcement; password/PIN hashing and sanitized auth audit; account throttle and reset; player identity binding; unsupported profile PUT returns 405; protected API JWT checks; account status on authenticated requests; wallet ownership and zero initialization; reward policy validation, eligibility, duplicate prevention, guarded positive grant bookkeeping, and rollback.
+
+Cross-role regression: pre-fix `GET /api/v1/me` with an AGENT token returned 200; final rule returns 403 for AGENT on `/api/v1/me` and `/api/v1/auth/me`, while permitted non-agent roles remain functional.
+
+Positive signup grant bookkeeping ran only through the guarded test profile against bingo_qa_test. Persistent positive posting was not attempted.
