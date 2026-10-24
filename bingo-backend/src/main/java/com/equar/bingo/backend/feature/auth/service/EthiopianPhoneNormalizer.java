@@ -12,10 +12,13 @@ public class EthiopianPhoneNormalizer {
         }
 
         String digitsOnly = rawPhoneNumber.trim().replaceAll("[\\s\\-().]", "");
+        if (!digitsOnly.matches("^\\+?[0-9]+$")) {
+            throw new BadRequestException("INVALID_PHONE_NUMBER",
+                    "Phone number must be a valid Ethiopian mobile number");
+        }
         if (digitsOnly.startsWith("+")) {
             digitsOnly = digitsOnly.substring(1);
         }
-        digitsOnly = digitsOnly.replaceAll("[^0-9]", "");
 
         if (digitsOnly.length() == 12 && digitsOnly.startsWith("251")) {
             return validateLocalMobile(digitsOnly.substring(3));

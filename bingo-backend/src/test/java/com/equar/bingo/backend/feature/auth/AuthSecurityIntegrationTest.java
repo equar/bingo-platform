@@ -230,7 +230,7 @@ class AuthSecurityIntegrationTest extends MySqlIntegrationTest {
         @Test
         void registerLoginAndProtectionWork() throws Exception {
                 String registerJson = """
-                                {"displayName":"Player One","phoneNumber":"09 11 00 00 03","password":"123456","roles":["ADMIN"],"status":"ACTIVE"}
+                                {"displayName":" Player One ","phoneNumber":" 09 11 00 00 03 ","password":"123456","roles":["ADMIN"],"status":"SUSPENDED"}
                                 """;
 
                 mockMvc.perform(post("/api/v1/auth/register")
@@ -238,8 +238,10 @@ class AuthSecurityIntegrationTest extends MySqlIntegrationTest {
                                 .content(registerJson))
                                 .andExpect(status().isCreated())
                                 .andExpect(jsonPath("$.accessToken").exists())
+                                .andExpect(jsonPath("$.user.displayName").value("Player One"))
                                 .andExpect(jsonPath("$.user.phoneNumber").value("251911000003"))
-                                .andExpect(jsonPath("$.user.roles[0]").value("PLAYER"));
+                                .andExpect(jsonPath("$.user.roles[0]").value("PLAYER"))
+                                .andExpect(jsonPath("$.user.status").value("ACTIVE"));
 
                 String loginJson = objectMapper.writeValueAsString(new LoginRequest(
                                 "0911000003",
@@ -256,6 +258,29 @@ class AuthSecurityIntegrationTest extends MySqlIntegrationTest {
                                 .getContentAsString();
 
                 String playerToken = objectMapper.readTree(loginResponse).get("accessToken").asText();
+                Long playerId = objectMapper.readTree(loginResponse).path("user").path("id").asLong();
+
+                assertEquals(1, jdbcTemplate.queryForObject(
+                                "select count(*) from wallets where owner_id = ?", Integer.class, playerId));
+                assertEquals("ETB", jdbcTemplate.queryForObject(
+                                "select currency from wallets where owner_id = ?", String.class, playerId));
+                assertEquals(0, jdbcTemplate.queryForObject(
+                                "select count(*) from wallet_transactions wt join wallets w on w.id = wt.wallet_id where w.owner_id = ?",
+                                Integer.class, playerId));
+                assertEquals(0, jdbcTemplate.queryForObject(
+                                "select count(*) from wallets where owner_id = ? and (available_balance <> 0 or promotional_balance <> 0)",
+                                Integer.class, playerId));
+                assertEquals(0, jdbcTemplate.queryForObject(
+                                "select count(*) from signup_reward_grants where player_id = ?", Integer.class, playerId));
+                assertEquals(1, jdbcTemplate.queryForObject(
+                                "select count(*) from audit_log_entries where target_id = ? and action = 'REGISTER'",
+                                Integer.class, playerId));
+                assertEquals(0, jdbcTemplate.queryForObject(
+                                "select count(*) from users where id = ? and password_hash = ?",
+                                Integer.class, playerId, "123456"));
+                assertEquals(0, jdbcTemplate.queryForObject(
+                                "select count(*) from audit_log_entries where target_id = ? and metadata_json like ?",
+                                Integer.class, playerId, "%123456%"));
 
                 mockMvc.perform(get("/api/v1/me")
                                 .header("Authorization", "Bearer " + playerToken))
@@ -266,6 +291,125 @@ class AuthSecurityIntegrationTest extends MySqlIntegrationTest {
                                 .header("Authorization", "Bearer " + playerToken))
                                 .andExpect(status().isForbidden())
                                 .andExpect(jsonPath("$.correlationId").exists());
+        }
+
+        @Test
+        void invalidRegistrationInputsAreRejectedWithoutPartialAccounts() throws Exception {
+                mockMvc.perform(post("/api/v1/auth/register")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{}"))
+                                .andExpect(status().isBadRequest());
+
+                mockMvc.perform(post("/api/v1/auth/register")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                                {"displayName":"Malformed Phone","phoneNumber":"09x11-000-003","password":"123456"}
+                                                """))
+                                .andExpect(status().isBadRequest());
+
+                mockMvc.perform(post("/api/v1/auth/register")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                                {"displayName":" ","phoneNumber":"0911000003","password":"123456"}
+                                                """))
+                                .andExpect(status().isBadRequest());
+
+                mockMvc.perform(post("/api/v1/auth/register")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(new RegisterRequest(
+                                                "A".repeat(121), "0911000003", "123456"))))
+                                .andExpect(status().isBadRequest());
+
+                mockMvc.perform(post("/api/v1/auth/register")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(new RegisterRequest(
+                                                "Long Phone", "0".repeat(31), "123456"))))
+                                .andExpect(status().isBadRequest());
+
+                mockMvc.perform(post("/api/v1/auth/register")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                                {"displayName":"Invalid PIN","phoneNumber":"0911000003","password":"12345"}
+                                                """))
+                                .andExpect(status().isBadRequest());
+
+                mockMvc.perform(post("/api/v1/auth/register")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                                {"displayName":"Invalid Type","phoneNumber":[],"password":"123456"}
+                                                """))
+                                .andExpect(status().isBadRequest());
+
+                assertEquals(0, jdbcTemplate.queryForObject("select count(*) from users where display_name in (?, ?, ?)",
+                                Integer.class, "Malformed Phone", "Invalid PIN", "Invalid Type"));
+                assertEquals(0, jdbcTemplate.queryForObject(
+                                "select count(*) from wallets w join users u on u.id = w.owner_id where u.normalized_phone = ?",
+                                Integer.class, "251911000003"));
+        }
+
+        @Test
+        void walletInitializationFailureRollsBackPlayerRegistration() throws Exception {
+                String phone = "251930300003";
+                jdbcTemplate.execute("alter table wallets add constraint chk_module03a_wallet_failure check (owner_id < 0)");
+                try {
+                        mockMvc.perform(post("/api/v1/auth/register")
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content("""
+                                                        {"displayName":"Rollback Player","phoneNumber":"%s","password":"123456"}
+                                                        """.formatted(phone)))
+                                        .andExpect(status().isInternalServerError());
+
+                        assertEquals(0, jdbcTemplate.queryForObject(
+                                        "select count(*) from users where normalized_phone = ?", Integer.class, phone));
+                        assertEquals(0, jdbcTemplate.queryForObject(
+                                        "select count(*) from wallets w join users u on u.id = w.owner_id where u.normalized_phone = ?",
+                                        Integer.class, phone));
+                        assertEquals(0, jdbcTemplate.queryForObject(
+                                        "select count(*) from signup_reward_grants g join users u on u.id = g.player_id where u.normalized_phone = ?",
+                                        Integer.class, phone));
+                } finally {
+                        jdbcTemplate.execute("alter table wallets drop check chk_module03a_wallet_failure");
+                }
+        }
+
+        @Test
+        void concurrentDuplicatePlayerRegistrationCreatesOnlyOneAccount() throws Exception {
+                String phone = "251930300002";
+                String requestBody = """
+                                {"displayName":"Concurrent Player","phoneNumber":"%s","password":"123456"}
+                                """.formatted(phone);
+                CountDownLatch ready = new CountDownLatch(2);
+                CountDownLatch start = new CountDownLatch(1);
+
+                try (var executor = Executors.newFixedThreadPool(2)) {
+                        var request = (java.util.concurrent.Callable<Integer>) () -> {
+                                ready.countDown();
+                                if (!start.await(5, TimeUnit.SECONDS)) {
+                                        throw new IllegalStateException("Concurrent registration start timed out");
+                                }
+                                return mockMvc.perform(post("/api/v1/auth/register")
+                                                .contentType(MediaType.APPLICATION_JSON)
+                                                .content(requestBody))
+                                                .andReturn().getResponse().getStatus();
+                        };
+                        var first = executor.submit(request);
+                        var second = executor.submit(request);
+                        assertEquals(true, ready.await(5, TimeUnit.SECONDS));
+                        start.countDown();
+                        var responses = java.util.List.of(
+                                        first.get(15, TimeUnit.SECONDS),
+                                        second.get(15, TimeUnit.SECONDS));
+                        assertEquals(1L, responses.stream().filter(code -> code == 201).count(),
+                                        "responses were " + responses);
+                        assertEquals(1L, responses.stream().filter(code -> code == 409).count(),
+                                        "responses were " + responses);
+                }
+
+                assertEquals(1, jdbcTemplate.queryForObject(
+                                "select count(*) from users where normalized_phone = ?", Integer.class, phone));
+                assertEquals(1, jdbcTemplate.queryForObject(
+                                "select count(*) from wallets w join users u on u.id = w.owner_id where u.normalized_phone = ?",
+                                Integer.class, phone));
         }
 
         @Test

@@ -1,0 +1,23 @@
+Module 03A player Android E2E
+Date: 2026-10-24 (Africa/Nairobi)
+Target: emulator-5554 (API 37), Flutter player app `com.example.bingo_app`, QA backend `http://10.0.2.2:8081`.
+
+Actual Flutter integration tests run: 8/8 passed across two retained synthetic QA identities.
+- `module_03a_registration_test.dart`: 2/2 runs passed. Verified display name, phone and PIN fields, required-field rejection, malformed phone rejection in the final client, normalized/trimmed valid input, and successful account session.
+- `module_03a_form_test.dart`: 1/1 passed. Captured registration form and required-field errors.
+- `module_03a_network_failure_test.dart`: 1/1 passed using the second identity and a deliberately unreachable emulator backend port. Error appeared, registration form remained retryable, and app did not enter an authenticated session.
+- `module_03a_restart_test.dart`: 2/2 passed. After `adb shell am force-stop com.example.bingo_app`, each registered account restored its session; profile showed the account identity, then logout cleared the session.
+- `module_03a_duplicate_test.dart`: 2/2 passed. Re-registering each existing phone showed `PHONE_ALREADY_REGISTERED`; app remained unauthenticated.
+
+The network-failure identity was then retried with QA API base `http://10.0.2.2:8081` and registration succeeded. No API request was made during the failed attempt. The read-only MySQL evidence confirms one user, one wallet, one registration audit event, no signup grant, and no wallet transactions for each identity.
+
+Screenshots in this folder:
+- `module-03a-registration-form.png`
+- `module-03a-required-fields.png`
+- `module-03a-invalid-phone.png`
+- `module-03a-registration-success.png`
+- `module-03a-player-process-restart.png`
+- `module-03a-duplicate-phone.png`
+- `module-03a-network-failure-retry-ready.png`
+
+All credentials were supplied through ignored `.tmp` define files. No credential values are retained in tracked evidence. Flutter driver output and local define files are ignored in `.tmp`.

@@ -25,8 +25,14 @@ The original five QA accounts were provisioned in `bingo_qa` through the guarded
 | QA_M02_SIGNUP_POLICY_001–007 | Signup reward policy rows 1–7 | 02 | Disabled, expired, zero ETB | Effective 1999-12-31 21:00Z through 2000-01-01 21:00Z | Historical configuration versions; none grants a reward. Keep them for audit/history. | 2026-10-23 |
 | QA_M02_TRANSFER_POLICY_001–005 | Transfer policy rows 1–5 | 02 | Disabled, expired, zero ETB limits | Effective 1999-12-31 21:00Z through 2000-01-01 21:00Z | Historical configuration versions; none enables a transfer. Keep them for audit/history. | 2026-10-23 |
 | QA_M02_COMMISSION_RULE_001–002 | Commission rule versions 1–2 | 02 | Inactive, 0 bps; effective 1999-12-31 21:00Z | Version 2 is current | Historical inactive rules; preserve version history. | 2026-10-23 |
+| QA_M03A_PLAYER_001 — phone `251930300001`, role `PLAYER` | User 178 | 03A | `ACTIVE` | Wallet ETB 0.00 available / 0.00 promotional; no signup grant or wallet transactions; one registration audit event | Created via actual Flutter registration UI on emulator-5554. Retain account. PIN stored only in ignored `.tmp/module-03a-e2e-secrets.json`. | 2026-10-24 |
+| QA_M03A_PLAYER_002 — phone `251930300002`, role `PLAYER` | User 179 | 03A | `ACTIVE` | Wallet ETB 0.00 available / 0.00 promotional; no signup grant or wallet transactions; one registration audit event | First registration attempt used a deliberately unreachable backend and created no account; retry succeeded through actual Flutter registration UI on emulator-5554. Retain account. PIN stored only in ignored `.tmp/module-03a-retry-e2e-secrets.json`. | 2026-10-24 |
 
 Naming convention: `QA_ADMIN_###`, `QA_PLAYER_###`, `QA_AGENT_###`, and entity names such as `QA_ROOM_###` / `QA_SESSION_###`. Use synthetic, valid, uniquely allocated phone numbers and fresh idempotency keys/transaction references for each new operation. A completed transaction or terminal session is historical data and must not be forced back into an earlier state.
+
+## Module 03A execution note — 2026-10-24
+
+Two persistent test identities were created through real emulator UI registration, and are recorded above. A read-only snapshot after the run verifies users 1–12 retain their registered role/status states and player wallet balances; it also verifies both Module 03A players are ACTIVE with zero-balance ETB wallets, no signup grants/transactions, and one registration audit event apiece. The full output is [here](evidence/module-03a-database-readonly.txt). No existing QA record was reused or written by this workflow.
 
 ## Module 02 admin management
 

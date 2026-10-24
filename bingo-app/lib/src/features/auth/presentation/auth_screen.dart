@@ -101,6 +101,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                               key: const ValueKey('auth-display-name-field'),
                               controller: _displayNameController,
                               textInputAction: TextInputAction.next,
+                              maxLength: 120,
                               decoration: InputDecoration(labelText: localizations.displayNameLabel),
                               validator: (value) => value == null || value.trim().isEmpty
                                   ? localizations.displayNameRequired
@@ -113,11 +114,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                             controller: _phoneController,
                             textInputAction: TextInputAction.next,
                             keyboardType: TextInputType.phone,
+                            maxLength: 30,
                             decoration: InputDecoration(labelText: localizations.phoneLabel),
                             validator: (value) {
                               final text = value?.trim() ?? '';
                               if (text.isEmpty) return localizations.phoneRequired;
-                              if (!RegExp(r'^[0-9+\s-]{6,}$').hasMatch(text)) return localizations.invalidPhone;
+                              if (!_isValidEthiopianPhone(text)) return localizations.invalidPhone;
                               return null;
                             },
                           ),
@@ -174,4 +176,22 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       ),
     );
   }
+}
+
+bool _isValidEthiopianPhone(String value) {
+  var compact = value.replaceAll(RegExp(r'[\s\-().]'), '');
+  if (!RegExp(r'^\+?[0-9]+$').hasMatch(compact)) return false;
+  if (compact.startsWith('+')) compact = compact.substring(1);
+
+  String localNumber;
+  if (compact.length == 12 && compact.startsWith('251')) {
+    localNumber = compact.substring(3);
+  } else if (compact.length == 10 && compact.startsWith('0')) {
+    localNumber = compact.substring(1);
+  } else if (compact.length == 9) {
+    localNumber = compact;
+  } else {
+    return false;
+  }
+  return localNumber.startsWith('9') || localNumber.startsWith('7');
 }
