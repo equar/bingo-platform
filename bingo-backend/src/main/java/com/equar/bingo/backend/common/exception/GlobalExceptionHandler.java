@@ -22,6 +22,7 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.BindException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -165,6 +166,16 @@ public class GlobalExceptionHandler {
                         HttpServletRequest request) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN)
                                 .body(error(HttpStatus.FORBIDDEN, "ACCESS_DENIED", "Access denied", request, List.of()));
+        }
+
+        @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+        @ApiResponse(responseCode = "405", description = "Request method is not supported")
+        public ResponseEntity<ApiErrorResponse> handleMethodNotSupported(
+                        HttpRequestMethodNotSupportedException exception,
+                        HttpServletRequest request) {
+                return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED)
+                                .body(error(HttpStatus.METHOD_NOT_ALLOWED, "METHOD_NOT_ALLOWED",
+                                                "Request method is not supported", request, List.of()));
         }
 
         @ExceptionHandler(OptimisticLockingFailureException.class)
