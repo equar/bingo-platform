@@ -1,0 +1,21 @@
+Module 03A backend verification execution
+Date: 2026-10-24 (Africa/Nairobi)
+Command: from bingo-backend, load ignored .env.test values into BINGO_TEST_MYSQL_URL, BINGO_TEST_MYSQL_USERNAME, BINGO_TEST_MYSQL_PASSWORD; run `mvn -s ../.tmp/maven-settings.xml -Dmaven.repo.local=../.tmp/m2 test`.
+Database: local MySQL 8.0.36, guarded catalog bingo_qa_test only. The Flyway guard and recovery integration test reported bingo_qa_test. No Docker, Testcontainers, H2, or bingo_qa were used by Maven.
+
+Initial baseline run before the registration repairs: 129 tests, 0 failures, 0 errors, 0 skipped; BUILD SUCCESS; 5:29 minutes.
+Final full backend suite after registration service and phone-normalization repairs: 131 tests, 0 failures, 0 errors, 0 skipped; BUILD SUCCESS; 4:14 minutes.
+AuthSecurityIntegrationTest: 21 tests, 0 failures, 0 errors, 0 skipped in the focused pass; includes malformed/empty/length validation and concurrent duplicate registration.
+EthiopianPhoneNormalizerTest: 2 tests, 0 failures, 0 errors, 0 skipped.
+WalletIntegrationTest: 11 tests, 0 failures, 0 errors, 0 skipped in the final full suite.
+Wallet initialization rollback regression: 1/1 passed in a separate final focused run. A temporary schema-local CHECK constraint forced wallet creation to fail after user insertion; the test confirmed no user, wallet, or signup grant persisted and removed the constraint. An initial attempt to use a trigger was rejected by MySQL because the scoped test user lacks global SUPER; no global privilege was granted.
+
+Registration coverage within executed suite:
+- Existing `registerLoginAndProtectionWork` assertion passes: valid registration returns 201 and token, normalizes phone, ignores client roles/status in favor of PLAYER, permits login, omits passwordHash from response, and denies player access to admin users (403).
+- `EthiopianPhoneNormalizerTest` passes accepted canonical/local formats and malformed/unsupported phone cases.
+- Concurrent duplicate registration is covered by the new real-MySQL regression. Sequential duplicate registration is covered by real Android UI E2E. Wallet failure rollback and row-level account initialization are also asserted.
+- Registration has no rate limit in the current design; the existing auth throttle applies to login. No new signup throttle policy was added. See Module 03A report.
+
+Raw reports: `bingo-backend/target/surefire-reports/`. Persistent QA database verification is a separate read-only query in `module-03a-database-readonly.txt`.
+
+Final focused security assertion run: AuthSecurityIntegrationTest#registerLoginAndProtectionWork, 1 test, 0 failures, 0 errors, 0 skipped; BUILD SUCCESS. Confirmed the submitted PIN is not stored as the password hash and is absent from registration audit metadata.

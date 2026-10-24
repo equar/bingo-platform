@@ -14,6 +14,7 @@ import com.equar.bingo.backend.feature.user.entity.User;
 import com.equar.bingo.backend.feature.user.entity.UserRole;
 import com.equar.bingo.backend.feature.user.repository.UserRepository;
 import java.time.Instant;
+import java.sql.SQLException;
 import java.util.Set;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -22,6 +23,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.dao.DataIntegrityViolationException;
 
 @Service
 public class AuthService {
@@ -68,7 +70,15 @@ public class AuthService {
                 Set.of(UserRole.PLAYER),
                 Instant.now());
 
-        User saved = userRepository.save(user);
+        User saved;
+        try {
+            saved = userRepository.save(user);
+        } catch (DataIntegrityViolationException exception) {
+            if (isDuplicatePhoneConstraint(exception)) {
+                throw new ConflictException("PHONE_ALREADY_REGISTERED", "That phone number is already registered");
+            }
+            throw exception;
+        }
         walletService.createWalletIfMissing(saved);
         signupRewardService.grantForNewPlayer(saved);
         String token = jwtService.generateToken(saved);
@@ -115,5 +125,17 @@ public class AuthService {
                 user.getCreatedAt(),
                 user.getUpdatedAt(),
                 user.isMustChangePassword());
+    }
+
+    private boolean isDuplicatePhoneConstraint(Throwable failure) {
+        for (Throwable cause = failure; cause != null; cause = cause.getCause()) {
+            if (cause instanceof SQLException sqlException
+                    && "23000".equals(sqlException.getSQLState())
+                    && sqlException.getMessage() != null
+                    && sqlException.getMessage().contains("uk_users_normalized_phone")) {
+                return true;
+            }
+        }
+        return false;
     }
 }

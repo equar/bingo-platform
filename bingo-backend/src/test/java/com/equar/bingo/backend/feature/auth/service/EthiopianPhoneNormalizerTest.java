@@ -25,5 +25,7 @@ class EthiopianPhoneNormalizerTest {
         assertThrows(BadRequestException.class, () -> normalizer.normalize("   "));
         assertThrows(BadRequestException.class, () -> normalizer.normalize("+251 611 000 003"));
         assertThrows(BadRequestException.class, () -> normalizer.normalize("12345"));
+        assertThrows(BadRequestException.class, () -> normalizer.normalize("09x11-000-003"));
+        assertThrows(BadRequestException.class, () -> normalizer.normalize("09!11-000-003"));
     }
 }
