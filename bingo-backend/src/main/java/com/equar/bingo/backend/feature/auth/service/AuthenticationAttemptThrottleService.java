@@ -58,6 +58,10 @@ public class AuthenticationAttemptThrottleService {
         bucketStore.clear(hash(key));
     }
 
+    public void clearAccountAttempts(String accountType, String normalizedIdentifier) {
+        clear("account:" + accountType + ":" + normalizedIdentifier);
+    }
+
     public void requireNetworkAllowed(String remoteAddress) {
         requireNotLocked("network:" + remoteAddress, properties.networkAttemptLimit(), properties.window());
     }

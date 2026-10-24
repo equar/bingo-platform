@@ -28,7 +28,10 @@ final dioProvider = Provider<Dio>((ref) {
         handler.next(options);
       },
       onError: (error, handler) async {
-        if (error.response?.statusCode == 401) {
+        final sentBearerToken = error.requestOptions.headers.entries.any((entry) =>
+            entry.key.toLowerCase() == 'authorization' &&
+            entry.value?.toString().startsWith('Bearer ') == true);
+        if (error.response?.statusCode == 401 && sentBearerToken) {
           await ref.read(authSessionControllerProvider.notifier).clearSession(reason: 'SESSION_EXPIRED');
         }
         handler.next(error);
