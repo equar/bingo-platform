@@ -89,7 +89,7 @@ public class AuthService {
         String normalizedPhone = phoneNormalizer.normalize(request.phoneNumber());
         throttleService.requireAccountAllowed("player", normalizedPhone);
         if (userRepository.findByNormalizedPhone(normalizedPhone)
-                .filter(user -> user.hasRole(UserRole.AGENT)).isPresent()) {
+                .filter(user -> !user.hasRole(UserRole.PLAYER)).isPresent()) {
             throttleService.recordAccountFailure("player", normalizedPhone);
             throw new org.springframework.security.authentication.BadCredentialsException("Invalid credentials");
         }
@@ -105,6 +105,7 @@ public class AuthService {
 
         BingoUserPrincipal principal = (BingoUserPrincipal) authentication.getPrincipal();
         User user = principal.getUser();
+        throttleService.clearAccountAttempts("player", normalizedPhone);
         String token = jwtService.generateToken(user);
         return new AuthResponse(token, "Bearer", jwtService.getExpirationSeconds(), toProfile(user));
     }

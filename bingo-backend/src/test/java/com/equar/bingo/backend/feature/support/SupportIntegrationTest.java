@@ -286,6 +286,10 @@ class SupportIntegrationTest extends MySqlIntegrationTest {
         }
 
         private String loginToken(String phoneNumber, String password) throws Exception {
+                User user = userRepository.findByNormalizedPhone(phoneNormalizer.normalize(phoneNumber)).orElseThrow();
+                if (!user.hasRole(UserRole.PLAYER)) {
+                        return jwtService.generateToken(user);
+                }
                 String response = mockMvc.perform(post("/api/v1/auth/login")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(new LoginRequest(phoneNumber, password))))

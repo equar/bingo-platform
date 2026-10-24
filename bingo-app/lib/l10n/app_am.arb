@@ -11,7 +11,7 @@
   "emptyState": "ምንም ንጥል አልተገኘም።",
   "loginTitle": "ግባ",
   "registerTitle": "መለያ ፍጠር",
-  "loginSubtitle": "ስልክ ቁጥርዎን እና የይለፍ ቃልዎን ይጠቀሙ።",
+  "loginSubtitle": "ስልክ ቁጥርዎን እና 6-አሃዝ ፒንዎን ይጠቀሙ።",
   "registerSubtitle": "በማሳያ ስም የተጫዋች መለያ ይፍጠሩ።",
   "phoneLabel": "ስልክ ቁጥር",
   "passwordLabel": "ፒን",

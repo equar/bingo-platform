@@ -1,0 +1,17 @@
+Module 03B real Android integration results
+Execution date: 2026-10-24 (Africa/Nairobi)
+Device: emulator-5554 (Android API 37)
+Player app: com.example.bingo_app
+QA API: http://10.0.2.2:8081
+
+Five real Flutter integration tests passed on the Android emulator (1/1 each):
+
+- module_03b_login_test.dart — empty-field validation, invalid Ethiopian phone, incorrect PIN, normalized +251 phone, correct PIN, player session and Profile screen.
+- module_03b_restart_test.dart — local session restored after process restart, Profile loaded, logout cleared secure storage, and back navigation remained signed out.
+- module_03b_restricted_login_test.dart — existing PENDING player denied without an expired-session banner or account-status mutation.
+- module_03b_lockout_test.dart — six incorrect credentials left the login unauthenticated. The MySQL integration verifies the exact temporary rate-limit response (HTTP 429 / `AUTH_RATE_LIMITED`) and recovery behavior. The UI test identity was an unknown synthetic phone; no user or wallet was created.
+- module_03b_network_failure_test.dart — an intentionally unreachable emulator endpoint produced a retryable HTTP_0 UI error and left the app signed out.
+
+Flutter integration logs are retained in the local ignored `.tmp` workspace; the case outcomes above are copied here because generated Gradle logs include encoded test defines. Evidence screenshots: `module-03b-login-success.png`, `module-03b-session-restored.png`, and `module-03b-invalid-credentials-session-banner-defect.png`.
+
+Persistent-data reconciliation used SELECT-only SQL. Players 178 and 179 remain ACTIVE PLAYERs with ETB 0.00 available/promotional balances, zero signup grants, and zero wallet transactions. None of the four synthetic lockout phone identifiers created a user or wallet. The current active temporary throttle bucket is expected and expires under the configured lockout policy. No wallet balance or account lifecycle status was changed.

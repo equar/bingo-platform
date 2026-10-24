@@ -1,0 +1,17 @@
+Module 03B player authentication backend verification
+Date: 2026-10-24 (Africa/Nairobi)
+Database: real local MySQL 8.0.36, guarded catalog `bingo_qa_test`; no Docker, Testcontainers, or H2.
+
+Focused run:
+Command: from `bingo-backend`, load ignored `.env.test` database settings and run `mvn -s ../.tmp/maven-settings.xml -Dmaven.repo.local=../.tmp/m2 -Dtest=AuthSecurityIntegrationTest test`.
+Result: AuthSecurityIntegrationTest 27 tests, 0 failures, 0 errors, 0 skipped; BUILD SUCCESS; 1:28.
+
+Final full backend suite:
+Command: same guarded environment and Maven settings, `mvn -s ../.tmp/maven-settings.xml -Dmaven.repo.local=../.tmp/m2 test`.
+Result: 137 tests, 0 failures, 0 errors, 0 skipped; BUILD SUCCESS; 4:09.
+
+Coverage includes valid phone/PIN authentication and `/api/v1/me`, invalid PIN and unknown phone response equivalence, Ethiopian phone normalization, PENDING/SUSPENDED/DISABLED status rejection, ADMIN/AGENT rejection by player login, missing/malformed/expired/wrong-signature/tampered JWT rejection, protected-route authorization, concurrent invalid login throttle behavior, hashed account/network buckets, temporary recovery, successful-login reset of the account bucket, audit redaction of PIN/JWT, response-field boundaries, and no account/wallet/ledger changes after failed authentication.
+
+The first full run after enforcing the player-role boundary exposed seven old integration-test helper assumptions: several game/support fixtures called player login to obtain admin JWTs. Those non-login harness helpers now issue JWTs from their seeded roles directly; production role checks were not relaxed. The final full suite and focused auth suite both pass with all current tests.
+
+Raw Surefire output: `bingo-backend/target/surefire-reports/`. Persistent `bingo_qa` was not used by Maven.

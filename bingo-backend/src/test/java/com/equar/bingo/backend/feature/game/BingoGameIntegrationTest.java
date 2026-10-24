@@ -6,6 +6,7 @@ import com.equar.bingo.backend.common.idempotency.IdempotentResult;
 import com.equar.bingo.backend.feature.auth.dto.LoginRequest;
 import com.equar.bingo.backend.feature.auth.service.BingoUserPrincipal;
 import com.equar.bingo.backend.feature.auth.service.EthiopianPhoneNormalizer;
+import com.equar.bingo.backend.feature.auth.service.JwtService;
 import com.equar.bingo.backend.feature.game.dto.BingoPrizeConfigRequest;
 import com.equar.bingo.backend.feature.game.dto.BingoRoomRequest;
 import com.equar.bingo.backend.feature.game.dto.DrawEventRequest;
@@ -99,6 +100,9 @@ class BingoGameIntegrationTest extends MySqlIntegrationTest {
 
         @Autowired
         UserRepository userRepository;
+
+        @Autowired
+        JwtService jwtService;
 
         @Autowired
         WalletRepository walletRepository;
@@ -655,6 +659,10 @@ class BingoGameIntegrationTest extends MySqlIntegrationTest {
         }
 
         private String loginToken(String phoneNumber, String password) throws Exception {
+                User user = userRepository.findByNormalizedPhone(phoneNormalizer.normalize(phoneNumber)).orElseThrow();
+                if (!user.hasRole(UserRole.PLAYER)) {
+                        return jwtService.generateToken(user);
+                }
                 String response = mockMvc.perform(post("/api/v1/auth/login")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(new LoginRequest(phoneNumber, password))))

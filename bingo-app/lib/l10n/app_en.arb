@@ -11,7 +11,7 @@
   "emptyState": "No items found.",
   "loginTitle": "Sign in",
   "registerTitle": "Create account",
-  "loginSubtitle": "Use your phone number and password.",
+  "loginSubtitle": "Use your phone number and six-digit PIN.",
   "registerSubtitle": "Create a player account with a display name.",
   "phoneLabel": "Phone number",
   "passwordLabel": "PIN",

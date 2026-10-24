@@ -252,6 +252,10 @@ class AuthSecurityIntegrationTest extends MySqlIntegrationTest {
                                 .content(loginJson))
                                 .andExpect(status().isOk())
                                 .andExpect(jsonPath("$.accessToken").exists())
+                                .andExpect(jsonPath("$.tokenType").value("Bearer"))
+                                .andExpect(jsonPath("$.expiresInSeconds").isNumber())
+                                .andExpect(jsonPath("$.refreshToken").doesNotExist())
+                                .andExpect(jsonPath("$.user.password").doesNotExist())
                                 .andExpect(jsonPath("$.user.passwordHash").doesNotExist())
                                 .andReturn()
                                 .getResponse()
@@ -259,6 +263,13 @@ class AuthSecurityIntegrationTest extends MySqlIntegrationTest {
 
                 String playerToken = objectMapper.readTree(loginResponse).get("accessToken").asText();
                 Long playerId = objectMapper.readTree(loginResponse).path("user").path("id").asLong();
+                String loginAudit = jdbcTemplate.queryForObject("""
+                                select metadata_json from audit_log_entries
+                                where action = 'LOGIN' and target_id = ? order by id desc limit 1
+                                """, String.class, playerId);
+                org.junit.jupiter.api.Assertions.assertFalse(loginAudit.contains("123456"));
+                org.junit.jupiter.api.Assertions.assertFalse(loginAudit.contains("eyJ"));
+                org.junit.jupiter.api.Assertions.assertTrue(loginAudit.contains("[REDACTED]"));
 
                 assertEquals(1, jdbcTemplate.queryForObject(
                                 "select count(*) from wallets where owner_id = ?", Integer.class, playerId));
@@ -891,17 +902,7 @@ class AuthSecurityIntegrationTest extends MySqlIntegrationTest {
 
         @Test
         void adminEndpointIsProtectedByRole() throws Exception {
-                String adminLoginJson = objectMapper.writeValueAsString(new LoginRequest(
-                                "0911000001",
-                                "123456"));
-
-                String adminToken = objectMapper.readTree(mockMvc.perform(post("/api/v1/auth/login")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(adminLoginJson))
-                                .andExpect(status().isOk())
-                                .andReturn()
-                                .getResponse()
-                                .getContentAsString()).get("accessToken").asText();
+                String adminToken = issueTokenFor("0911000001");
 
                 mockMvc.perform(get("/api/v1/admin/users")
                                 .header("Authorization", "Bearer " + adminToken))
@@ -987,6 +988,49 @@ class AuthSecurityIntegrationTest extends MySqlIntegrationTest {
         }
 
         @Test
+        void playerLoginRejectsNonPlayerAccountsWithGenericCredentialsError() throws Exception {
+                for (String phone : java.util.List.of("0911000001", "0911000002")) {
+                        mockMvc.perform(post("/api/v1/auth/login")
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(objectMapper.writeValueAsString(new LoginRequest(phone, "123456"))))
+                                        .andExpect(status().isUnauthorized())
+                                        .andExpect(jsonPath("$.code").value("AUTH_INVALID_CREDENTIALS"))
+                                        .andExpect(jsonPath("$.message").value("Invalid credentials"));
+                }
+        }
+
+        @Test
+        void unknownPhoneAndIncorrectPinUseTheSameFailureResponse() throws Exception {
+                String incorrectPin = mockMvc.perform(post("/api/v1/auth/login")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(new LoginRequest("0911000004", "999999"))))
+                                .andExpect(status().isUnauthorized())
+                                .andReturn().getResponse().getContentAsString();
+                String unknownPhone = mockMvc.perform(post("/api/v1/auth/login")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(new LoginRequest("0911999999", "999999"))))
+                                .andExpect(status().isUnauthorized())
+                                .andReturn().getResponse().getContentAsString();
+                var incorrect = objectMapper.readTree(incorrectPin);
+                var unknown = objectMapper.readTree(unknownPhone);
+                assertEquals(incorrect.path("code").asText(), unknown.path("code").asText());
+                assertEquals(incorrect.path("message").asText(), unknown.path("message").asText());
+        }
+
+        @Test
+        void suspendedPlayerCannotLogIn() throws Exception {
+                User player = userRepository.findByNormalizedPhone(phoneNormalizer.normalize("0911000004"))
+                                .orElseThrow();
+                player.setStatus(AccountStatus.SUSPENDED);
+                userRepository.saveAndFlush(player);
+                mockMvc.perform(post("/api/v1/auth/login")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(new LoginRequest("0911000004", "123456"))))
+                                .andExpect(status().isUnauthorized())
+                                .andExpect(jsonPath("$.code").value("AUTH_INVALID_CREDENTIALS"));
+        }
+
+        @Test
         void failedAuthenticationDoesNotChangeAccountOrWalletState() throws Exception {
                 long usersBefore = userRepository.count();
                 long walletsBefore = walletRepository.count();
@@ -1035,7 +1079,7 @@ class AuthSecurityIntegrationTest extends MySqlIntegrationTest {
         }
 
         @Test
-        void successfulLoginDoesNotConsumeOrClearAccountOrNetworkFailureCounters() throws Exception {
+        void successfulLoginClearsAccountFailuresButPreservesNetworkFailures() throws Exception {
                 String normalizedPhone = phoneNormalizer.normalize("0911000004");
                 throttleService.recordAccountFailure("player", normalizedPhone);
                 throttleService.recordNetworkFailure("127.0.0.1");
@@ -1049,12 +1093,72 @@ class AuthSecurityIntegrationTest extends MySqlIntegrationTest {
                                 .content(validLogin))
                                 .andExpect(status().isOk());
 
-                assertEquals(2, jdbcTemplate.queryForObject(
+                assertEquals(1, jdbcTemplate.queryForObject(
                                 "select count(*) from authentication_attempt_buckets",
                                 Integer.class));
-                assertEquals(2, jdbcTemplate.queryForObject(
+                assertEquals(1, jdbcTemplate.queryForObject(
                                 "select sum(attempt_count) from authentication_attempt_buckets",
                                 Integer.class));
+        }
+
+        @Test
+        void concurrentAccountFailuresAreCountedWithoutLostUpdates() throws Exception {
+                String identifier = "251999000099";
+                try (var executor = Executors.newFixedThreadPool(8)) {
+                        var results = java.util.stream.IntStream.range(0, 12)
+                                        .mapToObj(index -> executor.submit(() -> {
+                                                try {
+                                                        throttleService.recordAccountFailure("player", identifier);
+                                                        return true;
+                                                } catch (com.equar.bingo.backend.common.exception.TooManyRequestsException limited) {
+                                                        return false;
+                                                }
+                                        }))
+                                        .toList();
+                        int accepted = 0;
+                        for (var result : results) {
+                                if (result.get(15, TimeUnit.SECONDS)) {
+                                        accepted++;
+                                }
+                        }
+                        assertEquals(3, accepted);
+                }
+                assertEquals(3, jdbcTemplate.queryForObject(
+                                "select attempt_count from authentication_attempt_buckets where bucket_key = ?",
+                                Integer.class,
+                                java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+                                                .digest(("account:player:" + identifier)
+                                                                .getBytes(java.nio.charset.StandardCharsets.UTF_8)))));
+                org.junit.jupiter.api.Assertions.assertThrows(
+                                com.equar.bingo.backend.common.exception.TooManyRequestsException.class,
+                                () -> throttleService.requireAccountAllowed("player", identifier));
+        }
+
+        @Test
+        void concurrentInvalidLoginRequestsDoNotBypassTheAttemptLimit() throws Exception {
+                String body = objectMapper.writeValueAsString(new LoginRequest("0911000004", "999999"));
+                try (var executor = Executors.newFixedThreadPool(8)) {
+                        var responses = java.util.stream.IntStream.range(0, 12)
+                                        .mapToObj(index -> executor.submit(() -> mockMvc.perform(post("/api/v1/auth/login")
+                                                        .contentType(MediaType.APPLICATION_JSON)
+                                                        .content(body))
+                                                        .andReturn().getResponse().getStatus()))
+                                        .toList();
+                        int rateLimited = 0;
+                        for (var response : responses) {
+                                int statusCode = response.get(20, TimeUnit.SECONDS);
+                                org.junit.jupiter.api.Assertions.assertTrue(statusCode == 401 || statusCode == 429,
+                                                "Unexpected concurrent login response: " + statusCode);
+                                if (statusCode == 429) {
+                                        rateLimited++;
+                                }
+                        }
+                        org.junit.jupiter.api.Assertions.assertTrue(rateLimited > 0);
+                }
+                mockMvc.perform(post("/api/v1/auth/login")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(body))
+                                .andExpect(status().isTooManyRequests());
         }
 
         @Test
