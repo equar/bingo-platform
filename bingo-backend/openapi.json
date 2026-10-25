@@ -3904,16 +3904,6 @@
             "format" : "int64"
           }
         } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/DrawEventRequest"
-              }
-            }
-          },
-          "required" : true
-        },
         "responses" : {
           "400" : {
             "description" : "Invalid request",
@@ -13117,17 +13107,6 @@
           }
         },
         "required" : [ "assignedToUserId" ]
-      },
-      "DrawEventRequest" : {
-        "type" : "object",
-        "properties" : {
-          "numberDrawn" : {
-            "type" : "integer",
-            "format" : "int32",
-            "maximum" : 75,
-            "minimum" : 1
-          }
-        }
       },
       "DrawEventResponse" : {
         "type" : "object",

@@ -1,0 +1,8 @@
+exit_code=0
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 38.01 s -- in com.equar.bingo.backend.OpenApiContractIntegrationTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 8.702 s -- in com.equar.bingo.backend.feature.game.AuthenticatedStompIntegrationTest
+[INFO] Tests run: 20, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 54.94 s -- in com.equar.bingo.backend.feature.game.BingoGameIntegrationTest
+[INFO] Tests run: 8, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 29.29 s -- in com.equar.bingo.backend.feature.game.BingoLiveDrawIntegrationTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.003 s -- in com.equar.bingo.backend.feature.game.GameSessionStateTest
+[INFO] Tests run: 32, Failures: 0, Errors: 0, Skipped: 0
+[INFO] BUILD SUCCESS

@@ -1,6 +1,7 @@
 package com.equar.bingo.backend.feature.game;
 
 import com.equar.bingo.backend.MySqlIntegrationTest;
+import com.equar.bingo.backend.common.exception.ConflictException;
 import com.equar.bingo.backend.feature.auth.dto.LoginRequest;
 import com.equar.bingo.backend.feature.auth.service.BingoUserPrincipal;
 import com.equar.bingo.backend.feature.auth.service.EthiopianPhoneNormalizer;
@@ -11,6 +12,7 @@ import com.equar.bingo.backend.feature.game.dto.DrawEventResponse;
 import com.equar.bingo.backend.feature.game.dto.GameSessionRequest;
 import com.equar.bingo.backend.feature.game.dto.GameSessionStateUpdateRequest;
 import com.equar.bingo.backend.feature.game.entity.BingoPatternType;
+import com.equar.bingo.backend.feature.game.entity.DrawEvent;
 import com.equar.bingo.backend.feature.game.entity.GameSession;
 import com.equar.bingo.backend.feature.game.entity.GameSessionState;
 import com.equar.bingo.backend.feature.game.entity.PrizeSettlementPath;
@@ -22,6 +24,7 @@ import com.equar.bingo.backend.feature.game.repository.TicketRepository;
 import com.equar.bingo.backend.feature.game.repository.WinClaimRepository;
 import com.equar.bingo.backend.feature.game.service.BingoGameService;
 import com.equar.bingo.backend.feature.game.websocket.GameLiveDrawService;
+import com.equar.bingo.backend.feature.game.websocket.GameLiveDrawScheduler;
 import com.equar.bingo.backend.feature.user.entity.AccountStatus;
 import com.equar.bingo.backend.feature.user.entity.User;
 import com.equar.bingo.backend.feature.user.entity.UserRole;
@@ -45,6 +48,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.net.URI;
+import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
 import java.lang.reflect.Type;
@@ -52,6 +56,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
@@ -78,6 +83,8 @@ import org.springframework.web.socket.WebSocketHttpHeaders;
 import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 import org.springframework.web.socket.messaging.WebSocketStompClient;
 import org.springframework.messaging.support.ExecutorSubscribableChannel;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -170,6 +177,12 @@ class BingoLiveDrawIntegrationTest extends MySqlIntegrationTest {
         GameLiveDrawService gameLiveDrawService;
 
         @Autowired
+        GameLiveDrawScheduler gameLiveDrawScheduler;
+
+        @Autowired
+        PlatformTransactionManager transactionManager;
+
+        @Autowired
         RecordingSimpMessagingTemplate recordingSimpMessagingTemplate;
 
         @Autowired
@@ -191,12 +204,15 @@ class BingoLiveDrawIntegrationTest extends MySqlIntegrationTest {
 
         private User adminUser;
         private User playerUser;
+        private User agentUser;
+        private User supportUser;
         private User financeMaker;
         private User financeChecker;
 
         @BeforeEach
         void setUp() {
                 jdbcTemplate.update("delete from audit_log_entries");
+                recordingSimpMessagingTemplate.getRecordedMessages().clear();
                 jdbcTemplate.update("delete from float_accounting_journal_lines");
                 jdbcTemplate.update("delete from float_accounting_journals");
                 jdbcTemplate.update("delete from float_top_up_verification_attempts");
@@ -244,6 +260,20 @@ class BingoLiveDrawIntegrationTest extends MySqlIntegrationTest {
                                 AccountStatus.ACTIVE,
                                 Set.of(UserRole.PLAYER),
                                 now));
+                agentUser = userRepository.save(User.create(
+                                phoneNormalizer.normalize("0911000205"),
+                                "Agent User",
+                                passwordEncoder.encode("123456"),
+                                AccountStatus.ACTIVE,
+                                Set.of(UserRole.AGENT),
+                                now));
+                supportUser = userRepository.save(User.create(
+                                phoneNormalizer.normalize("0911000206"),
+                                "Support User",
+                                passwordEncoder.encode("123456"),
+                                AccountStatus.ACTIVE,
+                                Set.of(UserRole.SUPPORT),
+                                now));
                 financeMaker = userRepository.save(User.create(
                                 phoneNormalizer.normalize("0911000203"),
                                 "Finance Verifier",
@@ -285,24 +315,233 @@ class BingoLiveDrawIntegrationTest extends MySqlIntegrationTest {
 
                 assertEquals(1, draws.size());
                 assertEquals(1L, drawEventRepository.countBySessionId(session.getId()));
+                assertEquals(1L, jdbcTemplate.queryForObject(
+                                "select count(*) from audit_log_entries where operation_id = ? and target_type = 'GAME_SESSION' and target_id = ? and action = 'BINGO_NUMBER_DRAWN'",
+                                Long.class, draws.get(0).operationId(), session.getId()));
+        }
+
+        @Test
+        void competingAdminAutomaticTriggersPersistOnlyOneDueDraw() {
+                GameSession session = startedSession("Concurrent Admin Draw Room");
+                Instant dueStart = Instant.now().minus(gameProperties.drawInterval()).minusSeconds(1);
+                jdbcTemplate.update("update bingo_sessions set started_at = ? where id = ?",
+                                Timestamp.from(dueStart), session.getId());
+                Instant requestTime = Instant.now();
+                var ready = new CountDownLatch(2);
+                var start = new CountDownLatch(1);
+                var first = CompletableFuture.supplyAsync(() -> triggerAttempt(session.getId(), requestTime, ready, start));
+                var second = CompletableFuture.supplyAsync(() -> triggerAttempt(session.getId(), requestTime, ready, start));
+                try {
+                        assertTrue(ready.await(10, TimeUnit.SECONDS));
+                        start.countDown();
+                        List<DrawEventResponse> draws = java.util.stream.Stream.of(first.get(20, TimeUnit.SECONDS),
+                                        second.get(20, TimeUnit.SECONDS))
+                                        .filter(java.util.Objects::nonNull)
+                                        .toList();
+                        assertEquals(1, draws.size());
+                        assertEquals(1L, drawEventRepository.countBySessionId(session.getId()));
+                        assertEquals(1L, jdbcTemplate.queryForObject(
+                                        "select count(*) from audit_log_entries where action = 'BINGO_NUMBER_DRAWN' and target_id = ?",
+                                        Long.class, session.getId()));
+                } catch (Exception exception) {
+                        throw new AssertionError("Concurrent automatic draw trigger test failed", exception);
+                }
+        }
+
+        private DrawEventResponse triggerAttempt(Long sessionId, Instant now, CountDownLatch ready,
+                        CountDownLatch start) {
+                ready.countDown();
+                try {
+                        if (!start.await(10, TimeUnit.SECONDS)) {
+                                throw new IllegalStateException("Timed out waiting to start concurrent draw");
+                        }
+                        return gameLiveDrawService.triggerAutomaticDraw(sessionId, now, adminUser);
+                } catch (ConflictException expected) {
+                        return null;
+                } catch (InterruptedException exception) {
+                        Thread.currentThread().interrupt();
+                        throw new IllegalStateException("Interrupted waiting to start concurrent draw", exception);
+                }
+        }
+
+        @Test
+        void onlyAdminCanStartOrRecordDrawAndLifecycleTransitionsAreAudited() throws Exception {
+                var room = bingoGameService.createRoom(roomRequest("Lifecycle Authorization Room"));
+                var session = bingoGameService.createSession(room.id(), sessionRequest(GameSessionState.DRAFT));
+                String adminToken = loginToken("0911000201", "123456");
+                String playerToken = loginToken("0911000202", "123456");
+                String agentToken = jwtService.generateToken(agentUser);
+                String supportToken = jwtService.generateToken(supportUser);
+                String financeVerifierToken = jwtService.generateToken(financeMaker);
+                String financeApproverToken = jwtService.generateToken(financeChecker);
+                String updatePath = "/api/v1/admin/sessions/" + session.id() + "/state";
+                String drawPath = "/api/v1/admin/sessions/" + session.id() + "/draws";
+
+                mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put(updatePath)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(
+                                                new GameSessionStateUpdateRequest(GameSessionState.OPEN))))
+                                .andExpect(status().isUnauthorized());
+                mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put(updatePath)
+                                .header("Authorization", "Bearer " + playerToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(
+                                                new GameSessionStateUpdateRequest(GameSessionState.OPEN))))
+                                .andExpect(status().isForbidden());
+                mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put(updatePath)
+                                .header("Authorization", "Bearer " + agentToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(
+                                                new GameSessionStateUpdateRequest(GameSessionState.OPEN))))
+                                .andExpect(status().isForbidden());
+                mockMvc.perform(post(drawPath).contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"numberDrawn\":42}"))
+                                .andExpect(status().isUnauthorized());
+                mockMvc.perform(post(drawPath).header("Authorization", "Bearer " + playerToken)
+                                .contentType(MediaType.APPLICATION_JSON).content("{\"numberDrawn\":42}"))
+                                .andExpect(status().isForbidden());
+                mockMvc.perform(post(drawPath).header("Authorization", "Bearer " + agentToken)
+                                .contentType(MediaType.APPLICATION_JSON).content("{\"numberDrawn\":42}"))
+                                .andExpect(status().isForbidden());
+                mockMvc.perform(post(drawPath).header("Authorization", "Bearer " + supportToken))
+                                .andExpect(status().isForbidden());
+                mockMvc.perform(post(drawPath).header("Authorization", "Bearer " + financeVerifierToken))
+                                .andExpect(status().isForbidden());
+                mockMvc.perform(post(drawPath).header("Authorization", "Bearer " + financeApproverToken))
+                                .andExpect(status().isForbidden());
+                mockMvc.perform(post(drawPath).header("Authorization", "Bearer invalid-token"))
+                                .andExpect(status().isUnauthorized());
+                mockMvc.perform(post(drawPath).header("Authorization", "Bearer " + adminToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"numberDrawn\":42}"))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                                                .jsonPath("$.code").value("CALLER_SELECTED_DRAW_NOT_ALLOWED"));
+                mockMvc.perform(post(drawPath).header("Authorization", "Bearer " + adminToken))
+                                .andExpect(status().isConflict())
+                                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                                                .jsonPath("$.code").value("SESSION_NOT_DRAWING"));
+                assertEquals(0L, drawEventRepository.countBySessionId(session.id()));
+                assertEquals(0L, jdbcTemplate.queryForObject(
+                                "select count(*) from audit_log_entries where target_id = ? and action = 'BINGO_NUMBER_DRAWN'",
+                                Long.class, session.id()));
+                assertEquals(GameSessionState.DRAFT, gameSessionRepository.findById(session.id()).orElseThrow().getState());
+
+                mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put(updatePath)
+                                .header("Authorization", "Bearer " + adminToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(
+                                                new GameSessionStateUpdateRequest(GameSessionState.OPEN))))
+                                .andExpect(status().isOk());
+                mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put(updatePath)
+                                .header("Authorization", "Bearer " + adminToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(
+                                                new GameSessionStateUpdateRequest(GameSessionState.STARTED))))
+                                .andExpect(status().isOk());
+                Instant startedAt = gameSessionRepository.findById(session.id()).orElseThrow().getStartedAt();
+                assertTrue(startedAt != null);
+
+                mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put(updatePath)
+                                .header("Authorization", "Bearer " + adminToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(
+                                                new GameSessionStateUpdateRequest(GameSessionState.STARTED))))
+                                .andExpect(status().isConflict());
+                assertEquals(startedAt, gameSessionRepository.findById(session.id()).orElseThrow().getStartedAt());
+                mockMvc.perform(post(drawPath).header("Authorization", "Bearer " + playerToken)
+                                .contentType(MediaType.APPLICATION_JSON).content("{\"numberDrawn\":42}"))
+                                .andExpect(status().isForbidden());
+                mockMvc.perform(post(drawPath).header("Authorization", "Bearer " + agentToken)
+                                .contentType(MediaType.APPLICATION_JSON).content("{\"numberDrawn\":42}"))
+                                .andExpect(status().isForbidden());
+                assertEquals(2L, jdbcTemplate.queryForObject(
+                                "select count(*) from audit_log_entries where actor_user_id = ? and target_id = ? and action = 'UPDATE_SESSION_STATE' and json_unquote(json_extract(metadata_json, '$.outcome')) = 'SUCCESS'",
+                                Long.class, adminUser.getId(), session.id()));
+
+                Instant dueStart = Instant.now().minus(gameProperties.drawInterval()).minusSeconds(1);
+                jdbcTemplate.update("update bingo_sessions set started_at = ? where id = ?",
+                                Timestamp.from(dueStart), session.id());
+                String drawResponseJson = mockMvc.perform(post(drawPath)
+                                .header("Authorization", "Bearer " + adminToken))
+                                .andExpect(status().isOk())
+                                .andReturn().getResponse().getContentAsString();
+                DrawEventResponse automaticDraw = objectMapper.readValue(drawResponseJson, DrawEventResponse.class);
+                assertEquals(session.id(), automaticDraw.sessionId());
+                assertEquals(1, automaticDraw.sequenceNo());
+                assertTrue(automaticDraw.numberDrawn() >= 1 && automaticDraw.numberDrawn() <= 75);
+                DrawEvent persistedDraw = drawEventRepository.findById(automaticDraw.id()).orElseThrow();
+                assertEquals(adminUser.getId(), persistedDraw.getDrawnBy().getId());
+                assertEquals(1L, jdbcTemplate.queryForObject(
+                                "select count(*) from audit_log_entries where operation_id = ? and actor_user_id = ? and target_type = 'GAME_SESSION' and target_id = ? and action = 'BINGO_NUMBER_DRAWN' and json_unquote(json_extract(metadata_json, '$.numberDrawn')) = ?",
+                                Long.class, automaticDraw.operationId(), adminUser.getId(), session.id(),
+                                Integer.toString(automaticDraw.numberDrawn())));
+        }
+
+        @Test
+        void drawAndSessionTransitionRollbackTogether() {
+                GameSession session = startedSession("Draw Rollback Room");
+                Instant dueTime = session.getStartedAt().plus(gameProperties.drawInterval()).plusSeconds(1);
+                TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+
+                assertThrows(IllegalStateException.class, () -> transaction.execute(status -> {
+                        assertTrue(gameLiveDrawService.advanceSessionDrawIfDue(session.getId(), dueTime).isPresent());
+                        throw new IllegalStateException("forced test rollback");
+                }));
+
+                assertEquals(0L, drawEventRepository.countBySessionId(session.getId()));
+                assertEquals(GameSessionState.STARTED,
+                                gameSessionRepository.findById(session.getId()).orElseThrow().getState());
+                assertEquals(0L, jdbcTemplate.queryForObject(
+                                "select count(*) from audit_log_entries where target_id = ? and action = 'BINGO_NUMBER_DRAWN'",
+                                Long.class, session.getId()));
+        }
+
+        @Test
+        void cancellationAndInvalidSessionCannotAdvanceTheDrawEngine() {
+                GameSession session = startedSession("Cancelled Draw Room");
+                bingoGameService.updateSessionState(session.getId(),
+                                new GameSessionStateUpdateRequest(GameSessionState.CANCELLED));
+                Instant dueTime = session.getStartedAt().plus(gameProperties.drawInterval()).plusSeconds(1);
+
+                assertTrue(gameLiveDrawService.advanceSessionDrawIfDue(session.getId(), dueTime).isEmpty());
+                assertTrue(gameLiveDrawService.advanceSessionDrawIfDue(Long.MAX_VALUE, dueTime).isEmpty());
+                assertEquals(0L, drawEventRepository.countBySessionId(session.getId()));
+                assertEquals(GameSessionState.CANCELLED,
+                                gameSessionRepository.findById(session.getId()).orElseThrow().getState());
         }
 
         @Test
         void restartRecoveryReplayAndExhaustionAreHandled() throws Exception {
                 GameSession session = startedSession("Replay Room");
-                Instant dueTime = session.getStartedAt().plus(gameProperties.drawInterval()).plusSeconds(1);
+                Instant recoveredStart = Instant.now().minus(gameProperties.drawInterval()).minusSeconds(1);
+                jdbcTemplate.update("update bingo_sessions set started_at = ? where id = ?",
+                                Timestamp.from(recoveredStart), session.getId());
+                gameLiveDrawScheduler.recoverOnStartup();
+                var recoveredDraw = drawEventRepository.findTopBySessionIdOrderBySequenceNoDesc(session.getId())
+                                .orElseThrow();
+                assertEquals(1, recoveredDraw.getSequenceNo());
+                Instant dueTime = recoveredDraw.getDrawnAt().plus(gameProperties.drawInterval()).plusSeconds(1);
 
                 List<Integer> numbers = new ArrayList<>();
                 Set<Integer> uniqueNumbers = new HashSet<>();
-                for (int index = 0; index < 75; index++) {
+                numbers.add(recoveredDraw.getNumberDrawn());
+                uniqueNumbers.add(recoveredDraw.getNumberDrawn());
+                for (int index = 1; index < 75; index++) {
                         DrawEventResponse draw = gameLiveDrawService.advanceSessionDrawIfDue(session.getId(),
-                                        dueTime.plus(gameProperties.drawInterval().multipliedBy(index))).orElseThrow();
+                                        dueTime.plus(gameProperties.drawInterval().multipliedBy(index - 1)))
+                                        .orElseThrow();
                         numbers.add(draw.numberDrawn());
                         uniqueNumbers.add(draw.numberDrawn());
                 }
 
                 assertEquals(75, numbers.size());
                 assertEquals(75, uniqueNumbers.size());
+                assertTrue(numbers.stream().allMatch(number -> number >= 1 && number <= 75));
+                assertTrue(drawEventRepository.findBySessionIdOrderBySequenceNoAsc(session.getId()).stream()
+                                .allMatch(draw -> draw.getSession().getId().equals(session.getId())));
+                assertTrue(drawEventRepository.findBySessionIdOrderBySequenceNoAsc(session.getId()).stream()
+                                .allMatch(draw -> draw.getDrawnAt() != null));
                 assertEquals(GameSessionState.CLOSED,
                                 gameSessionRepository.findById(session.getId()).orElseThrow().getState());
                 assertFalse(gameLiveDrawService

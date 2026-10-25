@@ -38,6 +38,14 @@ Two persistent test identities were created through real emulator UI registratio
 
 Purchase integration and guard tests target only local MySQL `bingo_qa_test`. They do not post to persistent `bingo_qa`. The `bingo_qa` before/after snapshots use a read-only transaction and compare schema version, all game rows, all wallets, wallet transaction types, accounting journal counts, and Agent #3 float. See [the comparison](evidence/module-04b2-database-readonly.txt) and [the SQL](evidence/module-04b2-database-readonly.sql). No persistent game, wallet, or accounting records were intentionally changed.
 
+## Module 04C execution note — 2026-10-25
+
+Lifecycle and draw integration tests ran only on local MySQL `bingo_qa_test`. Persistent `bingo_qa` was reconciled with SELECT-only before/after snapshots; no rooms, sessions, tickets, draws, claims, entitlements, wallets, wallet transactions, journals, or Agent #3 float were changed. The Android emulator is available, but the persistent database has no eligible live session and QA backend port 8081 is unavailable; no DRAFT or historical session was started or modified. See [the 04C reconciliation](evidence/module-04c-database-readonly.txt) and [SQL](evidence/module-04c-database-readonly.sql).
+
+## Module 04C-1 draw integrity
+
+Backend regression fixtures ran only in isolated `bingo_qa_test`. Persistent `bingo_qa` was checked with the existing SELECT-only Module 04C query; the 04C-1 before/after snapshots are identical, including every room/session/draw, wallet totals, journal totals, and Agent #3 float. No persistent game or financial data was created or changed. Admin port 8080 is reachable, but the QA API at 8081 is unavailable and there is no eligible live session, so browser live-draw E2E was not run. See [04C-1 reconciliation](evidence/module-04c1-database-readonly.txt), [SQL](evidence/module-04c-database-readonly.sql), and [report](modules/module-04c1-draw-integrity.md).
+
 ## Module 02 admin management
 
 The admin browser suite created five retained support tickets (IDs 1–5), four active room/DRAFT session pairs (IDs 1–4), four additional pending players (IDs 7–10), disabled/expired policy history rows (signup IDs 1–7 and transfer IDs 1–5), and two inactive zero-basis-point commission versions. All synthetic player wallets remain at zero ETB. Read-only verification confirmed `bingo_qa`, ten users, the original two agent profiles unchanged (approved user 2 and pending user 3), all new players PENDING, all four sessions DRAFT, and Flyway V14. Full details are in [module-02-database-verify.txt](evidence/module-02-database-verify.txt); browser/API evidence is in the `module-02-*` files. No secrets or session traces are stored in this registry.

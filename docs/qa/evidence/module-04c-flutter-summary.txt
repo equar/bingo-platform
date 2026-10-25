@@ -1,0 +1,12 @@
+flutter_test_exit_code=0
+00:04 +27: D:/GitHub/bingo-platform/bingo-app/test/features/lobby/lobby_screen_test.dart: room listing network error offers retry
+00:05 +29: All tests passed!
+flutter_analyze_exit_code=0
+  vm_service 15.3.0 (15.4.0 available)
+  web 1.1.1 (1.1.2 available)
+  win32 5.15.0 (6.4.0 available)
+Got dependencies!
+23 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+Analyzing bingo-app...                                          
+No issues found! (ran in 6.1s)

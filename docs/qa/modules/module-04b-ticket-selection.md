@@ -2,7 +2,7 @@
 
 Date: 2026-10-25  
 Disposition: **PARTIAL — backend guards verified; Android and several product capabilities remain unverified or unsupported**  
-Scope: Module 04B only. Module 04C onward was not started. No production financial posting was enabled.
+Scope: Module 04B only. No production financial posting was enabled.
 
 ## Existing model
 
@@ -41,7 +41,7 @@ Module 04B-1 added a read-only ticket-format information route from room session
 
 Module 04B remains PARTIAL. Module 04B-2 verifies purchase integrity in isolated MySQL tests and adds a production posting guard. Actual card selection is unsupported by the existing generated-at-purchase model; reservations are unnecessary unless Product approves a future finite selectable inventory. Ticket-sale accounting journal treatment and independent scheduled-time sale cutoff remain policy gaps. Android purchase remains disabled. See [04B-2 cutoff and integrity report](module-04b2-ticket-sale-cutoff.md) and [matrix](module-04b2-test-matrix.md).
 
-Module 02 remains INCOMPLETE, Module 03 remains COMPLETE FOR DEFINED QA SCOPE, and Module 04 remains INCOMPLETE. No work beyond Module 04B was started.
+Module 02 remains INCOMPLETE, Module 03 remains COMPLETE FOR DEFINED QA SCOPE, and Module 04 remains INCOMPLETE. Module 04C has since been assessed separately; see the [04C report](module-04c-game-session-draws.md).
 
 ## References
 

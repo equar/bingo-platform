@@ -1,0 +1,4 @@
+exit_code=0
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 40.22 s -- in com.equar.bingo.backend.OpenApiContractIntegrationTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0
+[INFO] BUILD SUCCESS

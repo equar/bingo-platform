@@ -986,8 +986,8 @@ export async function sessionDraws(sessionId: number, afterSequence?: number) {
   return data;
 }
 
-export async function postDraw(sessionId: number, numberDrawn: number) {
-  const { data } = await http.post<DrawEventResponse>(`/api/v1/admin/sessions/${sessionId}/draws`, { numberDrawn });
+export async function postDraw(sessionId: number) {
+  const { data } = await http.post<DrawEventResponse>(`/api/v1/admin/sessions/${sessionId}/draws`);
   return data;
 }
 
