@@ -1,0 +1,10 @@
+Module 04C-4 focused regression attempt
+Date: 2026-10-25 (Africa/Nairobi)
+Command: mvn -Dmaven.repo.local=C:\Users\16414\.m2\repository -Dtest=DrawRetrySafetyIntegrationTest test
+Scope selected: DrawRetrySafetyIntegrationTest only; broad and destructive suites were not selected.
+
+Result: Surefire reported 2 tests, 0 failures, 2 errors. Neither test body ran. MySqlIntegrationTest rejected the configured local test account before DB connection: Access denied for user 'bingo_test'@'localhost'. No database mutation occurred.
+
+An initial Maven invocation failed before compilation because Maven tried to create C:\.m2\repository. The second invocation used the existing dependency cache under C:\Users\16414\.m2\repository and reached Surefire.
+
+Credentials were not recorded or guessed and the integration guard was not weakened. The separate Flyway upgrade test explicitly calls Flyway clean and was not run. No persistent bingo_qa connection or mutation was performed.

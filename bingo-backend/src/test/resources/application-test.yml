@@ -1,8 +1,8 @@
 spring:
   datasource:
-    url: ${BINGO_TEST_MYSQL_URL:}
-    username: ${BINGO_TEST_MYSQL_USERNAME:}
-    password: ${BINGO_TEST_MYSQL_PASSWORD:}
+    url: ${BINGO_MAVEN_MYSQL_URL:}
+    username: ${BINGO_MAVEN_MYSQL_USERNAME:}
+    password: ${BINGO_MAVEN_MYSQL_PASSWORD:}
     driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
     hibernate:
