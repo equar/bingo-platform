@@ -14,7 +14,7 @@ The room/session detail displays ticket price/currency and configured capacity. 
 
 ## Reservation support
 
-There is no reservation entity, endpoint, expiry, cancellation, or availability hold in the inspected player/game implementation. Purchase is direct. Existing Module 04A documentation says no reservation operation exists, but does not document an approved reservation-exclusion policy. Reservation cases T17–T25 therefore remain a product/design gap and are **BLOCKED**, not N/A.
+The actual model is server-generated random cards at purchase time, not a set of pre-generated cards in a shared finite inventory. No unowned card exists before purchase to reserve. Under this model a separate reservation lifecycle is unnecessary; Module 04B-1 documented that decision and did not add reservation data or endpoints. If Product later asks players to choose specific cards from a finite catalog, inventory identity/uniqueness and reservation expiry/cancellation become explicit design decisions before implementation.
 
 ## Session and purchase boundaries
 
@@ -28,6 +28,8 @@ The existing `ticket-sales-close-on-session-start` server policy controls whethe
 
 ## Verification and evidence
 
+Module 04B-1 added a read-only ticket-format information route from room session details. It displays the server price snapshot, session/capacity availability, configured patterns, and the existing card ranges/free-center rule. It states that a random card is generated only after purchase and that the displayed format is not an assigned ticket. Purchase is disabled in this QA screen. See the [04B-1 design](module-04b1-ticket-selection-design.md), [matrix](module-04b1-test-matrix.md), and [Android evidence](../evidence/module-04b1-android-results.txt).
+
 - Focused MySQL integration class: **18/18 passed**, 0 failures/errors/skips, against guarded local `bingo_qa_test` at schema V22. Includes positive purchase in isolated synthetic financial fixtures, idempotent replay, price/balance/ledger behavior, ticket ownership denial, purchase audit event, capacity concurrency, insufficient-funds rollback, suspended-player/DRAFT/cancelled/completed/inactive-room denial, and cross-session wallet concurrency regressions. See [focused backend results](../evidence/module-04b-backend-focused-summary.txt) and the [sanitized command log](../evidence/module-04b-backend-focused.log).
 - Full backend suite: **150/150 passed**, 0 failures/errors/skips, real MySQL `bingo_qa_test` at V22. See [full backend results](../evidence/module-04b-backend-full-summary.txt) and [sanitized command log](../evidence/module-04b-backend-full.log).
 - Flutter focused game controller/reconnect tests: **5/5 passed**. Full Flutter player suite: **27/27 passed**. Flutter analyzer: **clean, no issues found**. No Flutter source changed in this module. See [Flutter results](../evidence/module-04b-flutter-results.txt).
@@ -37,12 +39,14 @@ The existing `ticket-sales-close-on-session-start` server policy controls whethe
 
 ## Remaining blockers
 
-Module 04B cannot be marked complete. The Android app has no supported route from the lobby to the ticket purchase screen, so the prohibited-purchase Android step remains unverified. The app lacks pre-purchase ticket selection and availability, does not show price beside a purchase action, and has no reservation contract. Ticket-sale accounting journal treatment is also undefined. Reservation semantics, independent scheduled-time sale cutoff, and approved design status for those missing capabilities need product decisions.
+Module 04B remains PARTIAL. The read-only preview is verified, but it intentionally does not enable purchase, create a ticket, or debit a wallet. Actual card selection is unsupported by the existing generated-at-purchase model; reservations are unnecessary unless Product approves a future finite selectable inventory. Ticket-sale accounting journal treatment and independent scheduled-time sale cutoff remain policy gaps. The Android preview verifies the disabled state; real paid-purchase behavior remains outside this nonfinancial module.
 
 Module 02 remains INCOMPLETE, Module 03 remains COMPLETE FOR DEFINED QA SCOPE, and Module 04 remains INCOMPLETE. No work beyond Module 04B was started.
 
 ## References
 
 - [Module 04B test matrix](module-04b-test-matrix.md)
+- [Module 04B-1 ticket information design](module-04b1-ticket-selection-design.md)
+- [Module 04B-1 test matrix](module-04b1-test-matrix.md)
 - [Module 04A player lobby](module-04a-game-lobby.md)
 - [Module 02E game administration](module-02e-game-admin.md)
