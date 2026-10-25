@@ -1,0 +1,7 @@
+Module 04A backend results — 2026-10-24
+
+Database: local MySQL bingo_qa_test only (guarded .env.test); no Docker, Testcontainers, H2, or persistent bingo_qa writes.
+Focused integration: 15 tests, 0 failures, 0 errors, 0 skipped; BUILD SUCCESS.
+Full backend suite: 146 tests, 0 failures, 0 errors, 0 skipped; BUILD SUCCESS.
+Coverage includes authenticated room/session reads, PLAYER-only access, anonymous/agent denial, suspended token denial, inactive room/session filtering, invalid ID error safety, response-field exclusions, and no ticket/wallet mutation from reads.
+Raw full Maven output retained under ignored .tmp/module-04a-backend-full-final.log; focused output under ignored .tmp/module-04a-backend-focused-final.log.

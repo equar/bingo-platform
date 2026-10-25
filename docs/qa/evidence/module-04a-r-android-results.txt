@@ -1,0 +1,13 @@
+Module 04A-R Android network recovery (2026-10-24; emulator-5554, API 37)
+
+Fixed normal Flutter debug APK installed over existing app data. Synthetic player #181 remained authenticated. Backend host health UP; emulator TCP probe to 10.0.2.2:8081 exit 0.
+
+Post-fix Android journey:
+- App-only network denial and lobby refresh produced the generic “Something went wrong / Couldn't load rooms. Check your connection and retry.” state (module-04a-r-offline-error.png).
+- Tapping Retry while still offline entered Loading and removed the Retry action; screenshot module-04a-r-retry-pending.png. Process remained PID 11044.
+- Restored package networking and disabled firewall chain; independently verified emulator TCP probe exit 0 and host health UP.
+- Tapped visible Retry in the same screen. Lobby rooms loaded; error/loading disappeared; app PID remained 11044. Opened first room and verified existing DRAFT session, ETB 25.0, capacity 100 and UTC schedule. Screenshots: module-04a-r-recovered-lobby.png and module-04a-r-recovered-room-session.png.
+
+A separate Flutter test reproduced duplicate Retry availability while the previous error state was retained during refresh. Fixed by rendering loading during refresh. Post-fix widget suite 6/6 and analyzer clean.
+
+No ticket/wallet/gameplay action used. Persistent SELECT snapshot identical: 33 rooms, 18 sessions, 0 tickets, draws, claims, entitlements, and 19 wallet transactions. No credentials or tokens recorded. Emulator networking restored to allow, firewall disabled.

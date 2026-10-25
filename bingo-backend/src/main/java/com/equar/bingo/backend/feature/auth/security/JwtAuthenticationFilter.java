@@ -44,7 +44,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             try {
                 String subject = jwtService.extractSubject(token);
                 BingoUserPrincipal principal = (BingoUserPrincipal) userDetailsService.loadUserByUsername(subject);
-                if (jwtService.isTokenValid(token, principal.getUsername()) && principal.isEnabled()) {
+                if (jwtService.isTokenValid(token, principal.getUsername()) && principal.isEnabled()
+                        && principal.isAccountNonLocked()) {
                     authenticatedPrincipal = principal;
                 }
             } catch (Exception ignored) {

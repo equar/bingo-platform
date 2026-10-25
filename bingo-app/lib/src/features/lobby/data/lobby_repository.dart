@@ -16,5 +16,8 @@ class LobbyRepository {
 
   Future<BingoRoom> getRoom(int roomId) => _api.getRoom(roomId);
 
+  Future<List<GameSession>> getRoomSessions(int roomId) =>
+      _api.getRoomSessions(roomId);
+
   Future<GameSession> getSession(int sessionId) => _api.getSession(sessionId);
 }

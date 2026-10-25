@@ -1,0 +1,7 @@
+Module 04A-R Flutter verification (2026-10-24)
+Command: flutter test test/features/lobby/lobby_screen_test.dart --reporter expanded
+Result: 6 passed, 0 failed. Includes lobby error/retry and pending retry duplicate-request guard.
+Regression: pending retry cannot be submitted again; while one request is pending, Retry is absent and only one retry request is counted. Completion renders the lobby successfully.
+Command: flutter analyze
+Result: No issues found.
+Fix: Lobby AsyncValue.when uses skipLoadingOnRefresh: false so invalidating a failed request immediately enters loading rather than retaining an actionable stale error view.
