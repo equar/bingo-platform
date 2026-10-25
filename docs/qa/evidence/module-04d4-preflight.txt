@@ -1,0 +1,32 @@
+Module 04D-4 preflight evidence — 2026-10-25 (Africa/Nairobi)
+
+Safety disposition
+- No test backend was started. No test API was called. No DB record or grant was changed. No Flyway clean, ticket purchase, wallet/float posting, claim, settlement or external payment call occurred.
+- Development listener PID 29808 is BingoBackendApplication with active profile dev; startup logs identify schema bingo. It was explicitly not used for QA.
+
+Read-only MySQL identity
+- Connection target was validated in memory against ignored bingo-backend/.env.test: 127.0.0.1:3306/bingo_qa_test. No secret values were printed or saved.
+- Query: SELECT DATABASE(), CURRENT_USER(), @@version; result: bingo_qa_test; bingo_qa_test_runner@127.0.0.1; 8.0.36.
+- Query: SHOW GRANTS FOR CURRENT_USER(); result: global USAGE and ALL PRIVILEGES ON bingo_qa_test.*.
+- Read-only SHOW TABLES checks for bingo, bingo_qa and bingo_qa_maven_test were denied.
+- Read-only bingo_qa_test.flyway_schema_history query: V22, success=1. No migration ran.
+- Safe QA runtime start was stopped at the grant gate because ALL PRIVILEGES includes destructive DDL. Cross-schema isolation alone is insufficient authorization for this runtime.
+
+Source/configuration review
+- android-test profile: datasource from BINGO_TEST_MYSQL_*; Hibernate validate; Flyway clean-disabled=true; validate-on-migrate=true; simulation/posting switches false; no createDatabaseIfNotExist parameter.
+- Runtime identity reporter is opt-in, requires build commit/checksum values, and currently checks profile, database URL/catalog, Flyway version and financial flags. It does not verify CURRENT_USER or SHOW GRANTS, so actual grant least-privilege must be verified before enabling it.
+- Prize settlement remains fail-closed as PRIZE_SETTLEMENT_BLOCKED. PaymentProvider is configuration-only; no external payment network client found in the reviewed claim/payment path.
+- No approved nonfinancial ticket fixture route found: player purchase invokes the guarded wallet debit path; agent ticket issue is reached through agent float debit and commission accrual.
+
+Database-free tests
+- Maven focused tests: 26 tests, 0 failures, 0 errors, 0 skipped; BUILD SUCCESS. No Spring integration context or MySqlIntegrationTest subclass selected.
+- Flutter live_game_controller_test.dart: 1/1 passed.
+- Flutter analyze: No issues found.
+- Admin ClaimsPage.test.tsx: 6 tests passed with mocked API calls.
+- No emulator, real Chromium, QA API or business-data reconciliation was performed.
+
+Remaining blockers
+- DBA review/narrowing of bingo_qa_test_runner grants; preserve schema-scoped isolation and verify denied access again.
+- Product-approved nonfinancial creation of a dedicated owned ticket/session/draw fixture.
+- After gates pass: start android-test on 127.0.0.1:8082 with credential-free runtime identity logging that also checks authenticated MySQL user/grants; then run scoped Android/Admin E2E and read-only reconciliation.
+- Dedicated bingo_qa_maven_test remains separate and unprovisioned; no Maven DB tests were run.

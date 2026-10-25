@@ -1,17 +1,16 @@
 package com.equar.bingo.backend;
 
-import java.net.URI;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Locale;
+import com.equar.bingo.backend.config.MavenTestDatabasePolicy;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
 /** Shared database guard for integration tests that create, mutate, or delete data. */
 public abstract class MySqlIntegrationTest {
-    public static final String DATABASE = "bingo_qa_maven_test";
-    private static final String REQUIRED_USERNAME = "bingo_qa_maven_runner";
+    public static final String DATABASE = MavenTestDatabasePolicy.DATABASE;
     private static final TestDatabase TEST_DATABASE = requireIsolatedTestDatabase();
 
     @DynamicPropertySource
@@ -29,27 +28,7 @@ public abstract class MySqlIntegrationTest {
         String url = required("BINGO_MAVEN_MYSQL_URL");
         String username = required("BINGO_MAVEN_MYSQL_USERNAME");
         String password = required("BINGO_MAVEN_MYSQL_PASSWORD");
-        if (!url.startsWith("jdbc:mysql://")) {
-            throw new IllegalStateException("BINGO_MAVEN_MYSQL_URL must be a local MySQL URL for " + DATABASE);
-        }
-        if (!REQUIRED_USERNAME.equals(username)) {
-            throw new IllegalStateException("BINGO_MAVEN_MYSQL_USERNAME must be " + REQUIRED_USERNAME);
-        }
-
-        URI uri;
-        try {
-            uri = URI.create(url.substring("jdbc:".length()));
-        } catch (IllegalArgumentException exception) {
-            throw new IllegalStateException("BINGO_MAVEN_MYSQL_URL is not a valid MySQL JDBC URL", exception);
-        }
-        String path = uri.getPath();
-        boolean localHost = "127.0.0.1".equals(uri.getHost()) || "localhost".equalsIgnoreCase(uri.getHost());
-        if (!localHost || uri.getPort() != 3306 || !("/" + DATABASE).equals(path)
-                || createsDatabaseIfMissing(uri.getRawQuery())) {
-            throw new IllegalStateException(
-                    "Refusing integration tests: BINGO_MAVEN_MYSQL_URL must target local " + DATABASE
-                            + " on port 3306 with database creation disabled");
-        }
+        MavenTestDatabasePolicy.validate(url, username);
 
         TestDatabase database = new TestDatabase(url, username, password);
         try (Connection connection = DriverManager.getConnection(url, username, password)) {
@@ -97,21 +76,6 @@ public abstract class MySqlIntegrationTest {
                         "Refusing integration tests: Maven account host must be local; wildcard is CI-only");
             }
         }
-    }
-
-    private static boolean createsDatabaseIfMissing(String query) {
-        if (query == null || query.isBlank()) {
-            return false;
-        }
-        for (String parameter : query.split("&")) {
-            String[] pair = parameter.split("=", 2);
-            if ("createdatabaseifnotexist".equalsIgnoreCase(pair[0])
-                    && pair.length == 2
-                    && Boolean.parseBoolean(pair[1])) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private static void assertOnlyDisposableSchemaGrants(Connection connection) throws SQLException {

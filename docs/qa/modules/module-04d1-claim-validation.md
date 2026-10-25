@@ -1,6 +1,6 @@
 # Module 04D-1 — Bingo Claim Rules, Authorization and Nonfinancial Validation
 
-Disposition: **PARTIAL — production pattern logic was executed against deterministic data; Maven/JUnit and Flutter runtime validation could not be completed in this environment. A cancelled-session submission guard is missing by code inspection.**
+Disposition: **PARTIAL — pattern logic was executed during 04D-1; Module 04D-2 later recovered focused Java/Flutter validation and added the cancelled-session guard. Real database-backed claim integration remains unverified.**
 
 Scope: Module 04D-1 only. No gameplay tests, MySQL administration, database-backed mutation, settlement, wallet credit, or financial posting was performed. Module 04D remains PARTIAL.
 
@@ -16,7 +16,7 @@ Scope: Module 04D-1 only. No gameplay tests, MySQL administration, database-back
 
 ## Findings and open rules
 
-**Cancelled-session guard gap:** `submitWinClaim` obtains the ticket/session but does not check session state before evaluating and saving the claim. The claim endpoint can therefore reach claim creation for a ticket attached to a cancelled session if the pattern matches. C13 is FAIL by direct source inspection; runtime confirmation was not run. Add an explicit server-side CANCELLED rejection before considering integration coverage complete.
+**Module 04D-2 update:** the prior CANCELLED-session guard gap has been fixed. The service now locks and validates the authoritative session state before claim creation. Focused database-free service tests cover cancellation rejection, no claim save/award or wallet collaborator calls, and preservation of STARTED/CLOSED behavior. Real MySQL serialization and persisted audit verification remain untested. See [Module 04D-2 report](module-04d2-claim-e2e.md) and [matrix](module-04d2-test-matrix.md).
 
 **Closed-session policy:** the submission method also has no state gate for CLOSED sessions. No source-level claim eligibility rule distinguishes CLOSED from STARTED, and the supplied scope says to follow the existing eligibility rule. Product must define whether claims remain eligible after closure before behavior can be changed or C14 can pass.
 
@@ -30,14 +30,14 @@ The admin page supports claim search/filter, displays pattern, validation, statu
 
 ## Database-free validation
 
-The added JUnit test class `BingoPatternEvaluatorTest` targets the production evaluator. Maven could not run it: the first invocation was blocked by an unwritable default `C:\.m2\repository`; an explicit local repository invocation reached compilation but failed reading a cached Spring Boot JAR. It failed before Surefire and before any Spring context or database access.
+The added JUnit test class `BingoPatternEvaluatorTest` targets the production evaluator. At the end of 04D-1, Maven could not run it: the first invocation was blocked by an unwritable default `C:\.m2\repository`; an explicit local repository invocation reached compilation but failed reading/resolving a cached Spring Boot JAR. Module 04D-2 later recovered selected unit execution with a forked compiler; see its report and evidence.
 
 As a database-free fallback, `javac` compiled only the production `BingoPatternType`, `BingoCard`, `BingoPatternEvaluator` sources and a temporary assertion harness; `java` executed six assertions successfully: LINE complete/missing, TWO_LINES complete/insufficient, and FULL_HOUSE complete/missing (including the free center). No mock or test-only rule implementation was used. This validates the pure pattern evaluator only, not the service, authorization, repositories, audit persistence, or HTTP behavior. Harness/source output is in [pure logic evidence](../evidence/module-04d1-pure-logic.txt).
 
-Flutter `test/features/game/live_game_controller_test.dart`, `flutter analyze`, and even `flutter --version` remained silent/hung in the local tool process; they were interrupted. Flutter validation is NOT RUN. No claim mutation was sent to persistent or test QA.
+At the time of Module 04D-1, Flutter validation could not start. Module 04D-2 recovered the SDK invocation using a command-scoped Git safe-directory setting and tool-approved access to the SDK cache; the claim controller retry test passed 1/1 and `flutter analyze` reported no issues. No claim mutation was sent to persistent or test QA.
 
 ## Matrix disposition and remaining blockers
 
-Scenario-level outcomes are in the [test matrix](module-04d1-test-matrix.md). Runtime authorization, ticket ownership, idempotency/concurrency, audit persistence, UI retry, and session eligibility remain unverified. The direct source finding for C13 is a failure. Maven and Flutter execution blockers prevent nonfinancial-review completion. No QA database or financial records were accessed or modified by this module's commands; no independent before/after database reconciliation was performed.
+Scenario-level outcomes are in the [test matrix](module-04d1-test-matrix.md). Runtime HTTP authorization, ticket ownership, idempotency/concurrency, audit persistence, and full Android claim flow remain unverified. CANCELLED rejection and Flutter retry received focused unit/controller coverage in Module 04D-2, but database row locking and audit persistence still need integration verification. No QA database or financial records were accessed or modified by these modules; no independent before/after database reconciliation was performed.
 
 Module 04C stays PARTIAL, Module 04B stays PARTIAL, Module 02 stays INCOMPLETE, and Module 03 stays COMPLETE FOR DEFINED QA SCOPE. No Module 04E work was started. No commit or push was made.

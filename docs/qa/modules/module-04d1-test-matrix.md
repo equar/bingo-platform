@@ -16,13 +16,13 @@ Statuses describe this module's evidence. PASS is reserved for executed checks; 
 | C10 | Claim with insufficient drawn numbers is rejected | BLOCKED | Pure evaluator missing-number cases pass, but server draw sourcing/service persistence was not executed. |
 | C11 | Duplicate claim is handled safely | BLOCKED | Idempotency, service existence check, and unique constraints inspected; database replay not executed. |
 | C12 | Concurrent duplicate claims cannot create multiple awards | BLOCKED | Unique keys exist in source/schema; no concurrency test or MySQL available. |
-| C13 | Cancelled session rejects claims | FAIL | `submitWinClaim` has no session-state check before claim save. This is a source finding; runtime not executed. |
+| C13 | Cancelled session rejects claims | PASS | Module 04D-2 production-service unit test rejects the locked authoritative CANCELLED state before claim persistence. MySQL lock ordering remains BLOCKED. |
 | C14 | Closed session follows existing claim eligibility rules | BLOCKED | No explicit eligibility rule/state gate found. Product decision required; no runtime execution. |
 | C15 | Server verifies the winning pattern independently | BLOCKED | Service calls the production evaluator using DB-loaded numbers, but server/service runtime was not exercised. Production evaluator's six deterministic assertion harness checks PASS; this is narrower than C15. |
 | C16 | Client cannot choose or modify authoritative draw history | BLOCKED | DTO has only `claimedPattern`; service obtains current sequence/numbers server-side. No HTTP tampering test executed. |
 | C17 | Invalid claim requests do not create awards | BLOCKED | Nonmatching case creates a FAILED_SERVER_VALIDATION claim record; entitlement creation occurs only in separate admin approval. Runtime/DB assertion not executed. |
 | C18 | Valid claim produces appropriate nonfinancial audit evidence | BLOCKED | Generic audit aspect covers `submitWinClaim`; persisted event and metadata not verified. |
-| C19 | Network retry behavior is documented | NOT RUN | Source shows pending idempotency key retained after failure; targeted Flutter controller test and offline UI behavior did not execute. |
+| C19 | Network retry behavior is documented | PASS | Module 04D-2 focused Flutter controller test passed 1/1 and confirmed reuse of the pending idempotency key after simulated submit failure. Real offline Android E2E remains BLOCKED. |
 | C20 | No wallet credit or prize settlement occurs during this module | PASS | Module ran only pure Java source compilation/assertions and source inspections. No application endpoints, settlement operations, wallet operations, or database mutations were invoked. |
 
 ## Executed pure logic checks

@@ -46,6 +46,7 @@ public class TestRuntimeIdentityReporter implements ApplicationRunner {
         requireDisabled("app.wallet.deposit-simulation-enabled");
         requireDisabled("app.wallet.adjustment-simulation-enabled");
         requireDisabled("app.agent.float-simulation-enabled");
+        requireDisabled("app.qa.synthetic-financial-tests-enabled");
 
         try (Connection connection = dataSource.getConnection()) {
             String jdbcUrl = connection.getMetaData().getURL();

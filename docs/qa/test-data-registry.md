@@ -250,3 +250,19 @@ Real Android emulator-5554 checks passed for force-stop/relaunch history restore
 ## Module 04D-1 note — 2026-10-25
 
 No claim, ticket, session, entitlement, wallet, or audit fixture was created or modified for Module 04D-1. The work used source inspection and a deterministic pure Java pattern-evaluator harness only; it did not connect to `bingo_qa`, `bingo_qa_test`, or the unprovisioned `bingo_qa_maven_test`. No before/after database reconciliation was performed in this module. See [Module 04D-1 evidence](evidence/module-04d1-pure-logic.txt).
+
+## Module 04D-2 note — 2026-10-25
+
+No persistent or test database was accessed and no claim, ticket, session, entitlement, audit, wallet, or settlement fixture was created or modified. Only mocked repository unit tests and a Flutter fake-repository controller test ran. MySQL E2E remains BLOCKED pending verified isolation/account access and an approved ticket fixture path. See [Module 04D-2 evidence](evidence/module-04d2-execution.txt).
+
+## Module 04D-3 note — 2026-10-25
+
+No database connection or financial operation occurred, and no QA business/test fixtures were created, modified, or deleted. Verification used database-free Java guard/policy and claim unit tests, plus a Flutter fake-repository claim test and analyzer. The local MySQL service exists, but the dedicated Maven schema/account and grants remain unverified; Android/Admin fixture isolation and an approved eligible-ticket fixture path remain unresolved. See [Module 04D-3 evidence](evidence/module-04d3-safety-checks.txt).
+
+## Module 04D-4 note — 2026-10-25
+
+Read-only MySQL checks authenticated using existing local `.env.test` credentials and inspected `bingo_qa_test` grants, cross-schema denials, and Flyway V22. No QA backend was started because the Android account has `ALL PRIVILEGES` on `bingo_qa_test.*`, including destructive DDL. No fixture, claim, ticket, session, wallet, audit or settlement record was created, modified, or deleted; no Android/API/Chromium E2E ran. A player ticket purchase would debit a wallet, and the agent ticket route uses float funding and commission; no approved nonfinancial synthetic-ticket mechanism was found. Focused Java, Flutter, analyzer and mocked Admin claim tests are recorded in [Module 04D-4 evidence](evidence/module-04d4-preflight.txt).
+
+## Module 04D-5B note — 2026-10-25
+
+Design and database-free validation only. No MySQL was contacted; no migrations, fixture writers, routes, records, claims, tickets, sessions, wallet changes or audit rows were created. Existing generated-card, claim-security, pattern, financial-guard and DB-target policy tests passed 24/24. Static review confirmed purchase/agent financial paths, claim ownership/session/pattern checks and role guards. Recommended architecture and future reconciliation are in [Module 04D-5B design](modules/module-04d5b-ticket-fixture-design.md) and [matrix](modules/module-04d5b-e2e-matrix.md); execution output is in [evidence](evidence/module-04d5b-design-checks.txt).

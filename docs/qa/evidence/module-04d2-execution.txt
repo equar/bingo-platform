@@ -1,0 +1,43 @@
+Module 04D-2 execution evidence
+Date: 2026-10-25 (Africa/Nairobi)
+
+Production change:
+- Added WinClaimSessionValidator: CANCELLED => SESSION_CANCELLED conflict; null status => SESSION_STATE_INVALID conflict.
+- submitWinClaim now locks the authoritative session row with GameSessionRepository.findByIdForUpdate inside its transaction/idempotent supplier, after PLAYER and ticket ownership checks and before draw validation/claim save.
+- updateSessionState already takes the same pessimistic session-row lock.
+- CLOSED behavior unchanged. No database call, claim, award, audit row, or financial operation was made by this work.
+
+Java environment:
+- Java: 25.0.2 (Oracle, 2026-01-20 LTS)
+- Maven: 3.9.6
+- Maven Compiler Plugin: 3.15.0; Surefire: 3.5.6
+- Offline local repository: C:\Users\16414\.m2\repository
+- `jar tf` succeeded on spring-boot-starter-jackson-4.1.1.jar; the JAR is structurally readable.
+- Test-NetConnection repo.maven.apache.org:443 returned False; network resolution/download was unavailable.
+- In-process Javac reported AccessDeniedException resolving the cached JAR real path during ZipFileSystem cleanup. Using `-Dmaven.compiler.fork=true` allowed the selected test build to complete with BUILD SUCCESS; the diagnostic still appeared in compiler output. No dependency cache deletion or rewrite was performed.
+
+Exact focused command:
+mvn -o -Dmaven.repo.local=C:\Users\16414\.m2\repository -Dmaven.compiler.fork=true -Dtest=WinClaimSessionSecurityTest,BingoPatternEvaluatorTest,BingoGameRulesTest,GameSessionStateTest test
+
+Surefire: 15 tests, 0 failures, 0 errors, 0 skipped.
+- WinClaimSessionSecurityTest: 6 passed (cancelled authoritative status, no claim/award/financial collaborator calls, STARTED continues, CLOSED unchanged, null status controlled conflict, request DTO/endpoint contract).
+- BingoPatternEvaluatorTest: 3 passed.
+- BingoGameRulesTest: 4 passed.
+- GameSessionStateTest: 2 passed.
+No Spring application context or MySQL-backed integration class was selected.
+
+Flutter environment recovery:
+- SDK: Flutter 3.47.7 stable, Dart 3.13.5.
+- Initial hang cause: Flutter SDK at C:\src\flutter is outside workspace write roots; batch wrapper spins trying to acquire its SDK cache lock. Git also rejected SDK checkout ownership under sandbox identity. No global Git config was changed and no SDK lock was deleted.
+- A command-scoped GIT_CONFIG safe.directory=C:/src/flutter plus tool-approved elevated invocation allowed the CLI to start.
+- `flutter test test/features/game/live_game_controller_test.dart`: 1/1 passed; key reused after simulated submit failure.
+- `flutter analyze`: No issues found (61.2 seconds).
+- Flutter reported newer package versions but none were applied.
+
+Database/E2E gate:
+- A local MySQL server is present (the prior 04C-5B diagnostic observed MySQL80 running). This module did not attempt a DB connection.
+- `bingo_qa_maven_test` remains unprovisioned per Module 04C-5B; no authorized DBA login or current account grants are verified.
+- Android/Admin `bingo_qa_test` isolation/grants were not reverified. No connection attempt was made.
+- Static config review: `application-test.yml` currently has signup-reward test posting, deposit simulation, adjustment simulation, and agent-float simulation set to true. No Spring context was started; this Maven E2E profile fails the requested disabled-posting preflight until safely overridden/disabled and verified. `application-android-test.yml` sets these flags false.
+- No test database before/after SQL snapshots, claim IDs, audit IDs, Android screenshots, or Admin browser screenshots exist because no fixture was created and no E2E ran.
+- Persistent `bingo_qa` was not accessed. No wallet or prize settlement operation was invoked.
