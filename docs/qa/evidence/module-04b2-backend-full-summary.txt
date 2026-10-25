@@ -1,0 +1,34 @@
+exit_code=0
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 9.202 s -- in com.equar.bingo.backend.A00FlywayUpgradeRecoveryIntegrationTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 34.09 s -- in com.equar.bingo.backend.OpenApiContractIntegrationTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.133 s -- in com.equar.bingo.backend.common.exception.GlobalExceptionHandlerTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 4.313 s -- in com.equar.bingo.backend.common.idempotency.FlywayV7MigrationIntegrationTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.424 s -- in com.equar.bingo.backend.common.idempotency.IdempotencyServiceIntegrationTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.005 s -- in com.equar.bingo.backend.common.money.MoneyValuesTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 2.798 s -- in com.equar.bingo.backend.feature.admin.service.AdminReadServiceTest
+[INFO] Tests run: 16, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 28.21 s -- in com.equar.bingo.backend.feature.agent.AgentServiceIntegrationTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 10.39 s -- in com.equar.bingo.backend.feature.agent.AgentTicketSaleHttpIntegrationTest
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.001 s -- in com.equar.bingo.backend.feature.audit.aspect.AuditLogAspectTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 9.141 s -- in com.equar.bingo.backend.feature.auth.AdminAccountActivationIntegrationTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 8.807 s -- in com.equar.bingo.backend.feature.auth.AdminTemporaryPasswordIntegrationTest
+[INFO] Tests run: 28, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 57.73 s -- in com.equar.bingo.backend.feature.auth.AuthSecurityIntegrationTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.201 s -- in com.equar.bingo.backend.feature.auth.AuthenticationAttemptThrottleIntegrationTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.004 s -- in com.equar.bingo.backend.feature.auth.security.AuthenticationClientAddressResolverTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.008 s -- in com.equar.bingo.backend.feature.auth.service.AdminAccountNotificationServiceTest
+[INFO] Tests run: 12, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.336 s -- in com.equar.bingo.backend.feature.auth.service.AdminAuthServiceTest
+[INFO] Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.023 s -- in com.equar.bingo.backend.feature.auth.service.AdminUserServiceTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.005 s -- in com.equar.bingo.backend.feature.auth.service.EthiopianPhoneNormalizerTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.083 s -- in com.equar.bingo.backend.feature.auth.service.JwtServiceConfigurationTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 2.250 s -- in com.equar.bingo.backend.feature.game.AuthenticatedStompIntegrationTest
+[INFO] Tests run: 20, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 52.03 s -- in com.equar.bingo.backend.feature.game.BingoGameIntegrationTest
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.004 s -- in com.equar.bingo.backend.feature.game.BingoGameRulesTest
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 13.28 s -- in com.equar.bingo.backend.feature.game.BingoLiveDrawIntegrationTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.002 s -- in com.equar.bingo.backend.feature.game.GameSessionStateTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.009 s -- in com.equar.bingo.backend.feature.game.websocket.GameWebSocketJwtChannelInterceptorTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 5.181 s -- in com.equar.bingo.backend.feature.support.SupportIntegrationTest
+[INFO] Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.402 s -- in com.equar.bingo.backend.feature.support.service.SupportServiceTest
+[INFO] Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.630 s -- in com.equar.bingo.backend.feature.wallet.LocalFinancialSimulationGuardTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 5.793 s -- in com.equar.bingo.backend.feature.wallet.SignupRewardPostingGuardIntegrationTest
+[INFO] Tests run: 16, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 28.81 s -- in com.equar.bingo.backend.feature.wallet.WalletIntegrationTest
+[INFO] Tests run: 155, Failures: 0, Errors: 0, Skipped: 0
+[INFO] BUILD SUCCESS

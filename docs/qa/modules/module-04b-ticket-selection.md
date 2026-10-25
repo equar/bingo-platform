@@ -39,7 +39,7 @@ Module 04B-1 added a read-only ticket-format information route from room session
 
 ## Remaining blockers
 
-Module 04B remains PARTIAL. The read-only preview is verified, but it intentionally does not enable purchase, create a ticket, or debit a wallet. Actual card selection is unsupported by the existing generated-at-purchase model; reservations are unnecessary unless Product approves a future finite selectable inventory. Ticket-sale accounting journal treatment and independent scheduled-time sale cutoff remain policy gaps. The Android preview verifies the disabled state; real paid-purchase behavior remains outside this nonfinancial module.
+Module 04B remains PARTIAL. Module 04B-2 verifies purchase integrity in isolated MySQL tests and adds a production posting guard. Actual card selection is unsupported by the existing generated-at-purchase model; reservations are unnecessary unless Product approves a future finite selectable inventory. Ticket-sale accounting journal treatment and independent scheduled-time sale cutoff remain policy gaps. Android purchase remains disabled. See [04B-2 cutoff and integrity report](module-04b2-ticket-sale-cutoff.md) and [matrix](module-04b2-test-matrix.md).
 
 Module 02 remains INCOMPLETE, Module 03 remains COMPLETE FOR DEFINED QA SCOPE, and Module 04 remains INCOMPLETE. No work beyond Module 04B was started.
 

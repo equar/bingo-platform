@@ -55,6 +55,7 @@ import com.equar.bingo.backend.feature.wallet.entity.WalletTransaction;
 import com.equar.bingo.backend.feature.wallet.entity.WalletTransactionType;
 import com.equar.bingo.backend.feature.wallet.repository.WalletRepository;
 import com.equar.bingo.backend.feature.wallet.repository.WalletTransactionRepository;
+import com.equar.bingo.backend.feature.wallet.service.LocalFinancialSimulationGuard;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
@@ -99,6 +100,7 @@ public class BingoGameService {
     private final RequestHashService requestHashService;
     private final ObjectMapper objectMapper;
     private final ApplicationEventPublisher applicationEventPublisher;
+    private final LocalFinancialSimulationGuard ticketPurchasePostingGuard;
 
     public BingoGameService(BingoRoomRepository bingoRoomRepository,
             GameSessionRepository gameSessionRepository,
@@ -114,7 +116,8 @@ public class BingoGameService {
             IdempotencyService idempotencyService,
             RequestHashService requestHashService,
             ObjectMapper objectMapper,
-            ApplicationEventPublisher applicationEventPublisher) {
+            ApplicationEventPublisher applicationEventPublisher,
+            LocalFinancialSimulationGuard ticketPurchasePostingGuard) {
         this.bingoRoomRepository = bingoRoomRepository;
         this.gameSessionRepository = gameSessionRepository;
         this.ticketRepository = ticketRepository;
@@ -132,6 +135,7 @@ public class BingoGameService {
         this.requestHashService = requestHashService;
         this.objectMapper = objectMapper;
         this.applicationEventPublisher = applicationEventPublisher;
+        this.ticketPurchasePostingGuard = ticketPurchasePostingGuard;
     }
 
     @Transactional(readOnly = true)
@@ -364,6 +368,7 @@ public class BingoGameService {
     public IdempotentResult<TicketPurchaseResponse> purchaseTicket(Long sessionId, BingoUserPrincipal principal,
             String idempotencyKey) {
         User player = requirePlayer(principal);
+        ticketPurchasePostingGuard.requireIsolatedTestDatabase("Player ticket purchase");
         GameSession session = gameSessionRepository.findByIdForUpdate(sessionId)
                 .orElseThrow(() -> new NotFoundException("SESSION_NOT_FOUND", "Game session not found"));
         BingoRoom room = session.getRoom();
@@ -641,7 +646,8 @@ public class BingoGameService {
                 || session.getState() == GameSessionState.CANCELLED) {
             throw new ConflictException("SESSION_NOT_OPEN", "Ticket sales are closed for this session");
         }
-        if (gameProperties.ticketSalesCloseOnSessionStart() && session.getStartedAt() != null) {
+        if ((gameProperties.ticketSalesCloseOnSessionStart() || session.isTicketSalesCloseOnSessionStart())
+                && session.getStartedAt() != null) {
             throw new ConflictException("SESSION_ALREADY_STARTED", "Ticket sales close when the session starts");
         }
     }
