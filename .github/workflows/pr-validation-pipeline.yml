@@ -51,6 +51,15 @@ jobs:
           java-version: "25"
           cache: maven
 
+      - name: Restrict Maven test account to disposable schema
+        env:
+          MYSQL_PWD: root
+        run: |
+          mysql --protocol=TCP --host=127.0.0.1 --user=root --execute="
+            REVOKE ALL PRIVILEGES, GRANT OPTION FROM 'bingo_qa_maven_runner'@'%';
+            GRANT ALL PRIVILEGES ON bingo_qa_maven_test.* TO 'bingo_qa_maven_runner'@'%';
+          "
+
       - name: Run Maven verify and OpenAPI contract check against MySQL
         working-directory: bingo-backend
         run: mvn -q verify
