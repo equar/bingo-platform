@@ -12,6 +12,7 @@ import com.equar.bingo.backend.feature.game.repository.DrawEventRepository;
 import com.equar.bingo.backend.feature.game.repository.GameSessionRepository;
 import com.equar.bingo.backend.feature.user.entity.User;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -130,7 +131,7 @@ public class GameLiveDrawService {
         draw.setNumberDrawn(pickNumber(remainingNumbers));
         draw.setOperationId(java.util.UUID.randomUUID().toString());
         draw.setDrawnBy(requestedBy);
-        draw.setDrawnAt(now);
+        draw.setDrawnAt(now.truncatedTo(ChronoUnit.MICROS));
         draw = drawEventRepository.save(draw);
 
         if (remainingNumbers.size() == 1) {

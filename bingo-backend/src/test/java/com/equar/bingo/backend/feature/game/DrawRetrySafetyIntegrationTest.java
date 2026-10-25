@@ -34,7 +34,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -297,8 +296,7 @@ class DrawRetrySafetyIntegrationTest extends MySqlIntegrationTest {
                 .filter(draw -> draw.getSequenceNo() == response.sequenceNo())
                 .findFirst()
                 .orElseThrow();
-        assertEquals(response.drawnAt().truncatedTo(ChronoUnit.MICROS),
-                persisted.getDrawnAt().truncatedTo(ChronoUnit.MICROS));
+        assertEquals(response.drawnAt(), persisted.getDrawnAt());
         assertTrue(persisted.getNumberDrawn() >= 1 && persisted.getNumberDrawn() <= 75);
         assertFalse(persisted.getOperationId().isBlank());
     }
