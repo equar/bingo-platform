@@ -26,6 +26,7 @@ import {
   rejectWinClaim,
   reviewFloatTopUpRequest,
   sessionDraws,
+  sessionDetail,
   settlePrizeEntitlement,
   verifyDeposit,
   submitWalletAdjustmentRequest,
@@ -186,13 +187,15 @@ describe("admin API client", () => {
 
   it("queries sessions and draw history and requests a server-selected draw", async () => {
     await listSessions(2, 10, "evening", "LIVE", 3, true);
+    await sessionDetail(9);
     await sessionDraws(9, 12);
     await postDraw(9);
 
     expect(httpMock.get).toHaveBeenNthCalledWith(1, "/api/v1/admin/sessions", {
       params: { page: 2, size: 10, query: "evening", state: "LIVE", roomId: 3, upcoming: true },
     });
-    expect(httpMock.get).toHaveBeenNthCalledWith(2, "/api/v1/sessions/9/draws", {
+    expect(httpMock.get).toHaveBeenNthCalledWith(2, "/api/v1/admin/sessions/9");
+    expect(httpMock.get).toHaveBeenNthCalledWith(3, "/api/v1/sessions/9/draws", {
       params: { afterSequence: 12 },
     });
     expect(httpMock.post).toHaveBeenCalledWith("/api/v1/admin/sessions/9/draws");

@@ -1,0 +1,14 @@
+Module 04C-3 environment gate — 2026-10-25
+
+Workspace: D:\GitHub\bingo-platform
+Test profile config: bingo-backend/src/test/resources/application-test.yml
+Datasource config requires BINGO_TEST_MYSQL_URL, BINGO_TEST_MYSQL_USERNAME, BINGO_TEST_MYSQL_PASSWORD; defaults are empty.
+The initial check looked only for a root-level .env.test and did not inspect bingo-backend/.env.test. A later 04C-3A recovery found the ignored backend-local configuration and verified the datasource; see module-04c3a-environment-recovery.txt.
+At the initial check, process environment variables BINGO_TEST_MYSQL_URL, BINGO_TEST_MYSQL_USERNAME, and BINGO_TEST_MYSQL_PASSWORD were absent.
+127.0.0.1:8082 TCP: connection failed.
+8081/8082 listener query: no listener returned.
+Java processes: present; command line inspection returned no process details, so no process was identified as this project’s backend.
+Working tree: pre-existing source/configuration changes were present; without a verifiable runtime artifact/process, no source-to-build identity could be established.
+ADB: invocation failed to initialize default \.android directory due to permission denied; emulator not used.
+
+Decision: STOP before launching a backend or exercising gameplay. The active build, Spring profile, datasource schema, Flyway level, and current-source identity could not be proven. No requests, fixture writes, database operations, app launches, or gameplay tests were performed. No session was modified. Existing 04C-2 evidence is a prior run and is not a fresh 04C-3 reconciliation.

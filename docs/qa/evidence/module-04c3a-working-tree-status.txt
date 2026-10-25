@@ -1,0 +1,47 @@
+Working tree status captured for the final Module 04C-3A build
+Git HEAD: 2f8a0f9e8c26db1cd5bd5a8ee55c88a187d8ae26
+
+ M .github/workflows/deploy-admin.yml
+ M .github/workflows/deploy-all.yml
+ M .github/workflows/deploy-backend.yml
+ D .github/workflows/deploy-website.yml
+ M bingo-admin/src/api/admin.test.ts
+ M bingo-admin/src/api/admin.ts
+ M bingo-app/lib/src/features/lobby/presentation/lobby_screen.dart
+ M bingo-app/test/features/lobby/lobby_screen_test.dart
+ M bingo-backend/src/main/java/com/equar/bingo/backend/feature/game/websocket/GameLiveDrawScheduler.java
+ M deployment/README.md
+ M deployment/github-actions.md
+ M docs/qa/module-status.md
+ M docs/qa/modules/module-04c-game-session-draws.md
+ M docs/qa/modules/module-04c-test-matrix.md
+ M docs/qa/test-data-registry.md
+?? .github/workflows/deploy-lightsail.yml
+?? .github/workflows/validate-lightsail-infrastructure.yml
+?? bingo-app/integration_test/module_04c2_live_game_test.dart
+?? bingo-backend/src/main/java/com/equar/bingo/backend/config/TestRuntimeIdentityReporter.java
+?? deployment/aws/
+?? deployment/lightsail/
+?? docs/qa/evidence/module-04c2-admin-clean-session.png
+?? docs/qa/evidence/module-04c2-admin-draw-result.png
+?? docs/qa/evidence/module-04c2-admin-live-session.png
+?? docs/qa/evidence/module-04c2-admin-summary.txt
+?? docs/qa/evidence/module-04c2-android-session30-live.png
+?? docs/qa/evidence/module-04c2-backend-focused-summary.txt
+?? docs/qa/evidence/module-04c2-backend-full-summary.txt
+?? docs/qa/evidence/module-04c2-clean-session-reconciliation.txt
+?? docs/qa/evidence/module-04c2-database-after.txt
+?? docs/qa/evidence/module-04c2-database-before.txt
+?? docs/qa/evidence/module-04c2-database-reconciliation-summary.txt
+?? docs/qa/evidence/module-04c2-fixture-setup-summary.txt
+?? docs/qa/evidence/module-04c2-flutter-android-summary.txt
+?? docs/qa/evidence/module-04c2-flutter-summary.txt
+?? docs/qa/evidence/module-04c2-session30-stale-reconciliation.txt
+?? docs/qa/evidence/module-04c3-environment-gate.txt
+?? docs/qa/evidence/module-04c3a-environment-recovery.txt
+?? docs/qa/evidence/module-04c3a-working-tree-status.txt
+?? docs/qa/modules/module-04c2-android-live-game.md
+?? docs/qa/modules/module-04c2-test-matrix.md
+?? docs/qa/modules/module-04c3-live-game-recovery.md
+?? docs/qa/modules/module-04c3-test-matrix.md
+?? docs/qa/modules/module-04c3a-environment-recovery.md

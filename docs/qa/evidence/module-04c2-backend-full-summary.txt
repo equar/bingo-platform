@@ -1,0 +1,3 @@
+Full backend regression on guarded local MySQL bingo_qa_test: 159 tests, 0 failures, 0 errors, 0 skipped across 31 test suites.
+Result: PASS. Includes the lifecycle/draw scheduler-default, Admin role, bodyless draw, draw audit, replay, WebSocket, and OpenAPI coverage.
+The disposable test database was used only; no `bingo_qa` connection was configured for this run.

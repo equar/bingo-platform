@@ -1,0 +1,293 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  Lightsail instance and managed MySQL database for Bingo, with a static IP
+  and a GitHub Actions OIDC role for manual, approval-gated deployments.
+
+Parameters:
+  GitHubOidcProviderArn:
+    Type: String
+    Description: Existing IAM OIDC provider ARN for token.actions.githubusercontent.com.
+    AllowedPattern: ^arn:[^:]+:iam::[0-9]{12}:oidc-provider/token\.actions\.githubusercontent\.com$
+  GitHubOwner:
+    Type: String
+    Default: equar
+  GitHubRepository:
+    Type: String
+    Default: bingo-platform
+  GitHubEnvironment:
+    Type: String
+    Default: bingo-lightsail-production
+  InstanceName:
+    Type: String
+    Default: bingo-production
+    AllowedPattern: ^[A-Za-z0-9][A-Za-z0-9-]{1,62}[A-Za-z0-9]$
+  InstanceBlueprintId:
+    Type: String
+    Default: ubuntu_24_04
+    Description: Lightsail Ubuntu blueprint. Java 25 bootstrap targets Ubuntu 24.04.
+    AllowedPattern: ^ubuntu_[0-9]{2}_[0-9]{2}$
+  InstanceBundleId:
+    Type: String
+    Description: Select a Lightsail instance bundle appropriate for Java 25 and expected traffic.
+    MinLength: 1
+  DatabaseName:
+    Type: String
+    Default: bingo
+    AllowedPattern: ^[A-Za-z][A-Za-z0-9_]{0,63}$
+  DatabaseBlueprintId:
+    Type: String
+    Default: mysql_8_0
+    Description: Must match the MySQL version supported by the selected Lightsail region.
+    AllowedPattern: ^mysql_[A-Za-z0-9_]+$
+  DatabaseBundleId:
+    Type: String
+    Description: Select a Lightsail managed MySQL bundle appropriate for expected data and traffic.
+    MinLength: 1
+  BackendRuntimeSecretName:
+    Type: String
+    Default: bingo/backend/production
+    Description: Name for the backend runtime Secrets Manager secret created by this stack.
+    AllowedPattern: ^[A-Za-z0-9/_+=.@-]{1,512}$
+
+Resources:
+  BackendRuntimeSecret:
+    Type: AWS::SecretsManager::Secret
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Name: !Ref BackendRuntimeSecretName
+      Description: Production Bingo backend environment file. Populate before deploying.
+      Tags:
+        - Key: Application
+          Value: bingo-platform
+        - Key: Environment
+          Value: production
+
+  DatabaseMasterUserSecret:
+    Type: AWS::SecretsManager::Secret
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Description: Lightsail MySQL administrator account used only to bootstrap the database-scoped backend account.
+      GenerateSecretString:
+        SecretStringTemplate: '{"username":"bingo_db_admin"}'
+        GenerateStringKey: password
+        PasswordLength: 32
+        ExcludePunctuation: true
+      Tags:
+        - Key: Application
+          Value: bingo-platform
+        - Key: Environment
+          Value: production
+
+  LightsailDatabase:
+    Type: AWS::Lightsail::Database
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      RelationalDatabaseName: !Sub ${InstanceName}-database
+      RelationalDatabaseBlueprintId: !Ref DatabaseBlueprintId
+      RelationalDatabaseBundleId: !Ref DatabaseBundleId
+      MasterDatabaseName: !Ref DatabaseName
+      MasterUsername: bingo_db_admin
+      MasterUserPassword: !Sub "{{resolve:secretsmanager:${DatabaseMasterUserSecret}:SecretString:password}}"
+      PubliclyAccessible: false
+      BackupRetention: true
+      Tags:
+        - Key: Application
+          Value: bingo-platform
+        - Key: Environment
+          Value: production
+
+  LightsailInstance:
+    Type: AWS::Lightsail::Instance
+    Properties:
+      InstanceName: !Ref InstanceName
+      BlueprintId: !Ref InstanceBlueprintId
+      BundleId: !Ref InstanceBundleId
+      Networking:
+        Ports:
+          - AccessDirection: inbound
+            AccessFrom: Anywhere (0.0.0.0/0)
+            AccessType: Public
+            FromPort: 80
+            ToPort: 80
+            Protocol: tcp
+          - AccessDirection: inbound
+            AccessFrom: Anywhere (0.0.0.0/0)
+            AccessType: Public
+            FromPort: 443
+            ToPort: 443
+            Protocol: tcp
+      UserData: |
+        #!/bin/bash
+        set -euxo pipefail
+        export DEBIAN_FRONTEND=noninteractive
+        apt-get update
+        apt-get install -y ca-certificates curl mysql-client nginx certbot python3 python3-certbot-nginx
+        install -d -m 0755 /etc/apt/keyrings
+        curl -fsSL https://packages.adoptium.net/artifactory/api/gpg/key/public \
+          -o /etc/apt/keyrings/adoptium.asc
+        echo "deb [signed-by=/etc/apt/keyrings/adoptium.asc] https://packages.adoptium.net/artifactory/deb noble main" \
+          > /etc/apt/sources.list.d/adoptium.list
+        apt-get update
+        apt-get install -y temurin-25-jre
+        curl -fsSL https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem -o /etc/ssl/certs/aws-rds-global-bundle.pem
+        python3 - <<'PY'
+        from pathlib import Path
+        import re
+        bundle = Path("/etc/ssl/certs/aws-rds-global-bundle.pem").read_text(encoding="ascii")
+        certificates = re.findall(
+            r"-----BEGIN CERTIFICATE-----.*?-----END CERTIFICATE-----",
+            bundle,
+            flags=re.DOTALL,
+        )
+        if not certificates:
+            raise SystemExit("AWS RDS CA bundle did not contain certificates")
+        for index, certificate in enumerate(certificates):
+            Path(f"/tmp/aws-rds-ca-{index}.pem").write_text(certificate + "\n", encoding="ascii")
+        PY
+        java_home="$(dirname "$(dirname "$(readlink -f "$(command -v java)")")")"
+        index=0
+        for certificate in /tmp/aws-rds-ca-*.pem; do
+          keytool -importcert -noprompt -trustcacerts -alias "aws-rds-ca-$index" \
+            -file "$certificate" -keystore "$java_home/lib/security/cacerts" -storepass changeit
+          index=$((index + 1))
+        done
+        rm -f /tmp/aws-rds-ca-*.pem
+        id bingo >/dev/null 2>&1 || useradd --system --create-home --home-dir /opt/bingo --shell /usr/sbin/nologin bingo
+        install -d -o bingo -g bingo -m 0755 /opt/bingo/backend/releases
+        install -d -o www-data -g www-data -m 0755 /var/www/bingo-website/releases /var/www/bingo-admin/releases
+        install -d -o www-data -g www-data -m 0755 /var/www/letsencrypt/.well-known/acme-challenge
+        install -d -o root -g root -m 0755 /etc/letsencrypt/renewal-hooks/deploy
+        printf '%s\n' '#!/bin/sh' 'systemctl reload nginx' \
+          > /etc/letsencrypt/renewal-hooks/deploy/reload-nginx
+        chmod 0755 /etc/letsencrypt/renewal-hooks/deploy/reload-nginx
+        cat > /etc/systemd/system/bingo-backend.service <<'SERVICE'
+        [Unit]
+        Description=Bingo Backend (Spring Boot)
+        After=network-online.target
+        Wants=network-online.target
+
+        [Service]
+        Type=simple
+        User=bingo
+        Group=bingo
+        WorkingDirectory=/opt/bingo/backend/current
+        Environment=SPRING_PROFILES_ACTIVE=prod
+        Environment=SERVER_PORT=8081
+        EnvironmentFile=/opt/bingo/backend/current/backend.env
+        ExecStart=/usr/bin/java -Xms256m -Xmx768m -XX:+UseG1GC -jar /opt/bingo/backend/current/backend.jar
+        Restart=on-failure
+        RestartSec=10
+        NoNewPrivileges=true
+        PrivateTmp=true
+        ProtectSystem=strict
+        ProtectHome=true
+        ReadWritePaths=/opt/bingo/backend
+        LimitNOFILE=65535
+        StandardOutput=journal
+        StandardError=journal
+        SyslogIdentifier=bingo-backend
+
+        [Install]
+        WantedBy=multi-user.target
+        SERVICE
+        cat > /etc/nginx/sites-available/bingo-bootstrap.conf <<'NGINX'
+        server {
+            listen 80 default_server;
+            listen [::]:80 default_server;
+            server_name _;
+            location ^~ /.well-known/acme-challenge/ {
+                root /var/www/letsencrypt;
+                default_type "text/plain";
+            }
+            location / {
+                return 404;
+            }
+        }
+        NGINX
+        rm -f /etc/nginx/sites-enabled/default
+        ln -sfn /etc/nginx/sites-available/bingo-bootstrap.conf /etc/nginx/sites-enabled/bingo.conf
+        systemctl daemon-reload
+        systemctl enable bingo-backend nginx certbot.timer
+        nginx -t
+        systemctl restart nginx
+      Tags:
+        - Key: Application
+          Value: bingo-platform
+        - Key: Environment
+          Value: production
+
+  LightsailStaticIp:
+    Type: AWS::Lightsail::StaticIp
+    Properties:
+      StaticIpName: !Sub ${InstanceName}-static-ip
+      AttachedTo: !Ref LightsailInstance
+
+  GitHubActionsDeployRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Description: GitHub OIDC deployment role restricted to the Bingo Lightsail instance and backend secret.
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Ref GitHubOidcProviderArn
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                token.actions.githubusercontent.com:sub: !Sub repo:${GitHubOwner}/${GitHubRepository}:environment:${GitHubEnvironment}
+      Policies:
+        - PolicyName: DeployToBingoLightsail
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: TemporarySshAccessToInstance
+                Effect: Allow
+                Action:
+                  - lightsail:GetInstance
+                  - lightsail:GetInstanceAccessDetails
+                  - lightsail:OpenInstancePublicPorts
+                  - lightsail:CloseInstancePublicPorts
+                Resource: !GetAtt LightsailInstance.InstanceArn
+              - Sid: ReadBackendRuntimeConfiguration
+                Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource:
+                  - !Ref BackendRuntimeSecret
+                  - !Ref DatabaseMasterUserSecret
+              - Sid: ReadManagedDatabaseEndpoint
+                Effect: Allow
+                Action: lightsail:GetRelationalDatabase
+                Resource: !GetAtt LightsailDatabase.DatabaseArn
+      Tags:
+        - Key: Application
+          Value: bingo-platform
+        - Key: Environment
+          Value: production
+
+Outputs:
+  GitHubActionsRoleArn:
+    Description: Set as BINGO_AWS_ROLE_ARN in the bingo-lightsail-production GitHub Environment.
+    Value: !GetAtt GitHubActionsDeployRole.Arn
+  LightsailInstanceName:
+    Description: Set as BINGO_LIGHTSAIL_INSTANCE_NAME in the GitHub Environment.
+    Value: !Ref LightsailInstance
+  LightsailInstanceArn:
+    Value: !GetAtt LightsailInstance.InstanceArn
+  LightsailStaticIpAddress:
+    Description: Point the public website, admin, and API DNS records to this address.
+    Value: !GetAtt LightsailStaticIp.IpAddress
+  LightsailDatabaseName:
+    Value: !Ref LightsailDatabase
+  DatabaseName:
+    Value: !Ref DatabaseName
+  DatabaseMasterUserSecretArn:
+    Description: Set as BINGO_DATABASE_ADMIN_SECRET_ARN; the workflow uses it only to create the database-scoped application user.
+    Value: !Ref DatabaseMasterUserSecret
+  BackendRuntimeSecretArn:
+    Description: Set as BINGO_BACKEND_RUNTIME_SECRET_ARN in the GitHub Environment.
+    Value: !Ref BackendRuntimeSecret

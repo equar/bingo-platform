@@ -965,7 +965,7 @@ export async function liveSessions() {
 }
 
 export async function sessionDetail(sessionId: number) {
-  const { data } = await http.get<GameSessionResponse>(`/api/v1/sessions/${sessionId}`);
+  const { data } = await http.get<GameSessionResponse>(`/api/v1/admin/sessions/${sessionId}`);
   return data;
 }
 

@@ -1,6 +1,13 @@
 import 'dart:async';
 
 import 'package:bingo_app/l10n/app_localizations.dart';
+import 'package:bingo_app/src/core/config/app_config.dart';
+import 'package:bingo_app/src/features/auth/data/auth_session_controller.dart';
+import 'package:bingo_app/src/features/game/application/live_game_controller.dart';
+import 'package:bingo_app/src/features/game/application/live_game_transport.dart';
+import 'package:bingo_app/src/features/game/data/game_repository.dart';
+import 'package:bingo_app/src/features/game/domain/live_game_models.dart';
+import 'package:bingo_app/src/features/game/presentation/session_detail_screen.dart';
 import 'package:bingo_app/src/features/lobby/data/lobby_api.dart';
 import 'package:bingo_app/src/features/lobby/data/lobby_repository.dart';
 import 'package:bingo_app/src/features/lobby/domain/lobby_models.dart';
@@ -24,6 +31,7 @@ void main() {
     expect(find.text('QA Main Room'), findsOneWidget);
     expect(find.text('QA Scheduled Session'), findsOneWidget);
     expect(find.textContaining('OPEN'), findsOneWidget);
+    expect(find.byKey(const ValueKey('live-game-12')), findsNothing);
     expect(find.byKey(const ValueKey('buy-ticket-button')), findsNothing);
   });
 
@@ -36,6 +44,48 @@ void main() {
 
     expect(find.text('Not playable: CANCELLED'), findsOneWidget);
     expect(find.byKey(const ValueKey('buy-ticket-button')), findsNothing);
+  });
+
+  testWidgets('active sessions open the live-game screen', (tester) async {
+    final repository = _LobbyRepository(sessionState: 'STARTED');
+    final navigatorObserver = _RecordingNavigatorObserver();
+    final liveController = LiveGameController(
+      sessionId: 12,
+      repository: _UnusedLiveGameRepository(),
+      readAuthSession: () => const AuthSessionState(isLoading: true),
+      clearAuthSession: ({String? reason}) async {},
+      appConfig: const AppConfig(
+        apiBaseUrl: 'http://127.0.0.1:8082',
+        apiBaseUrlLabel: 'API_BASE_URL',
+      ),
+      transport: _UnusedLiveGameTransport(),
+    );
+    await tester.pumpWidget(
+      _app(
+        repository,
+        liveGameController: liveController,
+        navigatorObserver: navigatorObserver,
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('room-details-6')));
+    await tester.pumpAndSettle();
+
+    final liveGameButton = find.byKey(const ValueKey('live-game-12'));
+    expect(liveGameButton, findsOneWidget);
+    expect(tester.widget<FilledButton>(liveGameButton).onPressed, isNotNull);
+    await tester.ensureVisible(liveGameButton);
+    await tester.pumpAndSettle();
+    tester.widget<FilledButton>(liveGameButton).onPressed!();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(navigatorObserver.pushes, hasLength(3));
+    expect(navigatorObserver.pushes.last.isCurrent, isTrue);
+    expect(
+      find.byType(SessionDetailScreen, skipOffstage: false),
+      findsOneWidget,
+    );
+    expect(find.text('Live game'), findsOneWidget);
   });
 
   testWidgets(
@@ -178,9 +228,18 @@ void main() {
   });
 }
 
-Widget _app(_LobbyRepository repository) => ProviderScope(
-  overrides: [lobbyRepositoryProvider.overrideWithValue(repository)],
+Widget _app(
+  _LobbyRepository repository, {
+  LiveGameController? liveGameController,
+  NavigatorObserver? navigatorObserver,
+}) => ProviderScope(
+  overrides: [
+    lobbyRepositoryProvider.overrideWithValue(repository),
+    if (liveGameController != null)
+      liveGameControllerProvider(12).overrideWith((ref) => liveGameController),
+  ],
   child: MaterialApp(
+    navigatorObservers: [if (navigatorObserver != null) navigatorObserver],
     localizationsDelegates: const [
       AppLocalizations.delegate,
       GlobalMaterialLocalizations.delegate,
@@ -268,4 +327,37 @@ final _room = BingoRoom(
 
 class _UnusedLobbyApi extends LobbyApi {
   _UnusedLobbyApi() : super(Dio());
+}
+
+class _UnusedLiveGameRepository implements LiveGameRepository {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _UnusedLiveGameTransport implements LiveGameTransport {
+  @override
+  bool get isConnected => false;
+
+  @override
+  Future<void> connect({
+    required Uri uri,
+    required String accessToken,
+    required int sessionId,
+    required void Function(LiveDrawEvent event) onDraw,
+    required void Function(Object error) onError,
+    required void Function() onDisconnected,
+  }) async {}
+
+  @override
+  Future<void> disconnect() async {}
+}
+
+class _RecordingNavigatorObserver extends NavigatorObserver {
+  final List<Route<dynamic>> pushes = <Route<dynamic>>[];
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    pushes.add(route);
+    super.didPush(route, previousRoute);
+  }
 }

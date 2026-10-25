@@ -46,7 +46,8 @@
 | Client/player input cannot control automatic selection | PASS | Player/agent cannot call draw mutation routes; automatic scheduler accepts no number input |
 | Administrator-selected numbers are disallowed | PASS | 04C-1 makes the route bodyless; legacy number bodies are rejected and the UI exposes only “Draw next number” |
 | Flutter draw timeline orders/deduplicates/recover gaps | PASS | Flutter controller/timeline unit tests |
-| Android live-game refresh/restart journey | BLOCKED | `bingo_qa` has no eligible active session; QA backend port 8081 is unavailable. Persistent DRAFT sessions were not changed |
+| Android live-game access, ordered history, and refresh | PASS | Real emulator E2E passed on isolated session #31; see [04C-2 matrix](module-04c2-test-matrix.md) |
+| Android force-stop restart, network interruption/recovery, terminal-state UI | NOT RUN | These remain 04C-2 cases A14–A16 and A19 |
 | Persistent QA data unchanged | PASS | Before/after SELECT-only comparisons; see [reconciliation](../evidence/module-04c-database-readonly.txt) |
 
-Module 04C remains PARTIAL while L06, D08's HTTP retry contract, and Android live E2E are unresolved. See Module 04C-1 for route, role, audit, UI and same-instant concurrency coverage.
+Module 04C remains PARTIAL while L06, D08's HTTP retry contract, and 04C-2 cases A14–A16/A19 are unresolved. See [Module 04C-2](module-04c2-android-live-game.md) for the Android/Admin journey and Module 04C-1 for route, role, audit, UI and same-instant concurrency coverage.

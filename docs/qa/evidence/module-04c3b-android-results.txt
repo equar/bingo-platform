@@ -1,0 +1,17 @@
+Module 04C-3B Android / focused QA results
+Date: 2026-10-25 local QA run
+Backend: PID 32844, current-source JAR SHA-256 8FA15AC5267FC5038A03FFF699798F05663EF14B9E2EA07B14ABFEE2885DAA9B, profile test, bingo_qa_test V22, 127.0.0.1:8082.
+Device: emulator-5554, Flutter Android app com.example.bingo_app; API base explicitly set to http://10.0.2.2:8082.
+
+A14 restart session 34: PASS. Markers: M04C3B_RESTART_PREPARED, M04C3B_RESTART_RESTORED. App force-stopped without clearing storage; relaunch recovered stored auth and the one-draw history.
+A15 offline session 35: PASS. Markers: M04C3B_NETWORK_LIVE_READY, M04C3B_OFFLINE_ERROR_CAPTURED. Actual SocketException and Reconnecting UI displayed; DRAWING/history remained visible.
+A16 same-process recovery session 35: PASS. Emulator Wi-Fi/data restored; independent raw emulator GET to 10.0.2.2:8082/actuator/health returned 200 UP; M04C3B_NETWORK_RECOVERED then verified Live and same one-draw history.
+A19a CLOSED session 32: PASS for supported completion state. Admin state transition succeeded; post-terminal bodyless draw returned HTTP 409; M04C3B_TERMINAL_REFRESHED verified CLOSED, Finished, and one draw.
+A19b CANCELLED session 33: PASS. Admin state transition succeeded; post-terminal bodyless draw returned HTTP 409; M04C3B_TERMINAL_REFRESHED verified CANCELLED, Finished, and one draw.
+Distinct COMPLETED enum/state: unsupported by product; CLOSED is its supported terminal closure state.
+Role authorization on live fixture: PLAYER/AGENT/SUPPORT/FINANCE draw attempts each HTTP 403.
+Focused backend lifecycle/fixture selection: 3/3 passed. Flutter focused game tests: 11/11 passed. flutter analyze: No issues found.
+
+Persistent bingo_qa SELECT-only snapshots: byte-identical, 15,081 bytes each, SHA-256 EE00B0099816FDCCA24EDA9619DEE9881F713666117704356D1AF2FB93E4BE9C. See module-04c3b-persistent-database-before.txt and -after.txt.
+Isolated DB preflight: sessions/draws were zero; IDs 30/31 absent though auto-increment had advanced to 30. First fixtures received those IDs. Collision disclosed before continuing; no subsequent changes to rows 30/31. Prior C2 evidence retained. Six isolated C3B sessions 30–35 remain; each has exactly one draw and one matching BINGO_NUMBER_DRAWN audit. Tickets, claims, entitlements, and wallet transactions are zero. See isolated-database-before/after evidence.
+No full/destructive backend suite, BingoGameIntegrationTest, BingoLiveDrawIntegrationTest, database reset, SQL state edit, purchase, settlement, wallet posting, commit, or push was performed.
