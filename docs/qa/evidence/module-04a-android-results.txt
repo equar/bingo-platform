@@ -1,0 +1,9 @@
+Module 04A results (2026-10-24; emulator-5554, API 37)
+
+Lobby / room detail / session display: passed. Existing synthetic player #181 authenticated through the Flutter app against http://10.0.2.2:8081. Room #6 and its existing session were opened and refreshed. Safe read-only details were visible; no ticket purchase action was shown. Screenshot: module-04a-room-session-details.png.
+
+Process restart/session restore: passed using force-stop without clearing application data. Offline failure UI was captured as module-04a-network-error-retry.png.
+
+Network retry: NOT VERIFIED on Android. Connectivity toggles either restored service before the offline error state appeared or produced a run that timed out before the expected message; successful retry after recovery could not be asserted. Flutter widget-level network error/retry regression passes. This harness limitation leaves G13 BLOCKED and Module 04A PARTIAL.
+
+No user credential, PIN, JWT, or token is included in this report.

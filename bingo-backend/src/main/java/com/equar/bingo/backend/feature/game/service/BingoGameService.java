@@ -16,6 +16,8 @@ import com.equar.bingo.backend.feature.game.dto.DrawEventRequest;
 import com.equar.bingo.backend.feature.game.dto.DrawEventResponse;
 import com.equar.bingo.backend.feature.game.dto.GameSessionRequest;
 import com.equar.bingo.backend.feature.game.dto.GameSessionResponse;
+import com.equar.bingo.backend.feature.game.dto.PlayerRoomResponse;
+import com.equar.bingo.backend.feature.game.dto.PlayerGameSessionResponse;
 import com.equar.bingo.backend.feature.game.dto.GameSessionStateUpdateRequest;
 import com.equar.bingo.backend.feature.game.dto.PrizeEntitlementResponse;
 import com.equar.bingo.backend.feature.game.dto.PrizeEntitlementSettlementRequest;
@@ -138,6 +140,11 @@ public class BingoGameService {
     }
 
     @Transactional(readOnly = true)
+    public List<PlayerRoomResponse> listPlayerRooms() {
+        return bingoRoomRepository.findByActiveTrueOrderByNameAsc().stream().map(this::toPlayerRoomResponse).toList();
+    }
+
+    @Transactional(readOnly = true)
     public Page<BingoRoomResponse> listAdminRooms(String query, Boolean active, Pageable pageable) {
         String normalizedQuery = query == null || query.isBlank() ? null : query.trim().toLowerCase(Locale.ROOT);
         Long roomId = null;
@@ -155,6 +162,30 @@ public class BingoGameService {
     @Transactional(readOnly = true)
     public BingoRoomResponse getRoom(Long roomId) {
         return toRoomResponse(requireRoom(roomId));
+    }
+
+    @Transactional(readOnly = true)
+    public PlayerRoomResponse getPlayerRoom(Long roomId) {
+        BingoRoom room = bingoRoomRepository.findByIdAndActiveTrue(roomId)
+                .orElseThrow(() -> new NotFoundException("ROOM_NOT_FOUND", "Room not found"));
+        return toPlayerRoomResponse(room);
+    }
+
+    @Transactional(readOnly = true)
+    public List<PlayerGameSessionResponse> listPlayerRoomSessions(Long roomId) {
+        bingoRoomRepository.findByIdAndActiveTrue(roomId)
+                .orElseThrow(() -> new NotFoundException("ROOM_NOT_FOUND", "Room not found"));
+        return gameSessionRepository.findByRoomIdOrderByScheduledStartAtDesc(roomId).stream()
+                .map(this::toPlayerSessionResponse).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public PlayerGameSessionResponse getPlayerSession(Long sessionId) {
+        GameSession session = requireSession(sessionId);
+        if (!session.getRoom().isActive()) {
+            throw new NotFoundException("SESSION_NOT_FOUND", "Game session not found");
+        }
+        return toPlayerSessionResponse(session);
     }
 
     @Transactional(readOnly = true)
@@ -343,11 +374,16 @@ public class BingoGameService {
         return idempotencyService.execute(player.getId(), idempotencyKey, requestHash, operationId,
                 HttpStatus.CREATED.value(), TicketPurchaseResponse.class, () -> {
                     validateTicketSaleOpen(session);
+                    if (!room.isActive()) {
+                        throw new ConflictException("ROOM_INACTIVE", "Ticket sales are closed for this room");
+                    }
                     ensureGameCurrency(session, room);
                     enforceSessionCapacity(session);
                     enforcePlayerTicketLimit(session, player);
 
-                    Wallet wallet = ensureWallet(player);
+                    ensureWallet(player);
+                    Wallet wallet = walletRepository.findByOwnerIdForUpdate(player.getId())
+                            .orElseThrow(() -> new NotFoundException("WALLET_NOT_FOUND", "Player wallet not found"));
                     BigDecimal price = MoneyValues.money(session.getTicketPriceSnapshot());
                     BigDecimal transferableBefore = wallet.getAvailableBalance();
                     BigDecimal promotionalBefore = wallet.getPromotionalBalance();
@@ -599,7 +635,9 @@ public class BingoGameService {
     }
 
     private void validateTicketSaleOpen(GameSession session) {
-        if (session.getState() == GameSessionState.CLOSED || session.getState() == GameSessionState.SETTLED
+        if (session.getState() == GameSessionState.DRAFT
+                || session.getState() == GameSessionState.CLOSED
+                || session.getState() == GameSessionState.SETTLED
                 || session.getState() == GameSessionState.CANCELLED) {
             throw new ConflictException("SESSION_NOT_OPEN", "Ticket sales are closed for this session");
         }
@@ -790,6 +828,22 @@ public class BingoGameService {
                 room.getVersion());
     }
 
+    private PlayerRoomResponse toPlayerRoomResponse(BingoRoom room) {
+        return new PlayerRoomResponse(
+                room.getId(),
+                room.getName(),
+                room.getDescription(),
+                room.getTicketPrice(),
+                room.getCurrency(),
+                room.getTimezone(),
+                room.getScheduleRule(),
+                room.getSessionCapacity(),
+                room.isActive(),
+                readPatterns(room.getConfiguredPatternsJson()),
+                room.getCreatedAt(),
+                room.getUpdatedAt());
+    }
+
     private GameSessionResponse toSessionResponse(GameSession session) {
         return new GameSessionResponse(
                 session.getId(),
@@ -808,6 +862,26 @@ public class BingoGameService {
                 session.isAllowMultipleWinnersPerPrize(),
                 readPatterns(session.getPatternsSnapshotJson()),
                 readPrizes(session.getPrizesSnapshotJson()),
+                ticketRepository.countBySessionId(session.getId()),
+                drawEventRepository.countBySessionId(session.getId()),
+                session.getCreatedAt(),
+                session.getUpdatedAt());
+    }
+
+    private PlayerGameSessionResponse toPlayerSessionResponse(GameSession session) {
+        return new PlayerGameSessionResponse(
+                session.getId(),
+                session.getRoom().getId(),
+                session.getRoom().getName(),
+                session.getSessionName(),
+                session.getState(),
+                session.getScheduledStartAt(),
+                session.getStartedAt(),
+                session.getEndedAt(),
+                session.getTicketPriceSnapshot(),
+                session.getCurrencySnapshot(),
+                session.getSessionCapacitySnapshot(),
+                readPatterns(session.getPatternsSnapshotJson()),
                 ticketRepository.countBySessionId(session.getId()),
                 drawEventRepository.countBySessionId(session.getId()),
                 session.getCreatedAt(),

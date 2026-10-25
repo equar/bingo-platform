@@ -6357,7 +6357,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/GameSessionResponse"
+                  "$ref" : "#/components/schemas/PlayerGameSessionResponse"
                 }
               }
             }
@@ -6631,7 +6631,7 @@
                 "schema" : {
                   "type" : "array",
                   "items" : {
-                    "$ref" : "#/components/schemas/BingoRoomResponse"
+                    "$ref" : "#/components/schemas/PlayerRoomResponse"
                   }
                 }
               }
@@ -6719,7 +6719,97 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/BingoRoomResponse"
+                  "$ref" : "#/components/schemas/PlayerRoomResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/rooms/{id}/sessions" : {
+      "get" : {
+        "tags" : [ "Game" ],
+        "operationId" : "roomSessions",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "400" : {
+            "description" : "Invalid request",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource not found",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Request conflicts with current state",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication required or credentials invalid",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Access denied",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Unexpected server error",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/PlayerGameSessionResponse"
+                  }
                 }
               }
             }
@@ -13845,6 +13935,74 @@
           }
         }
       },
+      "PlayerGameSessionResponse" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "roomId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "roomName" : {
+            "type" : "string"
+          },
+          "sessionName" : {
+            "type" : "string"
+          },
+          "state" : {
+            "type" : "string",
+            "enum" : [ "DRAFT", "OPEN", "STARTED", "DRAWING", "CLOSED", "SETTLED", "CANCELLED" ]
+          },
+          "scheduledStartAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "startedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "endedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "ticketPrice" : {
+            "type" : "number"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "sessionCapacity" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "configuredPatterns" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "LINE", "TWO_LINES", "FULL_HOUSE" ]
+            }
+          },
+          "ticketCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "drawCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
       "PageResponseTicketResponse" : {
         "type" : "object",
         "properties" : {
@@ -13875,6 +14033,55 @@
           },
           "last" : {
             "type" : "boolean"
+          }
+        }
+      },
+      "PlayerRoomResponse" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "ticketPrice" : {
+            "type" : "number"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "timezone" : {
+            "type" : "string"
+          },
+          "scheduleRule" : {
+            "type" : "string"
+          },
+          "sessionCapacity" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "active" : {
+            "type" : "boolean"
+          },
+          "configuredPatterns" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "LINE", "TWO_LINES", "FULL_HOUSE" ]
+            }
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
           }
         }
       },

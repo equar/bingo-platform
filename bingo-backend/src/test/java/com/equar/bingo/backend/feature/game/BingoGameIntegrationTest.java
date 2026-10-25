@@ -257,22 +257,111 @@ class BingoGameIntegrationTest extends MySqlIntegrationTest {
                 BingoRoomRequest roomRequest = roomRequest("Main Hall A", 1, 10, true);
                 var room = bingoGameService.createRoom(roomRequest);
                 var session = bingoGameService.createSession(room.id(), sessionRequest(GameSessionState.OPEN));
-                String adminToken = loginToken("0911000201", "123456");
+                String playerToken = loginToken("0911000202", "123456");
 
                 mockMvc.perform(get("/api/v1/rooms")
-                                .header("Authorization", "Bearer " + adminToken))
+                                .header("Authorization", "Bearer " + playerToken))
                                 .andExpect(status().isOk())
                                 .andExpect(jsonPath("$[0].name").value("Main Hall A"));
 
                 mockMvc.perform(get("/api/v1/rooms/" + room.id())
-                                .header("Authorization", "Bearer " + adminToken))
+                                .header("Authorization", "Bearer " + playerToken))
                                 .andExpect(status().isOk())
-                                .andExpect(jsonPath("$.sessionCapacity").value(1));
+                                .andExpect(jsonPath("$.sessionCapacity").value(1))
+                                .andExpect(jsonPath("$.configuredPrizes").doesNotExist())
+                                .andExpect(jsonPath("$.maxTicketsPerPlayer").doesNotExist());
+
+                mockMvc.perform(get("/api/v1/rooms/" + room.id() + "/sessions")
+                                .header("Authorization", "Bearer " + playerToken))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$[0].id").value(session.id()))
+                                .andExpect(jsonPath("$[0].scheduledStartAt").isNotEmpty())
+                                .andExpect(jsonPath("$[0].configuredPrizes").doesNotExist())
+                                .andExpect(jsonPath("$[0].ticketSalesCloseOnSessionStart").doesNotExist());
 
                 mockMvc.perform(get("/api/v1/sessions/" + session.id())
-                                .header("Authorization", "Bearer " + adminToken))
+                                .header("Authorization", "Bearer " + playerToken))
                                 .andExpect(status().isOk())
-                                .andExpect(jsonPath("$.state").value("OPEN"));
+                                .andExpect(jsonPath("$.state").value("OPEN"))
+                                .andExpect(jsonPath("$.configuredPrizes").doesNotExist())
+                                .andExpect(jsonPath("$.maxTicketsPerPlayer").doesNotExist());
+        }
+
+        @Test
+        void playerDiscoveryRequiresActivePlayerAndDoesNotMutateGameOrWalletData() throws Exception {
+                var room = bingoGameService.createRoom(roomRequest("Discovery Room", 8, 10, true));
+                var session = bingoGameService.createSession(room.id(), sessionRequest(GameSessionState.OPEN));
+                String playerToken = loginToken("0911000202", "123456");
+                String adminToken = loginToken("0911000201", "123456");
+                User agent = userRepository.save(User.create(phoneNormalizer.normalize("0911000998"), "Agent Test",
+                                passwordEncoder.encode("123456"), AccountStatus.ACTIVE, Set.of(UserRole.AGENT),
+                                Instant.now()));
+                String agentToken = jwtService.generateToken(agent);
+                User suspendedPlayer = userRepository.save(User.create(
+                                phoneNormalizer.normalize("0911000997"), "Suspended Player",
+                                passwordEncoder.encode("123456"), AccountStatus.SUSPENDED,
+                                Set.of(UserRole.PLAYER), Instant.now()));
+                String suspendedToken = jwtService.generateToken(suspendedPlayer);
+
+                long ticketsBefore = ticketRepository.count();
+                long transactionsBefore = walletTransactionRepository.count();
+
+                mockMvc.perform(get("/api/v1/rooms"))
+                                .andExpect(status().isUnauthorized());
+                mockMvc.perform(get("/api/v1/rooms")
+                                .header("Authorization", "Bearer " + adminToken))
+                                .andExpect(status().isForbidden());
+                mockMvc.perform(get("/api/v1/rooms")
+                                .header("Authorization", "Bearer " + agentToken))
+                                .andExpect(status().isForbidden());
+                mockMvc.perform(get("/api/v1/rooms")
+                                .header("Authorization", "Bearer " + suspendedToken))
+                                .andExpect(status().isUnauthorized());
+                mockMvc.perform(post("/api/v1/sessions/" + session.id() + "/tickets")
+                                .header("Authorization", "Bearer " + suspendedToken)
+                                .header("Idempotency-Key", "suspended-player-ticket")
+                                .contentType(MediaType.APPLICATION_JSON))
+                                .andExpect(status().isUnauthorized());
+
+                mockMvc.perform(get("/api/v1/rooms")
+                                .header("Authorization", "Bearer " + playerToken))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$[0].id").value(room.id()));
+                mockMvc.perform(get("/api/v1/rooms/999999")
+                                .header("Authorization", "Bearer " + playerToken))
+                                .andExpect(status().isNotFound())
+                                .andExpect(jsonPath("$.code").value("ROOM_NOT_FOUND"))
+                                .andExpect(jsonPath("$.trace").doesNotExist());
+                mockMvc.perform(get("/api/v1/rooms/999999/sessions")
+                                .header("Authorization", "Bearer " + playerToken))
+                                .andExpect(status().isNotFound());
+                mockMvc.perform(get("/api/v1/sessions/999999")
+                                .header("Authorization", "Bearer " + playerToken))
+                                .andExpect(status().isNotFound());
+                mockMvc.perform(get("/api/v1/rooms/" + room.id() + "/sessions")
+                                .header("Authorization", "Bearer " + playerToken))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$[0].id").value(session.id()))
+                                .andExpect(jsonPath("$[0].state").value("OPEN"));
+
+                var inactiveRoom = bingoGameService.createRoom(roomRequest("Hidden Inactive Room", 2, 1, false));
+                mockMvc.perform(get("/api/v1/rooms/" + inactiveRoom.id())
+                                .header("Authorization", "Bearer " + playerToken))
+                                .andExpect(status().isNotFound());
+                mockMvc.perform(get("/api/v1/rooms/" + inactiveRoom.id() + "/sessions")
+                                .header("Authorization", "Bearer " + playerToken))
+                                .andExpect(status().isNotFound());
+
+                var roomEntity = bingoRoomRepository.findById(room.id()).orElseThrow();
+                roomEntity.setActive(false);
+                bingoRoomRepository.saveAndFlush(roomEntity);
+                mockMvc.perform(get("/api/v1/sessions/" + session.id())
+                                .header("Authorization", "Bearer " + playerToken))
+                                .andExpect(status().isNotFound())
+                                .andExpect(jsonPath("$.code").value("SESSION_NOT_FOUND"));
+
+                assertEquals(ticketsBefore, ticketRepository.count());
+                assertEquals(transactionsBefore, walletTransactionRepository.count());
         }
 
         @Test
@@ -317,6 +406,20 @@ class BingoGameIntegrationTest extends MySqlIntegrationTest {
                                 .andExpect(status().isCreated())
                                 .andReturn().getResponse().getContentAsString();
                 assertTrue(purchaseAgainJson.contains(ticket.getPublicTicketCode()));
+                assertTrue(jdbcTemplate.queryForObject(
+                                "select count(*) from audit_log_entries where action = 'PURCHASE_TICKET'",
+                                Integer.class) > 0);
+                mockMvc.perform(get("/api/v1/sessions/" + session.id() + "/my-tickets")
+                                .header("Authorization", "Bearer " + playerToken))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.totalElements").value(1))
+                                .andExpect(jsonPath("$.content[0].id").value(ticket.getId()));
+                String otherPlayerToken = loginToken("0911000203", "123456");
+                mockMvc.perform(get("/api/v1/sessions/" + session.id() + "/my-tickets")
+                                .header("Authorization", "Bearer " + otherPlayerToken))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.totalElements").value(0))
+                                .andExpect(jsonPath("$.content").isEmpty());
 
                 List<Integer> winningNumbers = winningLineNumbers(ticket.getGridJson());
                 bingoGameService.updateSessionState(session.id(),
@@ -382,6 +485,90 @@ class BingoGameIntegrationTest extends MySqlIntegrationTest {
         }
 
         @Test
+        void ticketPurchaseRejectsDraftSessionsAndRoomsDeactivatedAfterScheduling() {
+                var room = bingoGameService.createRoom(roomRequest("Lifecycle purchase guard", 2, 2, true));
+                var session = bingoGameService.createSession(room.id(), sessionRequest(GameSessionState.DRAFT));
+                var player = new BingoUserPrincipal(userRepository.findById(playerOne.getId()).orElseThrow());
+                Wallet walletBefore = walletRepository.findByOwnerId(playerOne.getId()).orElseThrow();
+                BigDecimal transferableBefore = walletBefore.getAvailableBalance();
+                BigDecimal promotionalBefore = walletBefore.getPromotionalBalance();
+                long ticketsBefore = ticketRepository.count();
+                long transactionsBefore = walletTransactionRepository.count();
+
+                var draftFailure = assertThrows(ConflictException.class,
+                                () -> bingoGameService.purchaseTicket(session.id(), player, "draft-ticket"));
+                assertEquals("SESSION_NOT_OPEN", draftFailure.getCode());
+
+                bingoGameService.updateSessionState(session.id(),
+                                new GameSessionStateUpdateRequest(GameSessionState.OPEN));
+                var persistedRoom = bingoRoomRepository.findById(room.id()).orElseThrow();
+                persistedRoom.setActive(false);
+                bingoRoomRepository.saveAndFlush(persistedRoom);
+
+                var inactiveFailure = assertThrows(ConflictException.class,
+                                () -> bingoGameService.purchaseTicket(session.id(), player, "inactive-room-ticket"));
+                assertEquals("ROOM_INACTIVE", inactiveFailure.getCode());
+                assertEquals(ticketsBefore, ticketRepository.count());
+                assertEquals(transactionsBefore, walletTransactionRepository.count());
+                Wallet walletAfter = walletRepository.findByOwnerId(playerOne.getId()).orElseThrow();
+                assertEquals(transferableBefore, walletAfter.getAvailableBalance());
+                assertEquals(promotionalBefore, walletAfter.getPromotionalBalance());
+        }
+
+        @Test
+        void cancelledAndCompletedSessionsRejectTicketPurchase() {
+                var room = bingoGameService.createRoom(roomRequest("Terminal purchase guard", 3, 3, true));
+                var cancelled = bingoGameService.createSession(room.id(), sessionRequest(GameSessionState.DRAFT));
+                var completed = bingoGameService.createSession(
+                                bingoGameService.createRoom(roomRequest("Completed purchase guard", 2, 2, true)).id(),
+                                sessionRequest(GameSessionState.DRAFT));
+                bingoGameService.updateSessionState(cancelled.id(),
+                                new GameSessionStateUpdateRequest(GameSessionState.CANCELLED));
+                bingoGameService.updateSessionState(completed.id(),
+                                new GameSessionStateUpdateRequest(GameSessionState.OPEN));
+                bingoGameService.updateSessionState(completed.id(),
+                                new GameSessionStateUpdateRequest(GameSessionState.STARTED));
+                bingoGameService.updateSessionState(completed.id(),
+                                new GameSessionStateUpdateRequest(GameSessionState.CLOSED));
+                var player = new BingoUserPrincipal(userRepository.findById(playerOne.getId()).orElseThrow());
+                long ticketsBefore = ticketRepository.count();
+                long transactionsBefore = walletTransactionRepository.count();
+
+                var cancelledFailure = assertThrows(ConflictException.class,
+                                () -> bingoGameService.purchaseTicket(cancelled.id(), player, "cancelled-ticket"));
+                var completedFailure = assertThrows(ConflictException.class,
+                                () -> bingoGameService.purchaseTicket(completed.id(), player, "completed-ticket"));
+
+                assertEquals("SESSION_NOT_OPEN", cancelledFailure.getCode());
+                assertEquals("SESSION_NOT_OPEN", completedFailure.getCode());
+                assertEquals(ticketsBefore, ticketRepository.count());
+                assertEquals(transactionsBefore, walletTransactionRepository.count());
+        }
+
+        @Test
+        void insufficientWalletBalanceRejectsPurchaseWithoutIssuanceOrDebit() {
+                var room = bingoGameService.createRoom(roomRequest("Insufficient ticket purchase", 2, 2, true));
+                var session = bingoGameService.createSession(room.id(), sessionRequest(GameSessionState.OPEN));
+                var player = new BingoUserPrincipal(userRepository.findById(playerOne.getId()).orElseThrow());
+                Wallet walletBefore = walletRepository.findByOwnerId(playerOne.getId()).orElseThrow();
+                walletBefore.setAvailableBalance(BigDecimal.ZERO.setScale(2));
+                walletBefore.setPromotionalBalance(BigDecimal.ZERO.setScale(2));
+                walletRepository.saveAndFlush(walletBefore);
+                long ticketsBefore = ticketRepository.count();
+                long transactionsBefore = walletTransactionRepository.count();
+
+                var failure = assertThrows(ConflictException.class,
+                                () -> bingoGameService.purchaseTicket(session.id(), player, "insufficient-ticket"));
+
+                assertEquals("INSUFFICIENT_BALANCE", failure.getCode());
+                assertEquals(ticketsBefore, ticketRepository.count());
+                assertEquals(transactionsBefore, walletTransactionRepository.count());
+                Wallet walletAfter = walletRepository.findByOwnerId(playerOne.getId()).orElseThrow();
+                assertEquals(BigDecimal.ZERO.setScale(2), walletAfter.getAvailableBalance());
+                assertEquals(BigDecimal.ZERO.setScale(2), walletAfter.getPromotionalBalance());
+        }
+
+        @Test
         void sessionStateTransitionsAndCapacityRulesAreEnforced() throws Exception {
                 var transitionRoom = bingoGameService.createRoom(roomRequest("Main Hall C", 1, 1, true));
                 var transitionSession = bingoGameService.createSession(transitionRoom.id(),
@@ -424,6 +611,39 @@ class BingoGameIntegrationTest extends MySqlIntegrationTest {
 
                 assertTrue(results.contains("OK"));
                 assertTrue(results.contains("CONFLICT"));
+        }
+
+        @Test
+        void concurrentPurchasesAcrossSessionsSerializeThePlayerWallet() throws Exception {
+                var firstRoom = bingoGameService.createRoom(roomRequest("Wallet lock room one", 2, 2, true));
+                var secondRoom = bingoGameService.createRoom(roomRequest("Wallet lock room two", 2, 2, true));
+                var firstSession = bingoGameService.createSession(firstRoom.id(), sessionRequest(GameSessionState.OPEN));
+                var secondSession = bingoGameService.createSession(secondRoom.id(), sessionRequest(GameSessionState.OPEN));
+                Wallet wallet = walletRepository.findByOwnerId(playerOne.getId()).orElseThrow();
+                wallet.setAvailableBalance(new BigDecimal("4.00"));
+                wallet.setPromotionalBalance(BigDecimal.ZERO.setScale(2));
+                walletRepository.saveAndFlush(wallet);
+                var player = new BingoUserPrincipal(userRepository.findById(playerOne.getId()).orElseThrow());
+
+                ExecutorService executor = Executors.newFixedThreadPool(2);
+                CountDownLatch ready = new CountDownLatch(2);
+                CountDownLatch start = new CountDownLatch(1);
+                Future<String> first = executor.submit(() -> purchaseAttempt(
+                                firstSession.id(), player, "wallet-lock-a", ready, start));
+                Future<String> second = executor.submit(() -> purchaseAttempt(
+                                secondSession.id(), player, "wallet-lock-b", ready, start));
+                ready.await(10, TimeUnit.SECONDS);
+                start.countDown();
+                List<String> outcomes = List.of(first.get(15, TimeUnit.SECONDS), second.get(15, TimeUnit.SECONDS));
+                executor.shutdownNow();
+
+                assertEquals(1, outcomes.stream().filter("OK"::equals).count());
+                assertEquals(1, outcomes.stream().filter("CONFLICT"::equals).count());
+                assertEquals(new BigDecimal("0.00"),
+                                walletRepository.findByOwnerId(playerOne.getId()).orElseThrow().getTotalBalance());
+                assertEquals(1, ticketRepository.countByOwnerId(playerOne.getId()));
+                assertEquals(1, walletTransactionRepository.findAll().stream().filter(transaction ->
+                                transaction.getTransactionType() == WalletTransactionType.TICKET_PURCHASE_DEBIT).count());
         }
 
         @Test

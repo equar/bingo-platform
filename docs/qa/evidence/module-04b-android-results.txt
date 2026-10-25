@@ -1,0 +1,13 @@
+Module 04B Android E2E
+Date: 2026-10-25
+Device: emulator-5554 (API 37)
+App: com.example.bingo_app
+Backend: QA profile on host port 8081; app used http://10.0.2.2:8081
+
+Result: PARTIAL. Real Flutter Android integration journey passed 1/1 through login, lobby, room #6, and DRAFT session #5 details. The screenshot shows ETB 3.25, capacity 10, LINE pattern, and DRAFT status. The room/session page has no purchase button, and no pre-purchase ticket choice or reservation UI exists.
+
+Refresh was exercised during the room-detail journey. The app does not expose a route from the lobby session detail to the separate live-game purchase screen, and the DRAFT session has no purchase action, so the requested prohibited purchase attempt could not be made through the Android UI. No Android purchase request was sent. The backend MySQL tests verify DRAFT denial in isolated bingo_qa_test.
+
+Final SELECT-only reconciliation found zero tickets/draws/claims/entitlements, 19 wallet transactions, and all 33 rooms, 18 sessions, and four preserved player wallets exactly matching the Module 04A after snapshot. No persistent paid ticket or financial mutation was created. The requested synthetic player login may add ordinary authentication telemetry.
+
+Evidence: module-04b-android-session-details.png, module-04b-database-readonly.sql, and module-04b-database-readonly.txt. Credentials, PINs, and tokens are not stored.

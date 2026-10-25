@@ -3,7 +3,8 @@ package com.equar.bingo.backend.feature.game.controller;
 import com.equar.bingo.backend.common.api.PageResponse;
 import com.equar.bingo.backend.common.idempotency.IdempotentResult;
 import com.equar.bingo.backend.feature.auth.service.BingoUserPrincipal;
-import com.equar.bingo.backend.feature.game.dto.BingoRoomResponse;
+import com.equar.bingo.backend.feature.game.dto.PlayerRoomResponse;
+import com.equar.bingo.backend.feature.game.dto.PlayerGameSessionResponse;
 import com.equar.bingo.backend.feature.game.dto.DrawEventResponse;
 import com.equar.bingo.backend.feature.game.dto.TicketPurchaseResponse;
 import com.equar.bingo.backend.feature.game.dto.TicketResponse;
@@ -42,18 +43,27 @@ public class PublicGameController {
     }
 
     @GetMapping("/rooms")
-    public List<BingoRoomResponse> rooms() {
-        return bingoGameService.listRooms();
+    @PreAuthorize("hasRole('PLAYER')")
+    public List<PlayerRoomResponse> rooms() {
+        return bingoGameService.listPlayerRooms();
     }
 
     @GetMapping("/rooms/{id}")
-    public BingoRoomResponse room(@PathVariable Long id) {
-        return bingoGameService.getRoom(id);
+    @PreAuthorize("hasRole('PLAYER')")
+    public PlayerRoomResponse room(@PathVariable Long id) {
+        return bingoGameService.getPlayerRoom(id);
+    }
+
+    @GetMapping("/rooms/{id}/sessions")
+    @PreAuthorize("hasRole('PLAYER')")
+    public List<PlayerGameSessionResponse> roomSessions(@PathVariable Long id) {
+        return bingoGameService.listPlayerRoomSessions(id);
     }
 
     @GetMapping("/sessions/{id}")
-    public com.equar.bingo.backend.feature.game.dto.GameSessionResponse session(@PathVariable Long id) {
-        return bingoGameService.getSession(id);
+    @PreAuthorize("hasRole('PLAYER')")
+    public PlayerGameSessionResponse session(@PathVariable Long id) {
+        return bingoGameService.getPlayerSession(id);
     }
 
     @PostMapping("/sessions/{id}/tickets")

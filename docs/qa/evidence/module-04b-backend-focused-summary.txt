@@ -1,0 +1,12 @@
+Module 04B focused backend integration
+Date: 2026-10-25
+Database: local MySQL bingo_qa_test, Flyway V22
+Command: mvn -s ../.tmp/maven-settings.xml -Dmaven.repo.local=../.tmp/m2 -Dtest=BingoGameIntegrationTest test
+Tests run: 18
+Passed: 18
+Failures: 0
+Errors: 0
+Skipped: 0
+Result: BUILD SUCCESS
+
+The suite includes real MySQL purchase, wallet debit/ledger snapshot, idempotency, owner-only ticket access, purchase audit event, capacity concurrency, DRAFT/cancelled/completed/inactive-room denial, suspended-player denial, insufficient-funds rollback, and cross-session wallet serialization coverage. Sanitized command log: module-04b-backend-focused.log.
