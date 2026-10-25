@@ -42,6 +42,7 @@ management:
         include: health,env,beans
   endpoint:
     health:
+      show-components: always
       show-details: never
     env:
       show-values: never

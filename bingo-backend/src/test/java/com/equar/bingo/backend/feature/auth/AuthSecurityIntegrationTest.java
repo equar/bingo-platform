@@ -1244,11 +1244,13 @@ class AuthSecurityIntegrationTest extends MySqlIntegrationTest {
         }
 
         @Test
-        void actuatorHealthIsMinimalAndSensitiveEndpointsRequireAdmin() throws Exception {
+        void actuatorHealthShowsComponentStatusesWithoutSensitiveDetails() throws Exception {
                 String health = mockMvc.perform(get("/actuator/health"))
                                 .andExpect(status().isOk())
                                 .andExpect(jsonPath("$.status").value("UP"))
-                                .andExpect(jsonPath("$.components").doesNotExist())
+                                .andExpect(jsonPath("$.components.application.status").value("UP"))
+                                .andExpect(jsonPath("$.components.db.status").value("UP"))
+                                .andExpect(jsonPath("$.components.db.details").doesNotExist())
                                 .andReturn()
                                 .getResponse()
                                 .getContentAsString();
