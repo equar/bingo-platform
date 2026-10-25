@@ -1,0 +1,55 @@
+name: Validate Lightsail infrastructure
+
+on:
+  pull_request:
+    paths:
+      - deployment/aws/lightsail-stack.yaml
+      - deployment/lightsail/**
+      - .github/workflows/deploy-lightsail.yml
+      - .github/workflows/validate-lightsail-infrastructure.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Lint CloudFormation and deployment script
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install cfn-lint
+        run: python -m pip install cfn-lint
+
+      - name: Lint Lightsail CloudFormation
+        run: cfn-lint deployment/aws/lightsail-stack.yaml
+
+      - name: Check remote deployment script syntax
+        run: bash -n deployment/lightsail/deploy-release.sh
+
+      - name: Validate rendered Nginx configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y nginx gettext-base openssl
+          sudo install -d -m 0755 /etc/letsencrypt/live/bingo-platform
+          sudo openssl req -x509 -newkey rsa:2048 -nodes \
+            -keyout /etc/letsencrypt/live/bingo-platform/privkey.pem \
+            -out /etc/letsencrypt/live/bingo-platform/fullchain.pem \
+            -subj '/CN=example.com' -days 1
+          env SITE_DOMAIN=example.com ADMIN_DOMAIN=admin.example.com API_DOMAIN=api.example.com \
+            envsubst '${SITE_DOMAIN} ${ADMIN_DOMAIN} ${API_DOMAIN}' \
+            < deployment/lightsail/nginx-sites.conf.template \
+            | sudo tee /etc/nginx/sites-available/bingo.conf >/dev/null
+          sudo rm -f /etc/nginx/sites-enabled/default
+          sudo ln -sfn /etc/nginx/sites-available/bingo.conf /etc/nginx/sites-enabled/bingo.conf
+          sudo nginx -t

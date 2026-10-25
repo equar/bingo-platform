@@ -1,0 +1,4 @@
+flutter_tests_exit_code=0
+30 tests passed.
+flutter_analyze_exit_code=0
+No issues found.

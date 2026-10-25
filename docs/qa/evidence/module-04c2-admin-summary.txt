@@ -1,0 +1,5 @@
+Admin frontend regression: 84/84 passed (27 files).
+Targeted Admin API regression after session detail route fix: 8/8 passed.
+Lint: passed. Production build: passed.
+Admin Chromium on local port 5189 against isolated backend 8082: session detail loaded for clean session #31; two Draw actions sent POST requests with zero body bytes; Admin displayed server-selected sequence 1 and 2 results.
+Pending-state disable behavior is verified by component coverage; the short pending interval was not separately observed in Chromium.

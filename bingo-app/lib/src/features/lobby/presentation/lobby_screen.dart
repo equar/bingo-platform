@@ -3,6 +3,7 @@ import 'package:bingo_app/src/core/widgets/app_status_view.dart';
 import 'package:bingo_app/src/core/widgets/section_card.dart';
 import 'package:bingo_app/src/features/lobby/data/lobby_repository.dart';
 import 'package:bingo_app/src/features/lobby/domain/lobby_models.dart';
+import 'package:bingo_app/src/features/game/presentation/session_detail_screen.dart';
 import 'package:bingo_app/src/features/lobby/presentation/ticket_preview_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,15 +12,17 @@ final lobbyRoomsProvider = FutureProvider.autoDispose<List<BingoRoom>>((ref) {
   return ref.read(lobbyRepositoryProvider).getRooms();
 });
 
-final roomDetailsProvider = FutureProvider.autoDispose
-    .family<BingoRoom, int>((ref, roomId) {
+final roomDetailsProvider = FutureProvider.autoDispose.family<BingoRoom, int>((
+  ref,
+  roomId,
+) {
   return ref.read(lobbyRepositoryProvider).getRoom(roomId);
 });
 
 final roomSessionsProvider = FutureProvider.autoDispose
     .family<List<GameSession>, int>((ref, roomId) {
-  return ref.read(lobbyRepositoryProvider).getRoomSessions(roomId);
-});
+      return ref.read(lobbyRepositoryProvider).getRoomSessions(roomId);
+    });
 
 class LobbyScreen extends ConsumerWidget {
   const LobbyScreen({super.key});
@@ -78,15 +81,19 @@ class LobbyScreen extends ConsumerWidget {
                             Row(
                               children: [
                                 Expanded(
-                                  child: Text(room.name,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleLarge),
+                                  child: Text(
+                                    room.name,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.titleLarge,
+                                  ),
                                 ),
                                 Chip(
-                                  label: Text(room.active
-                                      ? localizations.roomStatusActive
-                                      : localizations.roomStatusInactive),
+                                  label: Text(
+                                    room.active
+                                        ? localizations.roomStatusActive
+                                        : localizations.roomStatusInactive,
+                                  ),
                                 ),
                               ],
                             ),
@@ -120,9 +127,8 @@ class LobbyScreen extends ConsumerWidget {
                                 key: ValueKey('room-details-${room.id}'),
                                 onPressed: () => Navigator.of(context).push(
                                   MaterialPageRoute<void>(
-                                    builder: (_) => RoomDetailsScreen(
-                                      roomId: room.id,
-                                    ),
+                                    builder: (_) =>
+                                        RoomDetailsScreen(roomId: room.id),
                                   ),
                                 ),
                                 icon: const Icon(Icons.info_outline),
@@ -177,31 +183,45 @@ class RoomDetailsScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(room.name,
-                        key: const ValueKey('room-detail-name'),
-                        style: Theme.of(context).textTheme.headlineSmall),
+                    Text(
+                      room.name,
+                      key: const ValueKey('room-detail-name'),
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
                     if (room.description?.isNotEmpty == true) ...[
                       const SizedBox(height: 8),
                       Text(room.description!),
                     ],
                     const SizedBox(height: 12),
-                    _DetailLine(localizations.roomPriceLabel,
-                        '${room.ticketPrice} ${room.currency}'),
-                    _DetailLine(localizations.roomScheduleLabel,
-                        '${room.scheduleRule} (${room.timezone})'),
-                    _DetailLine(localizations.roomCapacityLabel,
-                        room.sessionCapacity.toString()),
-                    _DetailLine(localizations.sessionStatusLabel,
-                        localizations.roomStatusActive),
+                    _DetailLine(
+                      localizations.roomPriceLabel,
+                      '${room.ticketPrice} ${room.currency}',
+                    ),
+                    _DetailLine(
+                      localizations.roomScheduleLabel,
+                      '${room.scheduleRule} (${room.timezone})',
+                    ),
+                    _DetailLine(
+                      localizations.roomCapacityLabel,
+                      room.sessionCapacity.toString(),
+                    ),
+                    _DetailLine(
+                      localizations.sessionStatusLabel,
+                      localizations.roomStatusActive,
+                    ),
                     if (room.configuredPatterns.isNotEmpty)
-                      _DetailLine(localizations.gamePatterns,
-                          room.configuredPatterns.join(', ')),
+                      _DetailLine(
+                        localizations.gamePatterns,
+                        room.configuredPatterns.join(', '),
+                      ),
                   ],
                 ),
               ),
               const SizedBox(height: 16),
-              Text(localizations.roomSessions,
-                  style: Theme.of(context).textTheme.titleLarge),
+              Text(
+                localizations.roomSessions,
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
               const SizedBox(height: 8),
               sessionsAsync.when(
                 loading: () => Padding(
@@ -217,12 +237,12 @@ class RoomDetailsScreen extends ConsumerWidget {
                     ? SectionCard(child: Text(localizations.sessionsEmpty))
                     : Column(
                         children: sessions
-                            .map((session) => Padding(
-                                  padding: const EdgeInsets.only(bottom: 10),
-                                  child: _SessionCard(
-                                    session: session,
-                                  ),
-                                ))
+                            .map(
+                              (session) => Padding(
+                                padding: const EdgeInsets.only(bottom: 10),
+                                child: _SessionCard(session: session),
+                              ),
+                            )
                             .toList(),
                       ),
               ),
@@ -242,29 +262,48 @@ class _SessionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context)!;
-    final isTerminal = const {'CANCELLED', 'CLOSED', 'SETTLED'}
-        .contains(session.state.toUpperCase());
+    final isTerminal = const {
+      'CANCELLED',
+      'CLOSED',
+      'SETTLED',
+    }.contains(session.state.toUpperCase());
+    final canOpenLiveGame = const {
+      'STARTED',
+      'DRAWING',
+    }.contains(session.state.toUpperCase());
     return SectionCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(session.sessionName,
-              style: Theme.of(context).textTheme.titleMedium),
+          Text(
+            session.sessionName,
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
           const SizedBox(height: 6),
           Chip(
-            label: Text(isTerminal
-                ? localizations.sessionUnavailable(session.state)
-                : localizations.sessionStatus(session.state)),
+            label: Text(
+              isTerminal
+                  ? localizations.sessionUnavailable(session.state)
+                  : localizations.sessionStatus(session.state),
+            ),
           ),
-          _DetailLine(localizations.sessionSchedule,
-              session.scheduledStartAt.toUtc().toIso8601String()),
-          _DetailLine(localizations.roomPriceLabel,
-              '${session.ticketPrice} ${session.currency}'),
-          _DetailLine(localizations.roomCapacityLabel,
-              session.sessionCapacity.toString()),
+          _DetailLine(
+            localizations.sessionSchedule,
+            session.scheduledStartAt.toUtc().toIso8601String(),
+          ),
+          _DetailLine(
+            localizations.roomPriceLabel,
+            '${session.ticketPrice} ${session.currency}',
+          ),
+          _DetailLine(
+            localizations.roomCapacityLabel,
+            session.sessionCapacity.toString(),
+          ),
           if (session.configuredPatterns.isNotEmpty)
-            _DetailLine(localizations.gamePatterns,
-                session.configuredPatterns.join(', ')),
+            _DetailLine(
+              localizations.gamePatterns,
+              session.configuredPatterns.join(', '),
+            ),
           const SizedBox(height: 8),
           Align(
             alignment: Alignment.centerRight,
@@ -282,6 +321,22 @@ class _SessionCard extends StatelessWidget {
               label: Text(localizations.ticketPreviewButton),
             ),
           ),
+          if (canOpenLiveGame) ...[
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerRight,
+              child: FilledButton.icon(
+                key: ValueKey('live-game-${session.id}'),
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => SessionDetailScreen(session: session),
+                  ),
+                ),
+                icon: const Icon(Icons.sports_esports_outlined),
+                label: Text(localizations.liveGameTitle),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -296,9 +351,9 @@ class _DetailLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(top: 8),
-        child: Text('$label: $value'),
-      );
+    padding: const EdgeInsets.only(top: 8),
+    child: Text('$label: $value'),
+  );
 }
 
 class _InfoChip extends StatelessWidget {

@@ -1,0 +1,42 @@
+Module 04C-3A environment recovery evidence — 2026-10-25
+
+Configuration
+- Found ignored file: bingo-backend/.env.test (not created or modified).
+- Git ignore: .gitignore line 28, rule **/.env.test; git check-ignore confirmed bingo-backend/.env.test.
+- Required variables present in the ignored file and process: BINGO_TEST_MYSQL_URL, BINGO_TEST_MYSQL_USERNAME, BINGO_TEST_MYSQL_PASSWORD. Values withheld.
+- JDBC target from file: host 127.0.0.1, port 3306, schema bingo_qa_test.
+- Spring does not automatically load .env.test. The variables were loaded into the backend launch process; test profile config was explicitly loaded from bingo-backend/src/test/resources/.
+
+Pre-start read-only MySQL check
+- Catalog bingo_qa_test; MySQL 8.0.36; server 127.0.0.1:3306.
+- Account bingo_qa_test_runner@127.0.0.1.
+- Grants: USAGE ON *.*; ALL PRIVILEGES ON bingo_qa_test.*. No persistent database grants were present.
+- Flyway history latest: V22 success=true. Latest source migration: V22.
+
+Build identity
+- Git HEAD: 2f8a0f9e8c26db1cd5bd5a8ee55c88a187d8ae26.
+- Working tree: modified; see module-04c3a-working-tree-status.txt.
+- Java: 25.0.2. Maven: 3.9.6. Spring Boot: 4.1.1.
+- Build command: Maven package with -DskipTests; BUILD SUCCESS; tests skipped.
+- Artifact: bingo-backend/target/bingo-backend-0.0.1-SNAPSHOT.jar.
+- Artifact size: 69742846 bytes.
+- Artifact timestamp UTC: 2026-10-25T11:38:37Z.
+- SHA-256: 8FA15AC5267FC5038A03FFF699798F05663EF14B9E2EA07B14ABFEE2885DAA9B.
+
+Runtime
+- Process: PID 32844, executable C:\Program Files\Java\jdk-25.0.2\bin\java.exe; started from the artifact above.
+- Listener: 127.0.0.1:8082, PID 32844.
+- Active Spring profile: test.
+- Test-only startup identity (@Profile test & !prod & !qa): database=bingo_qa_test, jdbcHost=127.0.0.1, jdbcPort=3306, Flyway=22, commit and artifact checksum match above.
+- Flyway: validated 22 migrations; schema V22 up to date; no migration applied.
+- Runtime guard diagnostic: draw scheduler disabled; signup reward posting disabled; deposit simulation disabled; adjustment simulation disabled; agent float simulation disabled.
+- Host health: GET /actuator/health returned HTTP 200, status UP.
+- OpenAPI: GET /v3/api-docs succeeded; POST /api/v1/admin/sessions/{id}/draws has no requestBody. No draw POST was sent.
+- Android: emulator-5554 GET http://10.0.2.2:8082/actuator/health returned HTTP 200, status UP.
+
+Scope and preservation
+- No gameplay tests were run.
+- No game session, draw, ticket, claim, wallet transaction, or financial posting was created.
+- No connection was made to bingo_qa; no .env.qa credentials were used.
+- Sessions #30 and #31 were not accessed or modified.
+- The backend remains running for the separately scoped Module 04C-3 work.

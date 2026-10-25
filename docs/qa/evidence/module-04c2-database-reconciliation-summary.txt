@@ -1,0 +1,4 @@
+Persistent QA database: bingo_qa, read with existing bingo_qa_app account using the Module 04C SELECT-only reconciliation script.
+Before/after snapshots: exact line comparison matched 0 differing lines.
+Baseline totals: 33 rooms, 18 sessions, 0 tickets, 0 draws, 0 claims, 0 entitlements, and 19 wallet transactions.
+Wallet balances, all game rows, journal totals, and Agent #3 float were included in the matching snapshots.

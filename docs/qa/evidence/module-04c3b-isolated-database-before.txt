@@ -1,0 +1,21 @@
+# Module 04C-3B — Isolated Database Before-Run Check
+
+Read-only pre-fixture snapshot captured before Module 04C-3B wrote any isolated records. Source: guarded local MySQL `bingo_qa_test`; `bingo_qa` was not used by the backend or fixture workflow.
+
+| Check | Result |
+| --- | --- |
+| Flyway | V22 |
+| Users | 2 |
+| Rooms | 0 |
+| Sessions | 0 |
+| Draw events | 0 |
+| Audit entries | 1 |
+| Tickets | 0 |
+| Wallets | 1 |
+| Wallet transactions | 0 |
+| Win claims / prize entitlements | 0 / 0 |
+| Session IDs 30 and 31 | No rows existed |
+
+Although sessions #30 and #31 were absent, the session auto-increment sequence had advanced to those values. The first C3B fixture insert consequently received IDs 30 and 31. This collision was disclosed before further work; those new rows were left untouched afterward. Historical #30/#31 database contents could not be preserved because they were already absent at this pre-run check. Historical C2 evidence files were retained.
+
+The original pre-fixture query was SELECT-only. Its counts are retained here from the pre-mutation identity/isolation check; detailed post-run rows and invariants are in [the after snapshot](module-04c3b-isolated-database-after.txt).

@@ -13,6 +13,8 @@ spring:
     validate-on-migrate: true
 
 app:
+  qa:
+    test-runtime-identity-reporting-enabled: false
   wallet:
     signup-reward-test-posting-enabled: true
     deposit-simulation-enabled: true

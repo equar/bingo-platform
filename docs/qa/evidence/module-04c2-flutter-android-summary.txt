@@ -1,0 +1,4 @@
+Flutter unit/widget suite: 30/30 passed.
+Flutter analyzer: clean; no issues found.
+Real Android integration: 1/1 passed on emulator-5554 against isolated session #31.
+Cases exercised: login, lobby and room navigation, live-game entry, DRAWING status, initial history, sequences 1 and 2, refresh and authoritative history count.
