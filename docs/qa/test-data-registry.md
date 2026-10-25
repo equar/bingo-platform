@@ -34,6 +34,10 @@ Naming convention: `QA_ADMIN_###`, `QA_PLAYER_###`, `QA_AGENT_###`, and entity n
 
 Two persistent test identities were created through real emulator UI registration, and are recorded above. A read-only snapshot after the run verifies users 1–12 retain their registered role/status states and player wallet balances; it also verifies both Module 03A players are ACTIVE with zero-balance ETB wallets, no signup grants/transactions, and one registration audit event apiece. The full output is [here](evidence/module-03a-database-readonly.txt). No existing QA record was reused or written by this workflow.
 
+## Module 04B-2 execution note — 2026-10-25
+
+Purchase integration and guard tests target only local MySQL `bingo_qa_test`. They do not post to persistent `bingo_qa`. The `bingo_qa` before/after snapshots use a read-only transaction and compare schema version, all game rows, all wallets, wallet transaction types, accounting journal counts, and Agent #3 float. See [the comparison](evidence/module-04b2-database-readonly.txt) and [the SQL](evidence/module-04b2-database-readonly.sql). No persistent game, wallet, or accounting records were intentionally changed.
+
 ## Module 02 admin management
 
 The admin browser suite created five retained support tickets (IDs 1–5), four active room/DRAFT session pairs (IDs 1–4), four additional pending players (IDs 7–10), disabled/expired policy history rows (signup IDs 1–7 and transfer IDs 1–5), and two inactive zero-basis-point commission versions. All synthetic player wallets remain at zero ETB. Read-only verification confirmed `bingo_qa`, ten users, the original two agent profiles unchanged (approved user 2 and pending user 3), all new players PENDING, all four sessions DRAFT, and Flyway V14. Full details are in [module-02-database-verify.txt](evidence/module-02-database-verify.txt); browser/API evidence is in the `module-02-*` files. No secrets or session traces are stored in this registry.

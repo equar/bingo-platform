@@ -62,6 +62,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import jakarta.persistence.EntityManager;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -150,6 +153,12 @@ class BingoGameIntegrationTest extends MySqlIntegrationTest {
 
         @Autowired
         WalletAdjustmentService walletAdjustmentService;
+
+        @Autowired
+        PlatformTransactionManager transactionManager;
+
+        @Autowired
+        EntityManager entityManager;
 
         @Autowired
         SupportTicketRepository supportTicketRepository;
@@ -322,6 +331,17 @@ class BingoGameIntegrationTest extends MySqlIntegrationTest {
                 mockMvc.perform(get("/api/v1/rooms")
                                 .header("Authorization", "Bearer " + suspendedToken))
                                 .andExpect(status().isUnauthorized());
+                mockMvc.perform(post("/api/v1/sessions/" + session.id() + "/tickets")
+                                .header("Idempotency-Key", "anonymous-ticket"))
+                                .andExpect(status().isUnauthorized());
+                mockMvc.perform(post("/api/v1/sessions/" + session.id() + "/tickets")
+                                .header("Authorization", "Bearer " + adminToken)
+                                .header("Idempotency-Key", "admin-ticket"))
+                                .andExpect(status().isForbidden());
+                mockMvc.perform(post("/api/v1/sessions/" + session.id() + "/tickets")
+                                .header("Authorization", "Bearer " + agentToken)
+                                .header("Idempotency-Key", "agent-ticket"))
+                                .andExpect(status().isForbidden());
                 mockMvc.perform(get("/api/v1/sessions/" + session.id()))
                                 .andExpect(status().isUnauthorized());
                 mockMvc.perform(get("/api/v1/sessions/" + session.id())
@@ -381,8 +401,6 @@ class BingoGameIntegrationTest extends MySqlIntegrationTest {
         void purchaseClaimReviewAndSingleSettlementWork() throws Exception {
                 var room = bingoGameService.createRoom(roomRequest("Main Hall B", 4, 10, true));
                 var session = bingoGameService.createSession(room.id(), sessionRequest(GameSessionState.OPEN));
-                BingoUserPrincipal playerPrincipal = new BingoUserPrincipal(
-                                userRepository.findById(playerOne.getId()).orElseThrow());
                 BingoUserPrincipal adminPrincipal = new BingoUserPrincipal(
                                 userRepository.findById(adminUser.getId()).orElseThrow());
                 String playerToken = loginToken("0911000202", "123456");
@@ -395,14 +413,22 @@ class BingoGameIntegrationTest extends MySqlIntegrationTest {
                 BigDecimal promotionalBeforeTicket = ticketWalletBefore.getPromotionalBalance();
                 BigDecimal totalBeforeTicket = transferableBeforeTicket.add(promotionalBeforeTicket);
 
-                IdempotentResult<TicketPurchaseResponse> purchase = bingoGameService.purchaseTicket(session.id(),
-                                playerPrincipal, "ticket-1");
-                Ticket ticket = ticketRepository.findById(purchase.body().ticket().id()).orElseThrow();
+                String purchaseResponseJson = mockMvc.perform(post("/api/v1/sessions/" + session.id() + "/tickets")
+                                .header("Authorization", "Bearer " + playerToken)
+                                .header("Idempotency-Key", "ticket-1")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"ticketPrice\":0.01,\"amount\":0.01}"))
+                                .andExpect(status().isCreated())
+                                .andReturn().getResponse().getContentAsString();
+                TicketPurchaseResponse purchase = objectMapper.readValue(purchaseResponseJson,
+                                TicketPurchaseResponse.class);
+                Ticket ticket = ticketRepository.findById(purchase.ticket().id()).orElseThrow();
                 Wallet ticketWalletAfter = walletRepository.findByOwnerId(playerOne.getId()).orElseThrow();
                 WalletTransaction ticketTransaction = walletTransactionRepository.findAll().stream()
                                 .filter(transaction -> transaction.getTransactionType()
                                                 == WalletTransactionType.TICKET_PURCHASE_DEBIT)
                                 .findFirst().orElseThrow();
+                assertEquals(new BigDecimal("4.00"), ticketTransaction.getAmount());
                 assertEquals(transferableBeforeTicket, ticketTransaction.getTransferableBalanceBefore());
                 assertEquals(ticketWalletAfter.getAvailableBalance(),
                                 ticketTransaction.getTransferableBalanceAfter());
@@ -415,7 +441,8 @@ class BingoGameIntegrationTest extends MySqlIntegrationTest {
                 String purchaseAgainJson = mockMvc.perform(post("/api/v1/sessions/" + session.id() + "/tickets")
                                 .header("Authorization", "Bearer " + playerToken)
                                 .header("Idempotency-Key", "ticket-1")
-                                .contentType(MediaType.APPLICATION_JSON))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"ticketPrice\":999999.99}"))
                                 .andExpect(status().isCreated())
                                 .andReturn().getResponse().getContentAsString();
                 assertTrue(purchaseAgainJson.contains(ticket.getPublicTicketCode()));
@@ -507,6 +534,12 @@ class BingoGameIntegrationTest extends MySqlIntegrationTest {
                 BigDecimal promotionalBefore = walletBefore.getPromotionalBalance();
                 long ticketsBefore = ticketRepository.count();
                 long transactionsBefore = walletTransactionRepository.count();
+                long idempotencyBefore = idempotencyRecordRepository.count();
+                int accountingJournalsBefore = jdbcTemplate.queryForObject(
+                                "select (select count(*) from deposit_accounting_journals)"
+                                                + " + (select count(*) from wallet_adjustment_accounting_journals)"
+                                                + " + (select count(*) from float_accounting_journals)",
+                                Integer.class);
 
                 var draftFailure = assertThrows(ConflictException.class,
                                 () -> bingoGameService.purchaseTicket(session.id(), player, "draft-ticket"));
@@ -523,9 +556,86 @@ class BingoGameIntegrationTest extends MySqlIntegrationTest {
                 assertEquals("ROOM_INACTIVE", inactiveFailure.getCode());
                 assertEquals(ticketsBefore, ticketRepository.count());
                 assertEquals(transactionsBefore, walletTransactionRepository.count());
+                assertEquals(idempotencyBefore, idempotencyRecordRepository.count());
+                assertEquals(accountingJournalsBefore, jdbcTemplate.queryForObject(
+                                "select (select count(*) from deposit_accounting_journals)"
+                                                + " + (select count(*) from wallet_adjustment_accounting_journals)"
+                                                + " + (select count(*) from float_accounting_journals)",
+                                Integer.class));
                 Wallet walletAfter = walletRepository.findByOwnerId(playerOne.getId()).orElseThrow();
                 assertEquals(transferableBefore, walletAfter.getAvailableBalance());
                 assertEquals(promotionalBefore, walletAfter.getPromotionalBalance());
+        }
+
+        @Test
+        void ticketSalesCloseAfterConfiguredActualSessionStartAndScheduleSnapshotIsStable() {
+                var room = bingoGameService.createRoom(roomRequest("Actual start sale cutoff", 4, 4, true));
+                var session = bingoGameService.createSession(room.id(), sessionRequest(GameSessionState.OPEN));
+                Instant scheduledStart = gameSessionRepository.findById(session.id()).orElseThrow()
+                                .getScheduledStartAt();
+                assertTrue(scheduledStart.isAfter(Instant.now()));
+                assertTrue(gameSessionRepository.findById(session.id()).orElseThrow()
+                                .isTicketSalesCloseOnSessionStart());
+                var player = new BingoUserPrincipal(userRepository.findById(playerOne.getId()).orElseThrow());
+
+                var beforeStart = bingoGameService.purchaseTicket(session.id(), player, "before-actual-start");
+                assertEquals(1, ticketRepository.countBySessionId(session.id()));
+                assertEquals(new BigDecimal("4.00"), walletTransactionRepository.findAll().stream()
+                                .filter(transaction -> transaction.getOperationId()
+                                                .equals(beforeStart.body().ticket().operationId()))
+                                .findFirst().orElseThrow().getAmount());
+
+                var changedRoom = bingoRoomRepository.findById(room.id()).orElseThrow();
+                changedRoom.setTicketSalesCloseOnSessionStart(false);
+                bingoRoomRepository.saveAndFlush(changedRoom);
+                var sessionSnapshot = gameSessionRepository.findById(session.id()).orElseThrow();
+                assertEquals(scheduledStart, sessionSnapshot.getScheduledStartAt());
+                assertTrue(sessionSnapshot.isTicketSalesCloseOnSessionStart());
+
+                bingoGameService.updateSessionState(session.id(),
+                                new GameSessionStateUpdateRequest(GameSessionState.STARTED));
+                assertTrue(gameSessionRepository.findById(session.id()).orElseThrow().getStartedAt() != null);
+                long ticketsBeforeDeniedPurchase = ticketRepository.count();
+                long transactionsBeforeDeniedPurchase = walletTransactionRepository.count();
+                Wallet walletBeforeDeniedPurchase = walletRepository.findByOwnerId(playerOne.getId()).orElseThrow();
+
+                var failure = assertThrows(ConflictException.class,
+                                () -> bingoGameService.purchaseTicket(session.id(), player, "after-actual-start"));
+
+                assertEquals("SESSION_ALREADY_STARTED", failure.getCode());
+                assertEquals(ticketsBeforeDeniedPurchase, ticketRepository.count());
+                assertEquals(transactionsBeforeDeniedPurchase, walletTransactionRepository.count());
+                Wallet walletAfterDeniedPurchase = walletRepository.findByOwnerId(playerOne.getId()).orElseThrow();
+                assertEquals(walletBeforeDeniedPurchase.getAvailableBalance(),
+                                walletAfterDeniedPurchase.getAvailableBalance());
+                assertEquals(walletBeforeDeniedPurchase.getPromotionalBalance(),
+                                walletAfterDeniedPurchase.getPromotionalBalance());
+        }
+
+        @Test
+        void ticketPurchaseWritesRollbackAtomicallyWhenOuterTransactionFails() {
+                var room = bingoGameService.createRoom(roomRequest("Ticket rollback atomicity", 2, 2, true));
+                var session = bingoGameService.createSession(room.id(), sessionRequest(GameSessionState.OPEN));
+                var player = new BingoUserPrincipal(userRepository.findById(playerOne.getId()).orElseThrow());
+                Wallet walletBefore = walletRepository.findByOwnerId(playerOne.getId()).orElseThrow();
+                long ticketsBefore = ticketRepository.count();
+                long transactionsBefore = walletTransactionRepository.count();
+                long idempotencyBefore = idempotencyRecordRepository.count();
+                TransactionTemplate template = new TransactionTemplate(transactionManager);
+
+                assertThrows(IllegalStateException.class, () -> template.executeWithoutResult(status -> {
+                        bingoGameService.purchaseTicket(session.id(), player, "forced-rollback-ticket");
+                        entityManager.flush();
+                        throw new IllegalStateException("Force rollback after ticket and debit have been flushed");
+                }));
+
+                entityManager.clear();
+                assertEquals(ticketsBefore, ticketRepository.count());
+                assertEquals(transactionsBefore, walletTransactionRepository.count());
+                assertEquals(idempotencyBefore, idempotencyRecordRepository.count());
+                Wallet walletAfter = walletRepository.findByOwnerId(playerOne.getId()).orElseThrow();
+                assertEquals(walletBefore.getAvailableBalance(), walletAfter.getAvailableBalance());
+                assertEquals(walletBefore.getPromotionalBalance(), walletAfter.getPromotionalBalance());
         }
 
         @Test

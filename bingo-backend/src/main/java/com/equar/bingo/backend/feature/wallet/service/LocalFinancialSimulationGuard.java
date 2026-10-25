@@ -45,4 +45,29 @@ public class LocalFinancialSimulationGuard {
             throw new IllegalStateException("Unable to verify the local financial simulation database", exception);
         }
     }
+
+    /**
+     * Allows positive ticket-purchase integration paths only in the isolated
+     * MySQL test profile/database. Production and persistent QA must never
+     * post ticket-sale wallet debits until Finance approves the accounting flow.
+     */
+    public void requireIsolatedTestDatabase(String feature) {
+        if (environment.acceptsProfiles(Profiles.of("prod"))
+                || !environment.acceptsProfiles(Profiles.of("test"))) {
+            throw new ConflictException("TICKET_PURCHASE_POSTING_DISABLED",
+                    feature + " posting is disabled outside the isolated MySQL test profile");
+        }
+        try (var connection = dataSource.getConnection()) {
+            String url = connection.getMetaData().getURL();
+            URI uri = URI.create(url.substring("jdbc:".length()));
+            String schema = uri.getPath() == null ? "" : uri.getPath().replaceFirst("^/", "");
+            boolean localHost = "127.0.0.1".equals(uri.getHost()) || "localhost".equalsIgnoreCase(uri.getHost());
+            if (!localHost || uri.getPort() != 3306 || !"bingo_qa_test".equals(schema)) {
+                throw new ConflictException("TICKET_PURCHASE_TEST_DATABASE_REQUIRED",
+                        feature + " posting is restricted to local bingo_qa_test");
+            }
+        } catch (SQLException | IllegalArgumentException exception) {
+            throw new IllegalStateException("Unable to verify isolated ticket-purchase test database", exception);
+        }
+    }
 }
