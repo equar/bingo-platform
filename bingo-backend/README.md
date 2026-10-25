@@ -55,4 +55,6 @@ Previous source revisions contained predictable development and E2E fallback cre
 
 ## Integration tests
 
-Migration-backed integration tests run against MySQL 8.0.36 using Testcontainers. Docker must be available for the default test path. To use an isolated local MySQL 8 test database instead, set `BINGO_TEST_MYSQL_URL`, `BINGO_TEST_MYSQL_USERNAME`, and `BINGO_TEST_MYSQL_PASSWORD`; do not point these tests at a production database.
+Database-backed Maven integration tests use the dedicated disposable `bingo_qa_maven_test` schema: local developer runs use local MySQL, while CI uses its job-isolated MySQL service. They require `BINGO_MAVEN_MYSQL_URL`, `BINGO_MAVEN_MYSQL_USERNAME`, and `BINGO_MAVEN_MYSQL_PASSWORD`; the local test guard accepts only MySQL on loopback port 3306, this exact catalog, and the scoped `bingo_qa_maven_runner` account. Synthetic financial test paths additionally require the explicit `BINGO_MAVEN_SYNTHETIC_FINANCIAL_TESTS_ENABLED=true` opt-in, enabled only for the isolated Maven test job in CI. Never point Maven tests at `bingo_qa` or Android/Admin `bingo_qa_test`. See [Module 04C-5A recovery plan](../docs/qa/modules/module-04c5a-mysql-recovery-plan.md) for manual DBA provisioning.
+
+The local backend used for controlled Android/Admin E2E uses the separate `android-test` profile and `BINGO_TEST_MYSQL_*` variables. `.env.test` is not loaded automatically by Spring; load it explicitly in the process that launches the backend. Maven tests do not use that datasource.

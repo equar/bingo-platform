@@ -1,0 +1,21 @@
+Module 04C-5 read-only database isolation gate
+Date: 2026-10-25 (Africa/Nairobi)
+
+Repository config review:
+- Test profile: `test`; application-test.yml reads BINGO_TEST_MYSQL_URL/USERNAME/PASSWORD. Integration test base requires those process variables and installs them as Spring datasource properties. `.env.test` is not loaded automatically by Spring.
+- `.env.test` target is local MySQL 127.0.0.1:3306 / bingo_qa_test. Configured account authentication failed in the prior focused attempt; MySQL reported account bingo_test connecting from localhost. No password is recorded.
+- `.env.test.example` documents bingo_qa_test_runner. 04C-3A historical report says the prior test account had bingo_qa_test-only grants; current grants and MySQL host entries cannot be verified with the rejected account.
+- `A00FlywayUpgradeRecoveryIntegrationTest` invokes Flyway clean after `.cleanDisabled(false)`. Maven's default Surefire lifecycle includes it. Broad fixture setup deletes session/draw/audit and other rows. Full local Maven tests currently share the Android BINGO_TEST_MYSQL_* datasource.
+- PR workflow uses `mvn -q verify` and provisions its own MySQL service, but names the disposable CI catalog bingo_qa_test and hardcodes the CI test account there. CI configuration is not the local database account proof.
+
+Read-only/live checks:
+- No local MySQL administrator credential was available to inspect `CURRENT_USER()`, host restrictions, grants, or create the dedicated disposable schema.
+- Supplied integration account did not authenticate; no DB connection, SQL statement, test fixture, or destructive command ran in the 04C-4 attempt.
+- Current before/after snapshots of bingo_qa and bingo_qa_test could not be collected through a valid account in this C5 gate. The C4 before snapshots remain historical evidence only; no assertion of a fresh comparison is made.
+- No existing Android/Admin fixtures were changed.
+
+Required DBA action: provision bingo_qa_maven_test and a least-privilege-per-schema Maven runner with destructive object privileges only on that schema; repair/provision a separate bingo_qa_test runtime identity without schema create/drop privileges; configure separate local/CI variables; verify both identities and SHOW GRANTS. See the exact setup sequence and guard requirements in module-04c5-database-isolation.md.
+
+No credentials or password values are stored in this evidence.
+
+Handling note: a local ignored `.env.test` file was accidentally displayed by an inspection command. Its contents are intentionally omitted. Rotate the affected local test credential before restoring that test identity; the user was informed. Do not reuse the old value.

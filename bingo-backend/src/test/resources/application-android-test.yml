@@ -1,0 +1,29 @@
+spring:
+  datasource:
+    url: ${BINGO_TEST_MYSQL_URL:}
+    username: ${BINGO_TEST_MYSQL_USERNAME:}
+    password: ${BINGO_TEST_MYSQL_PASSWORD:}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+    clean-disabled: true
+    validate-on-migrate: true
+
+app:
+  qa:
+    test-runtime-identity-reporting-enabled: false
+    synthetic-financial-tests-enabled: false
+  wallet:
+    signup-reward-test-posting-enabled: false
+    deposit-simulation-enabled: false
+    adjustment-simulation-enabled: false
+  agent:
+    float-simulation-enabled: false
+    bank-account-encryption-key: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
+  security:
+    jwt:
+      secret: test-secret-key-test-secret-key-test-secret-key
+      access-token-ttl-seconds: 3600

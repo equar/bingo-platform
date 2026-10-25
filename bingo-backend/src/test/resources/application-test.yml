@@ -1,8 +1,8 @@
 spring:
   datasource:
-    url: ${BINGO_TEST_MYSQL_URL:}
-    username: ${BINGO_TEST_MYSQL_USERNAME:}
-    password: ${BINGO_TEST_MYSQL_PASSWORD:}
+    url: ${BINGO_MAVEN_MYSQL_URL:}
+    username: ${BINGO_MAVEN_MYSQL_USERNAME:}
+    password: ${BINGO_MAVEN_MYSQL_PASSWORD:}
     driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
     hibernate:
@@ -15,12 +15,13 @@ spring:
 app:
   qa:
     test-runtime-identity-reporting-enabled: false
+    synthetic-financial-tests-enabled: ${BINGO_MAVEN_SYNTHETIC_FINANCIAL_TESTS_ENABLED:false}
   wallet:
-    signup-reward-test-posting-enabled: true
-    deposit-simulation-enabled: true
-    adjustment-simulation-enabled: true
+    signup-reward-test-posting-enabled: ${BINGO_MAVEN_SYNTHETIC_FINANCIAL_TESTS_ENABLED:false}
+    deposit-simulation-enabled: ${BINGO_MAVEN_SYNTHETIC_FINANCIAL_TESTS_ENABLED:false}
+    adjustment-simulation-enabled: ${BINGO_MAVEN_SYNTHETIC_FINANCIAL_TESTS_ENABLED:false}
   agent:
-    float-simulation-enabled: true
+    float-simulation-enabled: ${BINGO_MAVEN_SYNTHETIC_FINANCIAL_TESTS_ENABLED:false}
     bank-account-encryption-key: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
   security:
     jwt:

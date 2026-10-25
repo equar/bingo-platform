@@ -1,0 +1,35 @@
+Module 04D-3 configuration hardening evidence
+Date: 2026-10-25 (Africa/Nairobi)
+
+Configuration changes:
+- `application-test.yml`: financial feature switches now resolve from BINGO_MAVEN_SYNTHETIC_FINANCIAL_TESTS_ENABLED, default false; master opt-in also defaults false.
+- `application-android-test.yml`: master opt-in explicitly false; existing feature switches remain false.
+- `application.yml`: master opt-in defaults false; existing financial switches remain false.
+- `.env.maven-test.example`: opt-in documented as false by default.
+- Shared guard requires active test profile only, explicit opt-in, local bingo_qa_maven_test:3306, and bingo_qa_maven_runner before a simulated posting is accepted. Runtime additionally checks the actual catalog and CURRENT_USER host.
+- MySqlIntegrationTest uses the pure MavenTestDatabasePolicy before connecting, then continues its authentication, grant, and denied-schema verification.
+- Signup rewards, deposits, adjustments, ticket purchase, and synthetic agent float use the same fail-closed policy. Prize entitlement settlement still always returns PRIZE_SETTLEMENT_BLOCKED. Configured payment instructions do not make outbound requests.
+
+Java command:
+mvn -o -Dmaven.repo.local=C:\Users\16414\.m2\repository -Dmaven.compiler.fork=true -Dtest=LocalFinancialSimulationGuardTest,MavenTestDatabasePolicyTest,WinClaimSessionSecurityTest,BingoPatternEvaluatorTest,BingoGameRulesTest,GameSessionStateTest test
+
+Surefire result: 26 tests, 0 failures, 0 errors, 0 skipped.
+- LocalFinancialSimulationGuardTest: 7 passed.
+- MavenTestDatabasePolicyTest: 4 passed.
+- WinClaimSessionSecurityTest: 6 passed.
+- BingoPatternEvaluatorTest: 3 passed.
+- BingoGameRulesTest: 4 passed.
+- GameSessionStateTest: 2 passed.
+The selected test classes use pure configuration policy or mocked collaborators. No MySqlIntegrationTest subclass or Spring application context was selected.
+
+Flutter:
+- Flutter 3.47.7 / Dart 3.13.5.
+- `flutter test test/features/game/live_game_controller_test.dart`: 1/1 passed.
+- `flutter analyze`: no issues found.
+- Dependency resolution reported 23 newer versions; no package upgrades were applied.
+
+Static safety/reconciliation:
+- `git diff --check`: exit 0; new files scanned separately for trailing whitespace.
+- No SQL, JDBC, backend endpoint, Android emulator claim, Admin browser action, wallet, or settlement operation was invoked.
+- No persistent QA data was queried or modified. Local MySQL service exists; `bingo_qa_maven_test` provisioning, account grants, and runtime authentication remain unverified.
+- `bingo_qa_test` isolation/grants and a safe eligible-ticket fixture remain unresolved. No DB before/after snapshots or E2E evidence were produced.

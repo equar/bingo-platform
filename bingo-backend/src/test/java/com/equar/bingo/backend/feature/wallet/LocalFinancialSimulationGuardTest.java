@@ -1,10 +1,9 @@
 package com.equar.bingo.backend.feature.wallet;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verifyNoInteractions;
 
 import com.equar.bingo.backend.common.exception.ConflictException;
@@ -12,29 +11,13 @@ import com.equar.bingo.backend.feature.wallet.service.LocalFinancialSimulationGu
 import javax.sql.DataSource;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.env.MockEnvironment;
-import java.sql.Connection;
-import java.sql.DatabaseMetaData;
 
 class LocalFinancialSimulationGuardTest {
     private final DataSource dataSource = mock(DataSource.class);
 
     @Test
-    void refusesEnabledSimulationInProductionProfile() {
-        var environment = new MockEnvironment();
-        environment.setActiveProfiles("prod");
-        var guard = new LocalFinancialSimulationGuard(dataSource, environment);
-
-        IllegalStateException failure = assertThrows(IllegalStateException.class,
-                () -> guard.validateConfiguration(true, "Player deposit"));
-
-        org.junit.jupiter.api.Assertions.assertTrue(failure.getMessage().contains("local QA/test profiles"));
-        verifyNoInteractions(dataSource);
-    }
-
-    @Test
     void disabledPostingFailsBeforeInspectingDatabase() {
-        var environment = new MockEnvironment();
-        environment.setActiveProfiles("prod");
+        var environment = new MockEnvironment().withProperty("spring.profiles.active", "prod");
         var guard = new LocalFinancialSimulationGuard(dataSource, environment);
 
         ConflictException failure = assertThrows(ConflictException.class,
@@ -45,48 +28,74 @@ class LocalFinancialSimulationGuardTest {
     }
 
     @Test
-    void playerTicketPostingIsDisabledOutsideTheTestProfile() {
-        for (String profile : new String[] { "qa", "prod" }) {
-            var environment = new MockEnvironment();
-            environment.setActiveProfiles(profile);
-            var guard = new LocalFinancialSimulationGuard(dataSource, environment);
+    void refusesEnabledSimulationInProductionWithoutDatabaseAccess() {
+        var environment = testEnvironment("jdbc:mysql://127.0.0.1:3306/bingo_qa_maven_test", true);
+        environment.setActiveProfiles("prod");
+        var guard = new LocalFinancialSimulationGuard(dataSource, environment);
 
-            ConflictException failure = assertThrows(ConflictException.class,
-                    () -> guard.requireIsolatedTestDatabase("Player ticket purchase"));
+        assertThrows(IllegalStateException.class, () -> guard.validateConfiguration(true, "Player deposit"));
 
-            assertEquals("TICKET_PURCHASE_POSTING_DISABLED", failure.getCode());
-        }
         verifyNoInteractions(dataSource);
     }
 
     @Test
-    void isolatedTestPostingRequiresTheLocalTestSchema() throws Exception {
-        var environment = new MockEnvironment();
-        environment.setActiveProfiles("test");
-        Connection connection = mock(Connection.class);
-        DatabaseMetaData metadata = mock(DatabaseMetaData.class);
-        when(dataSource.getConnection()).thenReturn(connection);
-        when(connection.getMetaData()).thenReturn(metadata);
-        when(metadata.getURL()).thenReturn("jdbc:mysql://127.0.0.1:3306/bingo_qa_test");
+    void refusesFinancialOptInWhenExplicitMasterSwitchIsOff() {
+        var environment = testEnvironment("jdbc:mysql://127.0.0.1:3306/bingo_qa_maven_test", false);
         var guard = new LocalFinancialSimulationGuard(dataSource, environment);
 
-        assertDoesNotThrow(() -> guard.requireIsolatedTestDatabase("Player ticket purchase"));
+        assertThrows(IllegalStateException.class, () -> guard.validateConfiguration(true, "Player deposit"));
+
+        verifyNoInteractions(dataSource);
     }
 
     @Test
-    void isolatedTestPostingRejectsPersistentQaSchema() throws Exception {
-        var environment = new MockEnvironment();
-        environment.setActiveProfiles("test");
-        Connection connection = mock(Connection.class);
-        DatabaseMetaData metadata = mock(DatabaseMetaData.class);
-        when(dataSource.getConnection()).thenReturn(connection);
-        when(connection.getMetaData()).thenReturn(metadata);
-        when(metadata.getURL()).thenReturn("jdbc:mysql://127.0.0.1:3306/bingo_qa");
+    void refusesFinancialOptInAgainstPersistentQaBeforeOpeningConnection() {
+        var environment = testEnvironment("jdbc:mysql://127.0.0.1:3306/bingo_qa", true);
+        var guard = new LocalFinancialSimulationGuard(dataSource, environment);
+
+        assertThrows(IllegalStateException.class, () -> guard.validateConfiguration(true, "Wallet adjustment"));
+
+        verifyNoInteractions(dataSource);
+    }
+
+    @Test
+    void refusesFinancialOptInAgainstAndroidQaBeforeOpeningConnection() {
+        var environment = testEnvironment("jdbc:mysql://127.0.0.1:3306/bingo_qa_test", true);
+        var guard = new LocalFinancialSimulationGuard(dataSource, environment);
+
+        assertThrows(IllegalStateException.class, () -> guard.validateConfiguration(true, "Agent float"));
+
+        verifyNoInteractions(dataSource);
+    }
+
+    @Test
+    void acceptsOnlyExplicitTestOptInOnDedicatedSchemaAsConfigurationOnlyCheck() {
+        var environment = testEnvironment("jdbc:mysql://localhost:3306/bingo_qa_maven_test", true);
+        var guard = new LocalFinancialSimulationGuard(dataSource, environment);
+
+        assertDoesNotThrow(() -> guard.validateConfiguration(true, "Synthetic test posting"));
+
+        verifyNoInteractions(dataSource);
+    }
+
+    @Test
+    void refusesTicketPurchasePostingWithoutOptInBeforeOpeningConnection() {
+        var environment = testEnvironment("jdbc:mysql://127.0.0.1:3306/bingo_qa_maven_test", false);
         var guard = new LocalFinancialSimulationGuard(dataSource, environment);
 
         ConflictException failure = assertThrows(ConflictException.class,
-                () -> guard.requireIsolatedTestDatabase("Player ticket purchase"));
+                () -> guard.requireIsolatedTestDatabase("Ticket purchase"));
 
-        assertEquals("TICKET_PURCHASE_TEST_DATABASE_REQUIRED", failure.getCode());
+        assertEquals("TICKET_PURCHASE_POSTING_DISABLED", failure.getCode());
+        verifyNoInteractions(dataSource);
+    }
+
+    private MockEnvironment testEnvironment(String jdbcUrl, boolean optIn) {
+        var environment = new MockEnvironment();
+        environment.setActiveProfiles("test");
+        environment.setProperty("app.qa.synthetic-financial-tests-enabled", Boolean.toString(optIn));
+        environment.setProperty("spring.datasource.url", jdbcUrl);
+        environment.setProperty("spring.datasource.username", "bingo_qa_maven_runner");
+        return environment;
     }
 }

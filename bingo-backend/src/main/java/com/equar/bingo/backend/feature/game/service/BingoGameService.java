@@ -100,6 +100,7 @@ public class BingoGameService {
     private final ObjectMapper objectMapper;
     private final LocalFinancialSimulationGuard ticketPurchasePostingGuard;
     private final GameLiveDrawService gameLiveDrawService;
+    private final WinClaimSessionValidator winClaimSessionValidator;
 
     public BingoGameService(BingoRoomRepository bingoRoomRepository,
             GameSessionRepository gameSessionRepository,
@@ -135,6 +136,7 @@ public class BingoGameService {
         this.objectMapper = objectMapper;
         this.ticketPurchasePostingGuard = ticketPurchasePostingGuard;
         this.gameLiveDrawService = gameLiveDrawService;
+        this.winClaimSessionValidator = new WinClaimSessionValidator();
     }
 
     @Transactional(readOnly = true)
@@ -484,19 +486,25 @@ public class BingoGameService {
         User player = requirePlayer(principal);
         Ticket ticket = ticketRepository.findByIdAndOwnerId(ticketId, player.getId())
                 .orElseThrow(() -> new NotFoundException("TICKET_NOT_FOUND", "Ticket not found"));
-        GameSession session = ticket.getSession();
+        Long sessionId = ticket.getSession().getId();
         String requestHash = requestHashService.hash("POST", "/api/v1/tickets/" + ticketId + "/win-claims", request);
         String operationId = UUID.randomUUID().toString();
 
         return idempotencyService.execute(player.getId(), idempotencyKey, requestHash, operationId,
                 HttpStatus.CREATED.value(), WinClaimResponse.class, () -> {
+                    // State changes use the same row lock in updateSessionState. The lock makes
+                    // cancellation and claim creation serialize on the authoritative session row.
+                    GameSession session = gameSessionRepository.findByIdForUpdate(sessionId)
+                            .orElseThrow(() -> new NotFoundException("SESSION_NOT_FOUND", "Game session not found"));
+                    winClaimSessionValidator.validate(session.getState());
+
                     if (winClaimRepository.existsByTicketIdAndClaimedPatternAndDrawSequenceSnapshot(ticketId,
-                            request.claimedPattern(), currentDrawSequence(session.getId()))) {
+                            request.claimedPattern(), currentDrawSequence(sessionId))) {
                         throw new ConflictException("DUPLICATE_WIN_CLAIM",
                                 "A claim already exists for this ticket, pattern, and draw snapshot");
                     }
 
-                    List<Integer> calledNumbers = currentCalledNumbers(session.getId());
+                    List<Integer> calledNumbers = currentCalledNumbers(sessionId);
                     BingoCard ticketCard = new BingoCard(readGrid(ticket.getGridJson()));
                     boolean matches = patternEvaluator.matches(ticketCard, new HashSet<>(calledNumbers),
                             request.claimedPattern());
@@ -506,7 +514,7 @@ public class BingoGameService {
                     claim.setSession(session);
                     claim.setClaimant(player);
                     claim.setClaimedPattern(request.claimedPattern());
-                    claim.setDrawSequenceSnapshot(currentDrawSequence(session.getId()));
+                    claim.setDrawSequenceSnapshot(currentDrawSequence(sessionId));
                     claim.setCalledNumbersSnapshotJson(writeIntegerList(calledNumbers));
                     claim.setEvidenceJson(writeEvidence(ticketCard, calledNumbers, request.claimedPattern()));
                     claim.setOperationId(operationId);

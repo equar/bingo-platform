@@ -1,0 +1,20 @@
+Module 04C-5B DBA access gate
+Date: 2026-10-25 (Africa/Nairobi)
+
+Approval:
+- The user explicitly replied “Approve all listed changes” for the local schema/account creation, local test credential rotation, optional DML-only restriction for the Android account, and verification steps.
+
+Non-secret credential availability checks:
+- No MYSQL/BINGO/database-admin variables were present in the current process.
+- No user `.my.cnf` or `.mylogin.cnf` was found.
+- `mysql_config_editor` was present, but no stored login path was available.
+- The only repository QA credentials belong to application/test identities; none was used as an administrator credential.
+- No password was attempted or printed. No alternate account was guessed.
+
+Database actions:
+- No MySQL connection or SQL execution was performed.
+- No schema, account, grant, credential, or QA row was changed.
+- No before/after DB snapshot was taken because no valid authorized DB login was available.
+- No configuration or guard tests were run; no gameplay/full integration tests were run.
+
+Next safe action: an authorized local MySQL DBA must open a secure administrative session, verify the local server identity and exact account host rows/grants, then execute the user-approved statements individually from `docs/qa/scripts/module-04c5a-dba-setup.sql`. Keep credentials in the approved local secret store; do not put them in chat, logs, or Git.

@@ -17,7 +17,7 @@ import org.springframework.stereotype.Component;
 
 /** Emits a credential-free startup identity and fails closed outside the local test schema. */
 @Component
-@Profile("test & !prod & !qa")
+@Profile("android-test & !prod & !qa")
 @ConditionalOnProperty(prefix = "app.qa", name = "test-runtime-identity-reporting-enabled", havingValue = "true")
 public class TestRuntimeIdentityReporter implements ApplicationRunner {
     private static final Logger log = LoggerFactory.getLogger(TestRuntimeIdentityReporter.class);
@@ -35,8 +35,8 @@ public class TestRuntimeIdentityReporter implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) throws Exception {
-        if (Arrays.stream(environment.getActiveProfiles()).noneMatch("test"::equals)) {
-            throw new IllegalStateException("Test runtime identity reporter requires the test profile");
+        if (Arrays.stream(environment.getActiveProfiles()).noneMatch("android-test"::equals)) {
+            throw new IllegalStateException("Test runtime identity reporter requires the android-test profile");
         }
 
         String commit = requiredEnvironment("BINGO_QA_BUILD_COMMIT");
@@ -46,6 +46,7 @@ public class TestRuntimeIdentityReporter implements ApplicationRunner {
         requireDisabled("app.wallet.deposit-simulation-enabled");
         requireDisabled("app.wallet.adjustment-simulation-enabled");
         requireDisabled("app.agent.float-simulation-enabled");
+        requireDisabled("app.qa.synthetic-financial-tests-enabled");
 
         try (Connection connection = dataSource.getConnection()) {
             String jdbcUrl = connection.getMetaData().getURL();

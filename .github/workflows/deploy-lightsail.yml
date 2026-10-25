@@ -40,8 +40,8 @@ jobs:
         image: mysql:8.0.36
         env:
           MYSQL_ROOT_PASSWORD: root
-          MYSQL_DATABASE: bingo_qa_test
-          MYSQL_USER: bingo_test
+          MYSQL_DATABASE: bingo_qa_maven_test
+          MYSQL_USER: bingo_qa_maven_runner
           MYSQL_PASSWORD: bingo_test
         ports:
           - 3306:3306
@@ -142,9 +142,10 @@ jobs:
         working-directory: bingo-backend
         env:
           SPRING_PROFILES_ACTIVE: test
-          BINGO_TEST_MYSQL_URL: jdbc:mysql://127.0.0.1:3306/bingo_qa_test?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
-          BINGO_TEST_MYSQL_USERNAME: bingo_test
-          BINGO_TEST_MYSQL_PASSWORD: bingo_test
+          BINGO_MAVEN_MYSQL_URL: jdbc:mysql://127.0.0.1:3306/bingo_qa_maven_test?createDatabaseIfNotExist=false&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+          BINGO_MAVEN_MYSQL_USERNAME: bingo_qa_maven_runner
+          BINGO_MAVEN_MYSQL_PASSWORD: bingo_test
+          BINGO_MAVEN_CI_DISPOSABLE: "true"
         run: mvn -B verify
 
       - name: Set up Node.js

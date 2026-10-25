@@ -1,0 +1,30 @@
+Module 04D-5B design-only verification — 2026-10-25 (Africa/Nairobi)
+
+Scope compliance
+- No MySQL connection/query, migration, backend runtime, fixture write, destructive Maven test, Android or Admin E2E was run.
+- No production code, API endpoint, database record or grant was changed.
+- Documentation proposes a separate one-shot non-web QA fixture runner; this runner was not implemented.
+
+Focused database-free Maven command
+mvn -o -Dmaven.repo.local=C:\Users\16414\.m2\repository -Dmaven.compiler.fork=true -Dtest=BingoGameRulesTest,WinClaimSessionSecurityTest,BingoPatternEvaluatorTest,LocalFinancialSimulationGuardTest,MavenTestDatabasePolicyTest test
+
+Result: BUILD SUCCESS — 24 tests, 0 failures, 0 errors, 0 skipped.
+- BingoGameRulesTest: 4/4, including generated Bingo card validation (5x5 shape, free center, column ranges and uniqueness).
+- WinClaimSessionSecurityTest: 6/6; mocked repositories/services only, no Spring integration context.
+- BingoPatternEvaluatorTest: 3/3.
+- LocalFinancialSimulationGuardTest: 7/7; mocked datasource only.
+- MavenTestDatabasePolicyTest: 4/4; pure configuration policy only.
+
+Static security review checks — all PASS
+- Player ticket purchase calls the isolated financial posting guard and contains wallet debit/transaction behavior.
+- Agent ticket sale debits agent float and creates commission accrual.
+- Ticket entity requires session and owner relations and stores server grid JSON.
+- BingoCardGenerator generates and validates grid/range/free-center constraints.
+- Claim service checks ticket ownership, locks and validates session, evaluates server draw history and persists claims.
+- CANCELLED session is explicitly rejected.
+- Player claim endpoint requires PLAYER; Admin game controller requires ADMIN.
+- android-test config uses Hibernate validate, Flyway clean disabled and financial switches false.
+- Prize settlement remains fail-closed.
+- No fixture writer/controller package exists in backend production source.
+
+No fixture run UUIDs or fixture entity IDs exist because no fixtures were created. The design report and proposed execution matrix record required approval, DBA controls, implementation and reconciliation steps.

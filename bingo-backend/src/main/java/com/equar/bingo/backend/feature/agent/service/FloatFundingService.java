@@ -19,6 +19,7 @@ import com.equar.bingo.backend.feature.auth.service.BingoUserPrincipal;
 import com.equar.bingo.backend.feature.user.entity.User;
 import com.equar.bingo.backend.feature.user.entity.UserRole;
 import com.equar.bingo.backend.feature.user.repository.UserRepository;
+import com.equar.bingo.backend.feature.wallet.service.LocalFinancialSimulationGuard;
 import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -27,9 +28,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
-import javax.sql.DataSource;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.env.Environment;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -42,29 +41,26 @@ public class FloatFundingService {
     private static final String CREDIT_ACCOUNT = "AGENT_PREPAID_FLOAT_LIABILITY";
 
     private final JdbcTemplate jdbc;
-    private final DataSource dataSource;
-    private final Environment environment;
+    private final LocalFinancialSimulationGuard financialSimulationGuard;
     private final FloatTopUpRequestRepository requests;
     private final AgentFloatRepository floats;
     private final AgentFloatTransactionRepository floatTransactions;
     private final UserRepository users;
     private final boolean simulationEnabled;
 
-    public FloatFundingService(JdbcTemplate jdbc, DataSource dataSource, Environment environment,
+    public FloatFundingService(JdbcTemplate jdbc,
+            LocalFinancialSimulationGuard financialSimulationGuard,
             FloatTopUpRequestRepository requests, AgentFloatRepository floats,
             AgentFloatTransactionRepository floatTransactions, UserRepository users,
             @Value("${app.agent.float-simulation-enabled:false}") boolean simulationEnabled) {
         this.jdbc = jdbc;
-        this.dataSource = dataSource;
-        this.environment = environment;
+        this.financialSimulationGuard = financialSimulationGuard;
         this.requests = requests;
         this.floats = floats;
         this.floatTransactions = floatTransactions;
         this.users = users;
         this.simulationEnabled = simulationEnabled;
-        if (simulationEnabled && !environment.acceptsProfiles(org.springframework.core.env.Profiles.of("qa", "test"))) {
-            throw new IllegalStateException("Float simulation can only be enabled in local QA/test profiles");
-        }
+        financialSimulationGuard.validateConfiguration(simulationEnabled, "Agent float simulation");
     }
 
     @Transactional
@@ -370,20 +366,10 @@ public class FloatFundingService {
     }
 
     private void requireSimulationEnabled() {
-        if (!simulationEnabled || !environment.acceptsProfiles(org.springframework.core.env.Profiles.of("qa", "test"))) {
+        if (!simulationEnabled) {
             throw new ConflictException("FLOAT_SIMULATION_DISABLED", "Synthetic bank verification and float posting are disabled");
         }
-        try (var connection = dataSource.getConnection(); var statement = connection.createStatement();
-                var result = statement.executeQuery("select database()")) {
-            if (!result.next()) throw new IllegalStateException("Cannot identify connected database");
-            String catalog = result.getString(1);
-            if (!"bingo_qa".equals(catalog) && !"bingo_qa_test".equals(catalog)) {
-                throw new ConflictException("FLOAT_SIMULATION_DATABASE_DENIED",
-                        "Synthetic float posting is restricted to the approved QA databases");
-            }
-        } catch (java.sql.SQLException exception) {
-            throw new IllegalStateException("Unable to validate simulation database", exception);
-        }
+        financialSimulationGuard.requireEnabled(true, "Agent float simulation");
     }
 
     private FloatPostingResponse posting(ResultSet rs) throws SQLException {

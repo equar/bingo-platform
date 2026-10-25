@@ -1,0 +1,33 @@
+Module 04C-5A non-destructive diagnostics
+Date: 2026-10-25 (Africa/Nairobi)
+
+MySQL host service and client:
+- Windows service MySQL80: Running; Automatic startup.
+- mysql.exe, mysqladmin.exe, and mysqld.exe are installed.
+- No connection attempt was made during 04C-5A.
+
+Environment/authentication:
+- Spring test profile datasource placeholders and MySqlIntegrationTest variable handling were source-inspected.
+- Current process had no BINGO_*, MYSQL_*, or Spring datasource environment variables.
+- `.env.test` is ignored, not automatically loaded by Spring, and contains a configured local test target. Its values are intentionally not recorded.
+- The prior Surefire attempt explicitly loaded the local file and MySQL rejected authentication for the configured user from `localhost` before connection. Password mismatch versus account/host-row mismatch remains undetermined. Privileges remain unknown because no authenticated connection was available.
+- The local configured secret was compared in memory against the separate static CI test literal; no match. No credential value is recorded.
+
+Exposure scan, exact-value comparison without displaying the value:
+- Tracked repository text files: no match.
+- Saved QA evidence, backend target/build output, backend logs, `.tmp`, and the isolated QA work directory: no match.
+- PowerShell PSReadLine history: no match.
+- Inspected VS Code workspace and Copilot Chat storage: no match.
+- Prior Codex conversation/tool output: contains the exposed local value. This hosted transcript is not editable by the agent.
+
+Prepared artifacts:
+- Source guard and Maven/Android profile separation prepared; static source review only.
+- Both CI workflows routed to their disposable Maven schema; workflow execution not performed.
+- DBA SQL script prepared with secret/host placeholders; not executed.
+- No gameplay tests, Maven tests, Flyway commands, database administration, schema changes, grant changes, persistent-QA reads/writes, or Android fixture changes occurred.
+
+Static checks after editing:
+- `git diff --check`: PASS.
+- Git ignore check: both `bingo-backend/.env.test` and `bingo-backend/.env.maven-test` are ignored.
+- DBA script review: zero active CREATE/ALTER/GRANT/REVOKE/DROP mutation statements; all mutations remain commented pending DBA/user approval. Zero forbidden `DROP DATABASE` or global `GRANT ALL` statements.
+- No Maven, gameplay, or DB configuration test was run.
