@@ -1,0 +1,7 @@
+admin_tests_exit_code=0
+Test Files  27 passed (27)
+Tests  84 passed (84)
+Duration  39.76s (transform 12.77s, setup 11.79s, import 178.17s, tests 151.57s, environment 77.23s)
+admin_lint_exit_code=0
+admin_build_exit_code=0
+✓ built in 8.73s

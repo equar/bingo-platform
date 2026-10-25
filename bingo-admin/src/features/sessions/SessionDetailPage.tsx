@@ -9,7 +9,6 @@ import {
   Chip,
   Grid,
   Stack,
-  TextField,
   Typography,
 } from "@mui/material";
 import { Link as RouterLink, useParams } from "react-router-dom";
@@ -45,7 +44,7 @@ export function SessionDetailPage() {
   const queryClient = useQueryClient();
   const authSession = useSession();
   const [draws, setDraws] = useState<DrawEventResponse[]>([]);
-  const [numberDrawn, setNumberDrawn] = useState("");
+  const [lastTriggeredDraw, setLastTriggeredDraw] = useState<DrawEventResponse | null>(null);
   const [drawError, setDrawError] = useState<string | null>(null);
   const liveSequenceRef = useRef(0);
 
@@ -93,12 +92,16 @@ export function SessionDetailPage() {
   }, [authSession?.accessToken, id]);
 
   const drawMutation = useMutation({
-    mutationFn: (value: string) => postDraw(id, Number(value)),
-    onSuccess: async () => {
+    mutationFn: () => postDraw(id),
+    onSuccess: async (draw: DrawEventResponse) => {
+      setLastTriggeredDraw(draw);
+      setDraws((current: DrawEventResponse[]) => mergeDraws(current, [draw]));
+      liveSequenceRef.current = Math.max(liveSequenceRef.current, draw.sequenceNo);
+      setDrawError(null);
       await queryClient.invalidateQueries({ queryKey: ["session", id] });
       await queryClient.invalidateQueries({ queryKey: ["session-draws", id] });
-      setNumberDrawn("");
     },
+    onError: (error: Error) => setDrawError(error.message || "Automatic draw failed"),
   });
 
   const stateMutation = useMutation({
@@ -112,6 +115,10 @@ export function SessionDetailPage() {
 
   const session: GameSessionResponse | undefined = sessionQuery.data;
   const availableTransitions = useMemo(() => (session ? (allowedStates[session.state] ?? []) : []), [session]);
+  const roles = authSession?.user.roles ?? [];
+  const canOperateDraws = roles.includes("ADMIN") &&
+    !roles.some((role) => ["SUPPORT", "FINANCE_VERIFIER", "FINANCE_APPROVER"].includes(role));
+  const sessionCanDraw = session?.state === "STARTED" || session?.state === "DRAWING";
 
   if (sessionQuery.isLoading) {
     return <StatusState title="Loading session" loading message="Fetching live session details" />;
@@ -192,32 +199,26 @@ export function SessionDetailPage() {
             <CardContent>
               <Stack spacing={2}>
                 <Typography variant="h6">Live draw</Typography>
-                <Grid container spacing={2} alignItems="end">
-                  <Grid item xs={12} md={8}>
-                    <TextField
-                      label="Number drawn"
-                      type="number"
-                      value={numberDrawn}
-                      onChange={(event: React.ChangeEvent<HTMLInputElement>) => setNumberDrawn(event.target.value)}
-                      fullWidth
-                      inputProps={{ min: 1, max: 75 }}
-                    />
-                  </Grid>
-                  <Grid item xs={12} md={4}>
+                {canOperateDraws ? (
                     <Button
-                      data-testid="post-draw-button"
-                      fullWidth
+                      data-testid="automatic-draw-button"
                       variant="contained"
-                      onClick={() => drawMutation.mutate(numberDrawn)}
-                      disabled={drawMutation.isPending}
+                      onClick={() => drawMutation.mutate()}
+                      disabled={drawMutation.isPending || !sessionCanDraw}
                     >
-                      Post draw
+                      {drawMutation.isPending ? "Drawing…" : "Draw next number"}
                     </Button>
-                  </Grid>
-                </Grid>
+                ) : null}
+                {!sessionCanDraw ? (
+                  <Typography color="text.secondary">Start the session before drawing numbers.</Typography>
+                ) : null}
+                {lastTriggeredDraw ? (
+                  <Alert severity="success" data-testid="automatic-draw-result">
+                    Server drew {lastTriggeredDraw.numberDrawn} at sequence {lastTriggeredDraw.sequenceNo}.
+                  </Alert>
+                ) : null}
                 <Alert severity="info">
-                  WebSocket feed and REST replay are merged by sequence number. Duplicate or missing events are
-                  ignored/replayed server-side.
+                  Numbers are selected by the server. WebSocket feed and REST replay are merged by sequence number.
                 </Alert>
                 <Stack spacing={1}>
                   {draws.length === 0 ? <Typography color="text.secondary">No draws recorded yet.</Typography> : null}

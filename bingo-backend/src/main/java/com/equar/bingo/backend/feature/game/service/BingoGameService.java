@@ -12,7 +12,6 @@ import com.equar.bingo.backend.feature.game.config.GameProperties;
 import com.equar.bingo.backend.feature.game.dto.BingoPrizeConfigRequest;
 import com.equar.bingo.backend.feature.game.dto.BingoRoomRequest;
 import com.equar.bingo.backend.feature.game.dto.BingoRoomResponse;
-import com.equar.bingo.backend.feature.game.dto.DrawEventRequest;
 import com.equar.bingo.backend.feature.game.dto.DrawEventResponse;
 import com.equar.bingo.backend.feature.game.dto.GameSessionRequest;
 import com.equar.bingo.backend.feature.game.dto.GameSessionResponse;
@@ -46,7 +45,7 @@ import com.equar.bingo.backend.feature.game.repository.GameSessionRepository;
 import com.equar.bingo.backend.feature.game.repository.PrizeEntitlementRepository;
 import com.equar.bingo.backend.feature.game.repository.TicketRepository;
 import com.equar.bingo.backend.feature.game.repository.WinClaimRepository;
-import com.equar.bingo.backend.feature.game.websocket.GameDrawRecordedEvent;
+import com.equar.bingo.backend.feature.game.websocket.GameLiveDrawService;
 import com.equar.bingo.backend.feature.user.entity.User;
 import com.equar.bingo.backend.feature.user.entity.UserRole;
 import com.equar.bingo.backend.feature.user.repository.UserRepository;
@@ -68,12 +67,12 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -99,8 +98,8 @@ public class BingoGameService {
     private final IdempotencyService idempotencyService;
     private final RequestHashService requestHashService;
     private final ObjectMapper objectMapper;
-    private final ApplicationEventPublisher applicationEventPublisher;
     private final LocalFinancialSimulationGuard ticketPurchasePostingGuard;
+    private final GameLiveDrawService gameLiveDrawService;
 
     public BingoGameService(BingoRoomRepository bingoRoomRepository,
             GameSessionRepository gameSessionRepository,
@@ -116,8 +115,8 @@ public class BingoGameService {
             IdempotencyService idempotencyService,
             RequestHashService requestHashService,
             ObjectMapper objectMapper,
-            ApplicationEventPublisher applicationEventPublisher,
-            LocalFinancialSimulationGuard ticketPurchasePostingGuard) {
+            LocalFinancialSimulationGuard ticketPurchasePostingGuard,
+            GameLiveDrawService gameLiveDrawService) {
         this.bingoRoomRepository = bingoRoomRepository;
         this.gameSessionRepository = gameSessionRepository;
         this.ticketRepository = ticketRepository;
@@ -134,8 +133,8 @@ public class BingoGameService {
         this.idempotencyService = idempotencyService;
         this.requestHashService = requestHashService;
         this.objectMapper = objectMapper;
-        this.applicationEventPublisher = applicationEventPublisher;
         this.ticketPurchasePostingGuard = ticketPurchasePostingGuard;
+        this.gameLiveDrawService = gameLiveDrawService;
     }
 
     @Transactional(readOnly = true)
@@ -473,35 +472,9 @@ public class BingoGameService {
         return readPrizes(requireSession(sessionId).getPrizesSnapshotJson());
     }
 
-    @Transactional
-    public DrawEventResponse recordDraw(Long sessionId, DrawEventRequest request, BingoUserPrincipal principal) {
-        User admin = requireAdmin(principal);
-        GameSession session = gameSessionRepository.findByIdForUpdate(sessionId)
-                .orElseThrow(() -> new NotFoundException("SESSION_NOT_FOUND", "Game session not found"));
-        if (session.getState() != GameSessionState.DRAWING && session.getState() != GameSessionState.STARTED) {
-            throw new ConflictException("SESSION_NOT_DRAWING", "Draws can only be recorded while a session is active");
-        }
-
-        int sequenceNo = (int) drawEventRepository.countBySessionId(sessionId) + 1;
-        if (drawEventRepository.findBySessionIdAndSequenceNoGreaterThanOrderBySequenceNoAsc(sessionId, sequenceNo - 1)
-                .stream()
-                .anyMatch(draw -> draw.getNumberDrawn() == request.numberDrawn())) {
-            throw new ConflictException("DUPLICATE_DRAW_NUMBER", "That number was already drawn for this session");
-        }
-
-        DrawEvent draw = new DrawEvent();
-        draw.setSession(session);
-        if (session.getState() == GameSessionState.STARTED) {
-            session.setState(GameSessionState.DRAWING);
-        }
-        draw.setSequenceNo(sequenceNo);
-        draw.setNumberDrawn(request.numberDrawn());
-        draw.setDrawnBy(admin);
-        draw.setOperationId(UUID.randomUUID().toString());
-        draw = drawEventRepository.save(draw);
-        closeSessionIfExhausted(sessionId, session);
-        applicationEventPublisher.publishEvent(new GameDrawRecordedEvent(toDrawResponse(draw)));
-        return toDrawResponse(draw);
+    public DrawEventResponse triggerAutomaticDraw(Long sessionId, BingoUserPrincipal principal) {
+        User operator = requireDrawOperator(principal);
+        return gameLiveDrawService.triggerAutomaticDraw(sessionId, Instant.now(), operator);
     }
 
     @Transactional
@@ -692,6 +665,16 @@ public class BingoGameService {
         User user = principal.getUser();
         if (!user.hasRole(UserRole.ADMIN)) {
             throw new BadRequestException("ADMIN_ROLE_REQUIRED", "This endpoint is available to admin accounts only");
+        }
+        return user;
+    }
+
+    private User requireDrawOperator(BingoUserPrincipal principal) {
+        User user = requireAdmin(principal);
+        if (user.hasRole(UserRole.SUPPORT)
+                || user.hasRole(UserRole.FINANCE_VERIFIER)
+                || user.hasRole(UserRole.FINANCE_APPROVER)) {
+            throw new AccessDeniedException("Support and finance roles cannot operate game draws");
         }
         return user;
     }
@@ -1011,11 +994,4 @@ public class BingoGameService {
         return "TK-" + sessionId + "-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase();
     }
 
-    private void closeSessionIfExhausted(Long sessionId, GameSession session) {
-        if (drawEventRepository.countBySessionId(sessionId) >= 75 && session.getState() != GameSessionState.CLOSED
-                && session.getState() != GameSessionState.SETTLED && session.getState() != GameSessionState.CANCELLED) {
-            session.setState(GameSessionState.CLOSED);
-            session.setEndedAt(Instant.now());
-        }
-    }
 }

@@ -1,5 +1,8 @@
 package com.equar.bingo.backend.feature.game.websocket;
 
+import com.equar.bingo.backend.common.exception.ConflictException;
+import com.equar.bingo.backend.common.exception.NotFoundException;
+import com.equar.bingo.backend.feature.audit.service.AuditLogService;
 import com.equar.bingo.backend.feature.game.config.GameProperties;
 import com.equar.bingo.backend.feature.game.dto.DrawEventResponse;
 import com.equar.bingo.backend.feature.game.entity.DrawEvent;
@@ -7,9 +10,11 @@ import com.equar.bingo.backend.feature.game.entity.GameSession;
 import com.equar.bingo.backend.feature.game.entity.GameSessionState;
 import com.equar.bingo.backend.feature.game.repository.DrawEventRepository;
 import com.equar.bingo.backend.feature.game.repository.GameSessionRepository;
+import com.equar.bingo.backend.feature.user.entity.User;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.IntStream;
 import java.security.SecureRandom;
@@ -28,6 +33,7 @@ public class GameLiveDrawService {
     private final DrawEventRepository drawEventRepository;
     private final GameProperties gameProperties;
     private final ApplicationEventPublisher applicationEventPublisher;
+    private final AuditLogService auditLogService;
     private final TransactionTemplate transactionTemplate;
     private final SecureRandom secureRandom = new SecureRandom();
 
@@ -35,11 +41,13 @@ public class GameLiveDrawService {
             DrawEventRepository drawEventRepository,
             GameProperties gameProperties,
             ApplicationEventPublisher applicationEventPublisher,
+            AuditLogService auditLogService,
             PlatformTransactionManager transactionManager) {
         this.gameSessionRepository = gameSessionRepository;
         this.drawEventRepository = drawEventRepository;
         this.gameProperties = gameProperties;
         this.applicationEventPublisher = applicationEventPublisher;
+        this.auditLogService = auditLogService;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
@@ -60,18 +68,42 @@ public class GameLiveDrawService {
 
     public Optional<DrawEventResponse> advanceSessionDrawIfDue(Long sessionId, Instant now) {
         try {
-            return transactionTemplate.execute(status -> advanceSessionDrawInTransaction(sessionId, now));
+            return transactionTemplate.execute(status -> advanceSessionDrawInTransaction(sessionId, now, null, false));
         } catch (OptimisticLockingFailureException ex) {
             return Optional.empty();
         }
     }
 
-    private Optional<DrawEventResponse> advanceSessionDrawInTransaction(Long sessionId, Instant now) {
+    public DrawEventResponse triggerAutomaticDraw(Long sessionId, Instant now, User operator) {
+        Optional<DrawEventResponse> draw;
+        try {
+            draw = transactionTemplate.execute(
+                    status -> advanceSessionDrawInTransaction(sessionId, now, operator, true));
+        } catch (OptimisticLockingFailureException ex) {
+            throw new ConflictException("CONCURRENT_DRAW_CONFLICT", "The session changed while drawing a number");
+        }
+        if (draw == null || draw.isEmpty()) {
+            throw new ConflictException("DRAW_NOT_AVAILABLE", "No draw is available for this session");
+        }
+        return draw.get();
+    }
+
+    private Optional<DrawEventResponse> advanceSessionDrawInTransaction(Long sessionId, Instant now,
+            User requestedBy, boolean operatorTriggered) {
         GameSession session = gameSessionRepository.findByIdForUpdate(sessionId).orElse(null);
         if (session == null || session.getStartedAt() == null || session.getEndedAt() != null) {
+            if (operatorTriggered) {
+                if (session == null) {
+                    throw new NotFoundException("SESSION_NOT_FOUND", "Game session not found");
+                }
+                throw new ConflictException("SESSION_NOT_DRAWING", "Draws can only be triggered for an active session");
+            }
             return Optional.empty();
         }
         if (session.getState() != GameSessionState.STARTED && session.getState() != GameSessionState.DRAWING) {
+            if (operatorTriggered) {
+                throw new ConflictException("SESSION_NOT_DRAWING", "Draws can only be triggered for an active session");
+            }
             return Optional.empty();
         }
 
@@ -97,6 +129,7 @@ public class GameLiveDrawService {
         draw.setSequenceNo((int) drawEventRepository.countBySessionId(sessionId) + 1);
         draw.setNumberDrawn(pickNumber(remainingNumbers));
         draw.setOperationId(java.util.UUID.randomUUID().toString());
+        draw.setDrawnBy(requestedBy);
         draw.setDrawnAt(now);
         draw = drawEventRepository.save(draw);
 
@@ -106,6 +139,11 @@ public class GameLiveDrawService {
 
         DrawEventResponse response = new DrawEventResponse(draw.getId(), session.getId(), draw.getSequenceNo(),
                 draw.getNumberDrawn(), draw.getOperationId(), draw.getDrawnAt());
+        auditLogService.record(requestedBy, "BINGO_NUMBER_DRAWN", "GAME_SESSION", session.getId(), null,
+                draw.getOperationId(), Map.of(
+                        "source", operatorTriggered ? "ADMIN_AUTOMATIC_TRIGGER" : "SCHEDULER",
+                        "sequenceNo", draw.getSequenceNo(),
+                        "numberDrawn", draw.getNumberDrawn()));
         applicationEventPublisher.publishEvent(new GameDrawRecordedEvent(response));
         return Optional.of(response);
     }

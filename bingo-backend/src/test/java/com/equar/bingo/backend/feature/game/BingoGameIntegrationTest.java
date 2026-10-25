@@ -9,7 +9,6 @@ import com.equar.bingo.backend.feature.auth.service.EthiopianPhoneNormalizer;
 import com.equar.bingo.backend.feature.auth.service.JwtService;
 import com.equar.bingo.backend.feature.game.dto.BingoPrizeConfigRequest;
 import com.equar.bingo.backend.feature.game.dto.BingoRoomRequest;
-import com.equar.bingo.backend.feature.game.dto.DrawEventRequest;
 import com.equar.bingo.backend.feature.game.dto.GameSessionRequest;
 import com.equar.bingo.backend.feature.game.dto.GameSessionStateUpdateRequest;
 import com.equar.bingo.backend.feature.game.dto.PrizeEntitlementSettlementRequest;
@@ -17,6 +16,7 @@ import com.equar.bingo.backend.feature.game.dto.TicketPurchaseResponse;
 import com.equar.bingo.backend.feature.game.dto.WinClaimRequest;
 import com.equar.bingo.backend.feature.game.dto.WinClaimReviewRequest;
 import com.equar.bingo.backend.feature.game.entity.BingoPatternType;
+import com.equar.bingo.backend.feature.game.entity.DrawEvent;
 import com.equar.bingo.backend.feature.game.entity.GameSessionState;
 import com.equar.bingo.backend.feature.game.entity.PrizeEntitlementStatus;
 import com.equar.bingo.backend.feature.game.entity.PrizeSettlementPath;
@@ -464,9 +464,20 @@ class BingoGameIntegrationTest extends MySqlIntegrationTest {
                 List<Integer> winningNumbers = winningLineNumbers(ticket.getGridJson());
                 bingoGameService.updateSessionState(session.id(),
                                 new GameSessionStateUpdateRequest(GameSessionState.STARTED));
+                var drawSession = gameSessionRepository.findById(session.id()).orElseThrow();
+                int sequenceNo = 1;
                 for (Integer number : winningNumbers) {
-                        bingoGameService.recordDraw(session.id(), new DrawEventRequest(number), adminPrincipal);
+                        DrawEvent fixtureDraw = new DrawEvent();
+                        fixtureDraw.setSession(drawSession);
+                        fixtureDraw.setSequenceNo(sequenceNo);
+                        fixtureDraw.setNumberDrawn(number);
+                        fixtureDraw.setDrawnBy(adminPrincipal.getUser());
+                        fixtureDraw.setOperationId(java.util.UUID.randomUUID().toString());
+                        fixtureDraw.setDrawnAt(Instant.now().plusMillis(sequenceNo));
+                        drawEventRepository.save(fixtureDraw);
+                        sequenceNo++;
                 }
+                drawSession.setState(GameSessionState.DRAWING);
 
                 mockMvc.perform(post("/api/v1/tickets/" + ticket.getId() + "/win-claims")
                                 .header("Authorization", "Bearer " + playerToken)

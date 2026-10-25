@@ -1,0 +1,3 @@
+Module 04C-1 browser live-draw journey: BLOCKED
+
+Port 8080 (admin frontend) accepts TCP connections. Port 8081 (QA API) does not accept TCP connections. Persistent bingo_qa contains no OPEN, STARTED, or DRAWING session, so no safe session exists for a real draw. No persistent session was started or modified to manufacture one. Component tests exercise the admin draw result and pending-button behavior; backend integration tests exercise the API. No real Chromium live-draw session was run.

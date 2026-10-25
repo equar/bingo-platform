@@ -1,10 +1,10 @@
 package com.equar.bingo.backend.feature.game.controller;
 
+import com.equar.bingo.backend.common.exception.BadRequestException;
 import com.equar.bingo.backend.common.api.PageResponse;
 import com.equar.bingo.backend.feature.auth.service.BingoUserPrincipal;
 import com.equar.bingo.backend.feature.game.dto.BingoRoomRequest;
 import com.equar.bingo.backend.feature.game.dto.BingoRoomResponse;
-import com.equar.bingo.backend.feature.game.dto.DrawEventRequest;
 import com.equar.bingo.backend.feature.game.dto.DrawEventResponse;
 import com.equar.bingo.backend.feature.game.dto.GameSessionRequest;
 import com.equar.bingo.backend.feature.game.dto.GameSessionResponse;
@@ -21,6 +21,7 @@ import com.equar.bingo.backend.feature.game.entity.WinClaimStatus;
 import com.equar.bingo.backend.feature.game.repository.PrizeEntitlementRepository;
 import com.equar.bingo.backend.feature.game.service.BingoGameService;
 import jakarta.validation.Valid;
+import jakarta.servlet.http.HttpServletRequest;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -92,10 +93,15 @@ public class AdminGameController {
     }
 
     @PostMapping("/sessions/{id}/draws")
+    @PreAuthorize("hasRole('ADMIN') and !hasRole('FINANCE_VERIFIER') and !hasRole('FINANCE_APPROVER') and !hasRole('SUPPORT')")
     public DrawEventResponse draw(@PathVariable Long id,
             @AuthenticationPrincipal BingoUserPrincipal principal,
-            @Valid @RequestBody DrawEventRequest request) {
-        return bingoGameService.recordDraw(id, request, principal);
+            HttpServletRequest request) throws java.io.IOException {
+        if (request.getInputStream().read() != -1) {
+            throw new BadRequestException("CALLER_SELECTED_DRAW_NOT_ALLOWED",
+                    "The server selects the number for every draw; do not include a request body");
+        }
+        return bingoGameService.triggerAutomaticDraw(id, principal);
     }
 
     @GetMapping("/win-claims")
