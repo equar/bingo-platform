@@ -283,6 +283,11 @@ class BingoGameIntegrationTest extends MySqlIntegrationTest {
                                 .header("Authorization", "Bearer " + playerToken))
                                 .andExpect(status().isOk())
                                 .andExpect(jsonPath("$.state").value("OPEN"))
+                                .andExpect(jsonPath("$.ticketPrice").value(4.0))
+                                .andExpect(jsonPath("$.currency").value("ETB"))
+                                .andExpect(jsonPath("$.sessionCapacity").value(1))
+                                .andExpect(jsonPath("$.ticketCount").value(0))
+                                .andExpect(jsonPath("$.configuredPatterns[0]").value("LINE"))
                                 .andExpect(jsonPath("$.configuredPrizes").doesNotExist())
                                 .andExpect(jsonPath("$.maxTicketsPerPlayer").doesNotExist());
         }
@@ -315,6 +320,14 @@ class BingoGameIntegrationTest extends MySqlIntegrationTest {
                                 .header("Authorization", "Bearer " + agentToken))
                                 .andExpect(status().isForbidden());
                 mockMvc.perform(get("/api/v1/rooms")
+                                .header("Authorization", "Bearer " + suspendedToken))
+                                .andExpect(status().isUnauthorized());
+                mockMvc.perform(get("/api/v1/sessions/" + session.id()))
+                                .andExpect(status().isUnauthorized());
+                mockMvc.perform(get("/api/v1/sessions/" + session.id())
+                                .header("Authorization", "Bearer " + adminToken))
+                                .andExpect(status().isForbidden());
+                mockMvc.perform(get("/api/v1/sessions/" + session.id())
                                 .header("Authorization", "Bearer " + suspendedToken))
                                 .andExpect(status().isUnauthorized());
                 mockMvc.perform(post("/api/v1/sessions/" + session.id() + "/tickets")

@@ -1,0 +1,8 @@
+Module 04B-1 Android E2E
+Date: 2026-10-25
+Device: emulator-5554 (Android API 37)
+Journey 1: 1/1 passed — login, lobby, room #6, DRAFT session #5, ticket information, ETB 3.25, 75-ball column ranges, free center, disabled purchase, refresh, return and re-open.
+Screenshot: module-04b1-android-ticket-preview.png
+Journey 2: 1/1 passed — app process force-stopped and relaunched; the preview was reopened with no persisted card-selection state and purchase remained disabled. The test authenticated after relaunch when the driver showed the login screen.
+Total Android integration journeys: 2/2 passed.
+No ticket, reservation, wallet debit, or financial posting was attempted.

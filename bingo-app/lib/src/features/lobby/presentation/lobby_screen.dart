@@ -3,6 +3,7 @@ import 'package:bingo_app/src/core/widgets/app_status_view.dart';
 import 'package:bingo_app/src/core/widgets/section_card.dart';
 import 'package:bingo_app/src/features/lobby/data/lobby_repository.dart';
 import 'package:bingo_app/src/features/lobby/domain/lobby_models.dart';
+import 'package:bingo_app/src/features/lobby/presentation/ticket_preview_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -218,7 +219,9 @@ class RoomDetailsScreen extends ConsumerWidget {
                         children: sessions
                             .map((session) => Padding(
                                   padding: const EdgeInsets.only(bottom: 10),
-                                  child: _SessionCard(session: session),
+                                  child: _SessionCard(
+                                    session: session,
+                                  ),
                                 ))
                             .toList(),
                       ),
@@ -262,6 +265,23 @@ class _SessionCard extends StatelessWidget {
           if (session.configuredPatterns.isNotEmpty)
             _DetailLine(localizations.gamePatterns,
                 session.configuredPatterns.join(', ')),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerRight,
+            child: OutlinedButton.icon(
+              key: ValueKey('ticket-preview-${session.id}'),
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => TicketPreviewScreen(
+                    sessionId: session.id,
+                    roomId: session.roomId,
+                  ),
+                ),
+              ),
+              icon: const Icon(Icons.confirmation_number_outlined),
+              label: Text(localizations.ticketPreviewButton),
+            ),
+          ),
         ],
       ),
     );

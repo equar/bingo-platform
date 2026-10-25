@@ -1,0 +1,11 @@
+Module 04B-1 focused backend integration
+Date: 2026-10-25
+Database: local MySQL bingo_qa_test, Flyway V22
+Tests run: 18
+Passed: 18
+Failures: 0
+Errors: 0
+Skipped: 0
+Result: BUILD SUCCESS
+
+Coverage includes authenticated player session read snapshots with server price/capacity/pattern values; purchase lifecycle and security denials; and no writes for rejected operations.

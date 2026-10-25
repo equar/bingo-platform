@@ -38,8 +38,85 @@ void main() {
     expect(find.byKey(const ValueKey('buy-ticket-button')), findsNothing);
   });
 
-  testWidgets('closed and settled sessions are shown as not playable',
-      (tester) async {
+  testWidgets(
+    'ticket information shows server snapshot and keeps purchase disabled',
+    (tester) async {
+      final repository = _LobbyRepository();
+      await tester.pumpWidget(_app(repository));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('room-details-6')));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('ticket-preview-12')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('ticket-preview-12')));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('3.25 ETB'), findsOneWidget);
+      expect(find.textContaining('30 / 30'), findsOneWidget);
+      expect(
+        find.textContaining('This is the card format, not an assigned ticket.'),
+        findsOneWidget,
+      );
+      expect(find.text('1–15'), findsOneWidget);
+      expect(find.text('16–30'), findsOneWidget);
+      expect(find.text('31–45'), findsOneWidget);
+      expect(find.text('46–60'), findsOneWidget);
+      expect(find.text('61–75'), findsOneWidget);
+      final purchase = tester.widget<FilledButton>(
+        find.byKey(const ValueKey('ticket-preview-purchase-disabled')),
+      );
+      expect(purchase.onPressed, isNull);
+      expect(repository.previewRequests, 1);
+
+      await tester.tap(find.byKey(const ValueKey('ticket-preview-refresh')));
+      await tester.pumpAndSettle();
+      expect(repository.previewRequests, 2);
+    },
+  );
+
+  testWidgets(
+    'ticket information retry recovers and reflects session eligibility',
+    (tester) async {
+      final repository = _LobbyRepository(
+        failPreview: true,
+        sessionState: 'DRAFT',
+      );
+      await tester.pumpWidget(_app(repository));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('room-details-6')));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('ticket-preview-12')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('ticket-preview-12')));
+      await tester.pumpAndSettle();
+      expect(
+        find.text(
+          "Couldn't load ticket information. Check your connection and retry.",
+        ),
+        findsOneWidget,
+      );
+
+      repository.failPreview = false;
+      await tester.tap(find.text('Try again'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('This session is not open for ticket sales (DRAFT).'),
+        findsOneWidget,
+      );
+      final purchase = tester.widget<FilledButton>(
+        find.byKey(const ValueKey('ticket-preview-purchase-disabled')),
+      );
+      expect(purchase.onPressed, isNull);
+    },
+  );
+
+  testWidgets('closed and settled sessions are shown as not playable', (
+    tester,
+  ) async {
     for (final state in ['CLOSED', 'SETTLED']) {
       final repository = _LobbyRepository(sessionState: state);
       await tester.pumpWidget(_app(repository));
@@ -66,8 +143,10 @@ void main() {
     final repository = _LobbyRepository(failRooms: true);
     await tester.pumpWidget(_app(repository));
     await tester.pumpAndSettle();
-    expect(find.text("Couldn't load rooms. Check your connection and retry."),
-        findsOneWidget);
+    expect(
+      find.text("Couldn't load rooms. Check your connection and retry."),
+      findsOneWidget,
+    );
     expect(find.text('Try again'), findsOneWidget);
 
     repository.failRooms = false;
@@ -100,32 +179,34 @@ void main() {
 }
 
 Widget _app(_LobbyRepository repository) => ProviderScope(
-      overrides: [lobbyRepositoryProvider.overrideWithValue(repository)],
-      child: MaterialApp(
-        localizationsDelegates: const [
-          AppLocalizations.delegate,
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: const LobbyScreen(),
-      ),
-    );
+  overrides: [lobbyRepositoryProvider.overrideWithValue(repository)],
+  child: MaterialApp(
+    localizationsDelegates: const [
+      AppLocalizations.delegate,
+      GlobalMaterialLocalizations.delegate,
+      GlobalWidgetsLocalizations.delegate,
+      GlobalCupertinoLocalizations.delegate,
+    ],
+    supportedLocales: AppLocalizations.supportedLocales,
+    home: const LobbyScreen(),
+  ),
+);
 
 class _LobbyRepository extends LobbyRepository {
   _LobbyRepository({
     this.failRooms = false,
+    this.failPreview = false,
     this.emptyRooms = false,
     this.sessionState = 'OPEN',
-  })
-      : super(_UnusedLobbyApi());
+  }) : super(_UnusedLobbyApi());
 
   bool failRooms;
+  bool failPreview;
   final bool emptyRooms;
   final String sessionState;
   Completer<List<BingoRoom>>? pendingRooms;
   int roomRequests = 0;
+  int previewRequests = 0;
 
   @override
   Future<List<BingoRoom>> getRooms() async {
@@ -139,24 +220,31 @@ class _LobbyRepository extends LobbyRepository {
   Future<BingoRoom> getRoom(int roomId) async => _room;
 
   @override
+  Future<GameSession> getSession(int sessionId) async {
+    previewRequests++;
+    if (failPreview) throw Exception('offline');
+    return (await getRoomSessions(_room.id)).single;
+  }
+
+  @override
   Future<List<GameSession>> getRoomSessions(int roomId) async => [
-        GameSession(
-          id: 12,
-          roomId: roomId,
-          roomName: _room.name,
-          sessionName: 'QA Scheduled Session',
-          state: sessionState,
-          scheduledStartAt: DateTime.utc(2030),
-          ticketPrice: 3.25,
-          currency: 'ETB',
-          sessionCapacity: 30,
-          ticketCount: 0,
-          drawCount: 0,
-          createdAt: DateTime.utc(2029),
-          updatedAt: DateTime.utc(2029),
-          configuredPatterns: const ['LINE'],
-        ),
-      ];
+    GameSession(
+      id: 12,
+      roomId: roomId,
+      roomName: _room.name,
+      sessionName: 'QA Scheduled Session',
+      state: sessionState,
+      scheduledStartAt: DateTime.utc(2030),
+      ticketPrice: 3.25,
+      currency: 'ETB',
+      sessionCapacity: 30,
+      ticketCount: 0,
+      drawCount: 0,
+      createdAt: DateTime.utc(2029),
+      updatedAt: DateTime.utc(2029),
+      configuredPatterns: const ['LINE'],
+    ),
+  ];
 }
 
 final _room = BingoRoom(
