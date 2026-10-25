@@ -10,13 +10,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Profile;
-import org.springframework.stereotype.Component;
 import org.springframework.core.env.Environment;
+import org.springframework.stereotype.Component;
 
 /** Emits a credential-free startup identity and fails closed outside the local test schema. */
 @Component
 @Profile("test & !prod & !qa")
+@ConditionalOnProperty(prefix = "app.qa", name = "test-runtime-identity-reporting-enabled", havingValue = "true")
 public class TestRuntimeIdentityReporter implements ApplicationRunner {
     private static final Logger log = LoggerFactory.getLogger(TestRuntimeIdentityReporter.class);
     private static final String EXPECTED_DATABASE = "bingo_qa_test";

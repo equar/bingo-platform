@@ -24,7 +24,7 @@ Flyway is enabled with `clean-disabled=true` and `validate-on-migrate=true`. Bef
 - SHA-256: `8FA15AC5267FC5038A03FFF699798F05663EF14B9E2EA07B14ABFEE2885DAA9B`.
 - Runtime PID: `32844`; executable: `C:\Program Files\Java\jdk-25.0.2\bin\java.exe`; launched with the artifact above.
 - Listener: PID 32844 on `127.0.0.1:8082`.
-- Active profile: `test`; active datasource identity from the test-only startup diagnostic: `bingo_qa_test`, JDBC host `127.0.0.1`, port `3306`, Flyway V22. The diagnostic includes the build commit and JAR checksum and fails startup for a nonlocal/wrong schema or enabled safety flags. It is guarded by `@Profile("test & !prod & !qa")` and is not an HTTP endpoint.
+- Active profile: `test`; active datasource identity from the test-only startup diagnostic: `bingo_qa_test`, JDBC host `127.0.0.1`, port `3306`, Flyway V22. The diagnostic includes the build commit and JAR checksum and fails startup for a nonlocal/wrong schema or enabled safety flags. It is not an HTTP endpoint. Future QA runtime launches must explicitly enable it with `APP_QA_TEST_RUNTIME_IDENTITY_REPORTING_ENABLED=true` and provide its build identity values; standard Maven tests leave the opt-in disabled.
 
 ## Safety and connectivity checks
 
