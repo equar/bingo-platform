@@ -1,4 +1,6 @@
-# Bingo Platform Implementation Plan
+# Archived Initial Implementation Plan
+
+> Historical planning draft retained for context. It describes an empty repository and proposes PostgreSQL; the current repository is implemented and uses MySQL. Do not use this document as an implementation or migration guide.
 
 ## Current Workspace State
 

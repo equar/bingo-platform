@@ -1,8 +1,10 @@
 # Local QA Environment
 
-This setup uses the existing Windows MySQL 8 installation and keeps QA data in a dedicated `bingo_qa` schema. The QA backend listens on port `8081`, separate from the normal local backend on `8080`.
+> This is a machine-specific environment and test-data snapshot, not a live health check. Re-verify services, credentials, schema, grants, profile, and financial flags before each run; do not assume that a process or account listed below is still available.
 
-## Current machine inventory
+The recorded setup uses a Windows MySQL 8 installation and a dedicated `bingo_qa` schema. The QA backend was configured on port `8081`, separate from the normal local backend on `8080`.
+
+## Recorded machine inventory
 
 - MySQL service: `MySQL80`, running automatically.
 - MySQL endpoint: `127.0.0.1:3306`; server version: `8.0.36`.

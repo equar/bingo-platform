@@ -29,8 +29,10 @@ flutter test test/features/game
 flutter analyze
 ```
 
-## Local E2E credentials
+## Android E2E and credentials
 
-The integration E2E tests require `BINGO_E2E_PRIMARY_PHONE` and `BINGO_E2E_PRIMARY_PASSWORD`; there are no committed account or PIN fallbacks. The setup test generates a disposable secondary PIN at runtime and does not save it. Passwords are removed from any legacy E2E manifest when it is loaded, and new manifests never contain passwords or PINs.
+For the current guarded player Android workflow, use [Local E2E Testing](../docs/local-e2e-testing.md) and the [Module 06A-9 procedure](../docs/qa/modules/module-06a9-android-player-functional-e2e.md). It runs the real Flutter app on `emulator-5554` against the isolated `android-test` backend and `bingo_qa_test`, with read-only before/after reconciliation. A runnable test or a Flutter unit/widget test is not itself a passing Android E2E result; check the [QA status](../docs/qa/module-status.md) for the latest recorded outcome.
 
-For local runs, copy `e2e-secrets.example.json` to the ignored `e2e-secrets.json`, set `API_BASE_URL` explicitly (for example, `http://10.0.2.2:8080` for an Android emulator), and replace the account placeholders with a disposable test account. Invoke Flutter with `--dart-define-from-file=e2e-secrets.json`. For CI, create that file from secret-store values without echoing it or enabling shell tracing, then delete it after the test.
+The older `integration_test/local_e2e_test.dart` harness and `scripts/run-local-e2e.ps1` remain for historical/local development use. They do not enforce the current isolated-schema preflight, and the script's default backend URL is the development service. Do not use this harness against `bingo`, persistent `bingo_qa`, or any shared database, and do not report its Flutter test-harness run as real Android E2E unless it was explicitly run on a device against an authorized isolated MySQL schema.
+
+That legacy harness requires `BINGO_E2E_PRIMARY_PHONE` and `BINGO_E2E_PRIMARY_PASSWORD`; it has no committed account or PIN fallbacks. Its setup test generates a secondary PIN at runtime. For any approved local run, keep credentials in the ignored `e2e-secrets.json` copied from `e2e-secrets.example.json`, pass the file rather than secret values on the command line, and never retain credentials in logs or manifests.
