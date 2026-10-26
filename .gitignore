@@ -9,7 +9,7 @@ target/
 /bingo-app/lib/l10n/app_localizations*.dart
 /bingo-agent/lib/src/l10n/generated/
 /.idea/
-/.vscode/
+.vscode/
 /node_modules/
 **/node_modules/
 **/dist/

@@ -10,13 +10,14 @@ Run it with:
 ```bash
 flutter pub get
 flutter gen-l10n
-flutter run --dart-define=API_BASE_URL=https://your-backend-host
+flutter run -d windows --dart-define=API_BASE_URL=http://localhost:8080
 ```
 
-`API_BASE_URL` is required; there is no localhost fallback. For Android
-emulators, explicitly pass `--dart-define=API_BASE_URL=http://10.0.2.2:8080`.
-For desktop or iOS simulators, use `http://localhost:8080`. Local HTTP is
-accepted only in debug builds. Profile and release builds require HTTPS and
+The local backend must be running at `http://localhost:8080`. `API_BASE_URL`
+remains required; there is no runtime fallback. For Android emulators,
+explicitly pass `--dart-define=API_BASE_URL=http://10.0.2.2:8080`. For a
+deployed backend, replace the local URL with its HTTPS URL. Local HTTP is
+accepted only in debug builds; profile and release builds require HTTPS and
 reject localhost and other loopback addresses.
 
 Live-game connections use the same host and port as the REST API. The client connects to `/ws` with STOMP, sends the HTTP JWT as a bearer token in the `CONNECT` frame, and subscribes to `/topic/session/{sessionId}/draws` for live draw events. If the backend is behind TLS, use an `https://` API base URL so the app derives `wss://` automatically.
