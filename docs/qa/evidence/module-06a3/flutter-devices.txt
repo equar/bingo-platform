@@ -1,0 +1,7 @@
+COMMAND: C:\Windows\System32\cmd.exe /d /c C:\src\flutter\bin\flutter.bat devices
+STATUS: TIMEOUT
+EXIT_CODE: 
+TIMEOUT_MS: 20000
+--- stdout ---
+
+--- stderr ---

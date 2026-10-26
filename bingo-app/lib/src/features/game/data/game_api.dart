@@ -1,6 +1,7 @@
-import 'package:bingo_app/src/features/game/domain/ticket_models.dart';
-import 'package:bingo_app/src/features/game/domain/live_game_models.dart';
 import 'package:bingo_app/src/core/models/page_result.dart';
+import 'package:bingo_app/src/core/network/api_client.dart' show mapDioError;
+import 'package:bingo_app/src/features/game/domain/live_game_models.dart';
+import 'package:bingo_app/src/features/game/domain/ticket_models.dart';
 import 'package:bingo_app/src/features/lobby/domain/lobby_models.dart';
 import 'package:dio/dio.dart';
 
@@ -10,11 +11,15 @@ class GameApi {
   final Dio _dio;
 
   Future<TicketPurchaseResponse> purchaseTicket(int sessionId, String idempotencyKey) async {
-    final response = await _dio.post<Map<String, dynamic>>(
-      '/api/v1/sessions/$sessionId/tickets',
-      options: Options(headers: {'Idempotency-Key': idempotencyKey}),
-    );
-    return TicketPurchaseResponse.fromJson(response.data ?? const <String, dynamic>{});
+    try {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '/api/v1/sessions/$sessionId/tickets',
+        options: Options(headers: {'Idempotency-Key': idempotencyKey}),
+      );
+      return TicketPurchaseResponse.fromJson(response.data ?? const <String, dynamic>{});
+    } on DioException catch (error) {
+      throw mapDioError(error);
+    }
   }
 
   Future<GameSession> getSession(int sessionId) async {

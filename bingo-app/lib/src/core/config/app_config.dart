@@ -10,6 +10,7 @@ class AppConfig {
     required String apiBaseUrl,
     required this.apiBaseUrlLabel,
     this.isProduction = false,
+    this.playerTicketPurchasesEnabled = false,
   }) : _apiBaseUrl = apiBaseUrl;
 
   AppConfig.fromEnvironment()
@@ -17,11 +18,14 @@ class AppConfig {
         apiBaseUrl: const String.fromEnvironment('API_BASE_URL'),
         apiBaseUrlLabel: 'API_BASE_URL',
         isProduction: !kDebugMode,
+        playerTicketPurchasesEnabled:
+            const bool.fromEnvironment('BINGO_PLAYER_PURCHASES_ENABLED'),
       );
 
   final String _apiBaseUrl;
   final String apiBaseUrlLabel;
   final bool isProduction;
+  final bool playerTicketPurchasesEnabled;
 
   String get apiBaseUrl => _apiBaseUrl.trim();
 

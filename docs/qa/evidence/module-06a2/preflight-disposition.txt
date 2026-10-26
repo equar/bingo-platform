@@ -1,0 +1,33 @@
+Module: remaining functional E2E selection
+Date: 2026-10-26 (Africa/Nairobi)
+
+STOP: no scenario passed the established real-E2E database safety gate.
+
+Retained authorized read-only evidence: docs/qa/evidence/module-04d4-preflight.txt
+- Target: 127.0.0.1:3306/bingo_qa_test
+- Identity: bingo_qa_test_runner@127.0.0.1
+- Grant: ALL PRIVILEGES ON bingo_qa_test.* (includes destructive DDL)
+- Result: do not start QA runtime under this account.
+
+Current QA app configuration inspection (secret values were not read or emitted):
+- bingo-backend/.env.qa host: 127.0.0.1
+- port: 3306
+- schema: bingo_qa (persistent; disallowed for this E2E run)
+- user: bingo_qa_app
+- This configuration was not used to connect.
+- No authorized DBA connection was available; no grant query/change was attempted.
+
+ADB device preflight:
+- Command: adb devices -l
+- Result: process exited before listing devices; stderr reported
+  "Cannot mkdir '\\.android': Permission denied".
+- No Android UI was launched.
+
+Execution:
+- No Spring Boot QA backend start.
+- No API calls.
+- No MySQL connection or query in this batch.
+- No records, fixtures, grants, schema, or financial settings changed.
+- No database reconciliation is available for this batch.
+
+Scenario count: 5 selected, 0 passed, 0 failed, 5 blocked.

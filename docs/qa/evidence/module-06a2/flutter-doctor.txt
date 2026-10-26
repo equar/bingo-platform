@@ -1,0 +1,12 @@
+COMMAND=C:\Windows\System32\cmd.exe 
+STATUS=EXITED
+EXIT_CODE=0
+TIMEOUT_MS=30000
+ANDROID_USER_HOME=C:\Users\16414\.android
+PUB_CACHE=C:\Users\16414\AppData\Local\Pub\Cache
+--- STDOUT ---
+Microsoft Windows [Version 10.0.26300.9711]
+(c) Microsoft Corporation. All rights reserved.
+
+D:\GitHub\bingo-platform>
+--- STDERR ---

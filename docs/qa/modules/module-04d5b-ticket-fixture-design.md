@@ -12,7 +12,7 @@ Scope: design and database-free validation only. No migrations, MySQL queries, b
 - Ticket rows reference both `bingo_sessions` and `users`; claim submission derives session from the ticket and queries by ticket ID plus authenticated owner ID. The request contains no client-supplied owner, grid, session or draw history.
 - Claim submission locks the session row, rejects CANCELLED before claim persistence, evaluates server-side draws, and persists either PENDING_REVIEW or FAILED_SERVER_VALIDATION. A uniqueness constraint covers ticket/pattern/draw sequence, and the operation ID is unique. `AuditLogAspect` and `AuditLogService` capture success and failure audit events.
 - Admin claim routes require ADMIN. The browser claims page renders claimant/ticket/session references, validation and status; it does not enable review actions unless a claim is server-passed and PENDING_REVIEW. Do not approve claims in the E2E plan: approval creates a prize entitlement and is outside this fixture objective.
-- No existing QA fixture writer for owned Bingo tickets was found. The local `bingo_qa_test_runner` account was verified in 04D-4 as schema-scoped but overprivileged (ALL PRIVILEGES on `bingo_qa_test.*`). It must be reduced before any QA runtime or writer is run.
+- No existing QA fixture writer for owned Bingo tickets was found. At design time, the local `bingo_qa_test_runner` ALL PRIVILEGES grant was treated as a blocker. The project owner later accepted this schema-scoped grant for local QA only and prohibited grant changes; it no longer blocks local runtime or fixture work. This does not approve the ticket fixture itself or apply to production.
 
 ## Recommended architecture
 
@@ -45,7 +45,7 @@ All conditions are required; profile name alone is insufficient:
 - Require a dedicated fixture operator identity and synthetic PLAYER allowlist. The fixture run request cannot supply arbitrary player/ticket IDs, card contents, draw numbers or status. Record operator, run UUID, action and result in audit evidence.
 - Keep fixture network surface local and one-shot; no public controller or browser-visible fixture route. Do not expose fixture credentials or approval material in logs, screenshots, evidence, Git, or API responses.
 
-The 04D-4 grant result means DBA work is a hard prerequisite: remove the existing account's schema-wide ALL PRIVILEGES and verify the reduced grant set and denied schemas before any runner is implemented or started.
+At the time of this design, the 04D-4 grant result was treated as a DBA prerequisite. The owner later accepted the existing grant for local `bingo_qa_test` and prohibited grant changes. For any future fixture runner, verify the exact local schema/account and denied cross-schema access; keep this exception out of production. Separate fixture-design and provenance approvals remain required.
 
 ## Provenance and cleanup
 
@@ -56,8 +56,8 @@ Do not auto-delete fixtures at runner exit, use `Flyway clean`, or delete broad 
 ## Approvals and prerequisites
 
 - **Product approval:** synthetic nonfinancial tickets are eligible for claims in the chosen session state; fixture player/session labeling; acceptable draw cadence; CLOSED claim behavior stays unchanged until the separate Product decision is recorded.
-- **Security approval:** one-shot runner boundary, local approval capability, operator identity, production artifact exclusion, least-privilege policy, audit metadata and retention/cleanup model.
-- **DBA approval/action:** correct the overprivileged `bingo_qa_test` account or provision a dedicated least-privilege local runner account; preserve `bingo_qa`, deny all cross-schema access, verify grant output and current account; approve any manifest migration separately.
+- **Security approval:** one-shot runner boundary, local approval capability, operator identity, production artifact exclusion, owner-approved local grant scope, audit metadata and retention/cleanup model.
+- **Local account scope:** owner authorization accepts the existing `bingo_qa_test` schema-scoped ALL PRIVILEGES grant for local QA; do not change grants. Verify account/schema identity and no cross-schema grants at runtime. Any manifest migration still requires its own approval.
 - **QA prerequisites:** current backend build, Android emulator/API routing, Admin Chromium environment, dedicated synthetic accounts and credentials in ignored secure local storage, read-only baseline/reconciliation scripts, and an approved test run plan.
 
 ## Implementation steps after design approvals
@@ -66,7 +66,7 @@ Do not auto-delete fixtures at runner exit, use `Flyway clean`, or delete broad 
 2. Add the separate non-web fixture runner and service using the existing repositories/domain/card generator. Add run manifest/audit provenance. Keep it out of production packaging.
 3. Add database-free tests for safe config acceptance/rejection, generated-card invariants, no wallet/agent/commission collaborators, and no claim bypass. Add isolated persistence tests only after DBA authorization and account grants pass.
 4. Review production artifact contents and route mappings to prove no fixture route/service is available in production.
-5. After the existing schema/account grant issue is fixed, start the normal Android QA backend with migration-safe configuration, verify runtime identity/current grants, execute the fixture runner once, capture read-only baseline, then proceed to the E2E matrix.
+5. After the separate Product/Security fixture approvals are documented, start the normal Android QA backend with migration-safe configuration, verify runtime identity/schema scope, execute the fixture runner once, capture read-only baseline, then proceed to the E2E matrix.
 
 ## Database-free verification in this design module
 

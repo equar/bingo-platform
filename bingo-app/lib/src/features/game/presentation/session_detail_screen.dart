@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:bingo_app/l10n/app_localizations.dart';
+import 'package:bingo_app/src/core/config/app_config.dart';
 import 'package:bingo_app/src/core/widgets/app_status_view.dart';
 import 'package:bingo_app/src/core/widgets/section_card.dart';
 import 'package:bingo_app/src/features/game/application/live_game_controller.dart';
@@ -47,6 +48,7 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> with 
     final localizations = AppLocalizations.of(context)!;
     final state = ref.watch(liveGameControllerProvider(widget.session.id));
     final controller = ref.read(liveGameControllerProvider(widget.session.id).notifier);
+    final purchasesEnabled = ref.watch(appConfigProvider).playerTicketPurchasesEnabled;
     final session = state.session ?? widget.session;
 
     return Scaffold(
@@ -76,7 +78,13 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> with 
                 ),
                 const SizedBox(height: 16),
               ],
-              _SessionSummaryCard(session: session, state: state, controller: controller, localizations: localizations),
+              _SessionSummaryCard(
+                session: session,
+                state: state,
+                controller: controller,
+                localizations: localizations,
+                purchasesEnabled: purchasesEnabled,
+              ),
               const SizedBox(height: 16),
               _CalledNumbersCard(draws: state.draws, localizations: localizations),
               const SizedBox(height: 16),
@@ -96,12 +104,45 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> with 
 }
 
 class _SessionSummaryCard extends StatelessWidget {
-  const _SessionSummaryCard({required this.session, required this.state, required this.controller, required this.localizations});
+  const _SessionSummaryCard({
+    required this.session,
+    required this.state,
+    required this.controller,
+    required this.localizations,
+    required this.purchasesEnabled,
+  });
 
   final GameSession session;
   final LiveGameState state;
   final LiveGameController controller;
   final AppLocalizations localizations;
+  final bool purchasesEnabled;
+
+  Future<void> _confirmPurchase(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(localizations.purchaseTicketTitle),
+        content: Text(
+          '${session.ticketPrice} ${session.currency}\n\n${localizations.purchaseTicketBody}',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(localizations.cancel),
+          ),
+          FilledButton(
+            key: const ValueKey('confirm-ticket-purchase'),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(localizations.purchaseTicket),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && context.mounted) {
+      await controller.purchaseTicket();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -140,7 +181,9 @@ class _SessionSummaryCard extends StatelessWidget {
           if (session.state == 'OPEN')
             FilledButton.icon(
               key: const ValueKey('buy-ticket-button'),
-              onPressed: state.isPurchasingTicket ? null : controller.purchaseTicket,
+              onPressed: !purchasesEnabled || state.isPurchasingTicket
+                  ? null
+                  : () => _confirmPurchase(context),
               icon: state.isPurchasingTicket
                   ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                   : const Icon(Icons.confirmation_number_outlined),
@@ -154,6 +197,10 @@ class _SessionSummaryCard extends StatelessWidget {
           if (state.infoMessage == 'TICKET_PURCHASED') ...[
             const SizedBox(height: 8),
             Text(localizations.purchaseSuccess, style: TextStyle(color: Theme.of(context).colorScheme.primary)),
+          ],
+          if (session.state == 'OPEN' && !purchasesEnabled) ...[
+            const SizedBox(height: 8),
+            Text(localizations.ticketPurchaseDisabledBody),
           ],
           if (state.isTerminalSession) ...[
             const SizedBox(height: 12),

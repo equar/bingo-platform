@@ -1,0 +1,17 @@
+{
+  "verifiedAt": "2026-10-26T17:28:16.4658057+03:00",
+  "profile": "android-test",
+  "database": "bingo_qa_test",
+  "jdbcHost": "127.0.0.1",
+  "jdbcPort": 3306,
+  "flyway": 22,
+  "mysqlUsername": "root",
+  "mysqlAuthenticatedIdentity": "root@localhost",
+  "backendUrl": "http://127.0.0.1:8082",
+  "emulatorBackendUrl": "http://10.0.2.2:8082",
+  "drawScheduler": "disabled",
+  "financialPostingAndSimulation": "disabled",
+  "processId": 20588,
+  "sourceCommit": "4f80c6a31447bc9825e6558e664057f5a125ee21",
+  "artifactSha256": "96489F37D888142A0F3C3DEE53B1CBDA2737F028F1DED33EF8979D7339D69F16"
+}

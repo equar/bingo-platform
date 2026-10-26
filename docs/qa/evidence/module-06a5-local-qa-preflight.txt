@@ -1,0 +1,53 @@
+Module 06A local QA resumption preflight — read-only
+Date: 2026-10-26 (Africa/Nairobi)
+Database source: ignored bingo-backend/.env.test; values not recorded.
+No backend, app, browser, test suite, migration, or data mutation was started in this preflight.
+
+Connection identity
+- DATABASE(): bingo_qa_test
+- CURRENT_USER(): bingo_qa_test_runner@127.0.0.1
+- MySQL host/port: EQUAR-DELL-XPS15:3306
+- MySQL version: 8.0.36 (prior verified local runtime; this query verified host/port)
+- Latest flyway_schema_history row: version 22, success 1
+- information_schema table count for bingo_qa_test: 40
+
+Grants returned by SHOW GRANTS FOR CURRENT_USER()
+- GRANT USAGE ON *.* TO bingo_qa_test_runner@127.0.0.1
+- GRANT ALL PRIVILEGES ON bingo_qa_test.* TO bingo_qa_test_runner@127.0.0.1
+
+The project owner explicitly accepts this schema-scoped grant for local QA and prohibited grant changes. It is not a production authorization. The current runtime account's visible schemas were bingo_qa_test, information_schema, and performance_schema; this visibility is not used to infer whether hidden schemas exist.
+
+Business-state counts
+
+| Table | Rows |
+| --- | ---: |
+| bingo_rooms | 4 |
+| bingo_sessions | 8 |
+| bingo_tickets | 0 |
+| bingo_draw_events | 9 |
+| bingo_win_claims | 0 |
+| wallet_transactions | 0 |
+| users | 9 |
+
+Retained sessions; none was changed
+
+| ID | Label | State | Room |
+| ---: | --- | --- | ---: |
+| 30 | QA 04C3B restart 55 | DRAWING | 35 |
+| 31 | QA 04C3B network 55 | DRAWING | 35 |
+| 32 | QA 04C3B closed 55 | CLOSED | 35 |
+| 33 | QA 04C3B cancelled 55 | CANCELLED | 35 |
+| 34 | QA 04C3B restart fresh 55 | DRAWING | 36 |
+| 35 | QA 04C3B network fresh 55 | DRAWING | 36 |
+| 36 | QA m04c4-retry-1792940943537-d8e36a30 | DRAWING | 37 |
+| 37 | QA m04c4-concurrent-1792940965866-e2d52e90 | DRAWING | 38 |
+
+Four existing rooms (IDs 35–38) are active. Six existing sessions are DRAWING. The prepared backend launcher therefore disables the draw scheduler to prevent historical rows from advancing. No existing session or room is an approved retry fixture for this run.
+
+Scenario disposition at this preflight
+- Ticket purchase/ownership: BLOCKED — missing Android purchase UI and requires a financial operation.
+- Automatic draw/retry: NOT RUN — historical DRAWING sessions must not be advanced; retry contract remains unresolved.
+- Card/pattern and claims/duplicate claims: BLOCKED — no approved nonfinancial owned-ticket fixture.
+- Session scheduling/lifecycle: NOT RUN — no real Admin Chromium run in this context; no Admin E2E credentials were present in the process environment.
+
+Only read-only SELECT/SHOW metadata queries were issued. No schema, grant, account, or row was changed. Persistent `bingo_qa` was not accessed.

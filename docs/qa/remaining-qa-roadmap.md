@@ -2,11 +2,13 @@
 
 **Audit snapshot:** 2026-10-25. Ordering is a dependency proposal, not authorization to execute database mutations or financial operations.
 
+**Completion policy:** All remaining and future functional modules follow the [Mandatory Real E2E Testing Policy](mandatory-real-e2e-testing-policy.md). Unit, widget, analyzer, mocked API, and static checks are supplemental; module completion requires applicable real UI/API/isolated-MySQL E2E with read-only reconciliation, negative/security coverage, and confirmation that unrelated financial and historical records remained unchanged. Existing historical outcomes are preserved.
+
 ## Gate 0 — Environment and isolation
 
-1. Resolve local DBA access and perform approved least-privilege provisioning/credential rotation as documented by Module 04C-5B. Verify the dedicated disposable Maven schema/account and the Android/Admin schema/account without exposing secrets.
-2. Reduce the Android runtime account from broad schema privileges to the approved minimum before starting it. Recheck denied cross-schema access and ensure persistent `bingo_qa` remains untouched.
-3. Confirm current configuration guards, profiles, schema targets, and financial defaults. Keep Flyway clean limited to the disposable Maven schema.
+1. For local functional E2E, verify the Android/Admin schema and account identity without exposing secrets. The project owner accepts ALL PRIVILEGES scoped to local `bingo_qa_test`; no DBA grant reduction or grant change is required. Keep the account denied access to `bingo`, persistent `bingo_qa`, and other schemas. Production still requires least privilege.
+2. Verify Maven's disposable schema/account separately only if local Maven integration tests are needed. Do not use the functional E2E account for Maven suites.
+3. Confirm current configuration guards, profiles, schema targets, and financial defaults. Never run destructive Maven tests against `bingo` or `bingo_qa_test`; keep any authorized destructive recovery isolated to its verified disposable schema. No Flyway clean on persistent databases.
 
 ## Gate 1 — Fixture and product decisions
 
@@ -16,7 +18,7 @@
 
 ## Gate 2 — Claim E2E
 
-After gates 0–1, implement only the approved fixture mechanism and validate its provenance. Run the specific claim matrix scenarios against isolated MySQL, then Android and Admin Chromium. Reconcile claim/audit/ticket/session rows and prove wallet/settlement state unchanged. Do not use full Maven lifecycle until the destructive-suite target and guards are verified; defer clean/recovery tests to the disposable schema.
+After gates 0–1 and required Product/Security/DBA approvals, implement only the approved fixture mechanism and validate its provenance. Run specific claim scenarios through the real API and isolated MySQL, then actual Android and Admin Chromium where applicable. Reconcile claim/audit/ticket/session rows and prove wallet/settlement and unrelated historical state unchanged. Include negative, authorization, retry, and duplicate scenarios. Do not use full Maven lifecycle until the destructive-suite target and guards are verified; defer clean/recovery tests to the disposable schema.
 
 ## Gate 3 — Close existing business-module gaps
 
@@ -28,4 +30,4 @@ Only after product, security, finance, operations and release approvals: impleme
 
 ## Stop conditions
 
-Stop a workflow if the active profile/schema/account is uncertain, a guard allows a persistent schema, fixture creation invokes wallet/float/commission/settlement behavior, unexplained existing rows change, or a required policy is unresolved. Record the result as BLOCKED or PARTIAL; do not repair state by deleting historical records.
+Stop a workflow if the active profile/schema/account is uncertain, a guard allows a persistent schema, fixture creation invokes wallet/float/commission/settlement behavior, unexplained existing rows change, or a required policy is unresolved. The local `bingo_qa_test` grant is not a stop condition under the owner-approved exception. Record the result as BLOCKED or PARTIAL; do not replace real E2E with mocks and claim completion, and do not repair state by deleting historical records.

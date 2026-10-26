@@ -19,7 +19,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('lobby shows rooms and read-only room sessions', (tester) async {
+  testWidgets('lobby exposes OPEN sessions through live detail', (tester) async {
     final repository = _LobbyRepository();
     await tester.pumpWidget(_app(repository));
     await tester.pumpAndSettle();
@@ -31,7 +31,7 @@ void main() {
     expect(find.text('QA Main Room'), findsOneWidget);
     expect(find.text('QA Scheduled Session'), findsOneWidget);
     expect(find.textContaining('OPEN'), findsOneWidget);
-    expect(find.byKey(const ValueKey('live-game-12')), findsNothing);
+    expect(find.byKey(const ValueKey('live-game-12')), findsOneWidget);
     expect(find.byKey(const ValueKey('buy-ticket-button')), findsNothing);
   });
 
@@ -47,7 +47,7 @@ void main() {
   });
 
   testWidgets('active sessions open the live-game screen', (tester) async {
-    final repository = _LobbyRepository(sessionState: 'STARTED');
+    final repository = _LobbyRepository(sessionState: 'OPEN');
     final navigatorObserver = _RecordingNavigatorObserver();
     final liveController = LiveGameController(
       sessionId: 12,
