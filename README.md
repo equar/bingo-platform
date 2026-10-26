@@ -87,10 +87,12 @@ flutter gen-l10n
 flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8080
 ```
 
-Pass `API_BASE_URL` explicitly. The example above is for an Android emulator;
-use `http://localhost:8080` for desktop or an iOS simulator. Local HTTP is
-accepted only in debug builds. Release/profile builds require an HTTPS endpoint
-and reject loopback addresses.
+The example above is for an Android emulator. For Windows desktop, use
+`flutter run -d windows --dart-define=API_BASE_URL=http://localhost:8080`.
+The backend must be running at the configured URL. Pass `API_BASE_URL`
+explicitly; there is no runtime fallback. Local HTTP is accepted only in debug
+builds. Release/profile builds require an HTTPS endpoint and reject loopback
+addresses.
 For live draws, it connects to the backend WebSocket endpoint and uses the same host as the REST API.
 
 ## Agent App
