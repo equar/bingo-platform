@@ -1,7 +1,8 @@
 [CmdletBinding()]
 param(
     [int]$Port = 8082,
-    [string]$MySqlUsername
+    [string]$MySqlUsername,
+    [switch]$ProvisionAndroidTestFixtures
 )
 
 $ErrorActionPreference = 'Stop'
@@ -27,6 +28,10 @@ if ($identity.Name -notmatch '\\16414$' -or $env:USERPROFILE -cne 'C:\Users\1641
 if ($Port -ne 8082) { throw 'The isolated Android-test backend must use port 8082.' }
 if (-not (Test-Path -LiteralPath $envFile)) { throw 'Ignored bingo-backend/.env.test is missing.' }
 if (-not (Test-Path -LiteralPath $testResources)) { throw 'Backend test profile resources are missing.' }
+$existingListeners = @(Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue)
+if ($existingListeners.Count -gt 0) {
+    throw "Refusing startup: port $Port already has a listener. Verify its identity and stop only the intended process first."
+}
 
 # Android SDK configuration is derived from the interactive Windows profile.
 $sdk = Join-Path $env:USERPROFILE 'AppData\Local\Android\Sdk'
@@ -97,6 +102,56 @@ if ([string]::IsNullOrWhiteSpace($mysqlPassword)) {
     throw 'MySQL password is missing; set it in ignored .env.test or select another username and enter it securely.'
 }
 
+$fixtureSettings = @{}
+$git = Get-Command git.exe -ErrorAction Stop
+if ($ProvisionAndroidTestFixtures) {
+    $appSecretsPath = Join-Path $repoRoot 'bingo-app\e2e-secrets.json'
+    $agentSecretsPath = Join-Path $repoRoot 'bingo-agent\e2e-secrets.json'
+    $adminSecretsPath = Join-Path $repoRoot 'bingo-admin\.env.qa'
+    foreach ($path in @($appSecretsPath, $agentSecretsPath, $adminSecretsPath)) {
+        if (-not (Test-Path -LiteralPath $path)) {
+            throw 'Fixture provisioning requires existing ignored local Player, Agent, and Admin configuration files.'
+        }
+        $relativePath = $path.Substring($repoRoot.Length).TrimStart('\').Replace('\', '/')
+        & $git.Source -C $repoRoot check-ignore -q $relativePath
+        if ($LASTEXITCODE -ne 0) {
+            throw 'Fixture provisioning refused because a local credential file is not ignored by Git.'
+        }
+    }
+
+    try {
+        $fixtureSettings.Player = Get-Content -LiteralPath $appSecretsPath -Raw | ConvertFrom-Json
+        $fixtureSettings.Agent = Get-Content -LiteralPath $agentSecretsPath -Raw | ConvertFrom-Json
+    } catch {
+        throw 'Fixture provisioning local Player or Agent configuration is invalid.'
+    }
+    $adminSettings = @{}
+    foreach ($line in Get-Content -LiteralPath $adminSecretsPath) {
+        if ($line -match '^\s*([A-Za-z0-9_]+)=(.*)\s*$') {
+            $adminSettings[$matches[1]] = $matches[2].Trim().Trim('"').Trim("'")
+        }
+    }
+    $fixtureSettings.Admin = $adminSettings
+    foreach ($key in @('BINGO_QA_PLAYER_001_PHONE', 'BINGO_QA_PLAYER_001_PIN')) {
+        if ([string]::IsNullOrWhiteSpace([string]$fixtureSettings.Player.$key)) {
+            throw 'Fixture provisioning local Player configuration is incomplete.'
+        }
+    }
+    foreach ($key in @(
+        'BINGO_QA_APPROVED_AGENT_PHONE', 'BINGO_QA_APPROVED_AGENT_PIN',
+        'BINGO_QA_PENDING_AGENT_PHONE', 'BINGO_QA_PENDING_AGENT_PIN'
+    )) {
+        if ([string]::IsNullOrWhiteSpace([string]$fixtureSettings.Agent.$key)) {
+            throw 'Fixture provisioning local Agent configuration is incomplete.'
+        }
+    }
+    foreach ($key in @('BINGO_ANDROID_TEST_ADMIN_PHONE', 'BINGO_E2E_ADMIN_EMAIL', 'BINGO_E2E_ADMIN_PASSWORD')) {
+        if ([string]::IsNullOrWhiteSpace([string]$fixtureSettings.Admin[$key])) {
+            throw 'Fixture provisioning local Admin configuration is incomplete.'
+        }
+    }
+}
+
 $mysqlCommand = Get-Command mysql.exe -ErrorAction Stop
 $mysqlIdentity = $null
 $env:MYSQL_PWD = $mysqlPassword
@@ -132,21 +187,27 @@ if ([int]$dbFlyway -ne [int]$sourceFlyway) {
     throw "Refusing startup: database Flyway V$dbFlyway does not match source V$sourceFlyway; do not auto-migrate during E2E preflight."
 }
 
-$git = Get-Command git.exe -ErrorAction Stop
 $commit = & $git.Source -c safe.directory=D:/GitHub/bingo-platform -C $repoRoot rev-parse HEAD
 if ($LASTEXITCODE -ne 0) { throw 'Could not identify the checked-out source revision.' }
 
 New-Item -ItemType Directory -Path $evidenceDir -Force | Out-Null
 New-Item -ItemType Directory -Path $logDir -Force | Out-Null
+$buildDirectory = Join-Path $logDir ("backend-build-" + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $buildDirectory -Force | Out-Null
+$sourceShaBeforeBuild = Get-AndroidTestBackendSourceFingerprint -RepositoryRoot $repoRoot
 Push-Location $backendRoot
 try {
-    & mvn -DskipTests package
+    & mvn "-Dbingo.build.directory=$buildDirectory" -DskipTests package
     if ($LASTEXITCODE -ne 0) { throw 'Backend package build failed. No tests were run.' }
 } finally {
     Pop-Location
 }
+$sourceSha256 = Get-AndroidTestBackendSourceFingerprint -RepositoryRoot $repoRoot
+if ($sourceSha256 -ne $sourceShaBeforeBuild) {
+    throw 'Backend source changed during packaging; refusing to start an artifact with an unverified source fingerprint.'
+}
 
-$jar = Get-ChildItem -LiteralPath (Join-Path $backendRoot 'target') -Filter 'bingo-backend-*.jar' -File |
+$jar = Get-ChildItem -LiteralPath $buildDirectory -Filter 'bingo-backend-*.jar' -File |
     Where-Object { $_.Name -notmatch 'original|sources|javadoc' } |
     Sort-Object LastWriteTime -Descending | Select-Object -First 1
 if (-not $jar) { throw 'Packaged backend JAR was not found.' }
@@ -158,6 +219,21 @@ $env:BINGO_TEST_MYSQL_USERNAME = $mysqlUser
 $env:BINGO_TEST_MYSQL_PASSWORD = $mysqlPassword
 $env:BINGO_QA_BUILD_COMMIT = ($commit | Select-Object -First 1).Trim()
 $env:BINGO_QA_BUILD_SHA256 = $jarHash
+$env:BINGO_QA_BUILD_SOURCE_SHA256 = $sourceSha256
+if ($ProvisionAndroidTestFixtures) {
+    $env:BINGO_ANDROID_TEST_FIXTURES_CONFIRMATION = 'bingo_qa_test'
+    $env:BINGO_QA_PLAYER_001_PHONE = [string]$fixtureSettings.Player.BINGO_QA_PLAYER_001_PHONE
+    $env:BINGO_QA_PLAYER_001_PIN = [string]$fixtureSettings.Player.BINGO_QA_PLAYER_001_PIN
+    $env:BINGO_ANDROID_TEST_ADMIN_PHONE = [string]$fixtureSettings.Admin['BINGO_ANDROID_TEST_ADMIN_PHONE']
+    $env:BINGO_E2E_ADMIN_EMAIL = [string]$fixtureSettings.Admin['BINGO_E2E_ADMIN_EMAIL']
+    $env:BINGO_E2E_ADMIN_PASSWORD = [string]$fixtureSettings.Admin['BINGO_E2E_ADMIN_PASSWORD']
+    foreach ($key in @(
+        'BINGO_QA_APPROVED_AGENT_PHONE', 'BINGO_QA_APPROVED_AGENT_PIN',
+        'BINGO_QA_PENDING_AGENT_PHONE', 'BINGO_QA_PENDING_AGENT_PIN'
+    )) {
+        Set-Item -Path "Env:\$key" -Value ([string]$fixtureSettings.Agent.$key)
+    }
+}
 
 $stdoutLog = Join-Path $logDir 'backend.stdout.log'
 $stderrLog = Join-Path $logDir 'backend.stderr.log'
@@ -173,6 +249,8 @@ $args = @(
     '--app.wallet.adjustment-simulation-enabled=false',
     '--app.agent.float-simulation-enabled=false',
     '--app.qa.synthetic-financial-tests-enabled=false',
+    '--CORS_ALLOWED_ORIGINS=http://127.0.0.1:5174',
+    "--app.qa.android-test-fixtures-bootstrap-enabled=$($ProvisionAndroidTestFixtures.IsPresent.ToString().ToLowerInvariant())",
     '--spring.jpa.hibernate.ddl-auto=validate',
     '--spring.flyway.clean-disabled=true',
     '--spring.flyway.validate-on-migrate=true'
@@ -181,6 +259,16 @@ try {
     $process = Start-Process -FilePath 'java' -ArgumentList $args -WorkingDirectory $backendRoot -WindowStyle Hidden -PassThru -RedirectStandardOutput $stdoutLog -RedirectStandardError $stderrLog
 } finally {
     Remove-Item Env:\BINGO_TEST_MYSQL_PASSWORD -ErrorAction SilentlyContinue
+    foreach ($key in @(
+        'BINGO_ANDROID_TEST_FIXTURES_CONFIRMATION', 'BINGO_QA_PLAYER_001_PHONE',
+        'BINGO_QA_PLAYER_001_PIN', 'BINGO_ANDROID_TEST_ADMIN_PHONE',
+        'BINGO_E2E_ADMIN_EMAIL', 'BINGO_E2E_ADMIN_PASSWORD',
+        'BINGO_QA_BUILD_SOURCE_SHA256',
+        'BINGO_QA_APPROVED_AGENT_PHONE', 'BINGO_QA_APPROVED_AGENT_PIN',
+        'BINGO_QA_PENDING_AGENT_PHONE', 'BINGO_QA_PENDING_AGENT_PIN'
+    )) {
+        Remove-Item -Path "Env:\$key" -ErrorAction SilentlyContinue
+    }
     $mysqlPassword = $null
     $settings['BINGO_TEST_MYSQL_PASSWORD'] = $null
 }
@@ -217,11 +305,14 @@ $status = [ordered]@{
     mysqlAuthenticatedIdentity = $mysqlIdentity.CurrentUser
     backendUrl = "http://127.0.0.1:$Port"
     emulatorBackendUrl = "http://10.0.2.2:$Port"
+    adminOrigin = 'http://127.0.0.1:5174'
     drawScheduler = 'disabled'
     financialPostingAndSimulation = 'disabled'
     processId = $process.Id
+    artifactPath = $jar.FullName
     sourceCommit = $env:BINGO_QA_BUILD_COMMIT
     artifactSha256 = $jarHash
+    sourceSha256 = $sourceSha256
 }
 $status | ConvertTo-Json | Set-Content -LiteralPath $identityFile -Encoding utf8
 Write-Host "Verified QA backend: profile=android-test database=bingo_qa_test flyway=V$dbFlyway scheduler=disabled financial-posting=disabled"

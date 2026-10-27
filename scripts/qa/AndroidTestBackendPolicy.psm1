@@ -1,5 +1,31 @@
 Set-StrictMode -Version Latest
 
+function Get-AndroidTestBackendSourceFingerprint {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$RepositoryRoot)
+
+    $backendRoot = Join-Path $RepositoryRoot 'bingo-backend'
+    $sourceRoot = Join-Path $backendRoot 'src\main'
+    $pomPath = Join-Path $backendRoot 'pom.xml'
+    if (-not (Test-Path -LiteralPath $sourceRoot) -or -not (Test-Path -LiteralPath $pomPath)) {
+        throw 'Backend source fingerprint inputs are incomplete.'
+    }
+
+    $files = @(Get-ChildItem -LiteralPath $sourceRoot -File -Recurse) + @(Get-Item -LiteralPath $pomPath)
+    $entries = foreach ($file in $files | Sort-Object FullName) {
+        $relativePath = $file.FullName.Substring($backendRoot.Length).TrimStart('\').Replace('\', '/')
+        $fileHash = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash
+        "$relativePath`n$fileHash"
+    }
+    $manifest = [string]::Join("`n", $entries)
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        return [Convert]::ToHexString($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($manifest)))
+    } finally {
+        $sha.Dispose()
+    }
+}
+
 function Assert-AndroidTestDatasource {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$JdbcUrl)
@@ -107,7 +133,7 @@ function Assert-AndroidTestBackendRuntimeIdentity {
     foreach ($property in @(
         'profile', 'database', 'jdbcHost', 'jdbcPort', 'flyway', 'drawScheduler',
         'financialPostingAndSimulation', 'processId', 'backendUrl',
-        'emulatorBackendUrl', 'sourceCommit', 'artifactSha256'
+        'emulatorBackendUrl', 'sourceCommit', 'artifactSha256', 'sourceSha256', 'adminOrigin'
     )) {
         if ($null -eq $BackendIdentity.PSObject.Properties[$property]) {
             throw "Backend identity evidence is missing required field: $property."
@@ -121,7 +147,8 @@ function Assert-AndroidTestBackendRuntimeIdentity {
         $BackendIdentity.drawScheduler -ne 'disabled' -or
         $BackendIdentity.financialPostingAndSimulation -ne 'disabled' -or
         $BackendIdentity.backendUrl -ne 'http://127.0.0.1:8082' -or
-        $BackendIdentity.emulatorBackendUrl -ne 'http://10.0.2.2:8082') {
+        $BackendIdentity.emulatorBackendUrl -ne 'http://10.0.2.2:8082' -or
+        $BackendIdentity.adminOrigin -ne 'http://127.0.0.1:5174') {
         throw 'Running backend identity is not the approved isolated, no-financial Android test target.'
     }
     if ([int]$BackendIdentity.processId -le 0 -or
@@ -133,19 +160,21 @@ function Assert-AndroidTestBackendRuntimeIdentity {
     }
     if ($BackendIdentity.sourceCommit -notmatch '^[0-9a-fA-F]{40}$' -or
         $BackendIdentity.artifactSha256 -notmatch '^[0-9a-fA-F]{64}$' -or
+        $BackendIdentity.sourceSha256 -notmatch '^[0-9a-fA-F]{64}$' -or
         -not $BackendJarMatches -or -not $BackendSourceMatches) {
         throw 'Running backend artifact or executable source does not match its verified build identity.'
     }
 
-    $identityPattern = 'QA_TEST_RUNTIME_IDENTITY pid={0} profiles=android-test database=bingo_qa_test jdbcHost=127\.0\.0\.1 jdbcPort=3306 flyway={1} commit={2} artifactSha256={3}' -f
+    $identityPattern = 'QA_TEST_RUNTIME_IDENTITY pid={0} profiles=android-test database=bingo_qa_test jdbcHost=127\.0\.0\.1 jdbcPort=3306 flyway={1} commit={2} artifactSha256={3} sourceSha256={4}' -f
         [int]$BackendIdentity.processId,
         [regex]::Escape([string]$BackendIdentity.flyway),
         [regex]::Escape([string]$BackendIdentity.sourceCommit),
-        [regex]::Escape([string]$BackendIdentity.artifactSha256)
+        [regex]::Escape([string]$BackendIdentity.artifactSha256),
+        [regex]::Escape([string]$BackendIdentity.sourceSha256)
     if ($RuntimeIdentityLine -notmatch $identityPattern) {
         throw 'Running backend startup log does not confirm its actual datasource, profile, schema version, and artifact.'
     }
-    if ($RuntimeGuardsLine -notmatch 'QA_TEST_RUNTIME_GUARDS drawScheduler=disabled signupRewardPosting=disabled depositSimulation=disabled adjustmentSimulation=disabled agentFloatSimulation=disabled') {
+    if ($RuntimeGuardsLine -notmatch 'QA_TEST_RUNTIME_GUARDS drawScheduler=disabled signupRewardPosting=disabled depositSimulation=disabled adjustmentSimulation=disabled agentFloatSimulation=disabled adminCorsOrigin=http://127\.0\.0\.1:5174') {
         throw 'Running backend startup log does not confirm disabled financial and scheduler controls.'
     }
 
@@ -161,4 +190,4 @@ function Assert-AndroidTestBackendRuntimeIdentity {
     }
 }
 
-Export-ModuleMember -Function Assert-AndroidTestDatasource, Assert-AndroidTestMysqlIdentity, Assert-AgentAndroidE2EEnvironment, Assert-AndroidTestBackendRuntimeIdentity
+Export-ModuleMember -Function Get-AndroidTestBackendSourceFingerprint, Assert-AndroidTestDatasource, Assert-AndroidTestMysqlIdentity, Assert-AgentAndroidE2EEnvironment, Assert-AndroidTestBackendRuntimeIdentity

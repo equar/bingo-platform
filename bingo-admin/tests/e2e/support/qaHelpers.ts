@@ -30,7 +30,15 @@ export async function loginAdmin(page: Page) {
   await page.getByLabel('Email address').fill(requiredQaEnv('BINGO_E2E_ADMIN_EMAIL'));
   await page.locator('input[name="password"]').fill(requiredQaEnv('BINGO_E2E_ADMIN_PASSWORD'));
   await page.getByRole('button', { name: 'Sign in' }).click();
-  await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+  try {
+    await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+  } catch (error) {
+    const passwordField = page.locator('input[name="password"]');
+    const emailField = page.getByLabel('Email address');
+    if (await passwordField.count() > 0) await passwordField.fill('');
+    if (await emailField.count() > 0) await emailField.fill('');
+    throw error;
+  }
 }
 
 export async function captureScreenshot(page: Page, name: string): Promise<string> {

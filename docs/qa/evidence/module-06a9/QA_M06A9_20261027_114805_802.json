@@ -1,0 +1,16 @@
+{
+  "runId": "QA_M06A9_20261027_114805_802",
+  "startedAt": "2026-10-27T11:48:05.8097397+03:00",
+  "completedAt": "2026-10-27T11:48:09.1862105+03:00",
+  "overall": "BLOCKED",
+  "reason": "BLOCKED: running backend JAR is outside the repository backend target directory.",
+  "backendPid": 23908,
+  "createdSessionId": null,
+  "createdTicketId": null,
+  "artifacts": {
+    "before": null,
+    "after": null,
+    "flutterLog": null,
+    "fixture": null
+  }
+}

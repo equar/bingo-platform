@@ -31,7 +31,8 @@ $screenshotNames = @(
     'module-01-agent-authenticated.png',
     'module-01-agent-pending-rejected.png',
     'module-01-agent-expired-session.png',
-    'module-01-agent-session-persisted.png'
+    'module-01-agent-session-persisted.png',
+    'module-01-agent-support.png'
 )
 $screenshotOriginals = @{}
 $screenshotCopiesReady = $false
@@ -62,6 +63,7 @@ $report = [ordered]@{
         [ordered]@{ name = 'Invalid credentials and login throttling'; status = 'NOT RUN' }
         [ordered]@{ name = 'Session restore, expiry, and logout'; status = 'NOT RUN' }
         [ordered]@{ name = 'Cross-role authorization restrictions'; status = 'NOT RUN' }
+        [ordered]@{ name = 'Authenticated Agent Support ticket list (read-only)'; status = 'NOT RUN' }
     )
     screenshots = @()
     failureType = $null
@@ -206,9 +208,10 @@ try {
         throw 'BLOCKED: running backend JAR path could not be verified.'
     }
     $jarPath = (Resolve-Path -LiteralPath $jarMatch.Groups['jar'].Value).Path
-    $backendTarget = (Resolve-Path -LiteralPath (Join-Path $backendRoot 'target')).Path
-    if (-not $jarPath.StartsWith($backendTarget, [System.StringComparison]::OrdinalIgnoreCase)) {
-        throw 'BLOCKED: running backend JAR is outside the repository backend target directory.'
+    $buildRoot = [System.IO.Path]::GetFullPath((Join-Path $env:TEMP 'bingo-platform-module-06a5') + '\')
+    if (-not $jarPath.StartsWith($buildRoot, [System.StringComparison]::OrdinalIgnoreCase) -or
+        $jarPath -ne [System.IO.Path]::GetFullPath([string]$backend.artifactPath)) {
+        throw 'BLOCKED: running backend JAR is not the exact artifact in the isolated QA build directory.'
     }
     $actualJarHash = (Get-FileHash -LiteralPath $jarPath -Algorithm SHA256).Hash
     $resourceUri = ([Uri]::new(((Join-Path $backendRoot 'src\test\resources').TrimEnd('\') + '\'))).AbsoluteUri
@@ -218,10 +221,10 @@ try {
     }
 
     $git = Get-Command git.exe -ErrorAction Stop
-    & $git.Source -C $repoRoot diff --quiet ([string]$backend.sourceCommit) HEAD -- bingo-backend/src/main bingo-backend/pom.xml
-    $sourceMatches = $LASTEXITCODE -eq 0
-    $localSourceChanges = & $git.Source -C $repoRoot status --short -- bingo-backend/src/main bingo-backend/pom.xml
-    $sourceMatches = $sourceMatches -and -not $localSourceChanges
+    $head = (& $git.Source -C $repoRoot rev-parse HEAD).Trim()
+    $sourceFingerprint = Get-AndroidTestBackendSourceFingerprint -RepositoryRoot $repoRoot
+    $sourceMatches = $head -eq [string]$backend.sourceCommit -and
+        $sourceFingerprint -eq [string]$backend.sourceSha256
 
     $stdoutLog = Join-Path $logDir 'backend.stdout.log'
     $stderrLog = Join-Path $logDir 'backend.stderr.log'
@@ -392,6 +395,11 @@ SELECT CONCAT('PENDING|',COUNT(*)) FROM users u JOIN bingo_agents a ON a.user_id
     $report.testExitCode = $testExitCode
     $report.status = if ($testExitCode -eq 0) { 'PASS' } else { 'FAIL' }
     $report.blocker = if ($testExitCode -eq 0) { $null } else { 'Flutter integration test did not exit successfully; see the sanitized run log.' }
+    if ($testExitCode -eq 0) {
+        foreach ($index in @(0, 1, 2, 3, 5)) {
+            $report.scenarios[$index].status = 'PASS'
+        }
+    }
     $report.stage = 'database-reconciliation'
     $report.databaseCountsAfter = Get-DatabaseCounts
     $protectedTables = @(

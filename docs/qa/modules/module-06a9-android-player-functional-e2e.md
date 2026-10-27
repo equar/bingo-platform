@@ -1,8 +1,49 @@
 # Module 06A-9 — Android Player Functional E2E
 
-Date: 2026-10-26
+Date: 2026-10-26; latest execution: 2026-10-27
+Status: **PARTIAL — authenticated Player display journeys passed; card journey remains blocked**
 
-## Current verification result — 2026-10-26
+## Latest authorized Player Android run — 2026-10-27
+
+**Result: PARTIAL; the authenticated safe-display journey completed on emulator-5554 against the verified isolated backend.** Backend PID 23908 listened on port 8082 with profile `android-test`, database `127.0.0.1:3306/bingo_qa_test`, Flyway V22, and health UP. The MySQL runner account was scoped to that schema. Scheduler and financial posting/simulation remained disabled.
+
+| Check / scenario | Status | Result |
+| --- | --- | --- |
+| Android-test backend identity and safety controls | PASS | Runtime profile, datasource/schema, Flyway V22, health, schema-only account scope, and disabled scheduler/financial controls were verified by the guarded runner. |
+| Player Android authentication and validation | PASS | The real emulator UI authenticated the retained ACTIVE Player; required-field and credential validation completed. |
+| Lobby, room/session, price/status and read-only ticket preview | PASS | The UI displayed retained active room #38 and OPEN session #47 at 1.00 ETB. The ticket preview was informational only. |
+| Live-game view and logout/persistence | PASS | Live-game UI opened with purchase disabled; logout and persisted session behavior passed. Flutter integration exit code was 0. |
+| Player card assignment/purchase | BLOCKED | No financially approved Player card exists. The test reported the blocker in UI/evidence; no ticket row, purchase, or wallet mutation was attempted. |
+| Database/history/financial reconciliation | PASS | Session #47 was created through the normal Admin API and retained. Existing room/session/ticket records and wallet balances were unchanged; no test ticket was inserted. |
+| Flutter Player analysis and unit tests | PASS | Analysis passed; unit tests passed 32/32. |
+| Maven backend tests | BLOCKED | No distinct disposable Maven database/configuration was available. Maven was not pointed at `bingo_qa_test`. |
+
+Evidence: [run summary](../evidence/module-06a9/QA_M06A9_20261027_124227_686.json), [fixture](../evidence/module-06a9/QA_M06A9_20261027_124227_686-fixture.json), [database before](../evidence/module-06a9/QA_M06A9_20261027_124227_686-database-before.json), [database after](../evidence/module-06a9/QA_M06A9_20261027_124227_686-database-after.json), and [sanitized Flutter log](../evidence/module-06a9/QA_M06A9_20261027_124227_686-flutter-integration.log).
+
+## Player unit verification and fixture inventory — 2026-10-27
+
+The unnecessary `Widget` cast at line 118 was removed; targeted Player analysis passed and `flutter test` passed 32/32. The earlier read-only fixture inventory is preserved in [preflight evidence](../evidence/module-06a9/QA_M06A9_20261027_fixture-preflight.json).
+
+## Initial authorized preflight attempt — 2026-10-27 (historical; superseded by the run above)
+
+**Status: BLOCKED before fixture provisioning and authenticated UI execution.** Fixture creation was authorized, but the required Android-test backend is not running on port 8082. The healthy backend on port 8080 has no verified runtime profile/database identity. Read-only MySQL checks against the configured connection confirmed `bingo_qa_test` on loopback with schema-scoped grants, but cannot prove the absent backend is connected to it. Scheduler and financial controls are disabled in test-profile configuration, but runtime controls remain unverified. No fixture or account was changed, and no UI test was launched.
+
+| Check / scenario | Status | Result |
+| --- | --- | --- |
+| Android-test backend identity and health | BLOCKED | Required port 8082 has no listener. Port 8080 health is UP, but it is not verified as the isolated Android-test backend. |
+| Configured MySQL identity and grant scope | PASS — READ ONLY | Target `127.0.0.1:3306/bingo_qa_test` and schema-only grants verified using ignored local configuration. No write query was run. |
+| Runtime scheduler/financial flags | BLOCKED | Source test-profile configuration sets scheduler and financial posting/simulation flags disabled; live runtime values were unavailable. |
+| Backend/Agent launcher policy tests | PASS | Both non-mutating policy regression scripts passed; the actual guarded launchers were not run. |
+| Fixture provisioning and Agent approval | NOT RUN | Stopped before any mutation because the live backend identity gate failed. |
+| Player Android login, validation, lobby/session/card, logout and persistence | BLOCKED | No approved Android-test backend; no authenticated Player journey executed. |
+| Agent Android phone/PIN login, pending/approved behavior and non-financial workflows | BLOCKED | No approved Android-test backend; no authenticated Agent journey executed. |
+| Admin Chromium workflows and resulting mobile state | BLOCKED | No approved Android-test backend; no authenticated Admin action or normal Agent approval executed. |
+| Financial scenarios | BLOCKED — NOT ATTEMPTED | Financial posting/simulation was not enabled, and no prohibited financial path was approached. |
+| Maven tests | BLOCKED | Separate disposable Maven DB/configuration was unavailable; Maven tests were not pointed at `bingo_qa_test`. |
+
+See [authorized-run preflight evidence](../evidence/module-06a9/QA_M06A9_20261027_authorized-run-preflight.json). No fixtures were created and no existing database data was changed or deleted.
+
+## Earlier verification result — 2026-10-26 (historical)
 
 **Status: BLOCKED before authenticated Player UI execution.** Run `QA_M06A9_20261026_202153_463` stopped before login because the configured local Player credential did not resolve to exactly one ACTIVE PLAYER in `bingo_qa_test`. No API login, fixture creation, or Android test launch occurred. The exact blocker is recorded in the [run report](../evidence/module-06a9/QA_M06A9_20261026_202153_463.json).
 

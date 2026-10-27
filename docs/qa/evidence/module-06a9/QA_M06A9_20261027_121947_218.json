@@ -1,0 +1,51 @@
+{
+  "runId": "QA_M06A9_20261027_121947_218",
+  "startedAt": "2026-10-27T12:19:47.2267183+03:00",
+  "completedAt": "2026-10-27T12:22:01.7639252+03:00",
+  "overall": "FAIL",
+  "target": {
+    "backend": "http://127.0.0.1:8082",
+    "emulatorBackend": "http://10.0.2.2:8082",
+    "profile": "android-test",
+    "database": "bingo_qa_test",
+    "mysqlIdentity": "bingo_qa_test_runner@127.0.0.1",
+    "mysqlPort": 3306,
+    "backendPid": 23908,
+    "emulator": "emulator-5554",
+    "purchaseFlag": false
+  },
+  "playerAccount": {
+    "matchingAccounts": 1,
+    "status": "ACTIVE",
+    "hasPlayerRole": true
+  },
+  "checks": {
+    "backendHealthUp": true,
+    "backendPidMatchesListener": true,
+    "isolatedDatabaseIdentity": true,
+    "activePlayerConfirmedBefore": true,
+    "playerStatusUnchanged": true,
+    "businessTableCountsUnchanged": true,
+    "roomStatesUnchanged": true,
+    "retainedSessionStatesUnchanged": true,
+    "retainedTicketRowsUnchanged": true,
+    "testSessionReconciled": true,
+    "noTestTicketInserted": true,
+    "walletBalancesUnchanged": true,
+    "integrationTestPassed": false,
+    "cardJourneyBlockedByFinancialSafety": false,
+    "liveGameJourneyCompleted": false,
+    "liveGameBlockedByRuntime": false,
+    "displayedRoomPriceReconciled": true,
+    "displayedOpenSessionReconciled": true,
+    "openSessionDataBlockReported": false
+  },
+  "flutterExitCode": 1,
+  "artifacts": {
+    "before": "D:\\GitHub\\bingo-platform\\docs\\qa\\evidence\\module-06a9\\QA_M06A9_20261027_121947_218-database-before.json",
+    "after": "D:\\GitHub\\bingo-platform\\docs\\qa\\evidence\\module-06a9\\QA_M06A9_20261027_121947_218-database-after.json",
+    "flutterLog": "D:\\GitHub\\bingo-platform\\docs\\qa\\evidence\\module-06a9\\QA_M06A9_20261027_121947_218-flutter-integration.log",
+    "fixture": "D:\\GitHub\\bingo-platform\\docs\\qa\\evidence\\module-06a9\\QA_M06A9_20261027_121947_218-fixture.json"
+  },
+  "note": "No credential, phone, token, or account identifier is written to this manifest."
+}

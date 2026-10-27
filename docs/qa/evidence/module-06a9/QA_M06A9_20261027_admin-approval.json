@@ -1,0 +1,14 @@
+{
+  "scenario": "Normal Admin Chromium Agent approval",
+  "approvalCandidate": {
+    "userId": 380,
+    "agentId": 27,
+    "statusAfterReload": "APPROVED"
+  },
+  "retainedPendingAgent": {
+    "userId": 381,
+    "agentId": 28,
+    "status": "PENDING"
+  },
+  "credentialsRecorded": false
+}

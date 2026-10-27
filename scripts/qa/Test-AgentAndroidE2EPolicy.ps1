@@ -17,9 +17,11 @@ $validIdentity = [pscustomobject]@{
     emulatorBackendUrl = 'http://10.0.2.2:8082'
     sourceCommit = '0123456789abcdef0123456789abcdef01234567'
     artifactSha256 = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
+    sourceSha256 = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
+    adminOrigin = 'http://127.0.0.1:5174'
 }
-$validRuntimeLine = 'QA_TEST_RUNTIME_IDENTITY pid=20588 profiles=android-test database=bingo_qa_test jdbcHost=127.0.0.1 jdbcPort=3306 flyway=22 commit=0123456789abcdef0123456789abcdef01234567 artifactSha256=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
-$validGuardsLine = 'QA_TEST_RUNTIME_GUARDS drawScheduler=disabled signupRewardPosting=disabled depositSimulation=disabled adjustmentSimulation=disabled agentFloatSimulation=disabled'
+$validRuntimeLine = 'QA_TEST_RUNTIME_IDENTITY pid=20588 profiles=android-test database=bingo_qa_test jdbcHost=127.0.0.1 jdbcPort=3306 flyway=22 commit=0123456789abcdef0123456789abcdef01234567 artifactSha256=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef sourceSha256=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
+$validGuardsLine = 'QA_TEST_RUNTIME_GUARDS drawScheduler=disabled signupRewardPosting=disabled depositSimulation=disabled adjustmentSimulation=disabled agentFloatSimulation=disabled adminCorsOrigin=http://127.0.0.1:5174'
 
 function Assert-Rejected([string]$Name, [scriptblock]$Action) {
     try {

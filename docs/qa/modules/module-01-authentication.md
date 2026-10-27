@@ -1,11 +1,49 @@
 # Module 01 — Authentication and Authorization
 
-Date: 2026-10-23; current verification attempt: 2026-10-26
-Status: **COMPLETE for historically verified scope; current rerun BLOCKED**
+Date: 2026-10-23; latest verification: 2026-10-27
+Status: **PARTIAL — authenticated Player, Agent, and Admin journeys verified with documented scope gaps**
 
 Historical evidence: the two then-outstanding authentication scenarios passed. A11 used a valid expired HMAC-signed JWT in the real admin browser. P17 registered a dedicated player in the real Android app, set the player to PENDING through the admin console, and verified sign-in and protected access were denied. The original five QA users and both agent profiles retain their previous state. The full backend suite passed after the status-management change. No unresolved critical or high authentication defect was found in that scope. Module 02 was not started.
 
-## Current verification attempt — 2026-10-26
+## Player analysis and fixture inventory — 2026-10-27
+
+Player Flutter analysis passed with no issues and `flutter test` passed 32/32. The earlier read-only fixture inventory is preserved in [preflight evidence](../evidence/module-06a9/QA_M06A9_20261027_fixture-preflight.json).
+
+## Latest authorized E2E run — 2026-10-27
+
+**Result: authenticated Android and Chromium journeys ran against the verified isolated test backend.** Backend PID 23908 listened on port 8082 with profile `android-test`, database `127.0.0.1:3306/bingo_qa_test`, Flyway V22, and health UP. The connected MySQL identity was schema-scoped to `bingo_qa_test`; scheduler and financial posting/simulation controls remained disabled. The separate service on port 8080 was left untouched.
+
+| Surface / scenario | Status | Result |
+| --- | --- | --- |
+| Synthetic fixtures | PASS | Retained Player user 378, Admin user 379, approval candidate user 380 / Agent 27, and pending user 381 / Agent 28. Agent 27 was approved through the normal Admin UI; Agent 28 remains pending. Credentials are only in ignored local configuration. |
+| Player Android authentication and safe UI journeys | PASS — SCOPED | Real emulator login, validation, lobby/session display, room price/status, read-only ticket preview, live-game view with purchase disabled, logout, and persistence passed. See [Player run report](../evidence/module-06a9/QA_M06A9_20261027_124227_686.json) and [sanitized integration log](../evidence/module-06a9/QA_M06A9_20261027_124227_686-flutter-integration.log). |
+| Player card assignment/purchase | BLOCKED | No financially approved Player card fixture exists. No ticket was inserted and no purchase or wallet posting was attempted. The retained nonfinancial session is #47 in room #38. |
+| Agent Android authentication and read-only workflow | PASS — SCOPED | Real emulator test passed approved phone/PIN login, pending-Agent rejection, invalid credentials and throttling, session restore/expiry/logout, and authenticated Support ticket listing. Protected financial/account counts were unchanged. Cross-role authorization restrictions and other Agent workflows were NOT RUN. See [Agent run summary](../evidence/module-01-agent-authentication/QA_M01_AGENT_20261027_125207_750/run-summary.json) and [integration log](../evidence/module-01-agent-authentication/QA_M01_AGENT_20261027_125207_750/flutter-integration.log). |
+| Admin Chromium authenticated approval | PASS | Normal Admin UI approval passed 1/1 on retry; Agent 27 became APPROVED and Agent 28 remained PENDING. The evidence log preserves the earlier failed attempt and successful retry. See [approval result](../evidence/module-06a9/QA_M06A9_20261027_admin-approval.json) and [run log](../evidence/module-06a9/QA_M06A9_20261027_admin-approval.log). |
+| Financial posting and prohibited scenarios | BLOCKED — NOT ATTEMPTED | Scheduler and financial posting/simulation remained disabled. No ticket purchase, float funding, payout, settlement, or other financial posting was attempted. |
+| Maven test suite | BLOCKED | No separate disposable Maven database/configuration was available; Maven was not pointed at `bingo_qa_test`. |
+
+Player Flutter analysis and unit tests passed (32/32). Agent Flutter analysis passed and unit tests passed (12/12). The Agent Android integration run exited 0; its report now maps only exercised scenarios to PASS and leaves cross-role checks NOT RUN. Admin Vitest passed 84/84, lint/build passed, and Playwright discovery listed 57 tests across 17 files. The authenticated approval E2E passed 1/1 on retry; it was not repeated after the final test-helper error-path hardening because the create-only candidate is already approved. The Agent report and screenshot inventory are in the run evidence above. Retained fixture identities and purposes are recorded in the [test-data registry](../test-data-registry.md).
+
+## Initial authorized preflight attempt — 2026-10-27 (historical; superseded by the verified run above)
+
+**Result: BLOCKED before fixture provisioning and authenticated UI.** Fixture setup and the normal Agent approval workflow were authorized, but the required live-runtime preflight did not pass. Port 8082 has no listener. Port 8080 is healthy, but its process command line does not declare the `android-test` profile and no runtime identity proves its datasource or safety flags. The launcher was not started.
+
+| Gate / scenario | Status | Result |
+| --- | --- | --- |
+| Actual backend profile/database identity | BLOCKED | No backend listens on required `127.0.0.1:8082`; the healthy process on 8080 has no verified runtime identity. |
+| Configured MySQL target and account grants | PASS — READ ONLY | Using ignored `.env.test`, a read-only identity query confirmed `bingo_qa_test` at `127.0.0.1:3306`; grants are confined to that schema. This does not verify a backend-connected identity. |
+| Runtime scheduler and financial controls | BLOCKED | `application-android-test.yml` and launcher arguments configure them disabled, but actual runtime flags cannot be verified without the approved backend process. |
+| Launcher policy regression tests | PASS | Both backend identity and Agent E2E policy scripts passed. These are policy tests; actual launchers were not run. |
+| Fixture setup / Agent approval | NOT RUN | No provisioning, credential reset, role change, approval, or database write was attempted because the live-runtime gate failed. |
+| Player Android authentication and journeys | BLOCKED | Approved backend was unavailable; no Android UI journey ran. |
+| Agent Android authentication and workflows | BLOCKED | Approved backend was unavailable; no Android UI journey ran. |
+| Admin Chromium workflows and resulting mobile state | BLOCKED | Approved backend was unavailable; no authenticated browser workflow or Agent approval ran. |
+| Maven backend tests | BLOCKED | `.env.maven-test` and the required Maven database environment variables are absent; no disposable Maven test database was verified. |
+
+No fixtures were created, and no existing data was modified or deleted. See [authorized-run preflight evidence](../evidence/module-06a9/QA_M06A9_20261027_authorized-run-preflight.json). Historical PASS results below remain limited to their recorded scopes.
+
+## Earlier verification attempt — 2026-10-26 (historical)
 
 **Result: BLOCKED before authenticated UI execution.** The previously recorded PASS results remain historical and are not claimed as fresh verification against the isolated `bingo_qa_test` schema.
 

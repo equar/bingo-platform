@@ -1,0 +1,55 @@
+{
+  "date": "2026-10-27",
+  "scope": "Read-only fixture and local validation preflight",
+  "player": {
+    "analysis": {
+      "command": "flutter analyze integration_test/module_06a9_player_e2e_test.dart",
+      "status": "PASS",
+      "exitCode": 0
+    },
+    "unitTests": {
+      "command": "flutter test",
+      "passed": 32,
+      "failed": 0,
+      "status": "PASS",
+      "exitCode": 0
+    }
+  },
+  "androidTestDatabase": {
+    "identityVerified": true,
+    "schema": "bingo_qa_test",
+    "host": "127.0.0.1",
+    "port": 3306,
+    "accountGrantsConfinedToSchema": true,
+    "counts": {
+      "users": 9,
+      "activePlayers": 1,
+      "activeAdmins": 6,
+      "approvedAgents": 0,
+      "pendingAgents": 0
+    },
+    "configuredCredentialMatches": {
+      "player001ActivePlayer": 0,
+      "approvedAgent": 0,
+      "pendingAgent": 0,
+      "adminE2ECredentialsConfigured": false
+    },
+    "access": "SELECT-only inspection; no records changed"
+  },
+  "e2e": {
+    "playerAndroid": "BLOCKED",
+    "agentAndroid": "BLOCKED",
+    "adminChromium": "BLOCKED",
+    "reason": "Required fixture credentials are unavailable or do not match records in bingo_qa_test; no authenticated UI journey was launched."
+  },
+  "financialOperations": {
+    "testProfileControlsConfiguredDisabled": true,
+    "operationsExecuted": []
+  },
+  "maven": {
+    "environmentFilePresent": false,
+    "requiredEnvironmentVariablesPresent": false,
+    "disposableDatabaseVerified": false,
+    "testsRun": false
+  }
+}
