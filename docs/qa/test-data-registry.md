@@ -266,3 +266,34 @@ Read-only MySQL checks authenticated using existing local `.env.test` credential
 ## Module 04D-5B note — 2026-10-25
 
 Design and database-free validation only. No MySQL was contacted; no migrations, fixture writers, routes, records, claims, tickets, sessions, wallet changes or audit rows were created. Existing generated-card, claim-security, pattern, financial-guard and DB-target policy tests passed 24/24. Static review confirmed purchase/agent financial paths, claim ownership/session/pattern checks and role guards. Recommended architecture and future reconciliation are in [Module 04D-5B design](modules/module-04d5b-ticket-fixture-design.md) and [matrix](modules/module-04d5b-e2e-matrix.md); execution output is in [evidence](evidence/module-04d5b-design-checks.txt).
+
+- Module 06A-9 QA_M06A9_20261027_114826_784: active room #35, OPEN session #38 (QA_E2E_06A9_0261027_114826_784), synthetic Player database ID #378. Card journey BLOCKED: no financially approved card fixture was available; no ticket was inserted and no purchase or wallet posting was attempted. Retain the test session. See [run fixture evidence](evidence/module-06a9/QA_M06A9_20261027_114826_784-fixture.json).
+
+- Module 06A-9 QA_M06A9_20261027_115445_285: active room #38, OPEN session #39 (QA_E2E_06A9_0261027_115445_285), synthetic Player database ID #378. Card journey BLOCKED: no financially approved card fixture was available; no ticket was inserted and no purchase or wallet posting was attempted. Retain the test session. See [run fixture evidence](evidence/module-06a9/QA_M06A9_20261027_115445_285-fixture.json).
+
+- Module 06A-9 QA_M06A9_20261027_120238_224: active room #38, OPEN session #40 (QA_E2E_06A9_0261027_120238_224), synthetic Player database ID #378. Card journey BLOCKED: no financially approved card fixture was available; no ticket was inserted and no purchase or wallet posting was attempted. Retain the test session. See [run fixture evidence](evidence/module-06a9/QA_M06A9_20261027_120238_224-fixture.json).
+
+- Module 06A-9 QA_M06A9_20261027_120706_250: active room #38, OPEN session #41 (QA_E2E_06A9_0261027_120706_250), synthetic Player database ID #378. Card journey BLOCKED: no financially approved card fixture was available; no ticket was inserted and no purchase or wallet posting was attempted. Retain the test session. See [run fixture evidence](evidence/module-06a9/QA_M06A9_20261027_120706_250-fixture.json).
+
+- Module 06A-9 QA_M06A9_20261027_121144_625: active room #38, OPEN session #42 (QA_E2E_06A9_0261027_121144_625), synthetic Player database ID #378. Card journey BLOCKED: no financially approved card fixture was available; no ticket was inserted and no purchase or wallet posting was attempted. Retain the test session. See [run fixture evidence](evidence/module-06a9/QA_M06A9_20261027_121144_625-fixture.json).
+
+- Module 06A-9 QA_M06A9_20261027_121947_218: active room #38, OPEN session #43 (QA_E2E_06A9_0261027_121947_218), synthetic Player database ID #378. Card journey BLOCKED: no financially approved card fixture was available; no ticket was inserted and no purchase or wallet posting was attempted. Retain the test session. See [run fixture evidence](evidence/module-06a9/QA_M06A9_20261027_121947_218-fixture.json).
+
+- Module 06A-9 QA_M06A9_20261027_122624_835: active room #38, OPEN session #44 (QA_E2E_06A9_0261027_122624_835), synthetic Player database ID #378. Card journey BLOCKED: no financially approved card fixture was available; no ticket was inserted and no purchase or wallet posting was attempted. Retain the test session. See [run fixture evidence](evidence/module-06a9/QA_M06A9_20261027_122624_835-fixture.json).
+
+- Module 06A-9 QA_M06A9_20261027_123030_952: active room #38, OPEN session #45 (QA_E2E_06A9_0261027_123030_952), synthetic Player database ID #378. Card journey BLOCKED: no financially approved card fixture was available; no ticket was inserted and no purchase or wallet posting was attempted. Retain the test session. See [run fixture evidence](evidence/module-06a9/QA_M06A9_20261027_123030_952-fixture.json).
+
+- Module 06A-9 QA_M06A9_20261027_123623_592: active room #38, OPEN session #46 (QA_E2E_06A9_0261027_123623_592), synthetic Player database ID #378. Card journey BLOCKED: no financially approved card fixture was available; no ticket was inserted and no purchase or wallet posting was attempted. Retain the test session. See [run fixture evidence](evidence/module-06a9/QA_M06A9_20261027_123623_592-fixture.json).
+
+- Module 06A-9 QA_M06A9_20261027_124227_686: active room #38, OPEN session #47 (QA_E2E_06A9_0261027_124227_686), synthetic Player database ID #378. Card journey BLOCKED: no financially approved card fixture was available; no ticket was inserted and no purchase or wallet posting was attempted. Retain the test session. See [run fixture evidence](evidence/module-06a9/QA_M06A9_20261027_124227_686-fixture.json).
+
+## Module 06A-9 / 01 synthetic E2E fixtures — 2026-10-27
+
+All records below are retained in the isolated local `bingo_qa_test` database. Credentials are stored only in ignored local test configuration and are intentionally not recorded here.
+
+| Test identity | Database ID | Module | Current business status | Purpose and reuse restrictions | Created |
+| --- | --- | --- | --- | --- | --- |
+| QA_M06A9_PLAYER_001 — synthetic Player | User 378 | 06A-9 | ACTIVE | Persistent Player Android authentication and nonfinancial lobby/session E2E; no approved card is assigned and purchase remains prohibited. Credentials only in ignored local config. | 2026-10-27 |
+| QA_M06A9_ADMIN_001 — synthetic Admin | User 379 | 01 / 06A-9 | ACTIVE | Persistent Admin Chromium authentication and authorized E2E workflows. Credentials only in ignored local config. | 2026-10-27 |
+| QA_M01_AGENT_003 — approval candidate | User 380 / Agent 27 | 01 | User ACTIVE; Agent APPROVED | Approved through the normal Admin Chromium approval workflow. Retain for Agent Android E2E; no float funding or financial posting. Credentials only in ignored local config. | 2026-10-27 |
+| QA_M01_AGENT_004 — pending Agent | User 381 / Agent 28 | 01 | User PENDING; Agent PENDING | Persistent pending-login denial fixture; do not approve except through a separately authorized scenario. Credentials only in ignored local config. | 2026-10-27 |

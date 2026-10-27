@@ -1,0 +1,187 @@
+{
+  "capturedAt": "2026-10-27T12:07:13.9868055+03:00",
+  "target": "127.0.0.1:3306/bingo_qa_test",
+  "tableCounts": [
+    {
+      "table": "agent_float_top_up_requests",
+      "rowCount": 0
+    },
+    {
+      "table": "agent_float_transactions",
+      "rowCount": 0
+    },
+    {
+      "table": "agent_floats",
+      "rowCount": 1
+    },
+    {
+      "table": "agent_operations",
+      "rowCount": 0
+    },
+    {
+      "table": "audit_log_entries",
+      "rowCount": 75
+    },
+    {
+      "table": "authentication_attempt_buckets",
+      "rowCount": 4
+    },
+    {
+      "table": "bingo_agents",
+      "rowCount": 2
+    },
+    {
+      "table": "bingo_draw_events",
+      "rowCount": 9
+    },
+    {
+      "table": "bingo_prize_entitlements",
+      "rowCount": 0
+    },
+    {
+      "table": "bingo_rooms",
+      "rowCount": 4
+    },
+    {
+      "table": "bingo_sessions",
+      "rowCount": 11
+    },
+    {
+      "table": "bingo_tickets",
+      "rowCount": 0
+    },
+    {
+      "table": "bingo_win_claims",
+      "rowCount": 0
+    },
+    {
+      "table": "commission_accruals",
+      "rowCount": 0
+    },
+    {
+      "table": "commission_rules",
+      "rowCount": 0
+    },
+    {
+      "table": "deposit_accounting_journal_lines",
+      "rowCount": 0
+    },
+    {
+      "table": "deposit_accounting_journals",
+      "rowCount": 0
+    },
+    {
+      "table": "deposit_claims",
+      "rowCount": 0
+    },
+    {
+      "table": "float_accounting_journal_lines",
+      "rowCount": 0
+    },
+    {
+      "table": "float_accounting_journals",
+      "rowCount": 0
+    },
+    {
+      "table": "float_bank_statement_entries",
+      "rowCount": 0
+    },
+    {
+      "table": "float_receiving_bank_accounts",
+      "rowCount": 0
+    },
+    {
+      "table": "float_top_up_verification_attempts",
+      "rowCount": 0
+    },
+    {
+      "table": "flyway_schema_history",
+      "rowCount": 22
+    },
+    {
+      "table": "idempotency_records",
+      "rowCount": 0
+    },
+    {
+      "table": "internal_notes",
+      "rowCount": 0
+    },
+    {
+      "table": "payout_verification_records",
+      "rowCount": 0
+    },
+    {
+      "table": "signup_reward_grants",
+      "rowCount": 0
+    },
+    {
+      "table": "signup_reward_policies",
+      "rowCount": 1
+    },
+    {
+      "table": "support_messages",
+      "rowCount": 0
+    },
+    {
+      "table": "support_tickets",
+      "rowCount": 0
+    },
+    {
+      "table": "user_roles",
+      "rowCount": 15
+    },
+    {
+      "table": "users",
+      "rowCount": 13
+    },
+    {
+      "table": "wallet_adjustment_accounting_journal_lines",
+      "rowCount": 0
+    },
+    {
+      "table": "wallet_adjustment_accounting_journals",
+      "rowCount": 0
+    },
+    {
+      "table": "wallet_adjustment_requests",
+      "rowCount": 0
+    },
+    {
+      "table": "wallet_transactions",
+      "rowCount": 0
+    },
+    {
+      "table": "wallet_transfer_policies",
+      "rowCount": 1
+    },
+    {
+      "table": "wallet_transfers",
+      "rowCount": 0
+    },
+    {
+      "table": "wallets",
+      "rowCount": 2
+    }
+  ],
+  "roomStates": [
+    "35|1|1.00|ETB",
+    "36|1|1.00|ETB",
+    "37|1|1.00|ETB",
+    "38|1|1.00|ETB"
+  ],
+  "sessionStates": [
+    "30|35|QA 04C3B restart 55|DRAWING|1.00|ETB",
+    "31|35|QA 04C3B network 55|DRAWING|1.00|ETB",
+    "32|35|QA 04C3B closed 55|CLOSED|1.00|ETB",
+    "33|35|QA 04C3B cancelled 55|CANCELLED|1.00|ETB",
+    "34|36|QA 04C3B restart fresh 55|DRAWING|1.00|ETB",
+    "35|36|QA 04C3B network fresh 55|DRAWING|1.00|ETB",
+    "36|37|QA m04c4-retry-1792940943537-d8e36a30|DRAWING|1.00|ETB",
+    "37|38|QA m04c4-concurrent-1792940965866-e2d52e90|DRAWING|1.00|ETB",
+    "38|35|QA_E2E_06A9_0261027_114826_784|OPEN|1.00|ETB",
+    "39|38|QA_E2E_06A9_0261027_115445_285|OPEN|1.00|ETB",
+    "40|38|QA_E2E_06A9_0261027_120238_224|OPEN|1.00|ETB"
+  ],
+  "ticketRows": [],
+  "walletBalancesSha256": "8DCD4B4ECEF371408C0CBDB9C1C82E98B0344DE476711A173DC8BD4232DDF173"
+}

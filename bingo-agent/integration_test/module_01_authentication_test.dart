@@ -232,6 +232,11 @@ void main() {
         .whereType<String>();
     expect(displayedText.contains(storedToken), isFalse);
     await _captureScreenshot(tester, 'module-01-agent-session-persisted');
+
+    await tester.tap(find.text('Support').last);
+    await _waitFor(tester, find.text('Support tickets'));
+    expect(find.byType(NavigationBar), findsOneWidget);
+    await _captureScreenshot(tester, 'module-01-agent-support');
   });
 }
 

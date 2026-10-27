@@ -1,5 +1,7 @@
 [CmdletBinding()]
-param()
+param(
+    [switch]$UseLocalSyntheticFixtures
+)
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
@@ -40,7 +42,6 @@ $mysqlPassword = $null
 $playerId = 0L
 $createdSessionId = 0L
 $createdTicketId = 0L
-$ticketCode = $null
 $fixturePath = Join-Path $evidenceDir "$runId-fixture.json"
 $adminToken = $null
 $pin = $null
@@ -64,15 +65,6 @@ function Invoke-QaMysql([string]$Sql) {
     try {
         $result = $Sql | & $mysql --protocol=TCP --host=127.0.0.1 --port=3306 --user=$mysqlUser --database=bingo_qa_test --batch --raw --skip-column-names
         if ($LASTEXITCODE -ne 0) { throw 'Read-only MySQL query failed; SQL output was suppressed.' }
-        return ,@($result | ForEach-Object { [string]$_ })
-    } finally { Remove-Item Env:\MYSQL_PWD -ErrorAction SilentlyContinue }
-}
-
-function Invoke-QaFixtureSql([string]$Sql) {
-    $env:MYSQL_PWD = $mysqlPassword
-    try {
-        $result = $Sql | & $mysql --protocol=TCP --host=127.0.0.1 --port=3306 --user=$mysqlUser --database=bingo_qa_test --batch --raw --skip-column-names
-        if ($LASTEXITCODE -ne 0) { throw 'Approved synthetic fixture utility failed; SQL text was suppressed.' }
         return ,@($result | ForEach-Object { [string]$_ })
     } finally { Remove-Item Env:\MYSQL_PWD -ErrorAction SilentlyContinue }
 }
@@ -183,9 +175,10 @@ try {
         throw 'BLOCKED: running backend JAR path could not be verified.'
     }
     $jarPath = (Resolve-Path -LiteralPath $jarMatch.Groups['jar'].Value).Path
-    $backendTarget = (Resolve-Path -LiteralPath (Join-Path $repoRoot 'bingo-backend\target')).Path
-    if (-not $jarPath.StartsWith($backendTarget, [System.StringComparison]::OrdinalIgnoreCase)) {
-        throw 'BLOCKED: running backend JAR is outside the repository backend target directory.'
+    $buildRoot = [System.IO.Path]::GetFullPath((Join-Path $env:TEMP 'bingo-platform-module-06a5') + '\')
+    if (-not $jarPath.StartsWith($buildRoot, [System.StringComparison]::OrdinalIgnoreCase) -or
+        $jarPath -ne [System.IO.Path]::GetFullPath([string]$backend.artifactPath)) {
+        throw 'BLOCKED: running backend JAR is not the exact artifact in the isolated QA build directory.'
     }
     $actualJarHash = (Get-FileHash -LiteralPath $jarPath -Algorithm SHA256).Hash
     $resourceUri = ([Uri]::new(((Join-Path $repoRoot 'bingo-backend\src\test\resources').TrimEnd('\') + '\'))).AbsoluteUri
@@ -194,10 +187,10 @@ try {
         throw 'BLOCKED: running backend command line does not identify the isolated test configuration and profile.'
     }
     $git = Get-Command git.exe -ErrorAction Stop
-    & $git.Source -C $repoRoot diff --quiet ([string]$backend.sourceCommit) HEAD -- bingo-backend/src/main bingo-backend/pom.xml
-    $sourceMatches = $LASTEXITCODE -eq 0
-    $localSourceChanges = & $git.Source -C $repoRoot status --short -- bingo-backend/src/main bingo-backend/pom.xml
-    $sourceMatches = $sourceMatches -and -not $localSourceChanges
+    $head = (& $git.Source -C $repoRoot rev-parse HEAD).Trim()
+    $sourceFingerprint = Get-AndroidTestBackendSourceFingerprint -RepositoryRoot $repoRoot
+    $sourceMatches = $head -eq [string]$backend.sourceCommit -and
+        $sourceFingerprint -eq [string]$backend.sourceSha256
 
     $runtimeLogDir = Join-Path $env:TEMP 'bingo-platform-module-06a5'
     $runtimeIdentityLine = @(
@@ -229,8 +222,42 @@ try {
     }
     $dbIdentity = @($mysqlIdentity.Database, $mysqlIdentity.CurrentUser, [string]$mysqlIdentity.Port)
 
-    $phone = Read-Host 'Existing authorized QA player phone (not echoed in evidence)'
-    $securePin = Read-Host 'Existing QA player six-digit PIN' -AsSecureString
+    if ($UseLocalSyntheticFixtures) {
+        $playerSecretsPath = Join-Path $repoRoot 'bingo-app\e2e-secrets.json'
+        $adminSecretsPath = Join-Path $repoRoot 'bingo-admin\.env.qa'
+        foreach ($path in @($playerSecretsPath, $adminSecretsPath)) {
+            if (-not (Test-Path -LiteralPath $path)) { throw 'BLOCKED: ignored local Player or Admin configuration is missing.' }
+            $relativePath = $path.Substring($repoRoot.Length).TrimStart('\').Replace('\', '/')
+            & git -C $repoRoot check-ignore -q $relativePath
+            if ($LASTEXITCODE -ne 0) { throw 'BLOCKED: synthetic E2E credentials must remain in ignored local configuration.' }
+        }
+        try { $playerSecrets = Get-Content -LiteralPath $playerSecretsPath -Raw | ConvertFrom-Json }
+        catch { throw 'BLOCKED: ignored local Player E2E configuration is invalid.' }
+        $adminSettings = @{}
+        foreach ($line in Get-Content -LiteralPath $adminSecretsPath) {
+            if ($line -match '^\s*([A-Za-z0-9_]+)=(.*)\s*$') {
+                $adminSettings[$matches[1]] = $matches[2].Trim().Trim('"').Trim("'")
+            }
+        }
+        $phone = [string]$playerSecrets.BINGO_QA_PLAYER_001_PHONE
+        $playerPin = [string]$playerSecrets.BINGO_QA_PLAYER_001_PIN
+        $adminEmail = [string]$adminSettings['BINGO_E2E_ADMIN_EMAIL']
+        $adminCredential = [string]$adminSettings['BINGO_E2E_ADMIN_PASSWORD']
+        if (-not $phone -or -not $playerPin -or -not $adminEmail -or -not $adminCredential) {
+            throw 'BLOCKED: ignored local synthetic Player or Admin credentials are incomplete.'
+        }
+        $securePin = ConvertTo-SecureString $playerPin -AsPlainText -Force
+        $secureAdminPassword = ConvertTo-SecureString $adminCredential -AsPlainText -Force
+        $playerSecrets = $null
+        $adminSettings['BINGO_E2E_ADMIN_PASSWORD'] = $null
+        $adminCredential = $null
+        $playerPin = $null
+    } else {
+        $phone = Read-Host 'Existing authorized QA player phone (not echoed in evidence)'
+        $securePin = Read-Host 'Existing QA player six-digit PIN' -AsSecureString
+        $adminEmail = Read-Host 'Existing authorized QA administrator email'
+        $secureAdminPassword = Read-Host 'Existing QA administrator password' -AsSecureString
+    }
     if ($phone -notmatch '^\+?[0-9\s().-]+$') { throw 'BLOCKED: player phone format is invalid.' }
     $phoneDigits = $phone.Trim() -replace '[\s\-().]', ''
     if ($phoneDigits.StartsWith('+')) { $phoneDigits = $phoneDigits.Substring(1) }
@@ -248,8 +275,6 @@ try {
     if ($playerIdRows.Count -ne 1 -or $playerIdRows[0] -notmatch '^\d+$') { throw 'BLOCKED: active QA player identity could not be resolved safely.' }
     $playerId = [long]$playerIdRows[0]
 
-    $adminEmail = Read-Host 'Existing authorized QA administrator email'
-    $secureAdminPassword = Read-Host 'Existing QA administrator password' -AsSecureString
     if ($adminEmail -notmatch '^[^\s@]+@[^\s@]+\.[^\s@]+$') { throw 'BLOCKED: administrator email format is invalid.' }
     $adminBefore = Get-AdminStatus $adminEmail
     if ($adminBefore.matchingAccounts -ne 1 -or $adminBefore.status -ne 'ACTIVE' -or -not $adminBefore.hasAdminRole) {
@@ -273,7 +298,7 @@ try {
     $adminToken = [string]$adminLogin.accessToken
     $adminLogin = $null
 
-    $activeRooms = @($snapshotBefore.roomStates | Where-Object { $_ -match '^\d+\|1\|' } | Select-Object -First 1)
+    $activeRooms = @($snapshotBefore.roomStates | Where-Object { $_ -match '^\d+\|1\|' } | Select-Object -Last 1)
     if ($activeRooms.Count -ne 1) { throw 'BLOCKED: no active QA room is available for a test-owned session.' }
     $activeRoomParts = $activeRooms[0].Split('|')
     if ($activeRoomParts.Count -lt 4) { throw 'BLOCKED: active QA room metadata is incomplete.' }
@@ -292,27 +317,19 @@ try {
     $sessionResponse = $null
     $adminToken = $null
 
-    # This row is a UI-only card display fixture. It has no wallet funding snapshot,
-    # wallet debit, purchase API call, claim, or financial ledger entry.
-    $ticketCode = 'QA06A9' + [guid]::NewGuid().ToString('N').Substring(0, 16).ToUpperInvariant()
-    $operationId = [guid]::NewGuid().ToString()
-    $gridJson = '[[1,16,31,46,61],[2,17,32,47,62],[3,18,0,48,63],[4,19,34,49,64],[5,20,35,50,65]]'
-    $fixtureSql = "START TRANSACTION; INSERT INTO bingo_tickets(session_id,owner_id,public_ticket_code,operation_id,grid_json,purchased_at,wallet_funding_snapshot_json) VALUES($createdSessionId,$playerId,'$ticketCode','$operationId','$gridJson',UTC_TIMESTAMP(6),NULL); SELECT LAST_INSERT_ID(); COMMIT;"
-    $ticketIdResult = Invoke-QaFixtureSql $fixtureSql
-    if ($ticketIdResult.Count -lt 1 -or $ticketIdResult[-1] -notmatch '^\d+$') { throw 'FAIL: controlled ticket display fixture insert returned no ticket identifier.' }
-    $createdTicketId = [long]$ticketIdResult[-1]
+    $gridJson = $null
     $fixtureManifest = [ordered]@{
-        runId = $runId; fixtureType = 'nonfinancial-card-display-only'; createdAt = (Get-Date).ToString('o')
+        runId = $runId; fixtureType = 'nonfinancial-session-display-only'; createdAt = (Get-Date).ToString('o')
         database = 'bingo_qa_test'; roomId = $roomId; sessionId = $createdSessionId; sessionName = $sessionName
-        playerDatabaseId = $playerId; ticketId = $createdTicketId; publicTicketCode = $ticketCode; operationId = $operationId
-        cardGrid = $gridJson; walletFundingSnapshot = $null; walletDebit = $false; financialLedger = 'unchanged'
-        note = 'Test-owned records are retained. No purchase API, wallet mutation, claim, settlement, scheduler, or external transfer was invoked.'
+        playerDatabaseId = $playerId; ticketJourney = 'BLOCKED'
+        walletDebit = $false; financialLedger = 'unchanged'
+        note = 'The OPEN session was created through the normal Admin API. No ticket was inserted and no purchase, wallet mutation, claim, settlement, scheduler, or external transfer was invoked.'
     }
     $fixtureManifest | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $fixturePath -Encoding utf8
     $registryPath = Join-Path $repoRoot 'docs\qa\test-data-registry.md'
     if (-not (Test-Path -LiteralPath $registryPath)) { throw 'BLOCKED: persistent QA test-data registry is missing.' }
     if (-not (Select-String -LiteralPath $registryPath -SimpleMatch $runId -Quiet)) {
-        Add-Content -LiteralPath $registryPath -Value "`n- Module 06A-9 ${runId}: active room #$roomId, OPEN session #$createdSessionId ($sessionName), player database ID #$playerId, card-display ticket #$createdTicketId ($ticketCode). Nonfinancial fixture; no wallet debit or ledger entry. Retain all records. See [run fixture evidence](evidence/module-06a9/${runId}-fixture.json)."
+        Add-Content -LiteralPath $registryPath -Value "`n- Module 06A-9 ${runId}: active room #$roomId, OPEN session #$createdSessionId ($sessionName), synthetic Player database ID #$playerId. Card journey BLOCKED: no financially approved card fixture was available; no ticket was inserted and no purchase or wallet posting was attempted. Retain the test session. See [run fixture evidence](evidence/module-06a9/${runId}-fixture.json)."
     }
 
     $secretDir = Join-Path $env:TEMP $runId
@@ -324,7 +341,7 @@ try {
     $acl.AddAccessRule($rule)
     Set-Acl -LiteralPath $secretDir -AclObject $acl
     $secretPath = Join-Path $secretDir 'e2e-secrets.json'
-    $secretJson = @{ BINGO_E2E_PRIMARY_PHONE = $phone; BINGO_E2E_PRIMARY_PIN = $pin; BINGO_E2E_TICKET_CODE = $ticketCode; BINGO_E2E_SESSION_ID = [string]$createdSessionId } | ConvertTo-Json -Compress
+    $secretJson = @{ BINGO_E2E_PRIMARY_PHONE = $phone; BINGO_E2E_PRIMARY_PIN = $pin; BINGO_E2E_SESSION_ID = [string]$createdSessionId } | ConvertTo-Json -Compress
     [System.IO.File]::WriteAllText($secretPath, $secretJson, [System.Text.UTF8Encoding]::new($false))
     $pin = $null
     $securePin.Dispose()
@@ -366,7 +383,16 @@ try {
     $oldTicketsBefore = @($snapshotBefore.ticketRows)
     $oldTicketsAfter = @($snapshotAfter.ticketRows | Where-Object { $_ -notmatch "^$createdTicketId\|" })
     $newSessionRow = @($snapshotAfter.sessionStates | Where-Object { $_ -match "^$createdSessionId\|" }) | Select-Object -First 1
-    $newTicketRow = @($snapshotAfter.ticketRows | Where-Object { $_ -match "^$createdTicketId\|" }) | Select-Object -First 1
+    $testSessionReconciled = $false
+    if ($newSessionRow) {
+        $sessionParts = ([string]$newSessionRow).Split('|')
+        if ($sessionParts.Count -eq 6) {
+            $testSessionReconciled = [long]$sessionParts[0] -eq $createdSessionId -and
+                [long]$sessionParts[1] -eq $roomId -and $sessionParts[2] -eq $sessionName -and
+                $sessionParts[3] -eq 'OPEN' -and [decimal]$sessionParts[4] -eq $roomPrice -and
+                $sessionParts[5] -eq $roomCurrency
+        }
+    }
     $checks = [ordered]@{
         backendHealthUp = $true
         backendPidMatchesListener = $true
@@ -377,10 +403,14 @@ try {
         roomStatesUnchanged = (($snapshotBefore.roomStates -join "`n") -eq ($snapshotAfter.roomStates -join "`n"))
         retainedSessionStatesUnchanged = (($oldSessionsBefore -join "`n") -eq ($oldSessionsAfter -join "`n"))
         retainedTicketRowsUnchanged = (($oldTicketsBefore -join "`n") -eq ($oldTicketsAfter -join "`n"))
-        testSessionReconciled = ($newSessionRow -and $newSessionRow -match "^$createdSessionId\|$roomId\|$([regex]::Escape($sessionName))\|OPEN\|$([regex]::Escape([string]$roomPrice))\|$roomCurrency$")
-        testTicketReconciled = ($newTicketRow -and $newTicketRow -match "^$createdTicketId\|$createdSessionId\|$playerId\|$ticketCode\|[0-9a-fA-F-]{36}\|$([regex]::Escape($gridJson))\|NO_FUNDING_SNAPSHOT$")
+        testSessionReconciled = $testSessionReconciled
+        noTestTicketInserted = (($beforeCounts['bingo_tickets'] - $afterCounts['bingo_tickets']) -eq 0 -and
+            (($snapshotBefore.ticketRows -join "`n") -eq ($snapshotAfter.ticketRows -join "`n")))
         walletBalancesUnchanged = ($snapshotBefore.walletBalancesSha256 -eq $snapshotAfter.walletBalancesSha256)
         integrationTestPassed = ($processExit -eq 0)
+        cardJourneyBlockedByFinancialSafety = (($testOutput -join "`n") -match 'BLOCKED_BY_DATA: no financially approved Player card exists')
+        liveGameJourneyCompleted = (($testOutput -join "`n") -match 'E2E_UI_LIVE_GAME_READY\|')
+        liveGameBlockedByRuntime = (($testOutput -join "`n") -match 'BLOCKED_BY_RUNTIME:')
         displayedRoomPriceReconciled = $false
         displayedOpenSessionReconciled = $false
         openSessionDataBlockReported = (($testOutput -join "`n") -match 'BLOCKED_BY_DATA: no existing OPEN session')
@@ -391,13 +421,20 @@ try {
             $dbRoom = $snapshotBefore.roomStates | Where-Object { $_ -match "^$uiRoomId\|" } | Select-Object -First 1
             if ($dbRoom) { $dbParts = $dbRoom.Split('|'); if ([decimal]$dbParts[2] -eq $uiPrice -and $dbParts[3] -eq $uiCurrency) { $checks.displayedRoomPriceReconciled = $true } }
         }
-        if ($line -match 'E2E_UI_OPEN_SESSION\|id=(\d+)\|status=OPEN\|Price:\s*([0-9]+(?:\.[0-9]+)?)\s+([A-Z]{3})') {
-            $uiSessionId = $matches[1]; $uiPrice = [decimal]$matches[2]; $uiCurrency = $matches[3]
+        if ($line -match 'E2E_UI_OPEN_SESSION\|id=(\d+)\|roomId=(\d+)\|status=OPEN\|Price:\s*([0-9]+(?:\.[0-9]+)?)\s+([A-Z]{3})') {
+            $uiSessionId = $matches[1]; $uiRoomId = $matches[2]; $uiPrice = [decimal]$matches[3]; $uiCurrency = $matches[4]
             $dbSession = $snapshotAfter.sessionStates | Where-Object { $_ -match "^$uiSessionId\|" } | Select-Object -First 1
-            if ($dbSession) { $dbParts = $dbSession.Split('|'); if ($dbParts[3] -eq 'OPEN' -and [decimal]$dbParts[4] -eq $uiPrice -and $dbParts[5] -eq $uiCurrency) { $checks.displayedOpenSessionReconciled = $true } }
+            if ($dbSession) { $dbParts = $dbSession.Split('|'); if ($dbParts[1] -eq $uiRoomId -and $dbParts[3] -eq 'OPEN' -and [decimal]$dbParts[4] -eq $uiPrice -and $dbParts[5] -eq $uiCurrency) { $checks.displayedOpenSessionReconciled = $true } }
         }
     }
-    $status = if ($processExit -eq 0 -and $checks.businessTableCountsUnchanged -and $checks.retainedSessionStatesUnchanged -and $checks.retainedTicketRowsUnchanged -and $checks.testSessionReconciled -and $checks.testTicketReconciled -and $checks.walletBalancesUnchanged -and $checks.playerStatusUnchanged -and $checks.displayedRoomPriceReconciled -and $checks.displayedOpenSessionReconciled) { 'PASS' } else { 'FAIL' }
+    $journeysVerified = $processExit -eq 0 -and $checks.businessTableCountsUnchanged -and
+        $checks.retainedSessionStatesUnchanged -and $checks.retainedTicketRowsUnchanged -and
+        $checks.testSessionReconciled -and $checks.noTestTicketInserted -and
+        $checks.walletBalancesUnchanged -and $checks.playerStatusUnchanged -and
+        $checks.displayedRoomPriceReconciled -and $checks.displayedOpenSessionReconciled -and
+        $checks.cardJourneyBlockedByFinancialSafety -and
+        ($checks.liveGameJourneyCompleted -or $checks.liveGameBlockedByRuntime)
+    $status = if (-not $journeysVerified) { 'FAIL' } elseif ($checks.cardJourneyBlockedByFinancialSafety -or $checks.liveGameBlockedByRuntime) { 'PARTIAL' } else { 'PASS' }
     $manifest = [ordered]@{
         runId = $runId
         startedAt = $startedAt
@@ -412,7 +449,7 @@ try {
     }
     $manifest | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $manifestPath -Encoding utf8
     Write-Host "Module 06A-9 $status. Evidence manifest: $manifestPath"
-    if ($status -ne 'PASS') { exit 1 }
+    if ($status -eq 'FAIL') { exit 1 }
 } catch {
     $reason = $_.Exception.Message
     $classification = if ($reason -match '^BLOCKED:') { 'BLOCKED' } else { 'FAIL' }

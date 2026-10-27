@@ -1,0 +1,72 @@
+{
+  "date": "2026-10-27",
+  "scope": "Authorized fixture setup and E2E live-runtime preflight",
+  "authorization": {
+    "syntheticFixtures": true,
+    "normalAgentApprovalWorkflow": true
+  },
+  "liveBackend": {
+    "requiredHost": "127.0.0.1",
+    "requiredPort": 8082,
+    "listenerPresent": false,
+    "otherHealthyBackend": {
+      "port": 8080,
+      "health": "UP",
+      "runtimeProfileVerified": false,
+      "databaseIdentityVerified": false
+    },
+    "androidTestRuntimeIdentity": "BLOCKED",
+    "reason": "No backend listens on port 8082; the healthy backend on port 8080 has no verified android-test profile or datasource identity."
+  },
+  "configuredMysql": {
+    "source": "ignored bingo-backend/.env.test",
+    "host": "127.0.0.1",
+    "port": 3306,
+    "schema": "bingo_qa_test",
+    "identityVerifiedReadOnly": true,
+    "grantsRestrictedToSchema": true,
+    "backendConnectedIdentityVerified": false,
+    "dataMutations": []
+  },
+  "safetyControls": {
+    "androidTestProfileConfigurationDisablesScheduler": true,
+    "androidTestProfileConfigurationDisablesFinancialPostingAndSimulation": true,
+    "runtimeControlsVerified": false
+  },
+  "launcherPolicies": {
+    "backendIdentityPolicy": "PASS",
+    "agentAndroidPolicy": "PASS",
+    "actualLaunchersRun": false
+  },
+  "fixtures": {
+    "created": [],
+    "credentialsReset": false,
+    "rolesChanged": false,
+    "agentsApproved": [],
+    "existingDataDeleted": false
+  },
+  "uiJourneys": {
+    "playerAndroid": {
+      "status": "BLOCKED",
+      "authenticatedJourneyCompleted": false,
+      "reason": "Approved android-test backend unavailable."
+    },
+    "agentAndroid": {
+      "status": "BLOCKED",
+      "authenticatedJourneyCompleted": false,
+      "reason": "Approved android-test backend unavailable."
+    },
+    "adminChromium": {
+      "status": "BLOCKED",
+      "authenticatedJourneyCompleted": false,
+      "reason": "Approved android-test backend unavailable."
+    }
+  },
+  "maven": {
+    "environmentFilePresent": false,
+    "requiredEnvironmentVariablesPresent": false,
+    "disposableDatabaseVerified": false,
+    "testsRun": false,
+    "status": "BLOCKED"
+  }
+}

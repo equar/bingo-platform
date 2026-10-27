@@ -25,6 +25,10 @@ $expectedAdminUrl = 'http://127.0.0.1:5174'
 if ($AdminUrl.TrimEnd('/') -ne $expectedAdminUrl) {
     throw 'Admin startup refused: this QA Vite instance is bound to 127.0.0.1:5174.'
 }
+$existingListeners = @(Get-NetTCPConnection -LocalPort 5174 -State Listen -ErrorAction SilentlyContinue)
+if ($existingListeners.Count -gt 0) {
+    throw 'Admin startup refused: port 5174 already has a listener; verify its identity before proceeding.'
+}
 $health = Invoke-RestMethod -Uri "$BackendUrl/actuator/health" -TimeoutSec 5
 if ($health.status -ne 'UP') { throw 'Isolated E2E backend health is not UP.' }
 if (-not (Test-Path -LiteralPath (Join-Path $adminRoot 'node_modules'))) {
@@ -40,7 +44,9 @@ Write-Host "React Admin API target: $($env:VITE_API_BASE_URL) (android-test / bi
 Write-Host 'Starting Vite in the foreground. Stop this terminal with Ctrl+C when finished.'
 Push-Location $adminRoot
 try {
-    & npm run dev -- --mode qa --host 127.0.0.1 --port 5174 --strictPort
+    $npm = (Get-Command npm.cmd -ErrorAction Stop).Source
+    $arguments = @('run', 'dev', '--', '--mode=qa', '--host=127.0.0.1', '--port=5174', '--strictPort')
+    & $npm @arguments
     if ($LASTEXITCODE -ne 0) { throw 'React Admin dev server exited with an error.' }
 } finally {
     Pop-Location

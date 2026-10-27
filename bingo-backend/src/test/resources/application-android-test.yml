@@ -18,6 +18,7 @@ app:
   qa:
     test-runtime-identity-reporting-enabled: false
     synthetic-financial-tests-enabled: false
+    android-test-fixtures-bootstrap-enabled: false
   wallet:
     signup-reward-test-posting-enabled: false
     deposit-simulation-enabled: false
