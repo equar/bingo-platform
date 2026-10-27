@@ -97,7 +97,7 @@ For live draws, it connects to the backend WebSocket endpoint and uses the same 
 
 ## Agent App
 
-`bingo-agent` is a Flutter scaffold for agent workflows.
+`bingo-agent` is a Flutter client for counter-service agent workflows.
 
 From `bingo-agent`:
 
@@ -119,8 +119,7 @@ or newer and Dart 3.11.0 or newer.
 
 ## Troubleshooting
 
-- If the backend fails during Flyway startup, verify that MySQL is running and that the local `bingo` database is clean
-- If a prior local migration failed, drop the database and restart the backend with the `dev` profile
+- For Flyway startup failures, preserve the error and verify the effective datasource; follow the migration-specific recovery guidance in [Local E2E testing and isolation](docs/local-e2e-testing.md).
 - If the admin app cannot talk to the backend, confirm `VITE_API_BASE_URL` points to `http://localhost:8080`
 - If the Flutter player app exits immediately, confirm `API_BASE_URL` was provided with `--dart-define`
 

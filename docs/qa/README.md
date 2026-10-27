@@ -23,7 +23,7 @@ This directory contains current QA policy and status, operational procedures, da
 - **Backend:** integration-test schema and command requirements are in the [backend README](../../bingo-backend/README.md); destructive Maven tests are limited to the verified disposable `bingo_qa_maven_test` target.
 - **Admin Chromium:** the guarded Module 06A-5 procedure and result are linked from [Local E2E procedures](../local-e2e-testing.md) and [Module 06A-5](modules/module-06a5-functional-gap-closure.md).
 - **Player Android:** the guarded Module 06A-9 runner and latest outcome are in [Module 06A-9](modules/module-06a9-android-player-functional-e2e.md). A prepared runner or blocked device launch is not an E2E PASS.
-- **Agent Android:** the prior real-device reports are [Module 02A](modules/module-02a-agent-lifecycle.md) and [Module 02B](modules/module-02b-agent-float.md). These historical reports do not authorize new writes to persistent `bingo_qa`; follow the current isolation policy before another run.
+- **Agent Android:** use the guarded launcher and latest outcome recorded in [Module 01](modules/module-01-authentication.md); prior real-device reports remain [Module 02A](modules/module-02a-agent-lifecycle.md) and [Module 02B](modules/module-02b-agent-float.md). Historical reports do not authorize new writes to persistent `bingo_qa`.
 - **Claims, draws, wallet, and session behavior:** use the corresponding module report and test matrix under [`modules/`](modules/). Their status and evidence are scoped to the date and scenario stated in each report.
 
 ## Evidence retention

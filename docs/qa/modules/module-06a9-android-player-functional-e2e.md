@@ -2,9 +2,30 @@
 
 Date: 2026-10-26
 
-## Result
+## Current verification result — 2026-10-26
 
-**Status: PARTIAL — real Android execution BLOCKED in this Codex process; the normal-user runner now creates one run-owned OPEN session and nonfinancial card display fixture before executing the UI journey.** No real login, lobby, OPEN-session, or purchase-disabled E2E PASS is claimed. Credentials have not been queried or recorded. This Codex turn made no MySQL or API mutation, ticket purchase, claim, or scheduler action.
+**Status: BLOCKED before authenticated Player UI execution.** Run `QA_M06A9_20261026_202153_463` stopped before login because the configured local Player credential did not resolve to exactly one ACTIVE PLAYER in `bingo_qa_test`. No API login, fixture creation, or Android test launch occurred. The exact blocker is recorded in the [run report](../evidence/module-06a9/QA_M06A9_20261026_202153_463.json).
+
+| Check / scenario | Status | Result |
+| --- | --- | --- |
+| Live backend and database identity | PASS | Backend PID 20588 reports profile `android-test`, schema `bingo_qa_test`, `127.0.0.1:3306`, Flyway V22, and disabled scheduler/financial posting. Health and DB health are UP. |
+| Android emulator discovery | PASS | `emulator-5554` is available, but no app or test APK was launched in this run. |
+| Player credential preflight | BLOCKED | The configured local account does not resolve to exactly one ACTIVE PLAYER; no login was attempted. |
+| Login, validation, lobby refresh, room price/currency, logout, and protected-state behavior | NOT RUN | These require the authorized Player identity and an actual Android UI run. |
+| OPEN-session/card-display flow and persistence | NOT RUN | No Admin credential or fixture setup was performed; no session or ticket fixture was created. Purchase remained disabled. |
+| Authenticated Admin Chromium actions and resulting Player state | BLOCKED | Admin E2E credentials were unavailable; no administrative action was attempted. |
+| Database reconciliation | PASS — READ ONLY | The guarded Agent preflight baseline and final read-only query agree for users, Agent profiles/floats/requests/transactions/journals/journal lines, wallets, and wallet transactions. No mutation occurred. |
+| Flutter Player unit tests | PASS | 32 tests passed. |
+| Flutter Player analysis | FAIL — STATIC LINT | One unnecessary cast remains at `integration_test/module_06a9_player_e2e_test.dart:118`; no runtime failure was observed. |
+| PowerShell launcher and safety checks | PASS | Launcher parsing and the backend identity/policy regression checks passed; no unsafe database target was contacted. |
+| Backend Maven suite | NOT RUN | `.env.maven-test` was unavailable; Maven tests were not run against `bingo_qa_test`. |
+| Financial controls | PASS — PRESERVED | Backend scheduler and simulated posting remained disabled. The Player purchase scenario was not reached; no purchase or other finance operation was attempted. |
+
+Historical device evidence remains in its original reports. This current attempt does not replace or extend those PASS results.
+
+## Prior offline-context preflight (historical; not the current result)
+
+The following rows preserve an earlier attempt that ran under `CodexSandboxOffline`. Its ADB profile-permission blocker was specific to that execution context; the current attempt reached the Player fixture-validation gate instead.
 
 | Check / scenario | Status | Result |
 | --- | --- | --- |
@@ -26,7 +47,7 @@ Date: 2026-10-26
 | PowerShell syntax | PASS | Parser accepted the updated runner. This validates script syntax only, not E2E behavior. |
 | Functional defects fixed | None | No runtime behavior was observed failing, so no product code fix was warranted. |
 
-## Prepared executable coverage
+## Prepared executable coverage (not executed in the current run)
 
 Added [the guarded normal-user runner](../../../scripts/qa/Invoke-AndroidPlayerFunctionalE2E.ps1) and [the real Flutter integration scenario](../../../bingo-app/integration_test/module_06a9_player_e2e_test.dart). The scenario uses the actual `BingoApp`, real Android instrumentation, real Spring Boot API, and existing QA player credentials. It tests form validation; one invalid credential response followed by valid authentication; lobby load and refresh; existing room price/currency; optional OPEN-session navigation, purchase-disabled UI, and return/reopen; then logout and unauthenticated state.
 
@@ -34,17 +55,17 @@ The PowerShell runner refuses `CodexSandboxOffline`; verifies the saved backend 
 
 The before/after snapshots contain aggregate table counts, room price/currency and active state, session identity/state/price/currency, ticket identity/ownership/operation/grid/funding-snapshot presence, and a SHA-256 digest of wallet balances. Reconciliation allows exactly one run-owned session and ticket; it verifies every retained session and ticket is unchanged, wallet balances and finance-table counts are unchanged, and the UI-displayed prices match MySQL. It saves a JSON manifest, fixture record, snapshots, and sanitized integration log under `docs/qa/evidence/module-06a9/`. Test-owned fixtures are retained and registered; no cleanup deletes historical or test records.
 
-## Exact next action
+## Next action to unblock
 
-Run once from normal VS Code PowerShell as `EQUAR-DELL-XPS1\16414`, while the verified backend remains healthy:
+After an authorized existing ACTIVE Player identity and Admin E2E credentials are made available for the isolated schema, rerun from normal VS Code PowerShell as `EQUAR-DELL-XPS1\16414` while the verified backend remains healthy:
 
 ```powershell
 Set-Location D:\GitHub\bingo-platform
 .\scripts\qa\Invoke-AndroidPlayerFunctionalE2E.ps1
 ```
 
-The runner prompts for an existing authorized QA player phone/PIN and active QA administrator email/password without putting secrets in the command line or evidence. Expected output is a manifest path under `docs/qa/evidence/module-06a9/`, a retained fixture manifest, before/after DB snapshots, a sanitized integration log, and per-check results. If ADB or a safety gate fails before fixture creation, it writes a `BLOCKED` manifest and exits nonzero. Review any created fixture IDs and evidence before changing scenario status.
+The runner uses existing authorized QA credentials without putting secrets in command lines or evidence. Expected output is a manifest path under `docs/qa/evidence/module-06a9/`, a retained fixture manifest, before/after DB snapshots, a sanitized integration log, and per-check results. If ADB or a safety gate fails before fixture creation, it writes a `BLOCKED` manifest and exits nonzero. Do not create replacement accounts or fixtures merely to bypass the current blocker.
 
 ## Protection status
 
-Only `bingo_qa_test` is allowed. Existing `DRAWING` sessions remain untouched. The scheduler and financial posting remain disabled; purchase is disabled in the app. No ticket, claim, account, session, schema, or grant was created or modified by this Codex run. A normal-user runner invocation is authorized to create one uniquely named session and one nonfinancial ticket/card display fixture and retain them. Port 8080, commits, and pushes were not touched.
+Only `bingo_qa_test` is allowed. Existing `DRAWING` sessions remain untouched. The scheduler and financial posting remain disabled; purchase is disabled in the app. No ticket, claim, account, session, schema, grant, or financial record was created or modified by this run. A future authorized runner invocation may create one uniquely named session and one nonfinancial ticket/card display fixture and retain them after all credential and identity checks pass. Port 8080, commits, and pushes were not touched.

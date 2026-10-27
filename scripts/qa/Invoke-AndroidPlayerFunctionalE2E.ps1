@@ -14,6 +14,7 @@ $statusPath = Join-Path $repoRoot 'docs\qa\evidence\module-06a5\backend-identity
 $envPath = Join-Path $repoRoot 'bingo-backend\.env.test'
 $evidenceDir = Join-Path $repoRoot 'docs\qa\evidence\module-06a9'
 $appRoot = Join-Path $repoRoot 'bingo-app'
+$policyModule = Join-Path $PSScriptRoot 'AndroidTestBackendPolicy.psm1'
 $sdk = Join-Path $env:USERPROFILE 'AppData\Local\Android\Sdk'
 $adb = Join-Path $sdk 'platform-tools\adb.exe'
 $flutter = 'C:\src\flutter\bin\flutter.bat'
@@ -25,7 +26,6 @@ $afterPath = Join-Path $evidenceDir "$runId-database-after.json"
 $flutterLogPath = Join-Path $evidenceDir "$runId-flutter-integration.log"
 $secretPath = $null
 $secretDir = $null
-$pinBstr = [IntPtr]::Zero
 $processExit = 1
 $snapshotBefore = $null
 $accountBefore = $null
@@ -46,6 +46,7 @@ $adminToken = $null
 $pin = $null
 $adminPassword = $null
 $startedAt = (Get-Date).ToString('o')
+Import-Module $policyModule -Force
 
 function Read-EnvFile([string]$Path) {
     if (-not (Test-Path -LiteralPath $Path)) { throw 'The approved local .env.test file is missing.' }
@@ -61,18 +62,18 @@ function Read-EnvFile([string]$Path) {
 function Invoke-QaMysql([string]$Sql) {
     $env:MYSQL_PWD = $mysqlPassword
     try {
-        $result = $Sql | & $mysql --protocol=TCP --host=127.0.0.1 --port=3306 --user=$mysqlUser --database=bingo_qa_test --batch --skip-column-names
+        $result = $Sql | & $mysql --protocol=TCP --host=127.0.0.1 --port=3306 --user=$mysqlUser --database=bingo_qa_test --batch --raw --skip-column-names
         if ($LASTEXITCODE -ne 0) { throw 'Read-only MySQL query failed; SQL output was suppressed.' }
-        return @($result | ForEach-Object { [string]$_ })
+        return ,@($result | ForEach-Object { [string]$_ })
     } finally { Remove-Item Env:\MYSQL_PWD -ErrorAction SilentlyContinue }
 }
 
 function Invoke-QaFixtureSql([string]$Sql) {
     $env:MYSQL_PWD = $mysqlPassword
     try {
-        $result = $Sql | & $mysql --protocol=TCP --host=127.0.0.1 --port=3306 --user=$mysqlUser --database=bingo_qa_test --batch --skip-column-names
+        $result = $Sql | & $mysql --protocol=TCP --host=127.0.0.1 --port=3306 --user=$mysqlUser --database=bingo_qa_test --batch --raw --skip-column-names
         if ($LASTEXITCODE -ne 0) { throw 'Approved synthetic fixture utility failed; SQL text was suppressed.' }
-        return @($result | ForEach-Object { [string]$_ })
+        return ,@($result | ForEach-Object { [string]$_ })
     } finally { Remove-Item Env:\MYSQL_PWD -ErrorAction SilentlyContinue }
 }
 
@@ -167,15 +168,66 @@ try {
     $settings = Read-EnvFile $envPath
     $mysqlUser = [string]$settings['BINGO_TEST_MYSQL_USERNAME']
     $mysqlPassword = [string]$settings['BINGO_TEST_MYSQL_PASSWORD']
-    if ($settings['BINGO_TEST_MYSQL_URL'] -notmatch '^jdbc:mysql://127\.0\.0\.1:3306/bingo_qa_test\?' -or
-        [string]::IsNullOrWhiteSpace($mysqlUser) -or
-        [string]::IsNullOrWhiteSpace($mysqlPassword)) {
-        throw 'BLOCKED: .env.test does not contain a complete exact bingo_qa_test connection.'
+    $mysql = (Get-Command mysql.exe -ErrorAction Stop).Source
+    $null = Assert-AgentAndroidE2EEnvironment `
+        -EnvironmentName 'android-test' `
+        -BackendUrl ([string]$backend.backendUrl) `
+        -EmulatorBackendUrl ([string]$backend.emulatorBackendUrl) `
+        -JdbcUrl ([string]$settings['BINGO_TEST_MYSQL_URL']) `
+        -MysqlUsername $mysqlUser `
+        -MysqlPassword $mysqlPassword
+
+    $process = Get-CimInstance Win32_Process -Filter "ProcessId = $([int]$backend.processId)" -ErrorAction Stop
+    $jarMatch = [regex]::Match([string]$process.CommandLine, '-jar\s+"?(?<jar>[^"\s]+\.jar)"?')
+    if (-not $jarMatch.Success -or -not (Test-Path -LiteralPath $jarMatch.Groups['jar'].Value)) {
+        throw 'BLOCKED: running backend JAR path could not be verified.'
     }
-    $dbIdentity = (Invoke-QaMysql 'SELECT CONCAT(DATABASE(),CHAR(9),CURRENT_USER(),CHAR(9),@@port);')[0].Split("`t")
-    if ($dbIdentity.Count -ne 3 -or $dbIdentity[0] -ne 'bingo_qa_test' -or $dbIdentity[2] -ne '3306') {
-        throw 'BLOCKED: MySQL runtime identity does not match bingo_qa_test on port 3306.'
+    $jarPath = (Resolve-Path -LiteralPath $jarMatch.Groups['jar'].Value).Path
+    $backendTarget = (Resolve-Path -LiteralPath (Join-Path $repoRoot 'bingo-backend\target')).Path
+    if (-not $jarPath.StartsWith($backendTarget, [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw 'BLOCKED: running backend JAR is outside the repository backend target directory.'
     }
+    $actualJarHash = (Get-FileHash -LiteralPath $jarPath -Algorithm SHA256).Hash
+    $resourceUri = ([Uri]::new(((Join-Path $repoRoot 'bingo-backend\src\test\resources').TrimEnd('\') + '\'))).AbsoluteUri
+    if ([string]$process.CommandLine -notlike "*--spring.config.additional-location=$resourceUri*" -or
+        [string]$process.CommandLine -notlike '*--spring.profiles.active=android-test*') {
+        throw 'BLOCKED: running backend command line does not identify the isolated test configuration and profile.'
+    }
+    $git = Get-Command git.exe -ErrorAction Stop
+    & $git.Source -C $repoRoot diff --quiet ([string]$backend.sourceCommit) HEAD -- bingo-backend/src/main bingo-backend/pom.xml
+    $sourceMatches = $LASTEXITCODE -eq 0
+    $localSourceChanges = & $git.Source -C $repoRoot status --short -- bingo-backend/src/main bingo-backend/pom.xml
+    $sourceMatches = $sourceMatches -and -not $localSourceChanges
+
+    $runtimeLogDir = Join-Path $env:TEMP 'bingo-platform-module-06a5'
+    $runtimeIdentityLine = @(
+        Select-String -Path @(
+            (Join-Path $runtimeLogDir 'backend.stdout.log'),
+            (Join-Path $runtimeLogDir 'backend.stderr.log')
+        ) -Pattern ('QA_TEST_RUNTIME_IDENTITY pid=' + [int]$backend.processId + ' ') -ErrorAction SilentlyContinue
+    ) | Select-Object -Last 1
+    $runtimeGuardsLine = @(
+        Select-String -Path @(
+            (Join-Path $runtimeLogDir 'backend.stdout.log'),
+            (Join-Path $runtimeLogDir 'backend.stderr.log')
+        ) -Pattern 'QA_TEST_RUNTIME_GUARDS .*' -ErrorAction SilentlyContinue
+    ) | Select-Object -Last 1
+    $runtime = Assert-AndroidTestBackendRuntimeIdentity `
+        -BackendIdentity $backend `
+        -RuntimeIdentityLine ([string]$runtimeIdentityLine.Line) `
+        -RuntimeGuardsLine ([string]$runtimeGuardsLine.Line) `
+        -ListenerProcessId ([int]$listener.Matches[0].Groups[1].Value) `
+        -BackendHealth ([string]$health.status) `
+        -DatabaseHealth ([string]$health.components.db.status) `
+        -BackendJarMatches ($actualJarHash -eq [string]$backend.artifactSha256) `
+        -BackendSourceMatches $sourceMatches
+
+    $dbIdentityRow = Invoke-QaMysql 'SELECT CONCAT(DATABASE(),CHAR(9),CURRENT_USER(),CHAR(9),@@hostname,CHAR(9),@@port);'
+    $mysqlIdentity = Assert-AndroidTestMysqlIdentity -IdentityRow $dbIdentityRow[0] -ConfiguredUsername $mysqlUser
+    if ($mysqlIdentity.Database -ne $runtime.Database -or $mysqlIdentity.Port -ne $runtime.MysqlPort) {
+        throw 'BLOCKED: direct MySQL identity does not match the running backend runtime identity.'
+    }
+    $dbIdentity = @($mysqlIdentity.Database, $mysqlIdentity.CurrentUser, [string]$mysqlIdentity.Port)
 
     $phone = Read-Host 'Existing authorized QA player phone (not echoed in evidence)'
     $securePin = Read-Host 'Existing QA player six-digit PIN' -AsSecureString
@@ -385,7 +437,6 @@ try {
     if ($secretDir -and (Test-Path -LiteralPath $secretDir)) { Remove-Item -LiteralPath $secretDir -Recurse -Force }
     if ($securePin) { $securePin.Dispose() }
     if ($secureAdminPassword) { $secureAdminPassword.Dispose() }
-    if ($bstr -ne [IntPtr]::Zero) { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
     $pin = $null
     $adminPassword = $null
     $adminToken = $null

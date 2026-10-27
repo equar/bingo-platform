@@ -115,7 +115,7 @@ void main() {
       roomIndex++
     ) {
       final button = roomButtons.at(roomIndex);
-      final roomKey = (tester.widget(button) as Widget).key as ValueKey<String>;
+      final roomKey = (tester.widget(button)).key as ValueKey<String>;
       final roomId = roomKey.value.substring('room-details-'.length);
       await tester.ensureVisible(button);
       await tester.tap(button);

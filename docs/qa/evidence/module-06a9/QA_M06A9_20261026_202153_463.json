@@ -1,0 +1,16 @@
+{
+  "runId": "QA_M06A9_20261026_202153_463",
+  "startedAt": "2026-10-26T20:21:53.4684939+03:00",
+  "completedAt": "2026-10-26T20:21:58.9658332+03:00",
+  "overall": "BLOCKED",
+  "reason": "BLOCKED: provided QA account is not exactly one ACTIVE PLAYER; no login was attempted.",
+  "backendPid": 20588,
+  "createdSessionId": null,
+  "createdTicketId": null,
+  "artifacts": {
+    "before": null,
+    "after": null,
+    "flutterLog": null,
+    "fixture": null
+  }
+}
