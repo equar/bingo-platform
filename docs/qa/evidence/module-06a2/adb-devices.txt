@@ -1,0 +1,10 @@
+COMMAND=C:\Users\16414\AppData\Local\Android\Sdk\platform-tools\adb.exe 
+STATUS=EXITED
+EXIT_CODE=-1073740791
+TIMEOUT_MS=10000
+ANDROID_USER_HOME=C:\Users\16414\.android
+PUB_CACHE=C:\Users\16414\AppData\Local\Pub\Cache
+--- STDOUT ---
+
+--- STDERR ---
+10-26 12:33:00.232  9424 15240 F adb.exe : adb_utils.cpp:315 Cannot mkdir '\.android': Permission denied

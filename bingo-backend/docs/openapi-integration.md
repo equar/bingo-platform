@@ -17,4 +17,4 @@ The backend now checks in a generated contract at [../openapi.json](../openapi.j
 
 - The contract includes the new dashboard, player, session, agent, audit-log, and support-ticket APIs needed by the admin and call-center workflows.
 - Internal support notes are intentionally excluded from player and agent responses.
-- WebSocket live-draw usage is documented in [websocket.md](websocket.md).
+- WebSocket live-draw usage is documented in [websocket.md](../../docs/websocket.md).

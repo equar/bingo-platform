@@ -1,0 +1,12 @@
+{
+  "runId": "QA_M06A9_20261026_182249_325",
+  "startedAt": "2026-10-26T18:22:49.3294467+03:00",
+  "completedAt": "2026-10-26T18:22:52.6525917+03:00",
+  "overall": "FAIL",
+  "reason": "Read-only MySQL query failed; SQL output was suppressed.",
+  "backendPid": 20588,
+  "artifacts": {
+    "before": null,
+    "flutterLog": null
+  }
+}

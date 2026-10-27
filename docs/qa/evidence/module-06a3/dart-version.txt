@@ -1,0 +1,8 @@
+COMMAND: C:\src\flutter\bin\cache\dart-sdk\bin\dart.exe --version
+STATUS: EXITED
+EXIT_CODE: 0
+TIMEOUT_MS: 15000
+--- stdout ---
+Dart SDK version: 3.13.5 (stable) (Tue Sep 29 01:00:52 2026 -0700) on "windows_x64"
+
+--- stderr ---

@@ -13,6 +13,8 @@ spring:
     validate-on-migrate: true
 
 app:
+  game:
+    draw-scheduler-enabled: false
   qa:
     test-runtime-identity-reporting-enabled: false
     synthetic-financial-tests-enabled: false

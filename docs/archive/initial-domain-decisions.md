@@ -1,4 +1,6 @@
-# Bingo Platform Domain Decisions
+# Archived Initial Domain Decisions
+
+> Historical product/design intent retained for context, not a statement of current runtime behavior or approval to enable financial operations. Current implementation constraints, QA gates, and production restrictions are documented in the [QA policy](../qa/mandatory-real-e2e-testing-policy.md), [financial reconciliation](../qa/financial-reconciliation.md), and [release checklist](../qa/release-checklist.md).
 
 ## Scope
 

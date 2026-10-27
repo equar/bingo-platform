@@ -65,3 +65,5 @@ The Playwright specs require `BINGO_E2E_ADMIN_EMAIL`, `BINGO_E2E_ADMIN_PASSWORD`
 Admin-created accounts receive a single-use activation link by email. The link expires after 24 hours; the recipient chooses a password during activation. The raw activation token is placed in the URL fragment, so browsers do not send it to the web server in HTTP requests.
 
 If a credential used by an earlier E2E configuration was real or reused, rotate it before running tests or deploying.
+
+The guarded real-Chromium workflow for the isolated `android-test` backend is documented in [Local E2E Testing](../docs/local-e2e-testing.md). The Admin session-scheduling scenario and its current evidence are tracked in [Module 06A-5](../docs/qa/modules/module-06a5-functional-gap-closure.md). Unit/Vitest results alone are not browser E2E verification.

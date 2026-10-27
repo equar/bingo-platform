@@ -268,6 +268,7 @@ class _SessionCard extends StatelessWidget {
       'SETTLED',
     }.contains(session.state.toUpperCase());
     final canOpenLiveGame = const {
+      'OPEN',
       'STARTED',
       'DRAWING',
     }.contains(session.state.toUpperCase());

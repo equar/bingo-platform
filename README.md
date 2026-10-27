@@ -6,7 +6,7 @@ This repository contains the backend service plus three client apps:
 - `bingo-backend` - Spring Boot API, authentication, Flyway migrations, WebSocket feed, and OpenAPI contract
 - `bingo-admin` - React/Vite admin console for operations and support workflows
 - `bingo-app` - Flutter player app for gameplay and live draws
-- `bingo-agent` - Flutter agent scaffold for counter-service workflows
+- `bingo-agent` - Flutter agent app for counter-service workflows
 
 ## Local Prerequisites
 
@@ -20,7 +20,7 @@ Before starting the apps locally, make sure you have:
 - MySQL 8 running locally
 
 The backend uses local MySQL by default and does not require Docker.
-It connects to `jdbc:mysql://localhost:3306/bingo` and expects the local MySQL user to be able to create the database if it does not already exist.
+It connects to `jdbc:mysql://localhost:3306/bingo` and expects the local MySQL user to be able to create the database if it does not already exist. These defaults are for disposable local development only; never use them for production or a shared QA database.
 
 ## Start Order
 
@@ -29,7 +29,7 @@ Start the backend first, then the frontends.
 1. Start `bingo-backend`
 2. Start `bingo-admin`
 3. Start `bingo-app`
-4. Start `bingo-agent` only when you need to work on the agent scaffold
+4. Start `bingo-agent` when you need to work on agent workflows
 
 ## Backend
 
@@ -46,7 +46,7 @@ The backend requires a private JWT signing secret for every profile. For local w
 placeholder `JWT_SECRET` with a randomly generated value before starting the backend.
 The `dev` profile does not seed accounts unless explicitly enabled and supplied with
 private development credentials.
-If Flyway reports a checksum or migration error on your local machine, the easiest recovery is usually to drop the local `bingo` database and start the backend again so migrations can be applied from scratch.
+If Flyway reports a checksum or migration error, do not drop or clean a database as a generic recovery step. Preserve the error and follow the migration-specific recovery guidance. Any destructive recovery must be explicitly authorized and restricted to a verified disposable database; never target production, shared QA, or persistent test data.
 
 When creating new admin or support accounts from the console, the backend generates the password, enforces a 10-digit phone number, and emails the password to the new user. Make sure SMTP is configured before using that flow locally.
 
@@ -97,7 +97,7 @@ For live draws, it connects to the backend WebSocket endpoint and uses the same 
 
 ## Agent App
 
-`bingo-agent` is a Flutter scaffold for agent workflows.
+`bingo-agent` is a Flutter client for counter-service agent workflows.
 
 From `bingo-agent`:
 
@@ -119,13 +119,16 @@ or newer and Dart 3.11.0 or newer.
 
 ## Troubleshooting
 
-- If the backend fails during Flyway startup, verify that MySQL is running and that the local `bingo` database is clean
-- If a prior local migration failed, drop the database and restart the backend with the `dev` profile
+- For Flyway startup failures, preserve the error and verify the effective datasource; follow the migration-specific recovery guidance in [Local E2E testing and isolation](docs/local-e2e-testing.md).
 - If the admin app cannot talk to the backend, confirm `VITE_API_BASE_URL` points to `http://localhost:8080`
 - If the Flutter player app exits immediately, confirm `API_BASE_URL` was provided with `--dart-define`
 
 ## Related Docs
 
+- [Documentation index](docs/README.md)
+- [QA workflows and evidence index](docs/qa/README.md)
+- [Local E2E testing and isolation](docs/local-e2e-testing.md)
+- [Deployment guide](deployment/README.md)
 - [Backend README](bingo-backend/README.md)
 - [Admin README](bingo-admin/README.md)
 - [Player app README](bingo-app/README.md)

@@ -1,0 +1,21 @@
+Module 06A-3 Android tooling preflight
+Date: 2026-10-26 (Africa/Nairobi)
+
+SDK:
+- SDK root: derived from USERPROFILE at C:\Users\16414\AppData\Local\Android\Sdk
+- platform-tools\adb.exe exists.
+- Existing AVD config Medium_Phone_API_37.0.ini exists.
+
+Execution identity/profile:
+- Windows identity: equar-dell-xps1\codexsandboxoffline
+- USERPROFILE environment: C:\Users\16414
+- ADB client stderr: adb_utils.cpp:315 Cannot mkdir '\\.android': Permission denied
+- Setting HOME, HOMEDRIVE, HOMEPATH, ANDROID_USER_HOME, ANDROID_SDK_HOME, and Android SDK paths for the child did not resolve the error.
+
+Process/port checks before any restart:
+- ADB server: 127.0.0.1:5037 LISTENING (PID 2288); existing established local connection observed.
+- Emulator: qemu-system-x86_64 process (PID 3336) with 127.0.0.1:5554 and :5555 LISTENING and established connections.
+- No ADB server or emulator process restarted or terminated.
+- ADB serial, boot-complete state, and Android authorization could not be queried because the client failed before discovery.
+
+Commands and outcomes are recorded in adb-version.txt and adb-devices.txt. No application UI or backend was used.

@@ -1,0 +1,62 @@
+COMMAND=C:\src\flutter\bin\cache\dart-sdk\bin\dart.exe 
+STATUS=EXITED
+EXIT_CODE=1
+TIMEOUT_MS=20000
+ANDROID_USER_HOME=C:\Users\16414\.android
+PUB_CACHE=C:\Users\16414\AppData\Local\Pub\Cache
+--- STDOUT ---
+A command-line utility for Dart development.
+
+Usage: dart <command|dart-file> [arguments]
+
+Global options:
+-v, --verbose               Show additional command output.
+    --version               Print the Dart SDK version.
+    --enable-analytics      Enable analytics.
+    --disable-analytics     Disable analytics.
+    --suppress-analytics    Disallow analytics for this `dart *` run without changing the analytics configuration.
+-h, --help                  Print this usage information.
+
+Available commands:
+
+Global
+  install     Install or upgrade a Dart CLI tool for global use.
+  installed   List globally installed Dart CLI tools.
+  uninstall   Remove a globally installed Dart CLI tool.
+
+Project
+  build       Build a Dart application including code assets.
+  compile     Compile Dart to various formats.
+  create      Create a new Dart project.
+  pub         Work with packages.
+  run         Run a Dart program from a file or a local or remote package.
+  test        Run tests for a project.
+
+Source code
+  analyze     Analyze Dart code in a directory.
+  doc         Generate API documentation for Dart projects.
+  fix         Apply automated fixes to Dart source code.
+  format      Idiomatically format Dart source code.
+
+Tools
+  devtools    Open DevTools (optionally connecting to an existing application).
+  info        Show diagnostic information about the installed tooling.
+
+Run "dart help <command>" for more information about a command.
+See https://dart.dev/tools/dart-tool for detailed documentation.
+
+--- STDERR ---
+PathAccessException: Cannot delete file, path = 'C:\Users\16414\AppData\Roaming\.dart-tool\dart-flutter-telemetry.log' (OS Error: Access is denied, errno = 5)
+#0      _Link.throwIfError (dart:io/link.dart:358)
+#1      _File._deleteSync (dart:io/file_impl.dart:364)
+#2      FileSystemEntity.deleteSync (dart:io/file_system_entity.dart:425)
+#3      ForwardingFileSystemEntity.deleteSync (package:file/src/forwarding/forwarding_file_system_entity.dart:71)
+#4      LogHandler.save (package:unified_analytics/src/log_handler.dart:306)
+#5      AnalyticsImpl.send (package:unified_analytics/src/analytics.dart:643)
+#6      DartdevRunner.runCommand (package:dartdev/dartdev.dart:332)
+<asynchronous suspension>
+#7      runDartdev (package:dartdev/dartdev.dart:54)
+<asynchronous suspension>
+#8      main (file:///C:/b/s/w/ir/x/w/sdk/pkg/dartdev/bin/dartdev.dart:13)
+<asynchronous suspension>
+

@@ -1,9 +1,41 @@
 # Module 01 — Authentication and Authorization
 
-Date: 2026-10-23
-Status: **COMPLETE**
+Date: 2026-10-23; current verification attempt: 2026-10-26
+Status: **COMPLETE for historically verified scope; current rerun BLOCKED**
 
-The two outstanding authentication scenarios now pass. A11 used a valid expired HMAC-signed JWT in the real admin browser. P17 registered a dedicated player in the real Android app, set the player to PENDING through the admin console, and verified sign-in and protected access were denied. The original five QA users and both agent profiles retain their previous state. The full backend suite passed after the status-management change. No unresolved critical or high authentication defect was found. Module 02 was not started.
+Historical evidence: the two then-outstanding authentication scenarios passed. A11 used a valid expired HMAC-signed JWT in the real admin browser. P17 registered a dedicated player in the real Android app, set the player to PENDING through the admin console, and verified sign-in and protected access were denied. The original five QA users and both agent profiles retain their previous state. The full backend suite passed after the status-management change. No unresolved critical or high authentication defect was found in that scope. Module 02 was not started.
+
+## Current verification attempt — 2026-10-26
+
+**Result: BLOCKED before authenticated UI execution.** The previously recorded PASS results remain historical and are not claimed as fresh verification against the isolated `bingo_qa_test` schema.
+
+| Surface | Current result | Evidence / blocker |
+| --- | --- | --- |
+| Backend runtime and MySQL identity | PASS | Live backend PID 20588 reports profile `android-test`, schema `bingo_qa_test`, loopback MySQL port 3306, Flyway V22, and disabled scheduler/financial posting. The authenticated MySQL account is schema-scoped to `bingo_qa_test`; health and DB health are UP. |
+| Protected data reconciliation | PASS — READ ONLY | Counts for users, Agent profiles/floats/requests/transactions/journals/journal lines, wallets, and wallet transactions match the Agent preflight baseline. No test data or financial records were created. |
+| Player Android authentication and functional UI | BLOCKED | The guarded runner stopped before login because the configured local Player credential does not resolve to exactly one ACTIVE PLAYER in `bingo_qa_test`. No account, session, or ticket fixture was created. See [Player run report](../evidence/module-06a9/QA_M06A9_20261026_202153_463.json) and [Module 06A-9](module-06a9-android-player-functional-e2e.md). |
+| Agent Android phone/PIN authentication | BLOCKED | The guarded launcher verified the isolated backend but found no exact approved and pending Agent fixtures in `bingo_qa_test`; login and fixture creation were not attempted. See [Agent run report](../evidence/module-01-agent-authentication/QA_M01_AGENT_20261026_201829_695/run-summary.json). |
+| Agent primary workflow, validation, and persistence | BLOCKED | No approved Agent fixture was available for Android UI execution. Float top-up/approval and any financial posting were not attempted; their separate approval and posting safeguards remain in force. |
+| Admin Chromium administrative workflow | BLOCKED | No authorized Admin E2E credentials were available. Authenticated administrative actions and resulting Android state changes were not run. Admin unit tests (84/84), lint, and production build passed; these do not replace Chromium E2E. |
+| Backend regression suite | NOT RUN | The Maven test environment file `.env.maven-test` was unavailable; no Maven suite was run against `bingo_qa_test`. |
+
+The Player and Agent Flutter unit tests passed (32 and 12, respectively). Player `flutter analyze` reported one unnecessary cast in `integration_test/module_06a9_player_e2e_test.dart:118`; this is a static warning, not an executed UI failure. Agent analysis passed. Guard-policy checks for missing/unsafe targets and mismatched runtime identity passed without contacting the targets. No financial posting flags were enabled.
+
+Execution context: Windows account `EQUAR-DELL-XPS1\16414`; repository root `D:\GitHub\bingo-platform`; available device `emulator-5554` (Android 17/API 37). Commands and outcomes:
+
+- `.\scripts\qa\Invoke-AndroidPlayerFunctionalE2E.ps1` — BLOCKED before login at Player fixture validation.
+- `.\scripts\qa\Invoke-AgentAndroidAuthenticationE2E.ps1 -EnvironmentName android-test` — BLOCKED before login at approved/pending Agent fixture validation.
+- `powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\qa\Test-AgentAndroidE2EPolicy.ps1` — PASS; rejects missing/unsafe configuration and mismatched runtime identity without target access.
+- `powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\qa\Test-AndroidTestBackendPolicy.ps1` — PASS; rejects unsafe datasource identities.
+- From `bingo-app` and `bingo-agent`: `flutter test` and `flutter analyze` — unit tests passed; Player analysis reports the lint above and Agent analysis passed.
+- From `bingo-admin`: `npm test`, `npm run lint`, and `npm run build` — 84 tests, lint, and production build passed. `npm run e2e` was not run because authorized Admin E2E credentials were unavailable.
+- `GET http://127.0.0.1:8082/actuator/health` and read-only MySQL identity/count queries against `bingo_qa_test` — PASS; the protected counts match the Agent preflight report.
+
+The next action is to provision or identify authorized existing fixtures/credentials in the isolated test environment, then rerun the guarded launchers and Admin Chromium workflow; do not create replacement accounts or use persistent `bingo_qa`.
+
+## Historical test evidence — 2026-10-23
+
+The following sections preserve results from the earlier run. They are historical evidence and do not change the BLOCKED outcome of the 2026-10-26 attempt above.
 
 ## adb root cause and emulator recovery
 
@@ -33,7 +65,7 @@ The previously recorded Chromium run remains 7/7 PASS against http://localhost:5
 
 **Actual:** PASS. Playwright logged in through the real admin UI, used the resulting token claims and the explicitly supplied QA signing secret to create an expired HS256 token, then stored it in the browser session. The protected players API returned HTTP 401. The interceptor cleared local storage and redirected to login. Refresh and a second protected-route visit remained at login without another protected request; a fresh login returned the browser to Players and loaded the page. No token was printed or placed in tracked evidence. The isolated test issuer is test code only; no production token endpoint or signature bypass was added.
 
-**Evidence:** [API response summary](../evidence/module-01-admin-expired-jwt-api.json), [login redirect screenshot](../evidence/module-01-admin-expired-session.png), [reauthenticated screenshot](../evidence/module-01-admin-reauthenticated.png), and the [Playwright trace](../../../bingo-admin/test-results/evidence/module-01-admin-a11-expired-jwt-trace.zip). The trace includes QA browser traffic and is retained only under the ignored local test-results directory.
+**Evidence:** [API response summary](../evidence/module-01-admin-expired-jwt-api.json), [login redirect screenshot](../evidence/module-01-admin-expired-session.png), and [reauthenticated screenshot](../evidence/module-01-admin-reauthenticated.png). The original Playwright trace was stored only under ignored local test-results and is not part of the repository.
 
 **Defects/fixes:** No A11 product defect. The existing 401 interceptor and protected route behaved as intended. A rate-limit E2E helper was made threshold-adaptive after the QA server used its configured five-attempt default; its isolated regression passed.
 

@@ -1,8 +1,10 @@
 # Local QA Environment
 
-This setup uses the existing Windows MySQL 8 installation and keeps QA data in a dedicated `bingo_qa` schema. The QA backend listens on port `8081`, separate from the normal local backend on `8080`.
+> This is a machine-specific environment and test-data snapshot, not a live health check. Re-verify services, credentials, schema, grants, profile, and financial flags before each run; do not assume that a process or account listed below is still available.
 
-## Current machine inventory
+The recorded setup uses a Windows MySQL 8 installation and a dedicated `bingo_qa` schema. The QA backend was configured on port `8081`, separate from the normal local backend on `8080`.
+
+## Recorded machine inventory
 
 - MySQL service: `MySQL80`, running automatically.
 - MySQL endpoint: `127.0.0.1:3306`; server version: `8.0.36`.
@@ -47,23 +49,29 @@ The QA profile's one-time account bootstrap is disabled by default. For this loc
 
 ## Isolated integration-test database
 
-The separate `bingo_qa_test` database was created on the same local MySQL 8.0.36 instance. The test account `bingo_qa_test_runner` has `ALL PRIVILEGES` only on `bingo_qa_test.*`; its global grant is `USAGE` only. MySQL denied this account access to both `bingo` and `bingo_qa`. The password and JDBC URL are in ignored `bingo-backend/.env.test`; use [`.env.test.example`](../../bingo-backend/.env.test.example) to configure another local machine.
+The separate local functional E2E database is `bingo_qa_test` on MySQL 8.0.36. A read-only check confirmed `bingo_qa_test_runner@127.0.0.1`, global `USAGE`, and `ALL PRIVILEGES` scoped to `bingo_qa_test.*`; the owner accepts this grant for local testing. Do not change the grant. The account must remain isolated from `bingo`, persistent `bingo_qa`, and Maven's disposable-test target. Credentials remain only in ignored `bingo-backend/.env.test`; use [`.env.test.example`](../../bingo-backend/.env.test.example) on another local machine.
 
-`MySqlIntegrationTest` requires `BINGO_TEST_MYSQL_URL`, username, and password. Before a Spring integration context starts it checks for a local MySQL URL on port 3306 whose database path is exactly `/bingo_qa_test`, confirms the connected catalog, and verifies that the test user is denied access to `bingo` and `bingo_qa`. Missing settings, another host/database, or access to either persistent schema fail closed. There is no implicit Testcontainers fallback. Surefire runs `A00FlywayUpgradeRecoveryIntegrationTest` first; it cleans only `bingo_qa_test`, tests migration from V6 through V14 and checksum repair, and leaves the schema migrated at V14 for the rest of the suite.
+Functional backend runs use the `android-test` profile and `BINGO_TEST_MYSQL_*`. The runtime uses Hibernate `validate`, Flyway clean is disabled, and financial simulation/posting flags remain false. Verify the actual catalog and current MySQL account before startup. A local `ALL PRIVILEGES` grant does not block E2E under the owner-approved exception, but it never authorizes cross-schema access or a destructive Maven run.
 
-For the current workspace, run from `bingo-backend` after loading the ignored file into the current PowerShell process:
+For the owner-authorized local Android E2E setup on this Windows machine, `Start-AndroidTestBackend.ps1 -MySqlUsername root` may use the local MySQL root account. If `.env.test` contains a different username or no usable password, the launcher prompts for the root password as a secure input and holds the override only for startup. It does not rewrite `.env.test` or change grants. The exception is local-only and does not alter production policy. The launcher pins JDBC to `127.0.0.1:3306/bingo_qa_test`, checks `DATABASE()`, `CURRENT_USER()` and server port before build/start, and records sanitized identity evidence; root use does not authorize targeting `bingo`, `bingo_qa`, Maven schemas, or phase2 schemas.
+
+Maven integration tests are separately configured through `BINGO_MAVEN_MYSQL_*` and guarded to the disposable `bingo_qa_maven_test` schema. `A00FlywayUpgradeRecoveryIntegrationTest` invokes Flyway `clean()` and other integration fixtures use broad repository `deleteAll` cleanup. Never load `BINGO_TEST_MYSQL_*` for Maven, never point Maven tests at `bingo`, `bingo_qa`, or `bingo_qa_test`, and never run Maven's destructive suite until its separate disposable target is provisioned and verified. There is no implicit Testcontainers fallback.
+
+For a Maven-only run, load the separate ignored `.env.maven-test` file after DBA provisioning:
 
 ```powershell
 $testEnv = @{}
-Get-Content .env.test | ForEach-Object {
+Get-Content .env.maven-test | ForEach-Object {
   if ($_ -match '^([^#=]+)=(.*)$') { $key = $matches[1]; $value = $matches[2]; $testEnv[$key] = $value }
 }
-$env:BINGO_TEST_MYSQL_URL = $testEnv['BINGO_TEST_MYSQL_URL']
-$env:BINGO_TEST_MYSQL_USERNAME = $testEnv['BINGO_TEST_MYSQL_USERNAME']
-$env:BINGO_TEST_MYSQL_PASSWORD = $testEnv['BINGO_TEST_MYSQL_PASSWORD']
+$env:BINGO_MAVEN_MYSQL_URL = $testEnv['BINGO_MAVEN_MYSQL_URL']
+$env:BINGO_MAVEN_MYSQL_USERNAME = $testEnv['BINGO_MAVEN_MYSQL_USERNAME']
+$env:BINGO_MAVEN_MYSQL_PASSWORD = $testEnv['BINGO_MAVEN_MYSQL_PASSWORD']
 mvn -s ../.tmp/maven-settings.xml '-Dmaven.repo.local=../.tmp/m2' test
-Remove-Item Env:\BINGO_TEST_MYSQL_URL, Env:\BINGO_TEST_MYSQL_USERNAME, Env:\BINGO_TEST_MYSQL_PASSWORD
+Remove-Item Env:\BINGO_MAVEN_MYSQL_URL, Env:\BINGO_MAVEN_MYSQL_USERNAME, Env:\BINGO_MAVEN_MYSQL_PASSWORD
 ```
+
+The local Maven schema/account are not provisioned unless the owner explicitly directs that work. Do not create another schema as part of functional E2E setup.
 
 Do not point these variables at `bingo_qa` or `bingo`. The admin activation integration test captures its outgoing message in-process, so the backend suite does not require an external SMTP catcher.
 
