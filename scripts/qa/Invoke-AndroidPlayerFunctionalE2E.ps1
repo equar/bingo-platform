@@ -87,7 +87,7 @@ function Get-ReadOnlySnapshot([long]$ExcludeWalletOwnerId = 0) {
     $ticketRows = Invoke-QaMysql "SELECT CONCAT_WS('|',id,session_id,owner_id,public_ticket_code,operation_id,grid_json,IF(wallet_funding_snapshot_json IS NULL,'NO_FUNDING_SNAPSHOT','HAS_FUNDING_SNAPSHOT')) FROM bingo_tickets ORDER BY id;"
     $sha = [System.Security.Cryptography.SHA256]::Create()
     try {
-        $walletHash = [Convert]::ToHexString($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes(($walletRows -join "`n"))))
+        $walletHash = ConvertTo-UpperHexString -Bytes $sha.ComputeHash([Text.Encoding]::UTF8.GetBytes(($walletRows -join "`n")))
     } finally { $sha.Dispose() }
     return [ordered]@{
         capturedAt = (Get-Date).ToString('o')
@@ -135,12 +135,12 @@ try {
     }
     $health = Invoke-RestMethod -Uri 'http://127.0.0.1:8082/actuator/health' -TimeoutSec 5
     if ($health.status -ne 'UP' -or $health.components.db.status -ne 'UP') { throw 'BLOCKED: isolated backend/database health is not UP.' }
-    $listener = netstat -ano -p tcp | Select-String ':8082\s+0\.0\.0\.0:0\s+LISTENING\s+(\d+)' | Select-Object -First 1
-    if (-not $listener -or [int]$listener.Matches[0].Groups[1].Value -ne [int]$backend.processId) {
+    $listenerPids = @(Get-AndroidTestTcpListenerPids -Port 8082)
+    if ($listenerPids.Count -ne 1 -or [int]$listenerPids[0] -ne [int]$backend.processId) {
         throw 'BLOCKED: port 8082 listener PID does not match saved isolated backend PID.'
     }
     $backendProcess = Get-Process -Id ([int]$backend.processId) -ErrorAction Stop
-    if ($backendProcess.ProcessName -ne 'java') { throw 'BLOCKED: saved backend PID is not a Java process.' }
+    if ($backendProcess.ProcessName -ne 'java' -or [System.IO.Path]::GetFileName($backendProcess.Path) -ne 'java.exe') { throw 'BLOCKED: saved backend PID is not a Java process.' }
     if (-not (Test-Path -LiteralPath $adb) -or -not (Test-Path -LiteralPath $flutter)) { throw 'BLOCKED: Android SDK or Flutter executable is missing.' }
     $env:ANDROID_HOME = $sdk
     $env:ANDROID_SDK_ROOT = $sdk
@@ -169,28 +169,19 @@ try {
         -MysqlUsername $mysqlUser `
         -MysqlPassword $mysqlPassword
 
-    $process = Get-CimInstance Win32_Process -Filter "ProcessId = $([int]$backend.processId)" -ErrorAction Stop
-    $jarMatch = [regex]::Match([string]$process.CommandLine, '-jar\s+"?(?<jar>[^"\s]+\.jar)"?')
-    if (-not $jarMatch.Success -or -not (Test-Path -LiteralPath $jarMatch.Groups['jar'].Value)) {
-        throw 'BLOCKED: running backend JAR path could not be verified.'
-    }
-    $jarPath = (Resolve-Path -LiteralPath $jarMatch.Groups['jar'].Value).Path
+    $jarPath = [System.IO.Path]::GetFullPath([string]$backend.artifactPath)
     $buildRoot = [System.IO.Path]::GetFullPath((Join-Path $env:TEMP 'bingo-platform-module-06a5') + '\')
     if (-not $jarPath.StartsWith($buildRoot, [System.StringComparison]::OrdinalIgnoreCase) -or
-        $jarPath -ne [System.IO.Path]::GetFullPath([string]$backend.artifactPath)) {
+        -not (Test-Path -LiteralPath $jarPath)) {
         throw 'BLOCKED: running backend JAR is not the exact artifact in the isolated QA build directory.'
     }
     $actualJarHash = (Get-FileHash -LiteralPath $jarPath -Algorithm SHA256).Hash
     $resourceUri = ([Uri]::new(((Join-Path $repoRoot 'bingo-backend\src\test\resources').TrimEnd('\') + '\'))).AbsoluteUri
-    if ([string]$process.CommandLine -notlike "*--spring.config.additional-location=$resourceUri*" -or
-        [string]$process.CommandLine -notlike '*--spring.profiles.active=android-test*') {
-        throw 'BLOCKED: running backend command line does not identify the isolated test configuration and profile.'
+    if (-not (Test-AndroidTestProcessCommandLine -ProcessId ([int]$backend.processId) -JarPath $jarPath -TestResourcesUri $resourceUri)) {
+        throw 'BLOCKED: native process inspection could not verify the exact QA JAR and android-test launch arguments.'
     }
-    $git = Get-Command git.exe -ErrorAction Stop
-    $head = (& $git.Source -C $repoRoot rev-parse HEAD).Trim()
     $sourceFingerprint = Get-AndroidTestBackendSourceFingerprint -RepositoryRoot $repoRoot
-    $sourceMatches = $head -eq [string]$backend.sourceCommit -and
-        $sourceFingerprint -eq [string]$backend.sourceSha256
+    $sourceMatches = $sourceFingerprint -eq [string]$backend.sourceSha256
 
     $runtimeLogDir = Join-Path $env:TEMP 'bingo-platform-module-06a5'
     $runtimeIdentityLine = @(
@@ -205,6 +196,12 @@ try {
             (Join-Path $runtimeLogDir 'backend.stderr.log')
         ) -Pattern 'QA_TEST_RUNTIME_GUARDS .*' -ErrorAction SilentlyContinue
     ) | Select-Object -Last 1
+    $runtimeTimeMatch = [regex]::Match([string]$runtimeIdentityLine.Line, '^(?<time>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3})')
+    $runtimeTime = if ($runtimeTimeMatch.Success) { [DateTimeOffset]::Parse($runtimeTimeMatch.Groups['time'].Value) } else { [DateTimeOffset]::MinValue }
+    $processStartedAt = [DateTimeOffset]$backendProcess.StartTime
+    if ($runtimeTime -lt $processStartedAt -or $runtimeTime -gt $processStartedAt.AddMinutes(5)) {
+        throw 'BLOCKED: backend identity log is not contemporaneous with the listener process start.'
+    }
     $runtime = Assert-AndroidTestBackendRuntimeIdentity `
         -BackendIdentity $backend `
         -RuntimeIdentityLine ([string]$runtimeIdentityLine.Line) `

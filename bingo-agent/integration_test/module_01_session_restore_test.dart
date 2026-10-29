@@ -10,30 +10,20 @@ void main() {
   testWidgets(
     'Agent session restores after a new app process and logout clears it',
     (tester) async {
+      debugPrint('QA_SCENARIO_START:agent-process-restart-session-restore-logout');
       await tester.pumpWidget(const BingoAgentApp());
-      await _waitFor(tester, find.byType(NavigationBar));
+      await _waitFor(tester, find.byKey(const ValueKey('agent-home-screen')));
       final storedToken = (await const SessionStorage().readSession())['token'];
       expect(storedToken, isNotEmpty);
       await _captureScreenshot(tester);
 
       await tester.tap(find.byTooltip('Logout'));
-      await _waitForCount(tester, find.byType(TextFormField), 3);
+      await _waitFor(tester, find.byKey(const ValueKey('agent-login-screen')));
+      expect(find.byType(TextFormField), findsNWidgets(2));
       expect((await const SessionStorage().readSession())['token'], isNull);
+      debugPrint('QA_SCENARIO_PASS:agent-process-restart-session-restore-logout');
     },
   );
-}
-
-Future<void> _waitForCount(
-  WidgetTester tester,
-  Finder finder,
-  int count,
-) async {
-  final deadline = DateTime.now().add(const Duration(seconds: 15));
-  while (DateTime.now().isBefore(deadline) &&
-      finder.evaluate().length != count) {
-    await tester.pump(const Duration(milliseconds: 100));
-  }
-  expect(finder, findsNWidgets(count));
 }
 
 Future<void> _waitFor(WidgetTester tester, Finder finder) async {

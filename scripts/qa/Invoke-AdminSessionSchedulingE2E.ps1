@@ -13,6 +13,7 @@ if ([string]::IsNullOrWhiteSpace($env:BINGO_E2E_ADMIN_EMAIL) -or [string]::IsNul
 }
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
+Import-Module (Join-Path $PSScriptRoot 'AndroidTestBackendPolicy.psm1') -Force
 $statusPath = Join-Path $repoRoot 'docs\qa\evidence\module-06a5\backend-identity-preflight.json'
 $backendRoot = Join-Path $repoRoot 'bingo-backend'
 $adminRoot = Join-Path $repoRoot 'bingo-admin'
@@ -83,8 +84,8 @@ SELECT CONCAT('SESSION|',id,'|',state) FROM bingo_sessions ORDER BY id;
     $transactionRows = Invoke-QaMysql 'SELECT * FROM wallet_transactions ORDER BY id'
     $sha = [System.Security.Cryptography.SHA256]::Create()
     try {
-        $walletHash = [Convert]::ToHexString($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes(($walletRows -join "`n"))))
-        $transactionHash = [Convert]::ToHexString($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes(($transactionRows -join "`n"))))
+        $walletHash = ConvertTo-UpperHexString -Bytes $sha.ComputeHash([Text.Encoding]::UTF8.GetBytes(($walletRows -join "`n")))
+        $transactionHash = ConvertTo-UpperHexString -Bytes $sha.ComputeHash([Text.Encoding]::UTF8.GetBytes(($transactionRows -join "`n")))
     } finally { $sha.Dispose() }
     return [ordered]@{
         capturedAt = (Get-Date).ToString('o')

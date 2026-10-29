@@ -70,6 +70,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     ];
 
     return Scaffold(
+      key: const ValueKey('agent-home-screen'),
       appBar: AppBar(
         title: Text(items[_index].label),
         actions: [

@@ -32,7 +32,11 @@ $screenshotNames = @(
     'module-01-agent-pending-rejected.png',
     'module-01-agent-expired-session.png',
     'module-01-agent-session-persisted.png',
-    'module-01-agent-support.png'
+    'module-01-agent-support.png',
+    'module-01-agent-dashboard.png',
+    'module-01-agent-float-readonly.png',
+    'module-01-agent-player-lookup-validation.png',
+    'module-01-agent-process-restart.png'
 )
 $screenshotOriginals = @{}
 $screenshotCopiesReady = $false
@@ -57,6 +61,9 @@ $report = [ordered]@{
     databaseCountsAfter = $null
     protectedCountsUnchanged = $null
     testExitCode = $null
+    processRestartExitCode = $null
+    overallExitCode = $null
+    processRestartBlocker = $null
     scenarios = @(
         [ordered]@{ name = 'Approved Agent phone/PIN login in Android UI'; status = 'NOT RUN' }
         [ordered]@{ name = 'Pending Agent login denied in Android UI'; status = 'NOT RUN' }
@@ -64,12 +71,25 @@ $report = [ordered]@{
         [ordered]@{ name = 'Session restore, expiry, and logout'; status = 'NOT RUN' }
         [ordered]@{ name = 'Cross-role authorization restrictions'; status = 'NOT RUN' }
         [ordered]@{ name = 'Authenticated Agent Support ticket list (read-only)'; status = 'NOT RUN' }
+        [ordered]@{ name = 'Authenticated Agent dashboard, Player lookup validation, and read-only operational screens'; status = 'NOT RUN' }
+        [ordered]@{ name = 'Android process force-stop/relaunch session restore and logout'; status = 'NOT RUN' }
     )
     screenshots = @()
     failureType = $null
     failureLine = $null
     failureDetail = $null
     blocker = $null
+}
+
+$scenarioMarkerIndexes = @{
+    'agent-approved-login' = 0
+    'agent-pending-login-denied' = 1
+    'agent-invalid-credentials-throttling' = 2
+    'agent-session-restore-expiry-logout' = 3
+    'agent-cross-role-restrictions' = 4
+    'agent-support-readonly' = 5
+    'agent-dashboard-lookup-operational-readonly' = 6
+    'agent-process-restart-session-restore-logout' = 7
 }
 
 function Read-EnvFile([string]$Path) {
@@ -195,36 +215,27 @@ try {
     if ([string]$backend.backendUrl -ne $environment.BackendUrl) { throw 'BLOCKED: saved backend URL does not match the approved local target.' }
 
     $backendPid = [int]$backend.processId
-    $listener = netstat -ano -p tcp | Select-String ':8082\s+0\.0\.0\.0:0\s+LISTENING\s+(\d+)' | Select-Object -First 1
-    if (-not $listener) { throw 'BLOCKED: no listener was verified on the isolated backend port 8082.' }
-    $listenerPid = [int]$listener.Matches[0].Groups[1].Value
-    $process = Get-CimInstance Win32_Process -Filter "ProcessId = $backendPid" -ErrorAction Stop
-    if ($process.Name -ne 'java.exe' -or $listenerPid -ne $backendPid) {
+    $listenerPids = @(Get-AndroidTestTcpListenerPids -Port 8082)
+    if ($listenerPids.Count -ne 1) { throw 'BLOCKED: exactly one listener must be verified on isolated backend port 8082.' }
+    $listenerPid = [int]$listenerPids[0]
+    $process = Get-Process -Id $backendPid -ErrorAction Stop
+    if ($process.ProcessName -ne 'java' -or $listenerPid -ne $backendPid) {
         throw 'BLOCKED: isolated backend listener PID is not the saved Java process.'
     }
-
-    $jarMatch = [regex]::Match([string]$process.CommandLine, '-jar\s+"?(?<jar>[^"\s]+\.jar)"?')
-    if (-not $jarMatch.Success -or -not (Test-Path -LiteralPath $jarMatch.Groups['jar'].Value)) {
-        throw 'BLOCKED: running backend JAR path could not be verified.'
-    }
-    $jarPath = (Resolve-Path -LiteralPath $jarMatch.Groups['jar'].Value).Path
     $buildRoot = [System.IO.Path]::GetFullPath((Join-Path $env:TEMP 'bingo-platform-module-06a5') + '\')
+    $jarPath = [System.IO.Path]::GetFullPath([string]$backend.artifactPath)
     if (-not $jarPath.StartsWith($buildRoot, [System.StringComparison]::OrdinalIgnoreCase) -or
-        $jarPath -ne [System.IO.Path]::GetFullPath([string]$backend.artifactPath)) {
-        throw 'BLOCKED: running backend JAR is not the exact artifact in the isolated QA build directory.'
+        -not (Test-Path -LiteralPath $jarPath) -or -not $process.Path -or
+        [System.IO.Path]::GetFileName($process.Path) -ne 'java.exe') {
+        throw 'BLOCKED: saved QA artifact or Java process identity is outside the isolated launch target.'
     }
     $actualJarHash = (Get-FileHash -LiteralPath $jarPath -Algorithm SHA256).Hash
     $resourceUri = ([Uri]::new(((Join-Path $backendRoot 'src\test\resources').TrimEnd('\') + '\'))).AbsoluteUri
-    if ([string]$process.CommandLine -notlike "*--spring.config.additional-location=$resourceUri*" -or
-        [string]$process.CommandLine -notlike '*--spring.profiles.active=android-test*') {
-        throw 'BLOCKED: running backend command line does not identify the isolated test configuration and profile.'
+    if (-not (Test-AndroidTestProcessCommandLine -ProcessId $backendPid -JarPath $jarPath -TestResourcesUri $resourceUri)) {
+        throw 'BLOCKED: native process inspection could not verify the exact QA JAR and android-test launch arguments.'
     }
-
-    $git = Get-Command git.exe -ErrorAction Stop
-    $head = (& $git.Source -C $repoRoot rev-parse HEAD).Trim()
     $sourceFingerprint = Get-AndroidTestBackendSourceFingerprint -RepositoryRoot $repoRoot
-    $sourceMatches = $head -eq [string]$backend.sourceCommit -and
-        $sourceFingerprint -eq [string]$backend.sourceSha256
+    $sourceMatches = $sourceFingerprint -eq [string]$backend.sourceSha256
 
     $stdoutLog = Join-Path $logDir 'backend.stdout.log'
     $stderrLog = Join-Path $logDir 'backend.stderr.log'
@@ -234,6 +245,12 @@ try {
     $runtimeGuardsLine = @(
         Select-String -Path @($stdoutLog, $stderrLog) -Pattern ('QA_TEST_RUNTIME_GUARDS .*') -ErrorAction SilentlyContinue
     ) | Select-Object -Last 1
+    $runtimeTimeMatch = [regex]::Match([string]$runtimeIdentityLine.Line, '^(?<time>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3})')
+    $runtimeTime = if ($runtimeTimeMatch.Success) { [DateTimeOffset]::Parse($runtimeTimeMatch.Groups['time'].Value) } else { [DateTimeOffset]::MinValue }
+    $processStartedAt = [DateTimeOffset]$process.StartTime
+    if ($runtimeTime -lt $processStartedAt -or $runtimeTime -gt $processStartedAt.AddMinutes(5)) {
+        throw 'BLOCKED: backend identity log is not contemporaneous with the listener process start.'
+    }
     $health = Invoke-RestMethod -Uri "$($environment.BackendUrl)/actuator/health" -TimeoutSec 5
     $backendRuntime = Assert-AndroidTestBackendRuntimeIdentity `
         -BackendIdentity $backend `
@@ -373,12 +390,43 @@ SELECT CONCAT('PENDING|',COUNT(*)) FROM users u JOIN bingo_agents a ON a.user_id
     $testStarted = $true
     Push-Location $agentRoot
     try {
-        $flutterOutput = & $flutter drive `
+        $mainFlutterOutput = & $flutter drive `
             --driver=test_driver/module_01_authentication.dart `
             --target=integration_test/module_01_authentication_test.dart `
             -d emulator-5554 `
+            --keep-app-running `
             "--dart-define-from-file=$secretFile" 2>&1
-        $testExitCode = $LASTEXITCODE
+        $mainExitCode = $LASTEXITCODE
+        $flutterOutput = @($mainFlutterOutput)
+        $restartOutput = @()
+        $restartExitCode = $null
+        $restartPrerequisite = ($mainFlutterOutput -join "`n") -match 'QA_AGENT_RESTART_PREREQUISITE:authenticated-session-persisted'
+        if ($mainExitCode -eq 0 -and $restartPrerequisite) {
+            $forceStopOutput = & $adb -s emulator-5554 shell am force-stop com.equar.bingo.bingo_agent 2>&1
+            $forceStopExitCode = $LASTEXITCODE
+            if ($forceStopExitCode -eq 0) {
+                $restartOutput = & $flutter drive `
+                    --driver=test_driver/module_01_authentication.dart `
+                    --target=integration_test/module_01_session_restore_test.dart `
+                    -d emulator-5554 `
+                    --keep-app-running `
+                    "--dart-define-from-file=$secretFile" 2>&1
+                $restartExitCode = $LASTEXITCODE
+                $flutterOutput += $forceStopOutput
+                $flutterOutput += $restartOutput
+            } else {
+                $flutterOutput += $forceStopOutput
+                $report.processRestartBlocker = "NOT RUN: ADB force-stop failed with exit code $forceStopExitCode."
+            }
+        } elseif ($mainExitCode -ne 0) {
+            $report.processRestartBlocker = 'NOT RUN: main authentication suite did not complete successfully, so the authenticated-session prerequisite was not accepted.'
+        } else {
+            $report.processRestartBlocker = 'NOT RUN: main suite did not emit the authenticated-session prerequisite marker.'
+        }
+        $report.processRestartExitCode = $restartExitCode
+        $report.testExitCode = $mainExitCode
+        $testExitCode = if ($mainExitCode -eq 0 -and $restartExitCode -eq 0) { 0 } else { 1 }
+        $report.overallExitCode = $testExitCode
     } finally {
         Pop-Location
     }
@@ -392,13 +440,24 @@ SELECT CONCAT('PENDING|',COUNT(*)) FROM users u JOIN bingo_agents a ON a.user_id
     }
     $null = New-Item -ItemType Directory -Path $runEvidenceDir -Force
     Set-Content -LiteralPath $flutterLogPath -Value $safeOutput -Encoding utf8
-    $report.testExitCode = $testExitCode
-    $report.status = if ($testExitCode -eq 0) { 'PASS' } else { 'FAIL' }
-    $report.blocker = if ($testExitCode -eq 0) { $null } else { 'Flutter integration test did not exit successfully; see the sanitized run log.' }
+    $scenarioResults = Get-QAScenarioStatusesFromOutput `
+        -OutputLines (@($mainFlutterOutput) + @($restartOutput)) `
+        -ScenarioNames @($scenarioMarkerIndexes.Keys)
+    foreach ($name in $scenarioMarkerIndexes.Keys) {
+        $report.scenarios[$scenarioMarkerIndexes[$name]].status = $scenarioResults[$name]
+    }
     if ($testExitCode -eq 0) {
-        foreach ($index in @(0, 1, 2, 3, 5)) {
-            $report.scenarios[$index].status = 'PASS'
-        }
+        $report.status = 'PASS'
+        $report.blocker = $null
+    } elseif ($mainExitCode -ne 0) {
+        $report.status = 'FAIL'
+        $report.blocker = 'Agent authentication integration suite failed; scenario markers identify completed and incomplete scenarios in the sanitized log.'
+    } elseif ($restartExitCode -ne 0) {
+        $report.status = 'FAIL'
+        $report.blocker = 'Agent process-restart integration suite failed; see the process-restart scenario and sanitized log.'
+    } else {
+        $report.status = 'BLOCKED'
+        $report.blocker = $report.processRestartBlocker
     }
     $report.stage = 'database-reconciliation'
     $report.databaseCountsAfter = Get-DatabaseCounts
