@@ -20,8 +20,8 @@ if len(settings['JWT_SECRET']) < 32: raise SystemExit('JWT_SECRET must contain a
 try:
     if len(base64.b64decode(settings['BINGO_FLOAT_BANK_ENCRYPTION_KEY'],validate=True)) != 32: raise ValueError()
 except Exception: raise SystemExit('BINGO_FLOAT_BANK_ENCRYPTION_KEY must be Base64 encoding of 32 bytes')
-defaults={'SPRING_MAIL_PASSWORD':'','MYSQL_PORT':'3306','MYSQL_DATABASE':'bingo','SPRING_PROFILES_ACTIVE':'prod','SERVER_PORT':'8088','SERVER_ADDRESS':'127.0.0.1','SPRING_JPA_HIBERNATE_DDL_AUTO':'validate','JWT_ACCESS_TOKEN_TTL_SECONDS':'3600','SPRING_MAIL_HOST':'smtp.gmail.com','SPRING_MAIL_PORT':'587','APP_DEV_SEED_ENABLED':'false','APP_BUSINESS_TIMEZONE':'Africa/Addis_Ababa'}
-fixed={'MYSQL_DATABASE','SPRING_PROFILES_ACTIVE','SERVER_PORT','SERVER_ADDRESS','SPRING_JPA_HIBERNATE_DDL_AUTO','APP_DEV_SEED_ENABLED'}
+defaults={'SPRING_MAIL_PASSWORD':'','MYSQL_PORT':'3306','MYSQL_DATABASE':'bingo','SPRING_PROFILES_ACTIVE':'prod','BINGO_ENV_IMPORT':'','SERVER_PORT':'8088','SERVER_ADDRESS':'127.0.0.1','SPRING_JPA_HIBERNATE_DDL_AUTO':'validate','JWT_ACCESS_TOKEN_TTL_SECONDS':'3600','SPRING_MAIL_HOST':'smtp.gmail.com','SPRING_MAIL_PORT':'587','APP_DEV_SEED_ENABLED':'false','APP_BUSINESS_TIMEZONE':'Africa/Addis_Ababa'}
+fixed={'BINGO_ENV_IMPORT','MYSQL_DATABASE','SPRING_PROFILES_ACTIVE','SERVER_PORT','SERVER_ADDRESS','SPRING_JPA_HIBERNATE_DDL_AUTO','APP_DEV_SEED_ENABLED'}
 for k,v in defaults.items(): settings[k]=v if k in fixed else os.environ.get(k) or v
 for k in ['APP_PAYMENT_PROVIDER_NAME','APP_PAYMENT_BUSINESS_ACCOUNT','APP_PAYMENT_INSTRUCTIONS']:
     if os.environ.get(k): settings[k]=os.environ[k]
@@ -82,12 +82,38 @@ systemctl daemon-reload
 systemctl enable bingo-backend
 systemctl restart bingo-backend
 for attempt in $(seq 1 60); do
-  if curl -fsS --max-time 3 http://127.0.0.1:8088/actuator/health | grep -q '"status":"UP"'; then
+  if curl -fsS --max-time 3 http://127.0.0.1:8088/actuator/health 2>/dev/null | grep -q '"status":"UP"'; then
     echo 'Bingo backend healthy'
     exit 0
   fi
+  if [[ "$(systemctl show bingo-backend --property=ExecMainStatus --value)" != "0" ]]; then
+    echo 'Bingo backend exited during startup' >&2
+    break
+  fi
   sleep 2
 done
-echo 'Bingo backend failed health check' >&2
+echo 'Bingo backend failed health check; startup diagnostics follow' >&2
+python3 - <<'DIAGNOSTICS'
+import re, shlex, subprocess
+from pathlib import Path
+secrets = []
+for line in Path('/opt/bingo/.env').read_text().splitlines():
+    if '=' not in line or line.lstrip().startswith('#'):
+        continue
+    key, value = line.split('=', 1)
+    if re.search(r'PASSWORD|SECRET|KEY|TOKEN', key):
+        parsed = shlex.split(value)
+        if parsed and parsed[0]:
+            secrets.append(parsed[0])
+for command in [
+    ['systemctl', 'show', 'bingo-backend', '--property=ActiveState,SubState,Result,ExecMainStatus'],
+    ['journalctl', '-u', 'bingo-backend', '-n', '100', '--no-pager', '-o', 'cat'],
+]:
+    result = subprocess.run(command, capture_output=True, text=True)
+    output = result.stdout + result.stderr
+    for value in sorted(secrets, key=len, reverse=True):
+        output = output.replace(value, '[REDACTED]')
+    print(output)
+DIAGNOSTICS
 exit 1
 REMOTE
