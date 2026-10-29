@@ -63,3 +63,12 @@ in this service/runtime configuration so Spring does not attempt a second,
 unprivileged read of the root-only file. Local development `.env` imports
 remain available. Startup failures print bounded, secret-redacted journal
 entries before rollback.
+
+Database TLS trust is prepared automatically before switching the backend.
+`setup-rds-truststore.sh` downloads the official AWS CA bundle over HTTPS,
+validates/imports root certificates, and preserves the Java default roots in
+`/etc/bingo/database-truststore.jks`. The Bingo systemd unit selects this
+truststore without changing other applications or disabling JDBC certificate
+and hostname verification. Its `changeit` password protects a public CA store,
+not an application credential. Failed downloads/imports leave the installed
+truststore and running application untouched.

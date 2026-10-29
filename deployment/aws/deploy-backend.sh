@@ -47,12 +47,13 @@ cleanup() {
 }
 trap cleanup EXIT
 scp -i "$SSH_KEY" "$jar" "$SERVER:$remote/backend.jar"
-scp -i "$SSH_KEY" "$work/backend.env" "$ROOT/deployment/aws/bingo-backend.service" "$SERVER:$remote/"
+scp -i "$SSH_KEY" "$work/backend.env" "$ROOT/deployment/aws/bingo-backend.service" "$ROOT/deployment/aws/setup-rds-truststore.sh" "$SERVER:$remote/"
 ssh -i "$SSH_KEY" "$SERVER" "sudo -n bash -s -- '$remote'" <<'REMOTE'
 set -euo pipefail
 incoming="$1"
 java -version
 [[ "$(java -version 2>&1)" == *'"25'* ]] || { echo 'Java 25 is required' >&2; exit 1; }
+bash "$incoming/setup-rds-truststore.sh"
 id bingo >/dev/null 2>&1 || useradd --system --home /opt/bingo --shell /usr/sbin/nologin bingo
 install -d -o bingo -g bingo -m 755 /opt/bingo /opt/bingo/logs
 # Keep a complete previous application/config pair. Flyway changes are not reversed.
