@@ -56,6 +56,13 @@ java -version
 bash "$incoming/setup-rds-truststore.sh"
 id bingo >/dev/null 2>&1 || useradd --system --home /opt/bingo --shell /usr/sbin/nologin bingo
 install -d -o bingo -g bingo -m 755 /opt/bingo /opt/bingo/logs
+# Keep relative config imports away from the root-only systemd environment file.
+install -d -o root -g root -m 755 /opt/bingo/runtime
+previous_backend_healthy=false
+if systemctl is-active --quiet bingo-backend &&
+   curl -fsS --max-time 3 http://127.0.0.1:8088/actuator/health 2>/dev/null | grep -q '"status":"UP"'; then
+  previous_backend_healthy=true
+fi
 # Keep a complete previous application/config pair. Flyway changes are not reversed.
 if [[ -f /opt/bingo/backend.jar ]]; then
   cp -p /opt/bingo/backend.jar /opt/bingo/backend.jar.previous
@@ -66,10 +73,12 @@ rollback() {
   trap - EXIT
   if [[ "$status" != 0 ]]; then
     systemctl stop bingo-backend || true
-    if [[ -f /opt/bingo/backend.jar.previous ]]; then
+    if [[ "$previous_backend_healthy" == "true" && -f /opt/bingo/backend.jar.previous ]]; then
       cp -p /opt/bingo/backend.jar.previous /opt/bingo/backend.jar
       cp -p /opt/bingo/.env.previous /opt/bingo/.env
       systemctl restart bingo-backend || true
+    else
+      echo 'No healthy previous backend to restore; failed release retained for diagnosis' >&2
     fi
   fi
   exit "$status"

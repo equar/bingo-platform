@@ -34,7 +34,7 @@ application-compatible provisioning procedure; never enable development seed
 accounts in production.
 
 Backend deploys retain the previous JAR/env pair and attempt restoration on a
-failed restart/health check. Static deployments retain `.backup` directories.
+failed restart/health check only when the previous backend was healthy. Static deployments retain `.backup` directories.
 Health failures fail the workflow. This is a sequential deployment with a brief
 backend restart and no automatic rollback of database migrations. Take a DB
 snapshot before risky Flyway releases. Recover static files from their backup
@@ -72,3 +72,9 @@ truststore without changing other applications or disabling JDBC certificate
 and hostname verification. Its `changeit` password protects a public CA store,
 not an application credential. Failed downloads/imports leave the installed
 truststore and running application untouched.
+
+The service runs from `/opt/bingo/runtime`, a root-owned directory separate
+from `/opt/bingo/.env`. This also supports older JARs with a hard-coded
+relative `.env` import, including during rollback. The protected environment
+file stays root-only; it is still loaded by systemd. A failed deployment does
+not restart a previously unhealthy JAR/config pair.
