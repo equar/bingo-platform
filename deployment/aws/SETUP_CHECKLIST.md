@@ -11,8 +11,11 @@
    such as `bingo_app`, and grant privileges on `bingo.*` required by Flyway
    and the application. Provision the database before deployment: the workflow
    does not create it. Keep the database private and reachable by this server.
-   Production JDBC uses `sslMode=VERIFY_IDENTITY`; install the database CA in
-   the Java truststore and use its DNS hostname as `MYSQL_HOST`.
+   Production JDBC uses `sslMode=VERIFY_IDENTITY`; use its DNS hostname as
+   `MYSQL_HOST`. The deployment creates `/etc/bingo/database-truststore.jks`
+   from the Java default roots plus the official AWS database root CA bundle.
+   The server needs curl, OpenSSL, Python 3, keytool, and outbound HTTPS to
+   `truststore.pki.rds.amazonaws.com`. Only the Bingo JVM uses this truststore.
 3. Point the A records for `bingo.bakaroo.com`, `admin.bingo.bakaroo.com`,
    and `api.bingo.bakaroo.com` at the server static IP.
 4. Issue a certificate using Certbot's webroot flow for all three hosts, with
