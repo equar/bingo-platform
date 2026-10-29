@@ -1,6 +1,17 @@
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'AndroidTestBackendPolicy.psm1') -Force
 
+$sampleBytes = [System.Text.Encoding]::UTF8.GetBytes('PowerShell 5.1 SHA-256 compatibility')
+$sampleHash = [System.Security.Cryptography.SHA256]::Create()
+try {
+    $hex = ConvertTo-UpperHexString -Bytes $sampleHash.ComputeHash($sampleBytes)
+} finally {
+    $sampleHash.Dispose()
+}
+if ($hex -cne 'E91177BBE03B81FFFCAA96170B851D8E3D99AEA7369B3260AB0721EE261FF8C4') {
+    throw 'Windows PowerShell compatible uppercase SHA-256 hex conversion regression failed.'
+}
+
 $valid = Assert-AndroidTestDatasource 'jdbc:mysql://127.0.0.1:3306/bingo_qa_test?createDatabaseIfNotExist=false&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC'
 if ($valid.Schema -ne 'bingo_qa_test' -or $valid.Port -ne 3306) { throw 'Valid datasource regression failed.' }
 

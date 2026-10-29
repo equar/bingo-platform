@@ -24,6 +24,14 @@ Evidence: [run summary](../evidence/module-06a9/QA_M06A9_20261027_124227_686.jso
 
 The unnecessary `Widget` cast at line 118 was removed; targeted Player analysis passed and `flutter test` passed 32/32. The earlier read-only fixture inventory is preserved in [preflight evidence](../evidence/module-06a9/QA_M06A9_20261027_fixture-preflight.json).
 
+## Requested continuation — 2026-10-27
+
+No new Player UI scenario ran. The 8082 health check returned UP, but the guarded launcher could not establish the current listener PID/runtime identity and guard log, so the historical backend identity was not reused as fresh verification. Prior completed Player UI outcomes remain PASS within their scope. Card assignment/purchase remains BLOCKED because there is no financially approved Player card fixture or authorization; no purchase or ticket insert was attempted. The continuation preflight also found `.env.maven-test` absent, so no Maven tests ran. See [continuation preflight](../evidence/module-06a9/QA_M06A9_20261027_continuation-preflight.json).
+
+## Follow-up after backend verification — 2026-10-27
+
+The retained live backend identity passed at 13:30 local in [live backend evidence](../evidence/module-06a5/QA_M06A5_20261027_live-backend-verification.json), including the isolated datasource and disabled financial/scheduler controls. At 13:55, health remained UP and netstat showed the retained listener PID, but this context could not reverify its executable/command line or direct MySQL identity/grants. No new Player UI test ran because this `CodexSandboxOffline` identity cannot use the guarded Android launcher. A fresh process force-stop/relaunch persistence check remains NOT RUN. Purchase/card assignment remains BLOCKED by the absent financially approved card and authorization. Maven is BLOCKED and was not run because `.env.maven-test` and dedicated Maven DB credentials are absent. See [current-context preflight](../evidence/module-06a5/QA_M06A5_20261027_1355-current-context-preflight.json).
+
 ## Initial authorized preflight attempt — 2026-10-27 (historical; superseded by the run above)
 
 **Status: BLOCKED before fixture provisioning and authenticated UI execution.** Fixture creation was authorized, but the required Android-test backend is not running on port 8082. The healthy backend on port 8080 has no verified runtime profile/database identity. Read-only MySQL checks against the configured connection confirmed `bingo_qa_test` on loopback with schema-scoped grants, but cannot prove the absent backend is connected to it. Scheduler and financial controls are disabled in test-profile configuration, but runtime controls remain unverified. No fixture or account was changed, and no UI test was launched.

@@ -54,11 +54,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     await _waitFor(tester, find.byType(TextFormField).first);
-    await _enterAgentCredentials(
-      tester,
-      phone: _phone,
-      pin: _pin,
-    );
+    await _enterAgentCredentials(tester, phone: _phone, pin: _pin);
     await _waitFor(
       tester,
       find.text('Sign-in failed. Check your details and try again.'),
@@ -76,11 +72,8 @@ void main() {
     );
     await tester.pumpAndSettle();
     await _waitFor(tester, find.byType(TextFormField).first);
-    await _enterAgentCredentials(
-      tester,
-      phone: 'invalid-phone',
-      pin: _pin,
-    );
+    debugPrint('QA_SCENARIO_START:agent-invalid-credentials-throttling');
+    await _enterAgentCredentials(tester, phone: 'invalid-phone', pin: _pin);
     await _waitFor(
       tester,
       find.text('Sign-in failed. Check your details and try again.'),
@@ -89,11 +82,7 @@ void main() {
     final syntheticPhone =
         '251900${(DateTime.now().millisecondsSinceEpoch % 1000000).toString().padLeft(6, '0')}';
     for (var attempt = 0; attempt < 6; attempt++) {
-      await _enterAgentCredentials(
-        tester,
-        phone: syntheticPhone,
-        pin: '1234',
-      );
+      await _enterAgentCredentials(tester, phone: syntheticPhone, pin: '1234');
       await _waitFor(
         tester,
         find.text('Sign-in failed. Check your details and try again.'),
@@ -103,10 +92,7 @@ void main() {
     try {
       await throttleProbe.post<void>(
         '/api/v1/agent/login',
-        data: {
-          'phoneNumber': syntheticPhone,
-          'pin': '1234',
-        },
+        data: {'phoneNumber': syntheticPhone, 'pin': '1234'},
       );
       fail('Expected the synthetic identity to be rate limited');
     } on DioException catch (error) {
@@ -119,17 +105,15 @@ void main() {
       findsOneWidget,
     );
 
-    await _enterAgentCredentials(
-      tester,
-      phone: _phone,
-      pin: '0000',
-    );
+    await _enterAgentCredentials(tester, phone: _phone, pin: '0000');
     await _waitFor(
       tester,
       find.text('Sign-in failed. Check your details and try again.'),
     );
     expect(find.byType(NavigationBar), findsNothing);
 
+    debugPrint('QA_SCENARIO_PASS:agent-invalid-credentials-throttling');
+    debugPrint('QA_SCENARIO_START:agent-approved-login');
     // Prove the emulator can reach the real QA login service immediately before
     // the widget submits the same phone/PIN pair. This also clears the account
     // throttle after the preceding bad-PIN assertion.
@@ -144,11 +128,7 @@ void main() {
     } finally {
       loginProbe.close();
     }
-    await _enterAgentCredentials(
-      tester,
-      phone: _phone,
-      pin: _pin,
-    );
+    await _enterAgentCredentials(tester, phone: _phone, pin: _pin);
     await _waitForEither(
       tester,
       find.byType(NavigationBar),
@@ -156,7 +136,9 @@ void main() {
     );
     expect(find.byType(NavigationBar), findsOneWidget);
     await _captureScreenshot(tester, 'module-01-agent-authenticated');
+    debugPrint('QA_SCENARIO_PASS:agent-approved-login');
 
+    debugPrint('QA_SCENARIO_START:agent-session-restore-expiry-logout');
     await tester.pumpWidget(
       const BingoAgentApp(key: ValueKey('agent-restored')),
     );
@@ -167,6 +149,7 @@ void main() {
     expect(find.byType(NavigationBar), findsNothing);
     expect((await storage.readSession())['token'], isNull);
 
+    debugPrint('QA_SCENARIO_START:agent-pending-login-denied');
     await _enterAgentCredentials(
       tester,
       phone: _pendingPhone,
@@ -182,6 +165,7 @@ void main() {
       findsOneWidget,
     );
     await _captureScreenshot(tester, 'module-01-agent-pending-rejected');
+    debugPrint('QA_SCENARIO_PASS:agent-pending-login-denied');
 
     final expiry =
         DateTime.now()
@@ -218,11 +202,7 @@ void main() {
     );
     expect((await storage.readSession())['token'], isNull);
     await _captureScreenshot(tester, 'module-01-agent-expired-session');
-    await _enterAgentCredentials(
-      tester,
-      phone: _phone,
-      pin: _pin,
-    );
+    await _enterAgentCredentials(tester, phone: _phone, pin: _pin);
     await _waitFor(tester, find.byType(NavigationBar));
     final storedToken = (await storage.readSession())['token'];
     expect(storedToken, isNotEmpty);
@@ -232,11 +212,67 @@ void main() {
         .whereType<String>();
     expect(displayedText.contains(storedToken), isFalse);
     await _captureScreenshot(tester, 'module-01-agent-session-persisted');
+    debugPrint('QA_SCENARIO_PASS:agent-session-restore-expiry-logout');
 
+    // Cross-role probes use the authenticated Android session and read-only
+    // endpoints. No state-changing or financial route is called.
+    debugPrint('QA_SCENARIO_START:agent-cross-role-restrictions');
+    final roleProbe = Dio(
+      BaseOptions(
+        baseUrl: _apiUrl,
+        headers: {'Authorization': 'Bearer $storedToken'},
+      ),
+    );
+    try {
+      for (final path in [
+        '/api/v1/admin/agents?page=0&size=1',
+        '/api/v1/wallet/balance',
+        '/api/v1/auth/me',
+      ]) {
+        try {
+          await roleProbe.get<void>(path);
+          fail('Expected Agent cross-role access to be denied: $path');
+        } on DioException catch (error) {
+          expect(error.response?.statusCode, 403, reason: path);
+        }
+      }
+    } finally {
+      roleProbe.close();
+    }
+    debugPrint('QA_SCENARIO_PASS:agent-cross-role-restrictions');
+
+    debugPrint('QA_SCENARIO_START:agent-dashboard-lookup-operational-readonly');
+    await _waitFor(tester, find.text('Available float'));
+    expect(find.text('Dashboard'), findsWidgets);
+    await _captureScreenshot(tester, 'module-01-agent-dashboard');
+
+    await tester.tap(find.text('Players').last);
+    await _waitFor(tester, find.text('Fast player lookup and registration'));
+    await tester.tap(find.text('Lookup'));
+    await _waitFor(
+      tester,
+      find.text('Request failed. Check your connection and try again.'),
+    );
+    await _captureScreenshot(
+      tester,
+      'module-01-agent-player-lookup-validation',
+    );
+
+    await tester.tap(find.text('Float').last);
+    await _waitFor(tester, find.text('Float history'));
+    expect(find.text('Top-up requests'), findsOneWidget);
+    await _captureScreenshot(tester, 'module-01-agent-float-readonly');
+    debugPrint('QA_SCENARIO_PASS:agent-dashboard-lookup-operational-readonly');
+
+    debugPrint('QA_SCENARIO_START:agent-support-readonly');
     await tester.tap(find.text('Support').last);
     await _waitFor(tester, find.text('Support tickets'));
     expect(find.byType(NavigationBar), findsOneWidget);
     await _captureScreenshot(tester, 'module-01-agent-support');
+    expect(find.byKey(const ValueKey('agent-home-screen')), findsOneWidget);
+    expect((await storage.readSession())['token'], isNotEmpty);
+    debugPrint('QA_AGENT_RESTART_PREREQUISITE:authenticated-session-persisted');
+    debugPrint('QA_SCENARIO_PASS:agent-support-readonly');
   });
 }
 

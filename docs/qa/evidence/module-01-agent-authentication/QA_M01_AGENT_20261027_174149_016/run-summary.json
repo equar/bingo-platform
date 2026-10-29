@@ -1,0 +1,89 @@
+{
+  "runId": "QA_M01_AGENT_20261027_174149_016",
+  "startedAt": "2026-10-27T17:41:49.0162104+03:00",
+  "stage": "android-device-preflight",
+  "status": "BLOCKED",
+  "environment": "android-test",
+  "test": "bingo-agent/integration_test/module_01_authentication_test.dart",
+  "backend": {
+    "ProcessId": 23908,
+    "Profile": "android-test",
+    "Database": "bingo_qa_test",
+    "MysqlHost": "127.0.0.1",
+    "MysqlPort": 3306,
+    "Flyway": "22",
+    "DrawScheduler": "disabled",
+    "FinancialPostingAndSimulation": "disabled"
+  },
+  "mysql": {
+    "database": "bingo_qa_test",
+    "authenticatedUser": "bingo_qa_test_runner@127.0.0.1",
+    "serverHost": "EQUAR-DELL-XPS15",
+    "port": 3306,
+    "flyway": "22",
+    "accountScope": "bingo_qa_test only"
+  },
+  "androidDevice": "emulator-5554",
+  "financialPosting": "disabled",
+  "agentFixtures": {
+    "approved": true,
+    "pending": true
+  },
+  "databaseCountsBefore": {
+    "users": 13,
+    "bingo_agents": 2,
+    "agent_floats": 1,
+    "agent_float_top_up_requests": 0,
+    "agent_float_transactions": 0,
+    "float_accounting_journals": 0,
+    "float_accounting_journal_lines": 0,
+    "wallets": 2,
+    "wallet_transactions": 0
+  },
+  "databaseCountsAfter": null,
+  "protectedCountsUnchanged": null,
+  "testExitCode": null,
+  "processRestartExitCode": null,
+  "overallExitCode": null,
+  "processRestartBlocker": null,
+  "scenarios": [
+    {
+      "name": "Approved Agent phone/PIN login in Android UI",
+      "status": "NOT RUN"
+    },
+    {
+      "name": "Pending Agent login denied in Android UI",
+      "status": "NOT RUN"
+    },
+    {
+      "name": "Invalid credentials and login throttling",
+      "status": "NOT RUN"
+    },
+    {
+      "name": "Session restore, expiry, and logout",
+      "status": "NOT RUN"
+    },
+    {
+      "name": "Cross-role authorization restrictions",
+      "status": "NOT RUN"
+    },
+    {
+      "name": "Authenticated Agent Support ticket list (read-only)",
+      "status": "NOT RUN"
+    },
+    {
+      "name": "Authenticated Agent dashboard, Player lookup validation, and read-only operational screens",
+      "status": "NOT RUN"
+    },
+    {
+      "name": "Android process force-stop/relaunch session restore and logout",
+      "status": "NOT RUN"
+    }
+  ],
+  "screenshots": [],
+  "failureType": null,
+  "failureLine": null,
+  "failureDetail": null,
+  "blocker": "BLOCKED: emulator-5554 is not available.",
+  "finishedAt": "2026-10-27T17:41:49.9529297+03:00"
+}

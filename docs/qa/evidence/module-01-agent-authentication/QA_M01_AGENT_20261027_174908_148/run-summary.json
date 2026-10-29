@@ -1,0 +1,97 @@
+{
+  "runId": "QA_M01_AGENT_20261027_174908_148",
+  "startedAt": "2026-10-27T17:49:08.1489232+03:00",
+  "stage": "android-integration-test",
+  "status": "BLOCKED",
+  "environment": "android-test",
+  "test": "bingo-agent/integration_test/module_01_authentication_test.dart",
+  "backend": {
+    "ProcessId": 23908,
+    "Profile": "android-test",
+    "Database": "bingo_qa_test",
+    "MysqlHost": "127.0.0.1",
+    "MysqlPort": 3306,
+    "Flyway": "22",
+    "DrawScheduler": "disabled",
+    "FinancialPostingAndSimulation": "disabled"
+  },
+  "mysql": {
+    "database": "bingo_qa_test",
+    "authenticatedUser": "bingo_qa_test_runner@127.0.0.1",
+    "serverHost": "EQUAR-DELL-XPS15",
+    "port": 3306,
+    "flyway": "22",
+    "accountScope": "bingo_qa_test only"
+  },
+  "androidDevice": "emulator-5554",
+  "financialPosting": "disabled",
+  "agentFixtures": {
+    "approved": true,
+    "pending": true
+  },
+  "databaseCountsBefore": {
+    "users": 13,
+    "bingo_agents": 2,
+    "agent_floats": 1,
+    "agent_float_top_up_requests": 0,
+    "agent_float_transactions": 0,
+    "float_accounting_journals": 0,
+    "float_accounting_journal_lines": 0,
+    "wallets": 2,
+    "wallet_transactions": 0
+  },
+  "databaseCountsAfter": null,
+  "protectedCountsUnchanged": null,
+  "testExitCode": 1,
+  "processRestartExitCode": null,
+  "overallExitCode": 1,
+  "processRestartBlocker": "NOT RUN: main authentication suite did not complete successfully, so the authenticated-session prerequisite was not accepted.",
+  "scenarios": [
+    {
+      "name": "Approved Agent phone/PIN login in Android UI",
+      "status": "NOT RUN"
+    },
+    {
+      "name": "Pending Agent login denied in Android UI",
+      "status": "NOT RUN"
+    },
+    {
+      "name": "Invalid credentials and login throttling",
+      "status": "NOT RUN"
+    },
+    {
+      "name": "Session restore, expiry, and logout",
+      "status": "NOT RUN"
+    },
+    {
+      "name": "Cross-role authorization restrictions",
+      "status": "NOT RUN"
+    },
+    {
+      "name": "Authenticated Agent Support ticket list (read-only)",
+      "status": "NOT RUN"
+    },
+    {
+      "name": "Authenticated Agent dashboard, Player lookup validation, and read-only operational screens",
+      "status": "NOT RUN"
+    },
+    {
+      "name": "Android process force-stop/relaunch session restore and logout",
+      "status": "NOT RUN"
+    }
+  ],
+  "screenshots": [
+    "screenshots/module-01-agent-login.png",
+    "screenshots/module-01-agent-network-error.png",
+    "screenshots/module-01-agent-authenticated.png",
+    "screenshots/module-01-agent-pending-rejected.png",
+    "screenshots/module-01-agent-expired-session.png",
+    "screenshots/module-01-agent-session-persisted.png",
+    "screenshots/module-01-agent-process-restart.png"
+  ],
+  "failureType": "System.Management.Automation.ParameterBindingValidationException",
+  "failureLine": 444,
+  "failureDetail": "Cannot bind argument to parameter 'OutputLines' because it is an empty string.",
+  "blocker": "BLOCKED: preflight failed unexpectedly; no secret values or SQL text are included in this report.",
+  "finishedAt": "2026-10-27T17:51:12.2167704+03:00"
+}

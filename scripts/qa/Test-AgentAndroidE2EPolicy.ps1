@@ -125,3 +125,17 @@ Assert-RuntimeRejected 'backend source mismatch' {
 }
 
 Write-Host 'PASS: Agent Android E2E policy checks reject missing/unsafe configuration and unverified runtime identities. Tests perform no MySQL, HTTP, emulator, or file-target operations.'
+
+$scenarioStatuses = Get-QAScenarioStatusesFromOutput `
+    -OutputLines @(
+        'I/flutter: QA_SCENARIO_START:scenario-passed'
+        'I/flutter: QA_SCENARIO_PASS:scenario-passed'
+        'I/flutter: QA_SCENARIO_START:scenario-failed'
+    ) `
+    -ScenarioNames @('scenario-passed', 'scenario-failed', 'scenario-unreached')
+if ($scenarioStatuses['scenario-passed'] -ne 'PASS' -or
+    $scenarioStatuses['scenario-failed'] -ne 'FAIL' -or
+    $scenarioStatuses['scenario-unreached'] -ne 'NOT RUN') {
+    throw 'Scenario evidence marker reporting regression failed.'
+}
+Write-Host 'PASS: scenario reporting distinguishes completed, failed, and unreached markers.'
