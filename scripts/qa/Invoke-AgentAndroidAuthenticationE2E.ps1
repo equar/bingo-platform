@@ -402,7 +402,7 @@ SELECT CONCAT('PENDING|',COUNT(*)) FROM users u JOIN bingo_agents a ON a.user_id
         $restartExitCode = $null
         $restartPrerequisite = ($mainFlutterOutput -join "`n") -match 'QA_AGENT_RESTART_PREREQUISITE:authenticated-session-persisted'
         if ($mainExitCode -eq 0 -and $restartPrerequisite) {
-            $forceStopOutput = & $adb -s emulator-5554 shell am force-stop com.equar.bingo.bingo_agent 2>&1
+            $forceStopOutput = & $adb -s emulator-5554 shell am force-stop com.bakaroo.bingo.bingo_agent 2>&1
             $forceStopExitCode = $LASTEXITCODE
             if ($forceStopExitCode -eq 0) {
                 $restartOutput = & $flutter drive `

@@ -1,8 +1,8 @@
 # Module 04A-R — Android Network Recovery and Retry Verification
 
-Date: 2026-10-24  
-Device: `emulator-5554` (API 37)  
-App: `com.example.bingo_app`, normal debug build, authenticated synthetic player #181  
+Date: 2026-10-24
+Device: `emulator-5554` (API 37)
+App: `com.bakaroo.bingo.bingo_app`, normal debug build, authenticated synthetic player #181
 Backend: host QA service `http://localhost:8081`; emulator service `http://10.0.2.2:8081`
 
 ## Result
@@ -15,7 +15,7 @@ The prior recovery runs did not prove a Retry defect. The retained player sessio
 
 1. Confirmed host backend health `UP` and emulator TCP access to `10.0.2.2:8081`.
 2. Signed in through the app UI with existing synthetic player #181, opened Rooms, and confirmed the server room list loaded.
-3. Enabled Android connectivity chain 3 and denied networking only for `com.example.bingo_app`. Tapped the lobby refresh action in the app. The lobby showed “Something went wrong” and “Couldn't load rooms. Check your connection and retry.” Captured [offline error](../evidence/module-04a-r-offline-error.png).
+3. Enabled Android connectivity chain 3 and denied networking only for `com.bakaroo.bingo.bingo_app`. Tapped the lobby refresh action in the app. The lobby showed “Something went wrong” and “Couldn't load rooms. Check your connection and retry.” Captured [offline error](../evidence/module-04a-r-offline-error.png).
 4. Restored package networking and disabled the firewall chain. Independently confirmed emulator TCP access to the backend (`nc` exit 0) and host health `UP`.
 5. Tapped “Try again” in the still-visible error screen. The app process PID remained `8827` across the recovery; no restart, relaunch, or navigation was used. After the request completed, the error/loading state was gone and the server room list was rendered. Captured [recovered lobby](../evidence/module-04a-r-recovered-lobby.png).
 6. Opened the first existing room from that recovered list. [Recovered room/session details](../evidence/module-04a-r-recovered-room-session.png) show room `M02-1792735981360 QA Room`, active, ETB 25.0, WEEKLY (`Africa/Addis_Ababa`), capacity 100, and its existing DRAFT session with matching ETB 25.0/capacity 100 and stored UTC schedule.
