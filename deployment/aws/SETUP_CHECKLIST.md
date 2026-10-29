@@ -57,7 +57,7 @@ Repository **secrets**:
 | `MYSQL_PASSWORD` | Bingo application database password |
 | `JWT_SECRET` | Strong random signing secret, at least 32 characters |
 | `SPRING_MAIL_USERNAME` | Production SMTP username |
-| `SPRING_MAIL_PASSWORD` | SMTP password/app password |
+| `SPRING_MAIL_PASSWORD` | Optional for deployment; SMTP password/app password when authenticated email delivery is needed |
 | `BINGO_FLOAT_BANK_ENCRYPTION_KEY` | Base64 encoding of 32 random bytes; back it up and preserve it across deployments |
 
 Repository **variables** (all are listed in the example file):
