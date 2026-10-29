@@ -1,0 +1,43 @@
+[Unit]
+Description=Bingo Backend (Spring Boot)
+After=network.target
+
+[Service]
+Type=simple
+User=bingo
+Group=bingo
+WorkingDirectory=/opt/bingo
+
+Environment=SPRING_PROFILES_ACTIVE=prod
+Environment=SERVER_PORT=8088
+EnvironmentFile=/opt/bingo/.env
+
+ExecStart=/usr/bin/java \
+  -Xmx1g \
+  -Xms512m \
+  -XX:+UseG1GC \
+  -XX:MaxGCPauseMillis=200 \
+  -XX:+HeapDumpOnOutOfMemoryError \
+  -XX:HeapDumpPath=/opt/bingo/logs/heap-dump.hprof \
+  -Dspring.profiles.active=${SPRING_PROFILES_ACTIVE} \
+  -Dserver.port=${SERVER_PORT} \
+  -jar \
+  /opt/bingo/backend.jar
+
+Restart=always
+RestartSec=10
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=bingo-backend
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/bingo/logs
+
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target

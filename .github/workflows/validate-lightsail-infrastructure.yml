@@ -5,7 +5,8 @@ on:
     paths:
       - deployment/aws/lightsail-stack.yaml
       - deployment/lightsail/**
-      - .github/workflows/deploy-lightsail.yml
+      - deployment/aws/**
+      - .github/workflows/deploy.yml
       - .github/workflows/validate-lightsail-infrastructure.yml
   workflow_dispatch:
 
@@ -33,7 +34,10 @@ jobs:
         run: cfn-lint deployment/aws/lightsail-stack.yaml
 
       - name: Check remote deployment script syntax
-        run: bash -n deployment/lightsail/deploy-release.sh
+        run: |
+          bash -n deployment/lightsail/deploy-release.sh
+          for script in deployment/aws/*.sh; do bash -n "$script"; done
+          python -m py_compile deployment/aws/bootstrap-github-actions-config.py deployment/aws/validate-config.py
 
       - name: Validate rendered Nginx configuration
         shell: bash
@@ -48,7 +52,7 @@ jobs:
             -subj '/CN=example.com' -days 1
           env SITE_DOMAIN=example.com ADMIN_DOMAIN=admin.example.com API_DOMAIN=api.example.com \
             envsubst '${SITE_DOMAIN} ${ADMIN_DOMAIN} ${API_DOMAIN}' \
-            < deployment/lightsail/nginx-sites.conf.template \
+            < deployment/aws/nginx-bingo.conf.template \
             | sudo tee /etc/nginx/sites-available/bingo.conf >/dev/null
           sudo rm -f /etc/nginx/sites-enabled/default
           sudo ln -sfn /etc/nginx/sites-available/bingo.conf /etc/nginx/sites-enabled/bingo.conf

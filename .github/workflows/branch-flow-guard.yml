@@ -2,29 +2,25 @@ name: Branch Flow Guard
 
 on:
   pull_request:
-    types:
-      - opened
-      - reopened
-      - synchronize
-      - edited
-      - ready_for_review
+    types: [opened, reopened, synchronize, edited]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
 
-concurrency:
-  group: bingo-branch-guard-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
-
 jobs:
-  guard:
+  validate-flow:
     runs-on: ubuntu-latest
     steps:
-      - name: Enforce Bingo branch flow
-        uses: actions/github-script@v7
+      - name: Validate source/target branch policy
+        uses: actions/github-script@v8
         with:
           script: |
             const base = context.payload.pull_request.base.ref;
             const head = context.payload.pull_request.head.ref;
 
-            core.notice(`Allowed Bingo PR flow: ${head} -> ${base}`);
+            // Feature branches merge directly into main; no source-name restriction.
+            core.info(`Allowed PR flow: ${head} -> ${base}`);
