@@ -6,7 +6,7 @@ Scope: Module 04D-4 only. No test backend was started, no gameplay/claim request
 
 ## Read-only environment verification
 
-- Port 8080 remains a Java process running `com.equar.bingo.backend.BingoBackendApplication`, active profile `dev`, with startup/Flyway logs identifying schema `bingo`. It is not the QA target and was not used.
+- Port 8080 remains a Java process running `com.bakaroo.bingo.backend.BingoBackendApplication`, active profile `dev`, with startup/Flyway logs identifying schema `bingo`. It is not the QA target and was not used.
 - `bingo-backend/.env.test` already provides the local `bingo_qa_test` connection. It was read in-process without printing values. A temporary permission-restricted MySQL option file was removed after each query.
 - Read-only authentication succeeded at `127.0.0.1:3306`: `DATABASE()` returned `bingo_qa_test`, `CURRENT_USER()` returned `bingo_qa_test_runner@127.0.0.1`, and MySQL reported version 8.0.36.
 - Read-only `SHOW GRANTS FOR CURRENT_USER()` returned global `USAGE` and **`ALL PRIVILEGES ON bingo_qa_test.*`**. Attempts to enumerate tables in `bingo`, `bingo_qa`, and `bingo_qa_maven_test` were denied. There are no grants on those schemas, but the QA account can perform destructive DDL inside its own schema.

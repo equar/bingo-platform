@@ -1,0 +1,13 @@
+package com.bakaroo.bingo.backend.feature.wallet.entity;
+
+public enum WalletTransactionType {
+    DEPOSIT_CREDIT,
+    SIGNUP_REWARD_CREDIT,
+    WALLET_ADJUSTMENT,
+    TICKET_PURCHASE_DEBIT,
+    PRIZE_CREDIT,
+    WALLET_TRANSFER_DEBIT,
+    WALLET_TRANSFER_CREDIT,
+    AGENT_FLOAT_TOP_UP_CREDIT,
+    AGENT_FLOAT_TRANSFER_CREDIT
+}

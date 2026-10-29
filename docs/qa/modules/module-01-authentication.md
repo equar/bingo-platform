@@ -136,7 +136,7 @@ The previously recorded Chromium run remains 7/7 PASS against http://localhost:5
 
 ## Player Android E2E
 
-Executed the actual player Flutter integration suite on emulator-5554 with API_BASE_URL=http://10.0.2.2:8081 and the existing QA_PLAYER_001 account. The suite passed. A separate run after adb shell am force-stop com.example.bingo_app passed process-restart restoration and logout. Authentication used existing QA data; repeated failures used per-run synthetic phone identifiers and created no user records.
+Executed the actual player Flutter integration suite on emulator-5554 with API_BASE_URL=http://10.0.2.2:8081 and the existing QA_PLAYER_001 account. The suite passed. A separate run after adb shell am force-stop com.bakaroo.bingo.bingo_app passed process-restart restoration and logout. Authentication used existing QA data; repeated failures used per-run synthetic phone identifiers and created no user records.
 
 | ID | Scenario | Result | Evidence / notes |
 | --- | --- | --- | --- |
@@ -174,7 +174,7 @@ Executed the actual player Flutter integration suite on emulator-5554 with API_B
 
 ## Agent Android E2E
 
-Executed the actual agent Flutter app on emulator-5554 with the existing approved and pending QA agent identities. The final UI suite passed. A separate run after adb shell am force-stop com.equar.bingo.bingo_agent passed process-restart restoration and logout.
+Executed the actual agent Flutter app on emulator-5554 with the existing approved and pending QA agent identities. The final UI suite passed. A separate run after adb shell am force-stop com.bakaroo.bingo.bingo_agent passed process-restart restoration and logout.
 
 **Latest continuation run:** The main Agent authentication/authorization Flutter suite exited 0 and passed its UI/API assertions. The separate force-stop/relaunch suite restored the authenticated `HomeShell` and found a nonempty session token, then failed because its logout assertion expected three login `TextFormField`s; the actual phone/PIN login screen has two. The failure was a stale test expectation, not a session restore defect. The old summary incorrectly marked every scenario `NOT RUN` and stored the combined exit as `testExitCode=1`. The test now identifies screens by keys and checks two login fields plus secure-storage clearing; the runner records separate process exit codes, per-scenario progress, and gates restart on an authenticated-session marker. The corrected UI suite remains to be rerun. Full diagnosis: [retained-run analysis](../evidence/module-01-agent-authentication/QA_M01_AGENT_20261027_restart-failure-analysis.md).
 
@@ -229,9 +229,9 @@ Player restore also now clears an expired session from secure storage and presen
 The actual suites used:
 
 - Player: flutter drive --keep-app-running --driver=test_driver/module_01_authentication.dart --target=integration_test/module_01_authentication_test.dart -d emulator-5554 --dart-define-from-file=e2e-secrets.json
-- Player process restore: force-stop com.example.bingo_app, then flutter drive with target integration_test/module_01_session_restore_test.dart.
+- Player process restore: force-stop com.bakaroo.bingo.bingo_app, then flutter drive with target integration_test/module_01_session_restore_test.dart.
 - Agent: same driver command from bingo-agent, with its ignored e2e-secrets.json.
-- Agent process restore: force-stop com.equar.bingo.bingo_agent, then flutter drive with target integration_test/module_01_session_restore_test.dart.
+- Agent process restore: force-stop com.bakaroo.bingo.bingo_agent, then flutter drive with target integration_test/module_01_session_restore_test.dart.
 
 Credentials remained in ignored local files. Sanitized run logs are [player](../evidence/module-01-player-run.log), [player restart](../evidence/module-01-player-session-restore-run.log), [agent](../evidence/module-01-agent-run.log), and [agent restart](../evidence/module-01-agent-session-restore-run.log). Named player and agent UI screenshots are stored beside those logs in docs/qa/evidence.
 
