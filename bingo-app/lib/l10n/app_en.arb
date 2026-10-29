@@ -6,7 +6,7 @@
   "invalidApiBaseUrlTitle": "API base URL is invalid",
   "invalidApiBaseUrlBody": "Set API_BASE_URL to an absolute http:// or https:// URL. Local HTTP is for development only; production builds require HTTPS and cannot use localhost.",
   "loading": "Loading...",
-  "retry": "Retry",
+  "retry": "Try again",
   "errorGeneric": "Something went wrong.",
   "emptyState": "No items found.",
   "loginTitle": "Sign in",
@@ -90,9 +90,21 @@
   "sessionSchedule": "Scheduled start (UTC)",
   "gamePatterns": "Game patterns",
   "sessionStatus": "Status: {state}",
-  "@sessionStatus": { "placeholders": { "state": { "type": "String" } } },
+  "@sessionStatus": {
+    "placeholders": {
+      "state": {
+        "type": "String"
+      }
+    }
+  },
   "sessionUnavailable": "Not playable: {state}",
-  "@sessionUnavailable": { "placeholders": { "state": { "type": "String" } } },
+  "@sessionUnavailable": {
+    "placeholders": {
+      "state": {
+        "type": "String"
+      }
+    }
+  },
   "enterSessionIdLabel": "Session ID",
   "loadSession": "Load session",
   "sessionIdRequired": "Enter a session ID.",
@@ -143,7 +155,6 @@
   "profileTitle": "Profile",
   "profileRefresh": "Refresh profile",
   "profileLoadError": "Couldn't refresh your profile. Check your connection and try again.",
-  "retry": "Try again",
   "logout": "Logout",
   "profileMemberSince": "Member since",
   "profileRoles": "Roles",
@@ -169,9 +180,29 @@
   "ticketEligibilityTitle": "Session availability",
   "ticketRoomInactive": "This room is inactive. Tickets are unavailable.",
   "ticketSessionIneligible": "This session is not open for ticket sales ({state}).",
-  "@ticketSessionIneligible": { "placeholders": { "state": { "type": "String" } } },
+  "@ticketSessionIneligible": {
+    "placeholders": {
+      "state": {
+        "type": "String"
+      }
+    }
+  },
   "ticketSessionFull": "This session has no seats available.",
   "ticketSessionAvailable": "This session is open and has seats available. Availability can change.",
   "ticketPurchaseDisabledBody": "Purchase is disabled in this QA preview. No ticket will be created and no wallet will be charged.",
-  "refresh": "Refresh"
+  "refresh": "Refresh",
+  "homeTitle": "Home",
+  "homeGames": "Games",
+  "homeMenu": "Open menu",
+  "homePlayBingo": "Play Bingo",
+  "homeLiveGames": "Live Games",
+  "homeLiveGamesBody": "Play with others",
+  "homePrivateGame": "Private Game",
+  "homeDailyChallenge": "Daily Challenge",
+  "homeLeaderboard": "Leaderboard",
+  "homeComingSoon": "Coming soon",
+  "homeUpcomingBody": "This feature is on its way. You can browse available live rooms and join a game today.",
+  "homeBrowseGames": "Browse games",
+  "homePlayAndWin": "Play & Win",
+  "homePlayAndWinBody": "Your next game starts here."
 }

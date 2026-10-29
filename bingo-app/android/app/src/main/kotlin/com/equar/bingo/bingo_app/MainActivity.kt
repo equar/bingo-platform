@@ -1,4 +1,4 @@
-package com.example.bingo_app
+package com.equar.bingo.bingo_app
 
 import io.flutter.embedding.android.FlutterActivity
 
