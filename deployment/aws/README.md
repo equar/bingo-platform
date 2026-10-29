@@ -56,3 +56,10 @@ does. `ssh-keyscan` establishes host trust on first connection; verify the
 server fingerprint out of band during setup. Keep the backend single-instance
 because its scheduler and WebSocket state are process-local. Configure instance
 and database backups, log retention, monitoring, and recovery ownership.
+
+The protected `/opt/bingo/.env` is read by systemd, which passes configuration
+through the process environment. `BINGO_ENV_IMPORT` is deliberately empty
+in this service/runtime configuration so Spring does not attempt a second,
+unprivileged read of the root-only file. Local development `.env` imports
+remain available. Startup failures print bounded, secret-redacted journal
+entries before rollback.

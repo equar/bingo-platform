@@ -10,6 +10,8 @@ WorkingDirectory=/opt/bingo
 
 Environment=SPRING_PROFILES_ACTIVE=prod
 Environment=SERVER_PORT=8088
+# systemd reads the protected env file; Spring must not import it again as user bingo.
+Environment=BINGO_ENV_IMPORT=
 EnvironmentFile=/opt/bingo/.env
 
 ExecStart=/usr/bin/java \
