@@ -18,12 +18,12 @@ import org.springframework.util.StringUtils;
 @Component
 public class GameWebSocketJwtChannelInterceptor implements ChannelInterceptor {
 
-    private final com.equar.bingo.backend.feature.community.service.GameAccessService gameAccess;
+    private final com.bakaroo.bingo.backend.feature.community.service.GameAccessService gameAccess;
     private final JwtService jwtService;
     private final BingoUserDetailsService userDetailsService;
 
     public GameWebSocketJwtChannelInterceptor(JwtService jwtService, BingoUserDetailsService userDetailsService,
-            com.equar.bingo.backend.feature.community.service.GameAccessService gameAccess) {
+            com.bakaroo.bingo.backend.feature.community.service.GameAccessService gameAccess) {
         this.gameAccess = gameAccess;
         this.jwtService = jwtService;
         this.userDetailsService = userDetailsService;

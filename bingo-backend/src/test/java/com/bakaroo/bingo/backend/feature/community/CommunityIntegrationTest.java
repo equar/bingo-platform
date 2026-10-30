@@ -1,19 +1,19 @@
-package com.equar.bingo.backend.feature.community;
+package com.bakaroo.bingo.backend.feature.community;
 
-import static com.equar.bingo.backend.feature.community.dto.CommunityDtos.*;
+import static com.bakaroo.bingo.backend.feature.community.dto.CommunityDtos.*;
 import static org.assertj.core.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-import com.equar.bingo.backend.MySqlIntegrationTest;
-import com.equar.bingo.backend.feature.auth.service.*;
-import com.equar.bingo.backend.feature.community.service.*;
-import com.equar.bingo.backend.feature.game.dto.*;
-import com.equar.bingo.backend.feature.game.entity.*;
-import com.equar.bingo.backend.feature.game.repository.*;
-import com.equar.bingo.backend.feature.game.service.*;
-import com.equar.bingo.backend.feature.user.entity.*;
-import com.equar.bingo.backend.feature.user.repository.UserRepository;
+import com.bakaroo.bingo.backend.MySqlIntegrationTest;
+import com.bakaroo.bingo.backend.feature.auth.service.*;
+import com.bakaroo.bingo.backend.feature.community.service.*;
+import com.bakaroo.bingo.backend.feature.game.dto.*;
+import com.bakaroo.bingo.backend.feature.game.entity.*;
+import com.bakaroo.bingo.backend.feature.game.repository.*;
+import com.bakaroo.bingo.backend.feature.game.service.*;
+import com.bakaroo.bingo.backend.feature.user.entity.*;
+import com.bakaroo.bingo.backend.feature.user.repository.UserRepository;
 import com.fasterxml.jackson.databind.*;
 import java.math.BigDecimal;
 import java.sql.Timestamp;

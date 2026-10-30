@@ -1,4 +1,4 @@
-package com.equar.bingo.backend.feature.community.service;
+package com.bakaroo.bingo.backend.feature.community.service;
 
 import java.time.*;
 import org.springframework.beans.factory.annotation.Autowired;

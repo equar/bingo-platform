@@ -1,7 +1,7 @@
-package com.equar.bingo.backend.feature.community.dto;
+package com.bakaroo.bingo.backend.feature.community.dto;
 
-import com.equar.bingo.backend.feature.game.dto.PlayerGameSessionResponse;
-import com.equar.bingo.backend.feature.game.dto.PlayerRoomResponse;
+import com.bakaroo.bingo.backend.feature.game.dto.PlayerGameSessionResponse;
+import com.bakaroo.bingo.backend.feature.game.dto.PlayerRoomResponse;
 import jakarta.validation.constraints.*;
 import java.time.Instant;
 import java.time.LocalDate;

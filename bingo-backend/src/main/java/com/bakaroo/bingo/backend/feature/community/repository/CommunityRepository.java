@@ -1,6 +1,6 @@
-package com.equar.bingo.backend.feature.community.repository;
+package com.bakaroo.bingo.backend.feature.community.repository;
 
-import static com.equar.bingo.backend.feature.community.dto.CommunityDtos.*;
+import static com.bakaroo.bingo.backend.feature.community.dto.CommunityDtos.*;
 
 import java.sql.Timestamp;
 import java.time.Instant;

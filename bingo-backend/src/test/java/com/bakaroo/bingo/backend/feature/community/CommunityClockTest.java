@@ -1,8 +1,8 @@
-package com.equar.bingo.backend.feature.community;
+package com.bakaroo.bingo.backend.feature.community;
 
 import static org.assertj.core.api.Assertions.*;
 
-import com.equar.bingo.backend.feature.community.service.CommunityClock;
+import com.bakaroo.bingo.backend.feature.community.service.CommunityClock;
 import java.time.*;
 import org.junit.jupiter.api.Test;
 

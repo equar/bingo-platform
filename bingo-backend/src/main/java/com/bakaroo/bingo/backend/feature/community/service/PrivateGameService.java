@@ -1,18 +1,18 @@
-package com.equar.bingo.backend.feature.community.service;
+package com.bakaroo.bingo.backend.feature.community.service;
 
-import static com.equar.bingo.backend.feature.community.dto.CommunityDtos.*;
+import static com.bakaroo.bingo.backend.feature.community.dto.CommunityDtos.*;
 
-import com.equar.bingo.backend.common.exception.*;
-import com.equar.bingo.backend.common.idempotency.*;
-import com.equar.bingo.backend.common.request.RequestHashService;
-import com.equar.bingo.backend.feature.audit.service.AuditLogService;
-import com.equar.bingo.backend.feature.auth.service.*;
-import com.equar.bingo.backend.feature.community.repository.CommunityRepository;
-import com.equar.bingo.backend.feature.game.dto.*;
-import com.equar.bingo.backend.feature.game.entity.*;
-import com.equar.bingo.backend.feature.game.repository.*;
-import com.equar.bingo.backend.feature.game.service.BingoGameService;
-import com.equar.bingo.backend.feature.user.entity.*;
+import com.bakaroo.bingo.backend.common.exception.*;
+import com.bakaroo.bingo.backend.common.idempotency.*;
+import com.bakaroo.bingo.backend.common.request.RequestHashService;
+import com.bakaroo.bingo.backend.feature.audit.service.AuditLogService;
+import com.bakaroo.bingo.backend.feature.auth.service.*;
+import com.bakaroo.bingo.backend.feature.community.repository.CommunityRepository;
+import com.bakaroo.bingo.backend.feature.game.dto.*;
+import com.bakaroo.bingo.backend.feature.game.entity.*;
+import com.bakaroo.bingo.backend.feature.game.repository.*;
+import com.bakaroo.bingo.backend.feature.game.service.BingoGameService;
+import com.bakaroo.bingo.backend.feature.user.entity.*;
 import java.nio.charset.StandardCharsets;
 import java.security.*;
 import java.time.*;
