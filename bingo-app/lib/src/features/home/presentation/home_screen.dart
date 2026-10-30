@@ -1,5 +1,8 @@
 import 'package:bingo_app/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
+import 'package:bingo_app/src/features/community/presentation/private_games_screen.dart';
+import 'package:bingo_app/src/features/community/presentation/daily_challenges_screen.dart';
+import 'package:bingo_app/src/features/community/presentation/leaderboard_screen.dart';
 
 const bingoNavy = Color(0xFF081D46);
 const bingoBlue = Color(0xFF1688FF);
@@ -47,46 +50,6 @@ class HomeScreen extends StatelessWidget {
               ),
             const SizedBox(height: 12),
           ],
-        ),
-      ),
-    );
-  }
-
-  void _upcoming(BuildContext context, String title) {
-    final l = AppLocalizations.of(context)!;
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (sheetContext) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 25,
-                  fontWeight: FontWeight.w800,
-                  color: bingoNavy,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                l.homeUpcomingBody,
-                style: const TextStyle(fontSize: 16, height: 1.5),
-              ),
-              const SizedBox(height: 22),
-              FilledButton(
-                onPressed: () {
-                  Navigator.pop(sheetContext);
-                  onGames();
-                },
-                child: Text(l.homeBrowseGames),
-              ),
-            ],
-          ),
         ),
       ),
     );
@@ -248,12 +211,15 @@ class HomeScreen extends StatelessWidget {
                             Expanded(
                               child: _FeatureCard(
                                 title: l.homePrivateGame,
-                                subtitle: l.homeComingSoon,
+                                subtitle: l.privateHomeBody,
                                 icon: Icons.groups_rounded,
                                 color: const Color(0xFFFF8A12),
                                 background: const Color(0xFFFFF5E7),
-                                onTap: () =>
-                                    _upcoming(context, l.homePrivateGame),
+                                onTap: () => Navigator.of(context).push<void>(
+                                  MaterialPageRoute(
+                                    builder: (_) => const PrivateGamesScreen(),
+                                  ),
+                                ),
                               ),
                             ),
                           ],
@@ -267,24 +233,31 @@ class HomeScreen extends StatelessWidget {
                             Expanded(
                               child: _FeatureCard(
                                 title: l.homeDailyChallenge,
-                                subtitle: l.homeComingSoon,
+                                subtitle: l.challengeHomeBody,
                                 icon: Icons.calendar_month_rounded,
                                 color: const Color(0xFF12892B),
                                 background: const Color(0xFFEAF8EE),
-                                onTap: () =>
-                                    _upcoming(context, l.homeDailyChallenge),
+                                onTap: () => Navigator.of(context).push<void>(
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        const DailyChallengesScreen(),
+                                  ),
+                                ),
                               ),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
                               child: _FeatureCard(
                                 title: l.homeLeaderboard,
-                                subtitle: l.homeComingSoon,
+                                subtitle: l.leaderboardHomeBody,
                                 icon: Icons.bar_chart_rounded,
                                 color: const Color(0xFF8739EF),
                                 background: const Color(0xFFF2ECFF),
-                                onTap: () =>
-                                    _upcoming(context, l.homeLeaderboard),
+                                onTap: () => Navigator.of(context).push<void>(
+                                  MaterialPageRoute(
+                                    builder: (_) => const LeaderboardScreen(),
+                                  ),
+                                ),
                               ),
                             ),
                           ],

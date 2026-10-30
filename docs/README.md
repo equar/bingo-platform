@@ -30,3 +30,5 @@ Use this page to find the current project guides. The root [README](../README.md
 - [Initial implementation plan](archive/initial-implementation-plan.md) — archived; it describes an empty repository and an obsolete database choice.
 - [Initial domain decisions](archive/initial-domain-decisions.md) — archived product/design intent; it does not authorize financial behavior or override current QA and release gates.
 - Dated QA reports and evidence remain in `docs/qa/` so previous results and decisions are preserved. Check each report's date and scope; a historical PASS is not a current verification.
+
+- [Player community features](community-features.md): private games, daily points challenges, leaderboard privacy and release order.

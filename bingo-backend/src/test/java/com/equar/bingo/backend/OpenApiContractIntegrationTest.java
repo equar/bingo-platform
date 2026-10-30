@@ -33,8 +33,7 @@ class OpenApiContractIntegrationTest extends MySqlIntegrationTest {
                 .andReturn()
                 .getResponse()
                 .getContentAsString());
-        Path testClasses = Path.of(getClass().getProtectionDomain().getCodeSource().getLocation().toURI());
-        Path checkedInSpecPath = testClasses.getParent().getParent().resolve("openapi.json");
+        Path checkedInSpecPath = Path.of(System.getProperty("user.dir")).resolve("openapi.json");
         JsonNode checkedInSpec = objectMapper.readTree(checkedInSpecPath.toFile());
 
         assertEquals(generatedSpec.path("paths"), checkedInSpec.path("paths"),

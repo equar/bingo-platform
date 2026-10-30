@@ -1,3 +1,7 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dio/dio.dart';
+import 'package:bingo_app/src/features/community/data/community_repository.dart';
+import 'package:bingo_app/src/features/community/domain/community_models.dart';
 import 'package:bingo_app/l10n/app_localizations.dart';
 import 'package:bingo_app/src/features/home/presentation/home_screen.dart';
 import 'package:flutter/material.dart';
@@ -8,29 +12,69 @@ Widget _home({
   required VoidCallback onGames,
   VoidCallback? onSupport,
   double textScale = 1,
-}) => MaterialApp(
-  localizationsDelegates: const [
-    AppLocalizations.delegate,
-    GlobalMaterialLocalizations.delegate,
-    GlobalCupertinoLocalizations.delegate,
-    GlobalWidgetsLocalizations.delegate,
+}) => ProviderScope(
+  overrides: [
+    communityRepositoryProvider.overrideWithValue(_CommunityRepository()),
   ],
-  supportedLocales: AppLocalizations.supportedLocales,
-  builder: (context, child) => MediaQuery(
-    data: MediaQuery.of(
-      context,
-    ).copyWith(textScaler: TextScaler.linear(textScale)),
-    child: child!,
-  ),
-  home: Scaffold(
-    body: HomeScreen(
-      onGames: onGames,
-      onWallet: () {},
-      onProfile: () {},
-      onSupport: onSupport ?? () {},
+  child: MaterialApp(
+    localizationsDelegates: const [
+      AppLocalizations.delegate,
+      GlobalMaterialLocalizations.delegate,
+      GlobalCupertinoLocalizations.delegate,
+      GlobalWidgetsLocalizations.delegate,
+    ],
+    supportedLocales: AppLocalizations.supportedLocales,
+    builder: (context, child) => MediaQuery(
+      data: MediaQuery.of(
+        context,
+      ).copyWith(textScaler: TextScaler.linear(textScale)),
+      child: child!,
+    ),
+    home: Scaffold(
+      body: HomeScreen(
+        onGames: onGames,
+        onWallet: () {},
+        onProfile: () {},
+        onSupport: onSupport ?? () {},
+      ),
     ),
   ),
 );
+
+class _CommunityRepository extends CommunityRepository {
+  _CommunityRepository() : super(Dio());
+  @override
+  Future<List<PrivateGame>> privateGames() async => [];
+  @override
+  Future<DailyProgress> daily() async => DailyProgress(
+    businessDate: '2026-10-29',
+    timezone: 'Africa/Addis_Ababa',
+    resetsAt: DateTime.utc(2026, 10, 29, 21),
+    totalPoints: 20,
+    challenges: const [
+      DailyChallenge(
+        code: 'FINISH_GAME',
+        target: 1,
+        progress: 1,
+        points: 20,
+        completed: true,
+        claimed: true,
+      ),
+    ],
+  );
+  @override
+  Future<Ranking> leaderboard(String period, int page) async => const Ranking(
+    entries: [RankingEntry(rank: 1, alias: 'BingoStar', points: 20, me: true)],
+    totalPlayers: 1,
+    page: 0,
+    size: 25,
+    myPoints: 20,
+    myRank: 1,
+    alias: 'BingoStar',
+    visible: true,
+    timezone: 'Africa/Addis_Ababa',
+  );
+}
 
 void main() {
   testWidgets('Play Bingo opens the existing games flow', (tester) async {
@@ -41,21 +85,35 @@ void main() {
     expect(opened, isTrue);
   });
 
-  testWidgets('upcoming features are explicit and can lead to real games', (
-    tester,
-  ) async {
-    var opened = false;
-    await tester.pumpWidget(_home(onGames: () => opened = true));
+  testWidgets('Private Game opens the private games flow', (tester) async {
+    await tester.pumpWidget(_home(onGames: () {}));
     await tester.pumpAndSettle();
-    expect(find.text('Coming soon'), findsNWidgets(3));
+    expect(find.text('Coming soon'), findsNothing);
     await tester.ensureVisible(find.text('Private Game'));
     await tester.tap(find.text('Private Game'));
     await tester.pumpAndSettle();
-    expect(opened, isFalse);
-    expect(find.text('Browse games'), findsOneWidget);
-    await tester.tap(find.text('Browse games'));
+    expect(find.byType(HomeScreen), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Daily Challenge opens server progress', (tester) async {
+    await tester.pumpWidget(_home(onGames: () {}));
     await tester.pumpAndSettle();
-    expect(opened, isTrue);
+    await tester.ensureVisible(find.text('Daily Challenge'));
+    await tester.tap(find.text('Daily Challenge'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Africa/Addis_Ababa'), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Leaderboard displays the public alias', (tester) async {
+    await tester.pumpWidget(_home(onGames: () {}));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Leaderboard'));
+    await tester.tap(find.text('Leaderboard'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('BingoStar'), findsWidgets);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('support remains accessible from the menu', (tester) async {

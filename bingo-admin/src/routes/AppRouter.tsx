@@ -69,6 +69,8 @@ const WalletTransfersPage = lazy(() =>
   import("../features/wallet/WalletTransfersPage").then((module) => ({ default: module.WalletTransfersPage })),
 );
 
+const CommunityPage = lazy(() => import("../features/community/CommunityPage").then(module => ({ default: module.CommunityPage })));
+
 export function AppRouter() {
   return (
     <Suspense
@@ -93,6 +95,7 @@ export function AppRouter() {
               <Route path="dashboard" element={<DashboardPage />} />
               <Route path="admin-users" element={<AdminUsersPage />} />
               <Route path="rooms" element={<RoomsPage />} />
+              <Route path="community" element={<CommunityPage />} />
               <Route path="sessions" element={<SessionsPage />} />
               <Route path="sessions/:sessionId" element={<SessionDetailPage />} />
               <Route path="players" element={<PlayersPage />} />

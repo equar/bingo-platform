@@ -82,6 +82,7 @@ public class BingoGameService {
     };
     private static final int GRID_SIZE = 5;
 
+    private final com.equar.bingo.backend.feature.community.service.GameAccessService gameAccess;
     private final BingoRoomRepository bingoRoomRepository;
     private final GameSessionRepository gameSessionRepository;
     private final TicketRepository ticketRepository;
@@ -117,7 +118,9 @@ public class BingoGameService {
             RequestHashService requestHashService,
             ObjectMapper objectMapper,
             LocalFinancialSimulationGuard ticketPurchasePostingGuard,
-            GameLiveDrawService gameLiveDrawService) {
+            GameLiveDrawService gameLiveDrawService,
+            com.equar.bingo.backend.feature.community.service.GameAccessService gameAccess) {
+        this.gameAccess = gameAccess;
         this.bingoRoomRepository = bingoRoomRepository;
         this.gameSessionRepository = gameSessionRepository;
         this.ticketRepository = ticketRepository;
@@ -171,15 +174,19 @@ public class BingoGameService {
 
     @Transactional(readOnly = true)
     public PlayerRoomResponse getPlayerRoom(Long roomId) {
-        BingoRoom room = bingoRoomRepository.findByIdAndActiveTrue(roomId)
+        BingoRoom room = bingoRoomRepository.findById(roomId)
+                .filter(r -> r.isActive() || r.isPrivateRoom())
                 .orElseThrow(() -> new NotFoundException("ROOM_NOT_FOUND", "Room not found"));
+        gameAccess.requireRoomAccess(roomId);
         return toPlayerRoomResponse(room);
     }
 
     @Transactional(readOnly = true)
     public List<PlayerGameSessionResponse> listPlayerRoomSessions(Long roomId) {
-        bingoRoomRepository.findByIdAndActiveTrue(roomId)
+        bingoRoomRepository.findById(roomId)
+                .filter(r -> r.isActive() || r.isPrivateRoom())
                 .orElseThrow(() -> new NotFoundException("ROOM_NOT_FOUND", "Room not found"));
+        gameAccess.requireRoomAccess(roomId);
         return gameSessionRepository.findByRoomIdOrderByScheduledStartAtDesc(roomId).stream()
                 .map(this::toPlayerSessionResponse).toList();
     }
@@ -187,9 +194,10 @@ public class BingoGameService {
     @Transactional(readOnly = true)
     public PlayerGameSessionResponse getPlayerSession(Long sessionId) {
         GameSession session = requireSession(sessionId);
-        if (!session.getRoom().isActive()) {
+        if (!session.getRoom().isActive() && !session.getRoom().isPrivateRoom()) {
             throw new NotFoundException("SESSION_NOT_FOUND", "Game session not found");
         }
+        gameAccess.requireRoomAccess(session.getRoom().getId());
         return toPlayerSessionResponse(session);
     }
 
@@ -216,7 +224,7 @@ public class BingoGameService {
     @Transactional(readOnly = true)
     public Page<TicketResponse> getMyTickets(Long sessionId, BingoUserPrincipal principal, Pageable pageable) {
         User player = requirePlayer(principal);
-        requireSession(sessionId);
+        gameAccess.requireRoomAccess(requireSession(sessionId).getRoom().getId(), principal);
         return ticketRepository.findBySessionIdAndOwnerId(sessionId, player.getId(), pageable)
                 .map(this::toTicketResponse);
     }
@@ -235,7 +243,7 @@ public class BingoGameService {
 
     @Transactional(readOnly = true)
     public List<DrawEventResponse> getDrawsAfter(Long sessionId, Integer afterSequence) {
-        requireSession(sessionId);
+        gameAccess.requireRoomAccess(requireSession(sessionId).getRoom().getId());
         List<DrawEvent> draws = afterSequence == null
                 ? drawEventRepository.findBySessionIdOrderBySequenceNoAsc(sessionId)
                 : drawEventRepository.findBySessionIdAndSequenceNoGreaterThanOrderBySequenceNoAsc(sessionId,
@@ -373,6 +381,7 @@ public class BingoGameService {
         GameSession session = gameSessionRepository.findByIdForUpdate(sessionId)
                 .orElseThrow(() -> new NotFoundException("SESSION_NOT_FOUND", "Game session not found"));
         BingoRoom room = session.getRoom();
+        gameAccess.requireRoomAccess(room.getId(), principal);
         String requestHash = requestHashService.hash("POST", "/api/v1/sessions/" + sessionId + "/tickets",
                 player.getId());
         String operationId = UUID.randomUUID().toString();
@@ -442,6 +451,8 @@ public class BingoGameService {
         GameSession session = gameSessionRepository.findByIdForUpdate(sessionId)
                 .orElseThrow(() -> new NotFoundException("SESSION_NOT_FOUND", "Game session not found"));
         BingoRoom room = session.getRoom();
+        gameAccess.requireRoomAccess(room.getId(), new BingoUserPrincipal(player));
+        if (!room.isActive()) throw new ConflictException("ROOM_INACTIVE", "Ticket sales are closed for this room");
 
         validateTicketSaleOpen(session);
         ensureGameCurrency(session, room);

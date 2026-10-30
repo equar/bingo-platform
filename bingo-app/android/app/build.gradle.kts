@@ -29,7 +29,8 @@ android {
         applicationId = "com.equar.bingo.bingo_app"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        // Flutter 3.41 supports Android 7.0+; do not lower without replacing the runtime.
+        minSdk = 24
         targetSdk = flutter.targetSdkVersion
         // Uses the version code from pubspec.yaml. When using split APKs, 1000 * ABI_VERSION
         // is added automatically by Flutter. (https://developer.android.com/studio/build/configure-apk-splits#configure-APK-versions)
@@ -52,11 +53,8 @@ android {
 
     buildTypes {
         release {
-            signingConfig = if (releaseKeystorePropertiesFile.exists()) {
-                signingConfigs.getByName("release")
-            } else {
-                signingConfigs.getByName("debug")
-            }
+            // Missing release keys must fail signing rather than produce a debug-signed APK.
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 }
