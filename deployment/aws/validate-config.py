@@ -22,4 +22,12 @@ activation = urlsplit(os.environ.get('ADMIN_ACCOUNT_ACTIVATION_URL', ''))
 if (activation.scheme != 'https' or activation.netloc != urlsplit(origins['ADMIN_PUBLIC_URL']).netloc
         or not activation.path or activation.username or activation.password):
     raise SystemExit('ADMIN_ACCOUNT_ACTIVATION_URL must use the admin HTTPS hostname and activation route')
+bootstrap_enabled = os.environ.get('ADMIN_BOOTSTRAP_ENABLED', 'false').strip().lower()
+if bootstrap_enabled not in ('true', 'false'):
+    raise SystemExit('ADMIN_BOOTSTRAP_ENABLED must be true or false')
+if bootstrap_enabled == 'true':
+    for key in ('ADMIN_BOOTSTRAP_PHONE', 'ADMIN_BOOTSTRAP_NAME', 'ADMIN_BOOTSTRAP_EMAIL',
+                'ADMIN_BOOTSTRAP_PASSWORD'):
+        if not os.environ.get(key, '').strip():
+            raise SystemExit(key + ' is required when ADMIN_BOOTSTRAP_ENABLED=true')
 print('Bingo production URLs and origins validated')
