@@ -25,6 +25,33 @@ Player Flutter analysis passed with no issues and `flutter test` passed 32/32. T
 
 Player Flutter analysis and unit tests passed (32/32). Agent Flutter analysis passed and unit tests passed (12/12). The Agent Android integration run exited 0; its report now maps only exercised scenarios to PASS and leaves cross-role checks NOT RUN. Admin Vitest passed 84/84, lint/build passed, and Playwright discovery listed 57 tests across 17 files. The authenticated approval E2E passed 1/1 on retry; it was not repeated after the final test-helper error-path hardening because the create-only candidate is already approved. The Agent report and screenshot inventory are in the run evidence above. Retained fixture identities and purposes are recorded in the [test-data registry](../test-data-registry.md).
 
+## Requested continuation preflight — 2026-10-27
+
+**Result: BLOCKED before scenario execution.** The current process can reach `http://127.0.0.1:8082/actuator/health` and reports UP, but `Get-NetTCPConnection` did not expose the listening PID and process inspection returned access denied. Since the saved PID 23908 identity, startup guard log, artifact hash, and source fingerprint are historical and cannot be tied to the current listener, the guarded runtime identity gate was not satisfied. Port 8080 also reports health UP but remains unverified and unused. The Agent policy regression script passed; it only validates policy behavior and does not verify the live backend. No Android/Admin E2E was started and no DB mutation was made. See [continuation preflight evidence](../evidence/module-06a9/QA_M06A9_20261027_continuation-preflight.json).
+
+| Requested scenario | Current continuation result | Evidence / blocker |
+| --- | --- | --- |
+| Reverify android-test backend identity, `bingo_qa_test`, Flyway, scheduler and financial controls | BLOCKED | Health is UP, but current listener/runtime identity and startup guard log cannot be verified in this execution context. The previously verified values remain historical only. |
+| Investigate first Admin approval attempt | PASS — CLASSIFIED | The first attempt timed out waiting for the Dashboard heading in `loginAdmin` after sign-in; the approval page/action was never reached. The same scenario passed on retry (1/1), Agent #27 is APPROVED after reload, and Agent #28 remains PENDING. This is a transient UI readiness/synchronization failure, not evidence of an application approval defect. No reproducible defect was found, so no product change was warranted. Both attempt logs are preserved in [approval evidence](../evidence/module-06a9/QA_M06A9_20261027_admin-approval.log). |
+| Rerun Admin approval journey | NOT RUN | Cannot meet the current guarded live-runtime identity gate; the already approved one-shot fixture is not reused or changed. Historical success remains recorded separately. |
+| Agent cross-role restrictions | NOT RUN | Existing Android suite did not exercise them. Continuation blocked before UI launch. |
+| Agent nonfinancial operational workflows/validation and persistence | PARTIAL — PRIOR SCOPE ONLY | Prior run passed approved/pending login, invalid credentials/throttling, session restore/expiry/logout, and read-only Support ticket listing. Cross-role authorization and additional operational mutation-free workflows remain unverified. No finance flow was attempted. |
+| Player authentication, browse, persistence | PASS — PRIOR RUN ONLY | The completed run covered these UI scenarios with purchase disabled and no ticket/wallet mutation. No fresh continuation run occurred. |
+| Player card assignment/purchase | BLOCKED | No financially approved card/fixture or posting authorization is available. Ticket assignment/purchase was not attempted; no ticket was inserted. |
+| Maven integration tests | BLOCKED | `bingo-backend/.env.maven-test` is absent; no separately disposable `bingo_qa_maven_test` account/database was verified. Maven was not run. |
+
+The exact remaining steps are to restore a normal Windows QA execution identity that can inspect the 8082 listener and backend startup logs, then rerun the guarded Agent/Admin/Player launchers; separately provision and verify the dedicated Maven disposable DB/account/config before any Maven test. Do not substitute port 8080 or `bingo_qa_test` for Maven.
+
+## Follow-up: live verification and UI checks — 2026-10-27
+
+**Live backend identity: PASS.** `netstat -ano -p tcp` mapped port 8082 to PID 23908; `Get-Process` confirmed Java and its start time. PID 23908 matches the retained identity record and contemporaneous `QA_TEST_RUNTIME_IDENTITY` / `QA_TEST_RUNTIME_GUARDS` startup lines. WMI/CIM process inspection is blocked in this sandbox, but native `NtQueryInformationProcess` verified the exact JAR, `android-test` profile, and test-resource launch arguments without printing command-line text. Health and DB health are UP. The source fingerprint and JAR checksum match the retained identity. Direct read-only MySQL verification returned `bingo_qa_test`, `bingo_qa_test_runner@127.0.0.1`, Flyway 22 success, and only `USAGE ON *.*` plus `ALL PRIVILEGES ON bingo_qa_test.*` without grant option. Runtime logs confirm `android-test`, `127.0.0.1:3306/bingo_qa_test`, scheduler disabled, and signup reward, deposit, adjustment, and float simulation disabled. The verified service was not restarted. See [live verification evidence](../evidence/module-06a5/QA_M06A5_20261027_live-backend-verification.json).
+
+The Admin helper now waits for the `/api/v1/admin/login` response before waiting for the Dashboard heading, addressing the failure mode seen in the first approval attempt. The read-only Admin UI rerun passed 1/1, confirmed the retained Agent candidate is APPROVED and the pending fixture remains PENDING, and changed no Agent state. See [latest Admin readiness log](../evidence/module-06a9/QA_M06A9_20261027_134058_746-admin-login-readiness.log). The historical approval attempt and successful retry remain in the original [approval log](../evidence/module-06a9/QA_M06A9_20261027_admin-approval.log).
+
+Agent Android coverage was extended to check authenticated access denial for Admin agent listing, Player wallet balance, and `/api/v1/auth/me`; the dashboard, empty Player lookup validation, and read-only float-history and Support screens; plus an actual force-stop/relaunch session-restore and logout run using the existing integration test. The real Android run is **BLOCKED before execution** because the launcher correctly refuses `CodexSandboxOffline`; ADB requires the normal interactive Windows profile. The blocked launcher manifest is [here](../evidence/module-01-agent-authentication/QA_M01_AGENT_20261027_132922_115/run-summary.json). No database or fixture changes occurred. These new scenarios remain NOT RUN.
+
+Player safe display scenarios remain PASS from the previous Android run. The force-stop/relaunch persistence scenario was not part of that run and remains NOT RUN in this continuation because the same Android profile guard blocks instrumentation. Card assignment/purchase remains BLOCKED by missing financial authorization and an approved fixture. Maven remains BLOCKED because `bingo-backend/.env.maven-test` and `BINGO_MAVEN_MYSQL_*` values are absent; the disposable schema/account cannot be verified and no Maven test ran.
+
 ## Initial authorized preflight attempt — 2026-10-27 (historical; superseded by the verified run above)
 
 **Result: BLOCKED before fixture provisioning and authenticated UI.** Fixture setup and the normal Agent approval workflow were authorized, but the required live-runtime preflight did not pass. Port 8082 has no listener. Port 8080 is healthy, but its process command line does not declare the `android-test` profile and no runtime identity proves its datasource or safety flags. The launcher was not started.
@@ -109,7 +136,7 @@ The previously recorded Chromium run remains 7/7 PASS against http://localhost:5
 
 ## Player Android E2E
 
-Executed the actual player Flutter integration suite on emulator-5554 with API_BASE_URL=http://10.0.2.2:8081 and the existing QA_PLAYER_001 account. The suite passed. A separate run after adb shell am force-stop com.example.bingo_app passed process-restart restoration and logout. Authentication used existing QA data; repeated failures used per-run synthetic phone identifiers and created no user records.
+Executed the actual player Flutter integration suite on emulator-5554 with API_BASE_URL=http://10.0.2.2:8081 and the existing QA_PLAYER_001 account. The suite passed. A separate run after adb shell am force-stop com.bakaroo.bingo.bingo_app passed process-restart restoration and logout. Authentication used existing QA data; repeated failures used per-run synthetic phone identifiers and created no user records.
 
 | ID | Scenario | Result | Evidence / notes |
 | --- | --- | --- | --- |
@@ -147,7 +174,9 @@ Executed the actual player Flutter integration suite on emulator-5554 with API_B
 
 ## Agent Android E2E
 
-Executed the actual agent Flutter app on emulator-5554 with the existing approved and pending QA agent identities. The final UI suite passed. A separate run after adb shell am force-stop com.equar.bingo.bingo_agent passed process-restart restoration and logout.
+Executed the actual agent Flutter app on emulator-5554 with the existing approved and pending QA agent identities. The final UI suite passed. A separate run after adb shell am force-stop com.bakaroo.bingo.bingo_agent passed process-restart restoration and logout.
+
+**Latest continuation run:** The main Agent authentication/authorization Flutter suite exited 0 and passed its UI/API assertions. The separate force-stop/relaunch suite restored the authenticated `HomeShell` and found a nonempty session token, then failed because its logout assertion expected three login `TextFormField`s; the actual phone/PIN login screen has two. The failure was a stale test expectation, not a session restore defect. The old summary incorrectly marked every scenario `NOT RUN` and stored the combined exit as `testExitCode=1`. The test now identifies screens by keys and checks two login fields plus secure-storage clearing; the runner records separate process exit codes, per-scenario progress, and gates restart on an authenticated-session marker. The corrected UI suite remains to be rerun. Full diagnosis: [retained-run analysis](../evidence/module-01-agent-authentication/QA_M01_AGENT_20261027_restart-failure-analysis.md).
 
 | ID | Scenario | Result | Evidence / notes |
 | --- | --- | --- | --- |
@@ -200,10 +229,16 @@ Player restore also now clears an expired session from secure storage and presen
 The actual suites used:
 
 - Player: flutter drive --keep-app-running --driver=test_driver/module_01_authentication.dart --target=integration_test/module_01_authentication_test.dart -d emulator-5554 --dart-define-from-file=e2e-secrets.json
-- Player process restore: force-stop com.example.bingo_app, then flutter drive with target integration_test/module_01_session_restore_test.dart.
+- Player process restore: force-stop com.bakaroo.bingo.bingo_app, then flutter drive with target integration_test/module_01_session_restore_test.dart.
 - Agent: same driver command from bingo-agent, with its ignored e2e-secrets.json.
-- Agent process restore: force-stop com.equar.bingo.bingo_agent, then flutter drive with target integration_test/module_01_session_restore_test.dart.
+- Agent process restore: force-stop com.bakaroo.bingo.bingo_agent, then flutter drive with target integration_test/module_01_session_restore_test.dart.
 
 Credentials remained in ignored local files. Sanitized run logs are [player](../evidence/module-01-player-run.log), [player restart](../evidence/module-01-player-session-restore-run.log), [agent](../evidence/module-01-agent-run.log), and [agent restart](../evidence/module-01-agent-session-restore-run.log). Named player and agent UI screenshots are stored beside those logs in docs/qa/evidence.
 
 Final flutter analyze passed for bingo-app and bingo-agent. Relevant Playwright checks passed for A11, P17, and the A06/A07 rate-limit case; the PlayerDetailPage suite passed 8 tests and the admin production build passed. The P17 Android registration and restricted-login integration tests passed on emulator-5554. The full backend suite passed 94 tests. Module 02 was not started.
+
+## Continuation preflight — 2026-10-27 13:55 local
+
+The current execution identity is `EQUAR-DELL-XPS1\CodexSandboxOffline` with profile `C:\Users\16414`. PowerShell, MySQL, Java, Maven, ADB, and Flutter executables are available; ADB is `C:\Users\16414\AppData\Local\Android\Sdk\platform-tools\adb.exe`, Flutter is `C:\src\flutter\bin\flutter.bat`, and this context sees no `emulator-5554`. Chrome is not on PATH, while the repo's installed Playwright Chromium project ran the retained Admin readiness scenario 1/1 at 13:40 local.
+
+At 13:55, health on 8082 remained UP and netstat showed retained PID 23908, but this context could not reverify the process executable/command line or direct MySQL identity and grants. The guarded Agent runner was invoked and stopped before Android or database testing, with all its scenarios NOT RUN; no existing test data or service was changed. Use the guarded command from a normal interactive VS Code PowerShell session as `EQUAR-DELL-XPS1\16414` to reverify live identity/controls and execute the Agent UI suite. Fresh Player restart remains NOT RUN. Card assignment and purchase remain BLOCKED pending financial authorization and an approved test fixture. Maven remains NOT RUN/BLOCKED because the separate disposable DB credentials/config are absent. See [latest blocked Agent run](../evidence/module-01-agent-authentication/QA_M01_AGENT_20261027_135550_737/run-summary.json) and [current-context preflight](../evidence/module-06a5/QA_M06A5_20261027_1355-current-context-preflight.json).

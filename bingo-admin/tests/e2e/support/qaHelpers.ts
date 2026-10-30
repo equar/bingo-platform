@@ -29,9 +29,15 @@ export async function loginAdmin(page: Page) {
   await navigateTo(page, '/login');
   await page.getByLabel('Email address').fill(requiredQaEnv('BINGO_E2E_ADMIN_EMAIL'));
   await page.locator('input[name="password"]').fill(requiredQaEnv('BINGO_E2E_ADMIN_PASSWORD'));
+  const loginResponse = page.waitForResponse(
+    (response) => response.url().endsWith('/api/v1/admin/login') && response.request().method() === 'POST',
+    { timeout: 30_000 },
+  );
   await page.getByRole('button', { name: 'Sign in' }).click();
   try {
-    await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+    const response = await loginResponse;
+    expect(response.ok(), `Admin login API returned ${response.status()}`).toBeTruthy();
+    await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible({ timeout: 15_000 });
   } catch (error) {
     const passwordField = page.locator('input[name="password"]');
     const emailField = page.getByLabel('Email address');

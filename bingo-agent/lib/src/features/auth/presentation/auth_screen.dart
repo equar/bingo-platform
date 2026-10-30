@@ -121,6 +121,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     final l10n = AppLocalizations.of(context)!;
     final isApplication = _applicationMode && !_applicationSubmitted;
     return Scaffold(
+      key: ValueKey(
+        isApplication ? 'agent-application-screen' : 'agent-login-screen',
+      ),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),

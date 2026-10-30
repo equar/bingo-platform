@@ -1,0 +1,78 @@
+{
+  "verifiedAt": "2026-10-27T13:30:00+03:00",
+  "result": "PASS",
+  "backend": {
+    "url": "http://127.0.0.1:8082",
+    "health": "UP",
+    "databaseHealth": "UP",
+    "listenerTool": "netstat -ano -p tcp",
+    "listenerLocalEndpoint": "0.0.0.0:8082",
+    "listenerPid": 23908,
+    "processName": "java",
+    "javaExecutable": "C:\\Program Files\\Java\\jdk-25.0.2\\bin\\java.exe",
+    "processStartedAt": "2026-10-27T11:46:49.487323",
+    "matchesRetainedBackendIdentityPid": true,
+    "runtimeIdentityLogAt": "2026-10-27T11:47:08.432+03:00",
+    "runtimeProfile": "android-test",
+    "actualDatasource": "127.0.0.1:3306/bingo_qa_test",
+    "flyway": 22,
+    "artifactSha256MatchesRetainedIdentity": true,
+    "sourceFingerprintMatchesCurrentBackendSources": true,
+    "gitCommitMetadata": "retained process commit differs from current HEAD; the exact backend source fingerprint matches, and the intervening commit contains the same source fingerprint",
+    "scheduler": "disabled",
+    "signupRewardPosting": "disabled",
+    "depositSimulation": "disabled",
+    "adjustmentSimulation": "disabled",
+    "agentFloatSimulation": "disabled",
+    "adminCorsOrigin": "http://127.0.0.1:5174",
+    "restart": "not performed; verified isolated process was retained",
+    "processCommandLineChecks": {
+      "plaintextPrinted": false,
+      "testResourcesLocation": true,
+      "exactJar": true,
+      "androidTestProfile": true
+    }
+  },
+  "mysqlReadOnlyVerification": {
+    "database": "bingo_qa_test",
+    "authenticatedIdentity": "bingo_qa_test_runner@127.0.0.1",
+    "serverHost": "EQUAR-DELL-XPS15",
+    "port": 3306,
+    "latestFlywayMigration": "22 success",
+    "grants": [
+      "USAGE on *.*",
+      "ALL PRIVILEGES on bingo_qa_test.*"
+    ],
+    "crossSchemaGrant": false,
+    "grantOption": false
+  },
+  "executionLimitations": {
+    "getNetTcpConnection": "CimException in this Windows sandbox",
+    "getCimInstanceWin32Process": "CimException in this Windows sandbox",
+    "commandLineRead": "WMI unavailable; native NtQueryInformationProcess check succeeded and evaluated exact JAR/profile/test-resource arguments without printing command-line text",
+    "alternativeIdentityChain": "netstat listener PID + Get-Process executable/start time + contemporaneous PID-bound runtime identity/guard logs + artifact/source fingerprints + direct MySQL identity/grants/Flyway"
+  },
+  "serviceOn8080": "health UP; no process inspection, stop, or request beyond health check was performed",
+  "maven": {
+    "environmentFile": "bingo-backend/.env.maven-test absent",
+    "processEnvironmentVariables": "BINGO_MAVEN_MYSQL_* absent",
+    "databaseAndAccount": "not verifiable without the dedicated credentials",
+    "tests": "NOT RUN",
+    "requiredSetup": {
+      "requiredVariables": [
+        "BINGO_MAVEN_MYSQL_URL",
+        "BINGO_MAVEN_MYSQL_USERNAME",
+        "BINGO_MAVEN_MYSQL_PASSWORD"
+      ],
+      "configurationFile": "bingo-backend/.env.maven-test",
+      "account": "bingo_qa_maven_runner",
+      "grants": "schema-scoped DDL/DML needed by Flyway and destructive integration fixtures; no global or QA-schema grants",
+      "financialOptIn": "leave BINGO_MAVEN_SYNTHETIC_FINANCIAL_TESTS_ENABLED=false unless separately authorized",
+      "port": 3306,
+      "host": "127.0.0.1",
+      "schema": "bingo_qa_maven_test",
+      "jdbcCreation": "createDatabaseIfNotExist=false"
+    }
+  },
+  "mutations": "none"
+}

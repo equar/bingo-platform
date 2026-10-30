@@ -1,0 +1,31 @@
+{
+  "date": "2026-10-27",
+  "scope": "Continuation preflight only; no test fixtures or scenarios executed",
+  "checks": {
+    "backend8082Health": "UP",
+    "backend8082ListenerPid": "UNVERIFIABLE in this execution context; Get-NetTCPConnection returned no listener and process inspection was access denied",
+    "savedIdentity": {
+      "profile": "android-test",
+      "database": "bingo_qa_test",
+      "flyway": 22,
+      "scheduler": "disabled",
+      "financialPostingAndSimulation": "disabled",
+      "status": "historical evidence only; not accepted as current runtime verification"
+    },
+    "runtimeIdentityAndGuardLog": "NOT VERIFIED for current live listener",
+    "adminVite5174": 200,
+    "backend8080": "UP; identity not verified and not used",
+    "agentPolicyRegression": "PASS; policy-only checks do not contact backend, database, or emulator",
+    "mavenEnvironmentFile": "ABSENT: bingo-backend/.env.maven-test",
+    "mavenDatabaseAndAccount": "NOT VERIFIED",
+    "mysqlClient": "available",
+    "androidSdkAdb": "available; no test launched"
+  },
+  "scenarioExecution": {
+    "adminApprovalRetry": "NOT RUN",
+    "agentAndroidCrossRoleAndOperationalCoverage": "NOT RUN",
+    "playerAndroidCoverage": "NOT RUN",
+    "mavenTests": "NOT RUN"
+  },
+  "mutations": "none"
+}

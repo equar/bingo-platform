@@ -28,7 +28,7 @@ if ($identity.Name -notmatch '\\16414$' -or $env:USERPROFILE -cne 'C:\Users\1641
 if ($Port -ne 8082) { throw 'The isolated Android-test backend must use port 8082.' }
 if (-not (Test-Path -LiteralPath $envFile)) { throw 'Ignored bingo-backend/.env.test is missing.' }
 if (-not (Test-Path -LiteralPath $testResources)) { throw 'Backend test profile resources are missing.' }
-$existingListeners = @(Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue)
+$existingListeners = @(Get-AndroidTestTcpListenerPids -Port $Port)
 if ($existingListeners.Count -gt 0) {
     throw "Refusing startup: port $Port already has a listener. Verify its identity and stop only the intended process first."
 }
@@ -309,6 +309,8 @@ $status = [ordered]@{
     drawScheduler = 'disabled'
     financialPostingAndSimulation = 'disabled'
     processId = $process.Id
+    processStartedAt = $process.StartTime.ToString('o')
+    javaExecutable = (Get-Process -Id $process.Id -ErrorAction Stop).Path
     artifactPath = $jar.FullName
     sourceCommit = $env:BINGO_QA_BUILD_COMMIT
     artifactSha256 = $jarHash

@@ -10,7 +10,7 @@
         <relativePath/>
     </parent>
 
-    <groupId>com.equar.bingo</groupId>
+    <groupId>com.bakaroo.bingo</groupId>
     <artifactId>bingo-backend</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>bingo-backend</name>

@@ -1,5 +1,79 @@
 Set-StrictMode -Version Latest
 
+if (-not ('BingoQaProcessCommandLineProbe' -as [type])) {
+    Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+public static class BingoQaProcessCommandLineProbe {
+  [StructLayout(LayoutKind.Sequential)] struct UnicodeString { public ushort Length; public ushort MaximumLength; public IntPtr Buffer; }
+  [DllImport("kernel32.dll", SetLastError=true)] static extern IntPtr OpenProcess(uint access, bool inherit, int processId);
+  [DllImport("kernel32.dll", SetLastError=true)] static extern bool CloseHandle(IntPtr handle);
+  [DllImport("ntdll.dll")] static extern int NtQueryInformationProcess(IntPtr process, int infoClass, IntPtr info, uint length, out uint returned);
+  public static bool Matches(int pid, string jar, string resourceUri) {
+    IntPtr handle=OpenProcess(0x1000,false,pid);
+    if(handle==IntPtr.Zero) return false;
+    try {
+      IntPtr buffer=Marshal.AllocHGlobal(65536);
+      try {
+        uint returned;
+        int status=NtQueryInformationProcess(handle,60,buffer,65536,out returned);
+        if(status!=0) return false;
+        UnicodeString value=Marshal.PtrToStructure<UnicodeString>(buffer);
+        string command=Marshal.PtrToStringUni(value.Buffer,value.Length/2);
+        bool jarMatch=command.Contains("-jar \""+jar+"\"") || command.Contains("-jar "+jar);
+        bool profileMatch=command.Contains("--spring.profiles.active=android-test");
+        bool configMatch=command.Contains("--spring.config.additional-location="+resourceUri);
+        return jarMatch && profileMatch && configMatch;
+      } finally { Marshal.FreeHGlobal(buffer); }
+    } finally { CloseHandle(handle); }
+  }
+}
+'@
+}
+
+function ConvertTo-UpperHexString {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][byte[]]$Bytes)
+
+    # Matches Convert.ToHexString while remaining available in Windows PowerShell 5.1.
+    return [System.BitConverter]::ToString($Bytes).Replace('-', '')
+}
+
+function Get-QAScenarioStatusesFromOutput {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string[]]$OutputLines,
+        [Parameter(Mandatory)][string[]]$ScenarioNames
+    )
+
+    $statuses = @{}
+    foreach ($name in $ScenarioNames) { $statuses[$name] = 'NOT RUN' }
+    foreach ($line in $OutputLines) {
+        $marker = [regex]::Match($line, 'QA_SCENARIO_(START|PASS):([a-z0-9-]+)')
+        if (-not $marker.Success) { continue }
+        $name = $marker.Groups[2].Value
+        if (-not $statuses.ContainsKey($name)) { continue }
+        if ($marker.Groups[1].Value -eq 'PASS') { $statuses[$name] = 'PASS' }
+        elseif ($statuses[$name] -ne 'PASS') { $statuses[$name] = 'FAIL' }
+    }
+    return $statuses
+}
+
+function Test-AndroidTestProcessCommandLine {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][int]$ProcessId,
+        [Parameter(Mandatory)][string]$JarPath,
+        [Parameter(Mandatory)][string]$TestResourcesUri
+    )
+
+    try {
+        return [BingoQaProcessCommandLineProbe]::Matches($ProcessId, $JarPath, $TestResourcesUri)
+    } catch {
+        return $false
+    }
+}
+
 function Get-AndroidTestBackendSourceFingerprint {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$RepositoryRoot)
@@ -20,10 +94,27 @@ function Get-AndroidTestBackendSourceFingerprint {
     $manifest = [string]::Join("`n", $entries)
     $sha = [System.Security.Cryptography.SHA256]::Create()
     try {
-        return [Convert]::ToHexString($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($manifest)))
+        return ConvertTo-UpperHexString -Bytes $sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($manifest))
     } finally {
         $sha.Dispose()
     }
+}
+
+function Get-AndroidTestTcpListenerPids {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][ValidateRange(1, 65535)][int]$Port)
+
+    $netstat = Get-Command netstat.exe -ErrorAction Stop
+    $lines = & $netstat.Source -ano -p tcp 2>$null
+    if ($LASTEXITCODE -ne 0) { throw 'Could not inspect local TCP listeners with netstat.' }
+    $pids = @(
+        foreach ($line in $lines) {
+            if ([string]$line -match ('^\s*TCP\s+\S+:' + $Port + '\s+\S+\s+LISTENING\s+(\d+)\s*$')) {
+                [int]$matches[1]
+            }
+        }
+    ) | Sort-Object -Unique
+    return ,$pids
 }
 
 function Assert-AndroidTestDatasource {
@@ -190,4 +281,4 @@ function Assert-AndroidTestBackendRuntimeIdentity {
     }
 }
 
-Export-ModuleMember -Function Get-AndroidTestBackendSourceFingerprint, Assert-AndroidTestDatasource, Assert-AndroidTestMysqlIdentity, Assert-AgentAndroidE2EEnvironment, Assert-AndroidTestBackendRuntimeIdentity
+Export-ModuleMember -Function ConvertTo-UpperHexString, Get-QAScenarioStatusesFromOutput, Get-AndroidTestBackendSourceFingerprint, Get-AndroidTestTcpListenerPids, Test-AndroidTestProcessCommandLine, Assert-AndroidTestDatasource, Assert-AndroidTestMysqlIdentity, Assert-AgentAndroidE2EEnvironment, Assert-AndroidTestBackendRuntimeIdentity

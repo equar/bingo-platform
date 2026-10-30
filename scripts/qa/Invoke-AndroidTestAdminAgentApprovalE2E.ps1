@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
-    [string]$AdminUrl = 'http://127.0.0.1:5174'
+    [string]$AdminUrl = 'http://127.0.0.1:5174',
+    [switch]$LoginReadinessOnly
 )
 
 $ErrorActionPreference = 'Stop'
@@ -12,16 +13,22 @@ $policyModule = Join-Path $PSScriptRoot 'AndroidTestBackendPolicy.psm1'
 $adminConfig = Join-Path $repoRoot 'bingo-admin\.env.qa'
 $agentConfig = Join-Path $repoRoot 'bingo-agent\e2e-secrets.json'
 $testFile = Join-Path $repoRoot 'bingo-admin\tests\e2e\module-06a9-agent-approval.spec.ts'
-$logPath = Join-Path $repoRoot 'docs\qa\evidence\module-06a9\QA_M06A9_20261027_admin-approval.log'
+$evidenceId = 'QA_M06A9_' + (Get-Date -Format 'yyyyMMdd_HHmmss_fff')
+$testPath = if ($LoginReadinessOnly) { 'tests/e2e/module-06a9-admin-login-readiness.spec.ts' } else { 'tests/e2e/module-06a9-agent-approval.spec.ts' }
+$logSuffix = if ($LoginReadinessOnly) { 'admin-login-readiness' } else { 'admin-approval' }
+$logPath = Join-Path $repoRoot "docs\qa\evidence\module-06a9\$evidenceId-$logSuffix.log"
 Import-Module $policyModule -Force
 
 if (-not (Test-Path -LiteralPath $identityFile)) {
     throw 'BLOCKED: guarded Android-test backend identity evidence is missing.'
 }
 $identity = Get-Content -LiteralPath $identityFile -Raw | ConvertFrom-Json
-$listeners = @(Get-NetTCPConnection -LocalPort 8082 -State Listen -ErrorAction SilentlyContinue)
-if ($listeners.Count -ne 1) { throw 'BLOCKED: exactly one verified backend listener is required on port 8082.' }
-$listenerPid = [int]$listeners[0].OwningProcess
+$listenerPids = @(Get-AndroidTestTcpListenerPids -Port 8082)
+if ($listenerPids.Count -ne 1) { throw 'BLOCKED: exactly one verified backend listener is required on port 8082.' }
+$listenerPid = [int]$listenerPids[0]
+if ($listenerPid -ne [int]$identity.processId) { throw 'BLOCKED: 8082 listener does not match the saved isolated backend PID.' }
+$backendProcess = Get-Process -Id $listenerPid -ErrorAction Stop
+if ($backendProcess.ProcessName -ne 'java' -or [System.IO.Path]::GetFileName($backendProcess.Path) -ne 'java.exe') { throw 'BLOCKED: 8082 listener process is not Java.' }
 $logDir = Join-Path $env:TEMP 'bingo-platform-module-06a5'
 $runtimeLogs = ((Get-Content -LiteralPath (Join-Path $logDir 'backend.stdout.log') -ErrorAction SilentlyContinue) +
     (Get-Content -LiteralPath (Join-Path $logDir 'backend.stderr.log') -ErrorAction SilentlyContinue)) -join "`n"
@@ -37,9 +44,17 @@ $jar = if ($identity.artifactPath) {
         Sort-Object LastWriteTime -Descending | Select-Object -First 1
 }
 $jarMatches = $jar -and (Get-FileHash -LiteralPath $jar.FullName -Algorithm SHA256).Hash -eq $identity.artifactSha256
-$head = (& git -C $repoRoot rev-parse HEAD).Trim()
+$resourceUri = ([Uri]::new(((Join-Path $repoRoot 'bingo-backend\src\test\resources').TrimEnd('\') + '\'))).AbsoluteUri
+$jarPath = if ($jar) { [System.IO.Path]::GetFullPath($jar.FullName) } else { '' }
+if (-not $jarPath -or -not (Test-AndroidTestProcessCommandLine -ProcessId $listenerPid -JarPath $jarPath -TestResourcesUri $resourceUri)) {
+    throw 'BLOCKED: native process inspection could not verify the exact QA JAR and android-test launch arguments.'
+}
 $sourceFingerprint = Get-AndroidTestBackendSourceFingerprint -RepositoryRoot $repoRoot
-$sourceMatches = $head -eq $identity.sourceCommit -and $sourceFingerprint -eq $identity.sourceSha256
+$sourceMatches = $sourceFingerprint -eq $identity.sourceSha256
+$identityLog = [regex]::Match($identityLine, '^(?<time>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3})')
+$identityTime = if ($identityLog.Success) { [DateTimeOffset]::Parse($identityLog.Groups['time'].Value) } else { [DateTimeOffset]::MinValue }
+$processStartedAt = [DateTimeOffset]$backendProcess.StartTime
+if ($identityTime -lt $processStartedAt -or $identityTime -gt $processStartedAt.AddMinutes(5)) { throw 'BLOCKED: runtime identity log is not contemporaneous with the listener process start.' }
 $null = Assert-AndroidTestBackendRuntimeIdentity `
     -BackendIdentity $identity `
     -RuntimeIdentityLine $identityLine `
@@ -60,7 +75,7 @@ if (-not (Test-Path -LiteralPath $adminConfig) -or -not (Test-Path -LiteralPath 
 }
 foreach ($path in @($adminConfig, $agentConfig)) {
     $relative = $path.Substring($repoRoot.Length).TrimStart('\').Replace('\', '/')
-    & git -C $repoRoot check-ignore -q $relative
+    & git -c safe.directory=D:/GitHub/bingo-platform -C $repoRoot check-ignore -q $relative
     if ($LASTEXITCODE -ne 0) { throw 'BLOCKED: E2E credentials must remain in ignored local configuration.' }
 }
 
@@ -90,7 +105,7 @@ try {
     Push-Location (Join-Path $repoRoot 'bingo-admin')
     try {
         $npm = (Get-Command npm.cmd -ErrorAction Stop).Source
-        $arguments = @('run', 'e2e', '--', '--project=chromium', 'tests/e2e/module-06a9-agent-approval.spec.ts')
+        $arguments = @('run', 'e2e', '--', '--project=chromium', $testPath)
         $output = & $npm @arguments 2>&1
         $exitCode = $LASTEXITCODE
         foreach ($entry in $output) {
@@ -117,4 +132,8 @@ try {
     $adminSettings['BINGO_E2E_ADMIN_PASSWORD'] = $null
 }
 
-Write-Host "PASS: Admin Chromium normal approval flow; sanitized evidence: $logPath"
+if ($LoginReadinessOnly) {
+    Write-Host "PASS: Admin Chromium login readiness and retained Agent state check; sanitized evidence: $logPath"
+} else {
+    Write-Host "PASS: Admin Chromium normal approval flow; sanitized evidence: $logPath"
+}

@@ -35,4 +35,4 @@ Execution date: 2026-10-24 (Africa/Nairobi). Detailed outcomes are recorded sepa
 
 ## Execution boundary
 
-Maven tests use the guarded `bingo_qa_test` MySQL 8.0.36 catalog. Android tests run `com.example.bingo_app` on emulator-5554 against `10.0.2.2:8081`. Persistent `bingo_qa` is queried only with SELECT statements for reconciliation. No 03C–03E work or Module 02 financial-policy work is part of this module.
+Maven tests use the guarded `bingo_qa_test` MySQL 8.0.36 catalog. Android tests run `com.bakaroo.bingo.bingo_app` on emulator-5554 against `10.0.2.2:8081`. Persistent `bingo_qa` is queried only with SELECT statements for reconciliation. No 03C–03E work or Module 02 financial-policy work is part of this module.
