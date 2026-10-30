@@ -30,7 +30,7 @@ class GameWebSocketJwtChannelInterceptorTest {
     JwtService jwtService;
     BingoUserDetailsService userDetailsService;
     GameWebSocketJwtChannelInterceptor interceptor;
-    com.equar.bingo.backend.feature.community.service.GameAccessService gameAccess;
+    com.bakaroo.bingo.backend.feature.community.service.GameAccessService gameAccess;
 
     User admin;
 
@@ -50,7 +50,7 @@ class GameWebSocketJwtChannelInterceptorTest {
                 return new BingoUserPrincipal(admin);
             }
         };
-        gameAccess = org.mockito.Mockito.mock(com.equar.bingo.backend.feature.community.service.GameAccessService.class);
+        gameAccess = org.mockito.Mockito.mock(com.bakaroo.bingo.backend.feature.community.service.GameAccessService.class);
         interceptor = new GameWebSocketJwtChannelInterceptor(jwtService, userDetailsService, gameAccess);
 
         admin = User.create("251911000001", "Admin One", "hash", AccountStatus.ACTIVE, Set.of(UserRole.ADMIN),
@@ -86,9 +86,9 @@ class GameWebSocketJwtChannelInterceptorTest {
         var message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
         interceptor.preSend(message, null);
         org.mockito.Mockito.verify(gameAccess).requireSessionAccess(42L, principal);
-        org.mockito.Mockito.doThrow(new com.equar.bingo.backend.common.exception.NotFoundException("ROOM_NOT_FOUND", "Room not found"))
+        org.mockito.Mockito.doThrow(new com.bakaroo.bingo.backend.common.exception.NotFoundException("ROOM_NOT_FOUND", "Room not found"))
             .when(gameAccess).requireSessionAccess(42L, principal);
-        assertThrows(com.equar.bingo.backend.common.exception.NotFoundException.class, () -> interceptor.preSend(message, null));
+        assertThrows(com.bakaroo.bingo.backend.common.exception.NotFoundException.class, () -> interceptor.preSend(message, null));
     }
 
     @Test

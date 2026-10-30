@@ -90,7 +90,7 @@ class WinClaimSessionSecurityTest {
                 drawEventRepository, winClaimRepository, prizeEntitlementRepository, userRepository,
                 walletRepository, walletTransactionRepository, gameProperties, snapshotMapper,
                 idempotencyService, requestHashService, objectMapper, ticketPurchasePostingGuard,
-                gameLiveDrawService, org.mockito.Mockito.mock(com.equar.bingo.backend.feature.community.service.GameAccessService.class));
+                gameLiveDrawService, org.mockito.Mockito.mock(com.bakaroo.bingo.backend.feature.community.service.GameAccessService.class));
 
     }
 

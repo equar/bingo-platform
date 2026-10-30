@@ -1,9 +1,9 @@
-package com.equar.bingo.backend.feature.community.controller;
+package com.bakaroo.bingo.backend.feature.community.controller;
 
-import static com.equar.bingo.backend.feature.community.dto.CommunityDtos.*;
+import static com.bakaroo.bingo.backend.feature.community.dto.CommunityDtos.*;
 
-import com.equar.bingo.backend.feature.auth.service.BingoUserPrincipal;
-import com.equar.bingo.backend.feature.community.service.*;
+import com.bakaroo.bingo.backend.feature.auth.service.BingoUserPrincipal;
+import com.bakaroo.bingo.backend.feature.community.service.*;
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.security.access.prepost.PreAuthorize;

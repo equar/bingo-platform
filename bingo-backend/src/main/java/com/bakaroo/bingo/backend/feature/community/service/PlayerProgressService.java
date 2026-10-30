@@ -1,13 +1,13 @@
-package com.equar.bingo.backend.feature.community.service;
+package com.bakaroo.bingo.backend.feature.community.service;
 
-import static com.equar.bingo.backend.feature.community.dto.CommunityDtos.*;
+import static com.bakaroo.bingo.backend.feature.community.dto.CommunityDtos.*;
 
-import com.equar.bingo.backend.common.exception.*;
-import com.equar.bingo.backend.common.idempotency.*;
-import com.equar.bingo.backend.common.request.RequestHashService;
-import com.equar.bingo.backend.feature.audit.service.AuditLogService;
-import com.equar.bingo.backend.feature.auth.service.BingoUserPrincipal;
-import com.equar.bingo.backend.feature.community.repository.CommunityRepository;
+import com.bakaroo.bingo.backend.common.exception.*;
+import com.bakaroo.bingo.backend.common.idempotency.*;
+import com.bakaroo.bingo.backend.common.request.RequestHashService;
+import com.bakaroo.bingo.backend.feature.audit.service.AuditLogService;
+import com.bakaroo.bingo.backend.feature.auth.service.BingoUserPrincipal;
+import com.bakaroo.bingo.backend.feature.community.repository.CommunityRepository;
 import java.text.Normalizer;
 import java.time.*;
 import java.time.temporal.TemporalAdjusters;

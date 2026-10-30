@@ -1,9 +1,9 @@
-package com.equar.bingo.backend.feature.community.controller;
+package com.bakaroo.bingo.backend.feature.community.controller;
 
-import static com.equar.bingo.backend.feature.community.dto.CommunityDtos.*;
+import static com.bakaroo.bingo.backend.feature.community.dto.CommunityDtos.*;
 
-import com.equar.bingo.backend.feature.auth.service.BingoUserPrincipal;
-import com.equar.bingo.backend.feature.community.service.*;
+import com.bakaroo.bingo.backend.feature.auth.service.BingoUserPrincipal;
+import com.bakaroo.bingo.backend.feature.community.service.*;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;

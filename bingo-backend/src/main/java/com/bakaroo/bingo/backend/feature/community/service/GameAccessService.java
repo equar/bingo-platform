@@ -1,9 +1,9 @@
-package com.equar.bingo.backend.feature.community.service;
+package com.bakaroo.bingo.backend.feature.community.service;
 
-import com.equar.bingo.backend.common.exception.NotFoundException;
-import com.equar.bingo.backend.feature.auth.service.BingoUserPrincipal;
-import com.equar.bingo.backend.feature.game.repository.GameSessionRepository;
-import com.equar.bingo.backend.feature.user.entity.UserRole;
+import com.bakaroo.bingo.backend.common.exception.NotFoundException;
+import com.bakaroo.bingo.backend.feature.auth.service.BingoUserPrincipal;
+import com.bakaroo.bingo.backend.feature.game.repository.GameSessionRepository;
+import com.bakaroo.bingo.backend.feature.user.entity.UserRole;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;

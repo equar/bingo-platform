@@ -82,7 +82,7 @@ public class BingoGameService {
     };
     private static final int GRID_SIZE = 5;
 
-    private final com.equar.bingo.backend.feature.community.service.GameAccessService gameAccess;
+    private final com.bakaroo.bingo.backend.feature.community.service.GameAccessService gameAccess;
     private final BingoRoomRepository bingoRoomRepository;
     private final GameSessionRepository gameSessionRepository;
     private final TicketRepository ticketRepository;
@@ -119,7 +119,7 @@ public class BingoGameService {
             ObjectMapper objectMapper,
             LocalFinancialSimulationGuard ticketPurchasePostingGuard,
             GameLiveDrawService gameLiveDrawService,
-            com.equar.bingo.backend.feature.community.service.GameAccessService gameAccess) {
+            com.bakaroo.bingo.backend.feature.community.service.GameAccessService gameAccess) {
         this.gameAccess = gameAccess;
         this.bingoRoomRepository = bingoRoomRepository;
         this.gameSessionRepository = gameSessionRepository;
