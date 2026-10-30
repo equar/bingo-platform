@@ -36,3 +36,11 @@ For the current guarded player Android workflow, use [Local E2E Testing](../docs
 The older `integration_test/local_e2e_test.dart` harness and `scripts/run-local-e2e.ps1` remain for historical/local development use. They do not enforce the current isolated-schema preflight, and the script's default backend URL is the development service. Do not use this harness against `bingo`, persistent `bingo_qa`, or any shared database, and do not report its Flutter test-harness run as real Android E2E unless it was explicitly run on a device against an authorized isolated MySQL schema.
 
 That legacy harness requires `BINGO_E2E_PRIMARY_PHONE` and `BINGO_E2E_PRIMARY_PASSWORD`; it has no committed account or PIN fallbacks. Its setup test generates a secondary PIN at runtime. For any approved local run, keep credentials in the ignored `e2e-secrets.json` copied from `e2e-secrets.example.json`, pass the file rather than secret values on the command line, and never retain credentials in logs or manifests.
+
+## Direct-share production packages
+
+Production backend: `https://api.bingo.bakaroo.com` (no `/api` suffix).
+REST clients already include `/api/v1`; live draws use `wss://api.bingo.bakaroo.com/ws`.
+From the repository root, run `bash deployment/mobile/build-packages.sh android`
+to build signed APKs for both apps. See [package/signing instructions](../deployment/mobile/README.md)
+for outputs, signing backups, and iOS Ad Hoc requirements.

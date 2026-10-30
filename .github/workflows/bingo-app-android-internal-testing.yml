@@ -12,7 +12,7 @@ on:
         description: Public HTTPS API base URL for the release build
         type: string
         required: true
-        default: https://api.sunsetbingo.example
+        default: https://api.bingo.bakaroo.com
 
 permissions:
   contents: read

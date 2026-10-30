@@ -18,21 +18,35 @@ import org.springframework.util.StringUtils;
 @Component
 public class GameWebSocketJwtChannelInterceptor implements ChannelInterceptor {
 
+    private final com.equar.bingo.backend.feature.community.service.GameAccessService gameAccess;
     private final JwtService jwtService;
     private final BingoUserDetailsService userDetailsService;
 
-    public GameWebSocketJwtChannelInterceptor(JwtService jwtService, BingoUserDetailsService userDetailsService) {
+    public GameWebSocketJwtChannelInterceptor(JwtService jwtService, BingoUserDetailsService userDetailsService,
+            com.equar.bingo.backend.feature.community.service.GameAccessService gameAccess) {
+        this.gameAccess = gameAccess;
         this.jwtService = jwtService;
         this.userDetailsService = userDetailsService;
     }
 
     @Override
     public Message<?> preSend(Message<?> message, MessageChannel channel) {
-        StompHeaderAccessor accessor = StompHeaderAccessor.wrap(message);
+        StompHeaderAccessor original = org.springframework.messaging.support.MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
+        StompHeaderAccessor accessor = original != null && original.isMutable() ? original : StompHeaderAccessor.wrap(message);
         if (StompCommand.CONNECT.equals(accessor.getCommand())) {
             Authentication authentication = authenticate(accessor.getNativeHeader("Authorization"));
             accessor.setUser(authentication);
             return MessageBuilder.createMessage(message.getPayload(), accessor.getMessageHeaders());
+        }
+        if (StompCommand.SUBSCRIBE.equals(accessor.getCommand())) {
+            String destination = accessor.getDestination();
+            if (destination == null || !destination.matches("/topic/session/[0-9]+/draws")
+                    || !(accessor.getUser() instanceof Authentication auth)
+                    || !(auth.getPrincipal() instanceof BingoUserPrincipal principal)) {
+                throw new IllegalArgumentException("Unsupported or unauthenticated subscription");
+            }
+            Long sessionId = Long.valueOf(destination.split("/")[3]);
+            gameAccess.requireSessionAccess(sessionId, principal);
         }
         return message;
     }

@@ -30,6 +30,7 @@ class GameWebSocketJwtChannelInterceptorTest {
     JwtService jwtService;
     BingoUserDetailsService userDetailsService;
     GameWebSocketJwtChannelInterceptor interceptor;
+    com.equar.bingo.backend.feature.community.service.GameAccessService gameAccess;
 
     User admin;
 
@@ -49,7 +50,8 @@ class GameWebSocketJwtChannelInterceptorTest {
                 return new BingoUserPrincipal(admin);
             }
         };
-        interceptor = new GameWebSocketJwtChannelInterceptor(jwtService, userDetailsService);
+        gameAccess = org.mockito.Mockito.mock(com.equar.bingo.backend.feature.community.service.GameAccessService.class);
+        interceptor = new GameWebSocketJwtChannelInterceptor(jwtService, userDetailsService, gameAccess);
 
         admin = User.create("251911000001", "Admin One", "hash", AccountStatus.ACTIVE, Set.of(UserRole.ADMIN),
                 Instant.parse("2026-01-01T00:00:00Z"));
@@ -73,5 +75,40 @@ class GameWebSocketJwtChannelInterceptorTest {
         StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.CONNECT);
         Message<byte[]> message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
         assertThrows(IllegalArgumentException.class, () -> interceptor.preSend(message, null));
+    }
+    @Test
+    void checksAuthoritativeMembershipForEverySessionSubscription() {
+        var principal = new BingoUserPrincipal(admin);
+        var auth = org.springframework.security.authentication.UsernamePasswordAuthenticationToken.authenticated(principal, null, principal.getAuthorities());
+        var accessor = StompHeaderAccessor.create(StompCommand.SUBSCRIBE);
+        accessor.setDestination("/topic/session/42/draws");
+        accessor.setUser(auth);
+        var message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
+        interceptor.preSend(message, null);
+        org.mockito.Mockito.verify(gameAccess).requireSessionAccess(42L, principal);
+        org.mockito.Mockito.doThrow(new com.equar.bingo.backend.common.exception.NotFoundException("ROOM_NOT_FOUND", "Room not found"))
+            .when(gameAccess).requireSessionAccess(42L, principal);
+        assertThrows(com.equar.bingo.backend.common.exception.NotFoundException.class, () -> interceptor.preSend(message, null));
+    }
+
+    @Test
+    void rejectsAnonymousAndWildcardSubscriptions() {
+        var accessor = StompHeaderAccessor.create(StompCommand.SUBSCRIBE);
+        accessor.setDestination("/topic/**");
+        var message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
+        assertThrows(IllegalArgumentException.class, () -> interceptor.preSend(message, null));
+    }
+
+    @Test
+    void clientsCannotInjectDrawEventsIntoBrokerTopics() {
+        var accessor = StompHeaderAccessor.create(StompCommand.SEND);
+        accessor.setDestination("/topic/session/42/draws");
+        var message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
+        var config = new GameWebSocketSecurityConfig();
+        var builder = org.springframework.security.messaging.access.intercept.MessageMatcherDelegatingAuthorizationManager.builder();
+        var manager = config.messageAuthorizationManager(builder);
+        var principal = new BingoUserPrincipal(admin);
+        var auth = org.springframework.security.authentication.UsernamePasswordAuthenticationToken.authenticated(principal, null, principal.getAuthorities());
+        assertThat(manager.authorize(() -> auth, message).isGranted()).isFalse();
     }
 }

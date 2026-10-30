@@ -35,8 +35,29 @@ class _BingoAppView extends ConsumerWidget {
       onGenerateTitle: (context) => AppLocalizations.of(context)!.appTitle,
       theme: ThemeData(
         useMaterial3: true,
-        colorSchemeSeed: const Color(0xFF0E6C4A),
-        scaffoldBackgroundColor: const Color(0xFFF7F4EE),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF1688FF),
+          primary: const Color(0xFF1688FF),
+          secondary: const Color(0xFFFF7900),
+          onSurface: const Color(0xFF081D46),
+        ),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFFFAFBFD),
+          foregroundColor: Color(0xFF081D46),
+          surfaceTintColor: Colors.transparent,
+          centerTitle: false,
+        ),
+        filledButtonTheme: FilledButtonThemeData(
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFFFF7900),
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+          ),
+        ),
+        scaffoldBackgroundColor: const Color(0xFFFAFBFD),
       ),
       localizationsDelegates: const [
         AppLocalizations.delegate,

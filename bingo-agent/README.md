@@ -1,6 +1,6 @@
 # bingo-agent
 
-Flutter counter-service agent app for Android and web. There is no iOS platform project in this repository at present.
+Flutter counter-service agent app for Android and web. An iOS platform project is included for Ad Hoc distribution once Apple signing is configured.
 
 Requires Flutter 3.41.0 or newer and Dart 3.11.0 or newer. CI checks both the
 minimum Flutter version (3.41.0) and the current pinned version (3.47.7).
@@ -31,3 +31,11 @@ Before a new functional run, follow the [mandatory real E2E policy](../docs/qa/m
 ```
 
 The guarded launcher verifies the live backend runtime identity, database target and grants, and exact approved/pending Agent fixtures before starting the Android UI test. It fails closed on missing or unsafe configuration and does not create accounts or enable financial posting. The ignored `e2e-secrets.json` file supplies local phone/PIN test credentials; never commit or include its values in logs. Do not use the historical `bingo_qa` setup for new writes, and do not count widget/unit tests as Android E2E. See the latest attempt in [Module 01](../docs/qa/modules/module-01-authentication.md).
+
+## Direct-share production packages
+
+Production backend: `https://api.bingo.bakaroo.com` (no `/api` suffix).
+REST clients already include `/api/v1`; live draws use `wss://api.bingo.bakaroo.com/ws`.
+From the repository root, run `bash deployment/mobile/build-packages.sh android`
+to build signed APKs for both apps. See [package/signing instructions](../deployment/mobile/README.md)
+for outputs, signing backups, and iOS Ad Hoc requirements.

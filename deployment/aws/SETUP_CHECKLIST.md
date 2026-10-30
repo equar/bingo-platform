@@ -109,3 +109,15 @@ Do not copy credentials, host addresses, or Graph settings from BillPay.
 No server, database, DNS records, repository secrets, or branch protections
 are created merely by checking in these files. No live deployment has been
 verified by this implementation.
+
+## Automated Nginx and certificate setup
+
+After DNS points all three Bingo names to the host, copy
+`setup-web-host.sh` and `nginx-bingo.conf.template` into the same directory
+on the server and run `sudo bash setup-web-host.sh`. This installs only the
+Bingo virtual hosts, obtains the `bingo-platform` certificate using the
+existing Certbot account, validates HTTPS for all three domains, and stores a
+renewal hook to reload Nginx. Existing Certbot renewal timers are reused.
+The script restores the previous Bingo Nginx configuration if setup fails.
+The application deploy script does not perform this one-time host setup;
+its frontend step now verifies TLS before uploading files.

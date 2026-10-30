@@ -6,7 +6,7 @@
   "invalidApiBaseUrlTitle": "የAPI መሠረታዊ አድራሻ ልክ አይደለም",
   "invalidApiBaseUrlBody": "API_BASE_URL እንደ ፍጹም http:// ወይም https:// አድራሻ ያስቀምጡ። የአካባቢ HTTP ለልማት ብቻ ነው፤ የምርት ስሪቶች HTTPS ይፈልጋሉ እና localhost አይቀበሉም።",
   "loading": "በመጫን ላይ...",
-  "retry": "ድገም",
+  "retry": "እንደገና ይሞክሩ",
   "errorGeneric": "ችግኝ ተፈጥሯል።",
   "emptyState": "ምንም ንጥል አልተገኘም።",
   "loginTitle": "ግባ",
@@ -90,9 +90,21 @@
   "sessionSchedule": "የተያዘበት ጊዜ (UTC)",
   "gamePatterns": "የጨዋታ ንድፎች",
   "sessionStatus": "ሁኔታ፦ {state}",
-  "@sessionStatus": { "placeholders": { "state": { "type": "String" } } },
+  "@sessionStatus": {
+    "placeholders": {
+      "state": {
+        "type": "String"
+      }
+    }
+  },
   "sessionUnavailable": "ሊጫወት አይችልም፦ {state}",
-  "@sessionUnavailable": { "placeholders": { "state": { "type": "String" } } },
+  "@sessionUnavailable": {
+    "placeholders": {
+      "state": {
+        "type": "String"
+      }
+    }
+  },
   "enterSessionIdLabel": "የሴሽን ID",
   "loadSession": "ሴሽን አሳይ",
   "sessionIdRequired": "የሴሽን ID ያስገቡ።",
@@ -143,7 +155,6 @@
   "profileTitle": "መገለጫ",
   "profileRefresh": "መገለጫን አድስ",
   "profileLoadError": "መገለጫዎን ማደስ አልተቻለም። የበይነመረብ ግንኙነትዎን ያረጋግጡና እንደገና ይሞክሩ።",
-  "retry": "እንደገና ይሞክሩ",
   "logout": "ውጣ",
   "profileMemberSince": "ከዚህ ጀምሮ",
   "profileRoles": "ሚናዎች",
@@ -169,9 +180,83 @@
   "ticketEligibilityTitle": "የጨዋታ ክፍለ ጊዜ",
   "ticketRoomInactive": "ይህ ክፍል ንቁ አይደለም። ቲኬቶች አይገኙም።",
   "ticketSessionIneligible": "ይህ ክፍለ ጊዜ ለቲኬት ሽያጭ ክፍት አይደለም ({state})።",
-  "@ticketSessionIneligible": { "placeholders": { "state": { "type": "String" } } },
+  "@ticketSessionIneligible": {
+    "placeholders": {
+      "state": {
+        "type": "String"
+      }
+    }
+  },
   "ticketSessionFull": "በዚህ ክፍለ ጊዜ የሚገኝ ቦታ የለም።",
   "ticketSessionAvailable": "ይህ ክፍለ ጊዜ ክፍት ነው እና ቦታዎች አሉ። ይህ ሊቀየር ይችላል።",
   "ticketPurchaseDisabledBody": "በዚህ የQA ቅድመ እይታ ግዢ ተሰናክሏል። ቲኬት አይፈጠርም፣ ከዋሌትም ገንዘብ አይቀነስም።",
-  "refresh": "አድስ"
+  "refresh": "አድስ",
+  "homeTitle": "መነሻ",
+  "homeGames": "ጨዋታዎች",
+  "homeMenu": "ምናሌ ክፈት",
+  "homePlayBingo": "ቢንጎ ይጫወቱ",
+  "homeLiveGames": "ቀጥታ ጨዋታዎች",
+  "homeLiveGamesBody": "ከሌሎች ጋር ይጫወቱ",
+  "homePrivateGame": "የግል ጨዋታ",
+  "homeDailyChallenge": "ዕለታዊ ፈተና",
+  "homeLeaderboard": "የደረጃ ሰንጠረዥ",
+  "homeComingSoon": "በቅርብ ቀን",
+  "homeUpcomingBody": "ይህ አገልግሎት በቅርብ ቀን ይመጣል። አሁን ያሉትን የጨዋታ ክፍሎች ማየት እና መጫወት ይችላሉ።",
+  "homeBrowseGames": "ጨዋታዎችን ይመልከቱ",
+  "homePlayAndWin": "ይጫወቱ እና ያሸንፉ",
+  "homePlayAndWinBody": "ቀጣዩ ጨዋታዎ እዚህ ይጀምራል።",
+  "privateHomeBody": "ከጓደኞች ጋር ይጫወቱ",
+  "challengeHomeBody": "ዕለታዊ ነጥቦችን ያግኙ",
+  "leaderboardHomeBody": "ከፍተኛ ተጫዋቾችን ይመልከቱ",
+  "privateIntro": "ከተፈቀደ የቢንጎ ክፍል የግል ጨዋታ ይፍጠሩ ወይም በጓደኛዎ ኮድ ይቀላቀሉ። የትኬት ዋጋና የሽልማት ደንቦች አይለወጡም።",
+  "privateCreate": "ጨዋታ ይፍጠሩ",
+  "privateJoin": "በኮድ ይቀላቀሉ",
+  "privateEmpty": "የግል ጨዋታዎችዎ እዚህ ይታያሉ። ይፍጠሩ ወይም ከጓደኛዎ ኮድ ይጠይቁ።",
+  "privateAgentReference": "ትኬት ለማግኘት ይህን የጨዋታ ቁጥር ለወኪልዎ ይስጡ። መጀመሪያ ክፍሉን ይቀላቀሉ።",
+  "privateRulesFixed": "አዘጋጁ የትኬት ዋጋን፣ ቅጦችን፣ ሽልማቶችን ወይም የሚወጡ ቁጥሮችን መቀየር አይችልም። የግል ጨዋታዎች የፈተና ወይም የደረጃ ነጥብ አያስገኙም።",
+  "privateOpenRoom": "ክፍሉንና ትኬቶችን ይክፈቱ",
+  "privateStartHelp": "ቢያንስ ሁለት አባላት ትኬት ሲኖራቸው አዘጋጁ መጀመር ይችላል። ቁጥሮች በራስ ሰር ይወጣሉ።",
+  "privateInvite": "የመጋበዣ ኮድ ይፍጠሩ",
+  "privateStart": "ጨዋታ ይጀምሩ",
+  "privateCancel": "ጨዋታ ይሰርዙ",
+  "privateRotateWarning": "አዲስ ኮድ ይፈጠር? የቀድሞ ኮድ አይሰራም። አባላት መግባት መቀጠል ይችላሉ።",
+  "privateCancelWarning": "ያልተጀመሩና ትኬት የሌላቸው ጨዋታዎች ብቻ ሊሰረዙ ይችላሉ። ትኬት ላለው ጨዋታ ድጋፍ ያነጋግሩ።",
+  "privateInviteHelp": "ይህን ኮድ በግል ያጋሩ። በ24 ሰዓት ወይም ጨዋታው ሲጀምር ያበቃል። አዲስ ኮድ በኋላ ማውጣት ይችላሉ።",
+  "privateCode": "የመጋበዣ ኮድ",
+  "privateName": "የጨዋታ ስም",
+  "privateTemplate": "የክፍል ደንቦች",
+  "privateTemplateHelp": "የትኬትና የሽልማት ደንቦቹን ለመጠቀም ክፍል ይምረጡ።",
+  "privateStartsIn": "ለመጀመር የቀረው",
+  "communitySession": "ጨዋታ",
+  "communityBack": "ተመለስ",
+  "communityContinue": "ቀጥል",
+  "communityCopy": "ቅዳ",
+  "communityCopied": "ተቀድቷል",
+  "communityMinutes": "ደቂቃ",
+  "communitySave": "አስቀምጥ",
+  "communityPoints": "ነጥቦች",
+  "challengeResets": "የሚታደስበት ጊዜ",
+  "challengeRules": "የተጠናቀቁ የሕዝብ ጨዋታዎች ብቻ ይቆጠራሉ። ሽልማት በቀን አንድ ጊዜ ብቻ ይወሰዳል። ነጥቦች የገንዘብ ዋጋ የላቸውም፤ የቦርሳ ቀሪዎን አይቀይሩም።",
+  "challengeFinish": "ጨዋታ ያጠናቅቁ",
+  "challengeFinishBody": "ዛሬ በሚጠናቀቅ የሕዝብ ጨዋታ ትኬት ይኑርዎት።",
+  "challengeExplore": "ክፍሎችን ይመልከቱ",
+  "challengeExploreBody": "ዛሬ በሁለት የተለያዩ ክፍሎች ጨዋታ ያጠናቅቁ። ተጨማሪ ትኬቶች ተጨማሪ እድገት አይጨምሩም።",
+  "challengeBingo": "የተረጋገጠ ቢንጎ",
+  "challengeBingoBody": "ዛሬ በተጠናቀቀ የሕዝብ ጨዋታ ቢንጎዎ ከቀኑ መጨረሻ በፊት ይረጋገጥ።",
+  "challengeClaimed": "ተወስዷል",
+  "challengeClaim": "ነጥቦችን ይውሰዱ",
+  "leaderboardPeriod": "የደረጃ ጊዜ",
+  "leaderboardDaily": "ዛሬ",
+  "leaderboardWeekly": "በዚህ ሳምንት",
+  "leaderboardAllTime": "ሁሉም ጊዜ",
+  "leaderboardRules": "ደረጃዎች በተወሰዱ የፈተና ነጥቦች ይሰላሉ፤ ወጪና የቦርሳ ቀሪ አይቆጠሩም። እኩል ነጥብ እኩል ደረጃ ይኖረዋል። ሳምንታዊ ደረጃ ሰኞ ይጀምራል።",
+  "leaderboardYourRank": "የእርስዎ ደረጃ",
+  "leaderboardVisible": "የይፋ ስምዎ በደረጃ ሰንጠረዥ ይታያል።",
+  "leaderboardHidden": "አሁን በግል ሁኔታ ላይ ነዎት። በደረጃ ሰንጠረዥ ለመታየት ይምረጡ።",
+  "leaderboardProfile": "የይፋ ደረጃ መገለጫ",
+  "leaderboardEmpty": "ገና የይፋ ነጥቦች የሉም። ዕለታዊ ፈተና ያጠናቅቁና ነጥብዎን ይውሰዱ።",
+  "leaderboardYou": "እርስዎ",
+  "leaderboardPrivacy": "የመረጡት ስምና ነጥቦች ብቻ ይታያሉ። ስልክዎን ወይም የግል መረጃ አይጠቀሙ። ነጥብ ሳይጠፋ መገለጫዎን መደበቅ ይችላሉ።",
+  "leaderboardAlias": "የይፋ ስም (አማራጭ)",
+  "leaderboardOptIn": "በደረጃ ሰንጠረዥ ላይ አሳየኝ"
 }
