@@ -20,14 +20,18 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
     _future = ref.read(communityRepositoryProvider).leaderboard(_period, _page);
   }
 
-  void _reload() => setState(
-    () => _future = ref
-        .read(communityRepositoryProvider)
-        .leaderboard(_period, _page),
-  );
+  void _reload() {
+    setState(() {
+      _future = ref
+          .read(communityRepositoryProvider)
+          .leaderboard(_period, _page);
+    });
+  }
+
   Future<void> _profile(Ranking ranking) async {
     final changed = await showDialog<bool>(
       context: context,
+      barrierDismissible: false,
       builder: (_) =>
           _PublicProfileDialog(alias: ranking.alias, visible: ranking.visible),
     );
@@ -96,16 +100,22 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                     ),
                   );
                 }
-                if (!snapshot.hasData) {
+                if (snapshot.connectionState == ConnectionState.waiting ||
+                    !snapshot.hasData) {
                   return const Center(child: CircularProgressIndicator());
                 }
                 final data = snapshot.data!;
                 return RefreshIndicator(
                   onRefresh: () async {
                     _reload();
-                    await _future;
+                    try {
+                      await _future;
+                    } catch (_) {
+                      // The FutureBuilder presents the load error and retry action.
+                    }
                   },
                   child: ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.all(20),
                     children: [
                       Text(l.leaderboardRules),
@@ -173,7 +183,8 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                           Text('${_page + 1}'),
                           TextButton(
                             onPressed:
-                                (_page + 1) * data.size >= data.totalPlayers
+                                _page >= 1000 ||
+                                    (_page + 1) * data.size >= data.totalPlayers
                                 ? null
                                 : () {
                                     _page++;
@@ -227,6 +238,7 @@ class _PublicProfileDialogState extends ConsumerState<_PublicProfileDialog> {
   }
 
   Future<void> _save() async {
+    if (_busy) return;
     setState(() {
       _busy = true;
       _error = null;
@@ -247,40 +259,43 @@ class _PublicProfileDialogState extends ConsumerState<_PublicProfileDialog> {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
-    return AlertDialog(
-      title: Text(l.leaderboardProfile),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(l.leaderboardPrivacy),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _alias,
-              enabled: !_busy,
-              maxLength: 24,
-              decoration: InputDecoration(labelText: l.leaderboardAlias),
-            ),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: Text(l.leaderboardOptIn),
-              value: _visible,
-              onChanged: _busy ? null : (v) => setState(() => _visible = v),
-            ),
-            if (_error != null) Text(_error!),
-          ],
+    return PopScope(
+      canPop: !_busy,
+      child: AlertDialog(
+        title: Text(l.leaderboardProfile),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(l.leaderboardPrivacy),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _alias,
+                enabled: !_busy,
+                maxLength: 24,
+                decoration: InputDecoration(labelText: l.leaderboardAlias),
+              ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(l.leaderboardOptIn),
+                value: _visible,
+                onChanged: _busy ? null : (v) => setState(() => _visible = v),
+              ),
+              if (_error != null) Text(_error!),
+            ],
+          ),
         ),
+        actions: [
+          TextButton(
+            onPressed: _busy ? null : () => Navigator.pop(context),
+            child: Text(l.communityBack),
+          ),
+          FilledButton(
+            onPressed: _busy ? null : _save,
+            child: Text(_busy ? l.loading : l.communitySave),
+          ),
+        ],
       ),
-      actions: [
-        TextButton(
-          onPressed: _busy ? null : () => Navigator.pop(context),
-          child: Text(l.communityBack),
-        ),
-        FilledButton(
-          onPressed: _busy ? null : _save,
-          child: Text(_busy ? l.loading : l.communitySave),
-        ),
-      ],
     );
   }
 }

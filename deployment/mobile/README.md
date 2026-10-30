@@ -143,3 +143,25 @@ remain unverified until that configuration is supplied.
 References: [Flutter Android releases](https://docs.flutter.dev/deployment/android),
 [Android page-size compatibility](https://developer.android.com/guide/practices/page-sizes),
 [Android app signing](https://developer.android.com/studio/publish/app-signing).
+
+## Player app branding
+
+The player launcher master is `bingo-app/assets/branding/app-icon.png`, prepared
+from the supplied Bingo artwork. To regenerate native icon sizes on macOS:
+
+```bash
+python3 deployment/mobile/generate-player-icons.py
+```
+
+This updates all five Android legacy densities, the Android 8+ adaptive icon
+resources (blue background with an inset foreground), and every named entry in
+the iOS AppIcon catalog. The iOS 1024px store icon is opaque. Keep the square
+master without pre-applied rounded corners; the operating system supplies the
+launcher mask. The agent app retains its separate existing branding.
+
+The player login/register screen shares the home illustration, navy/blue palette
+and orange primary action. Existing field keys and Ethiopian phone/six-digit PIN
+validation remain in place. PIN visibility has localized English/Amharic labels;
+fields and actions are disabled during submission. Auth UI regression tests cover
+login, registration, PIN visibility, duplicate submission and narrow layouts with
+large English and Amharic text.

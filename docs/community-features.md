@@ -37,3 +37,26 @@ Deploy the backend first, allowing Flyway migration `V23__private_games_and_play
 Backend tests cover private access, invite rotation/expiry/capacity, ticketing safeguards, duplicate/concurrent claims, exclusion of private/cancelled sessions, opt-in ranking privacy and alias conflicts. WebSocket tests cover authenticated membership and rejection of client-sent broker messages. Tests use an isolated disposable MySQL database. Verification on 2026-10-29: backend Maven `verify` passed 189 tests across 37 classes; admin production build, lint and all 85 tests passed; player Flutter analysis passed; six home/community navigation widget tests passed in an isolated copy with native secure storage stubbed out. The signed player Android APK was rebuilt and its signature, package ID and production API URL verified. Full native Flutter widget tests remain blocked by the workstation’s unaccepted Xcode licence; no native-storage or iOS signing validation is claimed.
 
 Design references: [Unity leaderboard features](https://docs.unity.com/en-us/leaderboards/features) and [period reset concepts](https://docs.unity.com/en-us/leaderboards/concepts/resets) inform period scoring; [UKGC RTS 7](https://www.gamblingcommission.gov.uk/standards/remote-gambling-and-software-technical-standards/rts-7-generation-of-random-outcomes) informs fixed rules during play. These references are design guidance, not certification or a statement of local regulatory compliance.
+
+## Mobile action review — 2026-10-30
+
+The home cards open their matching community screens. Requests use the shared authenticated Dio client and match `CommunityController` methods and routes.
+
+| Control | Verified action |
+| --- | --- |
+| Create game | Submit selected public template, name, UTC start time and idempotency key; generate an invite and open the created private room |
+| Join with code | Submit code with an idempotency key and open the returned private room |
+| Game list row | Open that room's private details |
+| Open room & tickets | Open the existing room/ticket flow for that private room ID; refresh private details on return |
+| Generate invite / Copy | Confirm rotation, request a fresh invite, copy the returned code to the clipboard |
+| Start game | POST the room's start endpoint; refresh state and hide controls once started |
+| Cancel game | Require confirmation, POST cancellation, refresh state |
+| Refresh / Try again | Fetch the corresponding list, room, challenge or leaderboard again |
+| Claim points | POST the selected challenge code and server business date; preserve the idempotency key on retry; refresh server points |
+| Ranking period / Previous / Next | Request the selected period/page; period changes reset page to zero |
+| Public ranking profile / Save | PUT the edited alias and visibility; refresh rankings after success |
+| Back in dialogs | Discard edits without mutation; pending submissions prevent system-back dismissal |
+
+Fixed refresh callbacks that returned a Future from `setState`, stale action controls while refreshed data loads, empty create/join submission controls, missing template-load retry, and duplicate/prematurely dismissed pending actions. Pull-to-refresh is available on short lists and presents failures through the screen's retry UI. Host controls remain hidden for members, disabled rooms and non-open games; incomplete or already-claimed challenges cannot be claimed again through the UI.
+
+Validation: Flutter analysis passes; 28 home/navigation and community interaction tests pass. Tests exercise the actual repository through an in-memory Dio HTTP adapter, asserting request methods, paths, payloads, query parameters and relevant idempotency headers. They run in an isolated copy with native secure storage stubbed out because the workstation's Xcode licence still blocks native asset hooks. These checks do not claim physical-device testing or end-to-end validation against the deployed production backend.

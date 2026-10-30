@@ -258,5 +258,7 @@
   "leaderboardYou": "እርስዎ",
   "leaderboardPrivacy": "የመረጡት ስምና ነጥቦች ብቻ ይታያሉ። ስልክዎን ወይም የግል መረጃ አይጠቀሙ። ነጥብ ሳይጠፋ መገለጫዎን መደበቅ ይችላሉ።",
   "leaderboardAlias": "የይፋ ስም (አማራጭ)",
-  "leaderboardOptIn": "በደረጃ ሰንጠረዥ ላይ አሳየኝ"
+  "leaderboardOptIn": "በደረጃ ሰንጠረዥ ላይ አሳየኝ",
+  "showPin": "ፒን አሳይ",
+  "hidePin": "ፒን ደብቅ"
 }

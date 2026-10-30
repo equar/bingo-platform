@@ -22,9 +22,14 @@ class _DailyChallengesScreenState extends ConsumerState<DailyChallengesScreen> {
     _future = ref.read(communityRepositoryProvider).daily();
   }
 
-  void _reload() =>
-      setState(() => _future = ref.read(communityRepositoryProvider).daily());
+  void _reload() {
+    setState(() {
+      _future = ref.read(communityRepositoryProvider).daily();
+    });
+  }
+
   Future<void> _claim(DailyChallenge challenge, String day) async {
+    if (_busy != null) return;
     setState(() => _busy = challenge.code);
     try {
       final key = _keys.putIfAbsent(
@@ -74,16 +79,22 @@ class _DailyChallengesScreenState extends ConsumerState<DailyChallengesScreen> {
               ),
             );
           }
-          if (!snapshot.hasData) {
+          if (snapshot.connectionState == ConnectionState.waiting ||
+              !snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
           }
           final data = snapshot.data!;
           return RefreshIndicator(
             onRefresh: () async {
               _reload();
-              await _future;
+              try {
+                await _future;
+              } catch (_) {
+                // The FutureBuilder presents the load error and retry action.
+              }
             },
             child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.all(20),
               children: [
                 Card(

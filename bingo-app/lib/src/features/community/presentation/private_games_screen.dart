@@ -23,9 +23,12 @@ class _PrivateGamesScreenState extends ConsumerState<PrivateGamesScreen> {
     _future = ref.read(communityRepositoryProvider).privateGames();
   }
 
-  void _reload() => setState(
-    () => _future = ref.read(communityRepositoryProvider).privateGames(),
-  );
+  void _reload() {
+    setState(() {
+      _future = ref.read(communityRepositoryProvider).privateGames();
+    });
+  }
+
   Future<void> _open(PrivateGame game) async {
     await Navigator.push<void>(
       context,
@@ -68,6 +71,7 @@ class _PrivateGamesScreenState extends ConsumerState<PrivateGamesScreen> {
   Future<void> _join() async {
     final game = await showDialog<PrivateGame>(
       context: context,
+      barrierDismissible: false,
       builder: (_) => const _JoinGameDialog(),
     );
     if (mounted && game != null) await _open(game);
@@ -90,9 +94,14 @@ class _PrivateGamesScreenState extends ConsumerState<PrivateGamesScreen> {
       body: RefreshIndicator(
         onRefresh: () async {
           _reload();
-          await _future;
+          try {
+            await _future;
+          } catch (_) {
+            // The FutureBuilder presents the load error and retry action.
+          }
         },
         child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(20),
           children: [
             Text(l.privateIntro),
@@ -123,7 +132,8 @@ class _PrivateGamesScreenState extends ConsumerState<PrivateGamesScreen> {
                     onRetry: _reload,
                   );
                 }
-                if (!snapshot.hasData) {
+                if (snapshot.connectionState == ConnectionState.waiting ||
+                    !snapshot.hasData) {
                   return const Center(child: CircularProgressIndicator());
                 }
                 if (snapshot.data!.isEmpty) {
@@ -172,48 +182,54 @@ class PrivateGameScreen extends ConsumerStatefulWidget {
 class _PrivateGameScreenState extends ConsumerState<PrivateGameScreen> {
   late Future<Map<String, dynamic>> _future;
   bool _busy = false;
+  bool _requestPending = false;
   @override
   void initState() {
     super.initState();
     _future = ref.read(communityRepositoryProvider).details(widget.roomId);
   }
 
-  void _reload() => setState(
-    () =>
-        _future = ref.read(communityRepositoryProvider).details(widget.roomId),
-  );
+  void _reload() {
+    setState(() {
+      _future = ref.read(communityRepositoryProvider).details(widget.roomId);
+    });
+  }
+
   Future<void> _action(String action) async {
-    final l = AppLocalizations.of(context)!;
-    if (action == 'cancel' || action == 'invite') {
-      final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (c) => AlertDialog(
-          title: Text(action == 'invite' ? l.privateInvite : l.privateCancel),
-          content: Text(
-            action == 'invite'
-                ? l.privateRotateWarning
-                : l.privateCancelWarning,
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(c, false),
-              child: Text(l.communityBack),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(c, true),
-              child: Text(l.communityContinue),
-            ),
-          ],
-        ),
-      );
-      if (confirmed != true || !mounted) return;
-    }
+    if (_busy) return;
     setState(() => _busy = true);
     try {
+      final l = AppLocalizations.of(context)!;
+      if (action == 'cancel' || action == 'invite') {
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (c) => AlertDialog(
+            title: Text(action == 'invite' ? l.privateInvite : l.privateCancel),
+            content: Text(
+              action == 'invite'
+                  ? l.privateRotateWarning
+                  : l.privateCancelWarning,
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(c, false),
+                child: Text(l.communityBack),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(c, true),
+                child: Text(l.communityContinue),
+              ),
+            ],
+          ),
+        );
+        if (confirmed != true || !mounted) return;
+      }
+      setState(() => _requestPending = true);
       final result = await ref
           .read(communityRepositoryProvider)
           .manage(widget.roomId, action);
       if (!mounted) return;
+      setState(() => _requestPending = false);
       if (action == 'invite') {
         await _showInvite(
           context,
@@ -229,7 +245,12 @@ class _PrivateGameScreenState extends ConsumerState<PrivateGameScreen> {
         ).showSnackBar(SnackBar(content: Text(e.toString())));
       }
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _requestPending = false;
+        });
+      }
     }
   }
 
@@ -241,7 +262,7 @@ class _PrivateGameScreenState extends ConsumerState<PrivateGameScreen> {
         title: Text(l.homePrivateGame),
         actions: [
           IconButton(
-            onPressed: _reload,
+            onPressed: _busy ? null : _reload,
             icon: const Icon(Icons.refresh),
             tooltip: l.retry,
           ),
@@ -253,7 +274,8 @@ class _PrivateGameScreenState extends ConsumerState<PrivateGameScreen> {
           if (snapshot.hasError) {
             return _ErrorMessage(error: snapshot.error!, onRetry: _reload);
           }
-          if (!snapshot.hasData) {
+          if (snapshot.connectionState == ConnectionState.waiting ||
+              !snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
           }
           final data = snapshot.data!;
@@ -297,12 +319,18 @@ class _PrivateGameScreenState extends ConsumerState<PrivateGameScreen> {
               ),
               const SizedBox(height: 16),
               FilledButton(
-                onPressed: () => Navigator.push<void>(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => RoomDetailsScreen(roomId: game.roomId),
-                  ),
-                ),
+                onPressed: _busy
+                    ? null
+                    : () async {
+                        await Navigator.push<void>(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                RoomDetailsScreen(roomId: game.roomId),
+                          ),
+                        );
+                        if (mounted) _reload();
+                      },
                 child: Text(l.privateOpenRoom),
               ),
               if (game.host && game.open) ...[
@@ -324,7 +352,7 @@ class _PrivateGameScreenState extends ConsumerState<PrivateGameScreen> {
                   child: Text(l.privateCancel),
                 ),
               ],
-              if (_busy) const LinearProgressIndicator(),
+              if (_requestPending) const LinearProgressIndicator(),
             ],
           );
         },
@@ -415,7 +443,7 @@ class _JoinGameDialogState extends ConsumerState<_JoinGameDialog> {
   }
 
   Future<void> _submit() async {
-    if (_code.text.trim().isEmpty) return;
+    if (_busy || _code.text.trim().isEmpty) return;
     setState(() {
       _busy = true;
       _error = null;
@@ -435,32 +463,35 @@ class _JoinGameDialogState extends ConsumerState<_JoinGameDialog> {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
-    return AlertDialog(
-      title: Text(l.privateJoin),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TextField(
-            controller: _code,
-            textCapitalization: TextCapitalization.characters,
-            maxLength: 24,
-            enabled: !_busy,
-            onChanged: (_) => _key = const Uuid().v4(),
-            decoration: InputDecoration(labelText: l.privateCode),
+    return PopScope(
+      canPop: !_busy,
+      child: AlertDialog(
+        title: Text(l.privateJoin),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _code,
+              textCapitalization: TextCapitalization.characters,
+              maxLength: 24,
+              enabled: !_busy,
+              onChanged: (_) => setState(() => _key = const Uuid().v4()),
+              decoration: InputDecoration(labelText: l.privateCode),
+            ),
+            if (_error != null) Text(_error!),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: _busy ? null : () => Navigator.pop(context),
+            child: Text(l.communityBack),
           ),
-          if (_error != null) Text(_error!),
+          FilledButton(
+            onPressed: _busy || _code.text.trim().isEmpty ? null : _submit,
+            child: Text(_busy ? l.loading : l.privateJoin),
+          ),
         ],
       ),
-      actions: [
-        TextButton(
-          onPressed: _busy ? null : () => Navigator.pop(context),
-          child: Text(l.communityBack),
-        ),
-        FilledButton(
-          onPressed: _busy ? null : _submit,
-          child: Text(_busy ? l.loading : l.privateJoin),
-        ),
-      ],
     );
   }
 }
@@ -473,7 +504,7 @@ class _CreateGameDialog extends ConsumerStatefulWidget {
 
 class _CreateGameDialogState extends ConsumerState<_CreateGameDialog> {
   final _name = TextEditingController();
-  late final Future<List<BingoRoom>> _rooms;
+  late Future<List<BingoRoom>> _rooms;
   int? _template;
   int _minutes = 10;
   bool _busy = false;
@@ -498,7 +529,7 @@ class _CreateGameDialogState extends ConsumerState<_CreateGameDialog> {
   }
 
   Future<void> _submit() async {
-    if (_template == null || _name.text.trim().isEmpty) return;
+    if (_busy || _template == null || _name.text.trim().isEmpty) return;
     _fixedStart ??= DateTime.now().add(Duration(minutes: _minutes));
     setState(() {
       _busy = true;
@@ -519,83 +550,102 @@ class _CreateGameDialogState extends ConsumerState<_CreateGameDialog> {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
-    return AlertDialog(
-      title: Text(l.privateCreate),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(l.privateTemplateHelp),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _name,
-              maxLength: 80,
-              enabled: !_busy,
-              onChanged: (_) => _changed(),
-              decoration: InputDecoration(labelText: l.privateName),
-            ),
-            FutureBuilder<List<BingoRoom>>(
-              future: _rooms,
-              builder: (context, snapshot) {
-                if (snapshot.hasError) return Text(l.errorGeneric);
-                if (!snapshot.hasData) return const LinearProgressIndicator();
-                if (snapshot.data!.isEmpty) return Text(l.lobbyEmptyTitle);
-                return DropdownButtonFormField<int>(
-                  initialValue: _template,
-                  isExpanded: true,
-                  decoration: InputDecoration(labelText: l.privateTemplate),
-                  items: snapshot.data!
-                      .map(
-                        (room) => DropdownMenuItem(
-                          value: room.id,
-                          child: Text(
-                            '${room.name} · ${room.ticketPrice} ${room.currency}',
-                            overflow: TextOverflow.ellipsis,
-                          ),
+    return PopScope(
+      canPop: !_busy,
+      child: AlertDialog(
+        title: Text(l.privateCreate),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(l.privateTemplateHelp),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _name,
+                maxLength: 80,
+                enabled: !_busy,
+                onChanged: (_) => setState(_changed),
+                decoration: InputDecoration(labelText: l.privateName),
+              ),
+              FutureBuilder<List<BingoRoom>>(
+                future: _rooms,
+                builder: (context, snapshot) {
+                  if (snapshot.hasError) {
+                    return Column(
+                      children: [
+                        Text(l.errorGeneric),
+                        TextButton(
+                          onPressed: () => setState(() {
+                            _rooms = ref
+                                .read(lobbyRepositoryProvider)
+                                .getRooms();
+                          }),
+                          child: Text(l.retry),
                         ),
-                      )
-                      .toList(),
-                  onChanged: _busy
-                      ? null
-                      : (v) => setState(() {
-                          _template = v;
-                          _changed();
-                        }),
-                );
-              },
-            ),
-            DropdownButtonFormField<int>(
-              initialValue: _minutes,
-              decoration: InputDecoration(labelText: l.privateStartsIn),
-              items: [5, 10, 15, 30, 60]
-                  .map(
-                    (m) => DropdownMenuItem(
-                      value: m,
-                      child: Text('$m ${l.communityMinutes}'),
-                    ),
-                  )
-                  .toList(),
-              onChanged: _busy
-                  ? null
-                  : (v) => setState(() {
-                      _minutes = v!;
-                      _changed();
-                    }),
-            ),
-            if (_error != null) Text(_error!),
-          ],
+                      ],
+                    );
+                  }
+                  if (!snapshot.hasData) return const LinearProgressIndicator();
+                  if (snapshot.data!.isEmpty) return Text(l.lobbyEmptyTitle);
+                  return DropdownButtonFormField<int>(
+                    initialValue: _template,
+                    isExpanded: true,
+                    decoration: InputDecoration(labelText: l.privateTemplate),
+                    items: snapshot.data!
+                        .map(
+                          (room) => DropdownMenuItem(
+                            value: room.id,
+                            child: Text(
+                              '${room.name} · ${room.ticketPrice} ${room.currency}',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: _busy
+                        ? null
+                        : (v) => setState(() {
+                            _template = v;
+                            _changed();
+                          }),
+                  );
+                },
+              ),
+              DropdownButtonFormField<int>(
+                initialValue: _minutes,
+                decoration: InputDecoration(labelText: l.privateStartsIn),
+                items: [5, 10, 15, 30, 60]
+                    .map(
+                      (m) => DropdownMenuItem(
+                        value: m,
+                        child: Text('$m ${l.communityMinutes}'),
+                      ),
+                    )
+                    .toList(),
+                onChanged: _busy
+                    ? null
+                    : (v) => setState(() {
+                        _minutes = v!;
+                        _changed();
+                      }),
+              ),
+              if (_error != null) Text(_error!),
+            ],
+          ),
         ),
+        actions: [
+          TextButton(
+            onPressed: _busy ? null : () => Navigator.pop(context),
+            child: Text(l.communityBack),
+          ),
+          FilledButton(
+            onPressed: _busy || _template == null || _name.text.trim().isEmpty
+                ? null
+                : _submit,
+            child: Text(_busy ? l.loading : l.privateCreate),
+          ),
+        ],
       ),
-      actions: [
-        TextButton(
-          onPressed: _busy ? null : () => Navigator.pop(context),
-          child: Text(l.communityBack),
-        ),
-        FilledButton(
-          onPressed: _busy ? null : _submit,
-          child: Text(_busy ? l.loading : l.privateCreate),
-        ),
-      ],
     );
   }
 }

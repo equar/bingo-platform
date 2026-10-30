@@ -258,5 +258,7 @@
   "leaderboardYou": "You",
   "leaderboardPrivacy": "Only your chosen alias and points are public. Do not use your phone number or personal information. You can hide your profile at any time without losing points.",
   "leaderboardAlias": "Public alias (optional)",
-  "leaderboardOptIn": "Show me on the leaderboard"
+  "leaderboardOptIn": "Show me on the leaderboard",
+  "showPin": "Show PIN",
+  "hidePin": "Hide PIN"
 }
