@@ -46,6 +46,10 @@ Then use an authenticated GitHub CLI from this repository:
 bash deployment/aws/bootstrap-github-actions-config.sh deployment/aws/github-actions.env
 ```
 
+Keep `ADMIN_BOOTSTRAP_ENABLED=false` in the normal deployment configuration.
+For the one-time first Admin login, follow [ADMIN_BOOTSTRAP.md](ADMIN_BOOTSTRAP.md)
+and supply its password only as the `ADMIN_BOOTSTRAP_PASSWORD` repository secret.
+
 Set `GH_REPO=owner/bingo-platform` explicitly if necessary. The command writes
 repository secrets/variables; it never provisions AWS or deploys applications.
 
@@ -62,6 +66,7 @@ Repository **secrets**:
 | `SPRING_MAIL_USERNAME` | Production SMTP username |
 | `SPRING_MAIL_PASSWORD` | Optional for deployment; SMTP password/app password when authenticated email delivery is needed |
 | `BINGO_FLOAT_BANK_ENCRYPTION_KEY` | Base64 encoding of 32 random bytes; back it up and preserve it across deployments |
+| `ADMIN_BOOTSTRAP_PASSWORD` | One-time secret, only while `ADMIN_BOOTSTRAP_ENABLED=true`; use at least 16 characters and no more than 72 UTF-8 bytes |
 
 Repository **variables** (all are listed in the example file):
 
@@ -71,6 +76,8 @@ Repository **variables** (all are listed in the example file):
 | `JWT_ACCESS_TOKEN_TTL_SECONDS` | `3600` |
 | `CORS_ALLOWED_ORIGINS`, `WEBSOCKET_ALLOWED_ORIGINS` | Comma-separated origins including exact admin HTTPS origin; add browser player/agent origins when applicable |
 | `ADMIN_ACCOUNT_ACTIVATION_URL` | `https://admin.bingo.bakaroo.com/activate-account` |
+| `ADMIN_BOOTSTRAP_ENABLED` | `false` by default; set to `true` only for initial administrator setup |
+| `ADMIN_BOOTSTRAP_PHONE`, `ADMIN_BOOTSTRAP_NAME`, `ADMIN_BOOTSTRAP_EMAIL` | Initial administrator identity; phone must be a valid Ethiopian mobile number and email is used by Admin login |
 | `SPRING_MAIL_HOST`, `SPRING_MAIL_PORT` | `smtp.gmail.com`, `587`, or your SMTP provider |
 | `VITE_API_BASE_URL` | `https://api.bingo.bakaroo.com` |
 | `ADMIN_PUBLIC_URL` | `https://admin.bingo.bakaroo.com` |

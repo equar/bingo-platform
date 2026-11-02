@@ -23,6 +23,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     Optional<User> findByEmail(String email);
 
+    Optional<User> findByEmailIgnoreCase(String email);
+
     Optional<User> findByAccountActivationTokenHash(String accountActivationTokenHash);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)

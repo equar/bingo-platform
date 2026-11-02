@@ -20,3 +20,6 @@ app:
     activation-url: ${ADMIN_ACCOUNT_ACTIVATION_URL}
   dev:
     seed-enabled: false
+  admin:
+    bootstrap:
+      enabled: ${ADMIN_BOOTSTRAP_ENABLED:false}

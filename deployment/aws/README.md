@@ -26,12 +26,15 @@ See [SETUP_CHECKLIST.md](SETUP_CHECKLIST.md) for server, DNS, database, GitHub,
 and HTTPS setup. All imported settings are **repository** secrets/variables,
 not values in the old `bingo-lightsail-production` environment.
 
+For the secure, one-time initial production Admin procedure, see
+[ADMIN_BOOTSTRAP.md](ADMIN_BOOTSTRAP.md). Bootstrap is off by default and uses
+the existing repository secret/variable deployment path.
+
 Unlike BillPay's application-specific configuration, Bingo uses Flyway,
 Hibernate `validate`, SMTP email, WebSockets, and `JWT_ACCESS_TOKEN_TTL_SECONDS`.
 It has no `/billpay` context path, Graph mail integration, or BillPay admin
-bootstrap. Initialize the first production admin through a controlled,
-application-compatible provisioning procedure; never enable development seed
-accounts in production.
+bootstrap. The production admin bootstrap creates only the requested first
+administrator; never enable development seed accounts in production.
 
 Backend deploys retain the previous JAR/env pair and attempt restoration on a
 failed restart/health check only when the previous backend was healthy. Static deployments retain `.backup` directories.
