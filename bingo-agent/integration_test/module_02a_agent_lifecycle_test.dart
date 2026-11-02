@@ -46,14 +46,10 @@ void main() {
       await _capture(tester, 'module-02a-agent-application-one-submitted');
       await tester.tap(find.text('Back to sign in'));
       await tester.pumpAndSettle();
-      await _login(
-        tester,
-        phone: _onePhone,
-        pin: _onePin,
-      );
+      await _login(tester, phone: _onePhone, pin: _onePin);
       await _waitFor(
         tester,
-        find.text('Sign-in failed. Check your details and try again.'),
+        find.text('The phone number or PIN is incorrect.'),
       );
       expect(find.byType(NavigationBar), findsNothing);
       expect((await const SessionStorage().readSession())['token'], isNull);
@@ -83,16 +79,13 @@ void main() {
     if (_phase == 'approved-login' || _phase == 'approved-login-two') {
       await _waitFor(tester, find.byType(NavigationBar));
       await _waitFor(tester, find.text('Available float'));
-      expect(
-        find.text('Request failed. Check your connection and try again.'),
-        findsNothing,
-      );
+      expect(find.text('Enter a valid phone number.'), findsNothing);
       expect((await const SessionStorage().readSession())['token'], isNotEmpty);
       await _capture(tester, 'module-02a-agent-approved-login');
     } else {
       await _waitFor(
         tester,
-        find.text('Sign-in failed. Check your details and try again.'),
+        find.text('The phone number or PIN is incorrect.'),
       );
       expect(find.byType(NavigationBar), findsNothing);
       expect((await const SessionStorage().readSession())['token'], isNull);

@@ -20,6 +20,7 @@ import {
   sessionDraws,
   updateSessionState,
 } from "../../api/admin";
+import { getUserFacingErrorMessage } from "../../api/types";
 import { useSession } from "../../api/session";
 import { StatusState } from "../../components/StatusState";
 import { connectLiveDrawStream } from "./liveDrawSocket";
@@ -101,7 +102,7 @@ export function SessionDetailPage() {
       await queryClient.invalidateQueries({ queryKey: ["session", id] });
       await queryClient.invalidateQueries({ queryKey: ["session-draws", id] });
     },
-    onError: (error: Error) => setDrawError(error.message || "Automatic draw failed"),
+    onError: (error: Error) => setDrawError(getUserFacingErrorMessage(error) ?? "Something went wrong. Please try again."),
   });
 
   const stateMutation = useMutation({
@@ -128,7 +129,7 @@ export function SessionDetailPage() {
     return (
       <StatusState
         title="Unable to load session"
-        message={(sessionQuery.error as Error | undefined)?.message ?? "Session not found"}
+        message={getUserFacingErrorMessage(sessionQuery.error) ?? "This item is no longer available. Refresh and try again."}
         actionLabel="Retry"
         onAction={() => sessionQuery.refetch()}
       />

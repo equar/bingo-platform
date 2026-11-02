@@ -23,6 +23,7 @@ import {
   type TicketResponse,
   type WinClaimResponse,
 } from "../../api/admin";
+import { getUserFacingErrorMessage } from "../../api/types";
 import { StatusState } from "../../components/StatusState";
 
 export type EntitlementReference = {
@@ -169,7 +170,7 @@ export function EntitlementReferenceDialog({ reference, onClose }: EntitlementRe
               </Button>
             }
           >
-            {(detailQuery.error as Error).message || "Unable to load record details."}
+            {getUserFacingErrorMessage(detailQuery.error) ?? "Unable to load record details."}
           </Alert>
         ) : null}
         {detailQuery.data ? (

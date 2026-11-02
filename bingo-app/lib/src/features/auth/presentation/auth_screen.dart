@@ -24,6 +24,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   bool _registerMode = false;
   bool _busy = false;
   String? _errorMessage;
+  ApiError? _apiError;
 
   @override
   void dispose() {
@@ -42,27 +43,36 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     setState(() {
       _busy = true;
       _errorMessage = null;
+      _apiError = null;
     });
 
     try {
       final repository = ref.read(authRepositoryProvider);
-      final sessionController = ref.read(authSessionControllerProvider.notifier);
+      final sessionController = ref.read(
+        authSessionControllerProvider.notifier,
+      );
       final requestPhone = _phoneController.text.trim();
       final pin = _pinController.text;
       final authResponse = _registerMode
-          ? await repository.register(RegisterRequest(
-              displayName: _displayNameController.text.trim(),
-              phoneNumber: requestPhone,
-              password: pin,
-            ))
-          : await repository.login(LoginRequest(phoneNumber: requestPhone, password: pin));
+          ? await repository.register(
+              RegisterRequest(
+                displayName: _displayNameController.text.trim(),
+                phoneNumber: requestPhone,
+                password: pin,
+              ),
+            )
+          : await repository.login(
+              LoginRequest(phoneNumber: requestPhone, password: pin),
+            );
       await sessionController.setSession(authResponse);
     } catch (error) {
-      if (error is ApiError) {
-        setState(() => _errorMessage = '${error.code}: ${error.message}');
-      } else {
-        setState(() => _errorMessage = localizations.errorGeneric);
-      }
+      final parsed = normalizeApiError(error);
+      setState(() {
+        _apiError = parsed;
+        _errorMessage = parsed.cancelled
+            ? null
+            : parsed.userMessage(localizations);
+      });
     } finally {
       if (mounted) {
         setState(() => _busy = false);
@@ -73,6 +83,19 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context)!;
+    final displayNameError = fieldErrorMessage(
+      _apiError,
+      'displayName',
+      localizations,
+    );
+    final phoneError = fieldErrorMessage(
+      _apiError,
+      'phoneNumber',
+      localizations,
+    );
+    final passwordError =
+        fieldErrorMessage(_apiError, 'password', localizations) ??
+        fieldErrorMessage(_apiError, 'pin', localizations);
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -83,9 +106,16 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(localizations.appTitle, style: Theme.of(context).textTheme.displaySmall),
+                  Text(
+                    localizations.appTitle,
+                    style: Theme.of(context).textTheme.displaySmall,
+                  ),
                   const SizedBox(height: 8),
-                  Text(_registerMode ? localizations.registerSubtitle : localizations.loginSubtitle),
+                  Text(
+                    _registerMode
+                        ? localizations.registerSubtitle
+                        : localizations.loginSubtitle,
+                  ),
                   if (widget.sessionExpired) ...[
                     const SizedBox(height: 12),
                     SectionCard(child: Text(localizations.sessionExpired)),
@@ -102,8 +132,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                               controller: _displayNameController,
                               textInputAction: TextInputAction.next,
                               maxLength: 120,
-                              decoration: InputDecoration(labelText: localizations.displayNameLabel),
-                              validator: (value) => value == null || value.trim().isEmpty
+                              decoration: InputDecoration(
+                                labelText: localizations.displayNameLabel,
+                                errorText: displayNameError,
+                              ),
+                              validator: (value) =>
+                                  value == null || value.trim().isEmpty
                                   ? localizations.displayNameRequired
                                   : null,
                             ),
@@ -115,11 +149,18 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                             textInputAction: TextInputAction.next,
                             keyboardType: TextInputType.phone,
                             maxLength: 30,
-                            decoration: InputDecoration(labelText: localizations.phoneLabel),
+                            decoration: InputDecoration(
+                              labelText: localizations.phoneLabel,
+                              errorText: phoneError,
+                            ),
                             validator: (value) {
                               final text = value?.trim() ?? '';
-                              if (text.isEmpty) return localizations.phoneRequired;
-                              if (!_isValidEthiopianPhone(text)) return localizations.invalidPhone;
+                              if (text.isEmpty) {
+                                return localizations.phoneRequired;
+                              }
+                              if (!_isValidEthiopianPhone(text)) {
+                                return localizations.invalidPhone;
+                              }
                               return null;
                             },
                           ),
@@ -129,17 +170,32 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                             controller: _pinController,
                             obscureText: true,
                             keyboardType: TextInputType.number,
-                            decoration: InputDecoration(labelText: localizations.passwordLabel),
+                            decoration: InputDecoration(
+                              labelText: localizations.passwordLabel,
+                              errorText: passwordError,
+                            ),
                             validator: (value) {
                               final text = value ?? '';
-                              if (text.isEmpty) return localizations.passwordRequired;
-                              if (!RegExp(r'^[0-9]{6}$').hasMatch(text)) return localizations.passwordTooShort;
+                              if (text.isEmpty) {
+                                return localizations.passwordRequired;
+                              }
+                              if (!RegExp(r'^[0-9]{6}$').hasMatch(text)) {
+                                return localizations.passwordTooShort;
+                              }
                               return null;
                             },
                           ),
-                          if (_errorMessage != null) ...[
+                          if (_errorMessage != null &&
+                              displayNameError == null &&
+                              phoneError == null &&
+                              passwordError == null) ...[
                             const SizedBox(height: 12),
-                            Text(_errorMessage!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                            Text(
+                              _errorMessage!,
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.error,
+                              ),
+                            ),
                           ],
                           const SizedBox(height: 16),
                           FilledButton(
@@ -149,9 +205,15 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                                 ? const SizedBox(
                                     width: 18,
                                     height: 18,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
                                   )
-                                : Text(_registerMode ? localizations.createAccount : localizations.signIn),
+                                : Text(
+                                    _registerMode
+                                        ? localizations.createAccount
+                                        : localizations.signIn,
+                                  ),
                           ),
                           const SizedBox(height: 8),
                           TextButton(
@@ -159,10 +221,15 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                             onPressed: _busy
                                 ? null
                                 : () => setState(() {
-                                      _registerMode = !_registerMode;
-                                      _errorMessage = null;
-                                    }),
-                            child: Text(_registerMode ? localizations.switchToLogin : localizations.switchToRegister),
+                                    _registerMode = !_registerMode;
+                                    _errorMessage = null;
+                                    _apiError = null;
+                                  }),
+                            child: Text(
+                              _registerMode
+                                  ? localizations.switchToLogin
+                                  : localizations.switchToRegister,
+                            ),
                           ),
                         ],
                       ),

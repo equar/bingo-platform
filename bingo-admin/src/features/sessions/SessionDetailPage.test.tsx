@@ -17,6 +17,7 @@ vi.mock("../../api/session", () => ({
     accessToken: "test-token",
     user: { roles: ["ADMIN"] },
   }),
+  consumeSessionExpired: () => false,
 }));
 
 vi.mock("./liveDrawSocket", () => ({

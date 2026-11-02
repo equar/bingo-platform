@@ -15,6 +15,7 @@ import {
 } from "@mui/material";
 import { Link as RouterLink, useParams } from "react-router-dom";
 import { adminAgentDetail, adminAgentFloatBalance, adminAgentFloatHistory, approveAgent, commissionRule, reviewFloatTopUpRequest, setAgentPin, suspendAgent } from "../../api/admin";
+import { getUserFacingErrorMessage } from "../../api/types";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { StatusState } from "../../components/StatusState";
 
@@ -96,7 +97,7 @@ export function AgentDetailPage() {
         queryClient.invalidateQueries({ queryKey: ["agents"] }),
       ]);
     },
-    onError: (error) => setLifecycleError((error as Error).message),
+    onError: (error) => setLifecycleError(getUserFacingErrorMessage(error) ?? "Something went wrong. Please try again."),
   });
 
   const suspendMutation = useMutation({
@@ -109,7 +110,7 @@ export function AgentDetailPage() {
         queryClient.invalidateQueries({ queryKey: ["agents"] }),
       ]);
     },
-    onError: (error) => setLifecycleError((error as Error).message),
+    onError: (error) => setLifecycleError(getUserFacingErrorMessage(error) ?? "Something went wrong. Please try again."),
   });
 
   const pinMutation = useMutation({
@@ -121,7 +122,7 @@ export function AgentDetailPage() {
     },
     onError: (error) => {
       setPinMessage(null);
-      setPinError((error as Error).message);
+      setPinError(getUserFacingErrorMessage(error) ?? "Something went wrong. Please try again.");
     },
   });
 
@@ -133,7 +134,7 @@ export function AgentDetailPage() {
     return (
       <StatusState
         title="Unable to load agent"
-        message={(agentQuery.error as Error | undefined)?.message ?? "Agent not found"}
+        message={getUserFacingErrorMessage(agentQuery.error) ?? "This item is no longer available. Refresh and try again."}
         actionLabel="Retry"
         onAction={() => agentQuery.refetch()}
       />
@@ -240,8 +241,8 @@ export function AgentDetailPage() {
         </Grid>
       </Grid>
 
-      {floatBalanceQuery.isError ? <Alert severity="error">Unable to load agent float: {floatBalanceQuery.error.message}</Alert> : null}
-      {floatHistoryQuery.isError ? <Alert severity="error">Unable to load agent float history: {floatHistoryQuery.error.message}</Alert> : null}
+      {floatBalanceQuery.isError ? <Alert severity="error">Unable to load agent float: {getUserFacingErrorMessage(floatBalanceQuery.error)}</Alert> : null}
+      {floatHistoryQuery.isError ? <Alert severity="error">Unable to load agent float history: {getUserFacingErrorMessage(floatHistoryQuery.error)}</Alert> : null}
       <Card sx={{ border: "1px solid", borderColor: "divider" }}>
         <CardContent>
           <Stack spacing={1}>

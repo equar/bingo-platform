@@ -29,6 +29,7 @@ import {
   signupRewardSettingsHistory,
   walletTransferSettingsHistory,
 } from "../../api/admin";
+import { getUserFacingErrorMessage } from "../../api/types";
 import { StatusState } from "../../components/StatusState";
 
 function toLocalInputValue(isoString: string | null | undefined) {
@@ -168,7 +169,7 @@ export function WalletPoliciesPage() {
     return (
       <StatusState
         title={isTransferPolicy ? "Unable to load transfer policy" : "Unable to load signup reward"}
-        message={(activePolicyQuery.error as Error).message}
+        message={getUserFacingErrorMessage(activePolicyQuery.error) ?? "Something went wrong. Please try again."}
         actionLabel="Retry"
         onAction={() => activePolicyQuery.refetch()}
       />
@@ -281,7 +282,7 @@ export function WalletPoliciesPage() {
                   Save reward policy
                 </Button>
                 {saveRewardMutation.isError ? (
-                  <Alert severity="error" role="alert">{saveRewardMutation.error.message}</Alert>
+                  <Alert severity="error" role="alert">{getUserFacingErrorMessage(saveRewardMutation.error)}</Alert>
                 ) : null}
                 <Alert severity={rewardQuery.data?.activeNow ? "success" : "info"}>
                   {rewardQuery.data?.activeNow
@@ -385,7 +386,7 @@ export function WalletPoliciesPage() {
                   Save transfer policy
                 </Button>
                 {saveTransferMutation.isError ? (
-                  <Alert severity="error" role="alert">{saveTransferMutation.error.message}</Alert>
+                  <Alert severity="error" role="alert">{getUserFacingErrorMessage(saveTransferMutation.error)}</Alert>
                 ) : null}
                 <Alert severity={transferQuery.data?.activeNow ? "success" : "info"}>
                   {transferQuery.data?.activeNow

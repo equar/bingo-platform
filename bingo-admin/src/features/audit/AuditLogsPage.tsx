@@ -25,6 +25,7 @@ import {
 } from "@mui/material";
 import { useState } from "react";
 import { auditLogDetail, auditLogs, type AdminAuditLogSummaryResponse } from "../../api/admin";
+import { getUserFacingErrorMessage } from "../../api/types";
 import { StatusState } from "../../components/StatusState";
 
 function hasDetailedMetadata(metadataJson: string) {
@@ -62,7 +63,7 @@ export function AuditLogsPage() {
     return (
       <StatusState
         title="Unable to load audit logs"
-        message={(auditQuery.error as Error).message}
+        message={getUserFacingErrorMessage(auditQuery.error) ?? "Something went wrong. Please try again."}
         actionLabel="Retry"
         onAction={() => auditQuery.refetch()}
       />

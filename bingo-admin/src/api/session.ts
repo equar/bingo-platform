@@ -21,6 +21,7 @@ const SESSION_KEY = 'bingo-admin-session';
 const SESSION_EVENT = 'bingo-admin-session-change';
 let cachedSessionRaw: string | null = null;
 let cachedSessionValue: AdminAuthSession | null = null;
+let sessionExpiredPending = false;
 
 function emitChange() {
   window.dispatchEvent(new Event(SESSION_EVENT));
@@ -51,14 +52,22 @@ export function writeSession(session: AdminAuthSession): void {
   window.localStorage.setItem(SESSION_KEY, JSON.stringify(session));
   cachedSessionRaw = JSON.stringify(session);
   cachedSessionValue = session;
+  sessionExpiredPending = false;
   emitChange();
 }
 
-export function clearSession(): void {
+export function clearSession(options: { expired?: boolean } = {}): void {
   window.localStorage.removeItem(SESSION_KEY);
   cachedSessionRaw = null;
   cachedSessionValue = null;
+  sessionExpiredPending = options.expired === true;
   emitChange();
+}
+
+export function consumeSessionExpired(): boolean {
+  const expired = sessionExpiredPending;
+  sessionExpiredPending = false;
+  return expired;
 }
 
 export function useSession(): AdminAuthSession | null {

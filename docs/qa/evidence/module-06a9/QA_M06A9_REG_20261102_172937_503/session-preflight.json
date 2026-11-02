@@ -1,0 +1,13 @@
+{
+  "backend": "http://127.0.0.1:8082",
+  "profile": "android-test",
+  "database": "bingo_qa_test",
+  "mysqlIdentity": "bingo_qa_test_runner@127.0.0.1",
+  "financialPosting": "disabled",
+  "sessionId": 48,
+  "roomId": 38,
+  "state": "OPEN",
+  "ticketPrice": "1.00",
+  "currency": "ETB",
+  "scheduledStartAt": "2026-11-04T13:06:35.40871Z"
+}

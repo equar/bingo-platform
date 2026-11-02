@@ -166,7 +166,9 @@ describe("DepositsPage", () => {
 
   it("shows a deposit review API failure", async () => {
     const user = userEvent.setup();
-    approveDepositMock.mockRejectedValue(new Error("Permission denied"));
+    approveDepositMock.mockRejectedValue({
+      response: { status: 403, data: { code: "ACCESS_DENIED", message: "Internal authorization detail" } },
+    });
     depositsMock.mockResolvedValue(depositResponse("VERIFIED"));
     render(<DepositsPage />, { wrapper: createWrapper });
     await screen.findByTestId("deposit-row-32");
@@ -175,6 +177,8 @@ describe("DepositsPage", () => {
     await user.type(screen.getByRole("textbox", { name: "Review note" }), "Payment verified");
     await user.click(screen.getByRole("button", { name: "Confirm" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Permission denied");
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "You don’t have permission to perform this action.",
+    );
   });
 });

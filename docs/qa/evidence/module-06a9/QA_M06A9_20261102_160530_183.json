@@ -1,0 +1,16 @@
+{
+  "runId": "QA_M06A9_20261102_160530_183",
+  "startedAt": "2026-11-02T16:05:30.1952506+03:00",
+  "completedAt": "2026-11-02T16:05:33.6500116+03:00",
+  "overall": "BLOCKED",
+  "reason": "BLOCKED: the Bingo Player package is not installed on emulator-5554.",
+  "backendPid": 7708,
+  "createdSessionId": null,
+  "createdTicketId": null,
+  "artifacts": {
+    "before": null,
+    "after": null,
+    "flutterLog": null,
+    "fixture": null
+  }
+}

@@ -26,9 +26,22 @@ http.interceptors.request.use((config) => {
 http.interceptors.response.use(
   (response) => response,
   (error) => {
-    const isPasswordVerificationFailure = error?.config?.url?.endsWith('/api/v1/admin/me/password');
-    if (error?.response?.status === 401 && !isPasswordVerificationFailure) {
-      clearSession();
+    const requestUrl = String(error?.config?.url ?? "");
+    const isPasswordVerificationFailure = requestUrl.endsWith('/api/v1/admin/me/password');
+    const isLoginRequest = /(?:^|\/)admin\/login\/?$/.test(requestUrl);
+    const sentAuthorization = error?.config?.headers?.Authorization;
+    const session = readSession();
+    const isCurrentSessionRequest =
+      typeof sentAuthorization === "string" &&
+      session?.accessToken != null &&
+      sentAuthorization === `Bearer ${session.accessToken}`;
+    if (
+      error?.response?.status === 401 &&
+      !isPasswordVerificationFailure &&
+      !isLoginRequest &&
+      isCurrentSessionRequest
+    ) {
+      clearSession({ expired: true });
     }
     return Promise.reject(parseApiError(error));
   },

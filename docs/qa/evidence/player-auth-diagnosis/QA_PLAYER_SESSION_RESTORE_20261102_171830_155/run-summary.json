@@ -1,0 +1,19 @@
+{
+  "runId": "QA_PLAYER_SESSION_RESTORE_20261102_171830_155",
+  "target": {
+    "profile": "android-test",
+    "database": "bingo_qa_test",
+    "mysqlIdentity": "bingo_qa_test_runner@127.0.0.1",
+    "emulator": "emulator-5554",
+    "financialPosting": "disabled"
+  },
+  "test": "module_01_session_restore_test.dart",
+  "flutterExitCode": 0,
+  "protectedDataUnchanged": true,
+  "status": "PASS",
+  "evidence": {
+    "databaseBefore": "database-before.txt",
+    "log": "flutter-integration.log",
+    "databaseAfter": "database-after.txt"
+  }
+}

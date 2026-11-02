@@ -12,7 +12,8 @@ class AuthSessionState {
   bool get isAuthenticated => session != null;
 }
 
-final authSessionControllerProvider =
+final StateNotifierProvider<AuthSessionController, AuthSessionState>
+authSessionControllerProvider =
     StateNotifierProvider<AuthSessionController, AuthSessionState>((ref) {
       return AuthSessionController(ref.watch(authRepositoryProvider));
     });
@@ -47,5 +48,10 @@ class AuthSessionController extends StateNotifier<AuthSessionState> {
   Future<void> signOut() async {
     await _repository.clear();
     state = const AuthSessionState(loading: false, session: null);
+  }
+
+  Future<void> clearSession({String? reason}) async {
+    await _repository.clear();
+    state = AuthSessionState(loading: false, session: null, errorCode: reason);
   }
 }

@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:bingo_app/src/core/config/app_config.dart';
 import 'package:bingo_app/src/core/models/page_result.dart';
+import 'package:bingo_app/src/core/network/api_error.dart';
 import 'package:bingo_app/src/features/auth/data/auth_session_controller.dart';
 import 'package:bingo_app/src/features/game/application/live_game_timeline.dart';
 import 'package:bingo_app/src/features/game/application/live_game_transport.dart';
@@ -62,6 +63,7 @@ class LiveGameState {
     this.pendingClaimIdempotencyKey,
     this.infoMessage,
     this.errorMessage,
+    this.apiError,
   });
 
   final bool isLoading;
@@ -79,6 +81,7 @@ class LiveGameState {
   final String? pendingClaimIdempotencyKey;
   final String? infoMessage;
   final String? errorMessage;
+  final ApiError? apiError;
 
   bool get isTerminalSession {
     final state = session?.state.toUpperCase();
@@ -118,6 +121,7 @@ class LiveGameState {
     Object? pendingClaimIdempotencyKey = _stateUnset,
     Object? infoMessage = _stateUnset,
     Object? errorMessage = _stateUnset,
+    Object? apiError = _stateUnset,
   }) {
     return LiveGameState(
       isLoading: isLoading ?? this.isLoading,
@@ -150,6 +154,11 @@ class LiveGameState {
       errorMessage: errorMessage == _stateUnset
           ? this.errorMessage
           : errorMessage as String?,
+      apiError: apiError == _stateUnset
+          ? errorMessage == null
+                ? null
+                : this.apiError
+          : apiError as ApiError?,
     );
   }
 }
@@ -276,7 +285,7 @@ class LiveGameController extends StateNotifier<LiveGameState> {
       }
       state = state.copyWith(
         isPurchasingTicket: false,
-        errorMessage: error.toString(),
+        apiError: normalizeApiError(error),
       );
     }
   }
@@ -348,7 +357,7 @@ class LiveGameController extends StateNotifier<LiveGameState> {
       }
       state = state.copyWith(
         isSubmittingClaim: false,
-        errorMessage: error.toString(),
+        apiError: normalizeApiError(error),
       );
     }
   }
@@ -441,7 +450,7 @@ class LiveGameController extends StateNotifier<LiveGameState> {
       state = state.copyWith(
         isLoading: false,
         connectionState: LiveGameConnectionState.disconnected,
-        errorMessage: error.toString(),
+        apiError: normalizeApiError(error),
       );
       _scheduleReconnect();
     } finally {
@@ -517,7 +526,7 @@ class LiveGameController extends StateNotifier<LiveGameState> {
         await _expireSession();
         return;
       }
-      state = state.copyWith(errorMessage: error.toString());
+      state = state.copyWith(apiError: normalizeApiError(error));
     }
   }
 
@@ -565,7 +574,7 @@ class LiveGameController extends StateNotifier<LiveGameState> {
         await _expireSession();
         return;
       }
-      state = state.copyWith(errorMessage: error.toString());
+      state = state.copyWith(apiError: normalizeApiError(error));
     } finally {
       _recoveringGap = false;
     }
@@ -605,7 +614,7 @@ class LiveGameController extends StateNotifier<LiveGameState> {
     }
     state = state.copyWith(
       connectionState: LiveGameConnectionState.reconnecting,
-      errorMessage: error.toString(),
+      apiError: normalizeApiError(error),
     );
     if (_connecting || _reconnectInFlight) {
       _scheduleReconnect();
@@ -712,11 +721,9 @@ class LiveGameController extends StateNotifier<LiveGameState> {
   }
 
   bool _isAuthError(Object error) {
-    final text = error.toString().toLowerCase();
-    return text.contains('401') ||
-        text.contains('unauthorized') ||
-        text.contains('forbidden') ||
-        text.contains('token') ||
-        text.contains('expired');
+    final apiError = normalizeApiError(error);
+    return apiError.statusCode == 401 ||
+        apiError.code == 'UNAUTHORIZED' ||
+        apiError.code == 'SESSION_EXPIRED';
   }
 }

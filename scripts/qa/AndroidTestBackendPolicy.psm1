@@ -42,7 +42,7 @@ function ConvertTo-UpperHexString {
 function Get-QAScenarioStatusesFromOutput {
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory)][string[]]$OutputLines,
+        [Parameter(Mandatory)][AllowEmptyString()][string[]]$OutputLines,
         [Parameter(Mandatory)][string[]]$ScenarioNames
     )
 
@@ -114,7 +114,34 @@ function Get-AndroidTestTcpListenerPids {
             }
         }
     ) | Sort-Object -Unique
-    return ,$pids
+    if (@($pids).Count -eq 0) {
+        try {
+            $boundSockets = @(
+                Get-NetTCPConnection -LocalPort $Port -ErrorAction Stop |
+                    Where-Object { $_.RemotePort -eq 0 -and $_.OwningProcess -gt 0 }
+            )
+        } catch {
+            if ($_.FullyQualifiedErrorId -notlike 'CmdletizationQuery_NotFound_LocalPort,*') {
+                throw
+            }
+            $boundSockets = @()
+        }
+        if ($boundSockets.Count -gt 0) {
+            # Confirm the bound socket accepts TCP before trusting its owning PID.
+            $client = [System.Net.Sockets.TcpClient]::new()
+            try {
+                $client.Connect('127.0.0.1', $Port)
+                if ($client.Connected) {
+                    $pids = @($boundSockets | Select-Object -ExpandProperty OwningProcess -Unique)
+                }
+            } catch [System.Net.Sockets.SocketException] {
+                $pids = @()
+            } finally {
+                $client.Dispose()
+            }
+        }
+    }
+    return $pids
 }
 
 function Assert-AndroidTestDatasource {

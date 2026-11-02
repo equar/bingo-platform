@@ -2,8 +2,10 @@ import 'dart:convert';
 
 import 'package:bingo_agent/src/app.dart';
 import 'package:bingo_agent/src/core/config/app_config.dart';
+import 'package:bingo_agent/src/core/network/api_error.dart';
 import 'package:bingo_agent/src/core/storage/session_storage.dart';
 import 'package:bingo_agent/src/features/auth/data/auth_models.dart';
+import 'package:bingo_agent/src/l10n/generated/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
@@ -25,6 +27,7 @@ void main() {
     expect(_pendingPhone, isNotEmpty);
 
     final storage = const SessionStorage();
+    await storage.clear();
     await tester.pumpWidget(
       const BingoAgentApp(key: ValueKey('agent-initial')),
     );
@@ -57,12 +60,16 @@ void main() {
     await _enterAgentCredentials(tester, phone: _phone, pin: _pin);
     await _waitFor(
       tester,
-      find.text('Sign-in failed. Check your details and try again.'),
+      find.text(
+        'Unable to connect. Check your internet connection and try again.',
+      ),
     );
     expect(find.byType(NavigationBar), findsNothing);
     expect(find.byType(TextFormField), findsNWidgets(2));
     expect(
-      find.text('Sign-in failed. Check your details and try again.'),
+      find.text(
+        'Unable to connect. Check your internet connection and try again.',
+      ),
       findsOneWidget,
     );
     await _captureScreenshot(tester, 'module-01-agent-network-error');
@@ -74,10 +81,7 @@ void main() {
     await _waitFor(tester, find.byType(TextFormField).first);
     debugPrint('QA_SCENARIO_START:agent-invalid-credentials-throttling');
     await _enterAgentCredentials(tester, phone: 'invalid-phone', pin: _pin);
-    await _waitFor(
-      tester,
-      find.text('Sign-in failed. Check your details and try again.'),
-    );
+    await _waitFor(tester, find.text('Enter a valid phone number.'));
 
     final syntheticPhone =
         '251900${(DateTime.now().millisecondsSinceEpoch % 1000000).toString().padLeft(6, '0')}';
@@ -85,7 +89,11 @@ void main() {
       await _enterAgentCredentials(tester, phone: syntheticPhone, pin: '1234');
       await _waitFor(
         tester,
-        find.text('Sign-in failed. Check your details and try again.'),
+        find.text(
+          attempt == 5
+              ? 'Too many attempts. Please wait a moment and try again.'
+              : 'The phone number or PIN is incorrect.',
+        ),
       );
     }
     final throttleProbe = Dio(BaseOptions(baseUrl: _apiUrl));
@@ -101,15 +109,12 @@ void main() {
       throttleProbe.close();
     }
     expect(
-      find.text('Sign-in failed. Check your details and try again.'),
+      find.text('Too many attempts. Please wait a moment and try again.'),
       findsOneWidget,
     );
 
     await _enterAgentCredentials(tester, phone: _phone, pin: '0000');
-    await _waitFor(
-      tester,
-      find.text('Sign-in failed. Check your details and try again.'),
-    );
+    await _waitFor(tester, find.text('The phone number or PIN is incorrect.'));
     expect(find.byType(NavigationBar), findsNothing);
 
     debugPrint('QA_SCENARIO_PASS:agent-invalid-credentials-throttling');
@@ -132,7 +137,7 @@ void main() {
     await _waitForEither(
       tester,
       find.byType(NavigationBar),
-      find.text('Sign-in failed. Check your details and try again.'),
+      find.text('The phone number or PIN is incorrect.'),
     );
     expect(find.byType(NavigationBar), findsOneWidget);
     await _captureScreenshot(tester, 'module-01-agent-authenticated');
@@ -155,22 +160,16 @@ void main() {
       phone: _pendingPhone,
       pin: _pendingPin,
     );
-    await _waitFor(
-      tester,
-      find.text('Sign-in failed. Check your details and try again.'),
-    );
+    await _waitFor(tester, find.text('The phone number or PIN is incorrect.'));
     expect(find.byType(NavigationBar), findsNothing);
-    expect(
-      find.text('Sign-in failed. Check your details and try again.'),
-      findsOneWidget,
-    );
+    expect(find.text('The phone number or PIN is incorrect.'), findsOneWidget);
     await _captureScreenshot(tester, 'module-01-agent-pending-rejected');
     debugPrint('QA_SCENARIO_PASS:agent-pending-login-denied');
 
     final expiry =
         DateTime.now()
             .toUtc()
-            .subtract(const Duration(minutes: 1))
+            .add(const Duration(minutes: 10))
             .millisecondsSinceEpoch ~/
         1000;
     final payload = base64Url
@@ -193,12 +192,16 @@ void main() {
       sessionJson: jsonEncode(expired.toJson()),
     );
     await tester.pumpWidget(
-      const BingoAgentApp(key: ValueKey('agent-expired')),
+      const BingoAgentApp(key: ValueKey('agent-rejected-session')),
     );
     await tester.pumpAndSettle();
     await _waitFor(
       tester,
       find.text('Your session expired. Please sign in again.'),
+    );
+    expect(
+      find.text('Your session expired. Please sign in again.'),
+      findsOneWidget,
     );
     expect((await storage.readSession())['token'], isNull);
     await _captureScreenshot(tester, 'module-01-agent-expired-session');
@@ -234,6 +237,14 @@ void main() {
           fail('Expected Agent cross-role access to be denied: $path');
         } on DioException catch (error) {
           expect(error.response?.statusCode, 403, reason: path);
+          final english = await AppLocalizations.delegate.load(
+            const Locale('en'),
+          );
+          expect(
+            mapDioApiError(error).userMessage(english),
+            english.errorPermissionDenied,
+            reason: path,
+          );
         }
       }
     } finally {
@@ -249,10 +260,7 @@ void main() {
     await tester.tap(find.text('Players').last);
     await _waitFor(tester, find.text('Fast player lookup and registration'));
     await tester.tap(find.text('Lookup'));
-    await _waitFor(
-      tester,
-      find.text('Request failed. Check your connection and try again.'),
-    );
+    await _waitFor(tester, find.text('Enter a valid phone number.'));
     await _captureScreenshot(
       tester,
       'module-01-agent-player-lookup-validation',

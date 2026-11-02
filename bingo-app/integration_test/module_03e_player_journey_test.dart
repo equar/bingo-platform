@@ -12,7 +12,9 @@ var _surfaceConverted = false;
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('Module 03E player account journey and local logout', (tester) async {
+  testWidgets('Module 03E player account journey and local logout', (
+    tester,
+  ) async {
     expect(_displayName, isNotEmpty);
     expect(_phone, isNotEmpty);
     expect(_pin, hasLength(6));
@@ -24,9 +26,18 @@ void main() {
     // J01: Register through the actual Android application UI.
     await tester.tap(find.byKey(const ValueKey('auth-toggle-button')));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byKey(const ValueKey('auth-display-name-field')), _displayName);
-    await tester.enterText(find.byKey(const ValueKey('auth-phone-field')), _phone);
-    await tester.enterText(find.byKey(const ValueKey('auth-password-field')), _pin);
+    await tester.enterText(
+      find.byKey(const ValueKey('auth-display-name-field')),
+      _displayName,
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('auth-phone-field')),
+      _phone,
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('auth-password-field')),
+      _pin,
+    );
     await tester.tap(find.byKey(const ValueKey('auth-submit-button')));
     await _waitFor(tester, find.byType(NavigationBar));
 
@@ -45,15 +56,27 @@ void main() {
     expect(find.byType(NavigationBar), findsNothing);
 
     // J14: Incorrect PIN must not establish a session.
-    await tester.enterText(find.byKey(const ValueKey('auth-phone-field')), _phone);
-    await tester.enterText(find.byKey(const ValueKey('auth-password-field')), '999999');
+    await tester.enterText(
+      find.byKey(const ValueKey('auth-phone-field')),
+      _phone,
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('auth-password-field')),
+      '999999',
+    );
     await tester.tap(find.byKey(const ValueKey('auth-submit-button')));
-    await _waitFor(tester, find.textContaining('AUTH_INVALID_CREDENTIALS'));
+    await _waitFor(tester, find.text('The phone number or PIN is incorrect.'));
     expect(find.byType(NavigationBar), findsNothing);
 
     // J06-J09: Log in, verify identity and refresh it from the server.
-    await tester.enterText(find.byKey(const ValueKey('auth-phone-field')), _phone);
-    await tester.enterText(find.byKey(const ValueKey('auth-password-field')), _pin);
+    await tester.enterText(
+      find.byKey(const ValueKey('auth-phone-field')),
+      _phone,
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('auth-password-field')),
+      _pin,
+    );
     await tester.tap(find.byKey(const ValueKey('auth-submit-button')));
     await _waitFor(tester, find.byType(NavigationBar));
     await tester.tap(find.text('Profile'));
@@ -67,7 +90,9 @@ void main() {
     await _captureScreenshot(tester, 'module-03e-player-profile');
 
     // Leave the authenticated session in secure storage for the process-restart run.
-    await tester.runAsync(() => Future<void>.delayed(const Duration(seconds: 15)));
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(seconds: 15)),
+    );
   });
 }
 

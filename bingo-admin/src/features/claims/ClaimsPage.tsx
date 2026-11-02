@@ -22,6 +22,7 @@ import {
 } from "@mui/material";
 import { keepPreviousData } from "@tanstack/react-query";
 import { approveWinClaim, rejectWinClaim, winClaims } from "../../api/admin";
+import { getUserFacingErrorMessage, parseApiError } from "../../api/types";
 import { StatusState } from "../../components/StatusState";
 import { useIdempotencyKey } from "../common/useIdempotencyKey";
 
@@ -74,7 +75,11 @@ export function ClaimsPage() {
       setSelectedId(null);
       setReason("");
     },
+    onError: (error) => {
+      if (!parseApiError(error).outcomeUnknown) idempotency.resetKey();
+    },
   });
+  const actionOutcomeUnknown = actionMutation.isError && parseApiError(actionMutation.error).outcomeUnknown;
 
   if (claimsQuery.isLoading) {
     return <StatusState title="Loading claims" loading message="Fetching win claims" />;
@@ -84,7 +89,7 @@ export function ClaimsPage() {
     return (
       <StatusState
         title="Unable to load claims"
-        message={(claimsQuery.error as Error).message}
+        message={getUserFacingErrorMessage(claimsQuery.error) ?? "Something went wrong. Please try again."}
         actionLabel="Retry"
         onAction={() => claimsQuery.refetch()}
       />
@@ -213,6 +218,9 @@ export function ClaimsPage() {
                       variant="contained"
                       disabled={!claim.serverValidationPassed || claim.status !== "PENDING_REVIEW"}
                       onClick={() => {
+                        idempotency.resetKey();
+                        actionMutation.reset();
+                        setReason("");
                         setMode("APPROVE");
                         setSelectedId(claim.id);
                         setConfirmOpen(true);
@@ -226,6 +234,9 @@ export function ClaimsPage() {
                       variant="outlined"
                       disabled={!claim.serverValidationPassed || claim.status !== "PENDING_REVIEW"}
                       onClick={() => {
+                        idempotency.resetKey();
+                        actionMutation.reset();
+                        setReason("");
                         setMode("REJECT");
                         setSelectedId(claim.id);
                         setConfirmOpen(true);
@@ -261,17 +272,18 @@ export function ClaimsPage() {
         rowsPerPageOptions={[10, 20, 50]}
       />
 
-      <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)} fullWidth maxWidth="sm">
+      <Dialog open={confirmOpen} onClose={() => !actionOutcomeUnknown && !actionMutation.isPending && setConfirmOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>{mode === "APPROVE" ? "Approve claim" : "Reject claim"}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
             {actionMutation.isError ? (
-              <Alert severity="error">{actionMutation.error.message}</Alert>
+              <Alert severity="error">{getUserFacingErrorMessage(actionMutation.error)}</Alert>
             ) : null}
             <TextField
               label={mode === "APPROVE" ? "Validation note" : "Rejection reason"}
               value={reason}
               onChange={(event) => setReason(event.target.value)}
+              disabled={actionOutcomeUnknown}
               fullWidth
               multiline
               minRows={3}
@@ -280,13 +292,13 @@ export function ClaimsPage() {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setConfirmOpen(false)}>Cancel</Button>
+          <Button onClick={() => setConfirmOpen(false)} disabled={actionOutcomeUnknown || actionMutation.isPending}>Cancel</Button>
           <Button
             variant="contained"
             onClick={() => actionMutation.mutate()}
             disabled={!reason || actionMutation.isPending}
           >
-            Confirm
+            {actionOutcomeUnknown ? "Retry same decision" : "Confirm"}
           </Button>
         </DialogActions>
       </Dialog>

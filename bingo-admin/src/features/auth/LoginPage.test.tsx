@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { StrictMode } from "react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -9,6 +10,7 @@ const loginMock = vi.fn();
 const writeSessionMock = vi.fn();
 const clearSessionMock = vi.fn();
 const navigateMock = vi.fn();
+const consumeSessionExpiredMock = vi.fn();
 const locationMock = { state: undefined };
 
 vi.mock("../../api/admin", () => ({
@@ -18,10 +20,12 @@ vi.mock("../../api/admin", () => ({
 vi.mock("../../api/session", () => ({
   writeSession: (...args: unknown[]) => writeSessionMock(...args),
   clearSession: () => clearSessionMock(),
+  consumeSessionExpired: (...args: unknown[]) => consumeSessionExpiredMock(...args),
 }));
 
 vi.mock("../../api/types", () => ({
   parseApiError: (error: unknown) => ({ code: "AUTH_FAILED", message: (error as Error).message ?? "Request failed" }),
+  getFieldError: () => undefined,
 }));
 
 vi.mock("react-router-dom", async () => {
@@ -60,6 +64,7 @@ describe("LoginPage", () => {
     vi.clearAllMocks();
     window.localStorage.clear();
     locationMock.state = undefined;
+    consumeSessionExpiredMock.mockReturnValue(false);
     loginMock.mockResolvedValue({
       accessToken: "token",
       tokenType: "Bearer",
@@ -90,6 +95,22 @@ describe("LoginPage", () => {
     await user.type(screen.getByLabelText(/email address/i), "new@bingo.local");
 
     expect(window.localStorage.getItem("bingo-admin-login-email")).toBe("new@bingo.local");
+  });
+
+  it("preserves the expired-session notice when StrictMode replays effects", async () => {
+    consumeSessionExpiredMock.mockReturnValueOnce(true).mockReturnValue(false);
+
+    render(
+      <StrictMode>
+        <LoginPage />
+      </StrictMode>,
+      { wrapper: createWrapper() },
+    );
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Your session has expired. Please sign in again.",
+    );
+    expect(consumeSessionExpiredMock).toHaveBeenCalledTimes(2);
   });
 
   it("routes temporary-password users directly to password change", async () => {

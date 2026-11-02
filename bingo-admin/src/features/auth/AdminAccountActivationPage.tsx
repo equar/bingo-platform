@@ -3,7 +3,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { activateAdminAccount } from "../../api/admin";
-import { parseApiError } from "../../api/types";
+import { getFieldError, parseApiError } from "../../api/types";
 
 export function AdminAccountActivationPage() {
   const navigate = useNavigate();
@@ -25,10 +25,14 @@ export function AdminAccountActivationPage() {
     },
     onError: (error) => {
       const parsed = parseApiError(error);
-      setErrorMessage(`${parsed.code ?? "ACCOUNT_ACTIVATION_FAILED"}: ${parsed.message}`);
+      setErrorMessage(parsed.message);
       setSuccessMessage(null);
     },
   });
+  const newPasswordError = getFieldError(activationMutation.error, "newPassword");
+  const confirmationError = newPassword !== confirmPassword && Boolean(confirmPassword)
+    ? "The passwords do not match."
+    : getFieldError(activationMutation.error, "confirmPassword");
 
   useEffect(() => {
     if (token && window.location.hash) {
@@ -57,7 +61,8 @@ export function AdminAccountActivationPage() {
             value={newPassword}
             onChange={(event) => setNewPassword(event.target.value)}
             autoComplete="new-password"
-            helperText="Use at least 8 characters."
+            error={Boolean(newPasswordError)}
+            helperText={newPasswordError ?? "Use at least 8 characters."}
             required
             fullWidth
             disabled={!token || activationMutation.isPending || Boolean(successMessage)}
@@ -68,11 +73,15 @@ export function AdminAccountActivationPage() {
             value={confirmPassword}
             onChange={(event) => setConfirmPassword(event.target.value)}
             autoComplete="new-password"
+            error={Boolean(confirmationError)}
+            helperText={confirmationError}
             required
             fullWidth
             disabled={!token || activationMutation.isPending || Boolean(successMessage)}
           />
-          {errorMessage ? <Alert severity="error">{errorMessage}</Alert> : null}
+          {errorMessage && !newPasswordError && !confirmationError ? (
+            <Alert severity="error">{errorMessage}</Alert>
+          ) : null}
           {successMessage ? <Alert severity="success">{successMessage}</Alert> : null}
           {successMessage ? (
             <Button variant="contained" onClick={() => navigate("/login")}>
@@ -84,7 +93,7 @@ export function AdminAccountActivationPage() {
               disabled={!token || activationMutation.isPending}
               onClick={() => {
                 if (newPassword !== confirmPassword) {
-                  setErrorMessage("PASSWORD_CONFIRMATION_MISMATCH: New passwords do not match");
+                  setErrorMessage(null);
                   return;
                 }
                 setErrorMessage(null);

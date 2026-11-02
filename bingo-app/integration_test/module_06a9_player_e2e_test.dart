@@ -66,7 +66,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('auth-submit-button')));
     await _waitFor(
       tester,
-      find.textContaining('AUTH_INVALID_CREDENTIALS'),
+      find.text('The phone number or PIN is incorrect.'),
       timeout: const Duration(seconds: 45),
     );
     expect(find.byType(NavigationBar), findsNothing);
@@ -120,6 +120,10 @@ void main() {
       await tester.ensureVisible(button);
       await tester.tap(button);
       await _waitFor(tester, find.byKey(const ValueKey('room-detail-name')));
+      await _waitFor(
+        tester,
+        find.byKey(ValueKey('room-sessions-loaded-$roomId')),
+      );
       openedRoom = true;
 
       final roomPriceFinder = find.textContaining('Price:').first;
@@ -265,6 +269,8 @@ void main() {
     // Logout is local and must return the protected area to the auth screen.
     await tester.tap(find.text('Profile'));
     await _waitFor(tester, find.text('Logout'));
+    await tester.ensureVisible(find.text('Logout'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Logout'));
     await _waitFor(tester, find.byKey(const ValueKey('auth-submit-button')));
     expect(find.byType(NavigationBar), findsNothing);
@@ -303,6 +309,7 @@ Future<void> _tapBackTo(WidgetTester tester, Finder destination) async {
     matching: find.byType(BackButton),
   );
   expect(backButton, findsOneWidget);
+  await tester.pumpAndSettle();
   await tester.tap(backButton);
   await _waitFor(tester, destination);
 }

@@ -32,6 +32,7 @@ import {
   currentCommissionRule,
   suspendAgent,
 } from "../../api/admin";
+import { getUserFacingErrorMessage } from "../../api/types";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { StatusState } from "../../components/StatusState";
 import { FloatFundingPanel } from "./FloatFundingPanel";
@@ -74,7 +75,7 @@ export function AgentsPage() {
       setSelectedAgent(null);
       setDecisionError(null);
     },
-    onError: (error) => setDecisionError((error as Error).message),
+    onError: (error) => setDecisionError(getUserFacingErrorMessage(error) ?? "Something went wrong. Please try again."),
   });
 
   const suspendMutation = useMutation({
@@ -90,7 +91,7 @@ export function AgentsPage() {
       setSelectedAgent(null);
       setDecisionError(null);
     },
-    onError: (error) => setDecisionError((error as Error).message),
+    onError: (error) => setDecisionError(getUserFacingErrorMessage(error) ?? "Something went wrong. Please try again."),
   });
 
   const commissionMutation = useMutation({
@@ -127,7 +128,7 @@ export function AgentsPage() {
     return (
       <StatusState
         title="Unable to load agents"
-        message={(agentsQuery.error as Error).message}
+        message={getUserFacingErrorMessage(agentsQuery.error) ?? "Something went wrong. Please try again."}
         actionLabel="Retry"
         onAction={() => agentsQuery.refetch()}
       />
@@ -166,7 +167,7 @@ export function AgentsPage() {
                     Current version {commissionRuleQuery.data.versionNumber} · {commissionRuleQuery.data.active ? "Active" : "Inactive"}
                   </Typography>
                 ) : null}
-                {commissionMutation.isError ? <Alert severity="error" role="alert">{commissionMutation.error.message}</Alert> : null}
+                {commissionMutation.isError ? <Alert severity="error" role="alert">{getUserFacingErrorMessage(commissionMutation.error)}</Alert> : null}
                 <Grid container spacing={2}>
                   <Grid item xs={12} md={4}>
                     <TextField

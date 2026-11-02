@@ -1,3 +1,4 @@
+import 'package:bingo_agent/src/core/network/api_error.dart';
 import 'package:bingo_agent/src/features/agents/data/agent_repository.dart';
 import 'package:bingo_agent/src/features/auth/data/auth_models.dart';
 import 'package:bingo_agent/src/l10n/generated/app_localizations.dart';
@@ -16,6 +17,7 @@ class _PlayersScreenState extends ConsumerState<PlayersScreen> {
   final _nameController = TextEditingController();
   bool _busy = false;
   String? _error;
+  ApiError? _apiError;
   UserProfile? _player;
 
   @override
@@ -26,31 +28,43 @@ class _PlayersScreenState extends ConsumerState<PlayersScreen> {
   }
 
   Future<void> _lookup() async {
-    final requestFailed = AppLocalizations.of(context)!.requestFailed;
-    setState(() => _busy = true);
+    final l10n = AppLocalizations.of(context)!;
+    setState(() {
+      _busy = true;
+      _error = null;
+      _apiError = null;
+    });
     try {
       _player = await ref
           .read(agentRepositoryProvider)
           .lookupPlayer(_phoneController.text.trim());
-    } catch (_) {
+    } catch (error) {
       _player = null;
-      _error = requestFailed;
+      final parsed = normalizeApiError(error);
+      _apiError = parsed;
+      _error = parsed.cancelled ? null : parsed.userMessage(l10n);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
   Future<void> _register() async {
-    final requestFailed = AppLocalizations.of(context)!.requestFailed;
-    setState(() => _busy = true);
+    final l10n = AppLocalizations.of(context)!;
+    setState(() {
+      _busy = true;
+      _error = null;
+      _apiError = null;
+    });
     try {
       _player = await ref.read(agentRepositoryProvider).registerPlayer({
         'phoneNumber': _phoneController.text.trim(),
         'displayName': _nameController.text.trim(),
       });
       _error = null;
-    } catch (_) {
-      _error = requestFailed;
+    } catch (error) {
+      final parsed = normalizeApiError(error);
+      _apiError = parsed;
+      _error = parsed.cancelled ? null : parsed.userMessage(l10n);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -59,37 +73,61 @@ class _PlayersScreenState extends ConsumerState<PlayersScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final phoneError = fieldErrorMessage(_apiError, 'phoneNumber', l10n);
+    final nameError = fieldErrorMessage(_apiError, 'displayName', l10n);
+    final hasInlineError = phoneError != null || nameError != null;
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Text(l10n.playerLookupRegistration,
-            style: Theme.of(context).textTheme.headlineSmall),
+        Text(
+          l10n.playerLookupRegistration,
+          style: Theme.of(context).textTheme.headlineSmall,
+        ),
         const SizedBox(height: 12),
         TextField(
-            controller: _phoneController,
-            decoration: InputDecoration(labelText: l10n.phoneLabel)),
+          controller: _phoneController,
+          decoration: InputDecoration(
+            labelText: l10n.phoneLabel,
+            errorText: phoneError,
+          ),
+        ),
         const SizedBox(height: 12),
         TextField(
-            controller: _nameController,
-            decoration: InputDecoration(labelText: l10n.displayName)),
+          controller: _nameController,
+          decoration: InputDecoration(
+            labelText: l10n.displayName,
+            errorText: nameError,
+          ),
+        ),
         const SizedBox(height: 12),
-        Wrap(spacing: 12, children: [
-          FilledButton(
-              onPressed: _busy ? null : _lookup, child: Text(l10n.lookup)),
-          OutlinedButton(
-              onPressed: _busy ? null : _register, child: Text(l10n.register)),
-        ]),
-        if (_error != null) ...[
+        Wrap(
+          spacing: 12,
+          children: [
+            FilledButton(
+              onPressed: _busy ? null : _lookup,
+              child: Text(l10n.lookup),
+            ),
+            OutlinedButton(
+              onPressed: _busy ? null : _register,
+              child: Text(l10n.register),
+            ),
+          ],
+        ),
+        if (_error != null && !hasInlineError) ...[
           const SizedBox(height: 8),
-          Text(_error!,
-              style: TextStyle(color: Theme.of(context).colorScheme.error)),
+          Text(
+            _error!,
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          ),
         ],
         const SizedBox(height: 16),
         if (_player != null)
           Card(
-              child: ListTile(
-                  title: Text(_player!.displayName),
-                  subtitle: Text(_player!.phoneNumber))),
+            child: ListTile(
+              title: Text(_player!.displayName),
+              subtitle: Text(_player!.phoneNumber),
+            ),
+          ),
       ],
     );
   }

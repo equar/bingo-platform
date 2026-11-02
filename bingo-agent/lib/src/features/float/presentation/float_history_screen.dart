@@ -1,8 +1,8 @@
+import 'package:bingo_agent/src/core/network/api_error.dart';
 import 'package:bingo_agent/src/core/network/idempotency.dart';
 import 'package:bingo_agent/src/features/agents/data/agent_repository.dart';
 import 'package:bingo_agent/src/features/agents/data/agent_models.dart';
 import 'package:bingo_agent/src/l10n/generated/app_localizations.dart';
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -12,7 +12,7 @@ final floatHistoryProvider = FutureProvider.autoDispose((ref) async {
   return (
     await repository.floatBalance(),
     await repository.floatHistory(),
-    await repository.topUpRequests()
+    await repository.topUpRequests(),
   );
 });
 
@@ -29,11 +29,12 @@ class FloatHistoryScreen extends ConsumerWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(l10n.requestFailed),
+            Text(userFacingApiError(error, l10n) ?? l10n.errorGeneric),
             const SizedBox(height: 8),
             FilledButton(
-                onPressed: () => ref.invalidate(floatHistoryProvider),
-                child: Text(l10n.retry)),
+              onPressed: () => ref.invalidate(floatHistoryProvider),
+              child: Text(l10n.retry),
+            ),
           ],
         ),
       ),
@@ -46,20 +47,26 @@ class FloatHistoryScreen extends ConsumerWidget {
           name: floatBalance.currency,
         );
         final number = NumberFormat.decimalPattern(
-            Localizations.localeOf(context).languageCode);
+          Localizations.localeOf(context).languageCode,
+        );
         return RefreshIndicator(
           onRefresh: () async => ref.invalidate(floatHistoryProvider),
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(16),
             children: [
-              Text(l10n.floatHistoryTitle,
-                  style: Theme.of(context).textTheme.headlineSmall),
-              Text(l10n.availableBalance(
-                number.format(
-                    double.tryParse(floatBalance.availableBalance) ?? 0),
-                floatBalance.currency,
-              )),
+              Text(
+                l10n.floatHistoryTitle,
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+              Text(
+                l10n.availableBalance(
+                  number.format(
+                    double.tryParse(floatBalance.availableBalance) ?? 0,
+                  ),
+                  floatBalance.currency,
+                ),
+              ),
               const SizedBox(height: 12),
               FilledButton.icon(
                 onPressed: () => _openTopUpRequest(context, ref, floatBalance),
@@ -67,25 +74,35 @@ class FloatHistoryScreen extends ConsumerWidget {
                 label: Text(l10n.requestFloatTopUp),
               ),
               const SizedBox(height: 12),
-              ...history.map((entry) => ListTile(
-                    title: Text(_transactionLabel(l10n, entry.transactionType)),
-                    subtitle: Text(DateFormat.yMMMd(
-                            Localizations.localeOf(context).languageCode)
-                        .add_jm()
-                        .format(entry.createdAt.toLocal())),
-                    trailing: Text(
-                        currency.format(double.tryParse(entry.amount) ?? 0)),
-                  )),
+              ...history.map(
+                (entry) => ListTile(
+                  title: Text(_transactionLabel(l10n, entry.transactionType)),
+                  subtitle: Text(
+                    DateFormat.yMMMd(
+                      Localizations.localeOf(context).languageCode,
+                    ).add_jm().format(entry.createdAt.toLocal()),
+                  ),
+                  trailing: Text(
+                    currency.format(double.tryParse(entry.amount) ?? 0),
+                  ),
+                ),
+              ),
               const SizedBox(height: 12),
-              Text(l10n.topUpRequests,
-                  style: Theme.of(context).textTheme.titleMedium),
-              ...requests.map((entry) => ListTile(
-                    title: Text(
-                        currency.format(double.tryParse(entry.amount) ?? 0)),
-                    subtitle: Text([
+              Text(
+                l10n.topUpRequests,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              ...requests.map(
+                (entry) => ListTile(
+                  title: Text(
+                    currency.format(double.tryParse(entry.amount) ?? 0),
+                  ),
+                  subtitle: Text(
+                    [
                       _statusLabel(l10n, entry.status),
-                      DateFormat.yMMMd(Localizations.localeOf(context).languageCode)
-                          .format(entry.createdAt.toLocal()),
+                      DateFormat.yMMMd(
+                        Localizations.localeOf(context).languageCode,
+                      ).format(entry.createdAt.toLocal()),
                       if (entry.submissionNote?.trim().isNotEmpty == true)
                         entry.submissionNote!.trim(),
                       if (entry.bankNameSnapshot?.trim().isNotEmpty == true)
@@ -94,8 +111,10 @@ class FloatHistoryScreen extends ConsumerWidget {
                         'Ref: ${entry.transferReference}',
                       if (entry.reviewNote?.trim().isNotEmpty == true)
                         entry.reviewNote!.trim(),
-                    ].join(' · ')),
-                  )),
+                    ].join(' · '),
+                  ),
+                ),
+              ),
             ],
           ),
         );
@@ -116,8 +135,9 @@ class FloatHistoryScreen extends ConsumerWidget {
     );
     if (!context.mounted || submitted != true) return;
     ref.invalidate(floatHistoryProvider);
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(l10n.topUpRequestSubmitted)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(l10n.topUpRequestSubmitted)));
   }
 
   String _transactionLabel(AppLocalizations l10n, String type) =>
@@ -172,6 +192,7 @@ class _TopUpRequestDialogState extends ConsumerState<_TopUpRequestDialog> {
   String? _attemptReference;
   String? _attemptEvidence;
   int? _attemptAccountId;
+  ApiError? _apiError;
 
   @override
   void initState() {
@@ -181,18 +202,23 @@ class _TopUpRequestDialogState extends ConsumerState<_TopUpRequestDialog> {
 
   Future<void> _loadBankAccounts() async {
     try {
-      final accounts = await ref.read(agentRepositoryProvider).floatBankAccounts();
+      final accounts = await ref
+          .read(agentRepositoryProvider)
+          .floatBankAccounts();
       if (!mounted) return;
       setState(() {
         _bankAccounts = accounts;
         _bankAccountsLoading = false;
         if (accounts.length == 1) _selectedBankAccountId = accounts.single.id;
       });
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
       setState(() {
         _bankAccountsLoading = false;
-        _bankAccountsError = AppLocalizations.of(context)!.requestFailed;
+        _bankAccountsError = userFacingApiError(
+          error,
+          AppLocalizations.of(context)!,
+        );
       });
     }
   }
@@ -218,11 +244,13 @@ class _TopUpRequestDialogState extends ConsumerState<_TopUpRequestDialog> {
           content: Text(l10n.confirmTopUpBody(amount, widget.currency)),
           actions: [
             TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: Text(l10n.cancel)),
+              onPressed: () => Navigator.of(context).pop(false),
+              child: Text(l10n.cancel),
+            ),
             FilledButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: Text(l10n.confirm)),
+              onPressed: () => Navigator.of(context).pop(true),
+              child: Text(l10n.confirm),
+            ),
           ],
         ),
       );
@@ -238,6 +266,7 @@ class _TopUpRequestDialogState extends ConsumerState<_TopUpRequestDialog> {
     setState(() {
       _busy = true;
       _error = null;
+      _apiError = null;
     });
     try {
       await ref.read(agentRepositoryProvider).submitTopUp({
@@ -246,29 +275,25 @@ class _TopUpRequestDialogState extends ConsumerState<_TopUpRequestDialog> {
         'note': _attemptNote!.isEmpty ? null : _attemptNote,
         'receivingBankAccountId': _attemptAccountId,
         'transferReference': _attemptReference,
-        'supportingEvidenceNote': _attemptEvidence!.isEmpty ? null : _attemptEvidence,
+        'supportingEvidenceNote': _attemptEvidence!.isEmpty
+            ? null
+            : _attemptEvidence,
       }, _idempotencyKey!);
       if (mounted) Navigator.of(context).pop(true);
-    } on DioException catch (error) {
-      if (error.response?.statusCode case final status?
-          when status >= 400 && status < 500) {
-        _idempotencyKey = null;
-        _attemptAmount = null;
-        _attemptNote = null;
-        _attemptReference = null;
-        _attemptEvidence = null;
-        _attemptAccountId = null;
-      }
+    } catch (error) {
       if (mounted) {
+        final parsed = normalizeApiError(error);
         setState(() {
-          _error = l10n.topUpRequestFailed;
-          _busy = false;
-        });
-      }
-    } catch (_) {
-      if (mounted) {
-        setState(() {
-          _error = l10n.topUpRequestFailed;
+          _apiError = parsed;
+          _error = parsed.cancelled ? null : parsed.userMessage(l10n);
+          if (!parsed.outcomeUnknown) {
+            _idempotencyKey = null;
+            _attemptAmount = null;
+            _attemptNote = null;
+            _attemptReference = null;
+            _attemptEvidence = null;
+            _attemptAccountId = null;
+          }
           _busy = false;
         });
       }
@@ -279,6 +304,19 @@ class _TopUpRequestDialogState extends ConsumerState<_TopUpRequestDialog> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final attempted = _idempotencyKey != null;
+    final amountError = fieldErrorMessage(_apiError, 'amount', l10n);
+    final accountError = fieldErrorMessage(
+      _apiError,
+      'receivingBankAccountId',
+      l10n,
+    );
+    final referenceError = fieldErrorMessage(
+      _apiError,
+      'transferReference',
+      l10n,
+    );
+    final hasInlineError =
+        amountError != null || accountError != null || referenceError != null;
     return PopScope(
       canPop: !attempted,
       child: AlertDialog(
@@ -292,10 +330,14 @@ class _TopUpRequestDialogState extends ConsumerState<_TopUpRequestDialog> {
                 TextFormField(
                   controller: _amountController,
                   readOnly: attempted || _busy,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                   decoration: InputDecoration(
-                      labelText: l10n.topUpAmount, suffixText: widget.currency),
+                    labelText: l10n.topUpAmount,
+                    suffixText: widget.currency,
+                    errorText: amountError,
+                  ),
                   validator: (value) {
                     final amount = value?.trim() ?? '';
                     if (!RegExp(r'^\d{1,17}(\.\d{1,2})?$').hasMatch(amount) ||
@@ -316,25 +358,42 @@ class _TopUpRequestDialogState extends ConsumerState<_TopUpRequestDialog> {
                   DropdownButtonFormField<int>(
                     initialValue: _selectedBankAccountId,
                     isExpanded: true,
-                    decoration: InputDecoration(labelText: l10n.topUpBankAccount),
-                    items: _bankAccounts.map((account) => DropdownMenuItem(
-                      value: account.id,
-                      child: Text(
-                        '${account.bankName} · ${account.maskedAccountNumber} · ${account.accountHolderName}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    )).toList(),
-                    onChanged: attempted || _busy ? null : (value) => setState(() => _selectedBankAccountId = value),
-                    validator: (value) => value == null ? l10n.topUpNoBankAccounts : null,
+                    decoration: InputDecoration(
+                      labelText: l10n.topUpBankAccount,
+                      errorText: accountError,
+                    ),
+                    items: _bankAccounts
+                        .map(
+                          (account) => DropdownMenuItem(
+                            value: account.id,
+                            child: Text(
+                              '${account.bankName} · ${account.maskedAccountNumber} · ${account.accountHolderName}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: attempted || _busy
+                        ? null
+                        : (value) =>
+                              setState(() => _selectedBankAccountId = value),
+                    validator: (value) =>
+                        value == null ? l10n.topUpNoBankAccounts : null,
                   ),
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _referenceController,
                   readOnly: attempted || _busy,
                   maxLength: 120,
-                  decoration: InputDecoration(labelText: l10n.topUpTransferReference, counterText: ''),
-                  validator: (value) => value == null || value.trim().isEmpty ? l10n.topUpReferenceRequired : null,
+                  decoration: InputDecoration(
+                    labelText: l10n.topUpTransferReference,
+                    counterText: '',
+                    errorText: referenceError,
+                  ),
+                  validator: (value) => value == null || value.trim().isEmpty
+                      ? l10n.topUpReferenceRequired
+                      : null,
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
@@ -351,13 +410,19 @@ class _TopUpRequestDialogState extends ConsumerState<_TopUpRequestDialog> {
                   controller: _evidenceController,
                   readOnly: attempted || _busy,
                   maxLength: 500,
-                  decoration: InputDecoration(labelText: l10n.topUpEvidenceNote, counterText: ''),
+                  decoration: InputDecoration(
+                    labelText: l10n.topUpEvidenceNote,
+                    counterText: '',
+                  ),
                 ),
-                if (_error != null) ...[
+                if (_error != null && !hasInlineError) ...[
                   const SizedBox(height: 8),
-                  Text(_error!,
-                      style: TextStyle(
-                          color: Theme.of(context).colorScheme.error)),
+                  Text(
+                    _error!,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
                 ],
               ],
             ),
@@ -366,15 +431,22 @@ class _TopUpRequestDialogState extends ConsumerState<_TopUpRequestDialog> {
         actions: [
           if (!attempted)
             TextButton(
-                onPressed:
-                    _busy ? null : () => Navigator.of(context).pop(false),
-                child: Text(l10n.cancel)),
+              onPressed: _busy ? null : () => Navigator.of(context).pop(false),
+              child: Text(l10n.cancel),
+            ),
           FilledButton(
-            onPressed: _busy || _bankAccountsLoading || _bankAccounts.isEmpty || _bankAccountsError != null ? null : _submit,
+            onPressed:
+                _busy ||
+                    _bankAccountsLoading ||
+                    _bankAccounts.isEmpty ||
+                    _bankAccountsError != null
+                ? null
+                : _submit,
             child: _busy
                 ? const SizedBox.square(
                     dimension: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2))
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
                 : Text(attempted ? l10n.retry : l10n.submitRequest),
           ),
         ],

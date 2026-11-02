@@ -17,6 +17,7 @@ import {
 } from "@mui/material";
 import { Link as RouterLink } from "react-router-dom";
 import { supportAssignees, supportTickets } from "../../api/admin";
+import { getUserFacingErrorMessage } from "../../api/types";
 import { StatusState } from "../../components/StatusState";
 
 const statusOptions = ["", "OPEN", "IN_PROGRESS", "WAITING_FOR_CUSTOMER", "RESOLVED", "CLOSED"];
@@ -58,7 +59,7 @@ export function SupportTicketsPage() {
     return (
       <StatusState
         title="Unable to load support tickets"
-        message={(ticketsQuery.error as Error).message}
+        message={getUserFacingErrorMessage(ticketsQuery.error) ?? "Something went wrong. Please try again."}
         actionLabel="Retry"
         onAction={() => ticketsQuery.refetch()}
       />

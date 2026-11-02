@@ -1,0 +1,63 @@
+{
+  "runId": "QA_M01_AGENT_20261102_154340_507",
+  "startedAt": "2026-11-02T15:43:40.5152768+03:00",
+  "stage": "backend-runtime-validation",
+  "status": "BLOCKED",
+  "environment": "android-test",
+  "test": "bingo-agent/integration_test/module_01_authentication_test.dart",
+  "backend": null,
+  "mysql": null,
+  "androidDevice": "emulator-5554",
+  "financialPosting": "disabled",
+  "agentFixtures": {
+    "approved": false,
+    "pending": false
+  },
+  "databaseCountsBefore": null,
+  "databaseCountsAfter": null,
+  "protectedCountsUnchanged": null,
+  "testExitCode": null,
+  "processRestartExitCode": null,
+  "overallExitCode": null,
+  "processRestartBlocker": null,
+  "scenarios": [
+    {
+      "name": "Approved Agent phone/PIN login in Android UI",
+      "status": "NOT RUN"
+    },
+    {
+      "name": "Pending Agent login denied in Android UI",
+      "status": "NOT RUN"
+    },
+    {
+      "name": "Invalid credentials and login throttling",
+      "status": "NOT RUN"
+    },
+    {
+      "name": "Session restore, expiry, and logout",
+      "status": "NOT RUN"
+    },
+    {
+      "name": "Cross-role authorization restrictions",
+      "status": "NOT RUN"
+    },
+    {
+      "name": "Authenticated Agent Support ticket list (read-only)",
+      "status": "NOT RUN"
+    },
+    {
+      "name": "Authenticated Agent dashboard, Player lookup validation, and read-only operational screens",
+      "status": "NOT RUN"
+    },
+    {
+      "name": "Android process force-stop/relaunch session restore and logout",
+      "status": "NOT RUN"
+    }
+  ],
+  "screenshots": [],
+  "failureType": null,
+  "failureLine": null,
+  "failureDetail": null,
+  "blocker": "BLOCKED: exactly one listener must be verified on isolated backend port 8082.",
+  "finishedAt": "2026-11-02T15:43:42.1746527+03:00"
+}

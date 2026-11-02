@@ -72,9 +72,12 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> with 
               const SizedBox(height: 72),
               Center(child: Text(localizations.loading)),
             ] else ...[
-              if (state.errorMessage != null) ...[
+              if (state.errorMessage != null || state.apiError != null) ...[
                 SectionCard(
-                  child: Text(state.errorMessage!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                  child: Text(
+                    state.apiError?.userMessage(localizations) ?? state.errorMessage!,
+                    style: TextStyle(color: Theme.of(context).colorScheme.error),
+                  ),
                 ),
                 const SizedBox(height: 16),
               ],
@@ -413,9 +416,12 @@ class _ClaimCard extends StatelessWidget {
               style: TextStyle(color: Theme.of(context).colorScheme.primary),
             ),
           ],
-          if (state.errorMessage != null) ...[
+          if (state.errorMessage != null || state.apiError != null) ...[
             const SizedBox(height: 12),
-            Text(state.errorMessage!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+            Text(
+              state.apiError?.userMessage(localizations) ?? state.errorMessage!,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
           ],
         ],
       ),

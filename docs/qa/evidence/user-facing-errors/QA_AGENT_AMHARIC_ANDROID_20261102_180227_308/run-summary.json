@@ -1,0 +1,40 @@
+{
+  "runId": "QA_AGENT_AMHARIC_ANDROID_20261102_180227_308",
+  "completedAt": "2026-11-02T18:04:14.6724063+03:00",
+  "application": "agent",
+  "testStatus": "PASS",
+  "testExitCode": 0,
+  "backend": {
+    "profile": "android-test",
+    "database": "bingo_qa_test",
+    "processId": 42128,
+    "mysqlIdentity": "bingo_qa_test|bingo_qa_test_runner@127.0.0.1|EQUAR-DELL-XPS15|3306",
+    "grants": [
+      "GRANT USAGE ON *.* TO `bingo_qa_test_runner`@`127.0.0.1`",
+      "GRANT ALL PRIVILEGES ON `bingo_qa_test`.* TO `bingo_qa_test_runner`@`127.0.0.1`"
+    ],
+    "flyway": "22|1",
+    "health": "UP",
+    "databaseHealth": "UP",
+    "scheduler": "disabled",
+    "financialPostingAndSimulation": "disabled"
+  },
+  "android": {
+    "device": "emulator-5554",
+    "originalAppLocale": "",
+    "localeRestoreIssues": []
+  },
+  "changedDatabaseTableCounts": {
+    "audit_log_entries": {
+      "before": 494,
+      "after": 503
+    },
+    "authentication_attempt_buckets": {
+      "before": 17,
+      "after": 18
+    }
+  },
+  "financialPostingEnabled": false,
+  "schemaReset": false,
+  "secretValuesLogged": false
+}

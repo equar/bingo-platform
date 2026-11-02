@@ -1,0 +1,63 @@
+{
+  "runId": "QA_AMHARIC_ANDROID_20261102_175552_457",
+  "completedAt": "2026-11-02T17:59:43.5060811+03:00",
+  "backend": {
+    "profile": "android-test",
+    "database": "bingo_qa_test",
+    "processId": 42128,
+    "mysqlIdentity": "bingo_qa_test|bingo_qa_test_runner@127.0.0.1|EQUAR-DELL-XPS15|3306",
+    "grants": [
+      "GRANT USAGE ON *.* TO `bingo_qa_test_runner`@`127.0.0.1`",
+      "GRANT ALL PRIVILEGES ON `bingo_qa_test`.* TO `bingo_qa_test_runner`@`127.0.0.1`"
+    ],
+    "flyway": "22|1",
+    "health": "UP",
+    "databaseHealth": "UP",
+    "scheduler": "disabled",
+    "financialPostingAndSimulation": "disabled"
+  },
+  "android": {
+    "device": "emulator-5554",
+    "originalAppLocales": {
+      "com.bakaroo.bingo.bingo_agent": "",
+      "com.bakaroo.bingo_app": ""
+    },
+    "restoredAppLocales": {
+      "com.bakaroo.bingo.bingo_agent": "",
+      "com.bakaroo.bingo_app": ""
+    },
+    "localeRestoreIssues": []
+  },
+  "applications": [
+    {
+      "application": "player",
+      "status": "PASS",
+      "testExitCode": 0,
+      "screenshot": "D:\\GitHub\\bingo-platform\\docs\\qa\\evidence\\user-facing-errors\\QA_AMHARIC_ANDROID_20261102_175552_457\\player-amharic-invalid-login.png",
+      "log": "D:\\GitHub\\bingo-platform\\docs\\qa\\evidence\\user-facing-errors\\QA_AMHARIC_ANDROID_20261102_175552_457\\player-flutter.log"
+    },
+    {
+      "application": "agent",
+      "status": "FAIL",
+      "testExitCode": 1,
+      "screenshot": "D:\\GitHub\\bingo-platform\\docs\\qa\\evidence\\user-facing-errors\\QA_AMHARIC_ANDROID_20261102_175552_457\\agent-amharic-invalid-login.png",
+      "log": "D:\\GitHub\\bingo-platform\\docs\\qa\\evidence\\user-facing-errors\\QA_AMHARIC_ANDROID_20261102_175552_457\\agent-flutter.log"
+    }
+  ],
+  "changedDatabaseTableCounts": {
+    "audit_log_entries": {
+      "before": 489,
+      "after": 494
+    },
+    "authentication_attempt_buckets": {
+      "before": 16,
+      "after": 17
+    }
+  },
+  "protectedBusinessOrFinancialCountChanges": {},
+  "allDatabaseCountsUnchanged": false,
+  "protectedCountsUnchanged": true,
+  "financialPostingEnabled": false,
+  "schemaReset": false,
+  "secretValuesLogged": false
+}

@@ -27,6 +27,7 @@ import {
   verifyDeposit,
   type DepositVerificationResponse,
 } from "../../api/admin";
+import { getUserFacingErrorMessage, parseApiError } from "../../api/types";
 import { StatusState } from "../../components/StatusState";
 import { useIdempotencyKey } from "../common/useIdempotencyKey";
 
@@ -78,7 +79,11 @@ export function DepositsPage() {
       setConfirmOpen(false);
       setSelectedId(null);
     },
+    onError: (error) => {
+      if (!parseApiError(error).outcomeUnknown) idempotency.resetKey();
+    },
   });
+  const actionOutcomeUnknown = actionMutation.isError && parseApiError(actionMutation.error).outcomeUnknown;
   const verificationMutation = useMutation({
     mutationFn: async () => {
       if (selectedId == null || !/^[1-9]\d*$/.test(statementEntryId)) {
@@ -103,7 +108,7 @@ export function DepositsPage() {
     return (
       <StatusState
         title="Unable to load deposits"
-        message={(depositsQuery.error as Error).message}
+        message={getUserFacingErrorMessage(depositsQuery.error) ?? "Something went wrong. Please try again."}
         actionLabel="Retry"
         onAction={() => depositsQuery.refetch()}
       />
@@ -233,6 +238,9 @@ export function DepositsPage() {
                       variant="contained"
                       disabled={deposit.status !== "VERIFIED"}
                       onClick={() => {
+                        idempotency.resetKey();
+                        actionMutation.reset();
+                        setComment("");
                         setMode("APPROVE");
                         setSelectedId(deposit.id);
                         setConfirmOpen(true);
@@ -246,6 +254,9 @@ export function DepositsPage() {
                       variant="outlined"
                       disabled={!["PENDING", "AWAITING_VERIFICATION", "VERIFIED", "VERIFICATION_EXCEPTION"].includes(deposit.status)}
                       onClick={() => {
+                        idempotency.resetKey();
+                        actionMutation.reset();
+                        setComment("");
                         setMode("REJECT");
                         setSelectedId(deposit.id);
                         setConfirmOpen(true);
@@ -281,17 +292,18 @@ export function DepositsPage() {
         rowsPerPageOptions={[10, 20, 50]}
       />
 
-      <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)} fullWidth maxWidth="sm">
+      <Dialog open={confirmOpen} onClose={() => !actionOutcomeUnknown && !actionMutation.isPending && setConfirmOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>{mode === "APPROVE" ? "Approve deposit" : "Reject deposit"}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
             {actionMutation.isError ? (
-              <Alert severity="error">{actionMutation.error.message}</Alert>
+              <Alert severity="error">{getUserFacingErrorMessage(actionMutation.error)}</Alert>
             ) : null}
             <TextField
               label={mode === "APPROVE" ? "Review note" : "Rejection reason"}
               value={comment}
               onChange={(event) => setComment(event.target.value)}
+              disabled={actionOutcomeUnknown}
               fullWidth
               multiline
               minRows={3}
@@ -300,13 +312,13 @@ export function DepositsPage() {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setConfirmOpen(false)}>Cancel</Button>
+          <Button onClick={() => setConfirmOpen(false)} disabled={actionOutcomeUnknown || actionMutation.isPending}>Cancel</Button>
           <Button
             variant="contained"
             onClick={() => actionMutation.mutate()}
             disabled={!comment || actionMutation.isPending}
           >
-            Confirm
+            {actionOutcomeUnknown ? "Retry same decision" : "Confirm"}
           </Button>
         </DialogActions>
       </Dialog>
@@ -319,7 +331,7 @@ export function DepositsPage() {
               A player receipt or review note is not payment evidence. Use an independently reconciled bank statement entry.
             </Alert>
             {verificationMutation.isError ? (
-              <Alert severity="error">{verificationMutation.error.message}</Alert>
+              <Alert severity="error">{getUserFacingErrorMessage(verificationMutation.error)}</Alert>
             ) : null}
             <TextField
               label="Bank statement entry ID"

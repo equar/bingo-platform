@@ -1,0 +1,25 @@
+{
+  "runId": "QA_M06A9_REG_20261102_172632_333",
+  "target": {
+    "profile": "android-test",
+    "database": "bingo_qa_test",
+    "mysqlIdentity": "bingo_qa_test_runner@127.0.0.1",
+    "emulator": "emulator-5554",
+    "financialPosting": "disabled",
+    "scheduler": "disabled"
+  },
+  "test": "module_06a9_player_e2e_test.dart",
+  "sessionId": 48,
+  "flutterExitCode": 0,
+  "sessionDisplayed": true,
+  "purchaseRemainedDisabled": true,
+  "blockedByMissingSession": false,
+  "protectedDataUnchanged": true,
+  "status": "PASS",
+  "evidence": {
+    "databaseBefore": "database-before.txt",
+    "sessionPreflight": "session-preflight.json",
+    "databaseAfter": "database-after.txt",
+    "log": "flutter-integration.log"
+  }
+}

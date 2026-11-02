@@ -151,7 +151,7 @@ try {
     $adbDevices = & $adb devices -l 2>$null
     if ($LASTEXITCODE -ne 0 -or ($adbDevices -join "`n") -notmatch '(?m)^emulator-5554\s+device\b') { throw 'BLOCKED: emulator-5554 is not available.' }
     $installedPackages = & $adb -s emulator-5554 shell pm list packages -3 2>$null
-    if ($LASTEXITCODE -ne 0 -or ($installedPackages -join "`n") -notmatch '(?m)^package:com\.example\.bingo_app$') {
+    if ($LASTEXITCODE -ne 0 -or ($installedPackages -join "`n") -notmatch '(?m)^package:com\.bakaroo\.bingo_app$') {
         throw 'BLOCKED: the Bingo Player package is not installed on emulator-5554.'
     }
     $flutterDevices = & $flutter devices 2>$null
@@ -206,7 +206,7 @@ try {
         -BackendIdentity $backend `
         -RuntimeIdentityLine ([string]$runtimeIdentityLine.Line) `
         -RuntimeGuardsLine ([string]$runtimeGuardsLine.Line) `
-        -ListenerProcessId ([int]$listener.Matches[0].Groups[1].Value) `
+        -ListenerProcessId ([int]$listenerPids[0]) `
         -BackendHealth ([string]$health.status) `
         -DatabaseHealth ([string]$health.components.db.status) `
         -BackendJarMatches ($actualJarHash -eq [string]$backend.artifactSha256) `
