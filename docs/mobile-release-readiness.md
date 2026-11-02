@@ -5,7 +5,7 @@ This repository now has release automation for the Flutter player app, but the w
 ## What is ready
 
 - The app already exposes its backend through `--dart-define=API_BASE_URL=...`, so the release workflows can inject a public HTTPS API endpoint without changing the runtime code path.
-- Android release signing is wired into `bingo-app/android/app/build.gradle.kts`, with release builds falling back to debug signing only when `android/key.properties` is absent.
+- Android release signing is wired into `bingo-app/android/app/build.gradle.kts`, with release builds requiring a release signing configuration; missing keys fail the build.
 - Fastlane lanes now exist for Android internal testing, Android production promotion, iOS TestFlight upload, and iOS App Store submission.
 - The release workflows are manual `workflow_dispatch` jobs, so nothing is published automatically.
 - The release URL validator rejects localhost, emulator, and private network endpoints before a release build is created.

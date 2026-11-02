@@ -60,6 +60,12 @@ public class BingoRoom {
     @Column(name = "configured_prizes_json", nullable = false, columnDefinition = "text")
     private String configuredPrizesJson;
 
+    @Column(name = "private_room", nullable = false)
+    private boolean privateRoom;
+
+    public boolean isPrivateRoom() { return privateRoom; }
+    public void setPrivateRoom(boolean privateRoom) { this.privateRoom = privateRoom; }
+
     @Version
     @Column(name = "version", nullable = false)
     private long version;

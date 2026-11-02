@@ -15,6 +15,8 @@ public class GameWebSocketSecurityConfig {
     @Bean
     public AuthorizationManager<Message<?>> messageAuthorizationManager(
             MessageMatcherDelegatingAuthorizationManager.Builder messages) {
+        // Clients subscribe to server-authoritative draws; they never publish game events.
+        messages.simpTypeMatchers(org.springframework.messaging.simp.SimpMessageType.MESSAGE).denyAll();
         messages.simpDestMatchers("/app/**").denyAll();
         messages.anyMessage().permitAll();
         return messages.build();

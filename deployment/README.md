@@ -14,3 +14,6 @@ The older `deployment/backend`, `deployment/admin`, `deployment/deploy-all.sh`,
 `deployment/lightsail`, and CloudFormation OIDC setup are legacy/reference
 paths with different filesystem layouts. Do not mix them with production.
 Flutter builds and store-publishing workflows remain separate.
+
+For directly shared Android APKs and iOS Ad Hoc signing, see
+[mobile packages](mobile/README.md).

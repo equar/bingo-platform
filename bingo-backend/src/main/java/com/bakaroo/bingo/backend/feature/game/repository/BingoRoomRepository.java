@@ -28,6 +28,7 @@ public interface BingoRoomRepository extends JpaRepository<BingoRoom, Long> {
 
     List<BingoRoom> findAllByOrderByActiveDescNameAsc();
 
+    @Query("select r from BingoRoom r where r.active=true and r.privateRoom=false order by r.name asc")
     List<BingoRoom> findByActiveTrueOrderByNameAsc();
 
     Optional<BingoRoom> findByIdAndActiveTrue(Long id);

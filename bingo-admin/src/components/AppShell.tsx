@@ -47,6 +47,7 @@ const navGroups = [
     items: [
       { to: "/sessions", label: "nav.sessions" },
       { to: "/rooms", label: "nav.rooms" },
+      { to: "/community", label: "nav.community" },
       { to: "/audit-logs", label: "nav.audit" },
     ],
   },

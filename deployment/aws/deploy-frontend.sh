@@ -6,6 +6,13 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 : "${VITE_API_BASE_URL:?Set VITE_API_BASE_URL}"
 : "${ADMIN_PUBLIC_URL:?Set ADMIN_PUBLIC_URL}"
 : "${PUBLIC_SITE_URL:?Set PUBLIC_SITE_URL}"
+# Verify HTTPS before replacing static files; the web host setup is a prerequisite.
+for url in "$ADMIN_PUBLIC_URL" "$PUBLIC_SITE_URL" "$VITE_API_BASE_URL"; do
+  if ! curl --silent --show-error --max-time 30 --output /dev/null "$url/"; then
+    echo "HTTPS preflight failed for $url. Run deployment/aws/setup-web-host.sh on the host to configure Bingo's certificate and virtual hosts." >&2
+    exit 1
+  fi
+done
 # Builds are produced by GitHub Actions before deployment.
 for app in bingo-admin bingo-website; do
   [[ -f "$ROOT/$app/dist/index.html" ]] || { echo "Build $app first" >&2; exit 1; }

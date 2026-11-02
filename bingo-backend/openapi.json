@@ -13,6 +13,94 @@
     "bearerAuth" : [ ]
   } ],
   "paths" : {
+    "/api/v1/leaderboard/profile" : {
+      "put" : {
+        "tags" : [ "Player community" ],
+        "operationId" : "profile",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/LeaderboardProfile"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "400" : {
+            "description" : "Invalid request",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource not found",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Request conflicts with current state",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication required or credentials invalid",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Access denied",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Unexpected server error",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LeaderboardProfile"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/users/{userId}" : {
       "put" : {
         "tags" : [ "admin-user-controller" ],
@@ -1503,6 +1591,647 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/TicketPurchaseResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/private-games" : {
+      "get" : {
+        "tags" : [ "Player community" ],
+        "operationId" : "mine",
+        "responses" : {
+          "400" : {
+            "description" : "Invalid request",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource not found",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Request conflicts with current state",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication required or credentials invalid",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Access denied",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Unexpected server error",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/PrivateGame"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "Player community" ],
+        "operationId" : "create_1",
+        "parameters" : [ {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "maxLength" : 120,
+            "minLength" : 0
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreatePrivateGame"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "400" : {
+            "description" : "Invalid request",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource not found",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Request conflicts with current state",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication required or credentials invalid",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Access denied",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Unexpected server error",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PrivateGameCreated"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/private-games/{id}/start" : {
+      "post" : {
+        "tags" : [ "Player community" ],
+        "operationId" : "start",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "400" : {
+            "description" : "Invalid request",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource not found",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Request conflicts with current state",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication required or credentials invalid",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Access denied",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Unexpected server error",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PrivateGame"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/private-games/{id}/invite" : {
+      "post" : {
+        "tags" : [ "Player community" ],
+        "operationId" : "rotate",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "400" : {
+            "description" : "Invalid request",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource not found",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Request conflicts with current state",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication required or credentials invalid",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Access denied",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Unexpected server error",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Invite"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/private-games/{id}/cancel" : {
+      "post" : {
+        "tags" : [ "Player community" ],
+        "operationId" : "cancel",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "400" : {
+            "description" : "Invalid request",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource not found",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Request conflicts with current state",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication required or credentials invalid",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Access denied",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Unexpected server error",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PrivateGame"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/private-games/join" : {
+      "post" : {
+        "tags" : [ "Player community" ],
+        "operationId" : "join",
+        "parameters" : [ {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "maxLength" : 120,
+            "minLength" : 0
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/JoinPrivateGame"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "400" : {
+            "description" : "Invalid request",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource not found",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Request conflicts with current state",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication required or credentials invalid",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Access denied",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Unexpected server error",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PrivateGame"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/challenges/{code}/claim" : {
+      "post" : {
+        "tags" : [ "Player community" ],
+        "operationId" : "claim",
+        "parameters" : [ {
+          "name" : "code",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "maxLength" : 120,
+            "minLength" : 0
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ChallengeClaimRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "400" : {
+            "description" : "Invalid request",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource not found",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Request conflicts with current state",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication required or credentials invalid",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Access denied",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Unexpected server error",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ChallengeClaim"
                 }
               }
             }
@@ -4906,7 +5635,7 @@
       },
       "post" : {
         "tags" : [ "float-bank-account-controller" ],
-        "operationId" : "create_1",
+        "operationId" : "create_2",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -5292,6 +6021,96 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/community/private-games/{id}/disable" : {
+      "post" : {
+        "tags" : [ "community-admin-controller" ],
+        "operationId" : "disable",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Moderation"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "400" : {
+            "description" : "Invalid request",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource not found",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Request conflicts with current state",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication required or credentials invalid",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Access denied",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Unexpected server error",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "200" : {
+            "description" : "OK"
           }
         }
       }
@@ -6807,6 +7626,93 @@
         }
       }
     },
+    "/api/v1/private-games/{id}" : {
+      "get" : {
+        "tags" : [ "Player community" ],
+        "operationId" : "details",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "400" : {
+            "description" : "Invalid request",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource not found",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Request conflicts with current state",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication required or credentials invalid",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Access denied",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Unexpected server error",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PrivateGameDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/me" : {
       "get" : {
         "tags" : [ "me-controller" ],
@@ -6964,6 +7870,194 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/PageResponseWinClaimResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/leaderboard" : {
+      "get" : {
+        "tags" : [ "Player community" ],
+        "operationId" : "leaderboard",
+        "parameters" : [ {
+          "name" : "period",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "default" : "WEEKLY",
+            "enum" : [ "DAILY", "WEEKLY", "ALL_TIME" ]
+          }
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0,
+            "maximum" : 1000,
+            "minimum" : 0
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 25,
+            "maximum" : 50,
+            "minimum" : 1
+          }
+        } ],
+        "responses" : {
+          "400" : {
+            "description" : "Invalid request",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource not found",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Request conflicts with current state",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication required or credentials invalid",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Access denied",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Unexpected server error",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Leaderboard"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/challenges/daily" : {
+      "get" : {
+        "tags" : [ "Player community" ],
+        "operationId" : "daily",
+        "responses" : {
+          "400" : {
+            "description" : "Invalid request",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource not found",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Request conflicts with current state",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication required or credentials invalid",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Access denied",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Unexpected server error",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DailyChallenges"
                 }
               }
             }
@@ -10513,6 +11607,165 @@
         }
       }
     },
+    "/api/v1/admin/community/summary" : {
+      "get" : {
+        "tags" : [ "community-admin-controller" ],
+        "operationId" : "summary",
+        "responses" : {
+          "400" : {
+            "description" : "Invalid request",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource not found",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Request conflicts with current state",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication required or credentials invalid",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Access denied",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Unexpected server error",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CommunitySummary"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/community/private-games" : {
+      "get" : {
+        "tags" : [ "community-admin-controller" ],
+        "operationId" : "rooms_2",
+        "responses" : {
+          "400" : {
+            "description" : "Invalid request",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Resource not found",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Request conflicts with current state",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication required or credentials invalid",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Access denied",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Unexpected server error",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/PrivateGame"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/audit-logs" : {
       "get" : {
         "tags" : [ "admin-read-controller" ],
@@ -11425,6 +12678,20 @@
           },
           "message" : {
             "type" : "string"
+          }
+        }
+      },
+      "LeaderboardProfile" : {
+        "type" : "object",
+        "properties" : {
+          "alias" : {
+            "type" : "string",
+            "maxLength" : 24,
+            "minLength" : 3,
+            "pattern" : "[\\p{L}\\p{N} _-]+"
+          },
+          "visible" : {
+            "type" : "boolean"
           }
         }
       },
@@ -12342,6 +13609,126 @@
           "purchasedAt" : {
             "type" : "string",
             "format" : "date-time"
+          }
+        }
+      },
+      "CreatePrivateGame" : {
+        "type" : "object",
+        "properties" : {
+          "templateRoomId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "name" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          },
+          "scheduledStartAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        },
+        "required" : [ "name", "scheduledStartAt", "templateRoomId" ]
+      },
+      "PrivateGame" : {
+        "type" : "object",
+        "properties" : {
+          "roomId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sessionId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "state" : {
+            "type" : "string"
+          },
+          "host" : {
+            "type" : "boolean"
+          },
+          "active" : {
+            "type" : "boolean"
+          },
+          "memberCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "capacity" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "inviteExpiresAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "scheduledStartAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "PrivateGameCreated" : {
+        "type" : "object",
+        "properties" : {
+          "game" : {
+            "$ref" : "#/components/schemas/PrivateGame"
+          }
+        }
+      },
+      "Invite" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "string"
+          },
+          "expiresAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "JoinPrivateGame" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "[A-Za-z2-9\\s-]{12,24}"
+          }
+        },
+        "required" : [ "code" ]
+      },
+      "ChallengeClaimRequest" : {
+        "type" : "object",
+        "properties" : {
+          "businessDate" : {
+            "type" : "string",
+            "format" : "date"
+          }
+        },
+        "required" : [ "businessDate" ]
+      },
+      "ChallengeClaim" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "string"
+          },
+          "businessDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "points" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "claimed" : {
+            "type" : "boolean"
           }
         }
       },
@@ -13541,6 +14928,17 @@
         },
         "required" : [ "reviewNote" ]
       },
+      "Moderation" : {
+        "type" : "object",
+        "properties" : {
+          "reason" : {
+            "type" : "string",
+            "maxLength" : 300,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "reason" ]
+      },
       "FloatVerificationRequest" : {
         "type" : "object",
         "properties" : {
@@ -14064,6 +15462,20 @@
           }
         }
       },
+      "PrivateGameDetails" : {
+        "type" : "object",
+        "properties" : {
+          "game" : {
+            "$ref" : "#/components/schemas/PrivateGame"
+          },
+          "room" : {
+            "$ref" : "#/components/schemas/PlayerRoomResponse"
+          },
+          "session" : {
+            "$ref" : "#/components/schemas/PlayerGameSessionResponse"
+          }
+        }
+      },
       "MeResponse" : {
         "type" : "object",
         "properties" : {
@@ -14102,6 +15514,133 @@
           },
           "last" : {
             "type" : "boolean"
+          }
+        }
+      },
+      "Leaderboard" : {
+        "type" : "object",
+        "properties" : {
+          "period" : {
+            "type" : "string",
+            "enum" : [ "DAILY", "WEEKLY", "ALL_TIME" ]
+          },
+          "timezone" : {
+            "type" : "string"
+          },
+          "startsOn" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "endsBefore" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "totalPlayers" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "entries" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/LeaderboardEntry"
+            }
+          },
+          "myRank" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "myPoints" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "profile" : {
+            "$ref" : "#/components/schemas/LeaderboardProfile"
+          }
+        }
+      },
+      "LeaderboardEntry" : {
+        "type" : "object",
+        "properties" : {
+          "rank" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "alias" : {
+            "type" : "string"
+          },
+          "points" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "me" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "Challenge" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "string"
+          },
+          "metric" : {
+            "type" : "string"
+          },
+          "target" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "progress" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "points" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "completed" : {
+            "type" : "boolean"
+          },
+          "claimed" : {
+            "type" : "boolean"
+          },
+          "ruleVersion" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "DailyChallenges" : {
+        "type" : "object",
+        "properties" : {
+          "businessDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "timezone" : {
+            "type" : "string"
+          },
+          "resetsAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "totalPoints" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "challenges" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Challenge"
+            }
           }
         }
       },
@@ -15172,6 +16711,30 @@
           },
           "agentFloatClearingTotal" : {
             "type" : "number"
+          }
+        }
+      },
+      "CommunitySummary" : {
+        "type" : "object",
+        "properties" : {
+          "privateGames" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "dailyClaims" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "dailyPoints" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "visiblePlayers" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "timezone" : {
+            "type" : "string"
           }
         }
       },
