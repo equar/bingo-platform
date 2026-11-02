@@ -1,0 +1,109 @@
+{
+  "runId": "QA_M01_AGENT_20261102_212705_482",
+  "startedAt": "2026-11-02T21:27:05.4883071+03:00",
+  "stage": "database-reconciliation",
+  "status": "PASS",
+  "environment": "android-test",
+  "test": "bingo-agent/integration_test/module_01_authentication_test.dart",
+  "backend": {
+    "ProcessId": 36396,
+    "Profile": "android-test",
+    "Database": "bingo_qa_test",
+    "MysqlHost": "127.0.0.1",
+    "MysqlPort": 3306,
+    "Flyway": "22",
+    "DrawScheduler": "disabled",
+    "FinancialPostingAndSimulation": "disabled"
+  },
+  "mysql": {
+    "database": "bingo_qa_test",
+    "authenticatedUser": "bingo_qa_test_runner@127.0.0.1",
+    "serverHost": "EQUAR-DELL-XPS15",
+    "port": 3306,
+    "flyway": "22",
+    "accountScope": "bingo_qa_test only"
+  },
+  "androidDevice": "emulator-5554",
+  "financialPosting": "disabled",
+  "agentFixtures": {
+    "approved": true,
+    "pending": true
+  },
+  "databaseCountsBefore": {
+    "users": 13,
+    "bingo_agents": 2,
+    "agent_floats": 1,
+    "agent_float_top_up_requests": 0,
+    "agent_float_transactions": 0,
+    "float_accounting_journals": 0,
+    "float_accounting_journal_lines": 0,
+    "wallets": 2,
+    "wallet_transactions": 0
+  },
+  "databaseCountsAfter": {
+    "users": 13,
+    "bingo_agents": 2,
+    "agent_floats": 1,
+    "agent_float_top_up_requests": 0,
+    "agent_float_transactions": 0,
+    "float_accounting_journals": 0,
+    "float_accounting_journal_lines": 0,
+    "wallets": 2,
+    "wallet_transactions": 0
+  },
+  "protectedCountsUnchanged": true,
+  "testExitCode": 0,
+  "processRestartExitCode": 0,
+  "overallExitCode": 0,
+  "processRestartBlocker": null,
+  "scenarios": [
+    {
+      "name": "Approved Agent phone/PIN login in Android UI",
+      "status": "PASS"
+    },
+    {
+      "name": "Pending Agent login denied in Android UI",
+      "status": "PASS"
+    },
+    {
+      "name": "Invalid credentials and login throttling",
+      "status": "PASS"
+    },
+    {
+      "name": "Session restore, expiry, and logout",
+      "status": "PASS"
+    },
+    {
+      "name": "Cross-role authorization restrictions",
+      "status": "PASS"
+    },
+    {
+      "name": "Authenticated Agent Support ticket list (read-only)",
+      "status": "PASS"
+    },
+    {
+      "name": "Authenticated Agent dashboard, Player lookup validation, and read-only operational screens",
+      "status": "PASS"
+    },
+    {
+      "name": "Android process force-stop/relaunch session restore and logout",
+      "status": "PASS"
+    }
+  ],
+  "screenshots": [
+    "screenshots/module-01-agent-login.png",
+    "screenshots/module-01-agent-authenticated.png",
+    "screenshots/module-01-agent-expired-session.png",
+    "screenshots/module-01-agent-session-persisted.png",
+    "screenshots/module-01-agent-support.png",
+    "screenshots/module-01-agent-dashboard.png",
+    "screenshots/module-01-agent-float-readonly.png",
+    "screenshots/module-01-agent-player-lookup-validation.png",
+    "screenshots/module-01-agent-process-restart.png"
+  ],
+  "failureType": null,
+  "failureLine": null,
+  "failureDetail": null,
+  "blocker": null,
+  "finishedAt": "2026-11-02T21:33:15.0928731+03:00"
+}

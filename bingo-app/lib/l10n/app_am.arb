@@ -1,6 +1,10 @@
 {
   "@@locale": "am",
   "appTitle": "Sunset Bingo",
+  "languageSelectorLabel": "ቋንቋ ይምረጡ",
+  "languageEnglish": "English",
+  "languageAmharic": "አማርኛ",
+  "languagePreferenceSaveFailed": "የቋንቋ ምርጫዎን ማስቀመጥ አልተቻለም።",
   "missingApiBaseUrlTitle": "የAPI መሠረት URL አልተገለጸም",
   "missingApiBaseUrlBody": "አፕሊኬሽኑን --dart-define=API_BASE_URL=... በማስነሳት ወደ backend ይደርሱ።",
   "invalidApiBaseUrlTitle": "የAPI መሠረታዊ አድራሻ ልክ አይደለም",

@@ -1,6 +1,10 @@
 {
   "@@locale": "am",
   "appTitle": "ቢንጎ ኤጀንት",
+  "languageSelectorLabel": "ቋንቋ ይምረጡ",
+  "languageEnglish": "English",
+  "languageAmharic": "አማርኛ",
+  "languagePreferenceSaveFailed": "የቋንቋ ምርጫዎን ማስቀመጥ አልተቻለም።",
   "loginTitle": "ወደ ኤጀንት መለያ ይግቡ",
   "agentApplicationTitle": "የኤጀንትነት ማመልከቻ",
   "agentDisplayName": "ሙሉ ስም",

@@ -1,5 +1,6 @@
 import 'package:bingo_app/l10n/app_localizations.dart';
 import 'package:bingo_app/src/core/widgets/section_card.dart';
+import 'package:bingo_app/src/core/localization/language_selector.dart';
 import 'package:bingo_app/src/features/auth/data/auth_repository.dart';
 import 'package:bingo_app/src/features/auth/data/auth_session_controller.dart';
 import 'package:bingo_app/src/features/auth/data/auth_models.dart';
@@ -60,6 +61,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       appBar: AppBar(
         title: Text(localizations.profileTitle),
         actions: [
+          const LanguageSelector(),
           IconButton(
             key: const ValueKey('profile-refresh-button'),
             tooltip: localizations.profileRefresh,

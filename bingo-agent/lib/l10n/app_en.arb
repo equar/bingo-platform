@@ -1,6 +1,10 @@
 {
   "@@locale": "en",
   "appTitle": "Sunset Bingo Agent",
+  "languageSelectorLabel": "Choose language",
+  "languageEnglish": "English",
+  "languageAmharic": "አማርኛ",
+  "languagePreferenceSaveFailed": "Your language preference could not be saved.",
   "loginTitle": "Agent login",
   "agentApplicationTitle": "Apply to become an agent",
   "agentDisplayName": "Full name",

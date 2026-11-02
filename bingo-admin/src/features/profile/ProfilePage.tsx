@@ -1,13 +1,29 @@
 import { Avatar, Box, Card, CardContent, Chip, Divider, Grid, Stack, Typography } from "@mui/material";
 import { useMemo } from "react";
 import { useSession } from "../../api/session";
+import { useTranslation } from "react-i18next";
+import { LanguageSelector } from "../../components/LanguageSelector";
 
 export function ProfilePage() {
+  const { t, i18n } = useTranslation();
   const session = useSession();
+  const status = session?.user.status ?? "UNKNOWN";
+  const statusKey: Record<string, string> = {
+    ACTIVE: "status.active",
+    INACTIVE: "status.inactive",
+    PENDING: "status.pending",
+    SUSPENDED: "status.suspended",
+    UNKNOWN: "status.unknown",
+  };
+  const statusLabel = t(statusKey[status] ?? "status.unknown");
+  const dateLocale = i18n.language.startsWith("am") ? "am-ET" : "en-US";
   const initials = useMemo(() => session?.user.displayName?.slice(0, 1)?.toUpperCase() ?? "A", [session]);
 
   return (
     <Stack spacing={3}>
+      <Stack direction="row" justifyContent="flex-end">
+        <LanguageSelector />
+      </Stack>
       <Box
         sx={{
           p: { xs: 3, md: 4 },
@@ -22,13 +38,13 @@ export function ProfilePage() {
           <Avatar sx={{ width: 72, height: 72, bgcolor: "rgba(255,255,255,0.16)", fontSize: 30 }}>{initials}</Avatar>
           <Stack spacing={1} flexGrow={1}>
             <Typography variant="overline" sx={{ opacity: 0.8, letterSpacing: 1.5 }}>
-              Admin profile
+              {t("profile.adminProfile")}
             </Typography>
             <Typography component="h1" variant="h4" fontWeight={800}>
-              Profile
+              {t("profile.title")}
             </Typography>
             <Typography sx={{ maxWidth: 760, opacity: 0.9 }}>
-              Review your signed-in admin account details in one focused place.
+              {t("profile.intro")}
             </Typography>
           </Stack>
           <Stack direction="row" spacing={1} flexWrap="wrap">
@@ -50,26 +66,26 @@ export function ProfilePage() {
             <CardContent>
               <Stack spacing={2.25}>
                 <div>
-                  <Typography variant="h6">Account details</Typography>
-                  <Typography color="text.secondary">Your current admin identity and status.</Typography>
+                  <Typography variant="h6">{t("profile.accountDetails")}</Typography>
+                  <Typography color="text.secondary">{t("profile.identity")}</Typography>
                 </div>
                 <Stack direction="row" spacing={2} alignItems="center">
                   <Avatar sx={{ width: 56, height: 56, bgcolor: "primary.main", fontSize: 22 }}>{initials}</Avatar>
                   <Stack spacing={0.25}>
-                    <Typography variant="h6">{session?.user.displayName ?? "Account"}</Typography>
+                    <Typography variant="h6">{session?.user.displayName ?? t("account")}</Typography>
                     <Typography color="text.secondary">{session?.user.phoneNumber}</Typography>
                   </Stack>
                 </Stack>
                 <Divider />
                 <Stack spacing={1.5}>
                   <DetailRow
-                    label="Status"
+                    label={t("profile.status")}
                     value={
-                      <Chip label={session?.user.status ?? "UNKNOWN"} size="small" color="success" variant="outlined" />
+                      <Chip label={statusLabel} size="small" color="success" variant="outlined" />
                     }
                   />
                   <DetailRow
-                    label="Roles"
+                    label={t("profile.roles")}
                     value={
                       <Stack direction="row" spacing={1} flexWrap="wrap">
                         {session?.user.roles.map((role) => (
@@ -78,19 +94,19 @@ export function ProfilePage() {
                       </Stack>
                     }
                   />
-                  <DetailRow label="User ID" value={<Typography>{session?.user.id ?? "-"}</Typography>} />
+                  <DetailRow label={t("profile.userId")} value={<Typography>{session?.user.id ?? "-"}</Typography>} />
                   <DetailRow
-                    label="Created"
-                    value={<Typography>{session ? new Date(session.user.createdAt).toLocaleString() : "-"}</Typography>}
+                    label={t("profile.created")}
+                    value={<Typography>{session ? new Date(session.user.createdAt).toLocaleString(dateLocale) : "-"}</Typography>}
                   />
                   <DetailRow
-                    label="Updated"
-                    value={<Typography>{session ? new Date(session.user.updatedAt).toLocaleString() : "-"}</Typography>}
+                    label={t("profile.updated")}
+                    value={<Typography>{session ? new Date(session.user.updatedAt).toLocaleString(dateLocale) : "-"}</Typography>}
                   />
                 </Stack>
                 <Divider />
                 <Typography color="text.secondary">
-                  Use the account menu in the top-right corner for password changes and logout.
+                  {t("profile.accountMenuHint")}
                 </Typography>
               </Stack>
             </CardContent>

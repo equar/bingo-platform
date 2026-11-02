@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import {
@@ -37,6 +38,7 @@ import {
 } from "../../api/admin";
 import { getUserFacingErrorMessage, type PageResponse } from "../../api/types";
 import { StatusState } from "../../components/StatusState";
+import { translateAdminStatus } from "../../i18n";
 
 export type PlayerActivityType = "wallet" | "deposits" | "support" | "tickets" | "wins";
 
@@ -63,6 +65,7 @@ type PlayerActivityPage =
   | PageResponse<WinClaimResponse>;
 
 export function PlayerActivityDialog({ open, playerId, initialActivity, onClose }: PlayerActivityDialogProps) {
+  const { t } = useTranslation();
   const [activity, setActivity] = useState(initialActivity);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(10);
@@ -92,12 +95,12 @@ export function PlayerActivityDialog({ open, playerId, initialActivity, onClose 
   const ticketRows = (activityQuery.data as PageResponse<TicketResponse> | undefined)?.content ?? [];
   const winRows = (activityQuery.data as PageResponse<WinClaimResponse> | undefined)?.content ?? [];
   const totalElements = activityQuery.data?.totalElements ?? 0;
-  const label = activityTabs.find((tab) => tab.value === activity)?.label ?? "Activity";
+  const label = t(activityTabs.find((tab) => tab.value === activity)?.label ?? "Activity");
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="lg" aria-labelledby="player-activity-title">
       <DialogTitle id="player-activity-title">
-        {label} for Player #{playerId}
+        {label} {t("for Player #")}{playerId}
       </DialogTitle>
       <DialogContent dividers>
         <Stack spacing={2}>
@@ -109,18 +112,18 @@ export function PlayerActivityDialog({ open, playerId, initialActivity, onClose 
             }}
             variant="scrollable"
             scrollButtons="auto"
-            aria-label="Player activity categories"
+            aria-label={t("Player activity categories")}
           >
             {activityTabs.map((tab) => (
-              <Tab key={tab.value} value={tab.value} label={tab.label} />
+              <Tab key={tab.value} value={tab.value} label={t(tab.label)} />
             ))}
           </Tabs>
 
           {activityQuery.isLoading ? (
             <StatusState
-              title={`Loading ${label.toLowerCase()}`}
+              title={t("Loading {{activity}}", { activity: label.toLowerCase() })}
               loading
-              message={`Fetching player ${label.toLowerCase()}`}
+              message={t("Fetching player {{activity}}", { activity: label.toLowerCase() })}
             />
           ) : null}
           {activityQuery.error ? (
@@ -128,26 +131,25 @@ export function PlayerActivityDialog({ open, playerId, initialActivity, onClose 
               severity="error"
               action={
                 <Button color="inherit" size="small" onClick={() => activityQuery.refetch()}>
-                  Retry
-                </Button>
+                  {t("Retry")}</Button>
               }
             >
-              {getUserFacingErrorMessage(activityQuery.error) ?? `Unable to load player ${label.toLowerCase()}.`}
+              {t(getUserFacingErrorMessage(activityQuery.error) ?? "Unable to load player {{activity}}.", { activity: t(label).toLowerCase() })}
             </Alert>
           ) : null}
 
           {!activityQuery.isLoading && !activityQuery.error ? (
             <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 480 }}>
-              <Table size="small" stickyHeader aria-label={`${label} for player ${playerId}`}>
+              <Table size="small" stickyHeader aria-label={t("{{activity}} for player {{playerId}}", { activity: label, playerId })}>
                 {activity === "wallet" ? (
                   <>
                     <TableHead>
                       <TableRow>
-                        <TableCell>Date</TableCell>
-                        <TableCell>Type</TableCell>
-                        <TableCell align="right">Amount</TableCell>
-                        <TableCell>Balance after</TableCell>
-                        <TableCell>Reference / note</TableCell>
+                        <TableCell>{t("Date")}</TableCell>
+                        <TableCell>{t("Type")}</TableCell>
+                        <TableCell align="right">{t("Amount")}</TableCell>
+                        <TableCell>{t("Balance after")}</TableCell>
+                        <TableCell>{t("Reference / note")}</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -163,7 +165,7 @@ export function PlayerActivityDialog({ open, playerId, initialActivity, onClose 
                           </TableCell>
                           <TableCell>
                             <Typography variant="body2">
-                              {transaction.referenceType} #{transaction.referenceId ?? "n/a"}
+                              {transaction.referenceType} {t("#")}{transaction.referenceId ?? "n/a"}
                             </Typography>
                             <Typography variant="caption" color="text.secondary">
                               {transaction.note ?? transaction.operationId}
@@ -180,19 +182,19 @@ export function PlayerActivityDialog({ open, playerId, initialActivity, onClose 
                   <>
                     <TableHead>
                       <TableRow>
-                        <TableCell>Deposit</TableCell>
-                        <TableCell>Status</TableCell>
-                        <TableCell>Payment reference</TableCell>
-                        <TableCell align="right">Submitted</TableCell>
-                        <TableCell align="right">Wallet credit</TableCell>
-                        <TableCell>Review</TableCell>
+                        <TableCell>{t("Deposit")}</TableCell>
+                        <TableCell>{t("Status")}</TableCell>
+                        <TableCell>{t("Payment reference")}</TableCell>
+                        <TableCell align="right">{t("Submitted")}</TableCell>
+                        <TableCell align="right">{t("Wallet credit")}</TableCell>
+                        <TableCell>{t("Review")}</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
                       {depositRows.map((deposit) => (
                         <TableRow key={deposit.id} hover>
-                          <TableCell>#{deposit.id}</TableCell>
-                          <TableCell>{deposit.status.replace(/_/g, " ")}</TableCell>
+                          <TableCell>{t("#")}{deposit.id}</TableCell>
+                          <TableCell>{translateAdminStatus(deposit.status, t)}</TableCell>
                           <TableCell>{deposit.normalizedTelebirrReference}</TableCell>
                           <TableCell align="right">
                             {deposit.submittedCashAmount} {deposit.currency}
@@ -201,9 +203,9 @@ export function PlayerActivityDialog({ open, playerId, initialActivity, onClose 
                             {deposit.calculatedCreditAmount} {deposit.currency}
                           </TableCell>
                           <TableCell>
-                            <Typography variant="body2">{deposit.reviewNote ?? "No review note"}</Typography>
+                            <Typography variant="body2">{deposit.reviewNote ?? t("No review note")}</Typography>
                             <Typography variant="caption" color="text.secondary">
-                              {deposit.reviewedAt ? new Date(deposit.reviewedAt).toLocaleString() : "Not reviewed"}
+                              {deposit.reviewedAt ? new Date(deposit.reviewedAt).toLocaleString() : t("Not reviewed")}
                             </Typography>
                           </TableCell>
                         </TableRow>
@@ -217,12 +219,12 @@ export function PlayerActivityDialog({ open, playerId, initialActivity, onClose 
                   <>
                     <TableHead>
                       <TableRow>
-                        <TableCell>Ticket</TableCell>
-                        <TableCell>Subject</TableCell>
-                        <TableCell>Category</TableCell>
-                        <TableCell>Priority</TableCell>
-                        <TableCell>Status</TableCell>
-                        <TableCell>Updated</TableCell>
+                        <TableCell>{t("Ticket")}</TableCell>
+                        <TableCell>{t("Subject")}</TableCell>
+                        <TableCell>{t("Category")}</TableCell>
+                        <TableCell>{t("Priority")}</TableCell>
+                        <TableCell>{t("Status")}</TableCell>
+                        <TableCell>{t("Updated")}</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -235,8 +237,8 @@ export function PlayerActivityDialog({ open, playerId, initialActivity, onClose 
                           </TableCell>
                           <TableCell>{ticket.subject}</TableCell>
                           <TableCell>{ticket.category}</TableCell>
-                          <TableCell>{ticket.priority}</TableCell>
-                          <TableCell>{ticket.status.replace(/_/g, " ")}</TableCell>
+                          <TableCell>{t(ticket.priority)}</TableCell>
+                          <TableCell>{translateAdminStatus(ticket.status, t)}</TableCell>
                           <TableCell>{new Date(ticket.updatedAt).toLocaleString()}</TableCell>
                         </TableRow>
                       ))}
@@ -249,18 +251,18 @@ export function PlayerActivityDialog({ open, playerId, initialActivity, onClose 
                   <>
                     <TableHead>
                       <TableRow>
-                        <TableCell>Ticket</TableCell>
-                        <TableCell>Session</TableCell>
-                        <TableCell>Public code</TableCell>
-                        <TableCell>Purchased</TableCell>
-                        <TableCell>Grid</TableCell>
+                        <TableCell>{t("Ticket")}</TableCell>
+                        <TableCell>{t("Session")}</TableCell>
+                        <TableCell>{t("Public code")}</TableCell>
+                        <TableCell>{t("Purchased")}</TableCell>
+                        <TableCell>{t("Grid")}</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
                       {ticketRows.map((ticket) => (
                         <TableRow key={ticket.id} hover>
-                          <TableCell>#{ticket.id}</TableCell>
-                          <TableCell>#{ticket.sessionId}</TableCell>
+                          <TableCell>{t("#")}{ticket.id}</TableCell>
+                          <TableCell>{t("#")}{ticket.sessionId}</TableCell>
                           <TableCell>{ticket.publicTicketCode}</TableCell>
                           <TableCell>{new Date(ticket.purchasedAt).toLocaleString()}</TableCell>
                           <TableCell>
@@ -279,30 +281,30 @@ export function PlayerActivityDialog({ open, playerId, initialActivity, onClose 
                   <>
                     <TableHead>
                       <TableRow>
-                        <TableCell>Claim</TableCell>
-                        <TableCell>Ticket / session</TableCell>
-                        <TableCell>Pattern</TableCell>
-                        <TableCell>Status</TableCell>
-                        <TableCell>Validation</TableCell>
-                        <TableCell>Submitted</TableCell>
+                        <TableCell>{t("Claim")}</TableCell>
+                        <TableCell>{t("Ticket / session")}</TableCell>
+                        <TableCell>{t("Pattern")}</TableCell>
+                        <TableCell>{t("Status")}</TableCell>
+                        <TableCell>{t("Validation")}</TableCell>
+                        <TableCell>{t("Submitted")}</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
                       {winRows.map((claim) => (
                         <TableRow key={claim.id} hover>
                           <TableCell>
-                            <Typography variant="body2">#{claim.id}</Typography>
+                            <Typography variant="body2">{t("#")}{claim.id}</Typography>
                             <Typography variant="caption" color="text.secondary">
-                              {claim.serverValidationCode ?? "No validation code"}
+                              {claim.serverValidationCode ?? t("No validation code")}
                             </Typography>
                           </TableCell>
                           <TableCell>
-                            #{claim.ticketId} / #{claim.sessionId}
+                            {t("#")}{claim.ticketId} {t("/ #")}{claim.sessionId}
                           </TableCell>
                           <TableCell>{claim.claimedPattern.replace(/_/g, " ")}</TableCell>
-                          <TableCell>{claim.status.replace(/_/g, " ")}</TableCell>
+                          <TableCell>{translateAdminStatus(claim.status, t)}</TableCell>
                           <TableCell>
-                            {claim.serverValidationPassed ? "Passed" : "Failed"}
+                            {claim.serverValidationPassed ? t("Passed") : t("Failed")}
                             {claim.serverValidationMessage ? (
                               <Typography display="block" variant="caption" color="text.secondary">
                                 {claim.serverValidationMessage}
@@ -337,18 +339,19 @@ export function PlayerActivityDialog({ open, playerId, initialActivity, onClose 
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Close</Button>
+        <Button onClick={onClose}>{t("Close")}</Button>
       </DialogActions>
     </Dialog>
   );
 }
 
 function EmptyRow({ colSpan }: { colSpan: number }) {
+  const { t } = useTranslation();
   return (
     <TableRow>
       <TableCell colSpan={colSpan}>
         <Box py={2} textAlign="center">
-          <Typography color="text.secondary">No records for this player.</Typography>
+          <Typography color="text.secondary">{t("No records for this player.")}</Typography>
         </Box>
       </TableCell>
     </TableRow>

@@ -2,6 +2,7 @@ import 'package:bingo_agent/src/features/auth/data/auth_models.dart';
 import 'package:bingo_agent/src/features/auth/data/auth_repository.dart';
 import 'package:bingo_agent/src/features/auth/data/auth_session_controller.dart';
 import 'package:bingo_agent/src/core/network/api_error.dart';
+import 'package:bingo_agent/src/core/localization/language_selector.dart';
 import 'package:bingo_agent/src/l10n/generated/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -159,6 +160,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    const Align(
+                      alignment: AlignmentDirectional.centerEnd,
+                      child: LanguageSelector(),
+                    ),
                     Text(
                       l10n.appTitle,
                       style: Theme.of(context).textTheme.headlineMedium,

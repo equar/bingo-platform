@@ -76,7 +76,7 @@ describe("SupportTicketsPage", () => {
     );
 
     await user.click(screen.getByRole("combobox", { name: "Status" }));
-    await user.click(await screen.findByRole("option", { name: "OPEN" }));
+    await user.click(await screen.findByRole("option", { name: "Open" }));
     await waitFor(() =>
       expect(supportTicketsMock).toHaveBeenLastCalledWith("wallet", "OPEN", undefined, undefined, undefined, 0, 20),
     );

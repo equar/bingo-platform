@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -23,6 +24,7 @@ import {
 import { getUserFacingErrorMessage } from "../../api/types";
 import { useSession } from "../../api/session";
 import { StatusState } from "../../components/StatusState";
+import { translateAdminStatus } from "../../i18n";
 import { connectLiveDrawStream } from "./liveDrawSocket";
 
 const allowedStates: Record<string, string[]> = {
@@ -40,6 +42,7 @@ function mergeDraws(existing: DrawEventResponse[], incoming: DrawEventResponse[]
 }
 
 export function SessionDetailPage() {
+  const { t } = useTranslation();
   const { sessionId } = useParams();
   const id = Number(sessionId);
   const queryClient = useQueryClient();
@@ -122,15 +125,15 @@ export function SessionDetailPage() {
   const sessionCanDraw = session?.state === "STARTED" || session?.state === "DRAWING";
 
   if (sessionQuery.isLoading) {
-    return <StatusState title="Loading session" loading message="Fetching live session details" />;
+    return <StatusState title={t("Loading session")} loading message={t("Fetching live session details")} />;
   }
 
   if (sessionQuery.error || !session) {
     return (
       <StatusState
-        title="Unable to load session"
-        message={getUserFacingErrorMessage(sessionQuery.error) ?? "This item is no longer available. Refresh and try again."}
-        actionLabel="Retry"
+        title={t("Unable to load session")}
+        message={t(getUserFacingErrorMessage(sessionQuery.error) ?? "This item is no longer available. Refresh and try again.")}
+        actionLabel={t("Retry")}
         onAction={() => sessionQuery.refetch()}
       />
     );
@@ -142,42 +145,41 @@ export function SessionDetailPage() {
         <div>
           <Typography variant="h4">{session.sessionName}</Typography>
           <Typography color="text.secondary">
-            {session.roomName} · Session {session.id}
+            {session.roomName} {t("·")}{" "}{t("Session")}{" "}{session.id}
           </Typography>
         </div>
         <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-          <Chip label={session.state} color="primary" />
+          <Chip label={translateAdminStatus(session.state, t)} color="primary" />
           <Button component={RouterLink} to="/sessions" variant="outlined">
-            Back to sessions
-          </Button>
+            {t("Back to sessions")}</Button>
         </Stack>
       </Box>
 
-      {drawError ? <Alert severity="warning">{drawError}</Alert> : null}
+      {drawError ? <Alert severity="warning">{t(drawError)}</Alert> : null}
 
       <Grid container spacing={2}>
         <Grid item xs={12} lg={5}>
           <Card sx={{ border: "1px solid", borderColor: "divider" }}>
             <CardContent>
               <Stack spacing={1.5}>
-                <Typography variant="h6">Session details</Typography>
-                <Typography>Scheduled start: {new Date(session.scheduledStartAt).toLocaleString()}</Typography>
+                <Typography variant="h6">{t("Session details")}</Typography>
+                <Typography>{t("Scheduled start:")}{" "}{new Date(session.scheduledStartAt).toLocaleString()}</Typography>
                 <Typography>
-                  Started: {session.startedAt ? new Date(session.startedAt).toLocaleString() : "n/a"}
+                  {t("Started:")}{" "}{session.startedAt ? new Date(session.startedAt).toLocaleString() : "n/a"}
                 </Typography>
-                <Typography>Ended: {session.endedAt ? new Date(session.endedAt).toLocaleString() : "n/a"}</Typography>
-                <Typography>Ticket count: {session.ticketCount}</Typography>
-                <Typography>Draw count: {session.drawCount}</Typography>
-                <Typography>Capacity: {session.sessionCapacity}</Typography>
-                <Typography>Max tickets/player: {session.maxTicketsPerPlayer}</Typography>
+                <Typography>{t("Ended:")}{" "}{session.endedAt ? new Date(session.endedAt).toLocaleString() : "n/a"}</Typography>
+                <Typography>{t("Ticket count:")}{" "}{session.ticketCount}</Typography>
+                <Typography>{t("Draw count:")}{" "}{session.drawCount}</Typography>
+                <Typography>{t("Capacity:")}{" "}{session.sessionCapacity}</Typography>
+                <Typography>{t("Max tickets/player:")}{" "}{session.maxTicketsPerPlayer}</Typography>
                 <Typography>
-                  Ticket sales close on start: {session.ticketSalesCloseOnSessionStart ? "Yes" : "No"}
+                  {t("Ticket sales close on start:")}{" "}{session.ticketSalesCloseOnSessionStart ? "Yes" : "No"}
                 </Typography>
                 <Typography>
-                  Multiple winners per prize: {session.allowMultipleWinnersPerPrize ? "Yes" : "No"}
+                  {t("Multiple winners per prize:")}{" "}{session.allowMultipleWinnersPerPrize ? "Yes" : "No"}
                 </Typography>
-                <Typography>Patterns: {session.configuredPatterns.join(", ")}</Typography>
-                <Typography>Prizes: {session.configuredPrizes.length}</Typography>
+                <Typography>{t("Patterns:")}{" "}{session.configuredPatterns.join(", ")}</Typography>
+                <Typography>{t("Prizes:")}{" "}{session.configuredPrizes.length}</Typography>
                 <Stack direction="row" spacing={1} flexWrap="wrap">
                   {availableTransitions.map((nextState: string) => (
                     <Button
@@ -187,7 +189,7 @@ export function SessionDetailPage() {
                       variant="outlined"
                       onClick={() => stateMutation.mutate(nextState)}
                     >
-                      {nextState}
+                      {translateAdminStatus(nextState, t)}
                     </Button>
                   ))}
                 </Stack>
@@ -199,7 +201,7 @@ export function SessionDetailPage() {
           <Card sx={{ border: "1px solid", borderColor: "divider" }}>
             <CardContent>
               <Stack spacing={2}>
-                <Typography variant="h6">Live draw</Typography>
+                <Typography variant="h6">{t("Live draw")}</Typography>
                 {canOperateDraws ? (
                     <Button
                       data-testid="automatic-draw-button"
@@ -207,29 +209,27 @@ export function SessionDetailPage() {
                       onClick={() => drawMutation.mutate()}
                       disabled={drawMutation.isPending || !sessionCanDraw}
                     >
-                      {drawMutation.isPending ? "Drawing…" : "Draw next number"}
+                      {drawMutation.isPending ? t("Drawing…") : t("Draw next number")}
                     </Button>
                 ) : null}
                 {!sessionCanDraw ? (
-                  <Typography color="text.secondary">Start the session before drawing numbers.</Typography>
+                  <Typography color="text.secondary">{t("Start the session before drawing numbers.")}</Typography>
                 ) : null}
                 {lastTriggeredDraw ? (
                   <Alert severity="success" data-testid="automatic-draw-result">
-                    Server drew {lastTriggeredDraw.numberDrawn} at sequence {lastTriggeredDraw.sequenceNo}.
-                  </Alert>
+                    {t("Server drew")}{" "}{lastTriggeredDraw.numberDrawn} {t("at sequence")}{" "}{lastTriggeredDraw.sequenceNo}{t(".")}</Alert>
                 ) : null}
                 <Alert severity="info">
-                  Numbers are selected by the server. WebSocket feed and REST replay are merged by sequence number.
-                </Alert>
+                  {t("Numbers are selected by the server. WebSocket feed and REST replay are merged by sequence number.")}</Alert>
                 <Stack spacing={1}>
-                  {draws.length === 0 ? <Typography color="text.secondary">No draws recorded yet.</Typography> : null}
+                  {draws.length === 0 ? <Typography color="text.secondary">{t("No draws recorded yet.")}</Typography> : null}
                   {draws.map((draw: DrawEventResponse) => (
                     <Card key={draw.sequenceNo} variant="outlined">
                       <CardContent>
                         <Stack direction="row" justifyContent="space-between" alignItems="center">
                           <div>
                             <Typography fontWeight={700}>
-                              #{draw.sequenceNo} · {draw.numberDrawn}
+                              {t("#")}{draw.sequenceNo} {t("·")}{" "}{draw.numberDrawn}
                             </Typography>
                             <Typography variant="body2" color="text.secondary">
                               {new Date(draw.drawnAt).toLocaleString()}

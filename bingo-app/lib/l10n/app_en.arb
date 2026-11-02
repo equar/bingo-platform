@@ -1,6 +1,10 @@
 {
   "@@locale": "en",
   "appTitle": "Sunset Bingo",
+  "languageSelectorLabel": "Choose language",
+  "languageEnglish": "English",
+  "languageAmharic": "አማርኛ",
+  "languagePreferenceSaveFailed": "Your language preference could not be saved.",
   "missingApiBaseUrlTitle": "API base URL is missing",
   "missingApiBaseUrlBody": "Start the app with --dart-define=API_BASE_URL=... so the client can reach the backend.",
   "invalidApiBaseUrlTitle": "API base URL is invalid",

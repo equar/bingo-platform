@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { approveDeposit, deposits, rejectDeposit, verifyDeposit } from "../../api/admin";
+import i18n from "../../i18n";
 import { DepositsPage } from "./DepositsPage";
 
 vi.mock("../../api/admin", () => ({
@@ -62,7 +63,8 @@ function createWrapper({ children }: PropsWithChildren) {
 describe("DepositsPage", () => {
   afterEach(cleanup);
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    await i18n.changeLanguage("en");
     depositsMock.mockReset();
     approveDepositMock.mockReset().mockResolvedValue({} as Awaited<ReturnType<typeof approveDeposit>>);
     rejectDepositMock.mockReset().mockResolvedValue({} as Awaited<ReturnType<typeof rejectDeposit>>);
@@ -93,7 +95,7 @@ describe("DepositsPage", () => {
     await waitFor(() => expect(depositsMock).toHaveBeenLastCalledWith(0, 20, "TXN", undefined));
 
     await user.click(screen.getByRole("combobox", { name: "Status" }));
-    await user.click(await screen.findByRole("option", { name: "APPROVED" }));
+    await user.click(await screen.findByRole("option", { name: "Approved" }));
     await waitFor(() => expect(depositsMock).toHaveBeenLastCalledWith(0, 20, "TXN", "APPROVED"));
   });
 

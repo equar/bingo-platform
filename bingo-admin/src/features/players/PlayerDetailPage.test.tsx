@@ -121,7 +121,7 @@ describe("PlayerDetailPage", () => {
 
     await user.click(await screen.findByRole("button", { name: "Change account status" }));
     await user.click(screen.getByRole("combobox", { name: "Account status" }));
-    await user.click(await screen.findByRole("option", { name: "PENDING" }));
+    await user.click(await screen.findByRole("option", { name: "Pending" }));
     const save = screen.getByRole("button", { name: "Save status" });
     expect(save).toBeDisabled();
     await user.type(screen.getByRole("textbox", { name: "Reason" }), "Policy review");
@@ -256,7 +256,7 @@ describe("PlayerDetailPage", () => {
     >);
     render(<PlayerDetailPage />, { wrapper: createWrapper });
 
-    expect(await screen.findByText("Reason: Correction")).toBeInTheDocument();
+    expect(await screen.findByText("Correction")).toBeInTheDocument();
     expect(screen.getByText("Supporting reference: CASE-71")).toBeInTheDocument();
     await user.click(await screen.findByRole("button", { name: "Approve request" }));
     await user.type(screen.getByRole("textbox", { name: "Checker review note" }), "Evidence reviewed");

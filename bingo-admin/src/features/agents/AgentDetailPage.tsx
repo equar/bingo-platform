@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import {
@@ -18,6 +19,7 @@ import { adminAgentDetail, adminAgentFloatBalance, adminAgentFloatHistory, appro
 import { getUserFacingErrorMessage } from "../../api/types";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { StatusState } from "../../components/StatusState";
+import { translateAdminStatus } from "../../i18n";
 
 function formatMoney(value: string | number) {
   const [whole, fraction = ""] = String(value).split(".");
@@ -25,6 +27,7 @@ function formatMoney(value: string | number) {
 }
 
 export function AgentDetailPage() {
+  const { t } = useTranslation();
   const { agentId } = useParams();
   const id = Number(agentId);
   const queryClient = useQueryClient();
@@ -118,7 +121,7 @@ export function AgentDetailPage() {
     onSuccess: () => {
       setNewPin("");
       setPinError(null);
-      setPinMessage("Agent PIN updated. The PIN is not displayed again.");
+      setPinMessage(t("Agent PIN updated. The PIN is not displayed again."));
     },
     onError: (error) => {
       setPinMessage(null);
@@ -127,15 +130,15 @@ export function AgentDetailPage() {
   });
 
   if (agentQuery.isLoading) {
-    return <StatusState title="Loading agent" loading message="Fetching agent profile" />;
+    return <StatusState title={t("Loading agent")} loading message={t("Fetching agent profile")} />;
   }
 
   if (agentQuery.error || !agentQuery.data) {
     return (
       <StatusState
-        title="Unable to load agent"
-        message={getUserFacingErrorMessage(agentQuery.error) ?? "This item is no longer available. Refresh and try again."}
-        actionLabel="Retry"
+        title={t("Unable to load agent")}
+        message={t(getUserFacingErrorMessage(agentQuery.error) ?? "This item is no longer available. Refresh and try again.")}
+        actionLabel={t("Retry")}
         onAction={() => agentQuery.refetch()}
       />
     );
@@ -149,35 +152,35 @@ export function AgentDetailPage() {
         <div>
           <Typography variant="h4">{agent.displayName}</Typography>
           <Typography color="text.secondary">
-            {agent.normalizedPhone} · {agent.city ?? "n/a"} · {agent.territory ?? "n/a"}
+            {agent.normalizedPhone} {t("·")}{" "}{agent.city ?? "n/a"} {t("·")}{" "}{agent.territory ?? "n/a"}
           </Typography>
         </div>
         <Stack direction="row" spacing={1}>
           {agent.status === "PENDING" ? (
-            <Button variant="contained" onClick={() => setApproveConfirmOpen(true)}>Approve application</Button>
+            <Button variant="contained" onClick={() => setApproveConfirmOpen(true)}>{t("Approve application")}</Button>
           ) : null}
           {agent.status === "APPROVED" ? (
-            <Button color="warning" variant="outlined" onClick={() => setSuspendConfirmOpen(true)}>Suspend agent</Button>
+            <Button color="warning" variant="outlined" onClick={() => setSuspendConfirmOpen(true)}>{t("Suspend agent")}</Button>
           ) : null}
-          <Button component={RouterLink} to="/agents" variant="outlined">Back to agents</Button>
+          <Button component={RouterLink} to="/agents" variant="outlined">{t("Back to agents")}</Button>
         </Stack>
       </Box>
 
-      {lifecycleError ? <Alert severity="error" role="alert">{lifecycleError}</Alert> : null}
+      {lifecycleError ? <Alert severity="error" role="alert">{t(lifecycleError)}</Alert> : null}
 
       {agent.status === "APPROVED" ? (
         <Card sx={{ border: "1px solid", borderColor: "divider" }}>
           <CardContent>
             <Stack spacing={2}>
-              <Typography variant="h6">Agent PIN management</Typography>
-              <Alert severity="warning">Set a new PIN only through an approved support process. The PIN is sent directly to the server and is never shown in agent details.</Alert>
+              <Typography variant="h6">{t("Agent PIN management")}</Typography>
+              <Alert severity="warning">{t("Set a new PIN only through an approved support process. The PIN is sent directly to the server and is never shown in agent details.")}</Alert>
               <TextField
-                label="New agent PIN"
+                label={t("New agent PIN")}
                 type="password"
                 value={newPin}
                 onChange={(event) => setNewPin(event.target.value.replace(/\D/g, "").slice(0, 8))}
                 inputProps={{ inputMode: "numeric", maxLength: 8, pattern: "[0-9]{4,8}", autoComplete: "new-password" }}
-                helperText="Enter 4 to 8 digits."
+                helperText={t("Enter 4 to 8 digits.")}
               />
               <Box>
                 <Button
@@ -185,10 +188,10 @@ export function AgentDetailPage() {
                   onClick={() => pinMutation.mutate()}
                   disabled={pinMutation.isPending || !/^[0-9]{4,8}$/.test(newPin)}
                 >
-                  {pinMutation.isPending ? "Updating…" : "Set agent PIN"}
+                  {pinMutation.isPending ? t("Updating…") : t("Set agent PIN")}
                 </Button>
               </Box>
-              {pinError ? <Alert severity="error" role="alert">{pinError}</Alert> : null}
+              {pinError ? <Alert severity="error" role="alert">{t(pinError)}</Alert> : null}
               {pinMessage ? <Alert severity="success" role="status">{pinMessage}</Alert> : null}
             </Stack>
           </CardContent>
@@ -200,10 +203,10 @@ export function AgentDetailPage() {
           <Card sx={{ border: "1px solid", borderColor: "divider" }}>
             <CardContent>
               <Stack spacing={1}>
-                <Typography variant="overline">Status</Typography>
-                <Typography variant="h5">{agent.status}</Typography>
+                <Typography variant="overline">{t("Status")}</Typography>
+                <Typography variant="h5">{translateAdminStatus(agent.status, t)}</Typography>
                 <Typography variant="body2" color="text.secondary">
-                  User #{agent.userId} · Agent #{agent.agentId}
+                  {t("User #")}{agent.userId} {t("·")}{" "}{t("Agent #")}{agent.agentId}
                 </Typography>
               </Stack>
             </CardContent>
@@ -213,11 +216,10 @@ export function AgentDetailPage() {
           <Card sx={{ border: "1px solid", borderColor: "divider" }}>
             <CardContent>
               <Stack spacing={1}>
-                <Typography variant="overline">Tickets sold</Typography>
+                <Typography variant="overline">{t("Tickets sold")}</Typography>
                 <Typography variant="h5">{agent.ticketSalesCount}</Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Activity exposed by the admin summary
-                </Typography>
+                  {t("Activity exposed by the admin summary")}</Typography>
               </Stack>
             </CardContent>
           </Card>
@@ -226,14 +228,14 @@ export function AgentDetailPage() {
           <Card sx={{ border: "1px solid", borderColor: "divider" }}>
             <CardContent>
               <Stack spacing={1}>
-                <Typography variant="overline">Float tx / top-ups / payouts</Typography>
+                <Typography variant="overline">{t("Float tx / top-ups / payouts")}</Typography>
                 <Typography variant="h5">
-                  {agent.floatTransactionCount} / {agent.topUpRequestCount} / {agent.payoutVerificationCount}
+                  {agent.floatTransactionCount} {t("/")}{" "}{agent.topUpRequestCount} {t("/")}{" "}{agent.payoutVerificationCount}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Current available float: {floatBalanceQuery.data
+                  {t("Current available float:")}{" "}{floatBalanceQuery.data
                     ? `${formatMoney(floatBalanceQuery.data.availableBalance)} ${floatBalanceQuery.data.currency}`
-                    : floatBalanceQuery.isLoading ? "Loading…" : "Unavailable"}
+                    : floatBalanceQuery.isLoading ? t("Loading…") : t("Unavailable")}
                 </Typography>
               </Stack>
             </CardContent>
@@ -241,22 +243,20 @@ export function AgentDetailPage() {
         </Grid>
       </Grid>
 
-      {floatBalanceQuery.isError ? <Alert severity="error">Unable to load agent float: {getUserFacingErrorMessage(floatBalanceQuery.error)}</Alert> : null}
-      {floatHistoryQuery.isError ? <Alert severity="error">Unable to load agent float history: {getUserFacingErrorMessage(floatHistoryQuery.error)}</Alert> : null}
+      {floatBalanceQuery.isError ? <Alert severity="error">{t("Unable to load agent float:")}{" "}{t(getUserFacingErrorMessage(floatBalanceQuery.error) ?? "Something went wrong. Please try again.")}</Alert> : null}
+      {floatHistoryQuery.isError ? <Alert severity="error">{t("Unable to load agent float history:")}{" "}{t(getUserFacingErrorMessage(floatHistoryQuery.error) ?? "Something went wrong. Please try again.")}</Alert> : null}
       <Card sx={{ border: "1px solid", borderColor: "divider" }}>
         <CardContent>
           <Stack spacing={1}>
-            <Typography variant="h6">Float transaction history</Typography>
+            <Typography variant="h6">{t("Float transaction history")}</Typography>
             <Typography variant="body2" color="text.secondary">
-              Available {floatBalanceQuery.data ? formatMoney(floatBalanceQuery.data.availableBalance) : "—"} {floatBalanceQuery.data?.currency ?? ""} ·
-              Clearing {floatBalanceQuery.data ? formatMoney(floatBalanceQuery.data.clearingBalance) : "—"} {floatBalanceQuery.data?.currency ?? ""}
+              {t("Available")}{" "}{floatBalanceQuery.data ? formatMoney(floatBalanceQuery.data.availableBalance) : "—"} {floatBalanceQuery.data?.currency ?? ""} {t("· Clearing {{amount}}", { amount: floatBalanceQuery.data ? formatMoney(floatBalanceQuery.data.clearingBalance) : "—" })} {floatBalanceQuery.data?.currency ?? ""}
             </Typography>
             {(floatHistoryQuery.data?.content ?? []).length === 0 ? (
-              <Typography color="text.secondary">No float transactions recorded.</Typography>
+              <Typography color="text.secondary">{t("No float transactions recorded.")}</Typography>
             ) : (floatHistoryQuery.data?.content ?? []).map((entry) => (
               <Typography key={entry.id} variant="body2">
-                {entry.transactionType} · {formatMoney(entry.amount)} · {formatMoney(entry.availableBefore)} → {formatMoney(entry.availableAfter)} ·
-                {entry.relatedEntityType} #{entry.relatedEntityId ?? "n/a"} · {new Date(entry.createdAt).toLocaleString()}
+                {entry.transactionType} {t("·")}{" "}{formatMoney(entry.amount)} {t("·")}{" "}{formatMoney(entry.availableBefore)} {t("→")}{" "}{formatMoney(entry.availableAfter)} {t("·")}{entry.relatedEntityType} {t("#")}{entry.relatedEntityId ?? "n/a"} {t("·")}{" "}{new Date(entry.createdAt).toLocaleString()}
               </Typography>
             ))}
           </Stack>
@@ -268,17 +268,17 @@ export function AgentDetailPage() {
           <Card sx={{ border: "1px solid", borderColor: "divider", height: "100%" }}>
             <CardContent>
               <Stack spacing={2}>
-                <Typography variant="h6">Float top-up review</Typography>
-                <Alert severity="warning">Top-up approvals are blocked pending approved funding verification and accounting rules. Rejection is available here.</Alert>
+                <Typography variant="h6">{t("Float top-up review")}</Typography>
+                <Alert severity="warning">{t("Top-up approvals are blocked pending approved funding verification and accounting rules. Rejection is available here.")}</Alert>
                 <TextField
-                  label="Request id"
+                  label={t("Request id")}
                   value={requestId}
                   onChange={(event) => setRequestId(event.target.value)}
                   fullWidth
                 />
-                <TextField label="Decision" value="Reject" fullWidth disabled />
+                <TextField label={t("Decision")} value="Reject" fullWidth disabled />
                 <TextField
-                  label="Review note"
+                  label={t("Review note")}
                   value={reviewNote}
                   onChange={(event) => setReviewNote(event.target.value)}
                   inputProps={{ maxLength: 500 }}
@@ -287,16 +287,13 @@ export function AgentDetailPage() {
                   minRows={3}
                 />
                 <Alert severity="info">
-                  Idempotency is not supported by the backend review endpoint, so retry deduplication cannot be enforced
-                  here.
-                </Alert>
+                  {t("Idempotency is not supported by the backend review endpoint, so retry deduplication cannot be enforced here.")}</Alert>
                 <Button
                   variant="contained"
                   onClick={() => setReviewConfirmOpen(true)}
                   disabled={!requestId.trim() || !reviewNote.trim()}
                 >
-                  Review top-up
-                </Button>
+                  {t("Review top-up")}</Button>
               </Stack>
             </CardContent>
           </Card>
@@ -305,15 +302,13 @@ export function AgentDetailPage() {
           <Card sx={{ border: "1px solid", borderColor: "divider", height: "100%" }}>
             <CardContent>
               <Stack spacing={2}>
-                <Typography variant="h6">Commission rules</Typography>
+                <Typography variant="h6">{t("Commission rules")}</Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Publish a new effective rule version. The contract does not expose history, so the UI cannot render
-                  prior versions.
-                </Typography>
+                  {t("Publish a new effective rule version. The contract does not expose history, so the UI cannot render prior versions.")}</Typography>
                 <Grid container spacing={2}>
                   <Grid item xs={12} md={4}>
                     <TextField
-                      label="Commission rate (bps)"
+                      label={t("Commission rate (bps)")}
                       type="number"
                       value={commissionRateBps}
                       onChange={(event) => setCommissionRateBps(event.target.value)}
@@ -322,7 +317,7 @@ export function AgentDetailPage() {
                   </Grid>
                   <Grid item xs={12} md={4}>
                     <TextField
-                      label="Effective from"
+                      label={t("Effective from")}
                       type="datetime-local"
                       value={effectiveFrom}
                       onChange={(event) => setEffectiveFrom(event.target.value)}
@@ -333,13 +328,13 @@ export function AgentDetailPage() {
                   <Grid item xs={12} md={4}>
                     <TextField
                       select
-                      label="Active"
+                      label={t("Active")}
                       value={active ? "true" : "false"}
                       onChange={(event) => setActive(event.target.value === "true")}
                       fullWidth
                     >
-                      <MenuItem value="true">Active</MenuItem>
-                      <MenuItem value="false">Inactive</MenuItem>
+                      <MenuItem value="true">{t("Active")}</MenuItem>
+                      <MenuItem value="false">{t("Inactive")}</MenuItem>
                     </TextField>
                   </Grid>
                 </Grid>
@@ -348,8 +343,7 @@ export function AgentDetailPage() {
                   onClick={() => commissionMutation.mutate()}
                   disabled={commissionMutation.isPending}
                 >
-                  Publish rule
-                </Button>
+                  {t("Publish rule")}</Button>
               </Stack>
             </CardContent>
           </Card>
@@ -359,20 +353,20 @@ export function AgentDetailPage() {
       <Card sx={{ border: "1px solid", borderColor: "divider" }}>
         <CardContent>
           <Stack spacing={1.5}>
-            <Typography variant="h6">Agent profile</Typography>
-            <Typography>City: {agent.city ?? "n/a"}</Typography>
-            <Typography>Territory: {agent.territory ?? "n/a"}</Typography>
-            <Typography>ID document type: {agent.idDocumentType || "n/a"}</Typography>
-            <Typography>ID document number: {agent.idDocumentNumber || "n/a"}</Typography>
-            <Typography>Front document reference: {agent.idDocumentFrontReference ?? "n/a"}</Typography>
-            <Typography>Back document reference: {agent.idDocumentBackReference ?? "n/a"}</Typography>
-            <Typography>Created: {new Date(agent.createdAt).toLocaleString()}</Typography>
-            <Typography>Updated: {new Date(agent.updatedAt).toLocaleString()}</Typography>
+            <Typography variant="h6">{t("Agent profile")}</Typography>
+            <Typography>{t("City:")}{" "}{agent.city ?? t("n/a")}</Typography>
+            <Typography>{t("Territory:")}{" "}{agent.territory ?? t("n/a")}</Typography>
+            <Typography>{t("ID document type:")}{" "}{agent.idDocumentType || t("n/a")}</Typography>
+            <Typography>{t("ID document number:")}{" "}{agent.idDocumentNumber || t("n/a")}</Typography>
+            <Typography>{t("Front document reference:")}{" "}{agent.idDocumentFrontReference ?? t("n/a")}</Typography>
+            <Typography>{t("Back document reference:")}{" "}{agent.idDocumentBackReference ?? t("n/a")}</Typography>
+            <Typography>{t("Created:")}{" "}{new Date(agent.createdAt).toLocaleString()}</Typography>
+            <Typography>{t("Updated:")}{" "}{new Date(agent.updatedAt).toLocaleString()}</Typography>
             <Stack direction="row" spacing={1} flexWrap="wrap">
-              <Chip label={`Tickets ${agent.ticketSalesCount}`} size="small" />
-              <Chip label={`Float tx ${agent.floatTransactionCount}`} size="small" />
-              <Chip label={`Top-ups ${agent.topUpRequestCount}`} size="small" />
-              <Chip label={`Payouts ${agent.payoutVerificationCount}`} size="small" />
+              <Chip label={t("Tickets {{count}}", { count: agent.ticketSalesCount })} size="small" />
+              <Chip label={t("Float tx {{count}}", { count: agent.floatTransactionCount })} size="small" />
+              <Chip label={t("Top-ups {{count}}", { count: agent.topUpRequestCount })} size="small" />
+              <Chip label={t("Payouts {{count}}", { count: agent.payoutVerificationCount })} size="small" />
             </Stack>
           </Stack>
         </CardContent>
@@ -380,10 +374,10 @@ export function AgentDetailPage() {
 
       <ConfirmDialog
         open={approveConfirmOpen}
-        title="Approve agent application"
-        description={`Approve ${agent.displayName}? This changes the pending account to active and enables agent access.`}
-        confirmLabel="Approve"
-        cancelLabel="Cancel"
+        title={t("Approve agent application")}
+        description={t("Approve {{name}}? This changes the pending account to active and enables agent access.", { name: agent.displayName })}
+        confirmLabel={t("Approve")}
+        cancelLabel={t("Cancel")}
         confirming={approveMutation.isPending}
         onCancel={() => setApproveConfirmOpen(false)}
         onConfirm={() => approveMutation.mutate()}
@@ -391,10 +385,10 @@ export function AgentDetailPage() {
 
       <ConfirmDialog
         open={suspendConfirmOpen}
-        title="Suspend agent"
-        description={`Suspend ${agent.displayName}? Their new login and existing token access will be blocked.`}
-        confirmLabel="Suspend"
-        cancelLabel="Cancel"
+        title={t("Suspend agent")}
+        description={t("Suspend {{name}}? Their new login and existing token access will be blocked.", { name: agent.displayName })}
+        confirmLabel={t("Suspend")}
+        cancelLabel={t("Cancel")}
         confirming={suspendMutation.isPending}
         onCancel={() => setSuspendConfirmOpen(false)}
         onConfirm={() => suspendMutation.mutate()}
@@ -402,10 +396,10 @@ export function AgentDetailPage() {
 
       <ConfirmDialog
         open={reviewConfirmOpen}
-        title="Review float top-up"
-        description={`Reject request ${requestId}?`}
-        confirmLabel="Confirm"
-        cancelLabel="Back"
+        title={t("Review float top-up")}
+        description={t("Reject request {{id}}?", { id: requestId })}
+        confirmLabel={t("Confirm")}
+        cancelLabel={t("Back")}
         confirming={reviewMutation.isPending}
         onCancel={() => setReviewConfirmOpen(false)}
         onConfirm={() => reviewMutation.mutate()}

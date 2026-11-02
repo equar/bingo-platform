@@ -6,17 +6,23 @@ import { queryClient } from "./api/queryClient";
 import { AppRouter } from "./routes/AppRouter";
 import { adminTheme } from "./theme";
 import { ThemeProvider } from "@mui/material/styles";
+import { I18nextProvider, useTranslation } from "react-i18next";
+import i18n from "./i18n";
+import { LanguageSelector } from "./components/LanguageSelector";
 
 function MissingConfig() {
+  const { t } = useTranslation();
   return (
     <Container maxWidth="sm" sx={{ py: 8 }}>
       <Stack spacing={2}>
-        <Typography variant="h4">Sunset Bingo Admin</Typography>
+        <Stack direction="row" justifyContent="space-between" alignItems="center">
+          <Typography variant="h4">{t("missingConfig.title")}</Typography>
+          <LanguageSelector />
+        </Stack>
         <Alert severity="warning">
-          Missing Vite environment variable <strong>VITE_API_BASE_URL</strong>.
-        </Alert>
+          {t("missingConfig.alert")} <strong>{t("VITE_API_BASE_URL")}</strong>{t(".")}</Alert>
         <Typography color="text.secondary">
-          Configure the backend base URL in <code>.env.local</code> before starting the admin console.
+          {t("missingConfig.body")}
         </Typography>
       </Stack>
     </Container>
@@ -27,11 +33,13 @@ export default function App() {
   return (
     <ThemeProvider theme={adminTheme}>
       <CssBaseline />
-      <QueryClientProvider client={queryClient}>
-        <BrowserRouter>
-          {apiBaseUrl ? <AppRouter /> : <MissingConfig />}
-        </BrowserRouter>
-      </QueryClientProvider>
+      <I18nextProvider i18n={i18n}>
+        <QueryClientProvider client={queryClient}>
+          <BrowserRouter>
+            {apiBaseUrl ? <AppRouter /> : <MissingConfig />}
+          </BrowserRouter>
+        </QueryClientProvider>
+      </I18nextProvider>
     </ThemeProvider>
   );
 }

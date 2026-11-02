@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import {
   Alert,
@@ -38,6 +39,7 @@ function hasDetailedMetadata(metadataJson: string) {
 }
 
 export function AuditLogsPage() {
+  const { t } = useTranslation();
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(20);
   const [search, setSearch] = useState("");
@@ -56,15 +58,15 @@ export function AuditLogsPage() {
   });
 
   if (auditQuery.isLoading) {
-    return <StatusState title="Loading audit logs" loading message="Fetching recent audit history" />;
+    return <StatusState title={t("Loading audit logs")} loading message={t("Fetching recent audit history")} />;
   }
 
   if (auditQuery.error) {
     return (
       <StatusState
-        title="Unable to load audit logs"
-        message={getUserFacingErrorMessage(auditQuery.error) ?? "Something went wrong. Please try again."}
-        actionLabel="Retry"
+        title={t("Unable to load audit logs")}
+        message={t(getUserFacingErrorMessage(auditQuery.error) ?? "Something went wrong. Please try again.")}
+        actionLabel={t("Retry")}
         onAction={() => auditQuery.refetch()}
       />
     );
@@ -101,18 +103,18 @@ export function AuditLogsPage() {
   return (
     <Stack spacing={2.5}>
       <Box>
-        <Typography variant="h4">Audit logs</Typography>
-        <Typography color="text.secondary">Recent system activity and review actions.</Typography>
+        <Typography variant="h4">{t("Audit logs")}</Typography>
+        <Typography color="text.secondary">{t("Recent system activity and review actions.")}</Typography>
       </Box>
 
-      {entries.length === 0 ? <Alert severity="info">No audit entries found.</Alert> : null}
+      {entries.length === 0 ? <Alert severity="info">{t("No audit entries found.")}</Alert> : null}
 
       {entries.length > 0 ? (
         <Stack spacing={1.25}>
           <Stack direction={{ xs: "column", md: "row" }} spacing={1.5}>
             <TextField
-              label="Search audit logs"
-              placeholder="Action, actor, target, reason, operation ID"
+              label={t("Search audit logs")}
+              placeholder={t("Action, actor, target, reason, operation ID")}
               value={search}
               onChange={(event) => {
                 setSearch(event.target.value);
@@ -120,11 +122,11 @@ export function AuditLogsPage() {
               }}
               size="small"
               sx={{ flex: 2, minWidth: { md: 280 } }}
-              InputProps={{ startAdornment: <InputAdornment position="start">⌕</InputAdornment> }}
+              InputProps={{ startAdornment: <InputAdornment position="start">{t("⌕")}</InputAdornment> }}
             />
             <TextField
               select
-              label="Action"
+              label={t("Action")}
               value={actionFilter}
               onChange={(event) => {
                 setActionFilter(event.target.value);
@@ -133,7 +135,7 @@ export function AuditLogsPage() {
               size="small"
               sx={{ flex: 1, minWidth: 160 }}
             >
-              <MenuItem value="ALL">All actions</MenuItem>
+              <MenuItem value="ALL">{t("All actions")}</MenuItem>
               {actions.map((action) => (
                 <MenuItem key={action} value={action}>
                   {action}
@@ -142,7 +144,7 @@ export function AuditLogsPage() {
             </TextField>
             <TextField
               select
-              label="Target type"
+              label={t("Target type")}
               value={targetTypeFilter}
               onChange={(event) => {
                 setTargetTypeFilter(event.target.value);
@@ -151,7 +153,7 @@ export function AuditLogsPage() {
               size="small"
               sx={{ flex: 1, minWidth: 160 }}
             >
-              <MenuItem value="ALL">All target types</MenuItem>
+              <MenuItem value="ALL">{t("All target types")}</MenuItem>
               {targetTypes.map((targetType) => (
                 <MenuItem key={targetType} value={targetType}>
                   {targetType}
@@ -160,7 +162,7 @@ export function AuditLogsPage() {
             </TextField>
             <TextField
               select
-              label="Time period"
+              label={t("Time period")}
               value={dateFilter}
               onChange={(event) => {
                 setDateFilter(event.target.value);
@@ -169,27 +171,26 @@ export function AuditLogsPage() {
               size="small"
               sx={{ flex: 1, minWidth: 150 }}
             >
-              <MenuItem value="ALL">Any time</MenuItem>
-              <MenuItem value="24H">Last 24 hours</MenuItem>
-              <MenuItem value="7D">Last 7 days</MenuItem>
-              <MenuItem value="30D">Last 30 days</MenuItem>
+              <MenuItem value="ALL">{t("Any time")}</MenuItem>
+              <MenuItem value="24H">{t("Last 24 hours")}</MenuItem>
+              <MenuItem value="7D">{t("Last 7 days")}</MenuItem>
+              <MenuItem value="30D">{t("Last 30 days")}</MenuItem>
             </TextField>
           </Stack>
           <Typography variant="body2" color="text.secondary">
-            Showing {filteredEntries.length} matching entries on this page
-          </Typography>
+            {t("Showing")}{" "}{filteredEntries.length} {t("matching entries on this page")}</Typography>
           <TableContainer component={Paper} variant="outlined">
-            <Table size="small" sx={{ minWidth: 1050 }} aria-label="Audit logs">
+            <Table size="small" sx={{ minWidth: 1050 }} aria-label={t("Audit logs")}>
               <TableHead>
                 <TableRow>
-                  <TableCell>ID</TableCell>
-                  <TableCell>Time</TableCell>
-                  <TableCell>Action</TableCell>
-                  <TableCell>Actor</TableCell>
-                  <TableCell>Target</TableCell>
-                  <TableCell>Reason</TableCell>
-                  <TableCell>Operation ID</TableCell>
-                  <TableCell align="right">Details</TableCell>
+                  <TableCell>{t("ID")}</TableCell>
+                  <TableCell>{t("Time")}</TableCell>
+                  <TableCell>{t("Action")}</TableCell>
+                  <TableCell>{t("Actor")}</TableCell>
+                  <TableCell>{t("Target")}</TableCell>
+                  <TableCell>{t("Reason")}</TableCell>
+                  <TableCell>{t("Operation ID")}</TableCell>
+                  <TableCell align="right">{t("Details")}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -198,9 +199,9 @@ export function AuditLogsPage() {
                     <TableCell>{entry.id}</TableCell>
                     <TableCell sx={{ whiteSpace: "nowrap" }}>{new Date(entry.createdAt).toLocaleString()}</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>{entry.action}</TableCell>
-                    <TableCell>{entry.actorUserId ?? "System"}</TableCell>
+                    <TableCell>{entry.actorUserId ?? t("System")}</TableCell>
                     <TableCell sx={{ whiteSpace: "nowrap" }}>
-                      {entry.targetType} · {entry.targetId ?? "n/a"}
+                      {entry.targetType} {t("·")}{" "}{entry.targetId ?? "n/a"}
                     </TableCell>
                     <TableCell sx={{ maxWidth: 260, minWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {entry.reason ?? "—"}
@@ -210,16 +211,14 @@ export function AuditLogsPage() {
                     </TableCell>
                     <TableCell align="right">
                       <Button size="small" onClick={() => setSelectedEntry(entry)}>
-                        View details
-                      </Button>
+                        {t("View details")}</Button>
                     </TableCell>
                   </TableRow>
                 ))}
                 {filteredEntries.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
-                      No audit entries match your search and filters.
-                    </TableCell>
+                      {t("No audit entries match your search and filters.")}</TableCell>
                   </TableRow>
                 ) : null}
               </TableBody>
@@ -241,20 +240,18 @@ export function AuditLogsPage() {
       ) : null}
 
       <Dialog open={Boolean(selectedEntry)} onClose={() => setSelectedEntry(null)} fullWidth maxWidth="sm">
-        <DialogTitle>Audit log details</DialogTitle>
+        <DialogTitle>{t("Audit log details")}</DialogTitle>
         <DialogContent>
-          {detailQuery.isLoading ? <CircularProgress size={24} aria-label="Loading audit log details" /> : null}
+          {detailQuery.isLoading ? <CircularProgress size={24} aria-label={t("Loading audit log details")} /> : null}
           {detailQuery.error ? (
             <Alert
               severity="error"
               action={
                 <Button color="inherit" size="small" onClick={() => detailQuery.refetch()}>
-                  Retry
-                </Button>
+                  {t("Retry")}</Button>
               }
             >
-              Unable to load the full audit details.
-            </Alert>
+              {t("Unable to load the full audit details.")}</Alert>
           ) : null}
           {selectedEntry && detailQuery.data ? (
             <Stack spacing={1.5} divider={<Divider flexItem />} sx={{ pt: 1 }}>
@@ -266,16 +263,16 @@ export function AuditLogsPage() {
                   "Actor",
                   detailQuery.data.actorDisplayName
                     ? `${detailQuery.data.actorDisplayName} (${detailQuery.data.actorUserId})`
-                    : detailQuery.data.actorUserId ?? "System",
+                    : detailQuery.data.actorUserId ?? t("System"),
                 ],
                 ["Target type", detailQuery.data.targetType],
                 ["Target ID", detailQuery.data.targetId ?? "n/a"],
-                ["Reason", detailQuery.data.reason ?? "No reason provided"],
+                ["Reason", detailQuery.data.reason ?? t("No reason provided")],
                 ["Operation ID", detailQuery.data.operationId ?? "n/a"],
               ].map(([label, value]) => (
                 <Box key={label}>
                   <Typography variant="caption" color="text.secondary">
-                    {label}
+                    {t(String(label))}
                   </Typography>
                   <Typography sx={{ overflowWrap: "anywhere", whiteSpace: "pre-wrap" }}>{value}</Typography>
                 </Box>
@@ -283,8 +280,7 @@ export function AuditLogsPage() {
               {detailQuery.data.metadataJson ? (
                 <Box>
                   <Typography variant="subtitle2" gutterBottom>
-                    Recorded context
-                  </Typography>
+                    {t("Recorded context")}</Typography>
                   <Box
                     component="pre"
                     sx={{
@@ -310,22 +306,18 @@ export function AuditLogsPage() {
                   </Box>
                   {!hasDetailedMetadata(detailQuery.data.metadataJson) ? (
                     <Alert severity="info" sx={{ mt: 1 }}>
-                      This is a legacy entry with limited context. New audit entries include redacted request and
-                      outcome details.
-                    </Alert>
+                      {t("This is a legacy entry with limited context. New audit entries include redacted request and outcome details.")}</Alert>
                   ) : null}
                 </Box>
               ) : (
                 <Alert severity="info">
-                  This older audit entry has no recorded context. New entries include redacted request and outcome
-                  details.
-                </Alert>
+                  {t("This older audit entry has no recorded context. New entries include redacted request and outcome details.")}</Alert>
               )}
             </Stack>
           ) : null}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setSelectedEntry(null)}>Close</Button>
+          <Button onClick={() => setSelectedEntry(null)}>{t("Close")}</Button>
         </DialogActions>
       </Dialog>
     </Stack>

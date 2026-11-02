@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { approveWinClaim, rejectWinClaim, winClaims } from "../../api/admin";
+import i18n from "../../i18n";
 import { ClaimsPage } from "./ClaimsPage";
 
 vi.mock("../../api/admin", () => ({
@@ -29,7 +30,8 @@ function createWrapper({ children }: PropsWithChildren) {
 describe("ClaimsPage", () => {
   afterEach(cleanup);
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    await i18n.changeLanguage("en");
     winClaimsMock.mockReset();
     approveWinClaimMock.mockReset();
     rejectWinClaimMock.mockReset();
@@ -87,7 +89,7 @@ describe("ClaimsPage", () => {
     );
 
     await user.click(screen.getByRole("combobox", { name: "Status" }));
-    await user.click(await screen.findByRole("option", { name: "APPROVED" }));
+    await user.click(await screen.findByRole("option", { name: "Approved" }));
     await waitFor(() =>
       expect(winClaimsMock).toHaveBeenLastCalledWith(0, 20, "player", "APPROVED", undefined, undefined),
     );

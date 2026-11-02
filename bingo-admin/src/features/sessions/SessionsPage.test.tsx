@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { listRooms, listSessions } from "../../api/admin";
+import i18n from "../../i18n";
 import { SessionsPage } from "./SessionsPage";
 
 vi.mock("../../api/admin", () => ({
@@ -27,9 +28,13 @@ function createWrapper({ children }: PropsWithChildren) {
 }
 
 describe("SessionsPage", () => {
-  afterEach(cleanup);
+  afterEach(async () => {
+    cleanup();
+    await i18n.changeLanguage("en");
+  });
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    await i18n.changeLanguage("en");
     listRoomsMock.mockReset();
     listSessionsMock.mockReset();
     listRoomsMock.mockResolvedValue([
@@ -93,7 +98,7 @@ describe("SessionsPage", () => {
     );
 
     await user.click(screen.getByRole("combobox", { name: "Status" }));
-    await user.click(await screen.findByRole("option", { name: "OPEN" }));
+    await user.click(await screen.findByRole("option", { name: "Open" }));
     await waitFor(() =>
       expect(listSessionsMock).toHaveBeenLastCalledWith(0, 20, "Friday", "OPEN", undefined, undefined),
     );
@@ -116,6 +121,19 @@ describe("SessionsPage", () => {
 
     await waitFor(() =>
       expect(listSessionsMock).toHaveBeenLastCalledWith(1, 20, undefined, undefined, undefined, undefined),
+    );
+  });
+
+  it("shows translated session statuses while sending the original API value", async () => {
+    await i18n.changeLanguage("am");
+    const user = userEvent.setup();
+    render(<SessionsPage />, { wrapper: createWrapper });
+
+    await user.click(await screen.findByRole("combobox", { name: "ሁኔታ" }));
+    await user.click(await screen.findByRole("option", { name: "ክፍት" }));
+
+    await waitFor(() =>
+      expect(listSessionsMock).toHaveBeenLastCalledWith(0, 20, undefined, "OPEN", undefined, undefined),
     );
   });
 });
