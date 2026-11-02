@@ -1,0 +1,32 @@
+{
+  "runId": "QA_PLAYER_AUTH_UI_20261102_165639_868",
+  "status": "FAIL",
+  "backend": {
+    "profile": "android-test",
+    "database": "bingo_qa_test",
+    "mysqlIdentity": "bingo_qa_test_runner@127.0.0.1",
+    "pid": 42128,
+    "financialPosting": "disabled"
+  },
+  "test": "module_01_authentication_test.dart",
+  "flutterExitCode": 1,
+  "androidScreenshotCaptured": true,
+  "loginStateDiagnostic": null,
+  "databaseBefore": [
+    "users|13",
+    "wallets|2",
+    "wallet_transactions|0",
+    "bingo_tickets|0",
+    "bingo_sessions|19"
+  ],
+  "databaseAfter": [
+    "users|13",
+    "wallets|2",
+    "wallet_transactions|0",
+    "bingo_tickets|0",
+    "bingo_sessions|19"
+  ],
+  "protectedCountsUnchanged": true,
+  "log": "flutter-integration.log",
+  "screenshot": "player-after-valid-login.png"
+}

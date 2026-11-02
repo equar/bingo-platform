@@ -27,6 +27,7 @@ import {
   updatePlayerStatus,
   walletAdjustmentHistory,
 } from "../../api/admin";
+import { getUserFacingErrorMessage, parseApiError } from "../../api/types";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { StatusState } from "../../components/StatusState";
 import { PlayerActivityDialog, type PlayerActivityType } from "./PlayerActivityDialog";
@@ -97,6 +98,7 @@ export function PlayerDetailPage() {
   const [reviewRequestId, setReviewRequestId] = useState<number | null>(null);
   const [reviewDecision, setReviewDecision] = useState<"approve" | "reject">("approve");
   const [reviewNote, setReviewNote] = useState("");
+  const [uncertainReviewRequestIds, setUncertainReviewRequestIds] = useState<Set<number>>(() => new Set());
 
   const playerQuery = useQuery({
     queryKey: ["player", id],
@@ -121,6 +123,11 @@ export function PlayerDetailPage() {
       setDraft(null);
       setConfirmOpen(false);
     },
+    onError: async (error) => {
+      if (parseApiError(error).outcomeUnknown) {
+        await queryClient.invalidateQueries({ queryKey: ["wallet-adjustment-history", id] });
+      }
+    },
   });
   const adjustmentReviewMutation = useMutation({
     mutationFn: async () => {
@@ -135,6 +142,12 @@ export function PlayerDetailPage() {
       setReviewRequestId(null);
       setReviewNote("");
     },
+    onError: async (error) => {
+      if (parseApiError(error).outcomeUnknown && reviewRequestId != null) {
+        setUncertainReviewRequestIds((current) => new Set(current).add(reviewRequestId));
+        await queryClient.invalidateQueries({ queryKey: ["wallet-adjustment-history", id] });
+      }
+    },
   });
   const statusMutation = useMutation({
     mutationFn: () => updatePlayerStatus(id, nextStatus, statusReason.trim()),
@@ -147,6 +160,10 @@ export function PlayerDetailPage() {
   });
 
   const player = playerQuery.data;
+  const adjustmentOutcomeUnknown =
+    adjustmentMutation.isError && parseApiError(adjustmentMutation.error).outcomeUnknown;
+  const reviewOutcomeUnknown =
+    reviewRequestId != null && uncertainReviewRequestIds.has(reviewRequestId);
   const backButton = (
     <Button component={RouterLink} to="/players" size="small" variant="outlined">
       Back to players
@@ -177,7 +194,7 @@ export function PlayerDetailPage() {
         {backButton}
         <StatusState
           title="Unable to load player"
-          message={(playerQuery.error as Error | undefined)?.message ?? "Player not found"}
+          message={getUserFacingErrorMessage(playerQuery.error) ?? "This item is no longer available. Refresh and try again."}
           actionLabel="Retry"
           onAction={() => playerQuery.refetch()}
         />
@@ -229,7 +246,7 @@ export function PlayerDetailPage() {
               adjustmentMutation.reset();
                 setDraft({ ...emptyDraft, currency: player.walletCurrency ?? "ETB" });
             }}
-            disabled={!player.roles.includes("PLAYER")}
+            disabled={!player.roles.includes("PLAYER") || adjustmentOutcomeUnknown}
           >
             Adjust wallet
           </Button>
@@ -238,13 +255,22 @@ export function PlayerDetailPage() {
 
       {statusMutation.isError ? (
         <Alert severity="error" onClose={() => statusMutation.reset()}>
-          {(statusMutation.error as Error).message || "Unable to update player status."}
+          {getUserFacingErrorMessage(statusMutation.error) ?? "Something went wrong. Please try again."}
         </Alert>
       ) : null}
 
-      {adjustmentMutation.isError ? (
-        <Alert severity="error" onClose={() => adjustmentMutation.reset()}>
-          {(adjustmentMutation.error as Error).message || "Wallet adjustment failed."}
+      {adjustmentMutation.isError && !confirmOpen ? (
+        <Alert
+          severity="error"
+          onClose={adjustmentOutcomeUnknown ? undefined : () => adjustmentMutation.reset()}
+        >
+          {getUserFacingErrorMessage(adjustmentMutation.error) ?? "Something went wrong. Please try again."}
+        </Alert>
+      ) : null}
+      {reviewRequestId == null && uncertainReviewRequestIds.size > 0 ? (
+        <Alert severity="error">
+          {getUserFacingErrorMessage(adjustmentReviewMutation.error) ??
+            "We couldn’t confirm the transaction status. Check the transaction history before trying again."}
         </Alert>
       ) : null}
       {adjustmentMutation.isSuccess ? (
@@ -325,7 +351,7 @@ export function PlayerDetailPage() {
           <Stack spacing={1}>
             <Typography variant="h6">Wallet adjustment requests</Typography>
             {adjustmentHistoryQuery.isError ? (
-              <Alert severity="error">Unable to load adjustment history: {(adjustmentHistoryQuery.error as Error).message}</Alert>
+              <Alert severity="error">Unable to load adjustment history: {getUserFacingErrorMessage(adjustmentHistoryQuery.error)}</Alert>
             ) : adjustmentHistoryQuery.isLoading ? (
               <Typography color="text.secondary">Loading adjustment history...</Typography>
             ) : adjustmentHistoryQuery.data?.length ? (
@@ -354,6 +380,7 @@ export function PlayerDetailPage() {
                     <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
                       <Button
                         size="small"
+                        disabled={uncertainReviewRequestIds.has(request.id)}
                         onClick={() => {
                           adjustmentReviewMutation.reset();
                           setReviewDecision("approve");
@@ -366,6 +393,7 @@ export function PlayerDetailPage() {
                       <Button
                         size="small"
                         color="error"
+                        disabled={uncertainReviewRequestIds.has(request.id)}
                         onClick={() => {
                           adjustmentReviewMutation.reset();
                           setReviewDecision("reject");
@@ -595,12 +623,13 @@ export function PlayerDetailPage() {
               The maker cannot review their own request. Approval posts once; rejection leaves the wallet unchanged.
             </Alert>
             {adjustmentReviewMutation.isError ? (
-              <Alert severity="error">{(adjustmentReviewMutation.error as Error).message}</Alert>
+              <Alert severity="error">{getUserFacingErrorMessage(adjustmentReviewMutation.error)}</Alert>
             ) : null}
             <TextField
               label="Checker review note"
               value={reviewNote}
               onChange={(event) => setReviewNote(event.target.value)}
+              disabled={reviewOutcomeUnknown}
               inputProps={{ maxLength: 500 }}
               multiline
               minRows={2}
@@ -614,7 +643,7 @@ export function PlayerDetailPage() {
             variant="contained"
             color={reviewDecision === "approve" ? "primary" : "error"}
             onClick={() => adjustmentReviewMutation.mutate()}
-            disabled={!reviewNote.trim() || adjustmentReviewMutation.isPending}
+            disabled={!reviewNote.trim() || adjustmentReviewMutation.isPending || reviewOutcomeUnknown}
           >
             {reviewDecision === "approve" ? "Approve" : "Reject"}
           </Button>
@@ -628,7 +657,8 @@ export function PlayerDetailPage() {
         confirmLabel="Submit request"
         cancelLabel="Back"
         confirming={adjustmentMutation.isPending}
-        error={adjustmentMutation.isError ? adjustmentMutation.error.message : undefined}
+        disableConfirm={adjustmentOutcomeUnknown}
+        error={adjustmentMutation.isError ? getUserFacingErrorMessage(adjustmentMutation.error) : undefined}
         onCancel={() => setConfirmOpen(false)}
         onConfirm={() => draft && adjustmentMutation.mutate(draft)}
       />

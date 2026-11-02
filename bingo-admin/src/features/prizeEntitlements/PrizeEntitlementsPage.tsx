@@ -23,6 +23,7 @@ import {
   Typography,
 } from "@mui/material";
 import { prizeEntitlements, settlePrizeEntitlement } from "../../api/admin";
+import { getUserFacingErrorMessage } from "../../api/types";
 import { StatusState } from "../../components/StatusState";
 import { EntitlementReferenceDialog, type EntitlementReference } from "./EntitlementReferenceDialog";
 
@@ -72,7 +73,7 @@ export function PrizeEntitlementsPage() {
     return (
       <StatusState
         title="Unable to load prize entitlements"
-        message={(entitlementsQuery.error as Error).message}
+        message={getUserFacingErrorMessage(entitlementsQuery.error) ?? "Something went wrong. Please try again."}
         actionLabel="Retry"
         onAction={() => entitlementsQuery.refetch()}
       />
@@ -271,7 +272,7 @@ export function PrizeEntitlementsPage() {
                   </Button>
                 }
               >
-                {settleMutation.error.message}
+                {getUserFacingErrorMessage(settleMutation.error)}
               </Alert>
             ) : null}
             <TextField

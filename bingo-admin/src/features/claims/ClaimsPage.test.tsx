@@ -160,7 +160,9 @@ describe("ClaimsPage", () => {
 
   it("requires a review reason and reports errors without duplicate claim approval", async () => {
     const user = userEvent.setup();
-    approveWinClaimMock.mockRejectedValue(new Error("Permission denied"));
+    approveWinClaimMock.mockRejectedValue({
+      response: { status: 403, data: { code: "ACCESS_DENIED", message: "Internal authorization detail" } },
+    });
     render(<ClaimsPage />, { wrapper: createWrapper });
     await screen.findByTestId("claim-row-21");
 
@@ -171,7 +173,9 @@ describe("ClaimsPage", () => {
     expect(confirm).toBeEnabled();
     await user.click(confirm);
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Permission denied");
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "You don’t have permission to perform this action.",
+    );
     expect(approveWinClaimMock).toHaveBeenCalledTimes(1);
   });
 

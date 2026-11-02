@@ -10,19 +10,32 @@ var _surfaceConverted = false;
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('Module 03B pending player remains unable to log in', (tester) async {
+  testWidgets('Module 03B pending player remains unable to log in', (
+    tester,
+  ) async {
     expect(_phone, isNotEmpty);
     expect(_pin, hasLength(6));
     await tester.pumpWidget(const BingoApp());
     await _waitFor(tester, find.byKey(const ValueKey('auth-submit-button')));
-    await tester.enterText(find.byKey(const ValueKey('auth-phone-field')), _phone);
-    await tester.enterText(find.byKey(const ValueKey('auth-password-field')), _pin);
+    await tester.enterText(
+      find.byKey(const ValueKey('auth-phone-field')),
+      _phone,
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('auth-password-field')),
+      _pin,
+    );
     await tester.tap(find.byKey(const ValueKey('auth-submit-button')));
-    await _waitFor(tester, find.textContaining('AUTH_INVALID_CREDENTIALS'));
+    await _waitFor(tester, find.text('The phone number or PIN is incorrect.'));
     expect(find.byType(NavigationBar), findsNothing);
-    expect(find.text('Your session expired. Please sign in again.'), findsNothing);
+    expect(
+      find.text('Your session expired. Please sign in again.'),
+      findsNothing,
+    );
     await _captureScreenshot(tester, 'module-03b-pending-player-denied');
-    await tester.runAsync(() => Future<void>.delayed(const Duration(seconds: 15)));
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(seconds: 15)),
+    );
   });
 }
 

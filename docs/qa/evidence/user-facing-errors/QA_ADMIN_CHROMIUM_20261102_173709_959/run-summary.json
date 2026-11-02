@@ -1,0 +1,20 @@
+{
+  "runId": "QA_ADMIN_CHROMIUM_20261102_173709_959",
+  "backend": "http://127.0.0.1:8082",
+  "profile": "android-test",
+  "database": "bingo_qa_test",
+  "mysqlIdentity": "bingo_qa_test_runner@127.0.0.1",
+  "financialPosting": "disabled",
+  "browser": "Chromium",
+  "scenarios": [
+    "A04/A05 client and backend field validation",
+    "A13/A14 Player-role protected-route denial",
+    "A15 controlled network failure and Admin recovery"
+  ],
+  "playwrightExitCode": 0,
+  "protectedDataUnchanged": true,
+  "status": "PASS",
+  "screenshots": "Playwright test output directory",
+  "databaseBefore": "database-before.txt",
+  "databaseAfter": "database-after.txt"
+}

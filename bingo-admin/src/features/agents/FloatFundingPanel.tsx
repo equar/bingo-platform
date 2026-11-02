@@ -10,6 +10,7 @@ import {
   recordSyntheticFloatBankStatement, reviewFloatTopUpRequest, setFloatBankAccountActive,
   setFloatBankAccountPlayerDepositsEnabled, verifyFloatTopUp,
 } from "../../api/admin";
+import { getUserFacingErrorMessage, parseApiError } from "../../api/types";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -32,6 +33,7 @@ export function FloatFundingPanel() {
   const [exceptionReason, setExceptionReason] = useState("");
   const [exceptionOutcome, setExceptionOutcome] = useState("MISSING_TRANSFER");
   const [reconciliationDate, setReconciliationDate] = useState(today());
+  const [uncertainRequestStatuses, setUncertainRequestStatuses] = useState<Record<number, string>>({});
 
   const accounts = useQuery({ queryKey: ["float-bank-accounts"], queryFn: adminFloatBankAccounts });
   const requests = useQuery({
@@ -82,12 +84,41 @@ export function FloatFundingPanel() {
     mutationFn: () => verifyFloatTopUp(selectedId, { exceptionOutcome, exceptionReason: exceptionReason.trim() }),
     onSuccess: async () => { await invalidate(); setStatus("VERIFICATION_EXCEPTION"); },
   });
-  const post = useMutation({ mutationFn: () => postVerifiedFloatTopUp(selectedId, reviewNote.trim()), onSuccess: invalidate });
+  const post = useMutation({
+    mutationFn: () => postVerifiedFloatTopUp(selectedId, reviewNote.trim()),
+    onSuccess: invalidate,
+    onError: (error) => {
+      if (parseApiError(error).outcomeUnknown && selectedRequest) {
+        setUncertainRequestStatuses((current) => ({ ...current, [selectedId]: selectedRequest.status }));
+      }
+    },
+  });
   const reject = useMutation({
     mutationFn: () => reviewFloatTopUpRequest(selectedId, { approve: false, reviewNote: reviewNote.trim() }),
     onSuccess: async () => { await invalidate(); setStatus("REJECTED"); },
+    onError: (error) => {
+      if (parseApiError(error).outcomeUnknown && selectedRequest) {
+        setUncertainRequestStatuses((current) => ({ ...current, [selectedId]: selectedRequest.status }));
+      }
+    },
   });
   const reconciliation = useMutation({ mutationFn: () => dailyFloatReconciliation(reconciliationDate) });
+  const actionOutcomeUnknown = Boolean(
+    selectedRequest && uncertainRequestStatuses[selectedRequest.id] === selectedRequest.status,
+  );
+  const refreshSelectedRequestStatus = async () => {
+    if (!selectedRequest || !actionOutcomeUnknown) return;
+    const previousStatus = uncertainRequestStatuses[selectedRequest.id];
+    const result = await requests.refetch();
+    const refreshedRequest = result.data?.content.find((request) => request.id === selectedRequest.id);
+    if (refreshedRequest && refreshedRequest.status !== previousStatus) {
+      setUncertainRequestStatuses((current) => {
+        const next = { ...current };
+        delete next[selectedRequest.id];
+        return next;
+      });
+    }
+  };
   const error = [createAccount, toggleAccount, togglePlayerDeposits, recordStatement, verify, addException, post, reject, reconciliation]
     .find((mutation) => mutation.isError);
 
@@ -96,7 +127,27 @@ export function FloatFundingPanel() {
       <Alert severity="warning">
         Funding controls are in SIMULATED QA mode. Agent receipts are claims only. The synthetic statement form represents a test fixture and never contacts a bank. Production credit remains disabled pending finance approvals.
       </Alert>
-      {error?.isError ? <Alert severity="error" role="alert">{(error.error as Error).message}</Alert> : null}
+      {accounts.isError ? (
+        <Alert severity="error" action={<Button color="inherit" size="small" onClick={() => accounts.refetch()}>Retry</Button>}>
+          {getUserFacingErrorMessage(accounts.error)}
+        </Alert>
+      ) : null}
+      {requests.isError ? (
+        <Alert severity="error" action={<Button color="inherit" size="small" onClick={() => requests.refetch()}>Retry</Button>}>
+          {getUserFacingErrorMessage(requests.error)}
+        </Alert>
+      ) : null}
+      {error?.isError ? (
+        <Alert
+          severity="error"
+          role="alert"
+          action={actionOutcomeUnknown
+            ? <Button color="inherit" size="small" onClick={() => void refreshSelectedRequestStatus()}>Refresh status</Button>
+            : undefined}
+        >
+          {getUserFacingErrorMessage(error.error)}
+        </Alert>
+      ) : null}
 
       <Grid container spacing={2}>
         <Grid item xs={12} lg={6}>
@@ -174,11 +225,11 @@ export function FloatFundingPanel() {
         <Button variant="outlined" onClick={() => addException.mutate()} disabled={addException.isPending || !selectedId || !exceptionReason.trim()}>Record verification exception</Button>
         <Typography variant="subtitle2">Verification history</Typography>
         {(verifications.data ?? []).map((item) => <Chip key={item.id ?? `${item.outcome}-${item.verifiedAt}`} label={`${item.outcome} · ${item.evidenceSource} · reviewer ${item.reviewerUserId}${item.exceptionReason ? ` · ${item.exceptionReason}` : ""}`} />)}
-        {verifications.isError ? <Alert severity="error">{(verifications.error as Error).message}</Alert> : null}
+        {verifications.isError ? <Alert severity="error">{getUserFacingErrorMessage(verifications.error)}</Alert> : null}
         <TextField label="Review note" value={reviewNote} onChange={(e) => setReviewNote(e.target.value)} inputProps={{ maxLength: 500 }} multiline minRows={2} fullWidth />
         <Stack direction="row" spacing={2}>
-          <Button variant="outlined" onClick={() => reject.mutate()} disabled={reject.isPending || !selectedId || !reviewNote.trim() || selectedRequest?.status !== "PENDING"}>Review request (reject, no credit)</Button>
-          <Button variant="contained" onClick={() => post.mutate()} disabled={post.isPending || !selectedId || !reviewNote.trim() || selectedRequest?.status !== "VERIFIED"}>Post verified request (QA simulation)</Button>
+          <Button variant="outlined" onClick={() => reject.mutate()} disabled={reject.isPending || actionOutcomeUnknown || !selectedId || !reviewNote.trim() || selectedRequest?.status !== "PENDING"}>Review request (reject, no credit)</Button>
+          <Button variant="contained" onClick={() => post.mutate()} disabled={post.isPending || actionOutcomeUnknown || !selectedId || !reviewNote.trim() || selectedRequest?.status !== "VERIFIED"}>Post verified request (QA simulation)</Button>
         </Stack>
       </Stack></CardContent></Card>
 

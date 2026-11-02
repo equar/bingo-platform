@@ -17,6 +17,7 @@ import {
 } from "@mui/material";
 import { Link as RouterLink } from "react-router-dom";
 import { auditLogs, dashboardMetrics, liveSessions, reviewQueue, supportTickets } from "../../api/admin";
+import { getUserFacingErrorMessage } from "../../api/types";
 import { StatusState } from "../../components/StatusState";
 
 const managementShortcuts = [
@@ -80,7 +81,7 @@ export function DashboardPage() {
     return (
       <StatusState
         title="Unable to load dashboard"
-        message={(metricsQuery.error as Error).message}
+        message={getUserFacingErrorMessage(metricsQuery.error) ?? "Something went wrong. Please try again."}
         actionLabel="Retry"
         onAction={() => metricsQuery.refetch()}
       />

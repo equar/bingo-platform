@@ -8,6 +8,7 @@ const useSessionMock = vi.fn();
 
 vi.mock("../../api/session", () => ({
   useSession: () => useSessionMock(),
+  consumeSessionExpired: () => false,
 }));
 
 function createWrapper() {

@@ -14,6 +14,7 @@ final dioProvider = Provider<Dio>((ref) {
       headers: const {'Content-Type': 'application/json'},
     ),
   );
+  String? expiringToken;
 
   dio.interceptors.add(
     InterceptorsWrapper(
@@ -21,18 +22,40 @@ final dioProvider = Provider<Dio>((ref) {
         final sessionState = ref.read(authSessionControllerProvider);
         final session = sessionState.session;
         if (session != null && session.isExpired) {
-          await ref.read(authSessionControllerProvider.notifier).clearSession(reason: 'SESSION_EXPIRED');
+          await ref
+              .read(authSessionControllerProvider.notifier)
+              .clearSession(reason: 'SESSION_EXPIRED');
         } else if (session?.accessToken != null) {
           options.headers['Authorization'] = 'Bearer ${session!.accessToken}';
         }
         handler.next(options);
       },
       onError: (error, handler) async {
-        final sentBearerToken = error.requestOptions.headers.entries.any((entry) =>
-            entry.key.toLowerCase() == 'authorization' &&
-            entry.value?.toString().startsWith('Bearer ') == true);
-        if (error.response?.statusCode == 401 && sentBearerToken) {
-          await ref.read(authSessionControllerProvider.notifier).clearSession(reason: 'SESSION_EXPIRED');
+        String? sentToken;
+        for (final entry in error.requestOptions.headers.entries) {
+          if (entry.key.toLowerCase() != 'authorization') continue;
+          final authorization = entry.value?.toString();
+          if (authorization != null && authorization.startsWith('Bearer ')) {
+            sentToken = authorization.substring('Bearer '.length);
+          }
+          break;
+        }
+        final currentToken = ref
+            .read(authSessionControllerProvider)
+            .session
+            ?.accessToken;
+        if (error.response?.statusCode == 401 &&
+            sentToken != null &&
+            sentToken == currentToken &&
+            expiringToken != sentToken) {
+          expiringToken = sentToken;
+          try {
+            await ref
+                .read(authSessionControllerProvider.notifier)
+                .clearSession(reason: 'SESSION_EXPIRED');
+          } finally {
+            if (expiringToken == sentToken) expiringToken = null;
+          }
         }
         handler.next(error);
       },
@@ -42,29 +65,4 @@ final dioProvider = Provider<Dio>((ref) {
   return dio;
 });
 
-ApiError mapDioError(DioException error) {
-  final response = error.response;
-  final data = response?.data;
-  if (data is Map<String, dynamic>) {
-    final details = data['details'];
-    return ApiError(
-      code: data['code']?.toString() ?? 'HTTP_${response?.statusCode ?? 0}',
-      message: data['message']?.toString() ?? error.message ?? 'Request failed',
-      statusCode: response?.statusCode,
-      details: details is List
-          ? details
-              .whereType<Map<String, dynamic>>()
-              .map((item) => ApiValidationError(
-                    field: item['field']?.toString() ?? '',
-                    message: item['message']?.toString() ?? 'Invalid value',
-                  ))
-              .toList()
-          : const [],
-    );
-  }
-  return ApiError(
-    code: 'HTTP_${response?.statusCode ?? 0}',
-    message: error.message ?? 'Request failed',
-    statusCode: response?.statusCode,
-  );
-}
+ApiError mapDioError(DioException error) => mapDioApiError(error);

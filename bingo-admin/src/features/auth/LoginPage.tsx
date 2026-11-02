@@ -3,7 +3,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { login } from "../../api/admin";
-import { clearSession, writeSession } from "../../api/session";
+import { clearSession, consumeSessionExpired, writeSession } from "../../api/session";
 import { parseApiError } from "../../api/types";
 
 const LOGIN_EMAIL_KEY = "bingo-admin-login-email";
@@ -15,6 +15,11 @@ export function LoginPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [sessionExpired, setSessionExpired] = useState(false);
+
+  useEffect(() => {
+    if (consumeSessionExpired()) setSessionExpired(true);
+  }, []);
 
   useEffect(() => {
     if (email.trim()) {
@@ -44,7 +49,7 @@ export function LoginPage() {
     },
     onError: (error) => {
       const parsed = parseApiError(error);
-      setErrorMessage(`${parsed.code ?? "AUTH_FAILED"}: ${parsed.message}`);
+      setErrorMessage(parsed.message);
       clearSession();
     },
   });
@@ -104,6 +109,7 @@ export function LoginPage() {
         }}
       >
         <Stack spacing={3.5}>
+          {sessionExpired ? <Alert severity="info">Your session has expired. Please sign in again.</Alert> : null}
           <Stack spacing={2} alignItems="center" textAlign="center">
             <Box
               sx={{

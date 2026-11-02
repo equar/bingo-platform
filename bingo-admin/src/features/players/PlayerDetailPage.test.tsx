@@ -269,7 +269,9 @@ describe("PlayerDetailPage", () => {
 
   it("rejects zero-value adjustments and reports an API permission error", async () => {
     const user = userEvent.setup();
-    submitWalletAdjustmentRequestMock.mockRejectedValue(new Error("Permission denied"));
+    submitWalletAdjustmentRequestMock.mockRejectedValue({
+      response: { status: 403, data: { code: "ACCESS_DENIED", message: "Internal authorization detail" } },
+    });
     render(<PlayerDetailPage />, { wrapper: createWrapper });
     await screen.findByText("Player Six");
     await user.click(screen.getByRole("button", { name: "Adjust wallet" }));
@@ -283,7 +285,9 @@ describe("PlayerDetailPage", () => {
     await user.click(screen.getByRole("button", { name: "Review" }));
     await user.click(await screen.findByRole("button", { name: "Submit request" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Permission denied");
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "You don’t have permission to perform this action.",
+    );
   });
 
   it("prevents duplicate wallet adjustments while the confirmation is pending", async () => {

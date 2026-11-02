@@ -1,0 +1,42 @@
+{
+  "runId": "QA_PLAYER_AUTH_DIAG_20261102_165438_306",
+  "status": "PASS",
+  "target": {
+    "backend": "http://127.0.0.1:8082",
+    "database": "bingo_qa_test",
+    "mysqlIdentity": "bingo_qa_test_runner@127.0.0.1",
+    "profile": "android-test",
+    "financialPosting": "disabled"
+  },
+  "account": {
+    "matchingAccounts": 1,
+    "status": "ACTIVE",
+    "hasPlayerRole": true
+  },
+  "apiProbe": {
+    "invalidLoginStatus": 401,
+    "validLoginStatus": 200,
+    "tokenReturned": true,
+    "tokenType": "Bearer",
+    "expiresInSeconds": 3600,
+    "userStatus": "ACTIVE",
+    "hasPlayerRole": true,
+    "userIdStored": "not recorded",
+    "tokenStored": "not recorded"
+  },
+  "databaseBefore": [
+    "users|13",
+    "wallets|2",
+    "wallet_transactions|0",
+    "bingo_tickets|0",
+    "bingo_sessions|19"
+  ],
+  "databaseAfter": [
+    "users|13",
+    "wallets|2",
+    "wallet_transactions|0",
+    "bingo_tickets|0",
+    "bingo_sessions|19"
+  ],
+  "protectedCountsUnchanged": true
+}

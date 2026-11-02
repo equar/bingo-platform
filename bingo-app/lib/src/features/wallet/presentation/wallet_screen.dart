@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:bingo_app/l10n/app_localizations.dart';
 import 'package:bingo_app/src/core/models/page_result.dart';
+import 'package:bingo_app/src/core/network/api_error.dart';
 import 'package:bingo_app/src/core/widgets/app_status_view.dart';
 import 'package:bingo_app/src/core/widgets/section_card.dart';
 import 'package:bingo_app/src/features/wallet/data/wallet_repository.dart';
@@ -11,17 +12,25 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
-final walletBalanceProvider = FutureProvider.autoDispose<WalletBalance>((ref) async {
+final walletBalanceProvider = FutureProvider.autoDispose<WalletBalance>((
+  ref,
+) async {
   return ref.read(walletRepositoryProvider).getBalance();
 });
 
-final walletTransactionsProvider = FutureProvider.autoDispose.family<PageResult<WalletTransaction>, int>((ref, page) async {
-  return ref.read(walletRepositoryProvider).getTransactions(page: page, size: 10);
-});
+final walletTransactionsProvider = FutureProvider.autoDispose
+    .family<PageResult<WalletTransaction>, int>((ref, page) async {
+      return ref
+          .read(walletRepositoryProvider)
+          .getTransactions(page: page, size: 10);
+    });
 
-final walletDepositsProvider = FutureProvider.autoDispose.family<PageResult<DepositClaim>, int>((ref, page) async {
-  return ref.read(walletRepositoryProvider).getDeposits(page: page, size: 10);
-});
+final walletDepositsProvider = FutureProvider.autoDispose
+    .family<PageResult<DepositClaim>, int>((ref, page) async {
+      return ref
+          .read(walletRepositoryProvider)
+          .getDeposits(page: page, size: 10);
+    });
 
 class WalletScreen extends ConsumerStatefulWidget {
   const WalletScreen({super.key});
@@ -30,12 +39,21 @@ class WalletScreen extends ConsumerStatefulWidget {
   ConsumerState<WalletScreen> createState() => _WalletScreenState();
 }
 
-class _WalletScreenState extends ConsumerState<WalletScreen> with SingleTickerProviderStateMixin {
+class _WalletScreenState extends ConsumerState<WalletScreen>
+    with SingleTickerProviderStateMixin {
   int _transactionPage = 0;
   int _depositPage = 0;
   PaymentInstructions? _instructions;
   bool _submittingDeposit = false;
-  late final TabController _tabController = TabController(length: 3, vsync: this);
+  DepositRequest? _pendingDeposit;
+  String? _pendingDepositIdempotencyKey;
+  bool _depositOutcomeUnknown = false;
+  String? _depositError;
+  ApiError? _depositApiError;
+  late final TabController _tabController = TabController(
+    length: 3,
+    vsync: this,
+  );
 
   @override
   void dispose() {
@@ -44,21 +62,64 @@ class _WalletScreenState extends ConsumerState<WalletScreen> with SingleTickerPr
   }
 
   Future<void> _createDeposit(String currency) async {
+    if (_depositOutcomeUnknown && _pendingDeposit != null) {
+      await _submitPendingDeposit();
+      return;
+    }
     final request = await showDialog<DepositRequest>(
       context: context,
-      builder: (_) => DepositDialog(currency: currency),
+      builder: (_) => DepositDialog(
+        currency: currency,
+        initialRequest: _pendingDeposit,
+        initialApiError: _depositApiError,
+      ),
     );
     if (request == null) return;
 
-    setState(() => _submittingDeposit = true);
+    setState(() {
+      _pendingDeposit = request;
+      _pendingDepositIdempotencyKey = const Uuid().v4();
+      _depositOutcomeUnknown = false;
+      _depositError = null;
+      _depositApiError = null;
+    });
+    await _submitPendingDeposit();
+  }
+
+  Future<void> _submitPendingDeposit() async {
+    final request = _pendingDeposit;
+    if (request == null || _submittingDeposit) return;
+    final key = _pendingDepositIdempotencyKey ?? const Uuid().v4();
+    setState(() {
+      _pendingDepositIdempotencyKey = key;
+      _submittingDeposit = true;
+      _depositError = null;
+      _depositApiError = null;
+    });
     try {
-      final response = await ref.read(walletRepositoryProvider).submitDeposit(request, const Uuid().v4());
+      final response = await ref
+          .read(walletRepositoryProvider)
+          .submitDeposit(request, key);
       if (!mounted) return;
-      setState(() => _instructions = response.paymentInstructions);
+      setState(() {
+        _instructions = response.paymentInstructions;
+        _pendingDeposit = null;
+        _pendingDepositIdempotencyKey = null;
+        _depositOutcomeUnknown = false;
+        _depositError = null;
+      });
       _refreshWalletData();
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.toString())));
+      final parsed = normalizeApiError(error);
+      setState(() {
+        _depositApiError = parsed;
+        _depositError = parsed.cancelled
+            ? null
+            : parsed.userMessage(AppLocalizations.of(context)!);
+        _depositOutcomeUnknown = parsed.outcomeUnknown;
+        if (!parsed.outcomeUnknown) _pendingDepositIdempotencyKey = null;
+      });
     } finally {
       if (mounted) {
         setState(() => _submittingDeposit = false);
@@ -76,7 +137,9 @@ class _WalletScreenState extends ConsumerState<WalletScreen> with SingleTickerPr
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context)!;
     final balanceAsync = ref.watch(walletBalanceProvider);
-    final transactionsAsync = ref.watch(walletTransactionsProvider(_transactionPage));
+    final transactionsAsync = ref.watch(
+      walletTransactionsProvider(_transactionPage),
+    );
     final depositsAsync = ref.watch(walletDepositsProvider(_depositPage));
 
     return Scaffold(
@@ -84,10 +147,10 @@ class _WalletScreenState extends ConsumerState<WalletScreen> with SingleTickerPr
         title: Text(localizations.balanceTitle),
         bottom: TabBar(
           controller: _tabController,
-        tabs: [
-          Tab(text: localizations.walletTransactionsTab),
-          Tab(text: localizations.walletDepositsTab),
-          Tab(text: localizations.walletTransfersTab),
+          tabs: [
+            Tab(text: localizations.walletTransactionsTab),
+            Tab(text: localizations.walletDepositsTab),
+            Tab(text: localizations.walletTransfersTab),
           ],
         ),
       ),
@@ -95,7 +158,9 @@ class _WalletScreenState extends ConsumerState<WalletScreen> with SingleTickerPr
         loading: () => Center(child: Text(localizations.loading)),
         error: (error, stack) => AppStatusView(
           title: localizations.errorGeneric,
-          message: error.toString(),
+          message:
+              userFacingApiError(error, localizations) ??
+              localizations.errorGeneric,
           onAction: () => ref.invalidate(walletBalanceProvider),
         ),
         data: (balance) {
@@ -106,20 +171,56 @@ class _WalletScreenState extends ConsumerState<WalletScreen> with SingleTickerPr
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(localizations.currentBalance, style: Theme.of(context).textTheme.titleLarge),
+                    Text(
+                      localizations.currentBalance,
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
                     const SizedBox(height: 8),
-                    Text('${balance.totalBalance} ${balance.currency}', style: Theme.of(context).textTheme.headlineMedium),
+                    Text(
+                      '${balance.totalBalance} ${balance.currency}',
+                      style: Theme.of(context).textTheme.headlineMedium,
+                    ),
                     const SizedBox(height: 12),
-                    Text('${localizations.availableBalanceLabel}: ${balance.availableBalance} ${balance.currency}'),
-                    Text('${localizations.promotionalBalanceLabel}: ${balance.promotionalBalance} ${balance.currency}'),
+                    Text(
+                      '${localizations.availableBalanceLabel}: ${balance.availableBalance} ${balance.currency}',
+                    ),
+                    Text(
+                      '${localizations.promotionalBalanceLabel}: ${balance.promotionalBalance} ${balance.currency}',
+                    ),
                     Text(localizations.balanceDisclaimer),
                     const SizedBox(height: 12),
+                    if (_depositError != null) ...[
+                      Text(
+                        _depositError!,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                      ),
+                      if (_pendingDeposit != null) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          '${_pendingDeposit!.submittedCashAmount} ${_pendingDeposit!.currency} · ${_pendingDeposit!.telebirrReference}',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                      const SizedBox(height: 12),
+                    ],
                     FilledButton(
                       key: const ValueKey('wallet-submit-deposit-button'),
-                      onPressed: _submittingDeposit ? null : () => _createDeposit(balance.currency),
+                      onPressed: _submittingDeposit
+                          ? null
+                          : () => _createDeposit(balance.currency),
                       child: _submittingDeposit
-                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                          : Text(localizations.submitDeposit),
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Text(
+                              _depositOutcomeUnknown
+                                  ? localizations.retry
+                                  : localizations.submitDeposit,
+                            ),
                     ),
                   ],
                 ),
@@ -130,7 +231,10 @@ class _WalletScreenState extends ConsumerState<WalletScreen> with SingleTickerPr
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(localizations.telebirrInstructionsTitle, style: Theme.of(context).textTheme.titleMedium),
+                      Text(
+                        localizations.telebirrInstructionsTitle,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
                       const SizedBox(height: 8),
                       Text(_instructions!.providerName),
                       Text(_instructions!.businessAccount),
@@ -150,7 +254,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen> with SingleTickerPr
                       asyncValue: transactionsAsync,
                       page: _transactionPage,
                       canGoPrevious: _transactionPage > 0,
-                      canGoNext: transactionsAsync.asData?.value.content.length == 10,
+                      canGoNext:
+                          transactionsAsync.asData?.value.content.length == 10,
                       onPrev: () => setState(() => _transactionPage -= 1),
                       onNext: () => setState(() => _transactionPage += 1),
                       localizations: localizations,
@@ -159,12 +264,16 @@ class _WalletScreenState extends ConsumerState<WalletScreen> with SingleTickerPr
                       asyncValue: depositsAsync,
                       page: _depositPage,
                       canGoPrevious: _depositPage > 0,
-                      canGoNext: depositsAsync.asData?.value.content.length == 10,
+                      canGoNext:
+                          depositsAsync.asData?.value.content.length == 10,
                       onPrev: () => setState(() => _depositPage -= 1),
                       onNext: () => setState(() => _depositPage += 1),
                       localizations: localizations,
                     ),
-                    _TransfersPane(currency: balance.currency, onCompleted: _refreshWalletData),
+                    _TransfersPane(
+                      currency: balance.currency,
+                      onCompleted: _refreshWalletData,
+                    ),
                   ],
                 ),
               ),
@@ -194,6 +303,10 @@ class _TransfersPaneState extends ConsumerState<_TransfersPane> {
   bool _submitting = false;
   WalletRecipientLookup? _recipient;
   String? _errorMessage;
+  ApiError? _apiError;
+  WalletTransferRequest? _pendingTransfer;
+  String? _transferIdempotencyKey;
+  bool _transferOutcomeUnknown = false;
 
   @override
   void dispose() {
@@ -206,23 +319,36 @@ class _TransfersPaneState extends ConsumerState<_TransfersPane> {
   Future<void> _lookupRecipient() async {
     final phone = _phoneController.text.trim();
     if (phone.isEmpty) {
-      setState(() => _errorMessage = AppLocalizations.of(context)!.recipientPhoneRequired);
+      setState(
+        () => _errorMessage = AppLocalizations.of(
+          context,
+        )!.recipientPhoneRequired,
+      );
       return;
     }
 
     setState(() {
       _lookingUp = true;
       _errorMessage = null;
+      _apiError = null;
       _recipient = null;
     });
 
     try {
-      final lookup = await ref.read(walletRepositoryProvider).lookupRecipient(phone);
+      final lookup = await ref
+          .read(walletRepositoryProvider)
+          .lookupRecipient(phone);
       if (!mounted) return;
       setState(() => _recipient = lookup);
     } catch (error) {
       if (!mounted) return;
-      setState(() => _errorMessage = error.toString());
+      final parsed = normalizeApiError(error);
+      setState(() {
+        _apiError = parsed;
+        _errorMessage = parsed.cancelled
+            ? null
+            : parsed.userMessage(AppLocalizations.of(context)!);
+      });
     } finally {
       if (mounted) {
         setState(() => _lookingUp = false);
@@ -231,37 +357,60 @@ class _TransfersPaneState extends ConsumerState<_TransfersPane> {
   }
 
   Future<void> _submitTransfer() async {
-    final amount = num.tryParse(_amountController.text.trim());
-    if (_recipient == null) {
-      setState(() => _errorMessage = AppLocalizations.of(context)!.lookupRecipientFirst);
-      return;
+    if (_submitting) return;
+    if (_pendingTransfer == null) {
+      final amount = num.tryParse(_amountController.text.trim());
+      if (_recipient == null) {
+        setState(
+          () => _errorMessage = AppLocalizations.of(
+            context,
+          )!.lookupRecipientFirst,
+        );
+        return;
+      }
+      if (amount == null || amount <= 0) {
+        setState(
+          () => _errorMessage = AppLocalizations.of(
+            context,
+          )!.transferAmountInvalid,
+        );
+        return;
+      }
+      _pendingTransfer = WalletTransferRequest(
+        recipientPhoneNumber: _recipient!.normalizedPhone,
+        amount: amount,
+        currency: widget.currency,
+        note: _noteController.text.trim().isEmpty
+            ? null
+            : _noteController.text.trim(),
+      );
+      _transferIdempotencyKey = const Uuid().v4();
     }
-    if (amount == null || amount <= 0) {
-      setState(() => _errorMessage = AppLocalizations.of(context)!.transferAmountInvalid);
-      return;
-    }
+    final request = _pendingTransfer!;
+    final idempotencyKey = _transferIdempotencyKey ?? const Uuid().v4();
 
     setState(() {
       _submitting = true;
+      _transferIdempotencyKey = idempotencyKey;
       _errorMessage = null;
+      _apiError = null;
     });
 
     try {
-      await ref.read(walletRepositoryProvider).submitTransfer(
-            WalletTransferRequest(
-              recipientPhoneNumber: _recipient!.normalizedPhone,
-              amount: amount,
-              currency: widget.currency,
-              note: _noteController.text.trim().isEmpty ? null : _noteController.text.trim(),
-            ),
-            const Uuid().v4(),
-          );
+      await ref
+          .read(walletRepositoryProvider)
+          .submitTransfer(request, idempotencyKey);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppLocalizations.of(context)!.transferSubmitted)),
+        SnackBar(
+          content: Text(AppLocalizations.of(context)!.transferSubmitted),
+        ),
       );
       setState(() {
         _recipient = null;
+        _pendingTransfer = null;
+        _transferIdempotencyKey = null;
+        _transferOutcomeUnknown = false;
         _phoneController.clear();
         _amountController.clear();
         _noteController.clear();
@@ -269,7 +418,18 @@ class _TransfersPaneState extends ConsumerState<_TransfersPane> {
       widget.onCompleted();
     } catch (error) {
       if (!mounted) return;
-      setState(() => _errorMessage = error.toString());
+      final parsed = normalizeApiError(error);
+      setState(() {
+        _apiError = parsed;
+        _errorMessage = parsed.cancelled
+            ? null
+            : parsed.userMessage(AppLocalizations.of(context)!);
+        _transferOutcomeUnknown = parsed.outcomeUnknown;
+        if (!parsed.outcomeUnknown) {
+          _pendingTransfer = null;
+          _transferIdempotencyKey = null;
+        }
+      });
     } finally {
       if (mounted) {
         setState(() => _submitting = false);
@@ -280,6 +440,13 @@ class _TransfersPaneState extends ConsumerState<_TransfersPane> {
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context)!;
+    final phoneError = fieldErrorMessage(
+      _apiError,
+      'recipientPhoneNumber',
+      localizations,
+    );
+    final amountError = fieldErrorMessage(_apiError, 'amount', localizations);
+    final hasInlineError = phoneError != null || amountError != null;
     return SingleChildScrollView(
       child: Column(
         children: [
@@ -287,42 +454,74 @@ class _TransfersPaneState extends ConsumerState<_TransfersPane> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(localizations.sendMoneyTitle, style: Theme.of(context).textTheme.titleLarge),
+                Text(
+                  localizations.sendMoneyTitle,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: _phoneController,
                   keyboardType: TextInputType.phone,
-                  decoration: InputDecoration(labelText: localizations.recipientPhoneLabel),
+                  readOnly: _transferOutcomeUnknown,
+                  decoration: InputDecoration(
+                    labelText: localizations.recipientPhoneLabel,
+                    errorText: phoneError,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: _amountController,
                   keyboardType: TextInputType.number,
-                  decoration: InputDecoration(labelText: '${localizations.amountLabel} (${widget.currency})'),
+                  readOnly: _transferOutcomeUnknown,
+                  decoration: InputDecoration(
+                    labelText:
+                        '${localizations.amountLabel} (${widget.currency})',
+                    errorText: amountError,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: _noteController,
-                  decoration: InputDecoration(labelText: localizations.transferNoteOptionalLabel),
+                  readOnly: _transferOutcomeUnknown,
+                  decoration: InputDecoration(
+                    labelText: localizations.transferNoteOptionalLabel,
+                  ),
                   maxLines: 2,
                 ),
                 const SizedBox(height: 12),
                 Row(
                   children: [
                     OutlinedButton(
-                      onPressed: _lookingUp ? null : _lookupRecipient,
-                      child: Text(_lookingUp ? localizations.lookingUpRecipient : localizations.lookupRecipient),
+                      onPressed: _lookingUp || _transferOutcomeUnknown
+                          ? null
+                          : _lookupRecipient,
+                      child: Text(
+                        _lookingUp
+                            ? localizations.lookingUpRecipient
+                            : localizations.lookupRecipient,
+                      ),
                     ),
                     const SizedBox(width: 12),
                     FilledButton(
                       onPressed: _submitting ? null : _submitTransfer,
-                      child: Text(_submitting ? localizations.sendingTransfer : localizations.sendTransfer),
+                      child: Text(
+                        _submitting
+                            ? localizations.sendingTransfer
+                            : _transferOutcomeUnknown
+                            ? localizations.retry
+                            : localizations.sendTransfer,
+                      ),
                     ),
                   ],
                 ),
-                if (_errorMessage != null) ...[
+                if (_errorMessage != null && !hasInlineError) ...[
                   const SizedBox(height: 12),
-                  Text(_errorMessage!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                  Text(
+                    _errorMessage!,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
                 ],
               ],
             ),
@@ -332,7 +531,10 @@ class _TransfersPaneState extends ConsumerState<_TransfersPane> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(localizations.recipientPreviewTitle, style: Theme.of(context).textTheme.titleMedium),
+                Text(
+                  localizations.recipientPreviewTitle,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
                 const SizedBox(height: 8),
                 if (_recipient == null)
                   Text(localizations.lookupRecipientHint)
@@ -372,10 +574,18 @@ class _TransactionsPane extends StatelessWidget {
   Widget build(BuildContext context) {
     return asyncValue.when(
       loading: () => Center(child: Text(localizations.loading)),
-      error: (error, stack) => AppStatusView(title: localizations.errorGeneric, message: error.toString()),
+      error: (error, stack) => AppStatusView(
+        title: localizations.errorGeneric,
+        message:
+            userFacingApiError(error, localizations) ??
+            localizations.errorGeneric,
+      ),
       data: (result) {
         if (result.content.isEmpty) {
-          return AppStatusView(title: localizations.emptyState, message: localizations.transactionHistoryEmpty);
+          return AppStatusView(
+            title: localizations.emptyState,
+            message: localizations.transactionHistoryEmpty,
+          );
         }
         return Column(
           children: [
@@ -384,7 +594,9 @@ class _TransactionsPane extends StatelessWidget {
                 itemCount: result.content.length,
                 itemBuilder: (context, index) {
                   final entry = result.content[index];
-                  final bucketSummary = entry.transferableBalanceAfter != null || entry.promotionalBalanceAfter != null
+                  final bucketSummary =
+                      entry.transferableBalanceAfter != null ||
+                          entry.promotionalBalanceAfter != null
                       ? '\n${localizations.walletTransferableBalanceLabel}: ${entry.transferableBalanceAfter ?? entry.balanceAfter} · ${localizations.walletPromotionalShortLabel}: ${entry.promotionalBalanceAfter ?? 0}'
                       : '';
                   return Padding(
@@ -392,8 +604,12 @@ class _TransactionsPane extends StatelessWidget {
                     child: SectionCard(
                       padding: const EdgeInsets.all(12),
                       child: ListTile(
-                        title: Text('${entry.transactionType} • ${entry.amount} ${entry.currency}'),
-                        subtitle: Text('${entry.note ?? entry.operationId}$bucketSummary'),
+                        title: Text(
+                          '${entry.transactionType} • ${entry.amount} ${entry.currency}',
+                        ),
+                        subtitle: Text(
+                          '${entry.note ?? entry.operationId}$bucketSummary',
+                        ),
                         isThreeLine: bucketSummary.isNotEmpty,
                         trailing: Text('${entry.balanceAfter}'),
                       ),
@@ -405,11 +621,19 @@ class _TransactionsPane extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('${localizations.walletPageLabel} ${page + 1}/${max(1, result.totalPages)}'),
+                Text(
+                  '${localizations.walletPageLabel} ${page + 1}/${max(1, result.totalPages)}',
+                ),
                 Row(
                   children: [
-                    TextButton(onPressed: canGoPrevious ? onPrev : null, child: Text(localizations.previous)),
-                    TextButton(onPressed: canGoNext ? onNext : null, child: Text(localizations.next)),
+                    TextButton(
+                      onPressed: canGoPrevious ? onPrev : null,
+                      child: Text(localizations.previous),
+                    ),
+                    TextButton(
+                      onPressed: canGoNext ? onNext : null,
+                      child: Text(localizations.next),
+                    ),
                   ],
                 ),
               ],
@@ -444,10 +668,18 @@ class _DepositsPane extends StatelessWidget {
   Widget build(BuildContext context) {
     return asyncValue.when(
       loading: () => Center(child: Text(localizations.loading)),
-      error: (error, stack) => AppStatusView(title: localizations.errorGeneric, message: error.toString()),
+      error: (error, stack) => AppStatusView(
+        title: localizations.errorGeneric,
+        message:
+            userFacingApiError(error, localizations) ??
+            localizations.errorGeneric,
+      ),
       data: (result) {
         if (result.content.isEmpty) {
-          return AppStatusView(title: localizations.emptyState, message: localizations.depositHistoryEmpty);
+          return AppStatusView(
+            title: localizations.emptyState,
+            message: localizations.depositHistoryEmpty,
+          );
         }
         return Column(
           children: [
@@ -461,10 +693,17 @@ class _DepositsPane extends StatelessWidget {
                     child: SectionCard(
                       padding: const EdgeInsets.all(12),
                       child: ListTile(
-                        title: Text('${entry.submittedCashAmount} ${entry.currency}'),
-                        subtitle: Text('${entry.normalizedTelebirrReference}\n${entry.status}'),
+                        title: Text(
+                          '${entry.submittedCashAmount} ${entry.currency}',
+                        ),
+                        subtitle: Text(
+                          '${entry.normalizedTelebirrReference}\n${entry.status}',
+                        ),
                         isThreeLine: true,
-                        trailing: Text(entry.paymentInstructions?.providerName ?? localizations.statusPending),
+                        trailing: Text(
+                          entry.paymentInstructions?.providerName ??
+                              localizations.statusPending,
+                        ),
                       ),
                     ),
                   );
@@ -474,11 +713,19 @@ class _DepositsPane extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('${localizations.walletPageLabel} ${page + 1}/${max(1, result.totalPages)}'),
+                Text(
+                  '${localizations.walletPageLabel} ${page + 1}/${max(1, result.totalPages)}',
+                ),
                 Row(
                   children: [
-                    TextButton(onPressed: canGoPrevious ? onPrev : null, child: Text(localizations.previous)),
-                    TextButton(onPressed: canGoNext ? onNext : null, child: Text(localizations.next)),
+                    TextButton(
+                      onPressed: canGoPrevious ? onPrev : null,
+                      child: Text(localizations.previous),
+                    ),
+                    TextButton(
+                      onPressed: canGoNext ? onNext : null,
+                      child: Text(localizations.next),
+                    ),
                   ],
                 ),
               ],

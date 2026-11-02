@@ -10,40 +10,65 @@ const _pin = String.fromEnvironment('BINGO_M03E_PIN');
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('Module 03E restores an authenticated player session', (tester) async {
+  testWidgets('Module 03E restores an authenticated player session', (
+    tester,
+  ) async {
     expect(_phone, isNotEmpty);
     expect(_pin, hasLength(6));
     await const SessionStorage().clear();
     await tester.pumpWidget(const BingoApp());
     await _waitFor(tester, find.byKey(const ValueKey('auth-submit-button')));
-    await tester.enterText(find.byKey(const ValueKey('auth-phone-field')), _phone);
-    await tester.enterText(find.byKey(const ValueKey('auth-password-field')), _pin);
+    await tester.enterText(
+      find.byKey(const ValueKey('auth-phone-field')),
+      _phone,
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('auth-password-field')),
+      _pin,
+    );
     await tester.tap(find.byKey(const ValueKey('auth-submit-button')));
     await _waitFor(tester, find.byType(NavigationBar));
     expect((await const SessionStorage().readSession())['token'], isNotEmpty);
 
     await tester.tap(find.text('Profile'));
-    await _waitFor(tester, find.byKey(const ValueKey('profile-refresh-button')));
+    await _waitFor(
+      tester,
+      find.byKey(const ValueKey('profile-refresh-button')),
+    );
     await tester.tap(find.text('Logout'));
     await _waitFor(tester, find.byKey(const ValueKey('auth-submit-button')));
     expect((await const SessionStorage().readSession())['token'], isNull);
     expect(find.byType(NavigationBar), findsNothing);
 
-    await tester.enterText(find.byKey(const ValueKey('auth-phone-field')), _phone);
-    await tester.enterText(find.byKey(const ValueKey('auth-password-field')), '999999');
+    await tester.enterText(
+      find.byKey(const ValueKey('auth-phone-field')),
+      _phone,
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('auth-password-field')),
+      '999999',
+    );
     await tester.tap(find.byKey(const ValueKey('auth-submit-button')));
-    await _waitFor(tester, find.textContaining('AUTH_INVALID_CREDENTIALS'));
+    await _waitFor(tester, find.text('The phone number or PIN is incorrect.'));
     expect((await const SessionStorage().readSession())['token'], isNull);
 
-    await tester.enterText(find.byKey(const ValueKey('auth-phone-field')), _phone);
-    await tester.enterText(find.byKey(const ValueKey('auth-password-field')), _pin);
+    await tester.enterText(
+      find.byKey(const ValueKey('auth-phone-field')),
+      _phone,
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('auth-password-field')),
+      _pin,
+    );
     await tester.tap(find.byKey(const ValueKey('auth-submit-button')));
     await _waitFor(tester, find.byType(NavigationBar));
     await tester.tap(find.text('Profile'));
     await _waitFor(tester, find.text(_phone));
     await tester.tap(find.byKey(const ValueKey('profile-refresh-button')));
     await _waitForRefreshComplete(tester);
-    await tester.runAsync(() => Future<void>.delayed(const Duration(seconds: 15)));
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(seconds: 15)),
+    );
   });
 }
 

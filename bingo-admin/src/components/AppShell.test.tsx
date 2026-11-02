@@ -19,6 +19,7 @@ vi.mock("react-router-dom", async () => {
 vi.mock("../api/session", () => ({
   useSession: () => useSessionMock(),
   clearSession: () => clearSessionMock(),
+  consumeSessionExpired: () => false,
 }));
 
 describe("AppShell", () => {

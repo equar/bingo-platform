@@ -13,6 +13,7 @@ vi.mock("../../api/admin", () => ({
 
 vi.mock("../../api/types", () => ({
   parseApiError: (error: unknown) => ({ code: "ACTIVATION_FAILED", message: (error as Error).message }),
+  getFieldError: () => undefined,
 }));
 
 function renderPage(token: string | null = "single-use-token") {

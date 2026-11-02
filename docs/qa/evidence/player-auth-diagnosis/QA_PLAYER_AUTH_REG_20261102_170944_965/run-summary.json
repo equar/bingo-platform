@@ -1,0 +1,22 @@
+{
+  "runId": "QA_PLAYER_AUTH_REG_20261102_170944_965",
+  "startedAt": "2026-11-02T17:12:04.8570644+03:00",
+  "target": {
+    "backend": "http://127.0.0.1:8082",
+    "emulatorBackend": "http://10.0.2.2:8082",
+    "profile": "android-test",
+    "database": "bingo_qa_test",
+    "mysqlIdentity": "bingo_qa_test_runner@127.0.0.1",
+    "financialPosting": "disabled",
+    "emulator": "emulator-5554"
+  },
+  "test": "module_01_authentication_test.dart",
+  "flutterExitCode": 0,
+  "protectedDatabaseHashesAndCountsUnchanged": true,
+  "status": "PASS",
+  "evidence": {
+    "log": "flutter-integration.log",
+    "databaseBefore": "database-before.txt",
+    "databaseAfter": "database-after.txt"
+  }
+}

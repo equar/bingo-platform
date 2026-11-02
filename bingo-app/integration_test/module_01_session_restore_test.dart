@@ -18,6 +18,8 @@ void main() {
 
       await tester.tap(find.text('Profile'));
       await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Logout'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Logout'));
       await _waitFor(tester, find.byKey(const ValueKey('auth-submit-button')));
       expect((await const SessionStorage().readSession())['token'], isNull);

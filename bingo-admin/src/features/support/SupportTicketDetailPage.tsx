@@ -23,6 +23,7 @@ import {
   supportAssignees,
   updateSupportTicketStatus,
 } from "../../api/admin";
+import { getUserFacingErrorMessage } from "../../api/types";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { StatusState } from "../../components/StatusState";
 
@@ -68,7 +69,7 @@ export function SupportTicketDetailPage() {
       await queryClient.invalidateQueries({ queryKey: ["support-tickets"] });
       setErrorMessage(null);
     },
-    onError: (error) => setErrorMessage((error as Error).message),
+    onError: (error) => setErrorMessage(getUserFacingErrorMessage(error) ?? "Something went wrong. Please try again."),
   });
 
   const replyMutation = useMutation({
@@ -78,7 +79,7 @@ export function SupportTicketDetailPage() {
       setReplyBody("");
       setErrorMessage(null);
     },
-    onError: (error) => setErrorMessage((error as Error).message),
+    onError: (error) => setErrorMessage(getUserFacingErrorMessage(error) ?? "Something went wrong. Please try again."),
   });
 
   const noteMutation = useMutation({
@@ -88,7 +89,7 @@ export function SupportTicketDetailPage() {
       setNoteBody("");
       setErrorMessage(null);
     },
-    onError: (error) => setErrorMessage((error as Error).message),
+    onError: (error) => setErrorMessage(getUserFacingErrorMessage(error) ?? "Something went wrong. Please try again."),
   });
 
   const statusMutation = useMutation({
@@ -103,7 +104,7 @@ export function SupportTicketDetailPage() {
       setStatusConfirmOpen(false);
       setErrorMessage(null);
     },
-    onError: (error) => setErrorMessage((error as Error).message),
+    onError: (error) => setErrorMessage(getUserFacingErrorMessage(error) ?? "Something went wrong. Please try again."),
   });
 
   const requiresResolutionSummary = useMemo(() => ["RESOLVED", "CLOSED"].includes(status), [status]);
@@ -116,7 +117,7 @@ export function SupportTicketDetailPage() {
     return (
       <StatusState
         title="Unable to load ticket"
-        message={(ticketQuery.error as Error | undefined)?.message ?? "Ticket not found"}
+        message={getUserFacingErrorMessage(ticketQuery.error) ?? "This item is no longer available. Refresh and try again."}
         actionLabel="Retry"
         onAction={() => ticketQuery.refetch()}
       />

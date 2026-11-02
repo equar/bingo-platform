@@ -30,6 +30,7 @@ import {
   ListItemText,
 } from "@mui/material";
 import { BingoPatternConfig, BingoRoomResponse, createRoom, listAdminRooms, updateRoom } from "../../api/admin";
+import { getUserFacingErrorMessage } from "../../api/types";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { StatusState } from "../../components/StatusState";
 
@@ -188,7 +189,7 @@ export function RoomsPage() {
       setConfirmOpen(false);
       setPendingError(null);
     },
-    onError: (error) => setPendingError((error as Error).message),
+    onError: (error) => setPendingError(getUserFacingErrorMessage(error) ?? "Something went wrong. Please try again."),
     onSettled: () => setPendingSubmit(false),
   });
 
@@ -216,7 +217,7 @@ export function RoomsPage() {
       setConfirmOpen(false);
       setPendingError(null);
     },
-    onError: (error) => setPendingError((error as Error).message),
+    onError: (error) => setPendingError(getUserFacingErrorMessage(error) ?? "Something went wrong. Please try again."),
     onSettled: () => setPendingSubmit(false),
   });
 
@@ -244,7 +245,7 @@ export function RoomsPage() {
     return (
       <StatusState
         title="Unable to load rooms"
-        message={(roomsQuery.error as Error).message}
+        message={getUserFacingErrorMessage(roomsQuery.error) ?? "Something went wrong. Please try again."}
         actionLabel="Retry"
         onAction={() => roomsQuery.refetch()}
       />

@@ -24,6 +24,7 @@ import {
   Typography,
 } from "@mui/material";
 import { adminUsers, createAdminUser, revokeFinanceRole, updateAdminUser, type UserSummaryResponse } from "../../api/admin";
+import { getUserFacingErrorMessage } from "../../api/types";
 import { StatusState } from "../../components/StatusState";
 
 const roleOptions = ["ADMIN", "SUPPORT"] as const;
@@ -75,7 +76,7 @@ export function AdminUsersPage() {
       setRoleError(null);
       await queryClient.invalidateQueries({ queryKey: ["admin-users"] });
     },
-    onError: (error) => setRoleError((error as Error).message),
+    onError: (error) => setRoleError(getUserFacingErrorMessage(error) ?? "Something went wrong. Please try again."),
   });
 
   const usersQuery = useQuery({
@@ -135,7 +136,7 @@ export function AdminUsersPage() {
       setForm(emptyForm);
       setFormError(null);
     },
-    onError: (error) => setFormError((error as Error).message),
+    onError: (error) => setFormError(getUserFacingErrorMessage(error) ?? "Something went wrong. Please try again."),
   });
 
   if (usersQuery.isLoading) {
@@ -146,7 +147,7 @@ export function AdminUsersPage() {
     return (
       <StatusState
         title="Unable to load admin users"
-        message={(usersQuery.error as Error).message}
+        message={getUserFacingErrorMessage(usersQuery.error) ?? "Something went wrong. Please try again."}
         actionLabel="Retry"
         onAction={() => usersQuery.refetch()}
       />

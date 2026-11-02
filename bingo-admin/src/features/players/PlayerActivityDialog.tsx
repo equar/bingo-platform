@@ -35,7 +35,7 @@ import {
   type WalletTransactionResponse,
   type WinClaimResponse,
 } from "../../api/admin";
-import type { PageResponse } from "../../api/types";
+import { getUserFacingErrorMessage, type PageResponse } from "../../api/types";
 import { StatusState } from "../../components/StatusState";
 
 export type PlayerActivityType = "wallet" | "deposits" | "support" | "tickets" | "wins";
@@ -132,7 +132,7 @@ export function PlayerActivityDialog({ open, playerId, initialActivity, onClose 
                 </Button>
               }
             >
-              {(activityQuery.error as Error).message || `Unable to load player ${label.toLowerCase()}.`}
+              {getUserFacingErrorMessage(activityQuery.error) ?? `Unable to load player ${label.toLowerCase()}.`}
             </Alert>
           ) : null}
 

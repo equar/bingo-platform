@@ -11,19 +11,35 @@ var _surfaceConverted = false;
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('Module 03B network failure leaves login retryable and unauthenticated', (tester) async {
-    await const SessionStorage().clear();
-    await tester.pumpWidget(const BingoApp());
-    await _waitFor(tester, find.byKey(const ValueKey('auth-submit-button')));
-    await tester.enterText(find.byKey(const ValueKey('auth-phone-field')), _phone);
-    await tester.enterText(find.byKey(const ValueKey('auth-password-field')), _pin);
-    await tester.tap(find.byKey(const ValueKey('auth-submit-button')));
-    await _waitFor(tester, find.textContaining('HTTP_0'));
-    expect(find.byType(NavigationBar), findsNothing);
-    expect(find.byKey(const ValueKey('auth-submit-button')), findsOneWidget);
-    await _captureScreenshot(tester, 'module-03b-network-failure');
-    await tester.runAsync(() => Future<void>.delayed(const Duration(seconds: 15)));
-  });
+  testWidgets(
+    'Module 03B network failure leaves login retryable and unauthenticated',
+    (tester) async {
+      await const SessionStorage().clear();
+      await tester.pumpWidget(const BingoApp());
+      await _waitFor(tester, find.byKey(const ValueKey('auth-submit-button')));
+      await tester.enterText(
+        find.byKey(const ValueKey('auth-phone-field')),
+        _phone,
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('auth-password-field')),
+        _pin,
+      );
+      await tester.tap(find.byKey(const ValueKey('auth-submit-button')));
+      await _waitFor(
+        tester,
+        find.text(
+          'Unable to connect. Check your internet connection and try again.',
+        ),
+      );
+      expect(find.byType(NavigationBar), findsNothing);
+      expect(find.byKey(const ValueKey('auth-submit-button')), findsOneWidget);
+      await _captureScreenshot(tester, 'module-03b-network-failure');
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(seconds: 15)),
+      );
+    },
+  );
 }
 
 Future<void> _waitFor(WidgetTester tester, Finder finder) async {

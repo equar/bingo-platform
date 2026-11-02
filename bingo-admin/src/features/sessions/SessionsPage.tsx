@@ -25,6 +25,7 @@ import {
 } from "@mui/material";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 import { createSession, listRooms, listSessions, updateSessionState } from "../../api/admin";
+import { getUserFacingErrorMessage } from "../../api/types";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { StatusState } from "../../components/StatusState";
 
@@ -116,7 +117,7 @@ export function SessionsPage() {
     return (
       <StatusState
         title="Unable to load sessions"
-        message={(sessionsQuery.error as Error).message}
+        message={getUserFacingErrorMessage(sessionsQuery.error) ?? "Something went wrong. Please try again."}
         actionLabel="Retry"
         onAction={() => sessionsQuery.refetch()}
       />

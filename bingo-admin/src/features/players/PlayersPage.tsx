@@ -17,6 +17,7 @@ import {
 } from "@mui/material";
 import { Link as RouterLink } from "react-router-dom";
 import { searchPlayers } from "../../api/admin";
+import { getUserFacingErrorMessage } from "../../api/types";
 import { StatusState } from "../../components/StatusState";
 
 const statusOptions = ["ACTIVE", "PENDING", "SUSPENDED", "DISABLED"] as const;
@@ -75,7 +76,7 @@ export function PlayersPage() {
       {playersQuery.error ? (
         <StatusState
           title="Unable to load players"
-          message={(playersQuery.error as Error).message}
+          message={getUserFacingErrorMessage(playersQuery.error) ?? "Something went wrong. Please try again."}
           actionLabel="Retry"
           onAction={() => playersQuery.refetch()}
         />

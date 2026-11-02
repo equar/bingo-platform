@@ -1,4 +1,4 @@
-import { AxiosError, AxiosHeaders, type AxiosAdapter, type AxiosResponse } from "axios";
+import { AxiosError, AxiosHeaders, type AxiosAdapter, type AxiosResponse, type InternalAxiosRequestConfig } from "axios";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { http } from "./http";
 import { clearSession, readSession, writeSession } from "./session";
@@ -71,7 +71,7 @@ describe("HTTP client session handling", () => {
 
     await expect(http.get("/api/v1/admin/players")).rejects.toMatchObject({
       status: 403,
-      message: "Forbidden",
+      message: "You don’t have permission to perform this action.",
     });
 
     expect(readSession()).toEqual(session);
@@ -83,10 +83,48 @@ describe("HTTP client session handling", () => {
 
     await expect(http.get("/api/v1/admin/players")).rejects.toMatchObject({
       status: 401,
-      message: "Unauthorized",
+      message: "Your session has expired. Please sign in again.",
     });
 
     expect(readSession()).toBeNull();
+  });
+
+  it("does not expire a replacement session after a stale request returns 401", async () => {
+    const previousSession = { ...session, accessToken: "previous-session-token" };
+    const replacementSession = { ...session, accessToken: "replacement-session-token" };
+    let requestConfig: InternalAxiosRequestConfig | undefined;
+    let rejectRequest: ((error: AxiosError) => void) | undefined;
+    let resolveStarted: (() => void) | undefined;
+    const requestStarted = new Promise<void>((resolve) => {
+      resolveStarted = resolve;
+    });
+
+    writeSession(previousSession);
+    http.defaults.adapter = (async (config) => {
+      requestConfig = config;
+      return new Promise<AxiosResponse>((_resolve, reject) => {
+        rejectRequest = (error) => reject(error);
+        resolveStarted?.();
+      });
+    }) satisfies AxiosAdapter;
+
+    const request = http.get("/api/v1/admin/players");
+    await requestStarted;
+    writeSession(replacementSession);
+
+    const response: AxiosResponse = {
+      data: { status: 401 },
+      status: 401,
+      statusText: "Unauthorized",
+      headers: new AxiosHeaders(),
+      config: requestConfig!,
+    };
+    rejectRequest?.(
+      new AxiosError("Unauthorized", "ERR_BAD_REQUEST", requestConfig, undefined, response),
+    );
+
+    await expect(request).rejects.toMatchObject({ status: 401 });
+    expect(readSession()).toEqual(replacementSession);
   });
 
   it("keeps the admin session after an incorrect current-password response", async () => {
@@ -98,7 +136,7 @@ describe("HTTP client session handling", () => {
       newPassword: "NewPassword123!",
     })).rejects.toMatchObject({
       status: 401,
-      message: "Unauthorized",
+      message: "The current password is incorrect.",
     });
 
     expect(readSession()).toEqual(session);

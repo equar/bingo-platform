@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { changeAdminPassword } from "../../api/admin";
 import { readSession, writeSession } from "../../api/session";
-import { parseApiError } from "../../api/types";
+import { getFieldError, parseApiError } from "../../api/types";
 
 export function ChangePasswordPage() {
   const navigate = useNavigate();
@@ -37,10 +37,15 @@ export function ChangePasswordPage() {
     },
     onError: (error) => {
       const parsed = parseApiError(error);
-      setErrorMessage(`${parsed.code ?? "PASSWORD_UPDATE_FAILED"}: ${parsed.message}`);
+      setErrorMessage(parsed.message);
       setSuccessMessage(null);
     },
   });
+  const parsedPasswordError = parseApiError(passwordMutation.error);
+  const currentPasswordError =
+    getFieldError(passwordMutation.error, "currentPassword") ??
+    (passwordMutation.isError && parsedPasswordError.status === 401 ? parsedPasswordError.message : undefined);
+  const newPasswordError = getFieldError(passwordMutation.error, "newPassword");
 
   return (
     <Stack spacing={3}>
@@ -80,6 +85,8 @@ export function ChangePasswordPage() {
               fullWidth
               required
               autoComplete="current-password"
+              error={Boolean(currentPasswordError)}
+              helperText={currentPasswordError}
               InputProps={{
                 endAdornment: (
                   <Button
@@ -101,7 +108,8 @@ export function ChangePasswordPage() {
               fullWidth
               required
               autoComplete="new-password"
-              helperText="Use at least 8 characters."
+              error={Boolean(newPasswordError)}
+              helperText={newPasswordError ?? "Use at least 8 characters."}
               InputProps={{
                 endAdornment: (
                   <Button
@@ -124,14 +132,16 @@ export function ChangePasswordPage() {
               required
               autoComplete="new-password"
             />
-            {errorMessage ? <Alert severity="error">{errorMessage}</Alert> : null}
+            {errorMessage && !currentPasswordError && !newPasswordError ? (
+              <Alert severity="error">{errorMessage}</Alert>
+            ) : null}
             {successMessage ? <Alert severity="success">{successMessage}</Alert> : null}
             <Stack direction="row" spacing={1.5} flexWrap="wrap">
               <Button
                 variant="contained"
                 onClick={() => {
                   if (newPassword !== confirmPassword) {
-                    setErrorMessage("PASSWORD_CONFIRMATION_MISMATCH: New passwords do not match");
+                    setErrorMessage("The passwords do not match.");
                     setSuccessMessage(null);
                     return;
                   }
