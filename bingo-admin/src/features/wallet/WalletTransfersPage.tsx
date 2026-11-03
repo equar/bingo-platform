@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import {
@@ -13,15 +14,18 @@ import {
   TableBody,
   TableCell,
   TableHead,
-  TablePagination,
   TableRow,
   TextField,
   Typography,
 } from "@mui/material";
 import { walletTransferDetail, walletTransfers } from "../../api/admin";
 import { StatusState } from "../../components/StatusState";
+import { AdminTablePagination } from "../../components/AdminTablePagination";
+import { translateAdminValue } from "../../i18n";
+import { translateAdminStatus } from "../../i18n";
 
 export function WalletTransfersPage() {
+  const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("");
   const [senderPhone, setSenderPhone] = useState("");
@@ -64,15 +68,15 @@ export function WalletTransfersPage() {
   const selectedTransfer = transferDetailQuery.data?.transfer ?? null;
 
   if (transfersQuery.isLoading) {
-    return <StatusState title="Loading transfers" loading message="Fetching player transfer history" />;
+    return <StatusState title={t("Loading transfers")} loading message={t("Fetching player transfer history")} />;
   }
 
   if (transfersQuery.error) {
     return (
       <StatusState
-        title="Unable to load transfers"
-        message="Transfer history could not be loaded. Please try again."
-        actionLabel="Retry"
+        title={t("Unable to load transfers")}
+        message={t("Transfer history could not be loaded. Please try again.")}
+        actionLabel={t("Retry")}
         onAction={() => transfersQuery.refetch()}
       />
     );
@@ -82,16 +86,14 @@ export function WalletTransfersPage() {
     <Stack spacing={3}>
       <Box>
         <Typography variant="h4" gutterBottom>
-          Transfer history
-        </Typography>
+          {t("Transfer history")}</Typography>
         <Typography color="text.secondary">
-          Search player-to-player wallet transfers by sender, recipient, or note.
-        </Typography>
+          {t("Search player-to-player wallet transfers by sender, recipient, or note.")}</Typography>
       </Box>
 
       <Stack direction={{ xs: "column", lg: "row" }} spacing={2}>
         <TextField
-          label="Search sender, recipient, note, or operation"
+          label={t("Search sender, recipient, note, or operation")}
           value={query}
           onChange={(event) => {
             setQuery(event.target.value);
@@ -102,7 +104,7 @@ export function WalletTransfersPage() {
         />
         <TextField
           select
-          label="Status"
+          label={t("Status")}
           value={status}
           onChange={(event) => {
             setStatus(event.target.value);
@@ -111,12 +113,12 @@ export function WalletTransfersPage() {
           }}
           sx={{ minWidth: { xs: "100%", lg: 180 } }}
         >
-          <MenuItem value="">All statuses</MenuItem>
-          <MenuItem value="COMPLETED">Completed</MenuItem>
-          <MenuItem value="FAILED">Failed</MenuItem>
+          <MenuItem value="">{t("All statuses")}</MenuItem>
+          <MenuItem value="COMPLETED">{t("Completed")}</MenuItem>
+          <MenuItem value="FAILED">{t("Failed")}</MenuItem>
         </TextField>
         <TextField
-          label="Sender phone"
+          label={t("Sender phone")}
           value={senderPhone}
           onChange={(event) => {
             setSenderPhone(event.target.value);
@@ -126,7 +128,7 @@ export function WalletTransfersPage() {
           fullWidth
         />
         <TextField
-          label="Recipient phone"
+          label={t("Recipient phone")}
           value={recipientPhone}
           onChange={(event) => {
             setRecipientPhone(event.target.value);
@@ -138,19 +140,19 @@ export function WalletTransfersPage() {
       </Stack>
 
       {transfersQuery.isFetching && !transfersQuery.isLoading ? (
-        <Alert severity="info">Updating transfer results...</Alert>
+        <Alert severity="info">{t("Updating transfer results...")}</Alert>
       ) : null}
 
       <Grid container spacing={2}>
         <Grid item xs={12} lg={7}>
           <Box sx={{ overflowX: "auto", border: 1, borderColor: "divider", borderRadius: 1 }}>
-            <Table size="small" aria-label="wallet transfers table">
+            <Table size="small" aria-label={t("wallet transfers table")}>
               <TableHead>
                 <TableRow>
-                  <TableCell>Sender / recipient</TableCell>
-                  <TableCell align="right">Amount</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Created</TableCell>
+                  <TableCell>{t("Sender / recipient")}</TableCell>
+                  <TableCell align="right">{t("Amount")}</TableCell>
+                  <TableCell>{t("Status")}</TableCell>
+                  <TableCell>{t("Created")}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -161,7 +163,10 @@ export function WalletTransfersPage() {
                     selected={selectedId === transfer.id}
                     role="button"
                     tabIndex={0}
-                    aria-label={`Transfer from ${transfer.senderPhoneNumber} to ${transfer.recipientPhoneNumber}`}
+                    aria-label={t("Transfer from {{sender}} to {{recipient}}", {
+                      sender: transfer.senderPhoneNumber,
+                      recipient: transfer.recipientPhoneNumber,
+                    })}
                     aria-pressed={selectedId === transfer.id}
                     onClick={() => setSelectedId(transfer.id)}
                     onKeyDown={(event) => {
@@ -177,10 +182,10 @@ export function WalletTransfersPage() {
                       <Stack spacing={0.25}>
                         <Typography fontWeight={600}>{transfer.senderPhoneNumber}</Typography>
                         <Typography variant="body2" color="text.secondary">
-                          To {transfer.recipientPhoneNumber}
+                          {t("To")}{" "}{transfer.recipientPhoneNumber}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                          {transfer.note ?? "No note"}
+                          {transfer.note ?? t("No note")}
                         </Typography>
                       </Stack>
                     </TableCell>
@@ -188,7 +193,7 @@ export function WalletTransfersPage() {
                       {transfer.amount} {transfer.currency}
                     </TableCell>
                     <TableCell>
-                      <Chip label={transfer.status} size="small" />
+                      <Chip label={translateAdminStatus(transfer.status, t)} size="small" />
                     </TableCell>
                     <TableCell sx={{ whiteSpace: "nowrap" }}>{new Date(transfer.createdAt).toLocaleString()}</TableCell>
                   </TableRow>
@@ -196,14 +201,14 @@ export function WalletTransfersPage() {
                 {transfersQuery.data && transfersQuery.data.content.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={4}>
-                      <Alert severity="info">No transfers match the current search and filters.</Alert>
+                      <Alert severity="info">{t("No transfers match the current search and filters.")}</Alert>
                     </TableCell>
                   </TableRow>
                 ) : null}
               </TableBody>
             </Table>
           </Box>
-          <TablePagination
+          <AdminTablePagination
             component="div"
             count={transfersQuery.data?.totalElements ?? 0}
             page={page}
@@ -224,51 +229,48 @@ export function WalletTransfersPage() {
           <Card elevation={0} sx={{ border: "1px solid", borderColor: "divider", minHeight: 260 }}>
             <CardContent>
               {selectedId !== null && transferDetailQuery.isLoading ? (
-                <StatusState title="Loading transfer detail" loading message="Fetching transfer and ledger details" />
+                <StatusState title={t("Loading transfer detail")} loading message={t("Fetching transfer and ledger details")} />
               ) : selectedId !== null && transferDetailQuery.error ? (
                 <Alert severity="error" data-testid="wallet-transfer-detail-error">
-                  Transfer details could not be loaded. Please try again.
-                </Alert>
+                  {t("Transfer details could not be loaded. Please try again.")}</Alert>
               ) : selectedTransfer ? (
                 <Stack spacing={1.5}>
-                  <Typography variant="h6">Transfer detail</Typography>
-                  <Typography>Operation: {selectedTransfer.operationId}</Typography>
+                  <Typography variant="h6">{t("Transfer detail")}</Typography>
+                  <Typography>{t("Operation: {{operationId}}", { operationId: selectedTransfer.operationId })}</Typography>
                   <Typography>
-                    Sender: {selectedTransfer.senderPhoneNumber} ({selectedTransfer.senderId})
+                    {t("Sender:")}{" "}{selectedTransfer.senderPhoneNumber} {t("(")}{selectedTransfer.senderId}{t(")")}</Typography>
+                  <Typography>
+                    {t("Recipient:")}{" "}{selectedTransfer.recipientPhoneNumber} {t("(")}{selectedTransfer.recipientId}{t(")")}</Typography>
+                  <Typography>
+                    {t("Amount:")}{" "}{selectedTransfer.amount} {selectedTransfer.currency}
                   </Typography>
+                  <Typography>{t("Status:")}{" "}{translateAdminStatus(selectedTransfer.status, t)}</Typography>
+                  <Typography>{t("Created:")}{" "}{new Date(selectedTransfer.createdAt).toLocaleString()}</Typography>
                   <Typography>
-                    Recipient: {selectedTransfer.recipientPhoneNumber} ({selectedTransfer.recipientId})
-                  </Typography>
-                  <Typography>
-                    Amount: {selectedTransfer.amount} {selectedTransfer.currency}
-                  </Typography>
-                  <Typography>Status: {selectedTransfer.status}</Typography>
-                  <Typography>Created: {new Date(selectedTransfer.createdAt).toLocaleString()}</Typography>
-                  <Typography>
-                    Completed:{" "}
+                    {t("Completed:")}{" "}
                     {selectedTransfer.completedAt ? new Date(selectedTransfer.completedAt).toLocaleString() : "Pending"}
                   </Typography>
                   <Typography>
-                    Sender before/after: {selectedTransfer.senderBalanceBefore} → {selectedTransfer.senderBalanceAfter}
+                    {t("Sender before/after:")}{" "}{selectedTransfer.senderBalanceBefore} {t("→")}{" "}{selectedTransfer.senderBalanceAfter}
                   </Typography>
                   <Typography>
-                    Recipient before/after: {selectedTransfer.recipientBalanceBefore} →{" "}
+                    {t("Recipient before/after:")}{" "}{selectedTransfer.recipientBalanceBefore} {t("→")}{" "}
                     {selectedTransfer.recipientBalanceAfter}
                   </Typography>
-                  <Typography>Note: {selectedTransfer.note ?? "None"}</Typography>
+                  <Typography>{t("Note:")}{" "}{selectedTransfer.note ?? t("None")}</Typography>
                   <Typography color="text.secondary">
-                    {selectedTransfer.failureReason ?? "No failure reason"}
+                    {selectedTransfer.failureReason ?? t("No failure reason")}
                   </Typography>
-                  <Typography variant="subtitle2">Related wallet ledger entries</Typography>
+                  <Typography variant="subtitle2">{t("Related wallet ledger entries")}</Typography>
                   {transferDetailQuery.data?.ledgerEntries.length ? (
-                    <Table size="small" aria-label="transfer ledger entries">
+                    <Table size="small" aria-label={t("transfer ledger entries")}>
                       <TableHead>
                         <TableRow>
-                          <TableCell>Entry</TableCell>
-                          <TableCell>Wallet owner</TableCell>
-                          <TableCell>Type</TableCell>
-                          <TableCell align="right">Amount</TableCell>
-                          <TableCell>Balance before → after</TableCell>
+                          <TableCell>{t("Entry")}</TableCell>
+                          <TableCell>{t("Wallet owner")}</TableCell>
+                          <TableCell>{t("Type")}</TableCell>
+                          <TableCell align="right">{t("Amount")}</TableCell>
+                          <TableCell>{t("Balance before → after")}</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
@@ -276,21 +278,20 @@ export function WalletTransfersPage() {
                           <TableRow key={entry.id} data-testid={`wallet-transfer-ledger-${entry.id}`}>
                             <TableCell>{entry.id}</TableCell>
                             <TableCell>{entry.walletOwnerId}</TableCell>
-                            <TableCell>{entry.transactionType}</TableCell>
+                            <TableCell>{translateAdminValue(entry.transactionType, t)}</TableCell>
                             <TableCell align="right">{entry.amount} {entry.currency}</TableCell>
-                            <TableCell>{entry.balanceBefore} → {entry.balanceAfter}</TableCell>
+                            <TableCell>{entry.balanceBefore} {t("→")}{" "}{entry.balanceAfter}</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
                     </Table>
                   ) : (
                     <Alert severity="warning" data-testid="wallet-transfer-ledger-missing">
-                      No linked wallet ledger entries were found for this transfer.
-                    </Alert>
+                      {t("No linked wallet ledger entries were found for this transfer.")}</Alert>
                   )}
                 </Stack>
               ) : (
-                <Typography color="text.secondary">Select a transfer to inspect the details.</Typography>
+                <Typography color="text.secondary">{t("Select a transfer to inspect the details.")}</Typography>
               )}
             </CardContent>
           </Card>

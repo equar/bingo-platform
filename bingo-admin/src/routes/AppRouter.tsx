@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { lazy, Suspense } from "react";
 import { Box, CircularProgress } from "@mui/material";
 import { Navigate, Route, Routes } from "react-router-dom";
@@ -72,11 +73,12 @@ const WalletTransfersPage = lazy(() =>
 const CommunityPage = lazy(() => import("../features/community/CommunityPage").then(module => ({ default: module.CommunityPage })));
 
 export function AppRouter() {
+  const { t } = useTranslation();
   return (
     <Suspense
       fallback={
         <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
-          <CircularProgress aria-label="Loading page" />
+          <CircularProgress aria-label={t("Loading page")} />
         </Box>
       }
     >

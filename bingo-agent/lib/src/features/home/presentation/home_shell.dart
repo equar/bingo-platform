@@ -7,6 +7,7 @@ import 'package:bingo_agent/src/features/players/presentation/players_screen.dar
 import 'package:bingo_agent/src/features/support/presentation/support_screen.dart';
 import 'package:bingo_agent/src/features/tickets/presentation/ticket_sale_screen.dart';
 import 'package:bingo_agent/src/features/wallet/presentation/wallet_topup_screen.dart';
+import 'package:bingo_agent/src/core/localization/language_selector.dart';
 import 'package:bingo_agent/src/l10n/generated/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -36,37 +37,45 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     ];
     final items = [
       NavigationDestination(
-          icon: Icon(Icons.dashboard_outlined),
-          selectedIcon: Icon(Icons.dashboard),
-          label: l10n.dashboardTitle),
+        icon: Icon(Icons.dashboard_outlined),
+        selectedIcon: Icon(Icons.dashboard),
+        label: l10n.dashboardTitle,
+      ),
       NavigationDestination(
-          icon: Icon(Icons.people_outline),
-          selectedIcon: Icon(Icons.people),
-          label: l10n.playersTitle),
+        icon: Icon(Icons.people_outline),
+        selectedIcon: Icon(Icons.people),
+        label: l10n.playersTitle,
+      ),
       NavigationDestination(
-          icon: Icon(Icons.confirmation_number_outlined),
-          selectedIcon: Icon(Icons.confirmation_number),
-          label: l10n.ticketsTitle),
+        icon: Icon(Icons.confirmation_number_outlined),
+        selectedIcon: Icon(Icons.confirmation_number),
+        label: l10n.ticketsTitle,
+      ),
       NavigationDestination(
-          icon: Icon(Icons.account_balance_wallet_outlined),
-          selectedIcon: Icon(Icons.account_balance_wallet),
-          label: l10n.walletTitle),
+        icon: Icon(Icons.account_balance_wallet_outlined),
+        selectedIcon: Icon(Icons.account_balance_wallet),
+        label: l10n.walletTitle,
+      ),
       NavigationDestination(
-          icon: Icon(Icons.verified_outlined),
-          selectedIcon: Icon(Icons.verified),
-          label: l10n.payoutsTitle),
+        icon: Icon(Icons.verified_outlined),
+        selectedIcon: Icon(Icons.verified),
+        label: l10n.payoutsTitle,
+      ),
       NavigationDestination(
-          icon: Icon(Icons.swap_horiz_outlined),
-          selectedIcon: Icon(Icons.swap_horiz),
-          label: l10n.floatTitle),
+        icon: Icon(Icons.swap_horiz_outlined),
+        selectedIcon: Icon(Icons.swap_horiz),
+        label: l10n.floatTitle,
+      ),
       NavigationDestination(
-          icon: Icon(Icons.receipt_long_outlined),
-          selectedIcon: Icon(Icons.receipt_long),
-          label: l10n.historyTitle),
+        icon: Icon(Icons.receipt_long_outlined),
+        selectedIcon: Icon(Icons.receipt_long),
+        label: l10n.historyTitle,
+      ),
       NavigationDestination(
-          icon: Icon(Icons.support_agent_outlined),
-          selectedIcon: Icon(Icons.support_agent),
-          label: l10n.supportTitle),
+        icon: Icon(Icons.support_agent_outlined),
+        selectedIcon: Icon(Icons.support_agent),
+        label: l10n.supportTitle,
+      ),
     ];
 
     return Scaffold(
@@ -74,6 +83,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
       appBar: AppBar(
         title: Text(items[_index].label),
         actions: [
+          const LanguageSelector(),
           IconButton(
             tooltip: l10n.logout,
             onPressed: () =>

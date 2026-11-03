@@ -20,6 +20,9 @@ import type { Theme } from "@mui/material/styles";
 import { useEffect, useMemo, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { clearSession, useSession } from "../api/session";
+import { useTranslation } from "react-i18next";
+import { LanguageSelector } from "./LanguageSelector";
+import { translateAdminRole } from "../i18n";
 
 const drawerWidth = 260;
 const idleTimeoutMs = 15 * 60 * 1000;
@@ -27,42 +30,42 @@ const activityEvents = ["click", "keydown", "mousemove", "mousedown", "scroll", 
 
 const navGroups = [
   {
-    title: "Overview",
+    title: "nav.overview",
     items: [
-      { to: "/dashboard", label: "Dashboard" },
+      { to: "/dashboard", label: "nav.dashboard" },
     ],
   },
   {
-    title: "Urgent work",
+    title: "nav.urgent",
     items: [
-      { to: "/support/tickets", label: "Support" },
-      { to: "/claims", label: "Win Claims" },
-      { to: "/deposits", label: "Deposits" },
+      { to: "/support/tickets", label: "nav.support" },
+      { to: "/claims", label: "nav.claims" },
+      { to: "/deposits", label: "nav.deposits" },
     ],
   },
   {
-    title: "Live operations",
+    title: "nav.live",
     items: [
-      { to: "/sessions", label: "Sessions" },
-      { to: "/rooms", label: "Rooms" },
-      { to: "/community", label: "Player community" },
-      { to: "/audit-logs", label: "Audit Logs" },
+      { to: "/sessions", label: "nav.sessions" },
+      { to: "/rooms", label: "nav.rooms" },
+      { to: "/community", label: "nav.community" },
+      { to: "/audit-logs", label: "nav.audit" },
     ],
   },
   {
-    title: "Account management",
+    title: "nav.accounts",
     items: [
-      { to: "/admin-users", label: "Admin Users" },
-      { to: "/agents", label: "Agents" },
-      { to: "/players", label: "Players" },
+      { to: "/admin-users", label: "nav.adminUsers" },
+      { to: "/agents", label: "nav.agents" },
+      { to: "/players", label: "nav.players" },
     ],
   },
   {
-    title: "Policies",
+    title: "nav.policies",
     items: [
-      { to: "/wallet/signup-reward", label: "Wallet Policies" },
-      { to: "/wallet/transfers", label: "Transfer History" },
-      { to: "/prize-entitlements", label: "Prize Entitlements" },
+      { to: "/wallet/signup-reward", label: "nav.walletPolicies" },
+      { to: "/wallet/transfers", label: "nav.transfers" },
+      { to: "/prize-entitlements", label: "nav.entitlements" },
     ],
   },
 ];
@@ -75,6 +78,7 @@ function isNavItemActive(pathname: string, itemPath: string) {
 }
 
 export function AppShell() {
+  const { t } = useTranslation();
   const session = useSession();
   const location = useLocation();
   const navigate = useNavigate();
@@ -84,7 +88,7 @@ export function AppShell() {
   const supportOnly = Boolean(session?.user.roles.includes("SUPPORT") && !session.user.roles.includes("ADMIN"));
   const visibleNavGroups = useMemo(
     () => supportOnly
-      ? [{ title: "Support", items: [{ to: "/support/tickets", label: "Support" }] }]
+      ? [{ title: "nav.support", items: [{ to: "/support/tickets", label: "nav.support" }] }]
       : navGroups,
     [supportOnly],
   );
@@ -149,17 +153,18 @@ export function AppShell() {
           {isMobile ? (
             <Button
               color="inherit"
-              aria-label="Open navigation"
+              aria-label={t("menu.openNavigation")}
               aria-expanded={mobileNavOpen}
               onClick={() => setMobileNavOpen(true)}
               sx={{ minWidth: 0, mr: 1, textTransform: "none" }}
             >
-              Menu
+              {t("menu.open")}
             </Button>
           ) : null}
           <Typography variant="h6" noWrap sx={{ flexGrow: 1 }}>
-            Sunset Bingo Admin
+            {t("brand")}
           </Typography>
+          <LanguageSelector />
           <Button
             color="inherit"
             onClick={(event) => setAccountMenuAnchor(event.currentTarget)}
@@ -178,10 +183,10 @@ export function AppShell() {
               </Avatar>
               <Stack spacing={0} alignItems="flex-start">
                 <Typography variant="body2" lineHeight={1.2}>
-                  {session?.user.displayName ?? "Account"}
+                  {session?.user.displayName ?? t("account")}
                 </Typography>
                 <Typography variant="caption" sx={{ opacity: 0.8, lineHeight: 1.2 }}>
-                  {session?.user.roles.join(", ") ?? "No role"}
+                  {session?.user.roles.map((role) => translateAdminRole(role, t)).join(", ") ?? t("noRole")}
                 </Typography>
               </Stack>
             </Stack>
@@ -199,7 +204,7 @@ export function AppShell() {
                 setAccountMenuAnchor(null);
               }}
             >
-              Profile
+              {t("menu.profile")}
             </MenuItem>
             <MenuItem
               onClick={() => {
@@ -207,9 +212,9 @@ export function AppShell() {
                 setAccountMenuAnchor(null);
               }}
             >
-              Change password
+              {t("menu.changePassword")}
             </MenuItem>
-            <MenuItem onClick={handleLogout}>Logout</MenuItem>
+            <MenuItem onClick={handleLogout}>{t("menu.logout")}</MenuItem>
           </Menu>
         </Toolbar>
       </AppBar>
@@ -244,7 +249,7 @@ export function AppShell() {
                 aria-controls={`nav-group-${group.title.toLowerCase().replace(/\s+/g, "-")}`}
               >
                 <ListItemText
-                  primary={group.title}
+                  primary={t(group.title)}
                   primaryTypographyProps={{ variant: "overline", color: "text.secondary" }}
                 />
                 <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
@@ -262,7 +267,7 @@ export function AppShell() {
                       selected={isNavItemActive(location.pathname, item.to)}
                       sx={{ borderRadius: 2, mb: 0.5, ml: 1 }}
                     >
-                      <ListItemText primary={item.label} />
+                      <ListItemText primary={t(item.label)} />
                     </ListItemButton>
                   ))}
                 </List>
@@ -271,7 +276,7 @@ export function AppShell() {
             </Box>
           ))}
           <Typography variant="caption" color="text.secondary">
-            Backend authorization remains authoritative.
+            {t("navigation.note")}
           </Typography>
         </Box>
       </Drawer>

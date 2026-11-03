@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import {
@@ -17,7 +18,6 @@ import {
   TableCell,
   TableContainer,
   TableHead,
-  TablePagination,
   TableRow,
   TextField,
   Typography,
@@ -25,9 +25,12 @@ import {
 import { prizeEntitlements, settlePrizeEntitlement } from "../../api/admin";
 import { getUserFacingErrorMessage } from "../../api/types";
 import { StatusState } from "../../components/StatusState";
+import { AdminTablePagination } from "../../components/AdminTablePagination";
+import { translateAdminStatus, translateAdminValue } from "../../i18n";
 import { EntitlementReferenceDialog, type EntitlementReference } from "./EntitlementReferenceDialog";
 
 export function PrizeEntitlementsPage() {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("");
@@ -66,15 +69,15 @@ export function PrizeEntitlementsPage() {
   });
 
   if (entitlementsQuery.isLoading) {
-    return <StatusState title="Loading prize entitlements" loading message="Fetching settlement queue" />;
+    return <StatusState title={t("Loading prize entitlements")} loading message={t("Fetching settlement queue")} />;
   }
 
   if (entitlementsQuery.error) {
     return (
       <StatusState
-        title="Unable to load prize entitlements"
-        message={getUserFacingErrorMessage(entitlementsQuery.error) ?? "Something went wrong. Please try again."}
-        actionLabel="Retry"
+        title={t("Unable to load prize entitlements")}
+        message={t(getUserFacingErrorMessage(entitlementsQuery.error) ?? "Something went wrong. Please try again.")}
+        actionLabel={t("Retry")}
         onAction={() => entitlementsQuery.refetch()}
       />
     );
@@ -85,15 +88,14 @@ export function PrizeEntitlementsPage() {
   return (
     <Stack spacing={3}>
       <Box>
-        <Typography variant="h4">Prize entitlements</Typography>
-        <Typography color="text.secondary">Review approved claims and their prize entitlement details.</Typography>
+        <Typography variant="h4">{t("Prize entitlements")}</Typography>
+        <Typography color="text.secondary">{t("Review approved claims and their prize entitlement details.")}</Typography>
       </Box>
 
       <Alert severity="warning">
-        Prize settlement is blocked until payout evidence, accounting treatment, and reconciliation controls are approved.
-      </Alert>
+        {t("Prize settlement is blocked until payout evidence, accounting treatment, and reconciliation controls are approved.")}</Alert>
 
-      {entitlementsQuery.isFetching ? <Alert severity="info">Updating entitlement results...</Alert> : null}
+      {entitlementsQuery.isFetching ? <Alert severity="info">{t("Updating entitlement results...")}</Alert> : null}
 
       <Paper variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
         <Stack
@@ -102,19 +104,19 @@ export function PrizeEntitlementsPage() {
           sx={{ p: 2, borderBottom: 1, borderColor: "divider" }}
         >
           <TextField
-            label="Search entitlements"
+            label={t("Search entitlements")}
             value={query}
             onChange={(event) => {
               setQuery(event.target.value);
               setPage(0);
             }}
-            placeholder="IDs, player, prize, operation, or reference"
+            placeholder={t("IDs, player, prize, operation, or reference")}
             size="small"
             fullWidth
           />
           <TextField
             select
-            label="Status"
+            label={t("Status")}
             value={status}
             onChange={(event) => {
               setStatus(event.target.value);
@@ -123,71 +125,71 @@ export function PrizeEntitlementsPage() {
             size="small"
             sx={{ minWidth: { xs: "100%", md: 200 } }}
           >
-            <MenuItem value="">All statuses</MenuItem>
-            <MenuItem value="PENDING">Pending</MenuItem>
-            <MenuItem value="SETTLED">Settled</MenuItem>
-            <MenuItem value="VOID">Void</MenuItem>
+            <MenuItem value="">{t("All statuses")}</MenuItem>
+            <MenuItem value="PENDING">{t("Pending")}</MenuItem>
+            <MenuItem value="SETTLED">{t("Settled")}</MenuItem>
+            <MenuItem value="VOID">{t("Void")}</MenuItem>
           </TextField>
         </Stack>
 
         <TableContainer>
-          <Table size="small" aria-label="prize entitlements table">
+          <Table size="small" aria-label={t("prize entitlements table")}>
             <TableHead>
               <TableRow>
-                <TableCell>Entitlement</TableCell>
-                <TableCell>Player</TableCell>
-                <TableCell>Claim</TableCell>
-                <TableCell>Session</TableCell>
-                <TableCell>Ticket</TableCell>
-                <TableCell>Prize</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Created</TableCell>
-                <TableCell>Settlement reference</TableCell>
-                <TableCell align="right">Action</TableCell>
+                <TableCell>{t("Entitlement")}</TableCell>
+                <TableCell>{t("Player")}</TableCell>
+                <TableCell>{t("Claim")}</TableCell>
+                <TableCell>{t("Session")}</TableCell>
+                <TableCell>{t("Ticket")}</TableCell>
+                <TableCell>{t("Prize")}</TableCell>
+                <TableCell>{t("Status")}</TableCell>
+                <TableCell>{t("Created")}</TableCell>
+                <TableCell>{t("Settlement reference")}</TableCell>
+                <TableCell align="right">{t("Action")}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {entitlements.map((entitlement) => (
                 <TableRow key={entitlement.id} hover data-testid={`entitlement-row-${entitlement.id}`}>
-                  <TableCell>#{entitlement.id}</TableCell>
+                  <TableCell>{t("#")}{entitlement.id}</TableCell>
                   <TableCell>
                     <Button
                       size="small"
-                      aria-label={`View player ${entitlement.claimantId} details`}
+                      aria-label={t("View player {{id}} details", { id: entitlement.claimantId })}
                       sx={{ minWidth: 0, p: 0 }}
                       onClick={() => setReference({ kind: "player", id: entitlement.claimantId })}
                     >
-                      #{entitlement.claimantId}
+                      {t("#")}{entitlement.claimantId}
                     </Button>
                   </TableCell>
                   <TableCell>
                     <Button
                       size="small"
-                      aria-label={`View claim ${entitlement.winClaimId} details`}
+                      aria-label={t("View claim {{id}} details", { id: entitlement.winClaimId })}
                       sx={{ minWidth: 0, p: 0 }}
                       onClick={() => setReference({ kind: "claim", id: entitlement.winClaimId })}
                     >
-                      #{entitlement.winClaimId}
+                      {t("#")}{entitlement.winClaimId}
                     </Button>
                   </TableCell>
                   <TableCell>
                     <Button
                       size="small"
-                      aria-label={`View session ${entitlement.sessionId} details`}
+                      aria-label={t("View session {{id}} details", { id: entitlement.sessionId })}
                       sx={{ minWidth: 0, p: 0 }}
                       onClick={() => setReference({ kind: "session", id: entitlement.sessionId })}
                     >
-                      #{entitlement.sessionId}
+                      {t("#")}{entitlement.sessionId}
                     </Button>
                   </TableCell>
                   <TableCell>
                     <Button
                       size="small"
-                      aria-label={`View ticket ${entitlement.ticketId} details`}
+                      aria-label={t("View ticket {{id}} details", { id: entitlement.ticketId })}
                       sx={{ minWidth: 0, p: 0 }}
                       onClick={() => setReference({ kind: "ticket", id: entitlement.ticketId })}
                     >
-                      #{entitlement.ticketId}
+                      {t("#")}{entitlement.ticketId}
                     </Button>
                   </TableCell>
                   <TableCell>
@@ -196,13 +198,14 @@ export function PrizeEntitlementsPage() {
                         {entitlement.prizeAmount} {entitlement.currency}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        {entitlement.prizeType} · {entitlement.settlementPath}
+                        {translateAdminValue(entitlement.prizeType, t)} {t("·")}{" "}
+                        {translateAdminValue(entitlement.settlementPath, t)}
                       </Typography>
                     </Stack>
                   </TableCell>
                   <TableCell>
                     <Chip
-                      label={entitlement.status}
+                      label={translateAdminStatus(entitlement.status, t)}
                       color={
                         entitlement.status === "PENDING"
                           ? "warning"
@@ -214,7 +217,7 @@ export function PrizeEntitlementsPage() {
                     />
                   </TableCell>
                   <TableCell>{new Date(entitlement.createdAt).toLocaleString()}</TableCell>
-                  <TableCell>{entitlement.settlementReference ?? "Not settled"}</TableCell>
+                  <TableCell>{entitlement.settlementReference ?? t("Not settled")}</TableCell>
                   <TableCell align="right">
                     <Button
                       data-testid={`entitlement-settle-${entitlement.id}`}
@@ -228,22 +231,21 @@ export function PrizeEntitlementsPage() {
                         setConfirmOpen(true);
                       }}
                     >
-                      Settle
-                    </Button>
+                      {t("Settle")}</Button>
                   </TableCell>
                 </TableRow>
               ))}
               {entitlementsQuery.data && entitlements.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={10}>
-                    <Alert severity="info">No prize entitlements match the current filters.</Alert>
+                    <Alert severity="info">{t("No prize entitlements match the current filters.")}</Alert>
                   </TableCell>
                 </TableRow>
               ) : null}
             </TableBody>
           </Table>
         </TableContainer>
-        <TablePagination
+        <AdminTablePagination
           component="div"
           count={entitlementsQuery.data?.totalElements ?? 0}
           page={page}
@@ -260,7 +262,7 @@ export function PrizeEntitlementsPage() {
       <EntitlementReferenceDialog reference={reference} onClose={() => setReference(null)} />
 
       <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>Settle entitlement</DialogTitle>
+        <DialogTitle>{t("Settle entitlement")}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
             {settleMutation.isError ? (
@@ -268,22 +270,21 @@ export function PrizeEntitlementsPage() {
                 severity="error"
                 action={
                   <Button color="inherit" size="small" onClick={() => settleMutation.reset()}>
-                    Dismiss
-                  </Button>
+                    {t("Dismiss")}</Button>
                 }
               >
-                {getUserFacingErrorMessage(settleMutation.error)}
+                {t(getUserFacingErrorMessage(settleMutation.error) ?? "Something went wrong. Please try again.")}
               </Alert>
             ) : null}
             <TextField
-              label="Settlement reference"
+              label={t("Settlement reference")}
               value={settlementReference}
               onChange={(event) => setSettlementReference(event.target.value)}
               fullWidth
               required
             />
             <TextField
-              label="Settlement note"
+              label={t("Settlement note")}
               value={settlementNote}
               onChange={(event) => setSettlementNote(event.target.value)}
               fullWidth
@@ -293,14 +294,13 @@ export function PrizeEntitlementsPage() {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setConfirmOpen(false)}>Cancel</Button>
+          <Button onClick={() => setConfirmOpen(false)}>{t("Cancel")}</Button>
           <Button
             variant="contained"
             onClick={() => settleMutation.mutate()}
             disabled={settleMutation.isPending || settlementReference.trim().length === 0}
           >
-            Confirm settlement
-          </Button>
+            {t("Confirm settlement")}</Button>
         </DialogActions>
       </Dialog>
     </Stack>

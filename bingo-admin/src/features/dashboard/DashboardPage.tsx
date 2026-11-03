@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -19,6 +20,7 @@ import { Link as RouterLink } from "react-router-dom";
 import { auditLogs, dashboardMetrics, liveSessions, reviewQueue, supportTickets } from "../../api/admin";
 import { getUserFacingErrorMessage } from "../../api/types";
 import { StatusState } from "../../components/StatusState";
+import { translateAdminStatus } from "../../i18n";
 
 const managementShortcuts = [
   {
@@ -57,6 +59,7 @@ function MetricCard({ label, value, sublabel }: { label: string; value: string |
 }
 
 export function DashboardPage() {
+  const { t } = useTranslation();
   const metricsQuery = useQuery({ queryKey: ["dashboard", "metrics"], queryFn: dashboardMetrics });
   const sessionsQuery = useQuery({ queryKey: ["dashboard", "live-sessions"], queryFn: liveSessions });
   const queueQuery = useQuery({ queryKey: ["dashboard", "review-queue"], queryFn: () => reviewQueue(0, 5) });
@@ -74,15 +77,15 @@ export function DashboardPage() {
   }, [supportPriorityQuery.data]);
 
   if (metricsQuery.isLoading) {
-    return <StatusState title="Loading dashboard" loading message="Fetching live metrics and activity" />;
+    return <StatusState title={t("Loading dashboard")} loading message={t("Fetching live metrics and activity")} />;
   }
 
   if (metricsQuery.error) {
     return (
       <StatusState
-        title="Unable to load dashboard"
-        message={getUserFacingErrorMessage(metricsQuery.error) ?? "Something went wrong. Please try again."}
-        actionLabel="Retry"
+        title={t("Unable to load dashboard")}
+        message={t(getUserFacingErrorMessage(metricsQuery.error) ?? "Something went wrong. Please try again.")}
+        actionLabel={t("Retry")}
         onAction={() => metricsQuery.refetch()}
       />
     );
@@ -94,42 +97,41 @@ export function DashboardPage() {
     <Stack spacing={3}>
       <Box>
         <Typography variant="h4" gutterBottom>
-          Dashboard
-        </Typography>
-        <Typography color="text.secondary">Operational overview powered by the backend admin contract.</Typography>
+          {t("Dashboard")}</Typography>
+        <Typography color="text.secondary">{t("Operational overview powered by the backend admin contract.")}</Typography>
       </Box>
 
       <Grid container spacing={2}>
         <Grid item xs={12} md={4} lg={3}>
-          <MetricCard label="Active players" value={metrics.activePlayers} />
+          <MetricCard label={t("Active players")} value={metrics.activePlayers} />
         </Grid>
         <Grid item xs={12} md={4} lg={3}>
-          <MetricCard label="Active sessions" value={metrics.activeSessions} />
+          <MetricCard label={t("Active sessions")} value={metrics.activeSessions} />
         </Grid>
         <Grid item xs={12} md={4} lg={3}>
-          <MetricCard label="Open deposit reviews" value={metrics.openDepositReviews} />
+          <MetricCard label={t("Open deposit reviews")} value={metrics.openDepositReviews} />
         </Grid>
         <Grid item xs={12} md={4} lg={3}>
-          <MetricCard label="Open win claims" value={metrics.openWinClaims} />
+          <MetricCard label={t("Open win claims")} value={metrics.openWinClaims} />
         </Grid>
         <Grid item xs={12} md={4} lg={3}>
-          <MetricCard label="Open support tickets" value={metrics.openSupportTickets} />
+          <MetricCard label={t("Open support tickets")} value={metrics.openSupportTickets} />
         </Grid>
         <Grid item xs={12} md={4} lg={3}>
-          <MetricCard label="Active agents" value={metrics.activeAgents} />
+          <MetricCard label={t("Active agents")} value={metrics.activeAgents} />
         </Grid>
         <Grid item xs={12} md={4} lg={3}>
           <MetricCard
-            label="Player wallet total"
+            label={t("Player wallet total")}
             value={metrics.playerWalletBalanceTotal}
             sublabel={metrics.businessTimezone}
           />
         </Grid>
         <Grid item xs={12} md={4} lg={3}>
           <MetricCard
-            label="Agent float total"
+            label={t("Agent float total")}
             value={metrics.agentFloatAvailableTotal}
-            sublabel={`Clearing ${metrics.agentFloatClearingTotal}`}
+            sublabel={t("Clearing {{amount}}", { amount: metrics.agentFloatClearingTotal })}
           />
         </Grid>
       </Grid>
@@ -138,10 +140,9 @@ export function DashboardPage() {
         <CardContent>
           <Stack spacing={2}>
             <Box>
-              <Typography variant="h6">Management shortcuts</Typography>
+              <Typography variant="h6">{t("Management shortcuts")}</Typography>
               <Typography variant="body2" color="text.secondary">
-                The dashboard now includes the old overview entry points so operators can start from one place.
-              </Typography>
+                {t("The dashboard now includes the old overview entry points so operators can start from one place.")}</Typography>
             </Box>
             <Grid container spacing={2}>
               {managementShortcuts.map((section) => (
@@ -150,9 +151,9 @@ export function DashboardPage() {
                     <CardActionArea component={RouterLink} to={section.to} sx={{ height: "100%" }}>
                       <CardContent>
                         <Stack spacing={1}>
-                          <Typography variant="h6">{section.title}</Typography>
+                          <Typography variant="h6">{t(section.title)}</Typography>
                           <Typography variant="body2" color="text.secondary">
-                            {section.description}
+                            {t(section.description)}
                           </Typography>
                         </Stack>
                       </CardContent>
@@ -168,18 +169,16 @@ export function DashboardPage() {
       <Card elevation={0} sx={{ border: "1px solid", borderColor: "divider" }}>
         <CardContent>
           <Stack spacing={2}>
-            <Typography variant="h6">Support priority counts</Typography>
+            <Typography variant="h6">{t("Support priority counts")}</Typography>
             <Typography variant="body2" color="text.secondary">
-              These counts are derived from the loaded ticket page because the backend does not expose aggregate
-              priority totals.
-            </Typography>
+              {t("These counts are derived from the loaded ticket page because the backend does not expose aggregate priority totals.")}</Typography>
             <Grid container spacing={2}>
               {(["LOW", "NORMAL", "HIGH", "URGENT"] as const).map((priority) => (
                 <Grid item xs={12} sm={6} md={3} key={priority}>
                   <Card variant="outlined">
                     <CardContent>
                       <Typography variant="overline" color="text.secondary">
-                        {priority}
+                        {t(priority)}
                       </Typography>
                       <Typography variant="h4">{supportPriorityCounts[priority] ?? 0}</Typography>
                     </CardContent>
@@ -196,22 +195,25 @@ export function DashboardPage() {
           <Card elevation={0} sx={{ border: "1px solid", borderColor: "divider", height: "100%" }}>
             <CardContent>
               <Typography variant="h6" gutterBottom>
-                Live sessions
-              </Typography>
-              {sessionsQuery.isLoading ? <StatusState title="Loading live sessions" loading /> : null}
+                {t("Live sessions")}</Typography>
+              {sessionsQuery.isLoading ? <StatusState title={t("Loading live sessions")} loading /> : null}
               {sessionsQuery.data && sessionsQuery.data.length === 0 ? (
-                <Alert severity="info">No active sessions right now.</Alert>
+                <Alert severity="info">{t("No active sessions right now.")}</Alert>
               ) : null}
               <List dense>
                 {(sessionsQuery.data ?? []).map((session) => (
-                  <ListItem key={session.id} divider secondaryAction={<Chip label={session.state} size="small" />}>
+                  <ListItem key={session.id} divider secondaryAction={<Chip label={translateAdminStatus(session.state, t)} size="small" />}>
                     <ListItemText
                       primary={
                         <Link component={RouterLink} to={`/sessions/${session.id}`} underline="hover">
                           {session.sessionName}
                         </Link>
                       }
-                      secondary={`${session.roomName} · ${session.ticketCount} tickets · ${session.drawCount} draws`}
+                      secondary={t("{{room}} · {{tickets}} tickets · {{draws}} draws", {
+                        room: session.roomName,
+                        tickets: session.ticketCount,
+                        draws: session.drawCount,
+                      })}
                     />
                   </ListItem>
                 ))}
@@ -223,30 +225,29 @@ export function DashboardPage() {
           <Card elevation={0} sx={{ border: "1px solid", borderColor: "divider", height: "100%" }}>
             <CardContent>
               <Typography variant="h6" gutterBottom>
-                Activity
-              </Typography>
+                {t("Activity")}</Typography>
               <Stack spacing={2}>
                 {queueQuery.data ? (
                   <Box>
-                    <Typography variant="subtitle2">Review queue</Typography>
+                    <Typography variant="subtitle2">{t("Review queue")}</Typography>
                     {queueQuery.data.content.length === 0 ? (
-                      <Typography color="text.secondary">No items in the queue.</Typography>
+                      <Typography color="text.secondary">{t("No items in the queue.")}</Typography>
                     ) : null}
                     {queueQuery.data.content.slice(0, 5).map((item) => (
                       <Stack key={item.id} direction="row" spacing={1} sx={{ py: 0.75 }} justifyContent="space-between">
                         <Typography variant="body2">
-                          {item.queueType}: {item.title}
+                          {item.queueType}{t(":")}{" "}{item.title}
                         </Typography>
-                        <Chip label={item.status} size="small" />
+                        <Chip label={translateAdminStatus(item.status, t)} size="small" />
                       </Stack>
                     ))}
                   </Box>
                 ) : null}
                 {logsQuery.data ? (
                   <Box>
-                    <Typography variant="subtitle2">Recent audit logs</Typography>
+                    <Typography variant="subtitle2">{t("Recent audit logs")}</Typography>
                     {logsQuery.data.content.length === 0 ? (
-                      <Typography color="text.secondary">No audit history.</Typography>
+                      <Typography color="text.secondary">{t("No audit history.")}</Typography>
                     ) : null}
                     {logsQuery.data.content.map((entry) => (
                       <Stack
@@ -258,7 +259,7 @@ export function DashboardPage() {
                           {entry.action}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                          {entry.targetType} {entry.targetId ?? "n/a"} · {entry.reason ?? "no reason"}
+                          {entry.targetType} {entry.targetId ?? t("n/a")} {t("·")}{" "}{entry.reason ?? t("no reason")}
                         </Typography>
                       </Stack>
                     ))}

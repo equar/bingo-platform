@@ -1,5 +1,6 @@
 import 'package:bingo_app/l10n/app_localizations.dart';
 import 'package:bingo_app/src/core/network/api_error.dart';
+import 'package:bingo_app/src/core/localization/language_selector.dart';
 import 'package:bingo_app/src/core/widgets/section_card.dart';
 import 'package:bingo_app/src/features/auth/data/auth_models.dart';
 import 'package:bingo_app/src/features/auth/data/auth_repository.dart';
@@ -106,6 +107,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  const Align(
+                    alignment: AlignmentDirectional.centerEnd,
+                    child: LanguageSelector(),
+                  ),
                   Text(
                     localizations.appTitle,
                     style: Theme.of(context).textTheme.displaySmall,

@@ -1,0 +1,61 @@
+{
+  "application": "Agent",
+  "backendProfile": "android-test",
+  "database": "bingo_qa_test",
+  "device": "emulator-5554",
+  "isolationVerified": true,
+  "drawScheduler": "disabled",
+  "financialPostingAndSimulation": "disabled",
+  "scenarios": [
+    {
+      "scenario": "Real approved Agent login and authentication/read-only Android regression",
+      "status": "PASS",
+      "evidence": "../../module-01-agent-authentication/QA_M01_AGENT_20261102_212705_482/run-summary.json"
+    },
+    {
+      "scenario": "Amharic invalid-credentials message from the real backend",
+      "status": "PASS",
+      "evidence": "agent-authenticated-language-test.log"
+    },
+    {
+      "scenario": "Authenticated English-to-Amharic-to-English-to-Amharic switching",
+      "status": "PASS",
+      "evidence": "agent-authenticated-language-test.log"
+    },
+    {
+      "scenario": "Language and authenticated session restored after app force-stop/relaunch without clearing data",
+      "status": "PASS",
+      "evidence": "agent-postrestart-amharic.png"
+    },
+    {
+      "scenario": "Logout returns to Amharic pre-login screen",
+      "status": "PASS",
+      "evidence": "agent-login-am-post-test.png"
+    }
+  ],
+  "databaseReconciliation": {
+    "status": "PASS",
+    "tableCount": 40,
+    "protectedBusinessAndFinancialCountsUnchanged": true,
+    "countChanges": {
+      "audit_log_entries": {
+        "before": 507,
+        "after": 567,
+        "delta": 60
+      },
+      "authentication_attempt_buckets": {
+        "before": 18,
+        "after": 17,
+        "delta": -1
+      }
+    },
+    "evidence": {
+      "before": "database-before.json",
+      "after": "database-after.json"
+    }
+  },
+  "toolingNotes": [
+    "A launcher-only restart of the instrumentation-built app remained on the Flutter splash; relaunching with the normal Flutter runner restored the authenticated Amharic screen.",
+    "No uninstall or app-data clearing was performed."
+  ]
+}

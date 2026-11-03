@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import {
@@ -13,7 +14,6 @@ import {
   InputLabel,
   MenuItem,
   Select,
-  TablePagination,
   Stack,
   Table,
   TableBody,
@@ -26,6 +26,8 @@ import {
 import { adminUsers, createAdminUser, revokeFinanceRole, updateAdminUser, type UserSummaryResponse } from "../../api/admin";
 import { getUserFacingErrorMessage } from "../../api/types";
 import { StatusState } from "../../components/StatusState";
+import { AdminTablePagination } from "../../components/AdminTablePagination";
+import { translateAdminRole, translateAdminStatus } from "../../i18n";
 
 const roleOptions = ["ADMIN", "SUPPORT"] as const;
 const statusOptions = ["ACTIVE", "PENDING", "SUSPENDED", "DISABLED"] as const;
@@ -47,10 +49,6 @@ const emptyForm: AdminUserFormState = {
   role: "ADMIN",
 };
 
-function roleLabel(role: string) {
-  return role;
-}
-
 function toLocalEthiopianPhone(phoneNumber: string) {
   const normalized = phoneNumber.replace(/\D/g, "");
   return normalized.startsWith("251") && normalized.length === 12
@@ -59,6 +57,7 @@ function toLocalEthiopianPhone(phoneNumber: string) {
 }
 
 export function AdminUsersPage() {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(20);
@@ -85,6 +84,27 @@ export function AdminUsersPage() {
   });
 
   const users = usersQuery.data?.content ?? [];
+
+  const validateForm = () => {
+    if (!form.displayName.trim()) return "Enter a display name.";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim()) || form.email !== form.email.trim()) {
+      return "Enter a valid email address.";
+    }
+    if (!/^\d{10}$/.test(form.phoneNumber)) return "Enter exactly 10 digits.";
+    if (!statusOptions.some((status) => status === form.status)) return "Choose a valid status.";
+    if (!roleOptions.some((role) => role === form.role)) return "Choose a valid role.";
+    return null;
+  };
+
+  const submitForm = () => {
+    const validationError = validateForm();
+    if (validationError) {
+      setFormError(validationError);
+      return;
+    }
+    setFormError(null);
+    saveMutation.mutate();
+  };
 
   const openCreate = () => {
     setSelectedUser(null);
@@ -140,15 +160,15 @@ export function AdminUsersPage() {
   });
 
   if (usersQuery.isLoading) {
-    return <StatusState title="Loading admin users" loading message="Fetching admin and support accounts" />;
+    return <StatusState title={t("Loading admin users")} loading message={t("Fetching admin and support accounts")} />;
   }
 
   if (usersQuery.error) {
     return (
       <StatusState
-        title="Unable to load admin users"
-        message={getUserFacingErrorMessage(usersQuery.error) ?? "Something went wrong. Please try again."}
-        actionLabel="Retry"
+        title={t("Unable to load admin users")}
+        message={t(getUserFacingErrorMessage(usersQuery.error) ?? "Something went wrong. Please try again.")}
+        actionLabel={t("Retry")}
         onAction={() => usersQuery.refetch()}
       />
     );
@@ -158,22 +178,20 @@ export function AdminUsersPage() {
     <Stack spacing={3}>
       <Box display="flex" justifyContent="space-between" alignItems="center" gap={2} flexWrap="wrap">
         <div>
-          <Typography variant="h4">Admin Users</Typography>
+          <Typography variant="h4">{t("Admin Users")}</Typography>
           <Typography color="text.secondary">
-            Create and maintain admin and support accounts for the console.
-          </Typography>
+            {t("Create and maintain admin and support accounts for the console.")}</Typography>
         </div>
         <Button variant="contained" onClick={openCreate}>
-          Create admin user
-        </Button>
+          {t("Create admin user")}</Button>
       </Box>
 
-      <Alert severity="info">This page manages ADMIN and SUPPORT accounts only.</Alert>
-      {roleError ? <Alert severity="error" role="alert">{roleError}</Alert> : null}
+      <Alert severity="info">{t("This page manages ADMIN and SUPPORT accounts only.")}</Alert>
+      {roleError ? <Alert severity="error" role="alert">{t(roleError)}</Alert> : null}
 
       <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
         <TextField
-          label="Search by name, email, or phone"
+          label={t("Search by name, email, or phone")}
           value={search}
           onChange={(event) => {
             setSearch(event.target.value);
@@ -183,7 +201,7 @@ export function AdminUsersPage() {
         />
         <TextField
           select
-          label="Status"
+          label={t("Status")}
           value={statusFilter}
           onChange={(event) => {
             setStatusFilter(event.target.value);
@@ -191,28 +209,28 @@ export function AdminUsersPage() {
           }}
           sx={{ minWidth: 220 }}
         >
-          <MenuItem value="">All statuses</MenuItem>
+          <MenuItem value="">{t("All statuses")}</MenuItem>
           {statusOptions.map((option) => (
             <MenuItem key={option} value={option}>
-              {option}
+              {translateAdminStatus(option, t)}
             </MenuItem>
           ))}
         </TextField>
       </Stack>
 
-      {users.length === 0 ? <Alert severity="info">No admin users match the current filters.</Alert> : null}
+      {users.length === 0 ? <Alert severity="info">{t("No admin users match the current filters.")}</Alert> : null}
 
       <Box sx={{ overflowX: "auto" }}>
-        <Table size="small" aria-label="admin users table">
+        <Table size="small" aria-label={t("admin users table")}>
           <TableHead>
             <TableRow>
-              <TableCell>Name</TableCell>
-              <TableCell>Email</TableCell>
-              <TableCell>Phone</TableCell>
-              <TableCell>Roles</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell>Updated</TableCell>
-              <TableCell align="right">Actions</TableCell>
+              <TableCell>{t("Name")}</TableCell>
+              <TableCell>{t("Email")}</TableCell>
+              <TableCell>{t("Phone")}</TableCell>
+              <TableCell>{t("Roles")}</TableCell>
+              <TableCell>{t("Status")}</TableCell>
+              <TableCell>{t("Updated")}</TableCell>
+              <TableCell align="right">{t("Actions")}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -226,26 +244,28 @@ export function AdminUsersPage() {
                 <TableCell>
                   <Stack direction="row" spacing={1} flexWrap="wrap">
                     {user.roles.map((role) => (
-                      <Chip key={role} label={roleLabel(role)} size="small" />
+                      <Chip key={role} label={translateAdminRole(role, t)} size="small" />
                     ))}
                   </Stack>
                 </TableCell>
-                <TableCell>{user.status}</TableCell>
+                <TableCell>{translateAdminStatus(user.status, t)}</TableCell>
                 <TableCell>{new Date(user.updatedAt).toLocaleString()}</TableCell>
                 <TableCell align="right">
                   <Button size="small" onClick={() => openEdit(user)}>
-                    Edit
-                  </Button>
+                    {t("Edit")}</Button>
                   {user.roles.filter((role) => role === "FINANCE_VERIFIER" || role === "FINANCE_APPROVER").map((role) => (
                     <Button
                       key={role}
                       size="small"
                       color="warning"
-                      aria-label={`Revoke ${role} from ${user.displayName}`}
+                      aria-label={t("Revoke {{role}} from {{name}}", {
+                        role: translateAdminRole(role, t),
+                        name: user.displayName,
+                      })}
                       disabled={revokeFinanceMutation.isPending}
                       onClick={() => revokeFinanceMutation.mutate({ userId: user.id, role })}
                     >
-                      Revoke {role}
+                      {t("Revoke")}{" "}{translateAdminRole(role, t)}
                     </Button>
                   ))}
                 </TableCell>
@@ -255,7 +275,7 @@ export function AdminUsersPage() {
         </Table>
       </Box>
 
-      <TablePagination
+      <AdminTablePagination
         component="div"
         count={usersQuery.data?.totalElements ?? 0}
         page={page}
@@ -274,25 +294,26 @@ export function AdminUsersPage() {
         fullWidth
         maxWidth="sm"
       >
-        <DialogTitle>{selectedUser ? "Edit admin user" : "Create admin user"}</DialogTitle>
+        <DialogTitle>{selectedUser ? t("Edit admin user") : t("Create admin user")}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
             <TextField
-              label="Display name"
+              label={t("Display name")}
               value={form.displayName}
               onChange={(event) => setForm((current) => ({ ...current, displayName: event.target.value }))}
               fullWidth
               required
             />
             <TextField
-              label="Email"
+              label={t("Email")}
+              type="email"
               value={form.email}
               onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))}
               fullWidth
               required
             />
             <TextField
-              label="Phone number"
+              label={t("Phone number")}
               value={form.phoneNumber}
               onChange={(event) =>
                 setForm((current) => ({
@@ -303,61 +324,59 @@ export function AdminUsersPage() {
               fullWidth
               required
               inputProps={{ inputMode: "numeric", maxLength: 10 }}
-              helperText="Enter exactly 10 digits."
+              helperText={t("Enter exactly 10 digits.")}
             />
             {!selectedUser ? (
-              <Alert severity="info">A password will be generated automatically and emailed to the new user.</Alert>
+              <Alert severity="info">{t("A password will be generated automatically and emailed to the new user.")}</Alert>
             ) : null}
             {selectedUser ? (
               <TextField
-                label="Password (leave blank to keep current)"
+                label={t("Password (leave blank to keep current)")}
                 type="password"
                 value={form.password ?? ""}
                 onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))}
                 fullWidth
-                helperText="Leave blank to keep the current password."
+                helperText={t("Leave blank to keep the current password.")}
               />
             ) : null}
             <TextField
               select
-              label="Status"
+              label={t("Status")}
               value={form.status}
               onChange={(event) => setForm((current) => ({ ...current, status: event.target.value }))}
               fullWidth
             >
               {statusOptions.map((option) => (
                 <MenuItem key={option} value={option}>
-                  {option}
+                  {translateAdminStatus(option, t)}
                 </MenuItem>
               ))}
             </TextField>
             <FormControl fullWidth>
-              <InputLabel id="admin-user-role-label">Role</InputLabel>
+              <InputLabel id="admin-user-role-label">{t("Role")}</InputLabel>
               <Select
                 labelId="admin-user-role-label"
-                label="Role"
+                label={t("Role")}
                 value={form.role}
                 onChange={(event) => setForm((current) => ({ ...current, role: event.target.value }))}
               >
                 {roleOptions.map((role) => (
                   <MenuItem key={role} value={role}>
-                    {role}
+                    {translateAdminRole(role, t)}
                   </MenuItem>
                 ))}
               </Select>
             </FormControl>
             <Typography variant="body2" color="text.secondary">
-              Choose either ADMIN or SUPPORT.
-            </Typography>
-            {formError ? <Alert severity="error">{formError}</Alert> : null}
+              {t("Choose either ADMIN or SUPPORT.")}</Typography>
+            {formError ? <Alert severity="error">{t(formError)}</Alert> : null}
           </Stack>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDialogOpen(false)} disabled={saveMutation.isPending}>
-            Cancel
-          </Button>
-          <Button variant="contained" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
-            {saveMutation.isPending ? "Saving..." : selectedUser ? "Save changes" : "Create user"}
+            {t("Cancel")}</Button>
+          <Button variant="contained" onClick={submitForm} disabled={saveMutation.isPending}>
+            {saveMutation.isPending ? t("Saving...") : selectedUser ? t("Save changes") : t("Create user")}
           </Button>
         </DialogActions>
       </Dialog>

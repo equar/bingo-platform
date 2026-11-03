@@ -71,7 +71,7 @@ describe("PlayersPage", () => {
     render(<PlayersPage />, { wrapper: createWrapper });
 
     await user.click(screen.getByRole("combobox", { name: "Status" }));
-    await user.click(await screen.findByRole("option", { name: "SUSPENDED" }));
+    await user.click(await screen.findByRole("option", { name: "Suspended" }));
 
     await waitFor(() => expect(searchPlayersMock).toHaveBeenLastCalledWith("", 0, 20, "SUSPENDED"));
   });

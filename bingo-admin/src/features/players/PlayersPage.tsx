@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import {
@@ -10,7 +11,6 @@ import {
   TableBody,
   TableCell,
   TableHead,
-  TablePagination,
   TableRow,
   TextField,
   Typography,
@@ -19,10 +19,13 @@ import { Link as RouterLink } from "react-router-dom";
 import { searchPlayers } from "../../api/admin";
 import { getUserFacingErrorMessage } from "../../api/types";
 import { StatusState } from "../../components/StatusState";
+import { AdminTablePagination } from "../../components/AdminTablePagination";
+import { translateAdminStatus } from "../../i18n";
 
 const statusOptions = ["ACTIVE", "PENDING", "SUSPENDED", "DISABLED"] as const;
 
 export function PlayersPage() {
+  const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [page, setPage] = useState(0);
@@ -39,13 +42,13 @@ export function PlayersPage() {
   return (
     <Stack spacing={3}>
       <Box>
-        <Typography variant="h4">Players</Typography>
-        <Typography color="text.secondary">Search users and review account details.</Typography>
+        <Typography variant="h4">{t("Players")}</Typography>
+        <Typography color="text.secondary">{t("Search users and review account details.")}</Typography>
       </Box>
 
       <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
         <TextField
-          label="Search by name, email, or phone"
+          label={t("Search by name, email, or phone")}
           value={query}
           onChange={(event) => {
             setQuery(event.target.value);
@@ -55,7 +58,7 @@ export function PlayersPage() {
         />
         <TextField
           select
-          label="Status"
+          label={t("Status")}
           value={statusFilter}
           onChange={(event) => {
             setStatusFilter(event.target.value);
@@ -63,39 +66,39 @@ export function PlayersPage() {
           }}
           sx={{ minWidth: { xs: "100%", md: 220 } }}
         >
-          <MenuItem value="">All statuses</MenuItem>
+          <MenuItem value="">{t("All statuses")}</MenuItem>
           {statusOptions.map((status) => (
             <MenuItem key={status} value={status}>
-              {status}
+              {translateAdminStatus(status, t)}
             </MenuItem>
           ))}
         </TextField>
       </Stack>
 
-      {playersQuery.isLoading ? <StatusState title="Loading players" loading /> : null}
+      {playersQuery.isLoading ? <StatusState title={t("Loading players")} loading /> : null}
       {playersQuery.error ? (
         <StatusState
-          title="Unable to load players"
-          message={getUserFacingErrorMessage(playersQuery.error) ?? "Something went wrong. Please try again."}
-          actionLabel="Retry"
+          title={t("Unable to load players")}
+          message={t(getUserFacingErrorMessage(playersQuery.error) ?? "Something went wrong. Please try again.")}
+          actionLabel={t("Retry")}
           onAction={() => playersQuery.refetch()}
         />
       ) : null}
       {playersQuery.isFetching && !playersQuery.isLoading ? (
-        <Alert severity="info">Updating player results...</Alert>
+        <Alert severity="info">{t("Updating player results...")}</Alert>
       ) : null}
 
-      <Box sx={{ overflowX: "auto" }}>
-        <Table size="small" aria-label="players table">
+      <Box sx={{ width: "100%", minWidth: 0, overflowX: "auto" }}>
+        <Table size="small" aria-label={t("players table")}>
           <TableHead>
             <TableRow>
-              <TableCell>Player</TableCell>
-              <TableCell>Phone</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell align="right">Wallet transactions</TableCell>
-              <TableCell align="right">Deposits</TableCell>
-              <TableCell align="right">Support</TableCell>
-              <TableCell>Joined</TableCell>
+              <TableCell>{t("Player")}</TableCell>
+              <TableCell>{t("Phone")}</TableCell>
+              <TableCell>{t("Status")}</TableCell>
+              <TableCell align="right">{t("Wallet transactions")}</TableCell>
+              <TableCell align="right">{t("Deposits")}</TableCell>
+              <TableCell align="right">{t("Support")}</TableCell>
+              <TableCell>{t("Joined")}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -109,7 +112,7 @@ export function PlayersPage() {
                 <TableCell>{player.normalizedPhone}</TableCell>
                 <TableCell>
                   <Chip
-                    label={player.status}
+                    label={translateAdminStatus(player.status, t)}
                     size="small"
                     color={player.status === "ACTIVE" ? "success" : "default"}
                     variant="outlined"
@@ -124,7 +127,7 @@ export function PlayersPage() {
             {playersQuery.data && players.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7}>
-                  <Alert severity="info">No players match the current search and filters.</Alert>
+                  <Alert severity="info">{t("No players match the current search and filters.")}</Alert>
                 </TableCell>
               </TableRow>
             ) : null}
@@ -132,7 +135,7 @@ export function PlayersPage() {
         </Table>
       </Box>
 
-      <TablePagination
+      <AdminTablePagination
         component="div"
         count={playersQuery.data?.totalElements ?? 0}
         page={page}

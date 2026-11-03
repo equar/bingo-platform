@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import {
@@ -10,7 +11,6 @@ import {
   TableBody,
   TableCell,
   TableHead,
-  TablePagination,
   TableRow,
   TextField,
   Typography,
@@ -19,12 +19,15 @@ import { Link as RouterLink } from "react-router-dom";
 import { supportAssignees, supportTickets } from "../../api/admin";
 import { getUserFacingErrorMessage } from "../../api/types";
 import { StatusState } from "../../components/StatusState";
+import { AdminTablePagination } from "../../components/AdminTablePagination";
+import { translateAdminStatus, translateAdminValue } from "../../i18n";
 
 const statusOptions = ["", "OPEN", "IN_PROGRESS", "WAITING_FOR_CUSTOMER", "RESOLVED", "CLOSED"];
 const categoryOptions = ["", "ACCOUNT", "WALLET", "GAME", "AGENT", "TECHNICAL", "BILLING", "OTHER"];
 const priorityOptions = ["LOW", "NORMAL", "HIGH", "URGENT"];
 
 export function SupportTicketsPage() {
+  const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("");
   const [category, setCategory] = useState("");
@@ -52,15 +55,15 @@ export function SupportTicketsPage() {
   const visibleTickets = ticketsQuery.data?.content ?? [];
 
   if (ticketsQuery.isLoading || usersQuery.isLoading) {
-    return <StatusState title="Loading support tickets" loading message="Fetching call-center queue" />;
+    return <StatusState title={t("Loading support tickets")} loading message={t("Fetching call-center queue")} />;
   }
 
   if (ticketsQuery.error) {
     return (
       <StatusState
-        title="Unable to load support tickets"
-        message={getUserFacingErrorMessage(ticketsQuery.error) ?? "Something went wrong. Please try again."}
-        actionLabel="Retry"
+        title={t("Unable to load support tickets")}
+        message={t(getUserFacingErrorMessage(ticketsQuery.error) ?? "Something went wrong. Please try again.")}
+        actionLabel={t("Retry")}
         onAction={() => ticketsQuery.refetch()}
       />
     );
@@ -69,15 +72,14 @@ export function SupportTicketsPage() {
   return (
     <Stack spacing={3}>
       <Box>
-        <Typography variant="h4">Support tickets</Typography>
+        <Typography variant="h4">{t("Support tickets")}</Typography>
         <Typography color="text.secondary">
-          Queue, filter, and review call-center tickets with public and internal notes kept separate.
-        </Typography>
+          {t("Queue, filter, and review call-center tickets with public and internal notes kept separate.")}</Typography>
       </Box>
 
       <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
         <TextField
-          label="Search tickets, subjects, players, or phone"
+          label={t("Search tickets, subjects, players, or phone")}
           value={query}
           onChange={(event) => {
             setQuery(event.target.value);
@@ -87,7 +89,7 @@ export function SupportTicketsPage() {
         />
         <TextField
           select
-          label="Status"
+          label={t("Status")}
           value={status}
           onChange={(event) => {
             setStatus(event.target.value);
@@ -95,16 +97,16 @@ export function SupportTicketsPage() {
           }}
           sx={{ minWidth: { xs: "100%", md: 200 } }}
         >
-          <MenuItem value="">All statuses</MenuItem>
+          <MenuItem value="">{t("All statuses")}</MenuItem>
           {statusOptions.filter(Boolean).map((option) => (
             <MenuItem key={option} value={option}>
-              {option.replace(/_/g, " ")}
+              {translateAdminStatus(option, t)}
             </MenuItem>
           ))}
         </TextField>
         <TextField
           select
-          label="Category"
+          label={t("Category")}
           value={category}
           onChange={(event) => {
             setCategory(event.target.value);
@@ -112,16 +114,16 @@ export function SupportTicketsPage() {
           }}
           sx={{ minWidth: { xs: "100%", md: 180 } }}
         >
-          <MenuItem value="">All categories</MenuItem>
+          <MenuItem value="">{t("All categories")}</MenuItem>
           {categoryOptions.filter(Boolean).map((option) => (
             <MenuItem key={option} value={option}>
-              {option}
+              {translateAdminValue(option, t)}
             </MenuItem>
           ))}
         </TextField>
         <TextField
           select
-          label="Priority"
+          label={t("Priority")}
           value={priority}
           onChange={(event) => {
             setPriority(event.target.value);
@@ -129,16 +131,16 @@ export function SupportTicketsPage() {
           }}
           sx={{ minWidth: { xs: "100%", md: 150 } }}
         >
-          <MenuItem value="">All priorities</MenuItem>
+          <MenuItem value="">{t("All priorities")}</MenuItem>
           {priorityOptions.map((option) => (
             <MenuItem key={option} value={option}>
-              {option}
+              {translateAdminValue(option, t)}
             </MenuItem>
           ))}
         </TextField>
         <TextField
           select
-          label="Assignee"
+          label={t("Assignee")}
           value={assignee}
           onChange={(event) => {
             setAssignee(event.target.value);
@@ -146,7 +148,7 @@ export function SupportTicketsPage() {
           }}
           sx={{ minWidth: { xs: "100%", md: 180 } }}
         >
-          <MenuItem value="">All assignees</MenuItem>
+          <MenuItem value="">{t("All assignees")}</MenuItem>
           {(usersQuery.data ?? []).map((user) => (
             <MenuItem key={user.userId} value={String(user.userId)}>
               {user.displayName}
@@ -156,20 +158,20 @@ export function SupportTicketsPage() {
       </Stack>
 
       {ticketsQuery.isFetching && !ticketsQuery.isLoading ? (
-        <Alert severity="info">Updating ticket results...</Alert>
+        <Alert severity="info">{t("Updating ticket results...")}</Alert>
       ) : null}
 
       <Box sx={{ overflowX: "auto" }}>
-        <Table size="small" aria-label="support ticket queue">
+        <Table size="small" aria-label={t("support ticket queue")}>
             <TableHead>
               <TableRow>
-                <TableCell>Ticket</TableCell>
-                <TableCell>Category</TableCell>
-                <TableCell>Priority</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Assignee</TableCell>
-                <TableCell>Linked record</TableCell>
-                <TableCell>Updated</TableCell>
+                <TableCell>{t("Ticket")}</TableCell>
+                <TableCell>{t("Category")}</TableCell>
+                <TableCell>{t("Priority")}</TableCell>
+                <TableCell>{t("Status")}</TableCell>
+                <TableCell>{t("Assignee")}</TableCell>
+                <TableCell>{t("Linked record")}</TableCell>
+                <TableCell>{t("Updated")}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -190,20 +192,20 @@ export function SupportTicketsPage() {
                       </Typography>
                     </Stack>
                   </TableCell>
-                  <TableCell>{ticket.category}</TableCell>
+                  <TableCell>{translateAdminValue(ticket.category, t)}</TableCell>
                   <TableCell>
-                    <Chip label={ticket.priority} size="small" />
+                    <Chip label={t(ticket.priority)} size="small" />
                   </TableCell>
-                  <TableCell>{ticket.status}</TableCell>
-                  <TableCell>{ticket.assignedToUserId ?? "Unassigned"}</TableCell>
-                  <TableCell>{ticket.linkedEntityType ?? "n/a"}</TableCell>
+                  <TableCell>{translateAdminStatus(ticket.status, t)}</TableCell>
+                  <TableCell>{ticket.assignedToUserId ?? t("Unassigned")}</TableCell>
+                  <TableCell>{ticket.linkedEntityType ? translateAdminValue(ticket.linkedEntityType, t) : "n/a"}</TableCell>
                   <TableCell>{new Date(ticket.updatedAt).toLocaleString()}</TableCell>
                 </TableRow>
               ))}
               {visibleTickets.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7}>
-                    <Alert severity="info">No tickets match the current filters.</Alert>
+                    <Alert severity="info">{t("No tickets match the current filters.")}</Alert>
                   </TableCell>
                 </TableRow>
               ) : null}
@@ -211,7 +213,7 @@ export function SupportTicketsPage() {
         </Table>
       </Box>
 
-      <TablePagination
+      <AdminTablePagination
         component="div"
         count={ticketsQuery.data?.totalElements ?? 0}
         page={page}

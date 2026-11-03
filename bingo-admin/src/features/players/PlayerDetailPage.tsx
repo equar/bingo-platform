@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useState } from "react";
 import {
@@ -30,6 +31,7 @@ import {
 import { getUserFacingErrorMessage, parseApiError } from "../../api/types";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { StatusState } from "../../components/StatusState";
+import { translateAdminRole, translateAdminStatus } from "../../i18n";
 import { PlayerActivityDialog, type PlayerActivityType } from "./PlayerActivityDialog";
 
 interface AdjustmentDraft {
@@ -65,12 +67,13 @@ function PlayerActivityCard({
   description: string;
   onClick: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <Card sx={{ border: "1px solid", borderColor: "divider", height: "100%" }}>
       <ButtonBase
         onClick={onClick}
         sx={{ display: "block", height: "100%", textAlign: "left", width: "100%" }}
-        aria-label={`View ${title.toLowerCase()} details`}
+        aria-label={t("View {{title}} details", { title: title.toLowerCase() })}
       >
         <Box sx={{ p: 2 }}>
           <Typography variant="overline">{title}</Typography>
@@ -85,6 +88,7 @@ function PlayerActivityCard({
 }
 
 export function PlayerDetailPage() {
+  const { t } = useTranslation();
   const { playerId } = useParams();
   const id = Number(playerId);
   const validPlayerId = Number.isSafeInteger(id) && id > 0;
@@ -166,15 +170,14 @@ export function PlayerDetailPage() {
     reviewRequestId != null && uncertainReviewRequestIds.has(reviewRequestId);
   const backButton = (
     <Button component={RouterLink} to="/players" size="small" variant="outlined">
-      Back to players
-    </Button>
+      {t("Back to players")}</Button>
   );
 
   if (!validPlayerId) {
     return (
       <Stack spacing={2} alignItems="flex-start">
         {backButton}
-        <StatusState title="Invalid player ID" message="Open a player profile using a valid player ID." />
+        <StatusState title={t("Invalid player ID")} message={t("Open a player profile using a valid player ID.")} />
       </Stack>
     );
   }
@@ -183,7 +186,7 @@ export function PlayerDetailPage() {
     return (
       <Stack spacing={2} alignItems="flex-start">
         {backButton}
-        <StatusState title="Loading player" loading message="Fetching player profile" />
+        <StatusState title={t("Loading player")} loading message={t("Fetching player profile")} />
       </Stack>
     );
   }
@@ -193,9 +196,9 @@ export function PlayerDetailPage() {
       <Stack spacing={2} alignItems="flex-start">
         {backButton}
         <StatusState
-          title="Unable to load player"
-          message={getUserFacingErrorMessage(playerQuery.error) ?? "This item is no longer available. Refresh and try again."}
-          actionLabel="Retry"
+          title={t("Unable to load player")}
+          message={t(getUserFacingErrorMessage(playerQuery.error) ?? "This item is no longer available. Refresh and try again.")}
+          actionLabel={t("Retry")}
           onAction={() => playerQuery.refetch()}
         />
       </Stack>
@@ -210,7 +213,7 @@ export function PlayerDetailPage() {
           <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap">
             <Typography variant="h4">{player.displayName}</Typography>
             <Chip
-              label={player.status}
+              label={translateAdminStatus(player.status, t)}
               size="small"
               color={
                 player.status === "ACTIVE"
@@ -224,7 +227,7 @@ export function PlayerDetailPage() {
             />
           </Stack>
           <Typography color="text.secondary">
-            Player #{player.id} · {player.normalizedPhone} · {player.email ?? "No email provided"}
+            {t("Player #")}{player.id} {t("·")}{" "}{player.normalizedPhone} {t("·")}{" "}{player.email ?? t("No email provided")}
           </Typography>
         </div>
         <Stack direction="row" spacing={1}>
@@ -238,8 +241,7 @@ export function PlayerDetailPage() {
             }}
             disabled={!player.roles.includes("PLAYER")}
           >
-            Change account status
-          </Button>
+            {t("Change account status")}</Button>
           <Button
             variant="contained"
             onClick={() => {
@@ -248,14 +250,13 @@ export function PlayerDetailPage() {
             }}
             disabled={!player.roles.includes("PLAYER") || adjustmentOutcomeUnknown}
           >
-            Adjust wallet
-          </Button>
+            {t("Adjust wallet")}</Button>
         </Stack>
       </Box>
 
       {statusMutation.isError ? (
         <Alert severity="error" onClose={() => statusMutation.reset()}>
-          {getUserFacingErrorMessage(statusMutation.error) ?? "Something went wrong. Please try again."}
+          {t(getUserFacingErrorMessage(statusMutation.error) ?? "Something went wrong. Please try again.")}
         </Alert>
       ) : null}
 
@@ -264,83 +265,82 @@ export function PlayerDetailPage() {
           severity="error"
           onClose={adjustmentOutcomeUnknown ? undefined : () => adjustmentMutation.reset()}
         >
-          {getUserFacingErrorMessage(adjustmentMutation.error) ?? "Something went wrong. Please try again."}
+          {t(getUserFacingErrorMessage(adjustmentMutation.error) ?? "Something went wrong. Please try again.")}
         </Alert>
       ) : null}
       {reviewRequestId == null && uncertainReviewRequestIds.size > 0 ? (
         <Alert severity="error">
-          {getUserFacingErrorMessage(adjustmentReviewMutation.error) ??
-            "We couldn’t confirm the transaction status. Check the transaction history before trying again."}
+          {t(getUserFacingErrorMessage(adjustmentReviewMutation.error) ??
+            "We couldn’t confirm the transaction status. Check the transaction history before trying again.")}
         </Alert>
       ) : null}
       {adjustmentMutation.isSuccess ? (
         <Alert severity="success">
-          Adjustment request #{adjustmentMutation.data.id} was submitted for independent approval. The wallet balance has not changed.
-        </Alert>
+          {t("Adjustment request #")}{adjustmentMutation.data.id} {t("was submitted for independent approval. The wallet balance has not changed.")}</Alert>
       ) : null}
 
       <Grid container spacing={2}>
         <Grid item xs={12} sm={6} lg={4}>
           <PlayerActivityCard
-            title="Wallet transactions"
+            title={t("Wallet transactions")}
             value={player.walletTransactionCount}
-            description="View wallet history"
+            description={t("View wallet history")}
             onClick={() => setActivity("wallet")}
           />
         </Grid>
         <Grid item xs={12} sm={6} lg={4}>
           <PlayerActivityCard
-            title="Deposits"
+            title={t("Deposits")}
             value={player.depositClaimCount}
-            description="View deposit claims"
+            description={t("View deposit claims")}
             onClick={() => setActivity("deposits")}
           />
         </Grid>
         <Grid item xs={12} sm={6} lg={4}>
           <PlayerActivityCard
-            title="Support tickets"
+            title={t("Support tickets")}
             value={player.supportTicketCount}
-            description="View support history"
+            description={t("View support history")}
             onClick={() => setActivity("support")}
           />
         </Grid>
         <Grid item xs={12} sm={6} lg={4}>
           <PlayerActivityCard
-            title="Available balance"
+            title={t("Available balance")}
             value={
               player.walletAvailableBalance == null
-                ? "No wallet"
+                ? t("No wallet")
                 : `${player.walletAvailableBalance} ${player.walletCurrency ?? ""}`
             }
-            description="View wallet history"
+            description={t("View wallet history")}
             onClick={() => setActivity("wallet")}
           />
         </Grid>
         <Grid item xs={12} sm={6} lg={4}>
           <PlayerActivityCard
-            title="Promotional balance"
+            title={t("Promotional balance")}
             value={
               player.walletPromotionalBalance == null
-                ? "No wallet"
+                ? t("No wallet")
                 : `${player.walletPromotionalBalance} ${player.walletCurrency ?? ""}`
             }
-            description="View wallet history"
+            description={t("View wallet history")}
             onClick={() => setActivity("wallet")}
           />
         </Grid>
         <Grid item xs={12} sm={6} lg={4}>
           <PlayerActivityCard
-            title="Game tickets"
+            title={t("Game tickets")}
             value={player.ticketCount}
-            description="View purchased tickets"
+            description={t("View purchased tickets")}
             onClick={() => setActivity("tickets")}
           />
         </Grid>
         <Grid item xs={12} sm={6} lg={4}>
           <PlayerActivityCard
-            title="Win claims"
+            title={t("Win claims")}
             value={player.winClaimCount}
-            description="View win claim history"
+            description={t("View win claim history")}
             onClick={() => setActivity("wins")}
           />
         </Grid>
@@ -349,31 +349,31 @@ export function PlayerDetailPage() {
       <Card sx={{ border: "1px solid", borderColor: "divider" }}>
         <CardContent>
           <Stack spacing={1}>
-            <Typography variant="h6">Wallet adjustment requests</Typography>
+            <Typography variant="h6">{t("Wallet adjustment requests")}</Typography>
             {adjustmentHistoryQuery.isError ? (
-              <Alert severity="error">Unable to load adjustment history: {getUserFacingErrorMessage(adjustmentHistoryQuery.error)}</Alert>
+              <Alert severity="error">{t("Unable to load adjustment history:")}{" "}{t(getUserFacingErrorMessage(adjustmentHistoryQuery.error) ?? "Something went wrong. Please try again.")}</Alert>
             ) : adjustmentHistoryQuery.isLoading ? (
-              <Typography color="text.secondary">Loading adjustment history...</Typography>
+              <Typography color="text.secondary">{t("Loading adjustment history...")}</Typography>
             ) : adjustmentHistoryQuery.data?.length ? (
               adjustmentHistoryQuery.data.map((request) => (
                 <Box key={request.id} sx={{ borderBottom: "1px solid", borderColor: "divider", py: 1 }}>
                   <Typography>
-                    #{request.id}: {request.amount} {request.currency} · {request.status}
+                    {t("#")}{request.id}{t(":")}{" "}{request.amount} {request.currency} {t("·")}{" "}{translateAdminStatus(request.status, t)}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    Maker #{request.makerUserId}
-                    {request.checkerUserId == null ? "" : ` · Checker #${request.checkerUserId}`}
-                    {request.postingReference == null ? "" : ` · Journal ${request.postingReference}`}
+                    {t("Maker #")}{request.makerUserId}
+                    {request.checkerUserId == null ? "" : ` · ${t("Checker")} #${request.checkerUserId}`}
+                    {request.postingReference == null ? "" : ` · ${t("Journal")} ${request.postingReference}`}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    Reason: {request.reason}
+                    {t("Reason:")}{" "}{request.reason}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    Supporting reference: {request.supportingReference}
+                    {t("Supporting reference:")}{" "}{request.supportingReference}
                   </Typography>
                   {request.reviewNote ? (
                     <Typography variant="caption" color="text.secondary">
-                      Checker review note: {request.reviewNote}
+                      {t("Checker review note:")}{" "}{request.reviewNote}
                     </Typography>
                   ) : null}
                   {request.status === "PENDING" ? (
@@ -388,8 +388,7 @@ export function PlayerDetailPage() {
                           setReviewRequestId(request.id);
                         }}
                       >
-                        Approve request
-                      </Button>
+                        {t("Approve request")}</Button>
                       <Button
                         size="small"
                         color="error"
@@ -401,14 +400,13 @@ export function PlayerDetailPage() {
                           setReviewRequestId(request.id);
                         }}
                       >
-                        Reject request
-                      </Button>
+                        {t("Reject request")}</Button>
                     </Stack>
                   ) : null}
                 </Box>
               ))
             ) : (
-              <Typography color="text.secondary">No wallet adjustment requests.</Typography>
+              <Typography color="text.secondary">{t("No wallet adjustment requests.")}</Typography>
             )}
           </Stack>
         </CardContent>
@@ -417,42 +415,36 @@ export function PlayerDetailPage() {
       <Card sx={{ border: "1px solid", borderColor: "divider" }}>
         <CardContent>
           <Stack spacing={2}>
-            <Typography variant="h6">Account details</Typography>
+            <Typography variant="h6">{t("Account details")}</Typography>
             <Grid container spacing={2}>
               <Grid item xs={12} sm={6} md={4}>
                 <Typography variant="overline" color="text.secondary">
-                  Player ID
-                </Typography>
+                  {t("Player ID")}</Typography>
                 <Typography>{player.id}</Typography>
               </Grid>
               <Grid item xs={12} sm={6} md={4}>
                 <Typography variant="overline" color="text.secondary">
-                  Phone
-                </Typography>
+                  {t("Phone")}</Typography>
                 <Typography>{player.normalizedPhone}</Typography>
               </Grid>
               <Grid item xs={12} sm={6} md={4}>
                 <Typography variant="overline" color="text.secondary">
-                  Email
-                </Typography>
-                <Typography>{player.email ?? "Not provided"}</Typography>
+                  {t("Email")}</Typography>
+                <Typography>{player.email ?? t("Not provided")}</Typography>
               </Grid>
               <Grid item xs={12} sm={6} md={4}>
                 <Typography variant="overline" color="text.secondary">
-                  Roles
-                </Typography>
-                <Typography>{player.roles.join(", ") || "None"}</Typography>
+                  {t("Roles")}</Typography>
+                <Typography>{player.roles.map((role) => translateAdminRole(role, t)).join(", ") || t("None")}</Typography>
               </Grid>
               <Grid item xs={12} sm={6} md={4}>
                 <Typography variant="overline" color="text.secondary">
-                  Created
-                </Typography>
+                  {t("Created")}</Typography>
                 <Typography>{new Date(player.createdAt).toLocaleString()}</Typography>
               </Grid>
               <Grid item xs={12} sm={6} md={4}>
                 <Typography variant="overline" color="text.secondary">
-                  Last updated
-                </Typography>
+                  {t("Last updated")}</Typography>
                 <Typography>{new Date(player.updatedAt).toLocaleString()}</Typography>
               </Grid>
             </Grid>
@@ -474,25 +466,24 @@ export function PlayerDetailPage() {
         fullWidth
         maxWidth="sm"
       >
-        <DialogTitle>Change player account status</DialogTitle>
+        <DialogTitle>{t("Change player account status")}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
             <Alert severity="info">
-              Non-active players cannot sign in or use protected APIs. This action is recorded in the audit log.
-            </Alert>
+              {t("Non-active players cannot sign in or use protected APIs. This action is recorded in the audit log.")}</Alert>
             <TextField
               select
-              label="Account status"
+              label={t("Account status")}
               value={nextStatus}
               onChange={(event) => setNextStatus(event.target.value)}
               fullWidth
             >
               {["ACTIVE", "PENDING", "SUSPENDED", "DISABLED"].map((status) => (
-                <MenuItem key={status} value={status}>{status}</MenuItem>
+                <MenuItem key={status} value={status}>{translateAdminStatus(status, t)}</MenuItem>
               ))}
             </TextField>
             <TextField
-              label="Reason"
+              label={t("Reason")}
               value={statusReason}
               onChange={(event) => setStatusReason(event.target.value)}
               inputProps={{ maxLength: 500 }}
@@ -504,14 +495,14 @@ export function PlayerDetailPage() {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setStatusDialogOpen(false)} disabled={statusMutation.isPending}>Cancel</Button>
+          <Button onClick={() => setStatusDialogOpen(false)} disabled={statusMutation.isPending}>{t("Cancel")}</Button>
           <Button
             variant="contained"
             color="warning"
             onClick={() => statusMutation.mutate()}
             disabled={!nextStatus || nextStatus === player.status || !statusReason.trim() || statusMutation.isPending}
           >
-            {statusMutation.isPending ? "Saving..." : "Save status"}
+            {statusMutation.isPending ? t("Saving...") : t("Save status")}
           </Button>
         </DialogActions>
       </Dialog>
@@ -526,23 +517,23 @@ export function PlayerDetailPage() {
         fullWidth
         maxWidth="sm"
       >
-        <DialogTitle>Adjust wallet</DialogTitle>
+        <DialogTitle>{t("Adjust wallet")}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
             <TextField
               select
-              label="Direction"
+              label={t("Direction")}
               value={draft?.direction ?? "CREDIT"}
               onChange={(event) =>
                 draft && setDraft({ ...draft, direction: event.target.value as AdjustmentDraft["direction"] })
               }
               fullWidth
             >
-              <MenuItem value="CREDIT">Credit</MenuItem>
-              <MenuItem value="DEBIT">Debit</MenuItem>
+              <MenuItem value="CREDIT">{t("Credit")}</MenuItem>
+              <MenuItem value="DEBIT">{t("Debit")}</MenuItem>
             </TextField>
             <TextField
-              label="Amount"
+              label={t("Amount")}
               type="number"
               value={draft?.amount ?? ""}
               onChange={(event) => draft && setDraft({ ...draft, amount: event.target.value })}
@@ -552,12 +543,12 @@ export function PlayerDetailPage() {
               error={Boolean(draft?.amount && (!Number.isFinite(Number(draft.amount)) || Number(draft.amount) <= 0))}
               helperText={
                 draft?.amount && (!Number.isFinite(Number(draft.amount)) || Number(draft.amount) <= 0)
-                  ? "Enter an amount greater than zero."
-                  : "Enter a positive amount; direction determines whether it is credited or debited."
+                  ? t("Enter an amount greater than zero.")
+                  : t("Enter a positive amount; direction determines whether it is credited or debited.")
               }
             />
             <TextField
-              label="Reason"
+              label={t("Reason")}
               value={draft?.reason ?? ""}
               onChange={(event) => draft && setDraft({ ...draft, reason: event.target.value })}
               fullWidth
@@ -567,20 +558,20 @@ export function PlayerDetailPage() {
               inputProps={{ maxLength: 350 }}
             />
             <TextField
-              label="Currency"
+              label={t("Currency")}
               value={draft?.currency ?? "ETB"}
               disabled
               fullWidth
-              helperText="Wallet currency is fixed by the platform."
+              helperText={t("Wallet currency is fixed by the platform.")}
             />
             <TextField
-              label="Reference"
+              label={t("Reference")}
               value={draft?.reference ?? ""}
               onChange={(event) => draft && setDraft({ ...draft, reference: event.target.value })}
               inputProps={{ maxLength: 120 }}
               fullWidth
               required
-              helperText="Required supporting reference for checker review."
+              helperText={t("Required supporting reference for checker review.")}
             />
           </Stack>
         </DialogContent>
@@ -591,8 +582,7 @@ export function PlayerDetailPage() {
             }}
             disabled={adjustmentMutation.isPending}
           >
-            Cancel
-          </Button>
+            {t("Cancel")}</Button>
           <Button
             variant="contained"
             onClick={() => setConfirmOpen(true)}
@@ -605,8 +595,7 @@ export function PlayerDetailPage() {
               adjustmentMutation.isPending
             }
           >
-            Review
-          </Button>
+            {t("Review")}</Button>
         </DialogActions>
       </Dialog>
 
@@ -616,17 +605,16 @@ export function PlayerDetailPage() {
         fullWidth
         maxWidth="sm"
       >
-        <DialogTitle>{reviewDecision === "approve" ? "Approve adjustment request" : "Reject adjustment request"}</DialogTitle>
+        <DialogTitle>{reviewDecision === "approve" ? t("Approve adjustment request") : t("Reject adjustment request")}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
             <Alert severity="warning">
-              The maker cannot review their own request. Approval posts once; rejection leaves the wallet unchanged.
-            </Alert>
+              {t("The maker cannot review their own request. Approval posts once; rejection leaves the wallet unchanged.")}</Alert>
             {adjustmentReviewMutation.isError ? (
-              <Alert severity="error">{getUserFacingErrorMessage(adjustmentReviewMutation.error)}</Alert>
+              <Alert severity="error">{t(getUserFacingErrorMessage(adjustmentReviewMutation.error) ?? "Something went wrong. Please try again.")}</Alert>
             ) : null}
             <TextField
-              label="Checker review note"
+              label={t("Checker review note")}
               value={reviewNote}
               onChange={(event) => setReviewNote(event.target.value)}
               disabled={reviewOutcomeUnknown}
@@ -638,27 +626,35 @@ export function PlayerDetailPage() {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setReviewRequestId(null)} disabled={adjustmentReviewMutation.isPending}>Cancel</Button>
+          <Button onClick={() => setReviewRequestId(null)} disabled={adjustmentReviewMutation.isPending}>{t("Cancel")}</Button>
           <Button
             variant="contained"
             color={reviewDecision === "approve" ? "primary" : "error"}
             onClick={() => adjustmentReviewMutation.mutate()}
             disabled={!reviewNote.trim() || adjustmentReviewMutation.isPending || reviewOutcomeUnknown}
           >
-            {reviewDecision === "approve" ? "Approve" : "Reject"}
+            {reviewDecision === "approve" ? t("Approve") : t("Reject")}
           </Button>
         </DialogActions>
       </Dialog>
 
       <ConfirmDialog
         open={confirmOpen}
-        title="Submit wallet adjustment request"
-        description={`Submit a ${draft?.direction?.toLowerCase()} request of ${draft?.amount} ${player.walletCurrency ?? draft?.currency} for ${player.displayName}? A different finance approver must review it; no balance changes until approved.`}
-        confirmLabel="Submit request"
-        cancelLabel="Back"
+        title={t("Submit wallet adjustment request")}
+        description={t(
+          "Submit a {{direction}} request of {{amount}} {{currency}} for {{name}}? A different finance approver must review it; no balance changes until approved.",
+          {
+            direction: draft?.direction?.toLowerCase() ?? "",
+            amount: draft?.amount ?? "",
+            currency: player.walletCurrency ?? draft?.currency ?? "",
+            name: player.displayName,
+          },
+        )}
+        confirmLabel={t("Submit request")}
+        cancelLabel={t("Back")}
         confirming={adjustmentMutation.isPending}
         disableConfirm={adjustmentOutcomeUnknown}
-        error={adjustmentMutation.isError ? getUserFacingErrorMessage(adjustmentMutation.error) : undefined}
+        error={adjustmentMutation.isError ? t(getUserFacingErrorMessage(adjustmentMutation.error) ?? "Something went wrong. Please try again.") : undefined}
         onCancel={() => setConfirmOpen(false)}
         onConfirm={() => draft && adjustmentMutation.mutate(draft)}
       />

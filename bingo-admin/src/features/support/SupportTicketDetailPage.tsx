@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -26,10 +27,12 @@ import {
 import { getUserFacingErrorMessage } from "../../api/types";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { StatusState } from "../../components/StatusState";
+import { translateAdminStatus, translateAdminValue } from "../../i18n";
 
 const statusOptions = ["OPEN", "IN_PROGRESS", "WAITING_FOR_CUSTOMER", "RESOLVED", "CLOSED"] as const;
 
 export function SupportTicketDetailPage() {
+  const { t } = useTranslation();
   const { ticketId } = useParams();
   const id = Number(ticketId);
   const queryClient = useQueryClient();
@@ -110,15 +113,15 @@ export function SupportTicketDetailPage() {
   const requiresResolutionSummary = useMemo(() => ["RESOLVED", "CLOSED"].includes(status), [status]);
 
   if (ticketQuery.isLoading || usersQuery.isLoading) {
-    return <StatusState title="Loading ticket" loading message="Fetching ticket detail" />;
+    return <StatusState title={t("Loading ticket")} loading message={t("Fetching ticket detail")} />;
   }
 
   if (ticketQuery.error || !ticket) {
     return (
       <StatusState
-        title="Unable to load ticket"
-        message={getUserFacingErrorMessage(ticketQuery.error) ?? "This item is no longer available. Refresh and try again."}
-        actionLabel="Retry"
+        title={t("Unable to load ticket")}
+        message={t(getUserFacingErrorMessage(ticketQuery.error) ?? "This item is no longer available. Refresh and try again.")}
+        actionLabel={t("Retry")}
         onAction={() => ticketQuery.refetch()}
       />
     );
@@ -132,29 +135,28 @@ export function SupportTicketDetailPage() {
           <Typography color="text.secondary">{ticket.subject}</Typography>
         </div>
         <Button component={RouterLink} to="/support/tickets" variant="outlined">
-          Back to queue
-        </Button>
+          {t("Back to queue")}</Button>
       </Box>
 
-      {errorMessage ? <Alert severity="error">{errorMessage}</Alert> : null}
+      {errorMessage ? <Alert severity="error">{t(errorMessage)}</Alert> : null}
 
       <Grid container spacing={2}>
         <Grid item xs={12} lg={5}>
           <Card sx={{ border: "1px solid", borderColor: "divider", height: "100%" }}>
             <CardContent>
               <Stack spacing={1.5}>
-                <Typography variant="h6">Ticket summary</Typography>
-                <Typography>Requester: {ticket.requesterDisplayName}</Typography>
-                <Typography>Category: {ticket.category}</Typography>
-                <Typography>Priority: {ticket.priority}</Typography>
-                <Typography>Status: {ticket.status}</Typography>
+                <Typography variant="h6">{t("Ticket summary")}</Typography>
+                <Typography>{t("Requester:")}{" "}{ticket.requesterDisplayName}</Typography>
+                <Typography>{t("Category:")}{" "}{translateAdminValue(ticket.category, t)}</Typography>
+                <Typography>{t("Priority:")}{" "}{t(ticket.priority)}</Typography>
+                <Typography>{t("Status:")}{" "}{translateAdminStatus(ticket.status, t)}</Typography>
                 <Typography>
-                  Linked record: {ticket.linkedEntityType ?? "n/a"}{" "}
+                  {t("Linked record:")}{" "}{ticket.linkedEntityType ?? "n/a"}{" "}
                   {ticket.linkedEntityReference ?? ticket.linkedEntityId ?? "n/a"}
                 </Typography>
-                <Typography>Assigned to: {ticket.assignedToUserId ?? "Unassigned"}</Typography>
-                <Typography>Created: {new Date(ticket.createdAt).toLocaleString()}</Typography>
-                <Typography>Updated: {new Date(ticket.updatedAt).toLocaleString()}</Typography>
+                <Typography>{t("Assigned to:")}{" "}{ticket.assignedToUserId ?? "Unassigned"}</Typography>
+                <Typography>{t("Created:")}{" "}{new Date(ticket.createdAt).toLocaleString()}</Typography>
+                <Typography>{t("Updated:")}{" "}{new Date(ticket.updatedAt).toLocaleString()}</Typography>
                 <Divider />
                 <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
                   {ticket.description}
@@ -169,15 +171,15 @@ export function SupportTicketDetailPage() {
             <Card sx={{ border: "1px solid", borderColor: "divider" }}>
               <CardContent>
                 <Stack spacing={2}>
-                  <Typography variant="h6">Assignment</Typography>
+                  <Typography variant="h6">{t("Assignment")}</Typography>
                   <TextField
                     select
-                    label="Assignee"
+                    label={t("Assignee")}
                     value={assignedToUserId}
                     onChange={(event) => setAssignedToUserId(event.target.value)}
                     fullWidth
                   >
-                    <MenuItem value="">Unassigned</MenuItem>
+                    <MenuItem value="">{t("Unassigned")}</MenuItem>
                     {(usersQuery.data ?? []).map((user) => (
                       <MenuItem key={user.userId} value={String(user.userId)}>
                         {user.displayName}
@@ -189,8 +191,7 @@ export function SupportTicketDetailPage() {
                     onClick={() => assignMutation.mutate()}
                     disabled={!assignedToUserId || assignMutation.isPending}
                   >
-                    Save assignment
-                  </Button>
+                    {t("Save assignment")}</Button>
                 </Stack>
               </CardContent>
             </Card>
@@ -198,22 +199,22 @@ export function SupportTicketDetailPage() {
             <Card sx={{ border: "1px solid", borderColor: "divider" }}>
               <CardContent>
                 <Stack spacing={2}>
-                  <Typography variant="h6">Status update</Typography>
+                  <Typography variant="h6">{t("Status update")}</Typography>
                   <TextField
                     select
-                    label="New status"
+                    label={t("New status")}
                     value={status}
                     onChange={(event) => setStatus(event.target.value as (typeof statusOptions)[number])}
                     fullWidth
                   >
                     {statusOptions.map((option) => (
                       <MenuItem key={option} value={option}>
-                        {option}
+                        {translateAdminStatus(option, t)}
                       </MenuItem>
                     ))}
                   </TextField>
                   <TextField
-                    label="Resolution summary"
+                    label={t("Resolution summary")}
                     value={resolutionSummary}
                     onChange={(event) => setResolutionSummary(event.target.value)}
                     fullWidth
@@ -222,8 +223,8 @@ export function SupportTicketDetailPage() {
                     required={requiresResolutionSummary}
                     helperText={
                       requiresResolutionSummary
-                        ? "Required before closing or resolving a ticket."
-                        : "Optional unless closing or resolving."
+                        ? t("Required before closing or resolving a ticket.")
+                        : t("Optional unless closing or resolving.")
                     }
                   />
                   <Button
@@ -231,8 +232,7 @@ export function SupportTicketDetailPage() {
                     onClick={() => setStatusConfirmOpen(true)}
                     disabled={statusMutation.isPending || (requiresResolutionSummary && !resolutionSummary.trim())}
                   >
-                    Review status change
-                  </Button>
+                    {t("Review status change")}</Button>
                 </Stack>
               </CardContent>
             </Card>
@@ -240,9 +240,9 @@ export function SupportTicketDetailPage() {
             <Card sx={{ border: "1px solid", borderColor: "divider" }}>
               <CardContent>
                 <Stack spacing={2}>
-                  <Typography variant="h6">Public reply</Typography>
+                  <Typography variant="h6">{t("Public reply")}</Typography>
                   <TextField
-                    label="Reply body"
+                    label={t("Reply body")}
                     value={replyBody}
                     onChange={(event) => setReplyBody(event.target.value)}
                     fullWidth
@@ -254,8 +254,7 @@ export function SupportTicketDetailPage() {
                     onClick={() => replyMutation.mutate()}
                     disabled={!replyBody.trim() || replyMutation.isPending}
                   >
-                    Send public reply
-                  </Button>
+                    {t("Send public reply")}</Button>
                 </Stack>
               </CardContent>
             </Card>
@@ -263,9 +262,9 @@ export function SupportTicketDetailPage() {
             <Card sx={{ border: "1px solid", borderColor: "divider" }}>
               <CardContent>
                 <Stack spacing={2}>
-                  <Typography variant="h6">Internal note</Typography>
+                  <Typography variant="h6">{t("Internal note")}</Typography>
                   <TextField
-                    label="Internal note"
+                    label={t("Internal note")}
                     value={noteBody}
                     onChange={(event) => setNoteBody(event.target.value)}
                     fullWidth
@@ -277,8 +276,7 @@ export function SupportTicketDetailPage() {
                     onClick={() => noteMutation.mutate()}
                     disabled={!noteBody.trim() || noteMutation.isPending}
                   >
-                    Add internal note
-                  </Button>
+                    {t("Add internal note")}</Button>
                 </Stack>
               </CardContent>
             </Card>
@@ -291,15 +289,15 @@ export function SupportTicketDetailPage() {
           <Card sx={{ border: "1px solid", borderColor: "divider" }}>
             <CardContent>
               <Stack spacing={1.5}>
-                <Typography variant="h6">Public replies</Typography>
+                <Typography variant="h6">{t("Public replies")}</Typography>
                 {ticket.messages.length === 0 ? (
-                  <Typography color="text.secondary">No public replies yet.</Typography>
+                  <Typography color="text.secondary">{t("No public replies yet.")}</Typography>
                 ) : null}
                 {ticket.messages.map((message) => (
                   <Card key={message.id} variant="outlined">
                     <CardContent>
                       <Stack spacing={0.75}>
-                        <Chip label={`Public · ${message.authorUserId}`} size="small" color="primary" />
+                        <Chip label={t("Public · {{id}}", { id: message.authorUserId })} size="small" color="primary" />
                         <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
                           {message.body}
                         </Typography>
@@ -318,15 +316,15 @@ export function SupportTicketDetailPage() {
           <Card sx={{ border: "1px solid", borderColor: "divider" }}>
             <CardContent>
               <Stack spacing={1.5}>
-                <Typography variant="h6">Internal notes</Typography>
+                <Typography variant="h6">{t("Internal notes")}</Typography>
                 {ticket.internalNotes.length === 0 ? (
-                  <Typography color="text.secondary">No internal notes yet.</Typography>
+                  <Typography color="text.secondary">{t("No internal notes yet.")}</Typography>
                 ) : null}
                 {ticket.internalNotes.map((note) => (
                   <Card key={note.id} variant="outlined">
                     <CardContent>
                       <Stack spacing={0.75}>
-                        <Chip label={`Internal · ${note.authorUserId}`} size="small" color="warning" />
+                        <Chip label={t("Internal · {{id}}", { id: note.authorUserId })} size="small" color="warning" />
                         <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
                           {note.body}
                         </Typography>
@@ -345,14 +343,14 @@ export function SupportTicketDetailPage() {
 
       <ConfirmDialog
         open={statusConfirmOpen}
-        title="Update ticket status"
+        title={t("Update ticket status")}
         description={
           requiresResolutionSummary
-            ? "This status change requires a resolution summary and will not be submitted until the backend accepts it."
-            : "Submit the status change to the backend."
+            ? t("This status change requires a resolution summary and will not be submitted until the backend accepts it.")
+            : t("Submit the status change to the backend.")
         }
-        confirmLabel="Confirm"
-        cancelLabel="Back"
+        confirmLabel={t("Confirm")}
+        cancelLabel={t("Back")}
         confirming={statusMutation.isPending}
         onCancel={() => setStatusConfirmOpen(false)}
         onConfirm={() => statusMutation.mutate()}

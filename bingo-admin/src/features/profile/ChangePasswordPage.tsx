@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Alert, Box, Button, Card, CardContent, Stack, TextField, Typography } from "@mui/material";
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
@@ -7,6 +8,7 @@ import { readSession, writeSession } from "../../api/session";
 import { getFieldError, parseApiError } from "../../api/types";
 
 export function ChangePasswordPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -60,25 +62,22 @@ export function ChangePasswordPage() {
         }}
       >
         <Typography variant="overline" sx={{ opacity: 0.8, letterSpacing: 1.5 }}>
-          Security
-        </Typography>
+          {t("Security")}</Typography>
         <Typography component="h1" variant="h4" fontWeight={800}>
-          Change password
-        </Typography>
+          {t("Change password")}</Typography>
         <Typography sx={{ maxWidth: 760, opacity: 0.9 }}>
-          Update the current password for your admin account.
-        </Typography>
+          {t("Update the current password for your admin account.")}</Typography>
       </Box>
 
       <Card sx={{ maxWidth: 760, border: "1px solid", borderColor: "divider" }}>
         <CardContent>
           <Stack spacing={2.25}>
             <div>
-              <Typography variant="h6">Password form</Typography>
-              <Typography color="text.secondary">Use the current password to verify your identity.</Typography>
+              <Typography variant="h6">{t("Password form")}</Typography>
+              <Typography color="text.secondary">{t("Use the current password to verify your identity.")}</Typography>
             </div>
             <TextField
-              label="Current password"
+              label={t("Current password")}
               type={showCurrentPassword ? "text" : "password"}
               value={currentPassword}
               onChange={(event) => setCurrentPassword(event.target.value)}
@@ -86,7 +85,7 @@ export function ChangePasswordPage() {
               required
               autoComplete="current-password"
               error={Boolean(currentPasswordError)}
-              helperText={currentPasswordError}
+              helperText={currentPasswordError ? t(currentPasswordError) : undefined}
               InputProps={{
                 endAdornment: (
                   <Button
@@ -95,13 +94,13 @@ export function ChangePasswordPage() {
                     type="button"
                     sx={{ minWidth: 0, px: 1 }}
                   >
-                    {showCurrentPassword ? "Hide" : "Show"}
+                    {showCurrentPassword ? t("Hide") : t("Show")}
                   </Button>
                 ),
               }}
             />
             <TextField
-              label="New password"
+              label={t("New password")}
               type={showNewPassword ? "text" : "password"}
               value={newPassword}
               onChange={(event) => setNewPassword(event.target.value)}
@@ -109,7 +108,7 @@ export function ChangePasswordPage() {
               required
               autoComplete="new-password"
               error={Boolean(newPasswordError)}
-              helperText={newPasswordError ?? "Use at least 8 characters."}
+              helperText={newPasswordError ? t(newPasswordError) : t("Use at least 8 characters.")}
               InputProps={{
                 endAdornment: (
                   <Button
@@ -118,13 +117,13 @@ export function ChangePasswordPage() {
                     type="button"
                     sx={{ minWidth: 0, px: 1 }}
                   >
-                    {showNewPassword ? "Hide" : "Show"}
+                    {showNewPassword ? t("Hide") : t("Show")}
                   </Button>
                 ),
               }}
             />
             <TextField
-              label="Confirm new password"
+              label={t("Confirm new password")}
               type="password"
               value={confirmPassword}
               onChange={(event) => setConfirmPassword(event.target.value)}
@@ -133,9 +132,9 @@ export function ChangePasswordPage() {
               autoComplete="new-password"
             />
             {errorMessage && !currentPasswordError && !newPasswordError ? (
-              <Alert severity="error">{errorMessage}</Alert>
+              <Alert severity="error">{t(errorMessage)}</Alert>
             ) : null}
-            {successMessage ? <Alert severity="success">{successMessage}</Alert> : null}
+            {successMessage ? <Alert severity="success">{t(successMessage)}</Alert> : null}
             <Stack direction="row" spacing={1.5} flexWrap="wrap">
               <Button
                 variant="contained"
@@ -152,7 +151,7 @@ export function ChangePasswordPage() {
                 }}
                 disabled={passwordMutation.isPending}
               >
-                {passwordMutation.isPending ? "Saving..." : "Save password"}
+                {passwordMutation.isPending ? t("Saving...") : t("Save password")}
               </Button>
               <Button
                 variant="outlined"
@@ -166,11 +165,9 @@ export function ChangePasswordPage() {
                 }}
                 disabled={passwordMutation.isPending}
               >
-                Clear
-              </Button>
+                {t("Clear")}</Button>
               <Button variant="text" color="inherit" onClick={() => navigate("/profile")}>
-                Back to profile
-              </Button>
+                {t("Back to profile")}</Button>
             </Stack>
           </Stack>
         </CardContent>
