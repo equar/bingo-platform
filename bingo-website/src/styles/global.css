@@ -586,6 +586,15 @@ canvas {
   gap: 1rem;
 }
 
+.showcase-grid--steps {
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 54rem;
+}
+
+.showcase-grid--steps .copy-panel {
+  align-content: start;
+}
+
 .steps-grid,
 .feature-grid,
 .support-links,
@@ -1370,6 +1379,10 @@ canvas {
   .download-grid,
   .support-grid {
     grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
+  }
+
+  .showcase-grid--steps {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .hero {

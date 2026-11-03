@@ -60,6 +60,15 @@ function createWrapper({ children }: PropsWithChildren) {
   );
 }
 
+function createPendingDepositsWrapper({ children }: PropsWithChildren) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return (
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={["/deposits?status=PENDING"]}>{children}</MemoryRouter>
+    </QueryClientProvider>
+  );
+}
+
 describe("DepositsPage", () => {
   afterEach(cleanup);
 
@@ -81,6 +90,13 @@ describe("DepositsPage", () => {
     expect(screen.getByTestId("deposit-approve-32")).toBeDisabled();
     expect(screen.getByTestId("deposit-reject-32")).toBeEnabled();
     expect(depositsMock).toHaveBeenCalledWith(0, 20, undefined, undefined);
+  });
+
+  it("uses the pending status when opened from the dashboard review metric", async () => {
+    render(<DepositsPage />, { wrapper: createPendingDepositsWrapper });
+
+    await screen.findByTestId("deposit-row-32");
+    expect(depositsMock).toHaveBeenCalledWith(0, 20, undefined, "PENDING");
   });
 
   it("passes search and status filters to the server", async () => {
