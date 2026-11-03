@@ -16,7 +16,6 @@ import {
   TableBody,
   TableCell,
   TableHead,
-  TablePagination,
   TableRow,
   TextField,
   Typography,
@@ -30,6 +29,7 @@ import {
 } from "../../api/admin";
 import { getUserFacingErrorMessage, parseApiError } from "../../api/types";
 import { StatusState } from "../../components/StatusState";
+import { AdminTablePagination } from "../../components/AdminTablePagination";
 import { translateAdminStatus } from "../../i18n";
 import { useIdempotencyKey } from "../common/useIdempotencyKey";
 
@@ -276,7 +276,7 @@ export function DepositsPage() {
         </Table>
       </Box>
 
-      <TablePagination
+      <AdminTablePagination
         component="div"
         count={depositsQuery.data?.totalElements ?? 0}
         page={page}

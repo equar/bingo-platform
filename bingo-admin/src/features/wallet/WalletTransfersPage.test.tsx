@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { walletTransferDetail, walletTransfers } from "../../api/admin";
+import i18n from "../../i18n";
 import { WalletTransfersPage } from "./WalletTransfersPage";
 
 vi.mock("../../api/admin", () => ({ walletTransferDetail: vi.fn(), walletTransfers: vi.fn() }));
@@ -24,7 +25,8 @@ function createWrapper({ children }: PropsWithChildren) {
 describe("WalletTransfersPage", () => {
   afterEach(cleanup);
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    await i18n.changeLanguage("en");
     walletTransfersMock.mockReset();
     walletTransferDetailMock.mockReset();
     walletTransferDetailMock.mockResolvedValue({
@@ -105,7 +107,7 @@ describe("WalletTransfersPage", () => {
 
     expect(screen.getByText("Transfer detail")).toBeInTheDocument();
     expect(screen.getByText("Operation: transfer-operation-24")).toBeInTheDocument();
-    expect(await screen.findByText("WALLET_TRANSFER_DEBIT")).toBeInTheDocument();
+    expect(await screen.findByText("Wallet transfer debit")).toBeInTheDocument();
     expect(walletTransferDetailMock).toHaveBeenCalledWith(24);
     expect(walletTransfersMock).toHaveBeenCalledWith(undefined, undefined, undefined, undefined, 0, 20);
   });

@@ -171,7 +171,12 @@ describe("ClaimsPage", () => {
     await user.click(screen.getByTestId("claim-approve-21"));
     const confirm = screen.getByRole("button", { name: "Confirm" });
     expect(confirm).toBeDisabled();
-    await user.type(screen.getByRole("textbox", { name: "Validation note" }), "Verified against draw");
+    const note = screen.getByRole("textbox", { name: "Validation note" });
+    await user.type(note, "   ");
+    expect(confirm).toBeDisabled();
+    expect(approveWinClaimMock).not.toHaveBeenCalled();
+    await user.clear(note);
+    await user.type(note, "Verified against draw");
     expect(confirm).toBeEnabled();
     await user.click(confirm);
 

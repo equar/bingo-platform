@@ -18,7 +18,6 @@ import {
   TableCell,
   TableContainer,
   TableHead,
-  TablePagination,
   TableRow,
   TextField,
   Typography,
@@ -26,7 +25,8 @@ import {
 import { prizeEntitlements, settlePrizeEntitlement } from "../../api/admin";
 import { getUserFacingErrorMessage } from "../../api/types";
 import { StatusState } from "../../components/StatusState";
-import { translateAdminStatus } from "../../i18n";
+import { AdminTablePagination } from "../../components/AdminTablePagination";
+import { translateAdminStatus, translateAdminValue } from "../../i18n";
 import { EntitlementReferenceDialog, type EntitlementReference } from "./EntitlementReferenceDialog";
 
 export function PrizeEntitlementsPage() {
@@ -198,7 +198,8 @@ export function PrizeEntitlementsPage() {
                         {entitlement.prizeAmount} {entitlement.currency}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        {entitlement.prizeType} {t("·")}{" "}{entitlement.settlementPath}
+                        {translateAdminValue(entitlement.prizeType, t)} {t("·")}{" "}
+                        {translateAdminValue(entitlement.settlementPath, t)}
                       </Typography>
                     </Stack>
                   </TableCell>
@@ -244,7 +245,7 @@ export function PrizeEntitlementsPage() {
             </TableBody>
           </Table>
         </TableContainer>
-        <TablePagination
+        <AdminTablePagination
           component="div"
           count={entitlementsQuery.data?.totalElements ?? 0}
           page={page}

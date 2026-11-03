@@ -14,13 +14,14 @@ import {
   TableBody,
   TableCell,
   TableHead,
-  TablePagination,
   TableRow,
   TextField,
   Typography,
 } from "@mui/material";
 import { walletTransferDetail, walletTransfers } from "../../api/admin";
 import { StatusState } from "../../components/StatusState";
+import { AdminTablePagination } from "../../components/AdminTablePagination";
+import { translateAdminValue } from "../../i18n";
 import { translateAdminStatus } from "../../i18n";
 
 export function WalletTransfersPage() {
@@ -207,7 +208,7 @@ export function WalletTransfersPage() {
               </TableBody>
             </Table>
           </Box>
-          <TablePagination
+          <AdminTablePagination
             component="div"
             count={transfersQuery.data?.totalElements ?? 0}
             page={page}
@@ -277,7 +278,7 @@ export function WalletTransfersPage() {
                           <TableRow key={entry.id} data-testid={`wallet-transfer-ledger-${entry.id}`}>
                             <TableCell>{entry.id}</TableCell>
                             <TableCell>{entry.walletOwnerId}</TableCell>
-                            <TableCell>{entry.transactionType}</TableCell>
+                            <TableCell>{translateAdminValue(entry.transactionType, t)}</TableCell>
                             <TableCell align="right">{entry.amount} {entry.currency}</TableCell>
                             <TableCell>{entry.balanceBefore} {t("→")}{" "}{entry.balanceAfter}</TableCell>
                           </TableRow>

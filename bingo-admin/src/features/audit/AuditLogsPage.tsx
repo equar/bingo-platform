@@ -19,7 +19,6 @@ import {
   TableCell,
   TableContainer,
   TableHead,
-  TablePagination,
   TableRow,
   TextField,
   Typography,
@@ -28,6 +27,7 @@ import { useState } from "react";
 import { auditLogDetail, auditLogs, type AdminAuditLogSummaryResponse } from "../../api/admin";
 import { getUserFacingErrorMessage } from "../../api/types";
 import { StatusState } from "../../components/StatusState";
+import { AdminTablePagination } from "../../components/AdminTablePagination";
 
 function hasDetailedMetadata(metadataJson: string) {
   try {
@@ -224,7 +224,7 @@ export function AuditLogsPage() {
               </TableBody>
             </Table>
           </TableContainer>
-          <TablePagination
+          <AdminTablePagination
             component="div"
             count={auditQuery.data?.totalElements ?? 0}
             page={page}

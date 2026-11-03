@@ -26,7 +26,7 @@ import {
 } from "../../api/admin";
 import { getUserFacingErrorMessage } from "../../api/types";
 import { StatusState } from "../../components/StatusState";
-import { translateAdminStatus } from "../../i18n";
+import { translateAdminRole, translateAdminStatus } from "../../i18n";
 
 export type EntitlementReference = {
   kind: "player" | "claim" | "session" | "ticket";
@@ -57,7 +57,7 @@ function detailFields(reference: EntitlementReference, record: ReferenceRecord, 
       { label: t("Email"), value: player.email ?? t("Not provided") },
       { label: t("Phone"), value: player.normalizedPhone },
       { label: t("Status"), value: translateAdminStatus(player.status, t) },
-      { label: t("Roles"), value: player.roles.join(", ") || t("None") },
+      { label: t("Roles"), value: player.roles.map((role) => translateAdminRole(role, t)).join(", ") || t("None") },
       { label: t("Wallet currency"), value: player.walletCurrency ?? t("No wallet") },
       { label: t("Available balance"), value: player.walletAvailableBalance ?? t("Not available") },
       { label: t("Promotional balance"), value: player.walletPromotionalBalance ?? t("Not available") },

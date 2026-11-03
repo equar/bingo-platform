@@ -11,7 +11,6 @@ import {
   TableBody,
   TableCell,
   TableHead,
-  TablePagination,
   TableRow,
   TextField,
   Typography,
@@ -20,7 +19,8 @@ import { Link as RouterLink } from "react-router-dom";
 import { supportAssignees, supportTickets } from "../../api/admin";
 import { getUserFacingErrorMessage } from "../../api/types";
 import { StatusState } from "../../components/StatusState";
-import { translateAdminStatus } from "../../i18n";
+import { AdminTablePagination } from "../../components/AdminTablePagination";
+import { translateAdminStatus, translateAdminValue } from "../../i18n";
 
 const statusOptions = ["", "OPEN", "IN_PROGRESS", "WAITING_FOR_CUSTOMER", "RESOLVED", "CLOSED"];
 const categoryOptions = ["", "ACCOUNT", "WALLET", "GAME", "AGENT", "TECHNICAL", "BILLING", "OTHER"];
@@ -117,7 +117,7 @@ export function SupportTicketsPage() {
           <MenuItem value="">{t("All categories")}</MenuItem>
           {categoryOptions.filter(Boolean).map((option) => (
             <MenuItem key={option} value={option}>
-              {option}
+              {translateAdminValue(option, t)}
             </MenuItem>
           ))}
         </TextField>
@@ -134,7 +134,7 @@ export function SupportTicketsPage() {
           <MenuItem value="">{t("All priorities")}</MenuItem>
           {priorityOptions.map((option) => (
             <MenuItem key={option} value={option}>
-              {option}
+              {translateAdminValue(option, t)}
             </MenuItem>
           ))}
         </TextField>
@@ -192,13 +192,13 @@ export function SupportTicketsPage() {
                       </Typography>
                     </Stack>
                   </TableCell>
-                  <TableCell>{ticket.category}</TableCell>
+                  <TableCell>{translateAdminValue(ticket.category, t)}</TableCell>
                   <TableCell>
                     <Chip label={t(ticket.priority)} size="small" />
                   </TableCell>
                   <TableCell>{translateAdminStatus(ticket.status, t)}</TableCell>
-                  <TableCell>{ticket.assignedToUserId ?? "Unassigned"}</TableCell>
-                  <TableCell>{ticket.linkedEntityType ?? "n/a"}</TableCell>
+                  <TableCell>{ticket.assignedToUserId ?? t("Unassigned")}</TableCell>
+                  <TableCell>{ticket.linkedEntityType ? translateAdminValue(ticket.linkedEntityType, t) : "n/a"}</TableCell>
                   <TableCell>{new Date(ticket.updatedAt).toLocaleString()}</TableCell>
                 </TableRow>
               ))}
@@ -213,7 +213,7 @@ export function SupportTicketsPage() {
         </Table>
       </Box>
 
-      <TablePagination
+      <AdminTablePagination
         component="div"
         count={ticketsQuery.data?.totalElements ?? 0}
         page={page}

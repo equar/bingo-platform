@@ -27,7 +27,7 @@ import {
 import { getUserFacingErrorMessage } from "../../api/types";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { StatusState } from "../../components/StatusState";
-import { translateAdminStatus } from "../../i18n";
+import { translateAdminStatus, translateAdminValue } from "../../i18n";
 
 const statusOptions = ["OPEN", "IN_PROGRESS", "WAITING_FOR_CUSTOMER", "RESOLVED", "CLOSED"] as const;
 
@@ -147,7 +147,7 @@ export function SupportTicketDetailPage() {
               <Stack spacing={1.5}>
                 <Typography variant="h6">{t("Ticket summary")}</Typography>
                 <Typography>{t("Requester:")}{" "}{ticket.requesterDisplayName}</Typography>
-                <Typography>{t("Category:")}{" "}{ticket.category}</Typography>
+                <Typography>{t("Category:")}{" "}{translateAdminValue(ticket.category, t)}</Typography>
                 <Typography>{t("Priority:")}{" "}{t(ticket.priority)}</Typography>
                 <Typography>{t("Status:")}{" "}{translateAdminStatus(ticket.status, t)}</Typography>
                 <Typography>

@@ -84,6 +84,44 @@ describe("AdminUsersPage", () => {
     });
   }, 20000);
 
+  it("rejects empty and invalid create-form values without calling a mutation", async () => {
+    adminUsersMock.mockResolvedValue({
+      content: [],
+      page: 0,
+      size: 20,
+      totalElements: 0,
+      totalPages: 0,
+      first: true,
+      last: true,
+    });
+
+    const user = userEvent.setup();
+    render(<AdminUsersPage />, { wrapper: createWrapper() });
+    await user.click(await screen.findByRole("button", { name: "Create admin user" }));
+    const dialog = await screen.findByRole("dialog", { name: "Create admin user" });
+    const submit = within(dialog).getByRole("button", { name: "Create user" });
+
+    await user.click(submit);
+    await within(dialog).findByText("Enter a display name.");
+    expect(dialog).toHaveTextContent("Enter a display name.");
+
+    await user.type(within(dialog).getByRole("textbox", { name: /display name/i }), "New Admin");
+    await user.type(within(dialog).getByRole("textbox", { name: /^email$/i }), "not-an-email");
+    await user.type(within(dialog).getByRole("textbox", { name: /phone number/i }), "123456789");
+    await user.click(submit);
+    await within(dialog).findByText("Enter a valid email address.");
+    expect(dialog).toHaveTextContent("Enter a valid email address.");
+
+    await user.clear(within(dialog).getByRole("textbox", { name: /^email$/i }));
+    await user.type(within(dialog).getByRole("textbox", { name: /^email$/i }), "new@bingo.local");
+    await user.click(submit);
+    expect(dialog).toHaveTextContent("Enter exactly 10 digits.");
+    await act(async () => { await i18n.changeLanguage("am"); });
+    expect(dialog).toHaveTextContent("በትክክል 10 አሃዞች ያስገቡ።");
+    expect(createAdminUserMock).not.toHaveBeenCalled();
+    expect(updateAdminUserMock).not.toHaveBeenCalled();
+  });
+
   it("opens an edit dialog and saves changes", async () => {
     adminUsersMock.mockResolvedValue({
       content: [
@@ -115,7 +153,7 @@ describe("AdminUsersPage", () => {
     const editDialog = await screen.findByRole("dialog", { name: "Edit admin user" });
     expect(within(editDialog).getByRole("textbox", { name: /phone number/i })).toHaveValue("0911000001");
     await waitFor(() => {
-      expect(within(editDialog).getByText("ADMIN")).toBeInTheDocument();
+      expect(within(editDialog).getByText("Administrator")).toBeInTheDocument();
     });
     await user.clear(within(editDialog).getByRole("textbox", { name: /email/i }));
     await user.type(within(editDialog).getByRole("textbox", { name: /email/i }), "alice.admin@bingo.local");
@@ -150,7 +188,7 @@ describe("AdminUsersPage", () => {
     revokeFinanceRoleMock.mockResolvedValue({});
     const user = userEvent.setup();
     render(<AdminUsersPage />, { wrapper: createWrapper() });
-    await user.click(await screen.findByRole("button", { name: "Revoke FINANCE_VERIFIER from Finance QA" }));
+    await user.click(await screen.findByRole("button", { name: "Revoke Finance verifier from Finance QA" }));
     await waitFor(() => {
       expect(revokeFinanceRoleMock).toHaveBeenCalledWith(17, "FINANCE_VERIFIER");
     });

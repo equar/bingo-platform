@@ -14,7 +14,6 @@ import {
   InputLabel,
   MenuItem,
   Select,
-  TablePagination,
   Stack,
   Table,
   TableBody,
@@ -27,7 +26,8 @@ import {
 import { adminUsers, createAdminUser, revokeFinanceRole, updateAdminUser, type UserSummaryResponse } from "../../api/admin";
 import { getUserFacingErrorMessage } from "../../api/types";
 import { StatusState } from "../../components/StatusState";
-import { translateAdminStatus } from "../../i18n";
+import { AdminTablePagination } from "../../components/AdminTablePagination";
+import { translateAdminRole, translateAdminStatus } from "../../i18n";
 
 const roleOptions = ["ADMIN", "SUPPORT"] as const;
 const statusOptions = ["ACTIVE", "PENDING", "SUSPENDED", "DISABLED"] as const;
@@ -48,10 +48,6 @@ const emptyForm: AdminUserFormState = {
   status: "ACTIVE",
   role: "ADMIN",
 };
-
-function roleLabel(role: string) {
-  return role;
-}
 
 function toLocalEthiopianPhone(phoneNumber: string) {
   const normalized = phoneNumber.replace(/\D/g, "");
@@ -88,6 +84,27 @@ export function AdminUsersPage() {
   });
 
   const users = usersQuery.data?.content ?? [];
+
+  const validateForm = () => {
+    if (!form.displayName.trim()) return "Enter a display name.";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim()) || form.email !== form.email.trim()) {
+      return "Enter a valid email address.";
+    }
+    if (!/^\d{10}$/.test(form.phoneNumber)) return "Enter exactly 10 digits.";
+    if (!statusOptions.some((status) => status === form.status)) return "Choose a valid status.";
+    if (!roleOptions.some((role) => role === form.role)) return "Choose a valid role.";
+    return null;
+  };
+
+  const submitForm = () => {
+    const validationError = validateForm();
+    if (validationError) {
+      setFormError(validationError);
+      return;
+    }
+    setFormError(null);
+    saveMutation.mutate();
+  };
 
   const openCreate = () => {
     setSelectedUser(null);
@@ -227,7 +244,7 @@ export function AdminUsersPage() {
                 <TableCell>
                   <Stack direction="row" spacing={1} flexWrap="wrap">
                     {user.roles.map((role) => (
-                      <Chip key={role} label={roleLabel(role)} size="small" />
+                      <Chip key={role} label={translateAdminRole(role, t)} size="small" />
                     ))}
                   </Stack>
                 </TableCell>
@@ -241,11 +258,14 @@ export function AdminUsersPage() {
                       key={role}
                       size="small"
                       color="warning"
-                      aria-label={t("Revoke {{role}} from {{name}}", { role, name: user.displayName })}
+                      aria-label={t("Revoke {{role}} from {{name}}", {
+                        role: translateAdminRole(role, t),
+                        name: user.displayName,
+                      })}
                       disabled={revokeFinanceMutation.isPending}
                       onClick={() => revokeFinanceMutation.mutate({ userId: user.id, role })}
                     >
-                      {t("Revoke")}{" "}{role}
+                      {t("Revoke")}{" "}{translateAdminRole(role, t)}
                     </Button>
                   ))}
                 </TableCell>
@@ -255,7 +275,7 @@ export function AdminUsersPage() {
         </Table>
       </Box>
 
-      <TablePagination
+      <AdminTablePagination
         component="div"
         count={usersQuery.data?.totalElements ?? 0}
         page={page}
@@ -286,6 +306,7 @@ export function AdminUsersPage() {
             />
             <TextField
               label={t("Email")}
+              type="email"
               value={form.email}
               onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))}
               fullWidth
@@ -341,7 +362,7 @@ export function AdminUsersPage() {
               >
                 {roleOptions.map((role) => (
                   <MenuItem key={role} value={role}>
-                    {role}
+                    {translateAdminRole(role, t)}
                   </MenuItem>
                 ))}
               </Select>
@@ -354,7 +375,7 @@ export function AdminUsersPage() {
         <DialogActions>
           <Button onClick={() => setDialogOpen(false)} disabled={saveMutation.isPending}>
             {t("Cancel")}</Button>
-          <Button variant="contained" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+          <Button variant="contained" onClick={submitForm} disabled={saveMutation.isPending}>
             {saveMutation.isPending ? t("Saving...") : selectedUser ? t("Save changes") : t("Create user")}
           </Button>
         </DialogActions>

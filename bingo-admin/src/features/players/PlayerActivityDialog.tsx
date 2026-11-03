@@ -17,7 +17,6 @@ import {
   TableBody,
   TableCell,
   TableHead,
-  TablePagination,
   TableRow,
   TableContainer,
   Tabs,
@@ -38,7 +37,8 @@ import {
 } from "../../api/admin";
 import { getUserFacingErrorMessage, type PageResponse } from "../../api/types";
 import { StatusState } from "../../components/StatusState";
-import { translateAdminStatus } from "../../i18n";
+import { AdminTablePagination } from "../../components/AdminTablePagination";
+import { translateAdminStatus, translateAdminValue } from "../../i18n";
 
 export type PlayerActivityType = "wallet" | "deposits" | "support" | "tickets" | "wins";
 
@@ -156,7 +156,7 @@ export function PlayerActivityDialog({ open, playerId, initialActivity, onClose 
                       {walletRows.map((transaction) => (
                         <TableRow key={transaction.id} hover>
                           <TableCell>{new Date(transaction.createdAt).toLocaleString()}</TableCell>
-                          <TableCell>{transaction.transactionType.replace(/_/g, " ")}</TableCell>
+                          <TableCell>{translateAdminValue(transaction.transactionType, t)}</TableCell>
                           <TableCell align="right">
                             {transaction.amount} {transaction.currency}
                           </TableCell>
@@ -236,7 +236,7 @@ export function PlayerActivityDialog({ open, playerId, initialActivity, onClose 
                             </Link>
                           </TableCell>
                           <TableCell>{ticket.subject}</TableCell>
-                          <TableCell>{ticket.category}</TableCell>
+                          <TableCell>{translateAdminValue(ticket.category, t)}</TableCell>
                           <TableCell>{t(ticket.priority)}</TableCell>
                           <TableCell>{translateAdminStatus(ticket.status, t)}</TableCell>
                           <TableCell>{new Date(ticket.updatedAt).toLocaleString()}</TableCell>
@@ -323,7 +323,7 @@ export function PlayerActivityDialog({ open, playerId, initialActivity, onClose 
           ) : null}
 
           {!activityQuery.isLoading && !activityQuery.error ? (
-            <TablePagination
+            <AdminTablePagination
               component="div"
               count={totalElements}
               page={page}

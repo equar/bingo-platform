@@ -31,7 +31,7 @@ import {
 import { getUserFacingErrorMessage, parseApiError } from "../../api/types";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { StatusState } from "../../components/StatusState";
-import { translateAdminStatus } from "../../i18n";
+import { translateAdminRole, translateAdminStatus } from "../../i18n";
 import { PlayerActivityDialog, type PlayerActivityType } from "./PlayerActivityDialog";
 
 interface AdjustmentDraft {
@@ -435,7 +435,7 @@ export function PlayerDetailPage() {
               <Grid item xs={12} sm={6} md={4}>
                 <Typography variant="overline" color="text.secondary">
                   {t("Roles")}</Typography>
-                <Typography>{player.roles.join(", ") || "None"}</Typography>
+                <Typography>{player.roles.map((role) => translateAdminRole(role, t)).join(", ") || t("None")}</Typography>
               </Grid>
               <Grid item xs={12} sm={6} md={4}>
                 <Typography variant="overline" color="text.secondary">

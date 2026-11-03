@@ -19,7 +19,7 @@ import { adminAgentDetail, adminAgentFloatBalance, adminAgentFloatHistory, appro
 import { getUserFacingErrorMessage } from "../../api/types";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { StatusState } from "../../components/StatusState";
-import { translateAdminStatus } from "../../i18n";
+import { translateAdminStatus, translateAdminValue } from "../../i18n";
 
 function formatMoney(value: string | number) {
   const [whole, fraction = ""] = String(value).split(".");
@@ -256,7 +256,10 @@ export function AgentDetailPage() {
               <Typography color="text.secondary">{t("No float transactions recorded.")}</Typography>
             ) : (floatHistoryQuery.data?.content ?? []).map((entry) => (
               <Typography key={entry.id} variant="body2">
-                {entry.transactionType} {t("·")}{" "}{formatMoney(entry.amount)} {t("·")}{" "}{formatMoney(entry.availableBefore)} {t("→")}{" "}{formatMoney(entry.availableAfter)} {t("·")}{entry.relatedEntityType} {t("#")}{entry.relatedEntityId ?? "n/a"} {t("·")}{" "}{new Date(entry.createdAt).toLocaleString()}
+                {translateAdminValue(entry.transactionType, t)} {t("·")}{" "}{formatMoney(entry.amount)} {t("·")}{" "}
+                {formatMoney(entry.availableBefore)} {t("→")}{" "}{formatMoney(entry.availableAfter)} {t("·")}
+                {entry.relatedEntityType ? translateAdminValue(entry.relatedEntityType, t) : t("Unknown")} {t("#")}{entry.relatedEntityId ?? "n/a"} {t("·")}{" "}
+                {new Date(entry.createdAt).toLocaleString()}
               </Typography>
             ))}
           </Stack>

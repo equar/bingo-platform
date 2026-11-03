@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { supportAssignees, supportTickets } from "../../api/admin";
+import i18n from "../../i18n";
 import { SupportTicketsPage } from "./SupportTicketsPage";
 
 vi.mock("../../api/admin", () => ({
@@ -27,7 +28,8 @@ function createWrapper({ children }: PropsWithChildren) {
 describe("SupportTicketsPage", () => {
   afterEach(cleanup);
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    await i18n.changeLanguage("en");
     supportAssigneesMock.mockReset();
     supportTicketsMock.mockReset();
     supportAssigneesMock.mockResolvedValue([{ userId: 7, displayName: "Support Agent", roles: ["SUPPORT"] }]);
@@ -82,13 +84,13 @@ describe("SupportTicketsPage", () => {
     );
 
     await user.click(screen.getByRole("combobox", { name: "Category" }));
-    await user.click(await screen.findByRole("option", { name: "WALLET" }));
+    await user.click(await screen.findByRole("option", { name: "Wallet" }));
     await waitFor(() =>
       expect(supportTicketsMock).toHaveBeenLastCalledWith("wallet", "OPEN", "WALLET", undefined, undefined, 0, 20),
     );
 
     await user.click(screen.getByRole("combobox", { name: "Priority" }));
-    await user.click(await screen.findByRole("option", { name: "HIGH" }));
+    await user.click(await screen.findByRole("option", { name: "High" }));
     await waitFor(() =>
       expect(supportTicketsMock).toHaveBeenLastCalledWith("wallet", "OPEN", "WALLET", undefined, "HIGH", 0, 20),
     );

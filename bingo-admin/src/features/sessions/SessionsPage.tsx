@@ -19,7 +19,6 @@ import {
   TableCell,
   TableContainer,
   TableHead,
-  TablePagination,
   TableRow,
   TextField,
   Typography,
@@ -29,6 +28,7 @@ import { createSession, listRooms, listSessions, updateSessionState } from "../.
 import { getUserFacingErrorMessage } from "../../api/types";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { StatusState } from "../../components/StatusState";
+import { AdminTablePagination } from "../../components/AdminTablePagination";
 import { translateAdminStatus } from "../../i18n";
 
 interface SessionDraft {
@@ -279,7 +279,7 @@ export function SessionsPage() {
             </TableBody>
           </Table>
         </TableContainer>
-        <TablePagination
+        <AdminTablePagination
           component="div"
           count={sessionsQuery.data?.totalElements ?? 0}
           page={page}

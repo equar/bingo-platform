@@ -22,6 +22,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { clearSession, useSession } from "../api/session";
 import { useTranslation } from "react-i18next";
 import { LanguageSelector } from "./LanguageSelector";
+import { translateAdminRole } from "../i18n";
 
 const drawerWidth = 260;
 const idleTimeoutMs = 15 * 60 * 1000;
@@ -185,7 +186,7 @@ export function AppShell() {
                   {session?.user.displayName ?? t("account")}
                 </Typography>
                 <Typography variant="caption" sx={{ opacity: 0.8, lineHeight: 1.2 }}>
-                  {session?.user.roles.join(", ") ?? t("noRole")}
+                  {session?.user.roles.map((role) => translateAdminRole(role, t)).join(", ") ?? t("noRole")}
                 </Typography>
               </Stack>
             </Stack>

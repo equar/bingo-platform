@@ -16,7 +16,6 @@ import {
   TableBody,
   TableCell,
   TableHead,
-  TablePagination,
   TableRow,
   TextField,
   Typography,
@@ -25,6 +24,7 @@ import { keepPreviousData } from "@tanstack/react-query";
 import { approveWinClaim, rejectWinClaim, winClaims } from "../../api/admin";
 import { getUserFacingErrorMessage, parseApiError } from "../../api/types";
 import { StatusState } from "../../components/StatusState";
+import { AdminTablePagination } from "../../components/AdminTablePagination";
 import { translateAdminStatus } from "../../i18n";
 import { useIdempotencyKey } from "../common/useIdempotencyKey";
 
@@ -260,7 +260,7 @@ export function ClaimsPage() {
         </Table>
       </Box>
 
-      <TablePagination
+      <AdminTablePagination
         component="div"
         count={claimsQuery.data?.totalElements ?? 0}
         page={page}
@@ -297,7 +297,7 @@ export function ClaimsPage() {
           <Button
             variant="contained"
             onClick={() => actionMutation.mutate()}
-            disabled={!reason || actionMutation.isPending}
+            disabled={!reason.trim() || actionMutation.isPending}
           >
             {actionOutcomeUnknown ? t("Retry same decision") : t("Confirm")}
           </Button>

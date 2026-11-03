@@ -11,7 +11,6 @@ import {
   TableBody,
   TableCell,
   TableHead,
-  TablePagination,
   TableRow,
   TextField,
   Typography,
@@ -20,6 +19,7 @@ import { Link as RouterLink } from "react-router-dom";
 import { searchPlayers } from "../../api/admin";
 import { getUserFacingErrorMessage } from "../../api/types";
 import { StatusState } from "../../components/StatusState";
+import { AdminTablePagination } from "../../components/AdminTablePagination";
 import { translateAdminStatus } from "../../i18n";
 
 const statusOptions = ["ACTIVE", "PENDING", "SUSPENDED", "DISABLED"] as const;
@@ -88,7 +88,7 @@ export function PlayersPage() {
         <Alert severity="info">{t("Updating player results...")}</Alert>
       ) : null}
 
-      <Box sx={{ overflowX: "auto" }}>
+      <Box sx={{ width: "100%", minWidth: 0, overflowX: "auto" }}>
         <Table size="small" aria-label={t("players table")}>
           <TableHead>
             <TableRow>
@@ -135,7 +135,7 @@ export function PlayersPage() {
         </Table>
       </Box>
 
-      <TablePagination
+      <AdminTablePagination
         component="div"
         count={playersQuery.data?.totalElements ?? 0}
         page={page}

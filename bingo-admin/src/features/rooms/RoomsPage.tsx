@@ -26,7 +26,6 @@ import {
   TableCell,
   TableContainer,
   TableHead,
-  TablePagination,
   TableRow,
   ListItemText,
 } from "@mui/material";
@@ -34,6 +33,7 @@ import { BingoPatternConfig, BingoRoomResponse, createRoom, listAdminRooms, upda
 import { getUserFacingErrorMessage } from "../../api/types";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { StatusState } from "../../components/StatusState";
+import { AdminTablePagination } from "../../components/AdminTablePagination";
 
 const scheduleOptions = [
   { value: "HOURLY", label: "Hourly" },
@@ -371,7 +371,7 @@ export function RoomsPage() {
             </TableBody>
           </Table>
         </TableContainer>
-        <TablePagination
+        <AdminTablePagination
           component="div"
           count={roomsQuery.data?.totalElements ?? 0}
           page={page}
