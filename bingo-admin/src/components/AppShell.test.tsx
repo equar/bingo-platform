@@ -97,17 +97,28 @@ describe("AppShell", () => {
 
     expect(screen.getAllByRole("banner")[0].textContent).toContain("Sunset Bingo Admin");
     expect(screen.getAllByText("Admin Tester")[0]).toBeInTheDocument();
-    expect(screen.getAllByText("Overview")[0]).toBeInTheDocument();
+    expect(screen.queryByText("Overview")).not.toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /admin tester/i })[0]).toBeInTheDocument();
     expect(screen.getAllByText("Operations")[0]).toBeInTheDocument();
     expect(screen.getAllByText("Reviews & Support")[0]).toBeInTheDocument();
-    expect(screen.getAllByText("Accounts")[0]).toBeInTheDocument();
+    expect(screen.getAllByText("Players & Agents")[0]).toBeInTheDocument();
     expect(screen.getAllByText("Finance")[0]).toBeInTheDocument();
     expect(screen.getAllByText("Administration")[0]).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "Admin Users" })[0]).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "Dashboard" })[0]).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: "Sessions" })[0]).toHaveAttribute("href", "/sessions");
+    expect(screen.getAllByRole("link", { name: "Rooms" })[0]).toHaveAttribute("href", "/rooms");
+    expect(screen.getAllByRole("link", { name: "Player community" })[0]).toHaveAttribute("href", "/community");
+    expect(screen.getAllByRole("link", { name: "Deposits" })[0]).toHaveAttribute("href", "/deposits");
+    expect(screen.getAllByRole("link", { name: "Win Claims" })[0]).toHaveAttribute("href", "/claims");
+    expect(screen.getAllByRole("link", { name: "Support" })[0]).toHaveAttribute("href", "/support/tickets");
+    expect(screen.getAllByRole("link", { name: "Prize Entitlements" })[0]).toHaveAttribute("href", "/prize-entitlements");
+    expect(screen.getAllByRole("link", { name: "Players" })[0]).toHaveAttribute("href", "/players");
+    expect(screen.getAllByRole("link", { name: "Player verification" })[0]).toHaveAttribute("href", "/player-verifications");
+    expect(screen.getAllByRole("link", { name: "Agents" })[0]).toHaveAttribute("href", "/agents");
     expect(screen.getAllByRole("link", { name: "Wallet Policies" })[0]).toHaveAttribute("href", "/wallet/signup-reward");
     expect(screen.getAllByRole("link", { name: "Transfer History" })[0]).toHaveAttribute("href", "/wallet/transfers");
+    expect(screen.getAllByRole("link", { name: "Audit Logs" })[0]).toHaveAttribute("href", "/audit-logs");
     expect(screen.getAllByText("Dashboard content")[0]).toBeInTheDocument();
 
     const reviewsToggle = screen.getAllByRole("button", { name: /Reviews & Support/ })[0];
@@ -120,6 +131,41 @@ describe("AppShell", () => {
     fireEvent.click(reviewsToggle);
 
     expect(reviewsToggle).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("provides profile, password, and logout actions in the account menu", () => {
+    const queryClient = new QueryClient();
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={["/dashboard"]}>
+          <Routes>
+            <Route element={<AppShell />}>
+              <Route path="dashboard" element={<div>Dashboard content</div>} />
+            </Route>
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    const accountButton = screen.getByRole("button", { name: /admin tester/i });
+    fireEvent.click(accountButton);
+
+    expect(screen.getByRole("menuitem", { name: "Profile" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Change password" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Logout" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("menuitem", { name: "Profile" }));
+    expect(navigateMock).toHaveBeenLastCalledWith("/profile");
+
+    fireEvent.click(accountButton);
+    fireEvent.click(screen.getByRole("menuitem", { name: "Change password" }));
+    expect(navigateMock).toHaveBeenLastCalledWith("/change-password");
+
+    fireEvent.click(accountButton);
+    fireEvent.click(screen.getByRole("menuitem", { name: "Logout" }));
+    expect(clearSessionMock).toHaveBeenCalledTimes(1);
+    expect(navigateMock).toHaveBeenLastCalledWith("/login", { replace: true });
   });
 
   it("collapses navigation to labeled icons and persists the preference", () => {
@@ -177,6 +223,7 @@ describe("AppShell", () => {
     expect(screen.queryByRole("link", { name: "Dashboard" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Wallet Policies" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Transfer History" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Player verification" })).not.toBeInTheDocument();
     expect(screen.getByText("Support content")).toBeInTheDocument();
   });
 });

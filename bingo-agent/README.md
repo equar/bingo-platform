@@ -1,41 +1,37 @@
-# bingo-agent
+# Bingo Agent
 
-Flutter counter-service agent app for Android and web. An iOS platform project is included for Ad Hoc distribution once Apple signing is configured.
+Flutter counter-service app for Android and web, with an iOS project for
+Ad Hoc distribution after Apple signing is configured. Requires Flutter
+3.41.0+ and Dart 3.11.0+.
 
-Requires Flutter 3.41.0 or newer and Dart 3.11.0 or newer. CI checks both the
-minimum Flutter version (3.41.0) and the current pinned version (3.47.7).
+## Local development
 
-Run the app with an explicitly supplied backend URL, for example:
+Run from this directory with an explicit backend URL:
 
 ```bash
+flutter pub get
+flutter gen-l10n
 flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8080
+flutter test
+flutter analyze
 ```
 
-Use `http://10.0.2.2:8080` for an Android emulator and `http://localhost:8080`
-for desktop or an iOS simulator. Production/profile builds require HTTPS.
+Use `http://10.0.2.2:8080` for an Android emulator and
+`http://localhost:8080` for desktop or an iOS simulator. Profile and release
+builds require HTTPS. The app supports English and Amharic; translation files
+are in `lib/l10n/` and are generated with `flutter gen-l10n`.
 
-## Localization
+Agents authenticate with phone and PIN. Float top-up submissions create
+requests; an authorized administrator must approve a request before the float
+is credited. Ticket sales debit float and may accrue commission.
 
-The app supports English (`en`) and Amharic (`am`) through Flutter gen-l10n. Translation resources live in `lib/l10n/app_en.arb` and `lib/l10n/app_am.arb`; run `flutter gen-l10n` from this directory after changing them. The device's selected locale determines the app language.
+## Functional E2E and release
 
-Agents authenticate with a phone number and PIN. Float top-up submissions create requests only; the float is credited only after an authorized administrator approves the request.
+Use the [guarded real E2E runbook](../docs/qa/platform-e2e-runbook.md) and
+[current scenario matrix](../docs/qa/platform-e2e-scenario-matrix.md). The
+launcher requires existing approved/pending fixtures and verifies the isolated
+`android-test` backend; it does not create accounts or enable financial
+posting. Keep phone/PIN values only in ignored local configuration, never logs.
 
-## Android integration tests
-
-The app's device-level scenarios live in `integration_test/`; the corresponding historical Android evidence and scope are recorded in [Module 02A](../docs/qa/modules/module-02a-agent-lifecycle.md) and [Module 02B](../docs/qa/modules/module-02b-agent-float.md). These reports describe prior runs, not current environment health or authorization to rerun against their former database.
-
-Before a new functional run, follow the [mandatory real E2E policy](../docs/qa/mandatory-real-e2e-testing-policy.md) and use the authorized isolated `android-test` backend and `bingo_qa_test` schema. From the repository root, run:
-
-```powershell
-.\scripts\qa\Invoke-AgentAndroidAuthenticationE2E.ps1 -EnvironmentName android-test
-```
-
-The guarded launcher verifies the live backend runtime identity, database target and grants, and exact approved/pending Agent fixtures before starting the Android UI test. It fails closed on missing or unsafe configuration and does not create accounts or enable financial posting. The ignored `e2e-secrets.json` file supplies local phone/PIN test credentials; never commit or include its values in logs. Do not use the historical `bingo_qa` setup for new writes, and do not count widget/unit tests as Android E2E. See the latest attempt in [Module 01](../docs/qa/modules/module-01-authentication.md).
-
-## Direct-share production packages
-
-Production backend: `https://api.bingo.bakaroo.com` (no `/api` suffix).
-REST clients already include `/api/v1`; live draws use `wss://api.bingo.bakaroo.com/ws`.
-From the repository root, run `bash deployment/mobile/build-packages.sh android`
-to build signed APKs for both apps. See [package/signing instructions](../deployment/mobile/README.md)
-for outputs, signing backups, and iOS Ad Hoc requirements.
+Signed package and store release instructions are in the
+[mobile release guide](../deployment/mobile/README.md).

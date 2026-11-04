@@ -7,6 +7,7 @@ import com.bakaroo.bingo.backend.feature.auth.dto.ChangePasswordRequest;
 import com.bakaroo.bingo.backend.feature.auth.dto.AdminLoginRequest;
 import com.bakaroo.bingo.backend.feature.auth.dto.AuthResponse;
 import com.bakaroo.bingo.backend.feature.user.entity.User;
+import com.bakaroo.bingo.backend.feature.user.entity.UserLanguages;
 import com.bakaroo.bingo.backend.feature.user.entity.UserRole;
 import com.bakaroo.bingo.backend.feature.user.repository.UserRepository;
 import java.util.Locale;
@@ -118,11 +119,13 @@ public class AdminAuthService {
         return new com.bakaroo.bingo.backend.feature.auth.dto.UserProfileResponse(
                 user.getId(),
                 user.getDisplayName(),
+                user.getEmail(),
                 user.getNormalizedPhone(),
                 user.getRoles(),
                 user.getStatus(),
                 user.getCreatedAt(),
                 user.getUpdatedAt(),
-                user.isMustChangePassword());
+                user.isMustChangePassword(),
+                UserLanguages.resolve(user.getPreferredLanguage()));
     }
 }

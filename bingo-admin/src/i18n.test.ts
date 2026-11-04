@@ -1,7 +1,13 @@
-import { describe, expect, it } from "vitest";
-import i18n, { translateAdminStatus, translateAdminValue } from "./i18n";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import i18n, { resolvePreferredLanguage, translateAdminStatus, translateAdminValue } from "./i18n";
 
 describe("Admin translations", () => {
+  afterEach(async () => {
+    window.localStorage.clear();
+    vi.resetModules();
+    await i18n.changeLanguage("en");
+  });
+
   it("keeps English and Amharic resource keys in parity", () => {
     const englishKeys = Object.keys(i18n.getResourceBundle("en", "translation")).sort();
     const amharicKeys = Object.keys(i18n.getResourceBundle("am", "translation")).sort();
@@ -26,5 +32,56 @@ describe("Admin translations", () => {
     expect(translateAdminValue("UPDATE_SESSION_STATE", amharic)).toBe("የክፍለ ጊዜ ሁኔታን ያዘምኑ");
     expect(translateAdminStatus("FUTURE_VENDOR_STATE", amharic)).toBe("FUTURE VENDOR STATE");
     expect(translateAdminStatus("FUTURE_VENDOR_STATE", english)).toBe("FUTURE VENDOR STATE");
+  });
+
+  it("resolves only supported language codes and defaults to English", () => {
+    expect(resolvePreferredLanguage("am")).toBe("am");
+    expect(resolvePreferredLanguage("en")).toBe("en");
+    expect(resolvePreferredLanguage("fr")).toBe("en");
+    expect(resolvePreferredLanguage(undefined)).toBe("en");
+    expect(resolvePreferredLanguage(null)).toBe("en");
+  });
+
+  it("initializes in English and discards the legacy shared locale key", async () => {
+    vi.resetModules();
+    window.localStorage.setItem("bingo-admin-locale", "am");
+    const fresh = (await import("./i18n")).default;
+    expect(fresh.language).toBe("en");
+    expect(window.localStorage.getItem("bingo-admin-locale")).toBeNull();
+  });
+
+  it("initializes with the signed-in account's cached preference to avoid a language flash", async () => {
+    vi.resetModules();
+    window.localStorage.setItem(
+      "bingo-admin-session",
+      JSON.stringify({
+        accessToken: "token",
+        tokenType: "Bearer",
+        user: { id: 1, preferredLanguage: "am" },
+      }),
+    );
+    const fresh = (await import("./i18n")).default;
+    expect(fresh.language).toBe("am");
+  });
+
+  it("falls back to English when the cached preference is unsupported", async () => {
+    vi.resetModules();
+    window.localStorage.setItem(
+      "bingo-admin-session",
+      JSON.stringify({
+        accessToken: "token",
+        tokenType: "Bearer",
+        user: { id: 1, preferredLanguage: "fr" },
+      }),
+    );
+    const fresh = (await import("./i18n")).default;
+    expect(fresh.language).toBe("en");
+  });
+
+  it("updates the document language when the active language changes", async () => {
+    await i18n.changeLanguage("am");
+    expect(document.documentElement.lang).toBe("am");
+    await i18n.changeLanguage("en");
+    expect(document.documentElement.lang).toBe("en");
   });
 });

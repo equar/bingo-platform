@@ -29,6 +29,7 @@ import com.bakaroo.bingo.backend.feature.game.repository.TicketRepository;
 import com.bakaroo.bingo.backend.feature.game.service.BingoGameService;
 import com.bakaroo.bingo.backend.feature.user.entity.AccountStatus;
 import com.bakaroo.bingo.backend.feature.user.entity.User;
+import com.bakaroo.bingo.backend.feature.user.entity.UserLanguages;
 import com.bakaroo.bingo.backend.feature.user.entity.UserRole;
 import com.bakaroo.bingo.backend.feature.user.repository.UserRepository;
 import com.bakaroo.bingo.backend.feature.wallet.config.WalletProperties;
@@ -869,8 +870,9 @@ public class AgentService {
     }
 
     private UserProfileResponse toProfile(User user) {
-        return new UserProfileResponse(user.getId(), user.getDisplayName(), user.getNormalizedPhone(), user.getRoles(),
-                user.getStatus(), user.getCreatedAt(), user.getUpdatedAt(), user.isMustChangePassword());
+        return new UserProfileResponse(user.getId(), user.getDisplayName(), user.getEmail(), user.getNormalizedPhone(), user.getRoles(),
+                user.getStatus(), user.getCreatedAt(), user.getUpdatedAt(), user.isMustChangePassword(),
+                UserLanguages.resolve(user.getPreferredLanguage()));
     }
 
     private AgentProfileResponse toAgentProfileResponse(Agent agent) {

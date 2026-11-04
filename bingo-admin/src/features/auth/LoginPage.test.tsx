@@ -4,6 +4,7 @@ import { StrictMode } from "react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import i18n from "../../i18n";
 import { LoginPage } from "./LoginPage";
 
 const loginMock = vi.fn();
@@ -24,7 +25,11 @@ vi.mock("../../api/session", () => ({
 }));
 
 vi.mock("../../api/types", () => ({
-  parseApiError: (error: unknown) => ({ code: "AUTH_FAILED", message: (error as Error).message ?? "Request failed" }),
+  parseApiError: (error: unknown) => ({
+    status: (error as { status?: number }).status ?? 0,
+    code: "AUTH_FAILED",
+    message: (error as Error).message ?? "Request failed",
+  }),
   getFieldError: () => undefined,
 }));
 
@@ -56,8 +61,9 @@ function createWrapper() {
 }
 
 describe("LoginPage", () => {
-  afterEach(() => {
+  afterEach(async () => {
     cleanup();
+    await i18n.changeLanguage("en");
   });
 
   beforeEach(() => {
@@ -81,6 +87,30 @@ describe("LoginPage", () => {
     });
   });
 
+  it("always renders in English even when the previous active language was Amharic", async () => {
+    // Simulates a leftover Amharic UI language (e.g. from the previous account).
+    await i18n.changeLanguage("am");
+
+    render(<LoginPage />, { wrapper: createWrapper() });
+
+    expect(screen.getByRole("heading", { name: "Sunset Bingo Admin" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sign in" })).toBeInTheDocument();
+    expect(screen.getByLabelText(/email address/i)).toBeInTheDocument();
+    expect(screen.getByText("Secure access for authorized admin and support accounts")).toBeInTheDocument();
+    expect(screen.queryByText("ግባ")).not.toBeInTheDocument();
+  });
+
+  it("shows the expired-session notice in English regardless of the previous language", async () => {
+    await i18n.changeLanguage("am");
+    consumeSessionExpiredMock.mockReturnValueOnce(true).mockReturnValue(false);
+
+    render(<LoginPage />, { wrapper: createWrapper() });
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Your session has expired. Please sign in again.",
+    );
+  });
+
   it("loads the saved email and keeps it in local storage", async () => {
     window.localStorage.setItem("bingo-admin-login-email", "saved@bingo.local");
 
@@ -95,6 +125,21 @@ describe("LoginPage", () => {
     await user.type(screen.getByLabelText(/email address/i), "new@bingo.local");
 
     expect(window.localStorage.getItem("bingo-admin-login-email")).toBe("new@bingo.local");
+  });
+
+  it("explains when the backend cannot be reached during sign-in", async () => {
+    loginMock.mockRejectedValueOnce(new Error("Network Error"));
+
+    const user = userEvent.setup();
+    render(<LoginPage />, { wrapper: createWrapper() });
+
+    await user.type(await screen.findByLabelText(/email address/i), "admin@bingo.local");
+    await user.type(screen.getByLabelText(/^password/i), "correct-password");
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "We couldn’t reach the server right now. Check your connection or try again in a moment.",
+    );
   });
 
   it("preserves the expired-session notice when StrictMode replays effects", async () => {

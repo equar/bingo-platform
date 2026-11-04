@@ -15,6 +15,7 @@ import com.bakaroo.bingo.backend.feature.support.service.SupportService;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -25,6 +26,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import java.time.Instant;
 
 @RestController
 @RequestMapping("/api/v1/admin/support/tickets")
@@ -46,6 +48,22 @@ public class AdminSupportController {
             @PageableDefault(size = 20) Pageable pageable) {
         return PageResponse.from(supportService.searchTickets(query, status, category, priority, assignedToUserId,
                 pageable));
+    }
+
+    @GetMapping("/report")
+    public PageResponse<SupportTicketSummaryResponse> report(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to,
+            @PageableDefault(size = 100) Pageable pageable) {
+        if (!from.isBefore(to)) {
+            throw new com.bakaroo.bingo.backend.common.exception.BadRequestException(
+                    "INVALID_REPORT_RANGE", "Report end must be after report start");
+        }
+        if (to.isAfter(from.plusSeconds(366L * 24 * 60 * 60))) {
+            throw new com.bakaroo.bingo.backend.common.exception.BadRequestException(
+                    "REPORT_RANGE_TOO_LARGE", "Reports are limited to 366 days");
+        }
+        return PageResponse.from(supportService.reportTickets(from, to, pageable));
     }
 
     @GetMapping("/assignees")

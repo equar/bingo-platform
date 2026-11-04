@@ -30,6 +30,10 @@ import com.bakaroo.bingo.backend.feature.wallet.repository.WalletRepository;
 import com.bakaroo.bingo.backend.feature.wallet.repository.WalletTransactionRepository;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.util.Map;
+import java.util.TreeMap;
 import java.util.List;
 import java.util.Locale;
 import org.springframework.data.domain.Page;
@@ -130,6 +134,37 @@ public class AdminReadService {
                                 playerBalance, agentAvailable, agentClearing);
         }
 
+        public AdminDashboardTrendsResponse dashboardTrends(int days) {
+                ZoneId zone = businessProperties.zoneId();
+                LocalDate end = LocalDate.now(zone);
+                LocalDate start = end.minusDays(days - 1L);
+                Map<LocalDate, Long> registrations = new TreeMap<>();
+                Map<LocalDate, Long> tickets = new TreeMap<>();
+                for (LocalDate date = start; !date.isAfter(end); date = date.plusDays(1)) {
+                        registrations.put(date, 0L);
+                        tickets.put(date, 0L);
+                }
+                Instant startAt = start.atStartOfDay(zone).toInstant();
+                Instant endExclusive = end.plusDays(1).atStartOfDay(zone).toInstant();
+                userRepository.findByCreatedAtGreaterThanEqualAndCreatedAtLessThan(startAt, endExclusive).stream()
+                                .filter(user -> user.hasRole(UserRole.PLAYER))
+                                .map(user -> user.getCreatedAt().atZone(zone).toLocalDate())
+                                .filter(date -> !date.isBefore(start) && !date.isAfter(end))
+                                .forEach(date -> registrations.computeIfPresent(date, (key, count) -> count + 1));
+                supportTicketRepository.findByCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(
+                                startAt, endExclusive, Pageable.unpaged()).stream()
+                                .map(ticket -> ticket.getCreatedAt().atZone(zone).toLocalDate())
+                                .filter(date -> !date.isBefore(start) && !date.isAfter(end))
+                                .forEach(date -> tickets.computeIfPresent(date, (key, count) -> count + 1));
+                return new AdminDashboardTrendsResponse(zone.getId(),
+                                registrations.entrySet().stream()
+                                                .map(entry -> new DailyTrendPoint(entry.getKey(), entry.getValue()))
+                                                .toList(),
+                                tickets.entrySet().stream()
+                                                .map(entry -> new DailyTrendPoint(entry.getKey(), entry.getValue()))
+                                                .toList());
+        }
+
         public Page<AdminPlayerSummaryResponse> searchPlayers(String query, AccountStatus status, Pageable pageable) {
                 String search = query == null || query.isBlank() ? null : query.trim().toLowerCase(Locale.ROOT);
                 return userRepository.findAdminUsers(List.of(UserRole.PLAYER), search, status, pageable)
@@ -203,6 +238,20 @@ public class AdminReadService {
                                         entry.getAction(), entry.getTargetType(), entry.getTargetId(), entry.getReason(),
                                         entry.getOperationId(), entry.getCreatedAt());
                 });
+        }
+
+        @Transactional(readOnly = true)
+        public Page<AdminAuditLogSummaryResponse> auditActivityReport(Instant from, Instant to, Pageable pageable) {
+                return auditLogRepository
+                                .findByCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDescIdDesc(
+                                                from, to, pageable)
+                                .map(entry -> {
+                                        User actor = entry.getActor();
+                                        return new AdminAuditLogSummaryResponse(entry.getId(),
+                                                        actor == null ? null : actor.getId(), entry.getAction(),
+                                                        entry.getTargetType(), entry.getTargetId(), entry.getReason(),
+                                                        entry.getOperationId(), entry.getCreatedAt());
+                                });
         }
 
         @Transactional(readOnly = true)

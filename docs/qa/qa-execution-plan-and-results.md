@@ -23,7 +23,7 @@ The backend integration suite used disposable, loopback-bound MySQL 8.0.36 and M
 | Player/agent device E2E | PARTIAL | Android emulator player setup/deposit/registration and support-ticket journeys passed against the disposable backend. Each phase run exited 0 and reported 5 passed/0 failed/0 skipped, but only the selected journey executed; the other four phase cases returned early by design. Purchase/settlement/claim, agent-device flows, and iOS remain unverified. |
 | Load/capacity | BLOCKED | `k6`, a reviewed load script, and an isolated load target were unavailable. No 1,000-player capacity or 10-ticket concurrency claim is supported. |
 | Financial reconciliation | BLOCKED | Focused monetary invariants passed in integration tests; no standalone end-to-end ledger reconciliation was executed. See [financial-reconciliation.md](./financial-reconciliation.md). |
-| Security | PARTIAL | Production datasource configuration and password-free admin activation were fixed and tested. All four store-release workflows pin Fastlane 2.241.1, but transitive dependency locking and CI validation remain open; production deployment configuration and external security validation are also open. See [security-validation.md](./security-validation.md). |
+| Security | PARTIAL | Production datasource configuration and password-free admin activation were fixed and tested. All four store-release workflows pin Fastlane 2.241.1, but transitive dependency locking and CI validation remain open; production deployment configuration and external security validation are also open. See the [current blockers and approvals](./qa-blockers-and-approvals.md). |
 | CI/release workflows | NOT VERIFIED | No CI run against the current release candidate was available in this execution. The workspace's own `target` JAR was locked by an unrelated process, so the build was verified from the isolated source copy instead. |
 
 ## Focused financial evidence
@@ -39,8 +39,7 @@ The Android setup phase created only synthetic deposit requests and a synthetic 
 - Chromium desktop/mobile screenshots: `docs/qa/evidence/public-website-desktop.png` and `docs/qa/evidence/public-website-mobile.png`.
 - Gate-by-gate detail: [defect-remediation-matrix.md](./defect-remediation-matrix.md).
 - Current release decision: [release-checklist.md](./release-checklist.md) and [production-readiness-report.md](./production-readiness-report.md).
-- Security scope: [security-validation.md](./security-validation.md).
-- Load metrics and blockers: [load-test-results.md](./load-test-results.md).
+- Current security and load gates: [blockers and approvals](./qa-blockers-and-approvals.md).
 - Consolidated open gates: [release-blockers.md](./release-blockers.md).
 
 **Conclusion:** The targeted admin browser journey and two Android player journeys now pass against isolated synthetic services, in addition to the previously passing unit, integration, and build checks. Full admin/browser and mobile game/agent coverage, complete financial reconciliation, load, V14 restore, legal approval, and production deployment evidence remain open. Do not ship a real-money release.

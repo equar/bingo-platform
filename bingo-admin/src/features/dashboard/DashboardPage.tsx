@@ -18,7 +18,7 @@ import {
   Typography,
 } from "@mui/material";
 import { Link as RouterLink } from "react-router-dom";
-import { auditLogs, dashboardMetrics, liveSessions } from "../../api/admin";
+import { auditLogs, dashboardMetrics, dashboardTrends, liveSessions, type DailyTrendPoint } from "../../api/admin";
 import { getUserFacingErrorMessage } from "../../api/types";
 import { StatusState } from "../../components/StatusState";
 import { translateAdminStatus, translateAdminValue } from "../../i18n";
@@ -90,6 +90,65 @@ function MetricCard({
   );
 }
 
+function TrendCard({ title, points, locale, t }: { title: string; points: DailyTrendPoint[]; locale: string; t: TFunction }) {
+  const width = 640;
+  const height = 190;
+  const padX = 24;
+  const padY = 18;
+  const max = Math.max(1, ...points.map((point) => point.count));
+  const plotted = points.map((point, index) => ({
+    ...point,
+    x: padX + (points.length < 2 ? 0 : (index * (width - padX * 2)) / (points.length - 1)),
+    y: height - padY - (point.count / max) * (height - padY * 2),
+  }));
+  const line = plotted.map((point) => `${point.x},${point.y}`).join(" ");
+  const area = plotted.length
+    ? `${padX},${height - padY} ${line} ${plotted[plotted.length - 1].x},${height - padY}`
+    : "";
+  const labelIndexes = [...new Set([0, Math.floor((points.length - 1) / 2), points.length - 1])];
+
+  return (
+    <Card elevation={0} sx={{ minWidth: 0, border: "1px solid", borderColor: "divider", borderRadius: "12px" }}>
+      <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
+        <Stack spacing={1}>
+          <Typography variant="subtitle1" fontWeight={700}>{title}</Typography>
+          {points.length ? (
+            <Box sx={{ minWidth: 0 }}>
+              <Box component="svg" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={title}
+                sx={{ width: "100%", height: 180, overflow: "visible", color: "primary.main" }}>
+                <title>{title}</title>
+                {[0, 1, 2].map((lineIndex) => {
+                  const y = padY + lineIndex * ((height - padY * 2) / 2);
+                  return <line key={lineIndex} x1={padX} x2={width - padX} y1={y} y2={y} stroke="currentColor" opacity="0.12" />;
+                })}
+                <polygon points={area} fill="currentColor" opacity="0.08" />
+                <polyline points={line} fill="none" stroke="currentColor" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
+                {plotted.map((point) => (
+                  <circle key={point.date} cx={point.x} cy={point.y} r="3.5" fill="currentColor">
+                    <title>{`${point.date}: ${point.count}`}</title>
+                  </circle>
+                ))}
+              </Box>
+              <Stack direction="row" justifyContent="space-between" color="text.secondary">
+                {labelIndexes.map((index) => (
+                  <Typography key={index} variant="caption">
+                    {new Date(`${points[index].date}T12:00:00`).toLocaleDateString(locale, { month: "short", day: "numeric" })}
+                  </Typography>
+                ))}
+              </Stack>
+            </Box>
+          ) : <Typography color="text.secondary" variant="body2">{t("No activity in this period.")}</Typography>}
+          <Typography variant="caption" color="text.secondary">
+            {t("{{count}} total over the last 14 days", {
+              count: points.reduce((total, point) => total + point.count, 0).toLocaleString(locale),
+            })}
+          </Typography>
+        </Stack>
+      </CardContent>
+    </Card>
+  );
+}
+
 function QueryError({
   title,
   error,
@@ -133,6 +192,13 @@ export function DashboardPage() {
     retry: false,
     staleTime: 30_000,
     refetchInterval: 60_000,
+  });
+  const trendsQuery = useQuery({
+    queryKey: ["dashboard", "trends", 14],
+    queryFn: () => dashboardTrends(14),
+    retry: false,
+    staleTime: 60_000,
+    refetchInterval: 5 * 60_000,
   });
   const logsQuery = useQuery({
     queryKey: ["dashboard", "audit-logs"],
@@ -286,6 +352,18 @@ export function DashboardPage() {
           </Box>
         </Stack>
       </Box>
+
+      {trendsQuery.data ? (
+        <Box component="section" aria-label={t("Recent trends")}
+          sx={{ display: "grid", gridTemplateColumns: { xs: "minmax(0, 1fr)", lg: "repeat(2, minmax(0, 1fr))" }, gap: 1.5 }}>
+          <TrendCard title={t("New player registrations")} points={trendsQuery.data.playerRegistrations} locale={locale} t={t} />
+          <TrendCard title={t("Support tickets created")} points={trendsQuery.data.supportTicketsCreated} locale={locale} t={t} />
+        </Box>
+      ) : trendsQuery.isError ? (
+        <Alert severity="warning" action={<Button size="small" color="inherit" onClick={() => trendsQuery.refetch()}>{t("Retry")}</Button>}>
+          {t("Dashboard trends are unavailable right now.")}
+        </Alert>
+      ) : null}
 
       <Box
         sx={{

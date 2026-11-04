@@ -5,13 +5,14 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { login } from "../../api/admin";
 import { clearSession, consumeSessionExpired, writeSession } from "../../api/session";
 import { parseApiError } from "../../api/types";
-import { useTranslation } from "react-i18next";
-import { LanguageSelector } from "../../components/LanguageSelector";
+import i18n from "../../i18n";
 
 const LOGIN_EMAIL_KEY = "bingo-admin-login-email";
 
 export function LoginPage() {
-  const { t } = useTranslation();
+  // The login screen always renders in English, regardless of the browser
+  // language or any previously signed-in account's preference.
+  const t = i18n.getFixedT("en");
   const navigate = useNavigate();
   const location = useLocation();
   const [email, setEmail] = useState(() => window.localStorage.getItem(LOGIN_EMAIL_KEY) ?? "");
@@ -122,9 +123,6 @@ export function LoginPage() {
         }}
       >
         <Stack spacing={3.5}>
-          <Stack direction="row" justifyContent="flex-end">
-            <LanguageSelector />
-          </Stack>
           {sessionExpired ? <Alert severity="info">{t("login.sessionExpired")}</Alert> : null}
           <Stack spacing={2} alignItems="center" textAlign="center">
             <Box

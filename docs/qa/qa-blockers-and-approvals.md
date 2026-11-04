@@ -1,22 +1,62 @@
-# QA Blockers and Required Approvals
+# Current QA Blockers and Required Approvals
 
-**Audit snapshot:** 2026-10-25. Derived from current module reports; no new approval is granted by this document.
+**Status snapshot:** 2026-11-03. The latest guarded cross-client run stopped
+before application startup; see the [scenario matrix](platform-e2e-scenario-matrix.md)
+and [run report](evidence/platform-e2e-runs/QA_PLATFORM_20261103_1806/run-report.md).
+This document records blockers; it grants no database, financial, or production
+authorization.
 
-| Area | Current blocker | Required decision / evidence | Affected scope |
-| --- | --- | --- | --- |
-| Maven disposable database provisioning | Local `bingo_qa_maven_test` and its Maven runner remain unprovisioned/unverified; this is separate from functional E2E. | If local destructive Maven integration tests are needed, first verify an already-approved disposable target/account or obtain DBA provisioning authorization. Do not use `bingo` or `bingo_qa_test`. | Local Maven integration tests only; not Android/Admin functional E2E. |
-| Local Android/Admin QA identity | Owner accepts schema-scoped `ALL PRIVILEGES` on `bingo_qa_test` and separately authorizes this machine's MySQL root account for local Android E2E. No grant changes are authorized or needed. This is ACCEPTED FOR LOCAL TESTING and is not an E2E blocker. | Verify the effective username/schema/port and runtime datasource. For the root exception, enforce the fixed `127.0.0.1:3306/bingo_qa_test` target; do not persist the password or use root for production/shared environments. | Local Android/Admin functional E2E only. |
-| Claim ticket fixture | No approved nonfinancial fixture writer exists. Purchase debits wallet; agent sale uses float and commission. | Product, Security and DBA approval of 04D-5B design; explicit local-QA opt-in, isolated schema/account and provenance requirements. | 04D claim E2E. |
-| Claim eligibility | CLOSED behavior and some lifecycle semantics are unresolved; no valid owned winning ticket fixture. | Product decision for CLOSED/CANCELLED, eligibility timing and claim outcomes. | 04D and 02E. |
-| Draw retry | Retry across due intervals is not idempotent; no accepted client request-id contract. | Product/API contract and focused isolated concurrency/retry verification. | 04C. |
-| Ticket purchase/cancellation | Player purchase UI is absent; cutoff, ticket-bearing cancellation/refund and accounting are unresolved. | Product and Finance/accounting policy; safe isolated funding and reconciliation plan. | 04B, 02E. |
-| Transfers and rewards | Persistent positive fixtures and policy limits/zero semantics lack approval. | Product/Finance approval, accounting/reversal expectations and synthetic isolated fixture path. | 02D, 02H, 02I. |
-| Funding and settlement | Production credits, deposits, float funding and prize settlement are guarded/disabled; no external payment settlement is approved. | Finance/accounting, risk and operational approval plus implementation and reconciliation evidence. | 02, 04D, production. |
-| Scheduling/prize policy | Time zone, DST, recurrence, overlap, prize formula and multi-winner behavior are undefined. | Product/Finance decisions with documented examples and acceptance criteria. | 02E, 04D. |
-| Operations/release | Production monitoring/SLO, backup/restore drill, incident recovery, workflow release and rollback evidence absent. | Operations/security/release owners provide controls and executed evidence. | D35/D36 and production readiness. |
-| Module 06A database-free execution | Maven could not create its local repository at `C:\.m2\repository`; Flutter test/analyzer commands produced no output before interruption. | Restore permitted local tool-cache access and run the named database-free suites. `git diff --check` passed with a per-invocation safe-directory setting. | Fresh Module 06A unit/widget/analyzer verification. |
-| Module 06A deferred functional decisions | Profile editing, player ticket purchase, player PIN recovery, CLOSED claim eligibility, draw retry contract, and ticket-bearing cancellation/refund are absent or unresolved in the source inventory. | Product defines supported behaviors; Finance defines ticket/accounting policies; Security and DBA approve any persistent test fixture design. | D02, D15, D18–D19, 04B, 04D. No policies are inferred by Module 06A. |
+| Area | Current blocker | Required resolution |
+|---|---|---|
+| Local functional E2E schema | Checked-out source requires Flyway V23; local `bingo_qa_test` is V22. The guarded launcher correctly refuses startup. | Follow the separate [backup/restore and V23 runbook](local-bingo-qa-test-v23-runbook.md) only after its owner/DBA gates are satisfied. Do not migrate, clean, or bypass the guard as part of this documentation task. |
+| Maven integration schema | The dedicated disposable `bingo_qa_maven_test` schema/account is not provisioned or verified. Maven integration tests include destructive cleanup. | Obtain DBA provisioning for that exact disposable target and verify its guard. Never point Maven tests at `bingo`, `bingo_qa`, or `bingo_qa_test`. |
+| Owned-ticket claim fixture | No approved nonfinancial writer exists. Player purchase debits a wallet; Agent sale debits float and can accrue commission. | Product, Security, and DBA must approve the design and local execution gates below before implementation or a claim E2E run. |
+| Claim policy | CANCELLED claims are rejected; CLOSED-session eligibility and some lifecycle outcomes remain undecided. No valid owned-ticket fixture exists. | Product must define eligibility and state-transition outcomes. Claim testing must use the normal API and must not approve claims or create entitlements as a side effect. |
+| Ticket purchase, scheduling, and cancellation | Player purchase UI is absent. The current purchase cutoff is transition to `STARTED`, not scheduled time; schedule timezone/DST/recurrence/overlap and ticket-bearing cancellation/refund policy remain unresolved. | Product defines timing and lifecycle behavior; Finance approves any funding, accounting, refund, or reversal treatment. |
+| Draw retries | The Admin draw endpoint is bodyless and has no request-id contract. A request after a later due interval is a new draw, not a replay of the prior response. | Product/API approval of retry identity, replay, conflict, retention, and concurrency semantics before changing the contract. |
+| Transfers and rewards | Positive persistent fixtures, policy limits, and zero-limit semantics lack approval. | Product/Finance define policy, funding, reversal, and reconciliation requirements; use a separately authorized isolated test environment. |
+| Deposits, adjustments, float funding, ticket sales, and payouts | Production posting and persistent financial scenarios are not approved. Synthetic QA results do not prove receipt or settlement of real funds. | Finance/accounting, Security, and Operations approve source evidence, roles, accounting, limits, reversals, idempotency, and an isolated execution plan. |
+| Prize settlement | The Admin settlement operation fails closed with `PRIZE_SETTLEMENT_BLOCKED`. The separate Agent cash verification/disbursement path exists, but is not production authorization. | Product/Finance approve the payout destination, source evidence, accounting, compliance, one-time settlement, and reconciliation before enabling any production path. |
+| Full reconciliation | No complete deposit → approval → ticket/transfer → payout → reversal lifecycle has been reconciled. | Run a reviewed synthetic workflow in an approved disposable environment with immutable before/after snapshots, balanced journals, exact-once retries, and unrelated-record checks. |
+| Capacity and operations | No load test or capacity measurement has run; the configured 1,000-player limit is not validated. Monitoring/SLO, backup/restore drill, and incident-recovery evidence are incomplete. | Provision a separate disposable load environment and reviewed harness; collect latency, throughput, contention, and financial invariants. Operations must supply monitoring and recovery evidence. |
+| Security and release | The 2026-10-22 security review left independent external security validation open; Fastlane transitive dependency locking/CI validation was partial, and production proxy/TLS/secret settings still require owner verification. | Revalidate these items on the release candidate, complete independent security review, and retain CI/deployment evidence before any GO decision. |
+| Public website and store release | Production metadata, approved policy wording, support contacts, store listings, indexing decision, and legal/product review are not all established. | Product/legal/operations approve the public content and release state; keep unavailable links visibly unavailable rather than publishing placeholders. |
 
-## Completion state
+## Nonfinancial claim-fixture constraints
 
-The master inventory and coverage matrix are static audit artifacts. Module 02 remains INCOMPLETE; 04B, 04C and 04D remain PARTIAL; 04E is NOT STARTED. Module 05A remains COMPLETE FOR STATIC INVENTORY. Module 06A has no new real E2E PASS yet. The local `bingo_qa_test` privilege concern is accepted by the owner and removed as a blocker; remaining scenario-specific fixture, financial, policy, or device-execution blockers remain. No blocker in this list authorizes production changes or expands financial posting approval.
+Any future fixture implementation must meet all of these conditions; this
+section consolidates the still-open 04D-5B design requirements:
+
+- Use a separate one-shot, non-web QA runner that is excluded from production
+  artifacts. Do not add a public controller or browser-visible fixture route.
+- Select only an explicitly allowlisted synthetic PLAYER and create its
+  room/session through existing game services. Accept a run/scenario identifier,
+  not arbitrary user, ticket, card, session, draw, or status values.
+- Generate and validate cards with the production server-side generator.
+  Never call player purchase or Agent sale services; never create wallet/float
+  debits, commission, settlement, or financial journals.
+- Record a fresh run UUID, operator, purpose, player/session/ticket IDs, creation
+  time, and card-validation result in reviewed provenance/audit metadata.
+  Do not claim existing rows have a run marker unless an approved migration
+  adds one.
+- Use the normal claim API, owner checks, session lock/state validator, pattern
+  evaluator, idempotency, uniqueness, and audit path. The fixture tool must not
+  insert claims or bypass claim validation. Do not approve claims in this test.
+- Draws must use the ordinary server-selected draw service and cadence. Do not
+  inject numbers, fabricate history, or relax timing rules; if no winner occurs,
+  report the scenario as blocked.
+- Require explicit Product/Security/DBA approval, a local-only opt-in and
+  operator identity, exact `127.0.0.1:3306/bingo_qa_test` verification, current
+  Flyway state, Hibernate `validate`, clean/migrations disabled, and all
+  financial/scheduler flags off. No database migration or grant change is
+  implicitly authorized.
+- Capture read-only before/after reconciliation proving balances, transactions,
+  float, journals, entitlements, and unrelated retained records did not change.
+  Never auto-delete fixtures; cleanup requires a separately approved,
+  run-UUID-scoped procedure and retention policy.
+
+The current local functional-E2E `ALL PRIVILEGES` exception is scoped to
+`bingo_qa_test`; it does not itself approve a ticket fixture. Verify exact
+runtime identity and cross-schema denial. The machine-local root exception is
+only for the guarded `android-test` backend on that same fixed target and never
+authorizes Maven, persistent QA, or production access.

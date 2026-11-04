@@ -1,23 +1,13 @@
-# bingo-backend
+# Bingo Backend
 
-Spring Boot 4.1.1 backend foundation for the Bingo platform.
+Spring Boot 4.1.1 service using Java 25, Spring Security, Spring Data JPA,
+MySQL, Flyway, Bean Validation, and springdoc OpenAPI.
 
-## Stack
+## Local development and configuration
 
-- Java 25
-- Spring Boot 4.1.1
-- Spring Security
-- Spring Data JPA
-- MySQL
-- Flyway
-- Bean Validation
-- springdoc OpenAPI
-
-## Local Development
-
-1. Make sure MySQL is running locally and the configured user can create the `bingo` database if it does not already exist.
-2. Copy `.env.example` to `.env` and replace every placeholder. `.env` is ignored by Git and loaded only for local development.
-3. Generate a private JWT signing secret with PowerShell:
+Use Java 25+, Maven 3.9+, and local MySQL. Copy `.env.example` to the ignored
+`.env`, replace every placeholder, and set a private `JWT_SECRET` of at least
+32 UTF-8 bytes. Generate a random secret in PowerShell:
 
 ```powershell
 $bytes = New-Object byte[] 32
@@ -25,40 +15,88 @@ $bytes = New-Object byte[] 32
 [Convert]::ToBase64String($bytes)
 ```
 
-Put the generated value in your untracked `.env` as `JWT_SECRET`. The application requires at least 32 UTF-8 bytes and explicitly signs HS256 tokens. A missing, blank, or weak secret prevents startup.
-4. Run the backend normally, or with the `dev` profile:
+Run the backend from this directory:
 
 ```bash
 mvn spring-boot:run -Dspring-boot.run.profiles=dev
 ```
 
-The default local datasource points to `jdbc:mysql://localhost:3306/bingo` and enables `createDatabaseIfNotExist=true`. Set database credentials in `.env` for your local MySQL installation.
-Development seeding is disabled by default. To enable it, set `APP_DEV_SEED_ENABLED=true` and supply unique `DEV_ADMIN_*`, `DEV_AGENT_*`, and `DEV_PLAYER_*` values from your untracked `.env`; the example file contains placeholders, not usable credentials.
+The local datasource defaults to `jdbc:mysql://localhost:3306/bingo` and may
+create the development database. Development account seeding is disabled by
+default; enabling it requires unique `DEV_ADMIN_*`, `DEV_AGENT_*`, and
+`DEV_PLAYER_*` values in the ignored `.env`. Never use these development
+settings for QA or production.
 
-Admin and support accounts created from the console require a 10-digit phone number.
-The backend emails a single-use activation link that expires after 24 hours; the
-recipient chooses a password during activation. Configure local SMTP before
-creating accounts from the Admin UI.
+Admin/support accounts require a valid phone number. The backend sends a
+single-use activation link that expires after 24 hours; the recipient chooses
+the password. Configure local SMTP before creating accounts through Admin.
+Production uses Flyway and Hibernate `validate`; it does not use development
+seeding. See the [production deployment guide](../deployment/README.md) for
+the protected runtime environment and secret setup.
 
-## Notes
+## API, OpenAPI, and live draws
 
-- Public registration only creates player accounts.
-- Admin and agent roles are not allowed through public registration.
-- Password hashes, PIN hashes, and JWT secrets are never returned by the API.
-- Login attempts are limited by normalized account identifier and client network address using shared MySQL-backed counters, so limits apply across backend instances.
-- Only health, environment, and bean Actuator endpoints are exposed over HTTP. Public health reports the overall status and component statuses (including `application` and `db`) without diagnostic details; the other endpoints require an ADMIN token, and environment values are always masked.
-- Database schema is managed with Flyway migrations.
-- Local development uses localhost MySQL and does not require Docker.
-- The checked-in OpenAPI contract lives at [openapi.json](openapi.json); see [docs/openapi-integration.md](docs/openapi-integration.md) for how the three frontend projects should consume it.
+The checked-in [OpenAPI contract](openapi.json) is the source for client
+generation and mocked API fixtures. During local development the live contract
+is at `http://localhost:8080/v3/api-docs`. After an API change, refresh
+`openapi.json` from that endpoint and commit it with the backend change.
+Admin consumes `/api/v1/admin/**` and `/api/v1/admin/support/**`; Agent consumes
+`/api/v1/agent/**`, `/api/v1/support/**`, and shared auth/game/wallet
+operations; Player consumes public auth/game/wallet/support operations.
 
-## Credential rotation
+The Admin-only player verification endpoints provide a manual outcome tracker:
+`GET /api/v1/admin/player-verifications`,
+`GET /api/v1/admin/players/{playerId}/verification/reviews`, and
+`POST /api/v1/admin/players/{playerId}/verification/reviews`. They retain
+status/reason history without identity documents or free-text evidence, and
+verification state does not currently enforce account, gameplay, deposit, or
+withdrawal restrictions. Use an approved external verification process until
+a provider and jurisdiction-specific policy are configured.
 
-Previous source revisions contained predictable development and E2E fallback credentials. Treat any such values that were reused outside disposable local environments as compromised: change the associated admin passwords and player/agent PINs, replace any reused secrets, invalidate existing sessions/tokens, and review access logs. Removing the current-source fallbacks does not remove them from Git history.
+Live draws use STOMP at `/ws` locally and `wss://<host>/ws` behind TLS. Send
+the existing API JWT in the STOMP `CONNECT` frame's `Authorization` header
+using the bearer-token form. Subscribe to
+`/topic/session/{sessionId}/draws`; events include `id`, `sessionId`,
+`sequenceNo`, `numberDrawn`, and `drawnAt`. The server persists each event
+before delivery. Clients deduplicate by `id` or `sequenceNo` and recover missed
+events with
+`GET /api/v1/sessions/{sessionId}/draws?afterSequence={n}`. Clients must not
+publish authoritative game events; authenticated, subscribe-only access and
+the origin allowlist are enforced by the backend.
 
-## Integration tests
+## Security and operations
 
-Database-backed Maven integration tests use the dedicated disposable `bingo_qa_maven_test` schema: local developer runs use local MySQL, while CI uses its job-isolated MySQL service. They require `BINGO_MAVEN_MYSQL_URL`, `BINGO_MAVEN_MYSQL_USERNAME`, and `BINGO_MAVEN_MYSQL_PASSWORD`; the local test guard accepts only MySQL on loopback port 3306, this exact catalog, and the scoped `bingo_qa_maven_runner` account. Synthetic financial test paths additionally require the explicit `BINGO_MAVEN_SYNTHETIC_FINANCIAL_TESTS_ENABLED=true` opt-in, enabled only for the isolated Maven test job in CI. Never point Maven tests at `bingo_qa` or Android/Admin `bingo_qa_test`. See [Module 04C-5A recovery plan](../docs/qa/modules/module-04c5a-mysql-recovery-plan.md) for manual DBA provisioning.
+- Public registration creates only `PLAYER` accounts. Admin and Agent roles
+  cannot be assigned through public registration.
+- Password/PIN hashes and JWT secrets are never returned by the API. Login
+  attempts are rate-limited with shared MySQL-backed counters.
+- Only health, environment, and bean Actuator endpoints are exposed over HTTP.
+  Health responses omit diagnostics; the other endpoints require ADMIN and
+  environment values are masked.
+- Production datasource TLS uses `sslMode=VERIFY_IDENTITY`. The deployment
+  installs the AWS CA bundle into a Java truststore without disabling hostname
+  verification.
+- Previous source revisions contained predictable development/E2E fallback
+  credentials. Treat any value reused outside disposable local environments
+  as compromised: rotate affected passwords/PINs/secrets, invalidate sessions,
+  and review access logs. Removing current-source fallbacks does not remove
+  secrets from Git history.
 
-The local backend used for controlled Android/Admin E2E uses the separate `android-test` profile and `BINGO_TEST_MYSQL_*` variables. `.env.test` is not loaded automatically by Spring; load it explicitly in the process that launches the backend. Maven tests do not use that datasource.
+## Integration-test safeguards
 
-For the guarded local Admin Chromium and player Android procedures, schema boundaries, and current execution status, see [Local E2E Testing](../docs/local-e2e-testing.md), the [QA environment record](../docs/qa/local-environment.md), and the [QA index](../docs/qa/README.md).
+Database-backed Maven integration tests use only the separately disposable
+`bingo_qa_maven_test` schema and `BINGO_MAVEN_MYSQL_URL`,
+`BINGO_MAVEN_MYSQL_USERNAME`, and `BINGO_MAVEN_MYSQL_PASSWORD`. The local guard
+requires loopback MySQL port 3306, the exact catalog and scoped
+`bingo_qa_maven_runner` account, disabled database auto-creation, and no
+cross-schema grants. Synthetic financial tests additionally require the
+explicit `BINGO_MAVEN_SYNTHETIC_FINANCIAL_TESTS_ENABLED=true` opt-in in the
+isolated test job.
+
+Do not point Maven tests at `bingo`, persistent `bingo_qa`, or Android/Admin
+`bingo_qa_test`. The test suite includes cleanup and a Flyway recovery test
+that calls `clean()`. The disposable Maven schema/account is not provisioned
+for the current local environment, so do not run database-backed Maven tests
+until its target and source guard are verified. See the
+[guarded E2E runbook](../docs/qa/platform-e2e-runbook.md) and
+[current blockers](../docs/qa/qa-blockers-and-approvals.md).

@@ -19,6 +19,7 @@ test("keeps the player table scroll inside its container at mobile widths in bot
       mutationMethods.push(request.method());
     }
   });
+  const accountState = { preferredLanguage: "en" };
   await page.route("**/api/v1/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
     if (path === "/api/v1/auth/me") {
@@ -34,6 +35,28 @@ test("keeps the player table scroll inside its container at mobile widths in bot
             status: "ACTIVE",
             createdAt: "2026-11-03T00:00:00Z",
             updatedAt: "2026-11-03T00:00:00Z",
+            preferredLanguage: accountState.preferredLanguage,
+          },
+        }),
+      });
+      return;
+    }
+    if (path === "/api/v1/me/preferences" && route.request().method() === "PUT") {
+      const body = route.request().postDataJSON() as { preferredLanguage?: string };
+      accountState.preferredLanguage = body?.preferredLanguage === "am" ? "am" : "en";
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          user: {
+            id: 1,
+            displayName: "QA Admin",
+            phoneNumber: "251911000001",
+            roles: ["ADMIN"],
+            status: "ACTIVE",
+            createdAt: "2026-11-03T00:00:00Z",
+            updatedAt: "2026-11-03T00:00:00Z",
+            preferredLanguage: accountState.preferredLanguage,
           },
         }),
       });
@@ -69,7 +92,6 @@ test("keeps the player table scroll inside its container at mobile widths in bot
     await route.fulfill({ status: 404, contentType: "application/json", body: "{}" });
   });
   await page.addInitScript(() => {
-    if (!localStorage.getItem("bingo-admin-locale")) localStorage.setItem("bingo-admin-locale", "en");
     localStorage.setItem("bingo-admin-session", JSON.stringify({
       accessToken: "responsive-test-token",
       tokenType: "Bearer",
@@ -91,10 +113,18 @@ test("keeps the player table scroll inside its container at mobile widths in bot
 
   for (const language of ["en", "am"] as const) {
     if (language === "am") {
-      await page.getByRole("combobox", { name: "Language" }).click();
+      // Change the saved preference through Profile → Preferences at mobile width.
+      await page.goto("/profile");
+      await page.getByRole("combobox", { name: /Language/ }).click();
       await page.getByRole("option", { name: "አማርኛ" }).click();
+      await page.getByRole("button", { name: "Save" }).click();
+      await expect(page.getByText("የቋንቋ ምርጫዎ ተቀምጧል።")).toBeVisible();
+      await expect.poll(() => page.evaluate(() => {
+        const session = window.localStorage.getItem("bingo-admin-session");
+        return session ? (JSON.parse(session) as { user?: { preferredLanguage?: string } }).user?.preferredLanguage : null;
+      })).toBe("am");
+      await page.goto("/players");
       await expect(page.getByRole("heading", { name: "ተጫዋቾች", exact: true })).toBeVisible();
-      await expect.poll(() => page.evaluate(() => localStorage.getItem("bingo-admin-locale"))).toBe("am");
       await page.reload();
       await expect(page.getByText(playerName)).toBeVisible();
     }
@@ -125,7 +155,8 @@ test("keeps the player table scroll inside its container at mobile widths in bot
     }
   }
 
-  expect(mutationMethods).toEqual([]);
+  // The only mutation is the explicit language preference save.
+  expect(mutationMethods).toEqual(["PUT"]);
   const evidencePath = testInfo.outputPath("player-responsive-widths.json");
   await mkdir(dirname(evidencePath), { recursive: true });
   await writeFile(evidencePath, JSON.stringify(responsiveMeasurements, null, 2), "utf8");

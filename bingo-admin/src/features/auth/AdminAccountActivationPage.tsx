@@ -4,11 +4,11 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { activateAdminAccount } from "../../api/admin";
 import { getFieldError, parseApiError } from "../../api/types";
-import { useTranslation } from "react-i18next";
-import { LanguageSelector } from "../../components/LanguageSelector";
+import i18n from "../../i18n";
 
 export function AdminAccountActivationPage() {
-  const { t } = useTranslation();
+  // Unauthenticated account activation always renders in English.
+  const t = i18n.getFixedT("en");
   const navigate = useNavigate();
   const location = useLocation();
   const [token] = useState(() => new URLSearchParams(window.location.hash.slice(1)).get("token") ?? "");
@@ -120,9 +120,6 @@ export function AdminAccountActivationPage() {
     <Container maxWidth="sm" sx={{ py: 8 }}>
       <Paper elevation={3} sx={{ p: 4, borderRadius: 4 }}>
         <Stack component="form" spacing={3} onSubmit={submitActivation} noValidate>
-          <Stack direction="row" justifyContent="flex-end">
-            <LanguageSelector />
-          </Stack>
           <div>
             <Typography variant="h4" fontWeight={700} gutterBottom>
               {t("activation.title")}

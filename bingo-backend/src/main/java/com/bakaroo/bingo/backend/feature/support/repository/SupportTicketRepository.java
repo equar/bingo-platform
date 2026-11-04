@@ -4,6 +4,7 @@ import com.bakaroo.bingo.backend.feature.support.entity.SupportTicket;
 import com.bakaroo.bingo.backend.feature.support.entity.SupportTicketStatus;
 import java.util.List;
 import java.util.Optional;
+import java.time.Instant;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -25,4 +26,7 @@ public interface SupportTicketRepository
     Optional<SupportTicket> findByIdForUpdate(@Param("id") Long id);
 
     List<SupportTicket> findByStatusInOrderByCreatedAtDesc(List<SupportTicketStatus> statuses);
+
+    Page<SupportTicket> findByCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(
+            Instant from, Instant to, Pageable pageable);
 }

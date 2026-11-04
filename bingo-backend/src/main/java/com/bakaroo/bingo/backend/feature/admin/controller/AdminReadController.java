@@ -15,6 +15,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.format.annotation.DateTimeFormat;
+import java.time.Instant;
 
 @RestController
 @RequestMapping("/api/v1/admin")
@@ -30,6 +32,15 @@ public class AdminReadController {
     @GetMapping("/dashboard/metrics")
     public AdminDashboardMetricsResponse metrics() {
         return adminReadService.dashboardMetrics();
+    }
+
+    @GetMapping("/dashboard/trends")
+    public AdminDashboardTrendsResponse trends(@RequestParam(defaultValue = "14") int days) {
+        if (days < 7 || days > 90) {
+            throw new com.bakaroo.bingo.backend.common.exception.BadRequestException(
+                    "INVALID_TREND_RANGE", "Dashboard trend range must be between 7 and 90 days");
+        }
+        return adminReadService.dashboardTrends(days);
     }
 
     @GetMapping("/players")
@@ -72,6 +83,22 @@ public class AdminReadController {
     public PageResponse<AdminAuditLogSummaryResponse> auditLogs(
             @PageableDefault(size = 20, sort = { "createdAt", "id" }, direction = Sort.Direction.DESC) Pageable pageable) {
         return PageResponse.from(adminReadService.auditLogs(pageable));
+    }
+
+    @GetMapping("/reports/audit-activity")
+    public PageResponse<AdminAuditLogSummaryResponse> auditActivityReport(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to,
+            @PageableDefault(size = 100) Pageable pageable) {
+        if (!from.isBefore(to)) {
+            throw new com.bakaroo.bingo.backend.common.exception.BadRequestException(
+                    "INVALID_REPORT_RANGE", "Report end must be after report start");
+        }
+        if (to.isAfter(from.plusSeconds(366L * 24 * 60 * 60))) {
+            throw new com.bakaroo.bingo.backend.common.exception.BadRequestException(
+                    "REPORT_RANGE_TOO_LARGE", "Reports are limited to 366 days");
+        }
+        return PageResponse.from(adminReadService.auditActivityReport(from, to, pageable));
     }
 
     @GetMapping("/audit-logs/{auditLogId}")

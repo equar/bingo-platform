@@ -16,6 +16,6 @@
 | 9 | Production deployment validation | CloudFront association, production backup/recovery controls, SMTP delivery, trusted-proxy ranges, secret provisioning/rotation, and operational monitoring were not validated against the live deployment. |
 | 10 | Release-candidate CI and external security evidence | No CI run on the exact release candidate, external penetration/security assessment, or current secret-scan evidence was produced in this execution. |
 
-The detailed gate matrix and rerun steps are in [release-checklist.md](./release-checklist.md), [production-readiness-report.md](./production-readiness-report.md), [security-validation.md](./security-validation.md), [load-test-results.md](./load-test-results.md), and [financial-reconciliation.md](./financial-reconciliation.md).
+This dated blocker matrix is retained as historical evidence. See [current blockers and approvals](./qa-blockers-and-approvals.md) for maintained status and [financial reconciliation](./financial-reconciliation.md) for current money-flow requirements.
 
 **No production-readiness GO is granted until every applicable blocker has verifiable evidence and owner sign-off.**

@@ -1,14 +1,17 @@
 import { useSyncExternalStore } from 'react';
+import { applyLanguage, DEFAULT_LANGUAGE, resolvePreferredLanguage } from '../i18n';
 
 export interface AdminUserProfile {
   id: number;
   displayName: string;
+  email?: string | null;
   phoneNumber: string;
   roles: string[];
   status: string;
   createdAt: string;
   updatedAt: string;
   mustChangePassword?: boolean;
+  preferredLanguage?: string;
 }
 
 export interface AdminAuthSession {
@@ -53,6 +56,8 @@ export function writeSession(session: AdminAuthSession): void {
   cachedSessionRaw = JSON.stringify(session);
   cachedSessionValue = session;
   sessionExpiredPending = false;
+  // The backend-stored preference is authoritative for the signed-in account.
+  applyLanguage(resolvePreferredLanguage(session.user.preferredLanguage));
   emitChange();
 }
 
@@ -61,6 +66,9 @@ export function clearSession(options: { expired?: boolean } = {}): void {
   cachedSessionRaw = null;
   cachedSessionValue = null;
   sessionExpiredPending = options.expired === true;
+  // Unauthenticated screens always render in English; the account's saved
+  // preference stays untouched in the backend.
+  applyLanguage(DEFAULT_LANGUAGE);
   emitChange();
 }
 
@@ -68,6 +76,16 @@ export function consumeSessionExpired(): boolean {
   const expired = sessionExpiredPending;
   sessionExpiredPending = false;
   return expired;
+}
+
+// Keep the active language in sync when another tab signs in or out.
+if (typeof window !== "undefined") {
+  window.addEventListener("storage", (event) => {
+    if (event.key === null || event.key === SESSION_KEY) {
+      const session = readSession();
+      applyLanguage(session ? resolvePreferredLanguage(session.user.preferredLanguage) : DEFAULT_LANGUAGE);
+    }
+  });
 }
 
 export function useSession(): AdminAuthSession | null {
