@@ -37,6 +37,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
 
   Future<void> _submit() async {
     final localizations = AppLocalizations.of(context)!;
+    if (_busy) return;
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -67,6 +68,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
             );
       await sessionController.setSession(authResponse);
     } catch (error) {
+      if (!mounted) return;
       final parsed = normalizeApiError(error);
       setState(() {
         _apiError = parsed;
@@ -129,14 +131,19 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   SectionCard(
                     child: Form(
                       key: _formKey,
+                      autovalidateMode: AutovalidateMode.onUserInteraction,
                       child: Column(
                         children: [
                           if (_registerMode) ...[
                             TextFormField(
                               key: const ValueKey('auth-display-name-field'),
                               controller: _displayNameController,
+                              enabled: !_busy,
                               textInputAction: TextInputAction.next,
                               maxLength: 120,
+                              onChanged: (_) => _clearStaleErrors(),
+                              onFieldSubmitted: (_) =>
+                                  FocusScope.of(context).nextFocus(),
                               decoration: InputDecoration(
                                 labelText: localizations.displayNameLabel,
                                 errorText: displayNameError,
@@ -151,9 +158,13 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                           TextFormField(
                             key: const ValueKey('auth-phone-field'),
                             controller: _phoneController,
+                            enabled: !_busy,
                             textInputAction: TextInputAction.next,
                             keyboardType: TextInputType.phone,
                             maxLength: 30,
+                            onChanged: (_) => _clearStaleErrors(),
+                            onFieldSubmitted: (_) =>
+                                FocusScope.of(context).nextFocus(),
                             decoration: InputDecoration(
                               labelText: localizations.phoneLabel,
                               errorText: phoneError,
@@ -173,8 +184,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                           TextFormField(
                             key: const ValueKey('auth-password-field'),
                             controller: _pinController,
+                            enabled: !_busy,
                             obscureText: true,
                             keyboardType: TextInputType.number,
+                            textInputAction: TextInputAction.done,
+                            onChanged: (_) => _clearStaleErrors(),
+                            onFieldSubmitted: (_) => _submit(),
                             decoration: InputDecoration(
                               labelText: localizations.passwordLabel,
                               errorText: passwordError,
@@ -247,6 +262,15 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         ),
       ),
     );
+  }
+
+  void _clearStaleErrors() {
+    if (_apiError != null || _errorMessage != null) {
+      setState(() {
+        _apiError = null;
+        _errorMessage = null;
+      });
+    }
   }
 }
 

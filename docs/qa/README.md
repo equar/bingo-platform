@@ -6,17 +6,26 @@ This directory contains current QA policy and status, operational procedures, da
 
 - [Mandatory Real E2E Testing Policy](mandatory-real-e2e-testing-policy.md) — functional completion requires applicable real UI/API/isolated-MySQL execution and reconciliation. Unit, widget, mocked, static, and analyzer checks are supplemental.
 - [Module Status](module-status.md) — latest recorded module dispositions. Read the linked report for its date, scope, and evidence; do not infer a fresh PASS from a prior run.
+- [QA blockers and required approvals](qa-blockers-and-approvals.md) — unresolved product, finance, security, DBA, and operations decisions; verify each against later module evidence.
 - [Local E2E procedures](../local-e2e-testing.md) — current backend, Admin Chromium, player Android, and agent Android workflow boundaries.
+- [Platform E2E runbook](platform-e2e-runbook.md) and [scenario matrix](platform-e2e-scenario-matrix.md) — guarded cross-client execution order and scenario-level requirements.
+- [Latest platform E2E evidence](evidence/platform-e2e-runs/QA_PLATFORM_20261103_1806/run-report.md) — dated outcome, not a current environment health check.
 - [Local environment record](local-environment.md) — machine-specific setup snapshot; verify service health, schema, account, grants, and flags before execution.
 - [Test-data registry](test-data-registry.md) — persistent QA identities/fixtures and their history. It is also read by the QA runner; keep it available and never record credentials.
 
-## Validation and release
+## Current gaps and safeguards
 
 - [Master E2E coverage matrix](master-e2e-coverage-matrix.md) and [business-domain inventory](master-business-domain-inventory.md) — dated evidence inventories, not a claim that every workflow is complete.
 - [Remaining business workflows](remaining-business-workflows.md) and [remaining QA roadmap](remaining-qa-roadmap.md) — outstanding scope and proposed sequencing; a roadmap is not execution authorization.
-- [Release checklist](release-checklist.md), [release blockers](release-blockers.md), [production readiness](production-readiness-report.md), and [execution plan/results](qa-execution-plan-and-results.md) — dated go/no-go records.
 - [Financial reconciliation](financial-reconciliation.md), [security validation](security-validation.md), and [load-test results](load-test-results.md) — preserve scoped findings and explicit unverified work.
-- [Defect remediation matrix](defect-remediation-matrix.md) — historical findings, fixes, and their actual verification scope.
+
+## Retained release evidence
+
+These are dated decision or test records, not live status. They remain because current QA references them to substantiate prior outcomes, gate scope, or the release NO-GO decision.
+
+- [Release checklist](release-checklist.md) and [release blockers](release-blockers.md) — 2026-10-22 gate assessment and required evidence.
+- [Production-readiness report](production-readiness-report.md) and [QA execution results](qa-execution-plan-and-results.md) — detailed 2026-10-22 gate and test outcomes referenced by the release decision.
+- [Defect remediation matrix](defect-remediation-matrix.md) and [final independent review](final-independent-qa-review.md) — commit-specific findings and verification scope linked from the retained reports.
 
 ## Client and business-module evidence
 
@@ -28,4 +37,4 @@ This directory contains current QA policy and status, operational procedures, da
 
 ## Evidence retention
 
-Keep dated reports, screenshots, sanitized logs, read-only database evidence, incident notes, and migration/recovery decisions when they explain what was actually verified or blocked. Do not delete historical evidence merely because it is old or has no inbound link. Do not promote mocked/unit results to E2E status, rewrite earlier outcomes retroactively, or retain secrets, tokens, passwords, PINs, or live financial data.
+Retain dated reports, screenshots, sanitized logs, read-only database evidence, incident notes, and migration/recovery decisions when they support a current audit, blocker, approval, or release decision. Preserve referenced evidence and do not promote mocked/unit results to E2E status or rewrite earlier outcomes. Once unique current requirements and blockers are captured in maintained guidance, remove superseded general summaries that no longer support a decision. Never retain secrets, tokens, passwords, PINs, or live financial data.

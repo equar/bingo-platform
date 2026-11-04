@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Alert,
   Box,
@@ -45,8 +46,9 @@ const statusOptions = [
 export function DepositsPage() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams();
   const [query, setQuery] = useState("");
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState(() => statusOptions.find((option) => option === searchParams.get("status")) ?? "");
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(20);
   const normalizedQuery = query.trim();
@@ -63,6 +65,10 @@ export function DepositsPage() {
   const [statementEntryId, setStatementEntryId] = useState("");
   const [lastVerification, setLastVerification] = useState<DepositVerificationResponse | null>(null);
   const idempotency = useIdempotencyKey();
+
+  useEffect(() => {
+    setStatus(statusOptions.find((option) => option === searchParams.get("status")) ?? "");
+  }, [searchParams]);
 
   const actionMutation = useMutation({
     mutationFn: async () => {

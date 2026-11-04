@@ -3,6 +3,7 @@ import 'package:bingo_agent/src/features/auth/data/auth_repository.dart';
 import 'package:bingo_agent/src/features/auth/data/auth_session_controller.dart';
 import 'package:bingo_agent/src/core/network/api_error.dart';
 import 'package:bingo_agent/src/core/localization/language_selector.dart';
+import 'package:bingo_agent/src/core/validation/ethiopian_phone.dart';
 import 'package:bingo_agent/src/l10n/generated/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -47,6 +48,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       (value == null || value.trim().isEmpty) ? l10n.requiredField : null;
 
   Future<void> _submitLogin() async {
+    if (_busy) return;
     if (!_formKey.currentState!.validate()) return;
     setState(() {
       _busy = true;
@@ -77,6 +79,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   }
 
   Future<void> _submitApplication() async {
+    if (_busy) return;
     if (!_formKey.currentState!.validate()) return;
     setState(() {
       _busy = true;
@@ -128,9 +131,22 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     required AppLocalizations l10n,
     bool obscure = false,
     TextInputType? keyboardType,
+    TextInputAction? textInputAction,
+    ValueChanged<String>? onSubmitted,
     String? Function(String?)? validator,
   }) => TextFormField(
     controller: controller,
+    enabled: !_busy,
+    textInputAction: textInputAction ?? TextInputAction.next,
+    onFieldSubmitted: onSubmitted,
+    onChanged: (_) {
+      if (_apiError != null || _error != null) {
+        setState(() {
+          _apiError = null;
+          _error = null;
+        });
+      }
+    },
     decoration: InputDecoration(
       labelText: label,
       errorText: fieldErrorMessage(_apiError, fieldName, l10n),
@@ -195,6 +211,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       const SizedBox(height: 20),
                       Form(
                         key: _formKey,
+                        autovalidateMode: AutovalidateMode.onUserInteraction,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
@@ -212,6 +229,20 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                               label: l10n.phoneLabel,
                               fieldName: 'phoneNumber',
                               l10n: l10n,
+                              keyboardType: TextInputType.phone,
+                              textInputAction: isApplication
+                                  ? TextInputAction.next
+                                  : TextInputAction.done,
+                              onSubmitted: isApplication
+                                  ? null
+                                  : (_) => _submitLogin(),
+                              validator: (value) {
+                                final phone = value?.trim() ?? '';
+                                if (phone.isEmpty) return l10n.requiredField;
+                                return isValidEthiopianPhone(phone)
+                                    ? null
+                                    : l10n.errorInvalidPhone;
+                              },
                             ),
                             if (isApplication) ...[
                               const SizedBox(height: 12),
@@ -251,13 +282,17 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                               l10n: l10n,
                               obscure: true,
                               keyboardType: TextInputType.number,
-                              validator: (value) =>
-                                  value == null ||
-                                      !RegExp(
-                                        r'^\d{4,8}$',
-                                      ).hasMatch(value.trim())
-                                  ? l10n.agentPinLength
-                                  : null,
+                              textInputAction: TextInputAction.done,
+                              onSubmitted: (_) => isApplication
+                                  ? _submitApplication()
+                                  : _submitLogin(),
+                              validator: (value) {
+                                final pin = value?.trim() ?? '';
+                                if (pin.isEmpty) return l10n.requiredField;
+                                return RegExp(r'^\d{4,8}$').hasMatch(pin)
+                                    ? null
+                                    : l10n.agentPinLength;
+                              },
                             ),
                           ],
                         ),

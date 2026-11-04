@@ -27,6 +27,15 @@ function createWrapper({ children }: PropsWithChildren) {
   );
 }
 
+function createPendingClaimsWrapper({ children }: PropsWithChildren) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return (
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={["/claims?status=PENDING_REVIEW"]}>{children}</MemoryRouter>
+    </QueryClientProvider>
+  );
+}
+
 describe("ClaimsPage", () => {
   afterEach(cleanup);
 
@@ -76,6 +85,13 @@ describe("ClaimsPage", () => {
     expect(screen.getByRole("button", { name: "Approve" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Reject" })).toBeEnabled();
     expect(winClaimsMock).toHaveBeenCalledWith(0, 20, undefined, undefined, undefined, undefined);
+  });
+
+  it("uses the pending review status when opened from the dashboard claim metric", async () => {
+    render(<ClaimsPage />, { wrapper: createPendingClaimsWrapper });
+
+    await screen.findByTestId("claim-row-21");
+    expect(winClaimsMock).toHaveBeenCalledWith(0, 20, undefined, "PENDING_REVIEW", undefined, undefined);
   });
 
   it("passes search and selected filters to the server and resets to page zero", async () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import i18n, { translateAdminStatus } from "./i18n";
+import i18n, { translateAdminStatus, translateAdminValue } from "./i18n";
 
 describe("Admin translations", () => {
   it("keeps English and Amharic resource keys in parity", () => {
@@ -23,6 +23,7 @@ describe("Admin translations", () => {
     expect(translateAdminStatus("FAILED_SERVER_VALIDATION", amharic)).toBe("የአገልጋይ ማረጋገጫ አልተሳካም");
     expect(translateAdminStatus("SETTLED", amharic)).toBe("ክፍያ ተፈጽሟል");
     expect(translateAdminStatus("VOID", amharic)).toBe("ተሽሯል");
+    expect(translateAdminValue("UPDATE_SESSION_STATE", amharic)).toBe("የክፍለ ጊዜ ሁኔታን ያዘምኑ");
     expect(translateAdminStatus("FUTURE_VENDOR_STATE", amharic)).toBe("FUTURE VENDOR STATE");
     expect(translateAdminStatus("FUTURE_VENDOR_STATE", english)).toBe("FUTURE VENDOR STATE");
   });
