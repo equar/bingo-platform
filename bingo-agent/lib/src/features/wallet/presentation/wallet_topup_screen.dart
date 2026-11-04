@@ -1,5 +1,6 @@
 import 'package:bingo_agent/src/core/network/api_error.dart';
 import 'package:bingo_agent/src/core/network/idempotency.dart';
+import 'package:bingo_agent/src/core/validation/ethiopian_phone.dart';
 import 'package:bingo_agent/src/features/agents/data/agent_repository.dart';
 import 'package:bingo_agent/src/l10n/generated/app_localizations.dart';
 import 'package:flutter/material.dart';
@@ -24,6 +25,25 @@ class _WalletTopUpScreenState extends ConsumerState<WalletTopUpScreen> {
   bool _outcomeUnknown = false;
   ApiError? _apiError;
 
+  bool get _validPhone => isValidEthiopianPhone(_phoneController.text);
+  bool get _validAmount {
+    final amount = double.tryParse(_amountController.text.trim());
+    return amount != null && amount.isFinite && amount > 0;
+  }
+
+  bool get _validPin =>
+      RegExp(r'^\d{4,8}$').hasMatch(_pinController.text.trim());
+
+  void _clearStaleState() {
+    if (_apiError != null || _error != null || _result != null) {
+      setState(() {
+        _apiError = null;
+        _error = null;
+        _result = null;
+      });
+    }
+  }
+
   @override
   void dispose() {
     _phoneController.dispose();
@@ -36,11 +56,19 @@ class _WalletTopUpScreenState extends ConsumerState<WalletTopUpScreen> {
     final l10n = AppLocalizations.of(context)!;
     if (_attemptBody == null) {
       final amount = double.tryParse(_amountController.text.trim());
-      if (_phoneController.text.trim().isEmpty ||
+      if (!_validPhone ||
           amount == null ||
+          !amount.isFinite ||
           amount <= 0 ||
-          _pinController.text.trim().isEmpty) {
-        setState(() => _error = l10n.requiredField);
+          !_validPin) {
+        setState(() {
+          _error = !_validPhone
+              ? l10n.errorInvalidPhone
+              : amount == null || !amount.isFinite || amount <= 0
+              ? l10n.positiveAmountRequired
+              : l10n.agentPinLength;
+          _apiError = null;
+        });
         return;
       }
       _attemptBody = {
@@ -93,9 +121,15 @@ class _WalletTopUpScreenState extends ConsumerState<WalletTopUpScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final phoneError = fieldErrorMessage(_apiError, 'playerPhoneNumber', l10n);
-    final amountError = fieldErrorMessage(_apiError, 'amount', l10n);
-    final pinError = fieldErrorMessage(_apiError, 'pin', l10n);
+    final phoneError =
+        fieldErrorMessage(_apiError, 'playerPhoneNumber', l10n) ??
+        (_error == l10n.errorInvalidPhone ? _error : null);
+    final amountError =
+        fieldErrorMessage(_apiError, 'amount', l10n) ??
+        (_error == l10n.positiveAmountRequired ? _error : null);
+    final pinError =
+        fieldErrorMessage(_apiError, 'pin', l10n) ??
+        (_error == l10n.agentPinLength ? _error : null);
     final hasInlineError =
         phoneError != null || amountError != null || pinError != null;
     return ListView(
@@ -108,7 +142,11 @@ class _WalletTopUpScreenState extends ConsumerState<WalletTopUpScreen> {
         const SizedBox(height: 12),
         TextField(
           controller: _phoneController,
-          readOnly: _outcomeUnknown,
+          enabled: !_busy && !_outcomeUnknown,
+          keyboardType: TextInputType.phone,
+          textInputAction: TextInputAction.next,
+          onSubmitted: (_) => FocusScope.of(context).nextFocus(),
+          onChanged: (_) => _clearStaleState(),
           decoration: InputDecoration(
             labelText: l10n.playerPhone,
             errorText: phoneError,
@@ -117,7 +155,10 @@ class _WalletTopUpScreenState extends ConsumerState<WalletTopUpScreen> {
         const SizedBox(height: 12),
         TextField(
           controller: _amountController,
-          readOnly: _outcomeUnknown,
+          enabled: !_busy && !_outcomeUnknown,
+          textInputAction: TextInputAction.next,
+          onSubmitted: (_) => FocusScope.of(context).nextFocus(),
+          onChanged: (_) => _clearStaleState(),
           decoration: InputDecoration(
             labelText: l10n.topUpAmount,
             errorText: amountError,
@@ -127,7 +168,10 @@ class _WalletTopUpScreenState extends ConsumerState<WalletTopUpScreen> {
         const SizedBox(height: 12),
         TextField(
           controller: _pinController,
-          readOnly: _outcomeUnknown,
+          enabled: !_busy && !_outcomeUnknown,
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) => _submit(),
+          onChanged: (_) => _clearStaleState(),
           decoration: InputDecoration(
             labelText: l10n.pinLabel,
             errorText: pinError,
@@ -135,11 +179,37 @@ class _WalletTopUpScreenState extends ConsumerState<WalletTopUpScreen> {
           obscureText: true,
         ),
         const SizedBox(height: 12),
-        FilledButton(
-          onPressed: _busy ? null : _submit,
-          child: _busy
-              ? const CircularProgressIndicator.adaptive()
-              : Text(_outcomeUnknown ? l10n.retry : l10n.topUp),
+        ListenableBuilder(
+          listenable: Listenable.merge([
+            _phoneController,
+            _amountController,
+            _pinController,
+          ]),
+          builder: (context, _) {
+            final canSubmit = _validPhone && _validAmount && _validPin;
+            final hint = !_validPhone
+                ? l10n.errorInvalidPhone
+                : !_validAmount
+                ? l10n.positiveAmountRequired
+                : !_validPin
+                ? l10n.agentPinLength
+                : null;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                FilledButton(
+                  onPressed: _busy || !canSubmit ? null : _submit,
+                  child: _busy
+                      ? const CircularProgressIndicator.adaptive()
+                      : Text(_outcomeUnknown ? l10n.retry : l10n.topUp),
+                ),
+                if (hint != null && hint != _error) ...[
+                  const SizedBox(height: 8),
+                  Text(hint, style: Theme.of(context).textTheme.bodySmall),
+                ],
+              ],
+            );
+          },
         ),
         if (_error != null && !hasInlineError) ...[
           const SizedBox(height: 8),

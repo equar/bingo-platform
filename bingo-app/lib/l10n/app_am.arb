@@ -193,6 +193,7 @@
   "telebirrReferenceLabel": "Telebirr ማስታወቂያ ቁጥር",
   "currencyLabel": "ገንዘብ አይነት",
   "submitDeposit": "ተቀማጭ ላክ",
+  "depositAmountPositive": "ከዜሮ በላይ የሆነ መጠን ያስገቡ።",
   "telebirrInstructionsTitle": "Telebirr መመሪያ",
   "telebirrInstructionsBody": "ከbackend የሚመጡትን የአቅራቢ መረጃዎች ተጠቅመው በተቀባይነት ደረሰኝ ላይ እንደሚታይ ትክክለኛውን ማስታወቂያ ቁጥር ያስገቡ።",
   "profileTitle": "መገለጫ",

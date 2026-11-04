@@ -4,6 +4,8 @@ Functional completion requires the actual client UI, Spring Boot API, and an aut
 
 ## Current guarded workflows
 
+For ordered execution gates and scenario-level scope, use the [platform E2E runbook](qa/platform-e2e-runbook.md) and [scenario matrix](qa/platform-e2e-scenario-matrix.md). This page remains the concise overview of client entry points and database boundaries.
+
 | Client / layer | Current procedure | Isolation and evidence |
 | --- | --- | --- |
 | Backend integration tests | Follow [Backend integration tests](../bingo-backend/README.md#integration-tests). | Maven tests use only disposable `bingo_qa_maven_test` with the `BINGO_MAVEN_MYSQL_*` variables and the source guard. Do not use the Android/Admin datasource for Maven tests. |

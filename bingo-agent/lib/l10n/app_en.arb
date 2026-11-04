@@ -132,6 +132,7 @@
   "confirm": "Confirm",
   "submitRequest": "Submit request",
   "positiveAmountRequired": "Enter an amount greater than zero.",
+  "validSessionId": "Enter a valid session ID greater than zero.",
   "topUpRequestSubmitted": "Top-up request submitted for admin review.",
   "topUpRequestFailed": "Could not submit the request. Retry to safely check the same request.",
   "topUpRequests": "Top-up requests",

@@ -1,4 +1,5 @@
 import 'package:bingo_app/l10n/app_localizations.dart';
+import 'package:bingo_app/src/core/network/api_error.dart';
 import 'package:bingo_app/src/features/community/data/community_repository.dart';
 import 'package:bingo_app/src/features/community/domain/community_models.dart';
 import 'package:flutter/material.dart';
@@ -90,7 +91,10 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(snapshot.error.toString()),
+                        Text(
+                          userFacingApiError(snapshot.error, l) ??
+                              l.errorGeneric,
+                        ),
                         TextButton(onPressed: _reload, child: Text(l.retry)),
                       ],
                     ),
@@ -227,6 +231,7 @@ class _PublicProfileDialogState extends ConsumerState<_PublicProfileDialog> {
   }
 
   Future<void> _save() async {
+    if (_busy) return;
     setState(() {
       _busy = true;
       _error = null;
@@ -237,8 +242,11 @@ class _PublicProfileDialogState extends ConsumerState<_PublicProfileDialog> {
           .read(communityRepositoryProvider)
           .saveProfile(value.isEmpty ? null : value, _visible);
       if (mounted) Navigator.pop(context, true);
-    } catch (e) {
-      if (mounted) setState(() => _error = e.toString());
+    } catch (error) {
+      if (mounted) {
+        final l = AppLocalizations.of(context)!;
+        setState(() => _error = userFacingApiError(error, l) ?? l.errorGeneric);
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -260,12 +268,20 @@ class _PublicProfileDialogState extends ConsumerState<_PublicProfileDialog> {
               enabled: !_busy,
               maxLength: 24,
               decoration: InputDecoration(labelText: l.leaderboardAlias),
+              onChanged: (_) {
+                if (_error != null) setState(() => _error = null);
+              },
             ),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: Text(l.leaderboardOptIn),
               value: _visible,
-              onChanged: _busy ? null : (v) => setState(() => _visible = v),
+              onChanged: _busy
+                  ? null
+                  : (v) => setState(() {
+                      _visible = v;
+                      _error = null;
+                    }),
             ),
             if (_error != null) Text(_error!),
           ],

@@ -132,6 +132,7 @@
   "confirm": "አረጋግጥ",
   "submitRequest": "ጥያቄውን ላክ",
   "positiveAmountRequired": "ከዜሮ በላይ የሆነ መጠን ያስገቡ።",
+  "validSessionId": "ከዜሮ በላይ የሆነ ትክክለኛ የሴሽን መለያ ያስገቡ።",
   "topUpRequestSubmitted": "የጭማሪ ጥያቄው ለአስተዳዳሪ ግምገማ ተልኳል።",
   "topUpRequestFailed": "ጥያቄውን መላክ አልተቻለም። ተመሳሳይ ጥያቄን በደህና ለመፈተሽ እንደገና ይሞክሩ።",
   "topUpRequests": "የፍሎት ጭማሪ ጥያቄዎች",

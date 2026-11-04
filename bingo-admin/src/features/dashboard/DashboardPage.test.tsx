@@ -71,15 +71,15 @@ describe("DashboardPage", () => {
     render(<DashboardPage />, { wrapper: createWrapper });
 
     expect(await screen.findByRole("heading", { name: "Needs attention" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Review pending deposits/ })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /Open deposit reviews/ })).toHaveAttribute(
       "href",
       "/deposits?status=PENDING",
     );
-    expect(screen.getByRole("link", { name: /Review pending claims/ })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /Open win claims/ })).toHaveAttribute(
       "href",
       "/claims?status=PENDING_REVIEW",
     );
-    expect(screen.getByRole("link", { name: /View support queue/ })).toHaveAttribute("href", "/support/tickets");
+    expect(screen.getByRole("link", { name: /Open support tickets/ })).toHaveAttribute("href", "/support/tickets");
     expect(screen.getByText("ETB 1,234.50")).toBeInTheDocument();
     expect(screen.getByText("ETB 500.00")).toBeInTheDocument();
     expect(screen.getByText("ETB 20.25")).toBeInTheDocument();
@@ -127,5 +127,25 @@ describe("DashboardPage", () => {
 
     expect(await screen.findByText("Dashboard data may be out of date.")).toBeInTheDocument();
     expect(screen.getByText(/Data as of/)).toBeInTheDocument();
+  });
+
+  it("refreshes all dashboard sources from the header action", async () => {
+    const user = userEvent.setup();
+    render(<DashboardPage />, { wrapper: createWrapper });
+
+    await user.click(await screen.findByRole("button", { name: "Refresh dashboard" }));
+
+    await waitFor(() => {
+      expect(dashboardMetricsMock).toHaveBeenCalledTimes(2);
+      expect(liveSessionsMock).toHaveBeenCalledTimes(2);
+      expect(auditLogsMock).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it("localizes the refresh action in Amharic", async () => {
+    await i18n.changeLanguage("am");
+    render(<DashboardPage />, { wrapper: createWrapper });
+
+    expect(await screen.findByRole("button", { name: "ዳሽቦርዱን አድስ" })).toBeInTheDocument();
   });
 });

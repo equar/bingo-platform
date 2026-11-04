@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { Alert, Box, Button, Card, CardContent, Stack, TextField, Typography } from "@mui/material";
 import { useMutation } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { changeAdminPassword } from "../../api/admin";
 import { readSession, writeSession } from "../../api/session";
@@ -10,16 +10,30 @@ import { getFieldError, parseApiError } from "../../api/types";
 export function ChangePasswordPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  const currentPasswordInput = useRef<HTMLInputElement>(null);
+  const newPasswordInput = useRef<HTMLInputElement>(null);
+  const confirmPasswordInput = useRef<HTMLInputElement>(null);
+  const [currentPasswordPresent, setCurrentPasswordPresent] = useState(false);
+  const [newPasswordValid, setNewPasswordValid] = useState(false);
+  const [confirmPasswordHasValue, setConfirmPasswordHasValue] = useState(false);
+  const [passwordsMatch, setPasswordsMatch] = useState(false);
+  const [currentPasswordTouched, setCurrentPasswordTouched] = useState(false);
+  const [newPasswordTouched, setNewPasswordTouched] = useState(false);
+  const [confirmPasswordTouched, setConfirmPasswordTouched] = useState(false);
+  const [currentPasswordChangedAfterFailure, setCurrentPasswordChangedAfterFailure] =
+    useState(false);
+  const [newPasswordChangedAfterFailure, setNewPasswordChangedAfterFailure] =
+    useState(false);
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const passwordMutation = useMutation({
-    mutationFn: () => changeAdminPassword({ currentPassword, newPassword }),
+    mutationFn: () => changeAdminPassword({
+      currentPassword: currentPasswordInput.current?.value ?? "",
+      newPassword: newPasswordInput.current?.value ?? "",
+    }),
     onSuccess: () => {
       const session = readSession();
       if (session) {
@@ -30,9 +44,9 @@ export function ChangePasswordPage() {
       }
       setSuccessMessage("Password updated successfully.");
       setErrorMessage(null);
-      setCurrentPassword("");
-      setNewPassword("");
-      setConfirmPassword("");
+      if (currentPasswordInput.current) currentPasswordInput.current.value = "";
+      if (newPasswordInput.current) newPasswordInput.current.value = "";
+      if (confirmPasswordInput.current) confirmPasswordInput.current.value = "";
       setShowCurrentPassword(false);
       setShowNewPassword(false);
       navigate("/dashboard", { replace: true });
@@ -41,13 +55,84 @@ export function ChangePasswordPage() {
       const parsed = parseApiError(error);
       setErrorMessage(parsed.message);
       setSuccessMessage(null);
+      setCurrentPasswordChangedAfterFailure(false);
+      setNewPasswordChangedAfterFailure(false);
     },
   });
   const parsedPasswordError = parseApiError(passwordMutation.error);
   const currentPasswordError =
-    getFieldError(passwordMutation.error, "currentPassword") ??
-    (passwordMutation.isError && parsedPasswordError.status === 401 ? parsedPasswordError.message : undefined);
-  const newPasswordError = getFieldError(passwordMutation.error, "newPassword");
+    (!currentPasswordChangedAfterFailure &&
+      getFieldError(passwordMutation.error, "currentPassword")) ??
+    (!currentPasswordChangedAfterFailure &&
+      passwordMutation.isError && parsedPasswordError.status === 401
+      ? parsedPasswordError.message
+      : currentPasswordTouched && !currentPasswordPresent
+        ? t("This field is required.")
+        : undefined);
+  const newPasswordError =
+    (!newPasswordChangedAfterFailure &&
+      getFieldError(passwordMutation.error, "newPassword")) ??
+    (newPasswordTouched && !newPasswordValid
+      ? t("Password must contain 8 to 72 characters.")
+      : undefined);
+  const confirmPasswordError =
+    getFieldError(passwordMutation.error, "confirmPassword") ??
+    (confirmPasswordTouched
+      ? !confirmPasswordHasValue
+        ? t("This field is required.")
+        : !passwordsMatch
+          ? t("The passwords do not match.")
+          : undefined
+      : undefined);
+  const canSubmit =
+    currentPasswordPresent && newPasswordValid && passwordsMatch &&
+    !passwordMutation.isPending;
+
+  const updatePasswordValidity = (field: "currentPassword" | "newPassword" | "confirmPassword") => {
+    const currentPassword = currentPasswordInput.current?.value ?? "";
+    const newPassword = newPasswordInput.current?.value ?? "";
+    const confirmPassword = confirmPasswordInput.current?.value ?? "";
+    const nextCurrentPresent = currentPassword.length > 0;
+    const nextPasswordValid = newPassword.length >= 8 && newPassword.length <= 72;
+    const nextConfirmHasValue = confirmPassword.length > 0;
+    const nextPasswordsMatch = nextConfirmHasValue && newPassword === confirmPassword;
+    setCurrentPasswordTouched((touched) => touched || Boolean(currentPassword));
+    setNewPasswordTouched((touched) => touched || Boolean(newPassword));
+    setConfirmPasswordTouched((touched) => touched || nextConfirmHasValue);
+    setCurrentPasswordPresent((present) =>
+      present === nextCurrentPresent ? present : nextCurrentPresent,
+    );
+    setNewPasswordValid((valid) => valid === nextPasswordValid ? valid : nextPasswordValid);
+    setConfirmPasswordHasValue((hasValue) =>
+      hasValue === nextConfirmHasValue ? hasValue : nextConfirmHasValue,
+    );
+    setPasswordsMatch((matches) =>
+      matches === nextPasswordsMatch ? matches : nextPasswordsMatch,
+    );
+    if (field === "currentPassword") setCurrentPasswordChangedAfterFailure(true);
+    if (field === "newPassword") setNewPasswordChangedAfterFailure(true);
+    if (errorMessage) setErrorMessage(null);
+  };
+
+  const submitPasswordChange = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    updatePasswordValidity("currentPassword");
+    updatePasswordValidity("newPassword");
+    updatePasswordValidity("confirmPassword");
+    const currentPassword = currentPasswordInput.current?.value ?? "";
+    const newPassword = newPasswordInput.current?.value ?? "";
+    const confirmPassword = confirmPasswordInput.current?.value ?? "";
+    if (!currentPassword || newPassword.length < 8 || newPassword.length > 72 ||
+        !confirmPassword || newPassword !== confirmPassword) {
+      setCurrentPasswordTouched(true);
+      setNewPasswordTouched(true);
+      setConfirmPasswordTouched(true);
+      return;
+    }
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    passwordMutation.mutate();
+  };
 
   return (
     <Stack spacing={3}>
@@ -76,99 +161,126 @@ export function ChangePasswordPage() {
               <Typography variant="h6">{t("Password form")}</Typography>
               <Typography color="text.secondary">{t("Use the current password to verify your identity.")}</Typography>
             </div>
-            <TextField
-              label={t("Current password")}
-              type={showCurrentPassword ? "text" : "password"}
-              value={currentPassword}
-              onChange={(event) => setCurrentPassword(event.target.value)}
-              fullWidth
-              required
-              autoComplete="current-password"
-              error={Boolean(currentPasswordError)}
-              helperText={currentPasswordError ? t(currentPasswordError) : undefined}
-              InputProps={{
-                endAdornment: (
-                  <Button
-                    onClick={() => setShowCurrentPassword((current) => !current)}
-                    size="small"
-                    type="button"
-                    sx={{ minWidth: 0, px: 1 }}
-                  >
-                    {showCurrentPassword ? t("Hide") : t("Show")}
-                  </Button>
-                ),
-              }}
-            />
-            <TextField
-              label={t("New password")}
-              type={showNewPassword ? "text" : "password"}
-              value={newPassword}
-              onChange={(event) => setNewPassword(event.target.value)}
-              fullWidth
-              required
-              autoComplete="new-password"
-              error={Boolean(newPasswordError)}
-              helperText={newPasswordError ? t(newPasswordError) : t("Use at least 8 characters.")}
-              InputProps={{
-                endAdornment: (
-                  <Button
-                    onClick={() => setShowNewPassword((current) => !current)}
-                    size="small"
-                    type="button"
-                    sx={{ minWidth: 0, px: 1 }}
-                  >
-                    {showNewPassword ? t("Hide") : t("Show")}
-                  </Button>
-                ),
-              }}
-            />
-            <TextField
-              label={t("Confirm new password")}
-              type="password"
-              value={confirmPassword}
-              onChange={(event) => setConfirmPassword(event.target.value)}
-              fullWidth
-              required
-              autoComplete="new-password"
-            />
-            {errorMessage && !currentPasswordError && !newPasswordError ? (
-              <Alert severity="error">{t(errorMessage)}</Alert>
-            ) : null}
-            {successMessage ? <Alert severity="success">{t(successMessage)}</Alert> : null}
-            <Stack direction="row" spacing={1.5} flexWrap="wrap">
-              <Button
-                variant="contained"
-                onClick={() => {
-                  if (newPassword !== confirmPassword) {
-                    setErrorMessage("The passwords do not match.");
-                    setSuccessMessage(null);
-                    return;
+            <Box component="form" onSubmit={submitPasswordChange} noValidate>
+              <Stack spacing={2.25}>
+                <TextField
+                  label={t("Current password")}
+                  type={showCurrentPassword ? "text" : "password"}
+                  inputRef={currentPasswordInput}
+                  onChange={() => updatePasswordValidity("currentPassword")}
+                  fullWidth
+                  required
+                  disabled={passwordMutation.isPending}
+                  autoComplete="current-password"
+                  error={Boolean(currentPasswordError)}
+                  helperText={currentPasswordError ? t(currentPasswordError) : undefined}
+                  InputProps={{
+                    endAdornment: (
+                      <Button
+                        onClick={() => setShowCurrentPassword((current) => !current)}
+                        size="small"
+                        type="button"
+                        sx={{ minWidth: 0, px: 1 }}
+                      >
+                        {showCurrentPassword ? t("Hide") : t("Show")}
+                      </Button>
+                    ),
+                  }}
+                />
+                <TextField
+                  label={t("New password")}
+                  type={showNewPassword ? "text" : "password"}
+                  inputRef={newPasswordInput}
+                  onChange={() => updatePasswordValidity("newPassword")}
+                  fullWidth
+                  required
+                  disabled={passwordMutation.isPending}
+                  autoComplete="new-password"
+                  error={Boolean(newPasswordError)}
+                  helperText={
+                    newPasswordError
+                      ? t(newPasswordError)
+                      : t("Password must contain 8 to 72 characters.")
                   }
-
-                  setErrorMessage(null);
-                  setSuccessMessage(null);
-                  passwordMutation.mutate();
-                }}
-                disabled={passwordMutation.isPending}
-              >
-                {passwordMutation.isPending ? t("Saving...") : t("Save password")}
-              </Button>
-              <Button
-                variant="outlined"
-                color="inherit"
-                onClick={() => {
-                  setCurrentPassword("");
-                  setNewPassword("");
-                  setConfirmPassword("");
-                  setErrorMessage(null);
-                  setSuccessMessage(null);
-                }}
-                disabled={passwordMutation.isPending}
-              >
-                {t("Clear")}</Button>
-              <Button variant="text" color="inherit" onClick={() => navigate("/profile")}>
-                {t("Back to profile")}</Button>
-            </Stack>
+                  InputProps={{
+                    endAdornment: (
+                      <Button
+                        onClick={() => setShowNewPassword((current) => !current)}
+                        size="small"
+                        type="button"
+                        sx={{ minWidth: 0, px: 1 }}
+                      >
+                        {showNewPassword ? t("Hide") : t("Show")}
+                      </Button>
+                    ),
+                  }}
+                />
+                <TextField
+                  label={t("Confirm new password")}
+                  type="password"
+                  inputRef={confirmPasswordInput}
+                  onChange={() => updatePasswordValidity("confirmPassword")}
+                  fullWidth
+                  required
+                  disabled={passwordMutation.isPending}
+                  autoComplete="new-password"
+                  error={Boolean(confirmPasswordError)}
+                  helperText={
+                    confirmPasswordError ?? t("Re-enter the new password.")
+                  }
+                />
+                {errorMessage && !currentPasswordError && !newPasswordError &&
+                !confirmPasswordError ? (
+                  <Alert severity="error">{t(errorMessage)}</Alert>
+                ) : null}
+                {successMessage ? <Alert severity="success">{t(successMessage)}</Alert> : null}
+                <Stack direction="row" spacing={1.5} flexWrap="wrap">
+                  <Button
+                    variant="contained"
+                    type="submit"
+                    disabled={!canSubmit}
+                  >
+                    {passwordMutation.isPending ? t("Saving...") : t("Save password")}
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    color="inherit"
+                    type="button"
+                    onClick={() => {
+                      if (currentPasswordInput.current) currentPasswordInput.current.value = "";
+                      if (newPasswordInput.current) newPasswordInput.current.value = "";
+                      if (confirmPasswordInput.current) confirmPasswordInput.current.value = "";
+                      setCurrentPasswordPresent(false);
+                      setNewPasswordValid(false);
+                      setConfirmPasswordHasValue(false);
+                      setPasswordsMatch(false);
+                      setCurrentPasswordTouched(false);
+                      setNewPasswordTouched(false);
+                      setConfirmPasswordTouched(false);
+                      passwordMutation.reset();
+                      setErrorMessage(null);
+                      setSuccessMessage(null);
+                    }}
+                    disabled={passwordMutation.isPending}
+                  >
+                    {t("Clear")}
+                  </Button>
+                  <Button
+                    variant="text"
+                    color="inherit"
+                    type="button"
+                    onClick={() => navigate("/profile")}
+                  >
+                    {t("Back to profile")}
+                  </Button>
+                </Stack>
+                {!canSubmit && !passwordMutation.isPending ? (
+                  <Typography variant="body2" color="text.secondary">
+                    {t("Complete all required fields and make sure the passwords match.")}
+                  </Typography>
+                ) : null}
+              </Stack>
+            </Box>
           </Stack>
         </CardContent>
       </Card>

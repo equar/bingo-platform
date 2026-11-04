@@ -338,7 +338,7 @@ export function AppShell() {
             direction={navigationCollapsed ? "column" : "row"}
             alignItems="center"
             justifyContent={navigationCollapsed ? "center" : "space-between"}
-            sx={{ px: navigationCollapsed ? 0 : 1, py: 0.75 }}
+            sx={{ px: navigationCollapsed ? 0 : 1, py: 0.5 }}
           >
             {!navigationCollapsed ? (
               <Typography variant="overline" color="text.secondary" noWrap sx={{ fontWeight: 700 }}>
@@ -373,7 +373,7 @@ export function AppShell() {
               const groupId = `nav-group-${group.title.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`;
               const groupIcon = group.items[0]?.icon ?? "dashboard";
               return (
-                <Box key={group.title} sx={{ mb: 0.25 }}>
+                <Box key={group.title} sx={{ mb: 0.125 }}>
                   <Tooltip title={navigationCollapsed ? t(group.title) : ""} placement="right">
                     <ListItemButton
                       onClick={() => {
@@ -388,8 +388,8 @@ export function AppShell() {
                         });
                       }}
                       sx={{
-                        borderRadius: 1.5,
-                        minHeight: 36,
+                        borderRadius: "10px",
+                        minHeight: 40,
                         px: navigationCollapsed ? 1.5 : 1,
                         justifyContent: navigationCollapsed ? "center" : "flex-start",
                         color: activeGroup ? "primary.main" : "text.secondary",
@@ -424,7 +424,7 @@ export function AppShell() {
                     </ListItemButton>
                   </Tooltip>
                   {isExpanded ? (
-                    <List id={groupId} disablePadding sx={{ py: 0.25 }}>
+                    <List id={groupId} disablePadding sx={{ py: 0 }}>
                       {group.items.map((item) => {
                         const active = isNavItemActive(location.pathname, item.to);
                         return (
@@ -436,9 +436,9 @@ export function AppShell() {
                               selected={active}
                               aria-current={active ? "page" : undefined}
                               sx={{
-                                borderRadius: 1.5,
-                                minHeight: 38,
-                                mb: 0.25,
+                                borderRadius: "10px",
+                                minHeight: 42,
+                                mb: 0.125,
                                 ml: navigationCollapsed ? 0 : 1,
                                 px: navigationCollapsed ? 1.5 : 1,
                                 justifyContent: navigationCollapsed ? "center" : "flex-start",
@@ -479,7 +479,7 @@ export function AppShell() {
                       })}
                     </List>
                   ) : null}
-                  {groupIndex < visibleNavGroups.length - 1 ? <Divider sx={{ my: 0.5, mx: 1 }} /> : null}
+                  {groupIndex < visibleNavGroups.length - 1 ? <Divider sx={{ my: 0.25, mx: 1 }} /> : null}
                 </Box>
               );
             })}
@@ -495,10 +495,9 @@ export function AppShell() {
         component="main"
         id="admin-main-content"
         sx={{
-          flexGrow: 1,
+          flex: 1,
           minWidth: 0,
           p: { xs: 2, md: 3 },
-          transition: (theme: Theme) => theme.transitions.create("margin"),
         }}
       >
         <Toolbar />

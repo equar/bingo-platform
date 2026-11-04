@@ -2,6 +2,18 @@
 
 This document explains how the Flutter player app is released to Google Play internal testing, Google Play production, TestFlight, and the App Store.
 
+## Current readiness
+
+All four store workflows are manually dispatched. The iOS project is present at
+`bingo-app/ios/Runner.xcodeproj`; both iOS workflows also fail fast if that
+project is absent. Repository files alone do not verify store credentials,
+store records, signing profiles, environment approvals, or a successful upload.
+The release URL validator requires HTTPS and rejects localhost, emulator,
+loopback, and private addresses. Missing target-specific signing or store
+credentials block a successful release build or upload. Complete store listings
+with final metadata and approved privacy/support URLs, and resolve product/legal
+review of payment, wallet, prize, and bingo policies before public release.
+
 ## One-time setup
 
 ### Google Play
@@ -14,7 +26,7 @@ This document explains how the Flutter player app is released to Google Play int
 ### Apple
 
 1. Create the app in App Store Connect and confirm the bundle identifier matches `BINGO_IOS_BUNDLE_ID`.
-2. Create an App Store Connect API key and store the key id, issuer id, and private key in the GitHub secrets listed in the readiness doc.
+2. Create an App Store Connect API key and configure the key id, issuer id, and private key as GitHub secrets listed below.
 3. Create the iOS distribution certificate and provisioning profile that match the bundle identifier and signing team.
 4. Configure TestFlight access and any review notes that Apple should see when the build is submitted.
 
@@ -25,6 +37,36 @@ This document explains how the Flutter player app is released to Google Play int
 - `bingo-app-android-production.yml` promotes a previously tested Android version code from internal testing to production.
 - `bingo-app-ios-testflight.yml` builds and signs the iOS IPA, then uploads it to TestFlight.
 - `bingo-app-ios-app-store.yml` submits a processed iOS build for App Store review after manual approval.
+
+## GitHub Actions configuration
+
+Repository variables:
+
+- `BINGO_MOBILE_API_BASE_URL`
+- `BINGO_ANDROID_PACKAGE_NAME`
+- `BINGO_IOS_BUNDLE_ID`
+- `BINGO_ANDROID_PRODUCTION_ROLLOUT`
+
+Repository secrets:
+
+- `BINGO_ANDROID_KEYSTORE_BASE64`
+- `BINGO_ANDROID_KEYSTORE_PASSWORD`
+- `BINGO_ANDROID_KEY_ALIAS`
+- `BINGO_ANDROID_KEY_PASSWORD`
+- `BINGO_GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64`
+- `BINGO_APP_STORE_CONNECT_KEY_ID`
+- `BINGO_APP_STORE_CONNECT_ISSUER_ID`
+- `BINGO_APP_STORE_CONNECT_PRIVATE_KEY_BASE64`
+- `BINGO_IOS_DISTRIBUTION_CERTIFICATE_BASE64`
+- `BINGO_IOS_DISTRIBUTION_CERTIFICATE_PASSWORD`
+- `BINGO_IOS_PROVISIONING_PROFILE_BASE64`
+- `BINGO_IOS_KEYCHAIN_PASSWORD`
+
+Production promotion/submission use the `bingo-app-android-production` and
+`bingo-app-ios-production` GitHub environments. Configure required reviewers in
+repository settings; internal testing and TestFlight workflows do not use
+those production environments. The workflows validate the API URL before
+building or submitting.
 
 ## Release flow
 
@@ -44,7 +86,7 @@ This document explains how the Flutter player app is released to Google Play int
 
 ### iOS TestFlight
 
-1. Restore the missing iOS project before running the workflow.
+1. Confirm the iOS project exists and signing secrets are configured.
 2. Run the iOS TestFlight workflow manually.
 3. The workflow imports the signing certificate, installs the provisioning profile, builds the IPA, and uploads it to TestFlight.
 4. Verify the build in App Store Connect before using it for App Review.
@@ -62,3 +104,9 @@ This document explains how the Flutter player app is released to Google Play int
 - If a release reaches Play Console or App Store Connect with the wrong build number, do not rebuild blindly. Verify the store state first and only rerun the exact release path that matches the published artifact.
 - If signing material changes, rotate the keystore or certificates in the store consoles before changing the GitHub secrets.
 - If the app review process flags policy concerns, pause production promotion until the legal and product review is complete.
+
+## Store policy notes
+
+- Recheck current Google Play billing requirements for in-app purchases, digital content, and gambling-related payment flows before enabling a public release.
+- Apple review is stricter for games and payment-adjacent apps offering prizes, wallets, or transfers; verify current requirements with product/legal owners.
+- For real-money, prize, or chance-based mechanics, confirm licensing, geo-restrictions, age gating, and disclosures before enabling store releases.

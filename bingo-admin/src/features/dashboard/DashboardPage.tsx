@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { TFunction } from "i18next";
 import {
   Alert,
@@ -10,7 +10,6 @@ import {
   CardContent,
   Chip,
   CircularProgress,
-  Grid,
   Link,
   List,
   ListItem,
@@ -29,19 +28,16 @@ const staleAfterMs = 5 * 60 * 1000;
 const attentionItems = [
   {
     label: "Open deposit reviews",
-    action: "Review pending deposits",
     to: "/deposits?status=PENDING",
     value: (metrics: Awaited<ReturnType<typeof dashboardMetrics>>) => metrics.openDepositReviews,
   },
   {
     label: "Open win claims",
-    action: "Review pending claims",
     to: "/claims?status=PENDING_REVIEW",
     value: (metrics: Awaited<ReturnType<typeof dashboardMetrics>>) => metrics.openWinClaims,
   },
   {
     label: "Open support tickets",
-    action: "View support queue",
     to: "/support/tickets",
     value: (metrics: Awaited<ReturnType<typeof dashboardMetrics>>) => metrics.openSupportTickets,
   },
@@ -70,56 +66,27 @@ function formatTimestamp(value: string | number | null | undefined, locale: stri
 function MetricCard({
   label,
   value,
-  action,
   to,
 }: {
   label: string;
   value: string | number;
-  action: string;
   to: string;
 }) {
   return (
-    <Card elevation={0} sx={{ height: "100%", border: "1px solid", borderColor: "divider", borderRadius: 2 }}>
-      <CardActionArea component={RouterLink} to={to} sx={{ height: "100%" }}>
-        <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>
-          <Stack spacing={0.75}>
-            <Typography variant="body2" color="text.secondary">
+    <Card elevation={0} sx={{ height: "100%", minWidth: 0, border: "1px solid", borderColor: "divider", borderRadius: "12px" }}>
+      <CardActionArea component={RouterLink} to={to} sx={{ height: "100%", minWidth: 0 }}>
+        <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
+          <Stack spacing={0.5} sx={{ minWidth: 0 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: "anywhere" }}>
               {label}
             </Typography>
-            <Typography variant="h4" fontWeight={700} lineHeight={1.15}>
+            <Typography variant="h6" fontWeight={700} lineHeight={1.15} sx={{ overflowWrap: "anywhere" }}>
               {value}
-            </Typography>
-            <Typography variant="caption" color="primary.main" fontWeight={600}>
-              {action}
             </Typography>
           </Stack>
         </CardContent>
       </CardActionArea>
     </Card>
-  );
-}
-
-function PanelFreshness({
-  updatedAt,
-  refreshing,
-  stale,
-  t,
-  locale,
-}: {
-  updatedAt: number;
-  refreshing: boolean;
-  stale: boolean;
-  t: TFunction;
-  locale: string;
-}) {
-  return (
-    <Typography variant="caption" color="text.secondary" aria-live="polite">
-      {refreshing
-        ? t("Refreshing")
-        : stale
-          ? t("Showing data last updated {{time}}", { time: formatTimestamp(updatedAt, locale, t("Unavailable")) })
-          : t("Updated {{time}}", { time: formatTimestamp(updatedAt, locale, t("Unavailable")) })}
-    </Typography>
   );
 }
 
@@ -151,6 +118,7 @@ function QueryError({
 
 export function DashboardPage() {
   const { t, i18n } = useTranslation();
+  const queryClient = useQueryClient();
   const locale = i18n.resolvedLanguage === "am" ? "am-ET" : "en-ET";
   const metricsQuery = useQuery({
     queryKey: ["dashboard", "metrics"],
@@ -168,7 +136,7 @@ export function DashboardPage() {
   });
   const logsQuery = useQuery({
     queryKey: ["dashboard", "audit-logs"],
-    queryFn: () => auditLogs(0, 5),
+    queryFn: () => auditLogs(0, 3),
     retry: false,
     staleTime: 30_000,
   });
@@ -196,101 +164,145 @@ export function DashboardPage() {
   const unavailable = t("Unavailable");
   const generatedAt = new Date(metrics.generatedAt).getTime();
   const metricsStale = !Number.isFinite(generatedAt) || Date.now() - generatedAt > staleAfterMs;
+  const refreshing = metricsQuery.isFetching || sessionsQuery.isFetching || logsQuery.isFetching;
+  const visibleSessions = sessionsQuery.data?.slice(0, 3) ?? [];
+  const visibleActivity = logsQuery.data?.content.slice(0, 3) ?? [];
 
   return (
-    <Stack spacing={{ xs: 2, md: 2.5 }} sx={{ maxWidth: 1440, mx: "auto" }}>
+    <Stack data-testid="dashboard-content" spacing={{ xs: 1.5, md: 2 }} sx={{ width: "100%", minWidth: 0 }}>
       <Box component="header">
-        <Typography variant="h4" fontWeight={700} gutterBottom>
-          {t("Dashboard")}
-        </Typography>
-        <Stack direction={{ xs: "column", sm: "row" }} spacing={{ xs: 0.5, sm: 2 }} alignItems={{ sm: "center" }}>
-          <Typography color="text.secondary">{t("A clear view of today’s operations.")}</Typography>
-          <Typography variant="caption" color="text.secondary">
-            {t("Data as of {{time}}", {
-              time: formatTimestamp(metrics.generatedAt, locale, unavailable),
-            })}
-          </Typography>
+        <Stack
+          direction={{ xs: "column", sm: "row" }}
+          justifyContent="space-between"
+          alignItems={{ xs: "flex-start", sm: "center" }}
+          gap={1}
+        >
+          <Stack spacing={0.25}>
+            <Typography variant="h4" fontWeight={700} lineHeight={1.15}>
+              {t("Dashboard")}
+            </Typography>
+            <Typography color="text.secondary">{t("A clear view of today’s operations.")}</Typography>
+          </Stack>
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems={{ xs: "flex-start", sm: "center" }}>
+            <Typography variant="caption" color="text.secondary">
+              {t("Data as of {{time}}", {
+                time: formatTimestamp(metrics.generatedAt, locale, unavailable),
+              })}
+            </Typography>
+            <Button
+              size="small"
+              variant="outlined"
+              aria-label={t("Refresh dashboard")}
+              aria-busy={refreshing}
+              disabled={refreshing}
+              startIcon={refreshing ? <CircularProgress size={14} color="inherit" /> : undefined}
+              onClick={() => {
+                void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+              }}
+            >
+              {t("Refresh dashboard")}
+            </Button>
+          </Stack>
         </Stack>
       </Box>
 
       {metricsQuery.isError ? (
-        <QueryError title="Unable to refresh dashboard" error={metricsQuery.error} retry={() => metricsQuery.refetch()} t={t} />
+        <QueryError
+          title="Unable to refresh dashboard"
+          error={metricsQuery.error}
+          retry={() => metricsQuery.refetch()}
+          t={t}
+        />
       ) : metricsStale ? (
         <Alert severity="warning">{t("Dashboard data may be out of date.")}</Alert>
       ) : null}
 
       <Box component="section" aria-labelledby="needs-attention-title">
-        <Stack spacing={1.25}>
+        <Stack spacing={1}>
           <Typography id="needs-attention-title" variant="h6" fontWeight={700}>
             {t("Needs attention")}
           </Typography>
-          <Grid container spacing={1.5}>
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: {
+                xs: "minmax(0, 1fr)",
+                sm: "repeat(2, minmax(0, 1fr))",
+                md: "repeat(3, minmax(0, 1fr))",
+              },
+              gap: 1.5,
+              minWidth: 0,
+            }}
+          >
             {attentionItems.map((item) => (
-              <Grid item xs={12} sm={6} md={4} key={item.to}>
+              <Box key={item.to} sx={{ minWidth: 0 }}>
                 <MetricCard
                   label={t(item.label)}
                   value={formatCount(item.value(metrics), locale, unavailable)}
-                  action={t(item.action)}
                   to={item.to}
                 />
-              </Grid>
+              </Box>
             ))}
-          </Grid>
+          </Box>
         </Stack>
       </Box>
 
       <Box component="section" aria-labelledby="operations-title">
-        <Stack spacing={1.25}>
+        <Stack spacing={1}>
           <Typography id="operations-title" variant="h6" fontWeight={700}>
             {t("Operations")}
           </Typography>
-          <Grid container spacing={1.5}>
-            <Grid item xs={12} sm={6} lg={4}>
-              <MetricCard label={t("Active players")} value={formatCount(metrics.activePlayers, locale, unavailable)} action={t("View players")} to="/players" />
-            </Grid>
-            <Grid item xs={12} sm={6} lg={4}>
-              <MetricCard label={t("Active agents")} value={formatCount(metrics.activeAgents, locale, unavailable)} action={t("View agents")} to="/agents" />
-            </Grid>
-            <Grid item xs={12} sm={6} lg={4}>
-              <MetricCard label={t("Active sessions")} value={formatCount(metrics.activeSessions, locale, unavailable)} action={t("View sessions")} to="/sessions" />
-            </Grid>
-            <Grid item xs={12} sm={6} lg={4}>
-              <MetricCard
-                label={t("Player wallet total")}
-                value={formatAmount(metrics.playerWalletBalanceTotal, locale, unavailable)}
-                action={t("View players")}
-                to="/players"
-              />
-            </Grid>
-            <Grid item xs={12} sm={6} lg={4}>
-              <MetricCard
-                label={t("Agent float available")}
-                value={formatAmount(metrics.agentFloatAvailableTotal, locale, unavailable)}
-                action={t("View agents")}
-                to="/agents"
-              />
-            </Grid>
-            <Grid item xs={12} sm={6} lg={4}>
-              <MetricCard
-                label={t("Agent float clearing")}
-                value={formatAmount(metrics.agentFloatClearingTotal, locale, unavailable)}
-                action={t("View agents")}
-                to="/agents"
-              />
-            </Grid>
-          </Grid>
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: {
+                xs: "minmax(0, 1fr)",
+                sm: "repeat(2, minmax(0, 1fr))",
+                md: "repeat(3, minmax(0, 1fr))",
+                lg: "repeat(6, minmax(0, 1fr))",
+              },
+              gap: 1.5,
+              minWidth: 0,
+            }}
+          >
+            <MetricCard label={t("Active players")} value={formatCount(metrics.activePlayers, locale, unavailable)} to="/players" />
+            <MetricCard label={t("Active agents")} value={formatCount(metrics.activeAgents, locale, unavailable)} to="/agents" />
+            <MetricCard label={t("Active sessions")} value={formatCount(metrics.activeSessions, locale, unavailable)} to="/sessions" />
+            <MetricCard
+              label={t("Player wallet total")}
+              value={formatAmount(metrics.playerWalletBalanceTotal, locale, unavailable)}
+              to="/players"
+            />
+            <MetricCard
+              label={t("Agent float available")}
+              value={formatAmount(metrics.agentFloatAvailableTotal, locale, unavailable)}
+              to="/agents"
+            />
+            <MetricCard
+              label={t("Agent float clearing")}
+              value={formatAmount(metrics.agentFloatClearingTotal, locale, unavailable)}
+              to="/agents"
+            />
+          </Box>
         </Stack>
       </Box>
 
-      <Grid container spacing={1.5} alignItems="stretch">
-        <Grid item xs={12} lg={6}>
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: { xs: "minmax(0, 1fr)", lg: "repeat(2, minmax(0, 1fr))" },
+          gap: 1.5,
+          minWidth: 0,
+          alignItems: "start",
+        }}
+      >
           <Card
             component="section"
             aria-labelledby="live-sessions-title"
             elevation={0}
-            sx={{ height: "100%", border: "1px solid", borderColor: "divider", borderRadius: 2 }}
+            sx={{ minWidth: 0, border: "1px solid", borderColor: "divider", borderRadius: "12px" }}
           >
-            <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>
+            <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
               <Stack spacing={1}>
                 <Stack direction="row" justifyContent="space-between" alignItems="flex-start" gap={1}>
                   <Box>
@@ -305,17 +317,13 @@ export function DashboardPage() {
                     {t("View sessions")}
                   </Link>
                 </Stack>
-                {sessionsQuery.data ? (
-                  <PanelFreshness
-                    updatedAt={sessionsQuery.dataUpdatedAt}
-                    refreshing={sessionsQuery.isFetching}
-                    stale={Date.now() - sessionsQuery.dataUpdatedAt > staleAfterMs}
-                    t={t}
-                    locale={locale}
-                  />
-                ) : null}
                 {sessionsQuery.isError && !sessionsQuery.data ? (
-                  <QueryError title="Unable to load live sessions" error={sessionsQuery.error} retry={() => sessionsQuery.refetch()} t={t} />
+                  <QueryError
+                    title="Unable to load live sessions"
+                    error={sessionsQuery.error}
+                    retry={() => sessionsQuery.refetch()}
+                    t={t}
+                  />
                 ) : null}
                 {sessionsQuery.isPending ? (
                   <Stack direction="row" spacing={1} alignItems="center" role="status" aria-live="polite">
@@ -324,17 +332,28 @@ export function DashboardPage() {
                   </Stack>
                 ) : null}
                 {sessionsQuery.data && sessionsQuery.data.length === 0 ? (
-                  <Alert severity="info">{t("No active sessions right now.")}</Alert>
+                  <Alert severity="info" sx={{ py: 0.25, "& .MuiAlert-message": { py: 0.25 } }}>
+                    {t("No active sessions right now.")}
+                  </Alert>
                 ) : null}
                 {sessionsQuery.data && sessionsQuery.data.length > 0 ? (
-                  <List dense disablePadding sx={{ maxHeight: 320, overflowY: "auto" }}>
-                    {sessionsQuery.data.map((session) => (
+                  <>
+                    {sessionsQuery.data.length > visibleSessions.length ? (
+                      <Typography variant="caption" color="text.secondary">
+                        {t("Showing {{shown}} of {{total}} listed sessions", {
+                          shown: visibleSessions.length,
+                          total: sessionsQuery.data.length,
+                        })}
+                      </Typography>
+                    ) : null}
+                    <List dense disablePadding>
+                    {visibleSessions.map((session) => (
                       <ListItem
                         key={session.id}
                         divider
                         disableGutters
-                        secondaryAction={                        <Chip label={session.state ? translateAdminStatus(session.state, t) : unavailable} size="small" />}
-                        sx={{ pr: 11 }}
+                        secondaryAction={<Chip label={session.state ? translateAdminStatus(session.state, t) : unavailable} size="small" />}
+                        sx={{ pr: 11, minWidth: 0 }}
                       >
                         <ListItemText
                           primary={
@@ -348,29 +367,30 @@ export function DashboardPage() {
                             draws: session.drawCount ?? unavailable,
                           })}
                           slotProps={{
-                            primary: { component: "div", variant: "body2", fontWeight: 600, noWrap: true },
+                            primary: { component: "div", variant: "body2", fontWeight: 600, sx: { overflowWrap: "anywhere" } },
                             secondary: { component: "div", variant: "caption" },
                           }}
                         />
                       </ListItem>
                     ))}
                   </List>
+                  </>
                 ) : null}
                 {sessionsQuery.isError && sessionsQuery.data ? (
-                  <Alert severity="warning">{t("Showing the last available data. Could not refresh.")}</Alert>
+                  <Alert severity="warning" sx={{ py: 0.25, "& .MuiAlert-message": { py: 0.25 } }}>
+                    {t("Showing the last available data. Could not refresh.")}
+                  </Alert>
                 ) : null}
               </Stack>
             </CardContent>
           </Card>
-        </Grid>
-        <Grid item xs={12} lg={6}>
           <Card
             component="section"
             aria-labelledby="recent-activity-title"
             elevation={0}
-            sx={{ height: "100%", border: "1px solid", borderColor: "divider", borderRadius: 2 }}
+            sx={{ minWidth: 0, border: "1px solid", borderColor: "divider", borderRadius: "12px" }}
           >
-            <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>
+            <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
               <Stack spacing={1}>
                 <Stack direction="row" justifyContent="space-between" alignItems="flex-start" gap={1}>
                   <Box>
@@ -385,17 +405,13 @@ export function DashboardPage() {
                     {t("View audit logs")}
                   </Link>
                 </Stack>
-                {logsQuery.data ? (
-                  <PanelFreshness
-                    updatedAt={logsQuery.dataUpdatedAt}
-                    refreshing={logsQuery.isFetching}
-                    stale={Date.now() - logsQuery.dataUpdatedAt > staleAfterMs}
-                    t={t}
-                    locale={locale}
-                  />
-                ) : null}
                 {logsQuery.isError && !logsQuery.data ? (
-                  <QueryError title="Unable to load recent activity" error={logsQuery.error} retry={() => logsQuery.refetch()} t={t} />
+                  <QueryError
+                    title="Unable to load recent activity"
+                    error={logsQuery.error}
+                    retry={() => logsQuery.refetch()}
+                    t={t}
+                  />
                 ) : null}
                 {logsQuery.isPending ? (
                   <Stack direction="row" spacing={1} alignItems="center" role="status" aria-live="polite">
@@ -404,39 +420,26 @@ export function DashboardPage() {
                   </Stack>
                 ) : null}
                 {logsQuery.data && logsQuery.data.content.length === 0 ? (
-                  <Alert severity="info">{t("No audit history.")}</Alert>
+                  <Alert severity="info" sx={{ py: 0.25, "& .MuiAlert-message": { py: 0.25 } }}>
+                    {t("No audit history.")}
+                  </Alert>
                 ) : null}
                 {logsQuery.data && logsQuery.data.content.length > 0 ? (
                   <>
-                    <Typography variant="caption" color="text.secondary">
+                    {logsQuery.data.totalElements > visibleActivity.length ? (
+                      <Typography variant="caption" color="text.secondary">
                       {t("Showing {{shown}} of {{total}} entries", {
-                        shown: logsQuery.data.content.length,
+                        shown: visibleActivity.length,
                         total: logsQuery.data.totalElements,
                       })}
-                    </Typography>
-                    <List dense disablePadding sx={{ maxHeight: 320, overflowY: "auto" }}>
-                      {logsQuery.data.content.map((entry) => (
+                      </Typography>
+                    ) : null}
+                    <List dense disablePadding>
+                      {visibleActivity.map((entry) => (
                         <ListItem key={entry.id} divider disableGutters alignItems="flex-start">
                           <ListItemText
                             primary={entry.action ? translateAdminValue(entry.action, t) : unavailable}
-                            secondary={
-                              <Stack component="span" spacing={0.25}>
-                                <Typography component="span" variant="caption" color="text.secondary">
-                                  {t("{{targetType}} · {{targetId}}", {
-                                    targetType: entry.targetType ? translateAdminValue(entry.targetType, t) : unavailable,
-                                    targetId: entry.targetId ?? unavailable,
-                                  })}
-                                </Typography>
-                                {entry.reason ? (
-                                  <Typography component="span" variant="caption" color="text.secondary">
-                                    {entry.reason}
-                                  </Typography>
-                                ) : null}
-                                <Typography component="span" variant="caption" color="text.secondary">
-                                  {formatTimestamp(entry.createdAt, locale, unavailable)}
-                                </Typography>
-                              </Stack>
-                            }
+                            secondary={formatTimestamp(entry.createdAt, locale, unavailable)}
                             slotProps={{
                               primary: { component: "div", variant: "body2", fontWeight: 600 },
                               secondary: { component: "div", variant: "caption" },
@@ -448,13 +451,14 @@ export function DashboardPage() {
                   </>
                 ) : null}
                 {logsQuery.isError && logsQuery.data ? (
-                  <Alert severity="warning">{t("Showing the last available data. Could not refresh.")}</Alert>
+                  <Alert severity="warning" sx={{ py: 0.25, "& .MuiAlert-message": { py: 0.25 } }}>
+                    {t("Showing the last available data. Could not refresh.")}
+                  </Alert>
                 ) : null}
               </Stack>
             </CardContent>
           </Card>
-        </Grid>
-      </Grid>
+      </Box>
     </Stack>
   );
 }
