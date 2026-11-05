@@ -13062,8 +13062,8 @@
       "UpdateMyProfileRequest" : {
         "type" : "object",
         "properties" : {
-          "displayName" : { "type" : "string", "maxLength" : 120, "minLength" : 1 },
-          "phoneNumber" : { "type" : "string", "maxLength" : 20, "minLength" : 1 }
+          "displayName" : { "type" : "string", "maxLength" : 120, "minLength" : 0 },
+          "phoneNumber" : { "type" : "string", "maxLength" : 20, "minLength" : 0 }
         },
         "required" : [ "displayName", "phoneNumber" ]
       },
@@ -13086,7 +13086,7 @@
             "type" : "string"
           },
           "email" : {
-            "type" : [ "string", "null" ]
+            "type" : "string"
           },
           "phoneNumber" : {
             "type" : "string"
@@ -13647,7 +13647,7 @@
         "properties" : {
           "status" : {
             "type" : "string",
-            "enum" : [ "IN_REVIEW", "VERIFIED", "NEEDS_INFORMATION", "REJECTED" ]
+            "enum" : [ "NOT_REVIEWED", "IN_REVIEW", "VERIFIED", "NEEDS_INFORMATION", "REJECTED" ]
           },
           "reason" : {
             "type" : "string",
@@ -13678,15 +13678,15 @@
             "enum" : [ "NOT_REVIEWED", "IN_REVIEW", "VERIFIED", "NEEDS_INFORMATION", "REJECTED" ]
           },
           "verificationReason" : {
-            "type" : [ "string", "null" ],
-            "enum" : [ "REVIEW_STARTED", "IDENTITY_AND_AGE_CONFIRMED", "INFORMATION_REQUIRED", "IDENTITY_MISMATCH", "AGE_NOT_VERIFIED", "OTHER", null ]
+            "type" : "string",
+            "enum" : [ "REVIEW_STARTED", "IDENTITY_AND_AGE_CONFIRMED", "INFORMATION_REQUIRED", "IDENTITY_MISMATCH", "AGE_NOT_VERIFIED", "OTHER" ]
           },
           "reviewedByUserId" : {
-            "type" : [ "integer", "null" ],
+            "type" : "integer",
             "format" : "int64"
           },
           "reviewedAt" : {
-            "type" : [ "string", "null" ],
+            "type" : "string",
             "format" : "date-time"
           },
           "createdAt" : {
