@@ -21,6 +21,9 @@ public interface WinClaimRepository extends JpaRepository<WinClaim, Long> {
 
     long countBySessionId(Long sessionId);
 
+    long countBySessionIdAndClaimedPatternAndStatus(Long sessionId, BingoPatternType claimedPattern,
+            WinClaimStatus status);
+
     @Query(value = """
             select claim from WinClaim claim
             join claim.claimant claimant

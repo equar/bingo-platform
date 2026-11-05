@@ -16277,20 +16277,22 @@
             "items" : {
               "type" : "string",
               "enum" : [ "LINE", "TWO_LINES", "FULL_HOUSE" ]
-            }
+            },
+            "minItems" : 1
           },
           "configuredPrizes" : {
             "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/BingoPrizeConfigRequest"
-            }
+            },
+            "minItems" : 1
           },
           "version" : {
             "type" : "integer",
             "format" : "int64"
           }
         },
-        "required" : [ "currency", "name", "scheduleRule", "ticketPrice", "timezone" ]
+        "required" : [ "configuredPatterns", "configuredPrizes", "currency", "name", "scheduleRule", "ticketPrice", "timezone" ]
       },
       "BingoRoomResponse" : {
         "type" : "object",
