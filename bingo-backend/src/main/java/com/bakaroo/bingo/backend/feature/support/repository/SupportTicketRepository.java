@@ -1,6 +1,7 @@
 package com.bakaroo.bingo.backend.feature.support.repository;
 
 import com.bakaroo.bingo.backend.feature.support.entity.SupportTicket;
+import com.bakaroo.bingo.backend.feature.support.entity.SupportLinkedEntityType;
 import com.bakaroo.bingo.backend.feature.support.entity.SupportTicketStatus;
 import java.util.List;
 import java.util.Optional;
@@ -20,6 +21,8 @@ public interface SupportTicketRepository
     Page<SupportTicket> findByRequesterIdOrderByCreatedAtDesc(Long requesterId, Pageable pageable);
 
     long countByRequesterId(Long requesterId);
+
+    long countByLinkedEntityTypeAndLinkedEntityId(SupportLinkedEntityType linkedEntityType, Long linkedEntityId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select t from SupportTicket t where t.id = :id")

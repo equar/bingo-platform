@@ -100,6 +100,18 @@ export interface PlayerVerificationReviewResponse {
   reviewedAt: string;
 }
 
+export interface DepositReportResponse {
+  id: number;
+  playerId: number;
+  submittedCashAmount: string;
+  calculatedCreditAmount: string;
+  currency: string;
+  status: string;
+  submittedAt: string;
+  verifiedAt: string | null;
+  reviewedAt: string | null;
+}
+
 export interface AdminPlayerDetailResponse {
   id: number;
   displayName: string;
@@ -466,6 +478,7 @@ export interface SupportTicketCreateRequest {
 export interface AdminAuditLogSummaryResponse {
   id: number;
   actorUserId: number | null;
+  actorDisplayName: string | null;
   action: string;
   targetType: string;
   targetId: number | null;
@@ -474,8 +487,19 @@ export interface AdminAuditLogSummaryResponse {
   createdAt: string;
 }
 
+export interface AuditLogSearchFilters {
+  query?: string;
+  actorUserId?: number;
+  auditLogId?: number;
+  action?: string;
+  targetType?: string;
+  targetId?: number;
+  operationId?: string;
+  from?: string;
+  to?: string;
+}
+
 export interface AdminAuditLogDetailResponse extends AdminAuditLogSummaryResponse {
-  actorDisplayName: string | null;
   metadataJson: string | null;
 }
 
@@ -1276,9 +1300,37 @@ export async function auditLogs(page = 0, size = 20) {
   return data;
 }
 
+export async function searchAuditLogs(page = 0, size = 20, filters: AuditLogSearchFilters = {}) {
+  const { data } = await http.get<PageResponse<AdminAuditLogSummaryResponse>>('/api/v1/admin/audit-logs', {
+    params: { ...filters, page, size },
+  });
+  return data;
+}
+
 export async function auditActivityReport(from: string, to: string, page = 0, size = 100) {
   const { data } = await http.get<PageResponse<AdminAuditLogSummaryResponse>>(
     "/api/v1/admin/reports/audit-activity", { params: { from, to, page, size } },
+  );
+  return data;
+}
+
+export async function sessionActivityReport(from: string, to: string, page = 0, size = 100) {
+  const { data } = await http.get<PageResponse<AdminSessionSummaryResponse>>(
+    "/api/v1/admin/reports/sessions", { params: { from, to, page, size } },
+  );
+  return data;
+}
+
+export async function playerVerificationReport(from: string, to: string, page = 0, size = 100) {
+  const { data } = await http.get<PageResponse<PlayerVerificationReviewResponse>>(
+    "/api/v1/admin/player-verifications/report", { params: { from, to, page, size } },
+  );
+  return data;
+}
+
+export async function depositReport(from: string, to: string, page = 0, size = 100) {
+  const { data } = await http.get<PageResponse<DepositReportResponse>>(
+    "/api/v1/admin/deposits/report", { params: { from, to, page, size } },
   );
   return data;
 }

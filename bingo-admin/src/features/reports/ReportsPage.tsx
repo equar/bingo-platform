@@ -22,15 +22,37 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   auditActivityReport,
+  depositReport,
+  playerVerificationReport,
+  sessionActivityReport,
   supportTicketReport,
   type AdminAuditLogSummaryResponse,
+  type AdminSessionSummaryResponse,
+  type DepositReportResponse,
+  type PlayerVerificationReviewResponse,
   type SupportTicketSummaryResponse,
 } from "../../api/admin";
 import { useSession } from "../../api/session";
-import { getUserFacingErrorMessage } from "../../api/types";
+import { getUserFacingErrorMessage, type PageResponse } from "../../api/types";
 
-type ReportKind = "supportTickets" | "auditActivity";
+type ReportKind = "supportTickets" | "auditActivity" | "sessionActivity" | "playerVerifications" | "depositActivity";
 type ReportResult = { kind: ReportKind; from: string; to: string; headers: string[]; rows: string[][] };
+
+const reportTitles: Record<ReportKind, string> = {
+  supportTickets: "Support tickets",
+  auditActivity: "Admin audit activity",
+  sessionActivity: "Game session activity",
+  playerVerifications: "Player verification activity",
+  depositActivity: "Deposit review activity",
+};
+
+const reportDateBasis: Record<ReportKind, string> = {
+  supportTickets: "Support tickets are filtered by creation date.",
+  auditActivity: "Audit entries are filtered by event date.",
+  sessionActivity: "Sessions are filtered by scheduled start date.",
+  playerVerifications: "Verification reviews are filtered by review date.",
+  depositActivity: "Deposits are filtered by submission date.",
+};
 
 function dateInputValue(date: Date) {
   const year = date.getFullYear();
@@ -55,24 +77,14 @@ function downloadCsv(result: ReportResult) {
   window.setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
-async function collectSupportTickets(from: string, through: string) {
-  const records: SupportTicketSummaryResponse[] = [];
+async function collectReportPages<T>(loadPage: (page: number, size: number) => Promise<PageResponse<T>>) {
+  const records: T[] = [];
   for (let page = 0; page < 10000; page += 1) {
-    const result = await supportTicketReport(from, through, page, 100);
+    const result = await loadPage(page, 100);
     records.push(...result.content);
-    if (result.last) break;
+    if (result.last) return records;
   }
-  return records;
-}
-
-async function collectAuditActivity(from: string, through: string) {
-  const records: AdminAuditLogSummaryResponse[] = [];
-  for (let page = 0; page < 10000; page += 1) {
-    const result = await auditActivityReport(from, through, page, 100);
-    records.push(...result.content);
-    if (result.last) break;
-  }
-  return records;
+  throw new Error("The report is too large to export at once. Choose a shorter date range.");
 }
 
 export function ReportsPage() {
@@ -100,7 +112,9 @@ export function ReportsPage() {
       const fromInstant = fromDate.toISOString();
       const throughInstant = endExclusive.toISOString();
       if (kind === "supportTickets") {
-        const rows = await collectSupportTickets(fromInstant, throughInstant);
+        const rows = await collectReportPages<SupportTicketSummaryResponse>(
+          (page, size) => supportTicketReport(fromInstant, throughInstant, page, size),
+        );
         return {
           kind,
           from,
@@ -110,14 +124,59 @@ export function ReportsPage() {
             row.status, row.assignedToUserId == null ? "" : String(row.assignedToUserId), row.createdAt, row.updatedAt]),
         };
       }
-      const rows = await collectAuditActivity(fromInstant, throughInstant);
+      if (kind === "auditActivity") {
+        const rows = await collectReportPages<AdminAuditLogSummaryResponse>(
+          (page, size) => auditActivityReport(fromInstant, throughInstant, page, size),
+        );
+        return {
+          kind,
+          from,
+          to,
+          headers: ["Log ID", "Actor user ID", "Action", "Target type", "Target ID", "Reason", "Created"],
+          rows: rows.map((row) => [String(row.id), row.actorUserId == null ? "" : String(row.actorUserId), row.action,
+            row.targetType, row.targetId == null ? "" : String(row.targetId), row.reason ?? "", row.createdAt]),
+        };
+      }
+      if (kind === "sessionActivity") {
+        const rows = await collectReportPages<AdminSessionSummaryResponse>(
+          (page, size) => sessionActivityReport(fromInstant, throughInstant, page, size),
+        );
+        return {
+          kind,
+          from,
+          to,
+          headers: ["Session ID", "Room", "Session", "State", "Scheduled start", "Started", "Ended",
+            "Ticket price", "Currency", "Tickets sold", "Draws", "Win claims", "Support tickets"],
+          rows: rows.map((row) => [String(row.id), row.roomName, row.sessionName, row.state, row.scheduledStartAt,
+            row.startedAt ?? "", row.endedAt ?? "", String(row.ticketPrice), row.currency, String(row.ticketCount),
+            String(row.drawCount), String(row.winClaimCount), String(row.supportTicketCount)]),
+        };
+      }
+      if (kind === "playerVerifications") {
+        const rows = await collectReportPages<PlayerVerificationReviewResponse>(
+          (page, size) => playerVerificationReport(fromInstant, throughInstant, page, size),
+        );
+        return {
+          kind,
+          from,
+          to,
+          headers: ["Review ID", "Player ID", "Reviewer user ID", "Status", "Reason", "Reviewed"],
+          rows: rows.map((row) => [String(row.id), String(row.playerId), String(row.reviewerUserId), row.status,
+            row.reason, row.reviewedAt]),
+        };
+      }
+      const rows = await collectReportPages<DepositReportResponse>(
+        (page, size) => depositReport(fromInstant, throughInstant, page, size),
+      );
       return {
         kind,
         from,
         to,
-        headers: ["Log ID", "Actor user ID", "Action", "Target type", "Target ID", "Reason", "Created"],
-        rows: rows.map((row) => [String(row.id), row.actorUserId == null ? "" : String(row.actorUserId), row.action,
-          row.targetType, row.targetId == null ? "" : String(row.targetId), row.reason ?? "", row.createdAt]),
+        headers: ["Deposit ID", "Player ID", "Submitted amount", "Credited amount", "Currency", "Status",
+          "Submitted", "Verified", "Reviewed"],
+        rows: rows.map((row) => [String(row.id), String(row.playerId), String(row.submittedCashAmount),
+          String(row.calculatedCreditAmount), row.currency, row.status, row.submittedAt, row.verifiedAt ?? "",
+          row.reviewedAt ?? ""]),
       };
     },
   });
@@ -135,13 +194,23 @@ export function ReportsPage() {
         <CardContent>
           <Stack spacing={2}>
             <Typography variant="h6" fontWeight={700}>{t("Report filters")}</Typography>
+            <Typography variant="body2" color="text.secondary">{t(reportDateBasis[kind])}</Typography>
             <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ md: "center" }}>
               <FormControl fullWidth>
                 <InputLabel id="report-type-label">{t("Report type")}</InputLabel>
                 <Select id="report-type" labelId="report-type-label" label={t("Report type")} value={kind}
                   onChange={(event) => setKind(event.target.value as ReportKind)}>
                   <MenuItem value="supportTickets">{t("Support tickets")}</MenuItem>
-                  {isAdmin ? <MenuItem value="auditActivity">{t("Admin audit activity")}</MenuItem> : null}
+                  {isAdmin ? (
+                    <>
+                      <MenuItem value="auditActivity">{t("Admin audit activity")}</MenuItem>
+                      <MenuItem value="sessionActivity">{t("Game session activity")}</MenuItem>
+                      <MenuItem value="playerVerifications">{t("Player verification activity")}</MenuItem>
+                    </>
+                  ) : null}
+                  {session?.user.roles.some((role) => ["ADMIN", "FINANCE_VERIFIER", "FINANCE_APPROVER"].includes(role))
+                    ? <MenuItem value="depositActivity">{t("Deposit review activity")}</MenuItem>
+                    : null}
                 </Select>
               </FormControl>
               <TextField fullWidth type="date" label={t("From")} value={from} onChange={(event) => setFrom(event.target.value)} InputLabelProps={{ shrink: true }} />
@@ -161,7 +230,7 @@ export function ReportsPage() {
             <Stack spacing={2}>
               <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ sm: "center" }} gap={1}>
                 <Box>
-                  <Typography variant="h6" fontWeight={700}>{result.kind === "supportTickets" ? t("Support tickets") : t("Admin audit activity")}</Typography>
+                  <Typography variant="h6" fontWeight={700}>{t(reportTitles[result.kind])}</Typography>
                   <Typography color="text.secondary">{t("{{count}} records from {{from}} to {{to}}", { count: result.rows.length, from: result.from, to: result.to })}</Typography>
                 </Box>
                 <Button variant="outlined" onClick={() => downloadCsv(result)} disabled={!result.rows.length}>{t("Download CSV")}</Button>

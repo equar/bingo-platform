@@ -60,6 +60,13 @@ public class AdminPlayerVerificationService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public Page<PlayerVerificationReviewResponse> report(Instant from, Instant to, Pageable pageable) {
+        return reviewRepository
+                .findByReviewedAtGreaterThanEqualAndReviewedAtLessThanOrderByReviewedAtDescIdDesc(from, to, pageable)
+                .map(PlayerVerificationReviewResponse::from);
+    }
+
     @Transactional
     public PlayerVerificationReviewResponse recordPlayerVerification(
             Long playerId,

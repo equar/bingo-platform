@@ -173,6 +173,7 @@ export function AppShell() {
           title: "nav.reviews",
           items: [
             { to: "/support/tickets", label: "nav.support", icon: "support" as const },
+            { to: "/audit-logs", label: "nav.audit", icon: "audit" as const },
             { to: "/reports", label: "nav.reports", icon: "audit" as const },
           ],
         }]

@@ -5,9 +5,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.util.Arrays;
+import java.util.Objects;
 import javax.sql.DataSource;
 import org.flywaydb.core.Flyway;
 import org.flywaydb.core.api.FlywayException;
+import org.flywaydb.core.api.MigrationInfo;
 import org.flywaydb.core.api.MigrationVersion;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -41,7 +44,12 @@ class A00FlywayUpgradeRecoveryIntegrationTest extends MySqlIntegrationTest {
         assertEquals("6", throughV6.info().current().getVersion().getVersion());
 
         current.migrate();
-        assertEquals("23", current.info().current().getVersion().getVersion());
+        MigrationVersion latestVersion = Arrays.stream(current.info().all())
+                .map(MigrationInfo::getVersion)
+                .filter(Objects::nonNull)
+                .max(MigrationVersion::compareTo)
+                .orElseThrow();
+        assertEquals(latestVersion, current.info().current().getVersion());
         assertDoesNotThrow(current::validate);
 
         JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSource);

@@ -1,6 +1,7 @@
 package com.bakaroo.bingo.backend.feature.admin.service;
 
 import com.bakaroo.bingo.backend.common.exception.NotFoundException;
+import com.bakaroo.bingo.backend.common.exception.BadRequestException;
 import com.bakaroo.bingo.backend.feature.admin.dto.*;
 import com.bakaroo.bingo.backend.feature.agent.entity.Agent;
 import com.bakaroo.bingo.backend.feature.agent.repository.AgentFloatRepository;
@@ -19,6 +20,7 @@ import com.bakaroo.bingo.backend.feature.game.repository.PrizeEntitlementReposit
 import com.bakaroo.bingo.backend.feature.game.repository.TicketRepository;
 import com.bakaroo.bingo.backend.feature.game.repository.WinClaimRepository;
 import com.bakaroo.bingo.backend.feature.support.entity.SupportTicketStatus;
+import com.bakaroo.bingo.backend.feature.support.entity.SupportLinkedEntityType;
 import com.bakaroo.bingo.backend.feature.support.repository.SupportTicketRepository;
 import com.bakaroo.bingo.backend.feature.user.entity.User;
 import com.bakaroo.bingo.backend.feature.user.entity.AccountStatus;
@@ -210,6 +212,14 @@ public class AdminReadService {
         }
 
         @Transactional(readOnly = true)
+        public Page<AdminSessionSummaryResponse> sessionsReport(Instant from, Instant to, Pageable pageable) {
+                return gameSessionRepository
+                                .findByScheduledStartAtGreaterThanEqualAndScheduledStartAtLessThanOrderByScheduledStartAtDescIdDesc(
+                                                from, to, pageable)
+                                .map(this::toSessionSummary);
+        }
+
+        @Transactional(readOnly = true)
         public List<AdminSessionSummaryResponse> liveSessions() {
                 return gameSessionRepository
                                 .findByStateInAndStartedAtIsNotNullAndEndedAtIsNullOrderByScheduledStartAtAsc(
@@ -232,26 +242,46 @@ public class AdminReadService {
 
         @Transactional(readOnly = true)
         public Page<AdminAuditLogSummaryResponse> auditLogs(Pageable pageable) {
-                return auditLogRepository.findAll(pageable).map(entry -> {
-                        User actor = entry.getActor();
-                        return new AdminAuditLogSummaryResponse(entry.getId(), actor == null ? null : actor.getId(),
-                                        entry.getAction(), entry.getTargetType(), entry.getTargetId(), entry.getReason(),
-                                        entry.getOperationId(), entry.getCreatedAt());
-                });
+                return auditLogRepository.findAll(pageable).map(this::toAuditLogSummary);
+        }
+
+        @Transactional(readOnly = true)
+        public Page<AdminAuditLogSummaryResponse> searchAuditLogs(
+                                String query,
+                                Long actorUserId,
+                                Long auditLogId,
+                                String action,
+                                String targetType,
+                                Long targetId,
+                                String operationId,
+                                Instant from,
+                                Instant to,
+                                Pageable pageable) {
+                if (from != null && to != null && !from.isBefore(to)) {
+                                throw new BadRequestException("INVALID_AUDIT_DATE_RANGE",
+                                                "Audit search start must be before its end");
+                }
+
+                return auditLogRepository.searchAuditLogs(
+                                        normalizeFilter(query),
+                                        actorUserId,
+                                        auditLogId,
+                                        normalizeFilter(action),
+                                        normalizeFilter(targetType),
+                                        targetId,
+                                        normalizeFilter(operationId),
+                                        from,
+                                        to,
+                                        pageable)
+                                        .map(this::toAuditLogSummary);
         }
 
         @Transactional(readOnly = true)
         public Page<AdminAuditLogSummaryResponse> auditActivityReport(Instant from, Instant to, Pageable pageable) {
                 return auditLogRepository
                                 .findByCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDescIdDesc(
-                                                from, to, pageable)
-                                .map(entry -> {
-                                        User actor = entry.getActor();
-                                        return new AdminAuditLogSummaryResponse(entry.getId(),
-                                                        actor == null ? null : actor.getId(), entry.getAction(),
-                                                        entry.getTargetType(), entry.getTargetId(), entry.getReason(),
-                                                        entry.getOperationId(), entry.getCreatedAt());
-                                });
+                                                        from, to, pageable)
+                                        .map(this::toAuditLogSummary);
         }
 
         @Transactional(readOnly = true)
@@ -263,6 +293,28 @@ public class AdminReadService {
                                 actor == null ? null : actor.getDisplayName(), entry.getAction(), entry.getTargetType(),
                                 entry.getTargetId(), entry.getReason(), entry.getOperationId(), entry.getMetadataJson(),
                                 entry.getCreatedAt());
+        }
+
+        private AdminAuditLogSummaryResponse toAuditLogSummary(
+                        com.bakaroo.bingo.backend.feature.audit.entity.AuditLogEntry entry) {
+                User actor = entry.getActor();
+                return new AdminAuditLogSummaryResponse(
+                                entry.getId(),
+                                actor == null ? null : actor.getId(),
+                                actor == null ? null : actor.getDisplayName(),
+                                entry.getAction(),
+                                entry.getTargetType(),
+                                entry.getTargetId(),
+                                entry.getReason(),
+                                entry.getOperationId(),
+                                entry.getCreatedAt());
+        }
+
+        private String normalizeFilter(String value) {
+                if (value == null || value.isBlank()) {
+                        return null;
+                }
+                return value.trim().toLowerCase(Locale.ROOT);
         }
 
         public Page<AdminReviewQueueItemResponse> reviewQueue(Pageable pageable) {
@@ -286,10 +338,9 @@ public class AdminReadService {
                                 session.getEndedAt(), session.getTicketPriceSnapshot(), session.getCurrencySnapshot(),
                                 ticketRepository.countBySessionId(session.getId()),
                                 drawEventRepository.countBySessionId(session.getId()),
-                                winClaimRepository.findBySessionIdOrderByCreatedAtDesc(session.getId()).size(),
-                                supportTicketRepository.findAll().stream()
-                                                .filter(ticket -> session.getId().equals(ticket.getLinkedEntityId()))
-                                                .count());
+                                winClaimRepository.countBySessionId(session.getId()),
+                                supportTicketRepository.countByLinkedEntityTypeAndLinkedEntityId(
+                                                SupportLinkedEntityType.GAME_SESSION, session.getId()));
         }
 
         private AdminAgentSummaryResponse toAgentSummary(Agent agent) {

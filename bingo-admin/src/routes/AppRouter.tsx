@@ -101,6 +101,7 @@ export function AppRouter() {
             <Route path="support/tickets" element={<SupportTicketsPage />} />
             <Route path="support/tickets/:ticketId" element={<SupportTicketDetailPage />} />
             <Route path="reports" element={<ReportsPage />} />
+            <Route path="audit-logs" element={<AuditLogsPage />} />
             <Route element={<ProtectedRoute allowedRoles={["ADMIN"]} />}>
               <Route path="management" element={<Navigate to="/dashboard" replace />} />
               <Route path="dashboard" element={<DashboardPage />} />
@@ -123,7 +124,6 @@ export function AppRouter() {
                 <Route path="transfer-policy" element={<WalletPoliciesPage />} />
               </Route>
               <Route path="wallet/transfers" element={<WalletTransfersPage />} />
-              <Route path="audit-logs" element={<AuditLogsPage />} />
             </Route>
           </Route>
         </Route>

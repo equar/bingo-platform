@@ -32,6 +32,9 @@ public interface GameSessionRepository extends JpaRepository<GameSession, Long> 
                         @Param("state") GameSessionState state, @Param("roomId") Long roomId,
                         @Param("upcoming") Boolean upcoming, @Param("now") Instant now, Pageable pageable);
 
+        Page<GameSession> findByScheduledStartAtGreaterThanEqualAndScheduledStartAtLessThanOrderByScheduledStartAtDescIdDesc(
+                        Instant from, Instant to, Pageable pageable);
+
         Optional<GameSession> findByIdAndStateIn(Long id, List<GameSessionState> states);
 
         List<GameSession> findByRoomIdOrderByScheduledStartAtDesc(Long roomId);

@@ -26,6 +26,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
@@ -94,6 +96,21 @@ class AdminPlayerVerificationServiceTest {
                         PlayerVerificationReason.AGE_NOT_VERIFIED)))
                 .isInstanceOf(BadRequestException.class)
                 .hasMessageContaining("does not match");
+    }
+
+    @Test
+    void reportUsesTheRequestedReviewTimeRangeAndPage() {
+        Instant from = Instant.parse("2026-01-01T00:00:00Z");
+        Instant to = Instant.parse("2026-01-08T00:00:00Z");
+        var pageable = PageRequest.of(1, 25);
+        when(reviewRepository
+                .findByReviewedAtGreaterThanEqualAndReviewedAtLessThanOrderByReviewedAtDescIdDesc(from, to, pageable))
+                .thenReturn(Page.empty(pageable));
+
+        assertThat(service.report(from, to, pageable)).isEmpty();
+
+        verify(reviewRepository)
+                .findByReviewedAtGreaterThanEqualAndReviewedAtLessThanOrderByReviewedAtDescIdDesc(from, to, pageable);
     }
 
     @Test

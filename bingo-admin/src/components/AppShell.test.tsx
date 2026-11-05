@@ -196,7 +196,7 @@ describe("AppShell", () => {
     expect(screen.getByRole("link", { name: "Dashboard" })).toBeInTheDocument();
   });
 
-  it("keeps support-only navigation within its existing permission scope", () => {
+  it("shows audit logs to support-only users without exposing admin navigation", () => {
     useSessionMock.mockReturnValue({
       accessToken: "support-token",
       tokenType: "Bearer",
@@ -230,6 +230,7 @@ describe("AppShell", () => {
     expect(screen.queryByRole("link", { name: "Wallet Policies" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Transfer History" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Player verification" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Audit Logs" })).toHaveAttribute("href", "/audit-logs");
     expect(screen.getByText("Support content")).toBeInTheDocument();
   });
 });

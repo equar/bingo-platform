@@ -38,6 +38,26 @@
         "responses" : { "200" : { "description" : "OK", "content" : { "*/*" : { "schema" : { "$ref" : "#/components/schemas/PageResponseAdminAuditLogSummaryResponse" } } } } }
       }
     },
+    "/api/v1/admin/reports/sessions" : {
+      "get" : {
+        "tags" : [ "admin-read-controller" ],
+        "operationId" : "sessionsReport",
+        "parameters" : [
+          { "name" : "from", "in" : "query", "required" : true, "schema" : { "type" : "string", "format" : "date-time" } },
+          { "name" : "to", "in" : "query", "required" : true, "schema" : { "type" : "string", "format" : "date-time" } },
+          { "name" : "pageable", "in" : "query", "required" : true, "schema" : { "$ref" : "#/components/schemas/Pageable" } }
+        ],
+        "responses" : {
+          "200" : { "description" : "OK", "content" : { "*/*" : { "schema" : { "$ref" : "#/components/schemas/PageResponseAdminSessionSummaryResponse" } } } },
+          "400" : { "description" : "Invalid request", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
+          "401" : { "description" : "Authentication required or credentials invalid", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
+          "403" : { "description" : "Access denied", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
+          "409" : { "description" : "Request conflicts with current state", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
+          "500" : { "description" : "Unexpected server error", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
+          "404" : { "description" : "Resource not found", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } }
+        }
+      }
+    },
     "/api/v1/admin/support/tickets/report" : {
       "get" : {
         "tags" : [ "admin-support-controller" ],
@@ -10643,6 +10663,23 @@
         }
       }
     },
+    "/api/v1/admin/player-verifications/report" : {
+      "get" : {
+        "tags" : [ "admin-player-verification-controller" ],
+        "operationId" : "playerVerificationReport",
+        "parameters" : [
+          { "name" : "from", "in" : "query", "required" : true, "schema" : { "type" : "string", "format" : "date-time" } },
+          { "name" : "to", "in" : "query", "required" : true, "schema" : { "type" : "string", "format" : "date-time" } },
+          { "name" : "pageable", "in" : "query", "required" : true, "schema" : { "$ref" : "#/components/schemas/Pageable" } }
+        ],
+        "responses" : {
+          "200" : { "description" : "OK", "content" : { "*/*" : { "schema" : { "$ref" : "#/components/schemas/PageResponsePlayerVerificationReviewResponse" } } } },
+          "400" : { "description" : "Invalid request", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
+          "401" : { "description" : "Authentication required or credentials invalid" },
+          "403" : { "description" : "Access denied" }
+        }
+      }
+    },
     "/api/v1/admin/players/{playerId}/verification/reviews" : {
       "get" : {
         "tags" : [ "admin-player-verification-controller" ],
@@ -11663,6 +11700,26 @@
         }
       }
     },
+    "/api/v1/admin/deposits/report" : {
+      "get" : {
+        "tags" : [ "admin-deposit-controller" ],
+        "operationId" : "depositReport",
+        "parameters" : [
+          { "name" : "from", "in" : "query", "required" : true, "schema" : { "type" : "string", "format" : "date-time" } },
+          { "name" : "to", "in" : "query", "required" : true, "schema" : { "type" : "string", "format" : "date-time" } },
+          { "name" : "pageable", "in" : "query", "required" : true, "schema" : { "$ref" : "#/components/schemas/Pageable" } }
+        ],
+        "responses" : {
+          "200" : { "description" : "OK", "content" : { "*/*" : { "schema" : { "$ref" : "#/components/schemas/PageResponseDepositReportResponse" } } } },
+          "400" : { "description" : "Invalid request", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
+          "401" : { "description" : "Authentication required or credentials invalid", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
+          "403" : { "description" : "Access denied", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
+          "409" : { "description" : "Request conflicts with current state", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
+          "500" : { "description" : "Unexpected server error", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
+          "404" : { "description" : "Resource not found", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } }
+        }
+      }
+    },
     "/api/v1/admin/deposits/{id}/verifications" : {
       "get" : {
         "tags" : [ "admin-deposit-controller" ],
@@ -12082,6 +12139,74 @@
         "tags" : [ "admin-read-controller" ],
         "operationId" : "auditLogs",
         "parameters" : [ {
+          "name" : "query",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "actorUserId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "auditLogId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "action",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "targetType",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "targetId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "operationId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "from",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
           "name" : "pageable",
           "in" : "query",
           "required" : true,
@@ -13701,6 +13826,39 @@
           }
         }
       },
+      "PageResponsePlayerVerificationReviewResponse" : {
+        "type" : "object",
+        "properties" : {
+          "content" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PlayerVerificationReviewResponse"
+            }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "first" : {
+            "type" : "boolean"
+          },
+          "last" : {
+            "type" : "boolean"
+          }
+        }
+      },
       "ChangePasswordRequest" : {
         "type" : "object",
         "properties" : {
@@ -13913,6 +14071,44 @@
           },
           "paymentInstructions" : {
             "$ref" : "#/components/schemas/PaymentInstructionsResponse"
+          }
+        }
+      },
+      "DepositReportResponse" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "playerId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "submittedCashAmount" : {
+            "type" : "number"
+          },
+          "calculatedCreditAmount" : {
+            "type" : "number"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "PENDING", "AWAITING_VERIFICATION", "VERIFIED", "VERIFICATION_EXCEPTION", "APPROVED", "REJECTED" ]
+          },
+          "submittedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "verifiedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "reviewedAt" : {
+            "type" : "string",
+            "format" : "date-time"
           }
         }
       },
@@ -16709,6 +16905,39 @@
           }
         }
       },
+      "PageResponseDepositReportResponse" : {
+        "type" : "object",
+        "properties" : {
+          "content" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DepositReportResponse"
+            }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "first" : {
+            "type" : "boolean"
+          },
+          "last" : {
+            "type" : "boolean"
+          }
+        }
+      },
       "PageResponseBingoRoomResponse" : {
         "type" : "object",
         "properties" : {
@@ -17214,6 +17443,9 @@
           "actorUserId" : {
             "type" : "integer",
             "format" : "int64"
+          },
+          "actorDisplayName" : {
+            "type" : "string"
           },
           "action" : {
             "type" : "string"

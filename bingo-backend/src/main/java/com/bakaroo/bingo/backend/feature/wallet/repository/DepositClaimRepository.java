@@ -2,6 +2,7 @@ package com.bakaroo.bingo.backend.feature.wallet.repository;
 
 import com.bakaroo.bingo.backend.feature.wallet.entity.DepositClaim;
 import com.bakaroo.bingo.backend.feature.wallet.entity.DepositClaimStatus;
+import java.time.Instant;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -44,4 +45,7 @@ public interface DepositClaimRepository extends JpaRepository<DepositClaim, Long
     Optional<DepositClaim> findByIdForUpdate(@Param("id") Long id);
 
     Page<DepositClaim> findByStatus(DepositClaimStatus status, Pageable pageable);
+
+    Page<DepositClaim> findBySubmittedAtGreaterThanEqualAndSubmittedAtLessThanOrderBySubmittedAtDescIdDesc(
+            Instant from, Instant to, Pageable pageable);
 }

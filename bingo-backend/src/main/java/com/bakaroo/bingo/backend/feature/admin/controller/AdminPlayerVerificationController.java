@@ -1,6 +1,7 @@
 package com.bakaroo.bingo.backend.feature.admin.controller;
 
 import com.bakaroo.bingo.backend.common.api.PageResponse;
+import com.bakaroo.bingo.backend.common.validation.ReportRangeValidator;
 import com.bakaroo.bingo.backend.feature.admin.dto.PlayerVerificationQueueItemResponse;
 import com.bakaroo.bingo.backend.feature.admin.dto.PlayerVerificationReviewResponse;
 import com.bakaroo.bingo.backend.feature.admin.dto.PlayerVerificationUpdateRequest;
@@ -8,6 +9,7 @@ import com.bakaroo.bingo.backend.feature.admin.service.AdminPlayerVerificationSe
 import com.bakaroo.bingo.backend.feature.auth.service.BingoUserPrincipal;
 import com.bakaroo.bingo.backend.feature.user.entity.PlayerVerificationStatus;
 import jakarta.validation.Valid;
+import java.time.Instant;
 import java.util.List;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -21,6 +23,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.format.annotation.DateTimeFormat;
 
 @RestController
 @RequestMapping("/api/v1/admin")
@@ -44,6 +47,15 @@ public class AdminPlayerVerificationController {
     @GetMapping("/players/{playerId}/verification/reviews")
     public List<PlayerVerificationReviewResponse> history(@PathVariable Long playerId) {
         return service.history(playerId);
+    }
+
+    @GetMapping("/player-verifications/report")
+    public PageResponse<PlayerVerificationReviewResponse> playerVerificationReport(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to,
+            @PageableDefault(size = 100) Pageable pageable) {
+        ReportRangeValidator.validate(from, to);
+        return PageResponse.from(service.report(from, to, pageable));
     }
 
     @PostMapping("/players/{playerId}/verification/reviews")

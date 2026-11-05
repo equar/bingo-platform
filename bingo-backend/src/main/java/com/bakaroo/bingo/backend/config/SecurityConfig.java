@@ -87,6 +87,8 @@ public class SecurityConfig {
                                                 .requestMatchers("/api/v1/admin/me/password").hasAnyRole("ADMIN", "SUPPORT")
                                                 .requestMatchers("/api/v1/admin/support/**")
                                                 .hasAnyRole("ADMIN", "SUPPORT")
+                                                .requestMatchers("/api/v1/admin/audit-logs", "/api/v1/admin/audit-logs/**")
+                                                .hasAnyRole("ADMIN", "SUPPORT")
                                                 .requestMatchers(
                                                                 "/api/v1/admin/deposits/**",
                                                                 "/api/v1/admin/players/*/wallet-adjustments/requests",

@@ -1,6 +1,7 @@
 package com.bakaroo.bingo.backend.feature.support.controller;
 
 import com.bakaroo.bingo.backend.common.api.PageResponse;
+import com.bakaroo.bingo.backend.common.validation.ReportRangeValidator;
 import com.bakaroo.bingo.backend.feature.auth.service.BingoUserPrincipal;
 import com.bakaroo.bingo.backend.feature.support.dto.SupportTicketAssignmentRequest;
 import com.bakaroo.bingo.backend.feature.support.dto.SupportAssigneeResponse;
@@ -55,14 +56,7 @@ public class AdminSupportController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to,
             @PageableDefault(size = 100) Pageable pageable) {
-        if (!from.isBefore(to)) {
-            throw new com.bakaroo.bingo.backend.common.exception.BadRequestException(
-                    "INVALID_REPORT_RANGE", "Report end must be after report start");
-        }
-        if (to.isAfter(from.plusSeconds(366L * 24 * 60 * 60))) {
-            throw new com.bakaroo.bingo.backend.common.exception.BadRequestException(
-                    "REPORT_RANGE_TOO_LARGE", "Reports are limited to 366 days");
-        }
+        ReportRangeValidator.validate(from, to);
         return PageResponse.from(supportService.reportTickets(from, to, pageable));
     }
 
