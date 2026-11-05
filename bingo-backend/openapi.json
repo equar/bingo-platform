@@ -17,12 +17,15 @@
       "get" : {
         "tags" : [ "admin-read-controller" ],
         "operationId" : "trends",
-        "parameters" : [ { "name" : "days", "in" : "query", "required" : false, "schema" : { "type" : "integer", "default" : 14 } } ],
+        "parameters" : [ { "name" : "days", "in" : "query", "required" : false, "schema" : { "type" : "integer", "format" : "int32", "default" : 14 } } ],
         "responses" : {
-          "200" : { "description" : "OK", "content" : { "*/*" : { "schema" : { "$ref" : "#/components/schemas/AdminDashboardTrendsResponse" } } } },
+          "403" : { "description" : "Access denied", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
+          "500" : { "description" : "Unexpected server error", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
           "400" : { "description" : "Invalid request", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
+          "404" : { "description" : "Resource not found", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
+          "409" : { "description" : "Request conflicts with current state", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
           "401" : { "description" : "Authentication required or credentials invalid", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
-          "403" : { "description" : "Access denied", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } }
+          "200" : { "description" : "OK", "content" : { "*/*" : { "schema" : { "$ref" : "#/components/schemas/AdminDashboardTrendsResponse" } } } }
         }
       }
     },
@@ -35,7 +38,15 @@
           { "name" : "to", "in" : "query", "required" : true, "schema" : { "type" : "string", "format" : "date-time" } },
           { "name" : "pageable", "in" : "query", "required" : true, "schema" : { "$ref" : "#/components/schemas/Pageable" } }
         ],
-        "responses" : { "200" : { "description" : "OK", "content" : { "*/*" : { "schema" : { "$ref" : "#/components/schemas/PageResponseAdminAuditLogSummaryResponse" } } } } }
+        "responses" : {
+          "403" : { "description" : "Access denied", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
+          "500" : { "description" : "Unexpected server error", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
+          "400" : { "description" : "Invalid request", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
+          "404" : { "description" : "Resource not found", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
+          "409" : { "description" : "Request conflicts with current state", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
+          "401" : { "description" : "Authentication required or credentials invalid", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
+          "200" : { "description" : "OK", "content" : { "*/*" : { "schema" : { "$ref" : "#/components/schemas/PageResponseAdminAuditLogSummaryResponse" } } } }
+        }
       }
     },
     "/api/v1/admin/reports/sessions" : {
@@ -67,7 +78,15 @@
           { "name" : "to", "in" : "query", "required" : true, "schema" : { "type" : "string", "format" : "date-time" } },
           { "name" : "pageable", "in" : "query", "required" : true, "schema" : { "$ref" : "#/components/schemas/Pageable" } }
         ],
-        "responses" : { "200" : { "description" : "OK", "content" : { "*/*" : { "schema" : { "$ref" : "#/components/schemas/PageResponseSupportTicketSummaryResponse" } } } } }
+        "responses" : {
+          "403" : { "description" : "Access denied", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
+          "500" : { "description" : "Unexpected server error", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
+          "400" : { "description" : "Invalid request", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
+          "404" : { "description" : "Resource not found", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
+          "409" : { "description" : "Request conflicts with current state", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
+          "401" : { "description" : "Authentication required or credentials invalid", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
+          "200" : { "description" : "OK", "content" : { "*/*" : { "schema" : { "$ref" : "#/components/schemas/PageResponseSupportTicketSummaryResponse" } } } }
+        }
       }
     },
     "/api/v1/me/profile" : {
@@ -83,15 +102,13 @@
           "required" : true
         },
         "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "*/*" : { "schema" : { "$ref" : "#/components/schemas/AuthResponse" } }
-            }
-          },
+          "403" : { "description" : "Access denied", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
+          "500" : { "description" : "Unexpected server error", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
           "400" : { "description" : "Invalid request", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
+          "404" : { "description" : "Resource not found", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
+          "409" : { "description" : "Request conflicts with current state", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
           "401" : { "description" : "Authentication required or credentials invalid", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
-          "409" : { "description" : "Request conflicts with current state", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } }
+          "200" : { "description" : "OK", "content" : { "*/*" : { "schema" : { "$ref" : "#/components/schemas/AuthResponse" } } } }
         }
       }
     },
@@ -5364,7 +5381,7 @@
     "/api/v1/admin/players/{id}/wallet-adjustments/requests" : {
       "get" : {
         "tags" : [ "admin-wallet-adjustment-controller" ],
-        "operationId" : "history",
+        "operationId" : "history_1",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -10599,67 +10616,15 @@
       "get" : {
         "tags" : [ "admin-player-verification-controller" ],
         "operationId" : "queue",
-        "parameters" : [ {
-          "name" : "status",
-          "in" : "query",
-          "required" : false,
-          "schema" : {
-            "type" : "string",
-            "enum" : [ "NOT_REVIEWED", "IN_REVIEW", "VERIFIED", "NEEDS_INFORMATION", "REJECTED" ]
-          }
-        }, {
-          "name" : "query",
-          "in" : "query",
-          "required" : false,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "page",
-          "in" : "query",
-          "required" : false,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int32",
-            "default" : 0
-          }
-        }, {
-          "name" : "size",
-          "in" : "query",
-          "required" : false,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int32",
-            "default" : 20
-          }
-        } ],
+        "parameters" : [ { "name" : "status", "in" : "query", "required" : false, "schema" : { "type" : "string", "enum" : [ "NOT_REVIEWED", "IN_REVIEW", "VERIFIED", "NEEDS_INFORMATION", "REJECTED" ] } }, { "name" : "query", "in" : "query", "required" : false, "schema" : { "type" : "string" } }, { "name" : "pageable", "in" : "query", "required" : true, "schema" : { "$ref" : "#/components/schemas/Pageable" } } ],
         "responses" : {
-          "200" : {
-            "description" : "Verification queue",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/PageResponsePlayerVerificationQueueItemResponse"
-                }
-              }
-            }
-          },
-          "400" : {
-            "description" : "Invalid request",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiErrorResponse"
-                }
-              }
-            }
-          },
-          "401" : {
-            "description" : "Authentication required or credentials invalid"
-          },
-          "403" : {
-            "description" : "Access denied"
-          }
+          "403" : { "description" : "Access denied", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
+          "500" : { "description" : "Unexpected server error", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
+          "400" : { "description" : "Invalid request", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
+          "404" : { "description" : "Resource not found", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
+          "409" : { "description" : "Request conflicts with current state", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
+          "401" : { "description" : "Authentication required or credentials invalid", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
+          "200" : { "description" : "OK", "content" : { "*/*" : { "schema" : { "$ref" : "#/components/schemas/PageResponsePlayerVerificationQueueItemResponse" } } } }
         }
       }
     },
@@ -10673,10 +10638,13 @@
           { "name" : "pageable", "in" : "query", "required" : true, "schema" : { "$ref" : "#/components/schemas/Pageable" } }
         ],
         "responses" : {
-          "200" : { "description" : "OK", "content" : { "*/*" : { "schema" : { "$ref" : "#/components/schemas/PageResponsePlayerVerificationReviewResponse" } } } },
+          "403" : { "description" : "Access denied", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
+          "500" : { "description" : "Unexpected server error", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
           "400" : { "description" : "Invalid request", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
-          "401" : { "description" : "Authentication required or credentials invalid" },
-          "403" : { "description" : "Access denied" }
+          "404" : { "description" : "Resource not found", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
+          "409" : { "description" : "Request conflicts with current state", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
+          "401" : { "description" : "Authentication required or credentials invalid", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
+          "200" : { "description" : "OK", "content" : { "*/*" : { "schema" : { "$ref" : "#/components/schemas/PageResponsePlayerVerificationReviewResponse" } } } }
         }
       }
     },
@@ -10694,28 +10662,13 @@
           }
         } ],
         "responses" : {
-          "200" : {
-            "description" : "Verification review history",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "type" : "array",
-                  "items" : {
-                    "$ref" : "#/components/schemas/PlayerVerificationReviewResponse"
-                  }
-                }
-              }
-            }
-          },
-          "401" : {
-            "description" : "Authentication required or credentials invalid"
-          },
-          "403" : {
-            "description" : "Access denied"
-          },
-          "404" : {
-            "description" : "Player account not found"
-          }
+          "403" : { "description" : "Access denied", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
+          "500" : { "description" : "Unexpected server error", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
+          "400" : { "description" : "Invalid request", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
+          "404" : { "description" : "Resource not found", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
+          "409" : { "description" : "Request conflicts with current state", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
+          "401" : { "description" : "Authentication required or credentials invalid", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
+          "200" : { "description" : "OK", "content" : { "*/*" : { "schema" : { "type" : "array", "items" : { "$ref" : "#/components/schemas/PlayerVerificationReviewResponse" } } } } }
         }
       },
       "post" : {
@@ -10741,35 +10694,13 @@
           "required" : true
         },
         "responses" : {
-          "200" : {
-            "description" : "Verification review recorded",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/PlayerVerificationReviewResponse"
-                }
-              }
-            }
-          },
-          "400" : {
-            "description" : "Invalid status or reason",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiErrorResponse"
-                }
-              }
-            }
-          },
-          "401" : {
-            "description" : "Authentication required or credentials invalid"
-          },
-          "403" : {
-            "description" : "Access denied"
-          },
-          "404" : {
-            "description" : "Player account not found"
-          }
+          "403" : { "description" : "Access denied", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
+          "500" : { "description" : "Unexpected server error", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
+          "400" : { "description" : "Invalid request", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
+          "404" : { "description" : "Resource not found", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
+          "409" : { "description" : "Request conflicts with current state", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
+          "401" : { "description" : "Authentication required or credentials invalid", "content" : { "application/json" : { "schema" : { "$ref" : "#/components/schemas/ApiErrorResponse" } } } },
+          "200" : { "description" : "OK", "content" : { "*/*" : { "schema" : { "$ref" : "#/components/schemas/PlayerVerificationReviewResponse" } } } }
         }
       }
     },
