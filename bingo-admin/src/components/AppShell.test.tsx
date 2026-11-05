@@ -113,6 +113,7 @@ describe("AppShell", () => {
     expect(screen.getAllByRole("link", { name: "Admin Users" })[0]).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "Dashboard" })[0]).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "Sessions" })[0]).toHaveAttribute("href", "/sessions");
+    expect(screen.getAllByRole("link", { name: "Session tickets" })[0]).toHaveAttribute("href", "/session-tickets");
     expect(screen.getAllByRole("link", { name: "Rooms" })[0]).toHaveAttribute("href", "/rooms");
     expect(screen.getAllByRole("link", { name: "Player community" })[0]).toHaveAttribute("href", "/community");
     expect(screen.getAllByRole("link", { name: "Deposits" })[0]).toHaveAttribute("href", "/deposits");
@@ -137,6 +138,39 @@ describe("AppShell", () => {
     fireEvent.click(reviewsToggle);
 
     expect(reviewsToggle).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("shows session ticket lookup to support staff", () => {
+    useSessionMock.mockReturnValue({
+      accessToken: "token",
+      tokenType: "Bearer",
+      expiresInSeconds: 3600,
+      user: {
+        id: 2,
+        displayName: "Support Tester",
+        phoneNumber: "251911000002",
+        roles: ["SUPPORT"],
+        status: "ACTIVE",
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      },
+    });
+    const queryClient = new QueryClient();
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={["/support/tickets"]}>
+          <Routes>
+            <Route element={<AppShell />}>
+              <Route path="support/tickets" element={<div>Support tickets</div>} />
+            </Route>
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    expect(screen.getByRole("link", { name: "Session tickets" })).toHaveAttribute("href", "/session-tickets");
+    expect(screen.queryByRole("link", { name: "Sessions" })).not.toBeInTheDocument();
   });
 
   it("provides profile, password, and logout actions in the account menu", () => {

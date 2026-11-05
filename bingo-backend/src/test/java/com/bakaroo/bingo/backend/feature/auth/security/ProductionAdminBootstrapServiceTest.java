@@ -46,7 +46,7 @@ class ProductionAdminBootstrapServiceTest {
 
     @Test
     void createsOnlyAnActiveAdminAccount() {
-        when(users.findByNormalizedPhone("251911234567")).thenReturn(Optional.empty());
+        when(users.findByNormalizedPhoneAndRole("251911234567", UserRole.ADMIN)).thenReturn(Optional.empty());
         when(users.findByEmailIgnoreCase(EMAIL)).thenReturn(Optional.empty());
         when(passwordEncoder.encode(PASSWORD)).thenReturn("bcrypt-hash");
 
@@ -67,7 +67,7 @@ class ProductionAdminBootstrapServiceTest {
 
     @Test
     void encodesPasswordWithTheExistingPasswordEncoder() {
-        when(users.findByNormalizedPhone("251911234567")).thenReturn(Optional.empty());
+        when(users.findByNormalizedPhoneAndRole("251911234567", UserRole.ADMIN)).thenReturn(Optional.empty());
         when(users.findByEmailIgnoreCase(EMAIL)).thenReturn(Optional.empty());
         when(passwordEncoder.encode(PASSWORD)).thenReturn("encoded-with-configured-encoder");
 
@@ -82,9 +82,10 @@ class ProductionAdminBootstrapServiceTest {
     @Test
     void repeatedExecutionSkipsTheAccountWithoutChangingIt() {
         User existing = User.create("251911234567", "Existing Admin", "existing-hash", AccountStatus.PENDING,
-                Set.of(UserRole.PLAYER), Instant.now());
+                Set.of(UserRole.ADMIN), Instant.now());
         existing.setEmail(EMAIL);
-        when(users.findByNormalizedPhone("251911234567")).thenReturn(Optional.empty(), Optional.of(existing));
+        when(users.findByNormalizedPhoneAndRole("251911234567", UserRole.ADMIN))
+                .thenReturn(Optional.empty(), Optional.of(existing));
         when(users.findByEmailIgnoreCase(EMAIL)).thenReturn(Optional.empty());
         when(passwordEncoder.encode(PASSWORD)).thenReturn("new-hash");
 
@@ -95,7 +96,7 @@ class ProductionAdminBootstrapServiceTest {
         assertEquals("Existing Admin", existing.getDisplayName());
         assertEquals("existing-hash", existing.getPasswordHash());
         assertEquals(AccountStatus.PENDING, existing.getStatus());
-        assertEquals(Set.of(UserRole.PLAYER), existing.getRoles());
+        assertEquals(Set.of(UserRole.ADMIN), existing.getRoles());
         verify(users, org.mockito.Mockito.times(1)).saveAndFlush(any(User.class));
     }
 
@@ -104,7 +105,7 @@ class ProductionAdminBootstrapServiceTest {
         User existing = User.create("251977700001", "Existing Player", "existing-hash", AccountStatus.PENDING,
                 Set.of(UserRole.PLAYER), Instant.now());
         existing.setEmail(EMAIL);
-        when(users.findByNormalizedPhone("251911234567")).thenReturn(Optional.empty());
+        when(users.findByNormalizedPhoneAndRole("251911234567", UserRole.ADMIN)).thenReturn(Optional.empty());
         when(users.findByEmailIgnoreCase(EMAIL)).thenReturn(Optional.of(existing));
 
         assertEquals(ProductionAdminBootstrapService.Result.ALREADY_EXISTS,
@@ -121,16 +122,16 @@ class ProductionAdminBootstrapServiceTest {
 
     @Test
     void existingPhoneIsNeverPromotedOrRewritten() {
-        User existing = User.create("251911234567", "Existing Support", "existing-hash", AccountStatus.ACTIVE,
-                Set.of(UserRole.SUPPORT), Instant.now());
-        when(users.findByNormalizedPhone("251911234567")).thenReturn(Optional.of(existing));
+        User existing = User.create("251911234567", "Existing Admin", "existing-hash", AccountStatus.ACTIVE,
+                Set.of(UserRole.ADMIN), Instant.now());
+        when(users.findByNormalizedPhoneAndRole("251911234567", UserRole.ADMIN)).thenReturn(Optional.of(existing));
 
         assertEquals(ProductionAdminBootstrapService.Result.ALREADY_EXISTS,
                 service.bootstrap(PHONE, NAME, EMAIL, PASSWORD));
 
-        assertEquals("Existing Support", existing.getDisplayName());
+        assertEquals("Existing Admin", existing.getDisplayName());
         assertEquals("existing-hash", existing.getPasswordHash());
-        assertEquals(Set.of(UserRole.SUPPORT), existing.getRoles());
+        assertEquals(Set.of(UserRole.ADMIN), existing.getRoles());
         verify(users, never()).saveAndFlush(any(User.class));
         verify(passwordEncoder, never()).encode(any());
     }

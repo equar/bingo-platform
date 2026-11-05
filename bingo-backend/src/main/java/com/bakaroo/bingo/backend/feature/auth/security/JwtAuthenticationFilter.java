@@ -42,9 +42,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String token = authorization.substring(7);
             BingoUserPrincipal authenticatedPrincipal = null;
             try {
-                String subject = jwtService.extractSubject(token);
-                BingoUserPrincipal principal = (BingoUserPrincipal) userDetailsService.loadUserByUsername(subject);
-                if (jwtService.isTokenValid(token, principal.getUsername()) && principal.isEnabled()
+                Long userId = jwtService.extractUserId(token);
+                BingoUserPrincipal principal = userDetailsService.loadById(userId);
+                if (jwtService.isTokenValidForUser(token, principal.getUser().getId()) && principal.isEnabled()
                         && principal.isAccountNonLocked()) {
                     authenticatedPrincipal = principal;
                 }

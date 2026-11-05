@@ -398,6 +398,77 @@ class BingoGameIntegrationTest extends MySqlIntegrationTest {
         }
 
         @Test
+        void supportCanSearchTicketsBySessionAndPlayer() throws Exception {
+                var room = bingoGameService.createRoom(roomRequest("Ticket Lookup Hall", 4, 10, true));
+                var session = bingoGameService.createSession(room.id(), sessionRequest(GameSessionState.OPEN));
+                var otherRoom = bingoGameService.createRoom(roomRequest("Other Ticket Lookup Hall", 4, 10, true));
+                var otherSession = bingoGameService.createSession(otherRoom.id(), sessionRequest(GameSessionState.OPEN));
+                bingoGameService.purchaseTicket(
+                                session.id(),
+                                new BingoUserPrincipal(userRepository.findById(playerOne.getId()).orElseThrow()),
+                                java.util.UUID.randomUUID().toString());
+                Ticket ticket = ticketRepository.findBySessionIdAndOwnerIdOrderByPurchasedAtDesc(
+                                session.id(), playerOne.getId()).get(0);
+                User support = userRepository.save(User.create(
+                                phoneNormalizer.normalize("0911000206"),
+                                "Support User",
+                                passwordEncoder.encode("123456"),
+                                AccountStatus.ACTIVE,
+                                Set.of(UserRole.SUPPORT),
+                                Instant.now()));
+                String supportToken = jwtService.generateToken(support);
+                String playerToken = loginToken("0911000202", "123456");
+
+                mockMvc.perform(get("/api/v1/admin/support/session-tickets/sessions")
+                                .param("query", String.valueOf(session.id()))
+                                .header("Authorization", "Bearer " + supportToken))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.totalElements").value(1))
+                                .andExpect(jsonPath("$.content[0].id").value(session.id()));
+
+                mockMvc.perform(get("/api/v1/admin/support/session-tickets/sessions/" + session.id() + "/tickets")
+                                .param("query", "Player One")
+                                .header("Authorization", "Bearer " + supportToken))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.totalElements").value(1))
+                                .andExpect(jsonPath("$.content[0].ticketId").value(ticket.getId()))
+                                .andExpect(jsonPath("$.content[0].sessionId").value(session.id()))
+                                .andExpect(jsonPath("$.content[0].playerName").value("Player One"))
+                                .andExpect(jsonPath("$.content[0].publicTicketCode").value(ticket.getPublicTicketCode()));
+
+                mockMvc.perform(get("/api/v1/admin/support/session-tickets/sessions/" + session.id() + "/tickets")
+                                .param("query", "0911000202")
+                                .header("Authorization", "Bearer " + supportToken))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.totalElements").value(1))
+                                .andExpect(jsonPath("$.content[0].playerPhone").value("251911000202"));
+
+                mockMvc.perform(get("/api/v1/admin/support/session-tickets/sessions/" + session.id() + "/tickets")
+                                .param("query", ticket.getPublicTicketCode())
+                                .header("Authorization", "Bearer " + supportToken))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.totalElements").value(1))
+                                .andExpect(jsonPath("$.content[0].ticketId").value(ticket.getId()));
+
+                mockMvc.perform(get("/api/v1/admin/support/session-tickets/sessions/" + session.id() + "/tickets")
+                                .param("query", "#" + ticket.getId())
+                                .header("Authorization", "Bearer " + supportToken))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.totalElements").value(1))
+                                .andExpect(jsonPath("$.content[0].ticketId").value(ticket.getId()));
+
+                mockMvc.perform(get("/api/v1/admin/support/session-tickets/sessions/" + otherSession.id() + "/tickets")
+                                .header("Authorization", "Bearer " + supportToken))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.totalElements").value(0))
+                                .andExpect(jsonPath("$.content").isEmpty());
+
+                mockMvc.perform(get("/api/v1/admin/support/session-tickets/sessions/" + session.id() + "/tickets")
+                                .header("Authorization", "Bearer " + playerToken))
+                                .andExpect(status().isForbidden());
+        }
+
+        @Test
         void purchaseClaimReviewAndSingleSettlementWork() throws Exception {
                 var room = bingoGameService.createRoom(roomRequest("Main Hall B", 4, 10, true));
                 var session = bingoGameService.createSession(room.id(), sessionRequest(GameSessionState.OPEN));

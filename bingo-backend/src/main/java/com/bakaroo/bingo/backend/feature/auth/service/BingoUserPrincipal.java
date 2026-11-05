@@ -37,7 +37,7 @@ public class BingoUserPrincipal implements UserDetails {
 
     @Override
     public String getUsername() {
-        return user.getNormalizedPhone();
+        return user.getNormalizedPhone() != null ? user.getNormalizedPhone() : user.getEmail();
     }
 
     @Override

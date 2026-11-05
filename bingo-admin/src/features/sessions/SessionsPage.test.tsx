@@ -90,6 +90,10 @@ describe("SessionsPage", () => {
     render(<SessionsPage />, { wrapper: createWrapper });
 
     expect(await screen.findByRole("link", { name: "Friday Draw" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "View tickets" })).toHaveAttribute(
+      "href",
+      "/session-tickets?sessionId=15",
+    );
     expect(listSessionsMock).toHaveBeenCalledWith(0, 20, undefined, undefined, undefined, undefined);
 
     await user.type(screen.getByRole("textbox", { name: "Search sessions" }), "Friday");

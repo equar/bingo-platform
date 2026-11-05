@@ -23,6 +23,16 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     Optional<User> findByNormalizedPhone(String normalizedPhone);
 
+    @Query("select distinct u from User u join u.roles role where u.normalizedPhone = :phone and role = :role")
+    Optional<User> findByNormalizedPhoneAndRole(@Param("phone") String normalizedPhone, @Param("role") UserRole role);
+
+    @Query("select count(distinct u) from User u join u.roles role "
+            + "where u.normalizedPhone = :phone and role in :roles and (:excludeUserId is null or u.id <> :excludeUserId)")
+    long countByPhoneAndAnyRoleExceptUser(
+            @Param("phone") String normalizedPhone,
+            @Param("roles") Collection<UserRole> roles,
+            @Param("excludeUserId") Long excludeUserId);
+
     java.util.List<User> findByCreatedAtGreaterThanEqualAndCreatedAtLessThan(Instant from, Instant to);
 
     Optional<User> findByEmail(String email);
@@ -100,8 +110,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
                         @Param("search") String search,
                         @Param("status") AccountStatus status,
                         Pageable pageable);
-
-    boolean existsByNormalizedPhone(String normalizedPhone);
 
     boolean existsByEmail(String email);
 }

@@ -149,6 +149,7 @@ class AdminAuthServiceTest {
     void activationSetsPasswordAndConsumesTheSingleUseToken() {
         String rawToken = "activation-token";
         String tokenHash = activationTokenGenerator.hashToken(rawToken);
+        admin.setStatus(AccountStatus.PENDING);
         admin.requireAccountActivation(tokenHash, Instant.now().plusSeconds(3600));
         when(userRepository.findByAccountActivationTokenHashForUpdate(tokenHash)).thenReturn(Optional.of(admin));
         when(passwordEncoder.encode("NewPass123!")).thenReturn("new-hash");

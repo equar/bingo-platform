@@ -16,16 +16,23 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.util.UriComponentsBuilder;
 
 @Service
 public class AdminUserService {
+
+    private static final Logger log = LoggerFactory.getLogger(AdminUserService.class);
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -34,14 +41,17 @@ public class AdminUserService {
     private final AdminAccountNotificationService notificationService;
     private final AdminAccountActivationTokenGenerator activationTokenGenerator;
     private final String activationUrl;
+    private final String resetPasswordUrl;
 
+    @Autowired
     public AdminUserService(UserRepository userRepository,
             PasswordEncoder passwordEncoder,
             EthiopianPhoneNormalizer phoneNormalizer,
             AdminPasswordGenerator passwordGenerator,
             AdminAccountNotificationService notificationService,
             AdminAccountActivationTokenGenerator activationTokenGenerator,
-            @Value("${app.admin-account-email.activation-url:http://localhost:5173/activate-account}") String activationUrl) {
+            @Value("${app.admin-account-email.activation-url:http://localhost:5173/activate-account}") String activationUrl,
+            @Value("${app.admin-account-email.reset-password-url:http://localhost:5173/reset-password}") String resetPasswordUrl) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.phoneNormalizer = phoneNormalizer;
@@ -49,6 +59,18 @@ public class AdminUserService {
         this.notificationService = notificationService;
         this.activationTokenGenerator = activationTokenGenerator;
         this.activationUrl = activationUrl;
+        this.resetPasswordUrl = resetPasswordUrl;
+    }
+
+    public AdminUserService(UserRepository userRepository,
+            PasswordEncoder passwordEncoder,
+            EthiopianPhoneNormalizer phoneNormalizer,
+            AdminPasswordGenerator passwordGenerator,
+            AdminAccountNotificationService notificationService,
+            AdminAccountActivationTokenGenerator activationTokenGenerator,
+            String activationUrl) {
+        this(userRepository, passwordEncoder, phoneNormalizer, passwordGenerator, notificationService,
+                activationTokenGenerator, activationUrl, "http://localhost:5173/reset-password");
     }
 
     @Transactional(readOnly = true)
@@ -61,10 +83,12 @@ public class AdminUserService {
     @Transactional
     public UserSummaryResponse createUser(AdminUserCreateRequest request) {
         String normalizedEmail = normalizeEmail(request.email());
-        String normalizedPhone = phoneNormalizer.normalize(request.phoneNumber());
+        String normalizedPhone = normalizeOptionalPhone(request.phoneNumber());
         validateRoles(request.roles());
         ensureEmailAvailable(normalizedEmail, null);
-        ensurePhoneAvailable(normalizedPhone, null);
+        if (normalizedPhone != null) {
+            ensurePhoneAvailable(normalizedPhone, request.roles(), null);
+        }
 
         String unsharedPassword = passwordGenerator.generate();
         String activationToken = activationTokenGenerator.generateToken();
@@ -74,7 +98,7 @@ public class AdminUserService {
                 normalizedPhone,
                 request.displayName().trim(),
                 passwordEncoder.encode(unsharedPassword),
-                request.status(),
+                AccountStatus.PENDING,
                 new LinkedHashSet<>(request.roles()),
                 createdAt);
         user.setEmail(normalizedEmail);
@@ -82,16 +106,62 @@ public class AdminUserService {
                 activationTokenGenerator.hashToken(activationToken),
                 createdAt.plus(Duration.ofHours(24)));
         User savedUser = userRepository.save(user);
-        String activationLink = UriComponentsBuilder.fromUriString(activationUrl)
-                .fragment("token=" + activationToken)
-                .build()
-                .toUriString();
-        notificationService.sendActivationLink(savedUser, activationLink);
+        queueActivationEmailAfterCommit(savedUser, buildActivationLink(activationToken));
         return toSummary(savedUser);
     }
 
     @Transactional
+    public void resendActivation(Long userId) {
+        resendActivation(userId, null);
+    }
+
+    @Transactional
+    public void resendActivation(Long userId, Long actorUserId) {
+        User user = userRepository.findByIdForUpdate(userId)
+                .orElseThrow(() -> new NotFoundException("USER_NOT_FOUND", "User account not found"));
+        if (actorUserId != null && actorUserId.equals(user.getId())) {
+            throw new ConflictException("SELF_ACTIVATION_RESEND_FORBIDDEN",
+                    "You cannot resend an activation email to your own account");
+        }
+        if (user.getStatus() != AccountStatus.PENDING || user.getAccountActivationTokenHash() == null
+                || !(user.hasRole(UserRole.ADMIN) || user.hasRole(UserRole.SUPPORT))) {
+            throw new ConflictException("ACCOUNT_NOT_PENDING_ACTIVATION",
+                    "An activation email can only be resent for a pending admin or support account");
+        }
+
+        Instant now = Instant.now();
+        String activationToken = activationTokenGenerator.generateToken();
+        user.requireAccountActivation(activationTokenGenerator.hashToken(activationToken), now.plus(Duration.ofHours(24)));
+        queueActivationEmailAfterCommit(user, buildActivationLink(activationToken));
+    }
+
+    @Transactional
+    public void resetPassword(Long userId, Long actorUserId) {
+        User user = userRepository.findByIdForUpdate(userId)
+                .orElseThrow(() -> new NotFoundException("USER_NOT_FOUND", "User account not found"));
+        if (actorUserId != null && actorUserId.equals(user.getId())) {
+            throw new ConflictException("SELF_PASSWORD_RESET_FORBIDDEN",
+                    "You cannot send a password reset link to your own account");
+        }
+        if (user.getStatus() != AccountStatus.ACTIVE
+                || !(user.hasRole(UserRole.ADMIN) || user.hasRole(UserRole.SUPPORT))) {
+            throw new ConflictException("ACCOUNT_NOT_ACTIVE",
+                    "A password reset link can only be sent for an active admin or support account");
+        }
+
+        Instant now = Instant.now();
+        String resetToken = activationTokenGenerator.generateToken();
+        user.requirePasswordReset(activationTokenGenerator.hashToken(resetToken), now.plus(Duration.ofHours(24)));
+        queuePasswordResetEmailAfterCommit(user, buildLink(resetPasswordUrl, resetToken));
+    }
+
+    @Transactional
     public UserSummaryResponse updateUser(Long userId, AdminUserUpdateRequest request) {
+        return updateUser(userId, request, null);
+    }
+
+    @Transactional
+    public UserSummaryResponse updateUser(Long userId, AdminUserUpdateRequest request, Long actorUserId) {
         User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new NotFoundException("USER_NOT_FOUND", "User account not found"));
         if (user.hasRole(UserRole.AGENT)) {
@@ -100,21 +170,33 @@ public class AdminUserService {
         }
 
         String normalizedEmail = normalizeEmail(request.email());
-        String normalizedPhone = phoneNormalizer.normalize(request.phoneNumber());
-        validateRoles(request.roles());
-        ensureEmailAvailable(normalizedEmail, userId);
-        ensurePhoneAvailable(normalizedPhone, userId);
+        String normalizedPhone = normalizeOptionalPhone(request.phoneNumber());
+        if (!normalizedEmail.equals(user.getEmail())) {
+            throw new ConflictException("ADMIN_EMAIL_IMMUTABLE", "Admin account email cannot be changed");
+        }
+        if (!request.roles().equals(user.getRoles())) {
+            throw new ConflictException("ADMIN_ROLE_IMMUTABLE", "Admin account roles cannot be changed here");
+        }
+        if (actorUserId != null && actorUserId.equals(user.getId()) && request.status() != user.getStatus()) {
+            throw new ConflictException("SELF_ACCOUNT_STATUS_CHANGE_FORBIDDEN",
+                    "You cannot change your own account status");
+        }
+        if (user.getStatus() == AccountStatus.DISABLED && request.status() != AccountStatus.DISABLED) {
+            throw new ConflictException("DISABLED_ACCOUNT_TERMINAL",
+                    "A disabled account cannot be reactivated");
+        }
+        if ((user.getStatus() == AccountStatus.PENDING && request.status() != AccountStatus.PENDING)
+                || (user.getStatus() != AccountStatus.PENDING && request.status() == AccountStatus.PENDING)) {
+            throw new ConflictException("PENDING_STATUS_IMMUTABLE",
+                    "Pending status is controlled by the account activation workflow");
+        }
+        if (normalizedPhone != null) {
+            ensurePhoneAvailable(normalizedPhone, request.roles(), userId);
+        }
 
         user.setDisplayName(request.displayName().trim());
-        user.setEmail(normalizedEmail);
         user.setNormalizedPhone(normalizedPhone);
         user.setStatus(request.status());
-        user.setRoles(new LinkedHashSet<>(request.roles()));
-
-        if (request.password() != null && !request.password().isBlank()) {
-            user.setPasswordHash(passwordEncoder.encode(request.password()));
-            user.completePasswordChange();
-        }
 
         return toSummary(userRepository.save(user));
     }
@@ -127,12 +209,14 @@ public class AdminUserService {
         });
     }
 
-    private void ensurePhoneAvailable(String normalizedPhone, Long currentUserId) {
-        userRepository.findByNormalizedPhone(normalizedPhone).ifPresent(existing -> {
-            if (currentUserId == null || !existing.getId().equals(currentUserId)) {
-                throw new ConflictException("PHONE_ALREADY_REGISTERED", "That phone number is already registered");
-            }
-        });
+    private void ensurePhoneAvailable(String normalizedPhone, Set<UserRole> roles, Long currentUserId) {
+        if (userRepository.countByPhoneAndAnyRoleExceptUser(normalizedPhone, roles, currentUserId) > 0) {
+            throw new ConflictException("PHONE_ALREADY_REGISTERED", "That phone number is already registered for this role");
+        }
+    }
+
+    private String normalizeOptionalPhone(String phoneNumber) {
+        return phoneNumber == null || phoneNumber.isBlank() ? null : phoneNormalizer.normalize(phoneNumber);
     }
 
     private void validateRoles(Set<UserRole> roles) {
@@ -176,5 +260,58 @@ public class AdminUserService {
                 user.getStatus(),
                 user.getCreatedAt(),
                 user.getUpdatedAt());
+    }
+
+    private void queueActivationEmail(User user, String activationLink) {
+        try {
+            notificationService.sendActivationLink(user, activationLink);
+        } catch (RuntimeException exception) {
+            log.error("Unable to queue activation email for admin user id {}", user.getId(), exception);
+        }
+    }
+
+    private void queueActivationEmailAfterCommit(User user, String activationLink) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    queueActivationEmail(user, activationLink);
+                }
+            });
+        } else {
+            queueActivationEmail(user, activationLink);
+        }
+    }
+
+    private void queuePasswordResetEmailAfterCommit(User user, String resetLink) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    try {
+                        notificationService.sendPasswordResetLink(user, resetLink);
+                    } catch (RuntimeException exception) {
+                        log.error("Unable to queue password reset email for admin user id {}", user.getId(), exception);
+                    }
+                }
+            });
+        } else {
+            try {
+                notificationService.sendPasswordResetLink(user, resetLink);
+            } catch (RuntimeException exception) {
+                log.error("Unable to queue password reset email for admin user id {}", user.getId(), exception);
+            }
+        }
+    }
+
+    private String buildActivationLink(String activationToken) {
+        return buildLink(activationUrl, activationToken);
+    }
+
+    private String buildLink(String baseUrl, String token) {
+        return UriComponentsBuilder.fromUriString(baseUrl)
+                .fragment("token=" + token)
+                .build()
+                .toUriString();
     }
 }

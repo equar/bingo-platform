@@ -40,6 +40,13 @@ public class AdminAuthController {
         adminAuthService.activateAccount(request);
     }
 
+    @PostMapping("/reset-password")
+    @Operation
+    @SecurityRequirements
+    public void resetPassword(@Valid @RequestBody AdminAccountActivationRequest request) {
+        adminAuthService.resetPassword(request);
+    }
+
     @PutMapping("/me/password")
     public void changePassword(
             @AuthenticationPrincipal BingoUserPrincipal principal,

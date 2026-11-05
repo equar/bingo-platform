@@ -53,9 +53,9 @@ class AuthServicePreferencesTest {
 
     @Test
     void accountsWithoutStoredPreferenceResolveToEnglish() {
-        when(userRepository.findByNormalizedPhone("251911000003")).thenReturn(Optional.of(player));
+        when(userRepository.findById(13L)).thenReturn(Optional.of(player));
 
-        var response = service.me("251911000003");
+        var response = service.me(13L);
 
         assertThat(response.user().preferredLanguage()).isEqualTo("en");
     }

@@ -21,8 +21,8 @@ public interface GameSessionRepository extends JpaRepository<GameSession, Long> 
                                 and (:roomId is null or s.room.id = :roomId)
                                 and (:query is null
                                         or lower(s.sessionName) like concat('%', :query, '%')
-                                        or lower(s.room.name) like concat('%', :query, '%'))
-                                and (:sessionId is null or s.id = :sessionId)
+                                        or lower(s.room.name) like concat('%', :query, '%')
+                                        or (:sessionId is not null and s.id = :sessionId))
                                 and (:upcoming is null
                                         or (:upcoming = true and s.scheduledStartAt >= :now)
                                         or (:upcoming = false and s.scheduledStartAt < :now))

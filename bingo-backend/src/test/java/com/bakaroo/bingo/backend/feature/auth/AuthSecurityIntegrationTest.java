@@ -591,7 +591,7 @@ class AuthSecurityIntegrationTest extends MySqlIntegrationTest {
         }
 
         @Test
-        void adminSupportRoleChangesAndSuspensionApplyToExistingTokens() throws Exception {
+        void adminCannotChangeSupportRoleAndSuspensionRevokesExistingTokens() throws Exception {
                 String phone = String.format("09%08d", Math.floorMod(System.nanoTime(), 100_000_000L));
                 String email = "qa-role-transition-" + UUID.randomUUID() + "@example.invalid";
                 User target = User.create(phoneNormalizer.normalize(phone), "Role Transition Target",
@@ -616,15 +616,7 @@ class AuthSecurityIntegrationTest extends MySqlIntegrationTest {
                                 .content("{\"displayName\":\"Role Transition Target\",\"email\":\"" + email + "\","
                                                 + "\"phoneNumber\":\"" + phone + "\",\"status\":\"ACTIVE\","
                                                 + "\"roles\":[\"ADMIN\"]}"))
-                                .andExpect(status().isOk());
-                mockMvc.perform(get("/api/v1/admin/users").header("Authorization", "Bearer " + tokenIssuedAsSupport))
-                                .andExpect(status().isOk());
-                mockMvc.perform(put(updateUrl).header("Authorization", "Bearer " + adminToken)
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("{\"displayName\":\"Role Transition Target\",\"email\":\"" + email + "\","
-                                                + "\"phoneNumber\":\"" + phone + "\",\"status\":\"ACTIVE\","
-                                                + "\"roles\":[\"SUPPORT\"]}"))
-                                .andExpect(status().isOk());
+                                .andExpect(status().isConflict());
                 mockMvc.perform(get("/api/v1/admin/users").header("Authorization", "Bearer " + tokenIssuedAsSupport))
                                 .andExpect(status().isForbidden());
                 mockMvc.perform(put(updateUrl).header("Authorization", "Bearer " + adminToken)
@@ -635,7 +627,7 @@ class AuthSecurityIntegrationTest extends MySqlIntegrationTest {
                                 .andExpect(status().isOk());
                 mockMvc.perform(get("/api/v1/admin/support/tickets").header("Authorization", "Bearer " + tokenIssuedAsSupport))
                                 .andExpect(status().isUnauthorized());
-                assertEquals(3, jdbcTemplate.queryForObject(
+                assertEquals(2, jdbcTemplate.queryForObject(
                                 "select count(*) from audit_log_entries where action='UPDATE_USER' and target_id=?",
                                 Integer.class, target.getId()));
         }

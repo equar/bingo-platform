@@ -94,7 +94,7 @@ public class DevelopmentDataSeeder implements CommandLineRunner {
 
     private User upsertAdmin(Instant now) {
         return userRepository.findByEmail(adminEmail)
-                .or(() -> userRepository.findByNormalizedPhone(adminPhone))
+                .or(() -> userRepository.findByNormalizedPhoneAndRole(adminPhone, UserRole.ADMIN))
                 .map(existing -> {
                     existing.setNormalizedPhone(adminPhone);
                     existing.setEmail(adminEmail);
@@ -118,7 +118,7 @@ public class DevelopmentDataSeeder implements CommandLineRunner {
     }
 
     private User upsertAgent(Instant now) {
-        return userRepository.findByNormalizedPhone(agentPhone)
+        return userRepository.findByNormalizedPhoneAndRole(agentPhone, UserRole.AGENT)
                 .map(existing -> {
                     existing.setDisplayName("Dev Agent");
                     existing.setPasswordHash(passwordEncoder.encode(agentPassword));
@@ -136,7 +136,7 @@ public class DevelopmentDataSeeder implements CommandLineRunner {
     }
 
     private User upsertPlayer(Instant now) {
-        return userRepository.findByNormalizedPhone(playerPhone)
+        return userRepository.findByNormalizedPhoneAndRole(playerPhone, UserRole.PLAYER)
                 .map(existing -> {
                     existing.setDisplayName("Dev Player");
                     existing.setPasswordHash(passwordEncoder.encode(playerPin));

@@ -12,7 +12,7 @@ export interface AdminUserProfile {
   id: number;
   displayName: string;
   email: string | null;
-  phoneNumber: string;
+  phoneNumber: string | null;
   roles: string[];
   status: string;
   createdAt: string;
@@ -154,6 +154,16 @@ export interface AdminSessionSummaryResponse {
   supportTicketCount: number;
 }
 
+export interface AdminSessionTicketResponse {
+  ticketId: number;
+  sessionId: number;
+  playerId: number;
+  playerName: string;
+  playerPhone: string | null;
+  publicTicketCode: string;
+  purchasedAt: string;
+}
+
 export interface AdminReviewQueueItemResponse {
   id: number;
   queueType: string;
@@ -172,7 +182,7 @@ export interface UserSummaryResponse {
   id: number;
   displayName: string;
   email: string;
-  phoneNumber: string;
+  phoneNumber: string | null;
   roles: string[];
   status: string;
   createdAt: string;
@@ -182,7 +192,7 @@ export interface UserSummaryResponse {
 export interface AdminUserCreateRequest {
   displayName: string;
   email: string;
-  phoneNumber: string;
+  phoneNumber: string | null;
   status: string;
   roles: string[];
 }
@@ -190,8 +200,7 @@ export interface AdminUserCreateRequest {
 export interface AdminUserUpdateRequest {
   displayName: string;
   email: string;
-  phoneNumber: string;
-  password?: string;
+  phoneNumber: string | null;
   status: string;
   roles: string[];
 }
@@ -1068,6 +1077,22 @@ export async function listSessions(
   return data;
 }
 
+export async function searchSessionTicketSessions(query?: string, page = 0, size = 20) {
+  const { data } = await http.get<PageResponse<AdminSessionSummaryResponse>>(
+    "/api/v1/admin/support/session-tickets/sessions",
+    { params: { query, page, size } },
+  );
+  return data;
+}
+
+export async function searchSessionTickets(sessionId: number, query?: string, page = 0, size = 20) {
+  const { data } = await http.get<PageResponse<AdminSessionTicketResponse>>(
+    `/api/v1/admin/support/session-tickets/sessions/${sessionId}/tickets`,
+    { params: { query, page, size } },
+  );
+  return data;
+}
+
 export async function liveSessions() {
   const { data } = await http.get<AdminSessionSummaryResponse[]>('/api/v1/admin/sessions/live');
   return data;
@@ -1372,6 +1397,18 @@ export async function updateMyProfile(request: { displayName: string; phoneNumbe
 export async function createAdminUser(request: AdminUserCreateRequest) {
   const { data } = await http.post<UserSummaryResponse>('/api/v1/admin/users', request);
   return data;
+}
+
+export async function resendAdminUserActivation(userId: number) {
+  await http.post<void>(`/api/v1/admin/users/${userId}/resend-activation`);
+}
+
+export async function resetAdminUserPassword(userId: number) {
+  await http.post<void>(`/api/v1/admin/users/${userId}/reset-password`);
+}
+
+export async function resetAdminAccountPassword(request: { token: string; newPassword: string }) {
+  await http.post<void>("/api/v1/admin/reset-password", request);
 }
 
 export async function updateAdminUser(userId: number, request: AdminUserUpdateRequest) {

@@ -22,7 +22,6 @@ import java.util.Set;
 
 @Entity
 @Table(name = "users", uniqueConstraints = {
-        @UniqueConstraint(name = "uk_users_normalized_phone", columnNames = "normalized_phone"),
         @UniqueConstraint(name = "uk_users_email", columnNames = "email")
 })
 public class User {
@@ -31,7 +30,7 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "normalized_phone", nullable = false, length = 32)
+    @Column(name = "normalized_phone", length = 32)
     private String normalizedPhone;
 
     @Column(name = "email", length = 255)
@@ -190,6 +189,15 @@ public class User {
     }
 
     public void requireAccountActivation(String tokenHash, Instant expiresAt) {
+        mustChangePassword = true;
+        temporaryPasswordExpiresAt = null;
+        accountActivationTokenHash = tokenHash;
+        accountActivationExpiresAt = expiresAt;
+    }
+
+    public void requirePasswordReset(String tokenHash, Instant expiresAt) {
+        // The same one-time token fields are used for activation and reset links.
+        // Active status distinguishes a password reset token from a pending invitation.
         mustChangePassword = true;
         temporaryPasswordExpiresAt = null;
         accountActivationTokenHash = tokenHash;

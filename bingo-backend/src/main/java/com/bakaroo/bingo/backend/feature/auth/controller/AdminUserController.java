@@ -5,6 +5,7 @@ import com.bakaroo.bingo.backend.feature.auth.dto.AdminUserCreateRequest;
 import com.bakaroo.bingo.backend.feature.auth.dto.AdminUserUpdateRequest;
 import com.bakaroo.bingo.backend.feature.auth.dto.SetAgentPinRequest;
 import com.bakaroo.bingo.backend.feature.auth.dto.UserSummaryResponse;
+import com.bakaroo.bingo.backend.feature.auth.service.BingoUserPrincipal;
 import com.bakaroo.bingo.backend.feature.auth.service.AgentPinService;
 import com.bakaroo.bingo.backend.feature.auth.service.AdminUserService;
 import com.bakaroo.bingo.backend.feature.user.entity.AccountStatus;
@@ -12,6 +13,7 @@ import jakarta.validation.Valid;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -46,9 +48,23 @@ public class AdminUserController {
         return adminUserService.createUser(request);
     }
 
+    @PostMapping("/{userId}/resend-activation")
+    public void resendActivation(@PathVariable Long userId,
+            @AuthenticationPrincipal BingoUserPrincipal principal) {
+        adminUserService.resendActivation(userId, principal.getUser().getId());
+    }
+
+    @PostMapping("/{userId}/reset-password")
+    public void resetPassword(@PathVariable Long userId,
+            @AuthenticationPrincipal BingoUserPrincipal principal) {
+        adminUserService.resetPassword(userId, principal.getUser().getId());
+    }
+
     @PutMapping("/{userId}")
-    public UserSummaryResponse updateUser(@PathVariable Long userId, @Valid @RequestBody AdminUserUpdateRequest request) {
-        return adminUserService.updateUser(userId, request);
+    public UserSummaryResponse updateUser(@PathVariable Long userId,
+            @Valid @RequestBody AdminUserUpdateRequest request,
+            @AuthenticationPrincipal BingoUserPrincipal principal) {
+        return adminUserService.updateUser(userId, request, principal.getUser().getId());
     }
 
     @PostMapping("/{userId}/agent-pin")

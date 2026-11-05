@@ -11,11 +11,12 @@ import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 class AdminAccountNotificationServiceTest {
 
@@ -42,13 +43,14 @@ class AdminAccountNotificationServiceTest {
     }
 
     @Test
-    void propagatesMailDeliveryFailure() {
+    void logsMailDeliveryFailureWithoutFailingTheAdminRequest() {
         JavaMailSender mailSender = mock(JavaMailSender.class);
         doThrow(new MailSendException("SMTP unavailable")).when(mailSender).send(any(SimpleMailMessage.class));
 
-        assertThrows(MailSendException.class,
+        assertDoesNotThrow(
                 () -> new AdminAccountNotificationService(mailSender, "no-reply@example.invalid")
                         .sendActivationLink(USER, "https://admin.example.invalid/activate-account?token=single-use"));
+        verify(mailSender).send(any(SimpleMailMessage.class));
     }
 
     private static User createUser() {

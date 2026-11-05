@@ -39,7 +39,7 @@ public class ProductionAdminBootstrapService {
         String email = normalizeEmail(rawEmail);
         requirePassword(password);
 
-        if (users.findByNormalizedPhone(normalizedPhone).isPresent()
+        if (users.findByNormalizedPhoneAndRole(normalizedPhone, UserRole.ADMIN).isPresent()
                 || users.findByEmailIgnoreCase(email).isPresent()) {
             return Result.ALREADY_EXISTS;
         }
@@ -50,7 +50,7 @@ public class ProductionAdminBootstrapService {
         try {
             users.saveAndFlush(admin);
         } catch (DataIntegrityViolationException exception) {
-            // Unique phone/email constraints settle concurrent bootstrap attempts. Do not expose
+            // Unique role/phone and email constraints settle concurrent bootstrap attempts. Do not expose
             // the persistence exception because providers may include bound credential values.
             throw new IllegalStateException(
                     "Production admin bootstrap could not claim the requested phone or email; "

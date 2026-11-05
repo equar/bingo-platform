@@ -49,7 +49,7 @@ export function ProfilePage() {
       if (!latest || !token || latest.accessToken !== token) return;
       writeSession({ ...latest, accessToken: response.accessToken, tokenType: response.tokenType, user: { ...latest.user, ...response.user } });
       setDisplayName(response.user.displayName);
-      setPhoneNumber(response.user.phoneNumber);
+      setPhoneNumber(response.user.phoneNumber ?? "");
       setProfileSuccessOpen(true);
     },
   });

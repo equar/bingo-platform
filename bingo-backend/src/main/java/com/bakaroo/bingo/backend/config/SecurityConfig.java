@@ -79,6 +79,7 @@ public class SecurityConfig {
                                                                 "FINANCE_APPROVER")
                                                 .requestMatchers("/api/v1/auth/**", "/api/v1/admin/login",
                                                                 "/api/v1/admin/activate",
+                                                                "/api/v1/admin/reset-password",
                                                                 "/api/v1/agent/login", "/api/v1/agent/register", "/v3/api-docs/**",
                                                                 "/swagger-ui/**", "/swagger-ui.html",
                                                                 "/actuator/health", "/ws", "/")

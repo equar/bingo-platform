@@ -150,6 +150,9 @@ export function SessionDetailPage() {
         </div>
         <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
           <Chip label={translateAdminStatus(session.state, t)} color="primary" />
+          <Button component={RouterLink} to={`/session-tickets?sessionId=${session.id}`} variant="outlined">
+            {t("View tickets")}
+          </Button>
           <Button component={RouterLink} to="/sessions" variant="outlined">
             {t("Back to sessions")}</Button>
         </Stack>

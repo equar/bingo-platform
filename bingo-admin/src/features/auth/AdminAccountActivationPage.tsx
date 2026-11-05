@@ -2,11 +2,11 @@ import { Alert, Button, Container, Paper, Stack, TextField, Typography } from "@
 import { useMutation } from "@tanstack/react-query";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { activateAdminAccount } from "../../api/admin";
+import { activateAdminAccount, resetAdminAccountPassword } from "../../api/admin";
 import { getFieldError, parseApiError } from "../../api/types";
 import i18n from "../../i18n";
 
-export function AdminAccountActivationPage() {
+export function AdminAccountActivationPage({ resetPassword = false }: { resetPassword?: boolean }) {
   // Unauthenticated account activation always renders in English.
   const t = i18n.getFixedT("en");
   const navigate = useNavigate();
@@ -25,16 +25,16 @@ export function AdminAccountActivationPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const activationMutation = useMutation({
-    mutationFn: () => activateAdminAccount({
+    mutationFn: () => (resetPassword ? resetAdminAccountPassword : activateAdminAccount)({
       token,
       newPassword: newPasswordInput.current?.value ?? "",
     }),
     onSuccess: () => {
-      setSuccessMessage("activation.success");
+      setSuccessMessage(resetPassword ? "Password reset. You can now sign in with your new password." : "activation.success");
       setErrorMessage(null);
       if (newPasswordInput.current) newPasswordInput.current.value = "";
       if (confirmPasswordInput.current) confirmPasswordInput.current.value = "";
-      navigate("/activate-account", { replace: true });
+      navigate(resetPassword ? "/reset-password" : "/activate-account", { replace: true });
     },
     onError: (error) => {
       const parsed = parseApiError(error);
@@ -122,10 +122,12 @@ export function AdminAccountActivationPage() {
         <Stack component="form" spacing={3} onSubmit={submitActivation} noValidate>
           <div>
             <Typography variant="h4" fontWeight={700} gutterBottom>
-              {t("activation.title")}
+              {resetPassword ? "Reset your password" : t("activation.title")}
             </Typography>
             <Typography color="text.secondary">
-              {t("activation.description")}
+              {resetPassword
+                ? "Choose a new password to restore access to your admin account."
+                : t("activation.description")}
             </Typography>
           </div>
           {!token && !successMessage ? (
@@ -170,7 +172,9 @@ export function AdminAccountActivationPage() {
               type="submit"
               disabled={!canActivate}
             >
-              {activationMutation.isPending ? t("activation.activating") : t("activation.activate")}
+              {activationMutation.isPending
+                ? (resetPassword ? "Resetting password..." : t("activation.activating"))
+                : (resetPassword ? "Reset password" : t("activation.activate"))}
             </Button>
           )}
           {!successMessage && token && !canActivate && !activationMutation.isPending ? (

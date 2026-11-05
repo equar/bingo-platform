@@ -22,6 +22,7 @@ import com.bakaroo.bingo.backend.feature.game.dto.PrizeEntitlementResponse;
 import com.bakaroo.bingo.backend.feature.game.dto.PrizeEntitlementSettlementRequest;
 import com.bakaroo.bingo.backend.feature.game.dto.TicketPurchaseResponse;
 import com.bakaroo.bingo.backend.feature.game.dto.TicketResponse;
+import com.bakaroo.bingo.backend.feature.game.dto.SessionTicketLookupResponse;
 import com.bakaroo.bingo.backend.feature.game.dto.WinClaimRequest;
 import com.bakaroo.bingo.backend.feature.game.dto.WinClaimResponse;
 import com.bakaroo.bingo.backend.feature.game.dto.WinClaimReviewRequest;
@@ -233,6 +234,38 @@ public class BingoGameService {
     public Page<TicketResponse> getAdminPlayerTickets(Long playerId, Pageable pageable) {
         return ticketRepository.findByOwnerIdOrderByPurchasedAtDesc(playerId, pageable)
                 .map(this::toTicketResponse);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<SessionTicketLookupResponse> getAdminSessionTickets(Long sessionId, String query, Pageable pageable) {
+        if (!gameSessionRepository.existsById(sessionId)) {
+            throw new NotFoundException("SESSION_NOT_FOUND", "Session not found");
+        }
+
+        String normalizedQuery = query == null || query.isBlank()
+                ? null
+                : query.trim().toLowerCase(Locale.ROOT);
+        boolean ticketIdQuery = normalizedQuery != null && normalizedQuery.matches("#\\d+");
+        String phoneQuery = normalizedQuery == null || ticketIdQuery
+                ? null
+                : normalizedQuery.replaceAll("\\D", "");
+        if (phoneQuery != null && phoneQuery.startsWith("0")) {
+            phoneQuery = phoneQuery.substring(1);
+        }
+        if (phoneQuery != null && phoneQuery.isBlank()) {
+            phoneQuery = null;
+        }
+
+        Long ticketId = null;
+        if (ticketIdQuery) {
+            try {
+                ticketId = Long.valueOf(normalizedQuery.substring(1));
+            } catch (NumberFormatException ignored) {
+                ticketId = null;
+            }
+        }
+
+        return ticketRepository.searchBySessionId(sessionId, normalizedQuery, phoneQuery, ticketId, pageable);
     }
 
     @Transactional(readOnly = true)
