@@ -21,7 +21,7 @@ const player = {
   displayName: "Test Player",
   phoneNumber: "251911000025",
   accountStatus: "ACTIVE",
-  verificationStatus: "NOT_REVIEWED" as const,
+  verificationStatus: "IN_REVIEW" as const,
   verificationReason: null,
   reviewedByUserId: null,
   reviewedAt: null,

@@ -1,6 +1,7 @@
 package com.bakaroo.bingo.backend.feature.auth.controller;
 
 import com.bakaroo.bingo.backend.feature.auth.dto.MeResponse;
+import com.bakaroo.bingo.backend.feature.auth.dto.AuthResponse;
 import com.bakaroo.bingo.backend.feature.auth.dto.UpdateMyPreferencesRequest;
 import com.bakaroo.bingo.backend.feature.auth.dto.UpdateMyProfileRequest;
 import com.bakaroo.bingo.backend.feature.auth.service.AuthService;
@@ -36,7 +37,7 @@ public class MeController {
     }
 
     @PutMapping("/me/profile")
-    public MeResponse updateMyProfile(
+    public AuthResponse updateMyProfile(
             @AuthenticationPrincipal BingoUserPrincipal principal,
             @Valid @RequestBody UpdateMyProfileRequest request) {
         return authService.updateMyProfile(principal.getUser().getId(), request);

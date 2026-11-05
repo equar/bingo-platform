@@ -69,12 +69,13 @@ describe("ProfilePage", () => {
     readSessionMock.mockReturnValue(session);
   });
 
-  it("renders the read-only account summary", async () => {
+  it("renders the editable account summary", async () => {
     render(<ProfilePage />, { wrapper: createWrapper() });
 
     expect(await screen.findByRole("heading", { name: "Profile" })).toBeInTheDocument();
-    expect(screen.getByText("Admin Tester")).toBeInTheDocument();
-    expect(screen.getByText("Your current admin identity and status.")).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: /Full name/ })).toHaveValue("Admin Tester");
+    expect(screen.getByText("Review your signed-in admin account details in one focused place.")).toBeInTheDocument();
+    expect(screen.getByText("Keep your name and contact number up to date.")).toBeInTheDocument();
     expect(screen.getByText("Use the account menu in the top-right corner for password changes and logout.")).toBeInTheDocument();
   });
 

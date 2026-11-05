@@ -104,6 +104,12 @@ describe("AppShell", () => {
     expect(screen.getAllByText("Players & Agents")[0]).toBeInTheDocument();
     expect(screen.getAllByText("Finance")[0]).toBeInTheDocument();
     expect(screen.getAllByText("Administration")[0]).toBeInTheDocument();
+    for (const group of ["Operations", "Reviews & Support", "Players & Agents", "Finance", "Administration"]) {
+      const toggle = screen.getAllByRole("button", { name: new RegExp(group) })[0];
+      if (toggle.getAttribute("aria-expanded") !== "true") {
+        fireEvent.click(toggle);
+      }
+    }
     expect(screen.getAllByRole("link", { name: "Admin Users" })[0]).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "Dashboard" })[0]).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "Sessions" })[0]).toHaveAttribute("href", "/sessions");
