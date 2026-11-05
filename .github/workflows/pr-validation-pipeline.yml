@@ -29,7 +29,9 @@ jobs:
           MYSQL_PASSWORD: bingo_test
         ports:
           - 3306:3306
+        # V27 creates phone-sync triggers; trust creators only on this disposable CI database.
         options: >-
+          --log-bin-trust-function-creators=1
           --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
           --health-interval=10s
           --health-timeout=5s
