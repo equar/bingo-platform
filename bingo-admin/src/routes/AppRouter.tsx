@@ -25,6 +25,9 @@ const SessionsPage = lazy(() =>
 const SessionDetailPage = lazy(() =>
   import("../features/sessions/SessionDetailPage").then((module) => ({ default: module.SessionDetailPage })),
 );
+const SessionTicketsPage = lazy(() =>
+  import("../features/sessions/SessionTicketsPage").then((module) => ({ default: module.SessionTicketsPage })),
+);
 const PlayersPage = lazy(() =>
   import("../features/players/PlayersPage").then((module) => ({ default: module.PlayersPage })),
 );
@@ -93,6 +96,7 @@ export function AppRouter() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/activate-account" element={<AdminAccountActivationPage />} />
+        <Route path="/reset-password" element={<AdminAccountActivationPage resetPassword />} />
         <Route element={<ProtectedRoute allowedRoles={["ADMIN", "SUPPORT"]} refreshSession />}>
           <Route element={<AppShell />}>
             <Route index element={<RoleHomeRedirect />} />
@@ -100,6 +104,7 @@ export function AppRouter() {
             <Route path="change-password" element={<ChangePasswordPage />} />
             <Route path="support/tickets" element={<SupportTicketsPage />} />
             <Route path="support/tickets/:ticketId" element={<SupportTicketDetailPage />} />
+            <Route path="session-tickets" element={<SessionTicketsPage />} />
             <Route path="reports" element={<ReportsPage />} />
             <Route path="audit-logs" element={<AuditLogsPage />} />
             <Route element={<ProtectedRoute allowedRoles={["ADMIN"]} />}>

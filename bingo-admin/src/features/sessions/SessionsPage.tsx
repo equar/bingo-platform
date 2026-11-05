@@ -220,7 +220,7 @@ export function SessionsPage() {
                 <TableCell align="right">{t("Draws")}</TableCell>
                 <TableCell>{t("Scheduled start")}</TableCell>
                 <TableCell>{t("State actions")}</TableCell>
-                <TableCell align="right">{t("View")}</TableCell>
+                <TableCell align="right">{t("Actions")}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -265,8 +265,19 @@ export function SessionsPage() {
                     </Stack>
                   </TableCell>
                   <TableCell align="right">
-                    <Button size="small" variant="text" onClick={() => navigate(`/sessions/${session.id}`)}>
-                      {t("Open live view")}</Button>
+                    <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                      <Button
+                        component={RouterLink}
+                        to={`/session-tickets?sessionId=${session.id}`}
+                        size="small"
+                        variant="outlined"
+                      >
+                        {t("View tickets")}
+                      </Button>
+                      <Button size="small" variant="text" onClick={() => navigate(`/sessions/${session.id}`)}>
+                        {t("Open live view")}
+                      </Button>
+                    </Stack>
                   </TableCell>
                 </TableRow>
               ))}

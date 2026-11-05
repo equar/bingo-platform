@@ -7,6 +7,7 @@ import com.bakaroo.bingo.backend.feature.auth.dto.ChangePasswordRequest;
 import com.bakaroo.bingo.backend.feature.auth.dto.AdminLoginRequest;
 import com.bakaroo.bingo.backend.feature.auth.dto.AuthResponse;
 import com.bakaroo.bingo.backend.feature.user.entity.User;
+import com.bakaroo.bingo.backend.feature.user.entity.AccountStatus;
 import com.bakaroo.bingo.backend.feature.user.entity.UserLanguages;
 import com.bakaroo.bingo.backend.feature.user.entity.UserRole;
 import com.bakaroo.bingo.backend.feature.user.repository.UserRepository;
@@ -81,9 +82,26 @@ public class AdminAuthService {
         Instant now = Instant.now();
         User user = userRepository.findByAccountActivationTokenHashForUpdate(tokenHash)
                 .filter(candidate -> !candidate.isAccountActivationExpired(now))
-                .filter(candidate -> candidate.isActive()
+                .filter(candidate -> candidate.getStatus() == AccountStatus.PENDING
                         && (candidate.hasRole(UserRole.ADMIN) || candidate.hasRole(UserRole.SUPPORT)))
                 .orElseThrow(() -> new BadCredentialsException("Activation link is invalid or expired"));
+
+        user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
+        user.setStatus(AccountStatus.ACTIVE);
+        user.completePasswordChange();
+        userRepository.save(user);
+    }
+
+    @Transactional
+    public void resetPassword(AdminAccountActivationRequest request) {
+        String tokenHash = activationTokenGenerator.hashToken(request.token());
+        Instant now = Instant.now();
+        User user = userRepository.findByAccountActivationTokenHashForUpdate(tokenHash)
+                .filter(candidate -> !candidate.isAccountActivationExpired(now))
+                .filter(candidate -> candidate.getStatus() == AccountStatus.ACTIVE
+                        && candidate.isMustChangePassword()
+                        && (candidate.hasRole(UserRole.ADMIN) || candidate.hasRole(UserRole.SUPPORT)))
+                .orElseThrow(() -> new BadCredentialsException("Password reset link is invalid or expired"));
 
         user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
         user.completePasswordChange();

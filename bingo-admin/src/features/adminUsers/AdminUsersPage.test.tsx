@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AdminUsersPage } from "./AdminUsersPage";
 import i18n from "../../i18n";
 
@@ -32,6 +32,8 @@ function createWrapper() {
 }
 
 describe("AdminUsersPage", () => {
+  afterEach(cleanup);
+
   beforeEach(async () => {
     vi.clearAllMocks();
     await i18n.changeLanguage("en");
@@ -151,23 +153,29 @@ describe("AdminUsersPage", () => {
 
     expect(await screen.findByText("Alice Admin")).toBeInTheDocument();
     await user.click(await screen.findByRole("button", { name: "Edit" }));
-    const editDialog = await screen.findByRole("dialog", { name: "Edit admin user" });
+    const editDialog = await screen.findByRole("dialog", { name: /Edit admin user/ });
     expect(within(editDialog).getByRole("textbox", { name: /phone number/i })).toHaveValue("0911000001");
-    await waitFor(() => {
-      expect(within(editDialog).getByText("Administrator")).toBeInTheDocument();
-    });
-    await user.clear(within(editDialog).getByRole("textbox", { name: /email/i }));
-    await user.type(within(editDialog).getByRole("textbox", { name: /email/i }), "alice.admin@bingo.local");
-    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    const saveButton = within(editDialog).getByRole("button", { name: "Save changes" });
+    expect(saveButton).toBeDisabled();
+
+    const nameField = within(editDialog).getByRole("textbox", { name: /display name/i });
+    await user.clear(nameField);
+    await user.type(nameField, "Alice Administrator");
+    expect(saveButton).toBeEnabled();
+    await user.clear(nameField);
+    await user.type(nameField, "Alice Admin");
+    expect(saveButton).toBeDisabled();
+    await user.clear(nameField);
+    await user.type(nameField, "Alice Admin Updated");
+    await user.click(saveButton);
 
     await waitFor(() => {
       expect(updateAdminUserMock).toHaveBeenCalledWith(1, {
-        displayName: "Alice Admin",
-        email: "alice.admin@bingo.local",
+        displayName: "Alice Admin Updated",
+        email: "alice@bingo.local",
         phoneNumber: "0911000001",
-        password: undefined,
         status: "ACTIVE",
-        roles: ["ADMIN"],
+        roles: ["ADMIN", "SUPPORT"],
       });
     });
   });

@@ -29,7 +29,11 @@ settings for QA or production.
 
 Admin/support accounts require a valid phone number. The backend sends a
 single-use activation link that expires after 24 hours; the recipient chooses
-the password. Configure local SMTP before creating accounts through Admin.
+the password. The `dev` profile reads SMTP settings from `DEV_SMTP_HOST`,
+`DEV_SMTP_PORT`, `DEV_SMTP_USERNAME`, and `DEV_SMTP_PASSWORD` in `.env`. For
+Gmail, use an app password. Activation emails are sent asynchronously after
+account creation commits. If delivery fails, the account remains created with
+pending activation and the failure is logged by the backend.
 Production uses Flyway and Hibernate `validate`; it does not use development
 seeding. See the [production deployment guide](../deployment/README.md) for
 the protected runtime environment and secret setup.

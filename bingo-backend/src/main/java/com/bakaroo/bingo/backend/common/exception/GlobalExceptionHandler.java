@@ -29,6 +29,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.mail.MailException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -187,6 +188,20 @@ public class GlobalExceptionHandler {
                                 .body(error(HttpStatus.CONFLICT, "CONCURRENT_UPDATE_CONFLICT",
                                                 "The resource changed during the update; reload and retry", request,
                                                 List.of()));
+        }
+
+        @ExceptionHandler(MailException.class)
+        @ApiResponse(responseCode = "503", description = "Email delivery is unavailable",
+                        content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
+        public ResponseEntity<ApiErrorResponse> handleMailFailure(MailException exception, HttpServletRequest request) {
+                log.error("Email delivery failed for {} {} (correlationId={})", request.getMethod(),
+                                request.getRequestURI(),
+                                com.bakaroo.bingo.backend.common.api.ApiErrorResponseWriter.resolveCorrelationId(request),
+                                exception);
+                return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                                .body(error(HttpStatus.SERVICE_UNAVAILABLE, "EMAIL_DELIVERY_UNAVAILABLE",
+                                                "The invitation email could not be sent. Configure or check the email delivery settings, then try again.",
+                                                request, List.of()));
         }
 
         @ExceptionHandler(Exception.class)

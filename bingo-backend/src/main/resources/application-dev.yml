@@ -1,4 +1,16 @@
 spring:
+  mail:
+    host: ${DEV_SMTP_HOST:smtp.gmail.com}
+    port: ${DEV_SMTP_PORT:587}
+    username: ${DEV_SMTP_USERNAME:}
+    password: ${DEV_SMTP_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/bingo?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
     username: ${SPRING_DATASOURCE_USERNAME:root}

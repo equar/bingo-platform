@@ -195,6 +195,15 @@ public class User {
         accountActivationExpiresAt = expiresAt;
     }
 
+    public void requirePasswordReset(String tokenHash, Instant expiresAt) {
+        // The same one-time token fields are used for activation and reset links.
+        // Active status distinguishes a password reset token from a pending invitation.
+        mustChangePassword = true;
+        temporaryPasswordExpiresAt = null;
+        accountActivationTokenHash = tokenHash;
+        accountActivationExpiresAt = expiresAt;
+    }
+
     public void completePasswordChange() {
         mustChangePassword = false;
         temporaryPasswordExpiresAt = null;

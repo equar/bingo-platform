@@ -111,6 +111,23 @@ function roomToDraft(room: BingoRoomResponse): RoomDraft {
   };
 }
 
+function roomDraftsEqual(left: RoomDraft, right: RoomDraft) {
+  return left.name === right.name
+    && left.description === right.description
+    && left.ticketPrice === right.ticketPrice
+    && left.currency === right.currency
+    && left.timezone === right.timezone
+    && left.scheduleRule === right.scheduleRule
+    && left.sessionCapacity === right.sessionCapacity
+    && left.maxTicketsPerPlayer === right.maxTicketsPerPlayer
+    && left.ticketSalesCloseOnSessionStart === right.ticketSalesCloseOnSessionStart
+    && left.allowMultipleWinnersPerPrize === right.allowMultipleWinnersPerPrize
+    && left.active === right.active
+    && left.configuredPatterns.length === right.configuredPatterns.length
+    && left.configuredPatterns.every((pattern, index) => pattern === right.configuredPatterns[index])
+    && left.configuredPrizes === right.configuredPrizes;
+}
+
 function parsePrizes(json: string): BingoPatternConfig[] {
   const value = JSON.parse(json) as Array<{
     prizeType: string;
@@ -148,6 +165,7 @@ export function RoomsPage() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState<RoomDraft | null>(null);
+  const [originalDraft, setOriginalDraft] = useState<RoomDraft | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingSubmit, setPendingSubmit] = useState(false);
   const [pendingError, setPendingError] = useState<string | null>(null);
@@ -188,6 +206,7 @@ export function RoomsPage() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["admin-rooms"] });
       setDraft(null);
+      setOriginalDraft(null);
       setConfirmOpen(false);
       setPendingError(null);
     },
@@ -216,6 +235,7 @@ export function RoomsPage() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["admin-rooms"] });
       setDraft(null);
+      setOriginalDraft(null);
       setConfirmOpen(false);
       setPendingError(null);
     },
@@ -238,6 +258,10 @@ export function RoomsPage() {
 
   const rooms = roomsQuery.data?.content ?? [];
   const title = useMemo(() => (draft?.id ? "Edit room" : "Create room"), [draft?.id]);
+  const hasDraftChanges = draft !== null && (
+    draft.id === undefined
+      || (originalDraft !== null && !roomDraftsEqual(draft, originalDraft))
+  );
 
   if (roomsQuery.isLoading) {
     return <StatusState title={t("Loading rooms")} loading message={t("Fetching room catalog")} />;
@@ -261,7 +285,13 @@ export function RoomsPage() {
           <Typography variant="h4">{t("Rooms")}</Typography>
           <Typography color="text.secondary">{t("Create and edit bingo room configuration and activation.")}</Typography>
         </div>
-        <Button variant="contained" onClick={() => setDraft({ ...emptyDraft })}>
+        <Button
+          variant="contained"
+          onClick={() => {
+            setOriginalDraft(null);
+            setDraft({ ...emptyDraft });
+          }}
+        >
           {t("New room")}</Button>
       </Box>
 
@@ -355,7 +385,15 @@ export function RoomsPage() {
                   </TableCell>
                   <TableCell>{new Date(room.updatedAt).toLocaleString()}</TableCell>
                   <TableCell align="right">
-                    <Button variant="outlined" size="small" onClick={() => setDraft(roomToDraft(room))}>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      onClick={() => {
+                        const nextDraft = roomToDraft(room);
+                        setOriginalDraft(nextDraft);
+                        setDraft(nextDraft);
+                      }}
+                    >
                       {t("Edit")}</Button>
                   </TableCell>
                 </TableRow>
@@ -385,7 +423,15 @@ export function RoomsPage() {
         />
       </Paper>
 
-      <Dialog open={Boolean(draft)} onClose={() => setDraft(null)} fullWidth maxWidth="md">
+      <Dialog
+        open={Boolean(draft)}
+        onClose={() => {
+          setDraft(null);
+          setOriginalDraft(null);
+        }}
+        fullWidth
+        maxWidth="md"
+      >
         <DialogTitle>{title}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
@@ -545,9 +591,19 @@ export function RoomsPage() {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDraft(null)} disabled={pendingSubmit}>
+          <Button
+            onClick={() => {
+              setDraft(null);
+              setOriginalDraft(null);
+            }}
+            disabled={pendingSubmit}
+          >
             {t("Cancel")}</Button>
-          <Button variant="contained" onClick={() => setConfirmOpen(true)} disabled={pendingSubmit}>
+          <Button
+            variant="contained"
+            onClick={() => setConfirmOpen(true)}
+            disabled={pendingSubmit || !hasDraftChanges}
+          >
             {t("Save")}</Button>
         </DialogActions>
       </Dialog>

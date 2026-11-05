@@ -43,6 +43,7 @@ const navGroups = [
     title: "nav.operations",
     items: [
       { to: "/sessions", label: "nav.sessions", icon: "sessions" },
+      { to: "/session-tickets", label: "nav.sessionTickets", icon: "sessions" },
       { to: "/rooms", label: "nav.rooms", icon: "rooms" },
       { to: "/community", label: "nav.community", icon: "community" },
     ],
@@ -173,6 +174,7 @@ export function AppShell() {
           title: "nav.reviews",
           items: [
             { to: "/support/tickets", label: "nav.support", icon: "support" as const },
+            { to: "/session-tickets", label: "nav.sessionTickets", icon: "sessions" as const },
             { to: "/audit-logs", label: "nav.audit", icon: "audit" as const },
             { to: "/reports", label: "nav.reports", icon: "audit" as const },
           ],
