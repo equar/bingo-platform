@@ -69,6 +69,9 @@ import org.springframework.test.web.servlet.MvcResult;
 @ActiveProfiles("test")
 class DrawRetrySafetyIntegrationTest extends MySqlIntegrationTest {
 
+    private static final Duration DRAW_INTERVAL = Duration.ofSeconds(10);
+    private static final Duration DRAW_DUE_MARGIN = Duration.ofSeconds(1);
+
     @Autowired
     MockMvc mockMvc;
 
@@ -120,7 +123,8 @@ class DrawRetrySafetyIntegrationTest extends MySqlIntegrationTest {
                 .andExpect(jsonPath("$.code").value("DRAW_NOT_AVAILABLE"));
         assertEquals(1L, drawEventRepository.countBySessionId(fixture.sessionId()));
 
-        Thread.sleep(Duration.ofSeconds(10).toMillis() + 150);
+        DrawEvent firstDraw = drawEventRepository.findBySessionIdOrderBySequenceNoAsc(fixture.sessionId()).get(0);
+        waitUntilDue(firstDraw.getDrawnAt());
         MvcResult retryHttpExchange = mockMvc.perform(post(path)
                         .header("Authorization", "Bearer " + fixture.adminToken()))
                 .andExpect(status().isOk())
@@ -261,7 +265,9 @@ class DrawRetrySafetyIntegrationTest extends MySqlIntegrationTest {
     }
 
     private void waitUntilDue(Instant startedAt) throws InterruptedException {
-        long waitMillis = Duration.between(Instant.now(), startedAt.plusSeconds(10).plusMillis(100)).toMillis();
+        long waitMillis = Duration.between(
+                Instant.now(),
+                startedAt.plus(DRAW_INTERVAL).plus(DRAW_DUE_MARGIN)).toMillis();
         if (waitMillis > 0) {
             Thread.sleep(waitMillis);
         }
