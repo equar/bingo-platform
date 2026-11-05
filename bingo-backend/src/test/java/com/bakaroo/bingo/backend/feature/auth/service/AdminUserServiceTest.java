@@ -143,16 +143,36 @@ class AdminUserServiceTest {
                 when(userRepository.save(existing)).thenReturn(existing);
 
                 var response = service.updateUser(31L,
-                                new AdminUserUpdateRequest(" Updated Admin ", "updated@example.com",
-                                                "0911000004", "   ", AccountStatus.SUSPENDED,
-                                                Set.of(UserRole.ADMIN, UserRole.SUPPORT)));
+                                new AdminUserUpdateRequest(" Updated Admin ", "existing@example.com",
+                                                "0911000003", "   ", AccountStatus.SUSPENDED,
+                                                Set.of(UserRole.ADMIN)));
 
                 assertThat(response.displayName()).isEqualTo("Updated Admin");
-                assertThat(response.email()).isEqualTo("updated@example.com");
-                assertThat(response.phoneNumber()).isEqualTo("251911000004");
+                assertThat(response.email()).isEqualTo("existing@example.com");
+                assertThat(response.phoneNumber()).isEqualTo("251911000003");
                 assertThat(existing.getPasswordHash()).isEqualTo("old-password");
                 assertThat(existing.getStatus()).isEqualTo(AccountStatus.SUSPENDED);
-                assertThat(existing.getRoles()).containsExactlyInAnyOrder(UserRole.ADMIN, UserRole.SUPPORT);
+                assertThat(existing.getRoles()).containsExactly(UserRole.ADMIN);
+        }
+
+        @Test
+        void updateUserRejectsEmailAndRoleChanges() {
+                User existing = User.create("251911000008", "Existing Admin", "old-password", AccountStatus.ACTIVE,
+                                Set.of(UserRole.ADMIN), Instant.parse("2026-01-01T00:00:00Z"));
+                ReflectionTestUtils.setField(existing, "id", 42L);
+                existing.setEmail("existing@example.com");
+                when(userRepository.findByIdForUpdate(42L)).thenReturn(Optional.of(existing));
+
+                assertThrows(ConflictException.class, () -> service.updateUser(42L,
+                                new AdminUserUpdateRequest("Existing Admin", "updated@example.com", "0911000008", "",
+                                                AccountStatus.ACTIVE, Set.of(UserRole.ADMIN))));
+                assertThrows(ConflictException.class, () -> service.updateUser(42L,
+                                new AdminUserUpdateRequest("Existing Admin", "existing@example.com", "0911000008", "",
+                                                AccountStatus.ACTIVE, Set.of(UserRole.ADMIN, UserRole.SUPPORT))));
+
+                verify(userRepository, org.mockito.Mockito.never()).save(any(User.class));
+                assertThat(existing.getEmail()).isEqualTo("existing@example.com");
+                assertThat(existing.getRoles()).containsExactly(UserRole.ADMIN);
         }
 
         @Test

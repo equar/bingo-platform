@@ -76,7 +76,7 @@ public class AuthService {
 
         User saved;
         try {
-            saved = userRepository.save(user);
+            saved = userRepository.saveAndFlush(user);
         } catch (DataIntegrityViolationException exception) {
             if (isDuplicatePhoneConstraint(exception)) {
                 throw new ConflictException("PHONE_ALREADY_REGISTERED", "That phone number is already registered");
