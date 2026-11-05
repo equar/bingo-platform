@@ -15846,8 +15846,7 @@
             "type" : "string"
           },
           "phoneNumber" : {
-            "type" : "string",
-            "nullable" : true
+            "type" : "string"
           },
           "roles" : {
             "type" : "array",
@@ -15939,8 +15938,7 @@
             "type" : "string"
           },
           "phoneNumber" : {
-            "type" : "string",
-            "nullable" : true
+            "type" : "string"
           },
           "roles" : {
             "type" : "array",

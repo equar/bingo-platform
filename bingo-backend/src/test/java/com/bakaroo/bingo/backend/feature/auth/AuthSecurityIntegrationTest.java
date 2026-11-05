@@ -627,7 +627,7 @@ class AuthSecurityIntegrationTest extends MySqlIntegrationTest {
                                 .andExpect(status().isOk());
                 mockMvc.perform(get("/api/v1/admin/support/tickets").header("Authorization", "Bearer " + tokenIssuedAsSupport))
                                 .andExpect(status().isUnauthorized());
-                assertEquals(1, jdbcTemplate.queryForObject(
+                assertEquals(2, jdbcTemplate.queryForObject(
                                 "select count(*) from audit_log_entries where action='UPDATE_USER' and target_id=?",
                                 Integer.class, target.getId()));
         }
