@@ -11,12 +11,14 @@ export interface AuthResponse {
 export interface AdminUserProfile {
   id: number;
   displayName: string;
+  email: string | null;
   phoneNumber: string;
   roles: string[];
   status: string;
   createdAt: string;
   updatedAt: string;
   mustChangePassword?: boolean;
+  preferredLanguage?: string;
 }
 
 export interface MeResponse {
@@ -38,6 +40,17 @@ export interface AdminDashboardMetricsResponse {
   agentFloatClearingTotal: string;
 }
 
+export interface DailyTrendPoint {
+  date: string;
+  count: number;
+}
+
+export interface AdminDashboardTrendsResponse {
+  businessTimezone: string;
+  playerRegistrations: DailyTrendPoint[];
+  supportTicketsCreated: DailyTrendPoint[];
+}
+
 export interface AdminPlayerSummaryResponse {
   id: number;
   displayName: string;
@@ -49,6 +62,54 @@ export interface AdminPlayerSummaryResponse {
   walletTransactionCount: number;
   depositClaimCount: number;
   supportTicketCount: number;
+}
+
+export type PlayerVerificationStatus =
+  | "NOT_REVIEWED"
+  | "IN_REVIEW"
+  | "VERIFIED"
+  | "NEEDS_INFORMATION"
+  | "REJECTED";
+
+export type PlayerVerificationReason =
+  | "REVIEW_STARTED"
+  | "IDENTITY_AND_AGE_CONFIRMED"
+  | "INFORMATION_REQUIRED"
+  | "IDENTITY_MISMATCH"
+  | "AGE_NOT_VERIFIED"
+  | "OTHER";
+
+export interface PlayerVerificationQueueItemResponse {
+  playerId: number;
+  displayName: string;
+  phoneNumber: string;
+  accountStatus: string;
+  verificationStatus: PlayerVerificationStatus;
+  verificationReason: PlayerVerificationReason | null;
+  reviewedByUserId: number | null;
+  reviewedAt: string | null;
+  createdAt: string;
+}
+
+export interface PlayerVerificationReviewResponse {
+  id: number;
+  playerId: number;
+  reviewerUserId: number;
+  status: PlayerVerificationStatus;
+  reason: PlayerVerificationReason;
+  reviewedAt: string;
+}
+
+export interface DepositReportResponse {
+  id: number;
+  playerId: number;
+  submittedCashAmount: string;
+  calculatedCreditAmount: string;
+  currency: string;
+  status: string;
+  submittedAt: string;
+  verifiedAt: string | null;
+  reviewedAt: string | null;
 }
 
 export interface AdminPlayerDetailResponse {
@@ -417,6 +478,7 @@ export interface SupportTicketCreateRequest {
 export interface AdminAuditLogSummaryResponse {
   id: number;
   actorUserId: number | null;
+  actorDisplayName: string | null;
   action: string;
   targetType: string;
   targetId: number | null;
@@ -425,8 +487,19 @@ export interface AdminAuditLogSummaryResponse {
   createdAt: string;
 }
 
+export interface AuditLogSearchFilters {
+  query?: string;
+  actorUserId?: number;
+  auditLogId?: number;
+  action?: string;
+  targetType?: string;
+  targetId?: number;
+  operationId?: string;
+  from?: string;
+  to?: string;
+}
+
 export interface AdminAuditLogDetailResponse extends AdminAuditLogSummaryResponse {
-  actorDisplayName: string | null;
   metadataJson: string | null;
 }
 
@@ -835,6 +908,11 @@ export async function dashboardMetrics() {
   return data;
 }
 
+export async function dashboardTrends(days = 14) {
+  const { data } = await http.get<AdminDashboardTrendsResponse>("/api/v1/admin/dashboard/trends", { params: { days } });
+  return data;
+}
+
 export async function searchPlayers(query?: string, page = 0, size = 20, status?: string) {
   const { data } = await http.get<PageResponse<AdminPlayerSummaryResponse>>('/api/v1/admin/players', {
     params: { query, status, page, size },
@@ -852,6 +930,37 @@ export async function updatePlayerStatus(playerId: number, status: string, reaso
     status,
     reason,
   });
+  return data;
+}
+
+export async function searchPlayerVerifications(
+  query?: string,
+  status?: PlayerVerificationStatus,
+  page = 0,
+  size = 20,
+) {
+  const { data } = await http.get<PageResponse<PlayerVerificationQueueItemResponse>>(
+    "/api/v1/admin/player-verifications",
+    { params: { query, status, page, size } },
+  );
+  return data;
+}
+
+export async function playerVerificationHistory(playerId: number) {
+  const { data } = await http.get<PlayerVerificationReviewResponse[]>(
+    `/api/v1/admin/players/${playerId}/verification/reviews`,
+  );
+  return data;
+}
+
+export async function recordPlayerVerificationReview(
+  playerId: number,
+  review: { status: PlayerVerificationStatus; reason: PlayerVerificationReason },
+) {
+  const { data } = await http.post<PlayerVerificationReviewResponse>(
+    `/api/v1/admin/players/${playerId}/verification/reviews`,
+    review,
+  );
   return data;
 }
 
@@ -1191,6 +1300,41 @@ export async function auditLogs(page = 0, size = 20) {
   return data;
 }
 
+export async function searchAuditLogs(page = 0, size = 20, filters: AuditLogSearchFilters = {}) {
+  const { data } = await http.get<PageResponse<AdminAuditLogSummaryResponse>>('/api/v1/admin/audit-logs', {
+    params: { ...filters, page, size },
+  });
+  return data;
+}
+
+export async function auditActivityReport(from: string, to: string, page = 0, size = 100) {
+  const { data } = await http.get<PageResponse<AdminAuditLogSummaryResponse>>(
+    "/api/v1/admin/reports/audit-activity", { params: { from, to, page, size } },
+  );
+  return data;
+}
+
+export async function sessionActivityReport(from: string, to: string, page = 0, size = 100) {
+  const { data } = await http.get<PageResponse<AdminSessionSummaryResponse>>(
+    "/api/v1/admin/reports/sessions", { params: { from, to, page, size } },
+  );
+  return data;
+}
+
+export async function playerVerificationReport(from: string, to: string, page = 0, size = 100) {
+  const { data } = await http.get<PageResponse<PlayerVerificationReviewResponse>>(
+    "/api/v1/admin/player-verifications/report", { params: { from, to, page, size } },
+  );
+  return data;
+}
+
+export async function depositReport(from: string, to: string, page = 0, size = 100) {
+  const { data } = await http.get<PageResponse<DepositReportResponse>>(
+    "/api/v1/admin/deposits/report", { params: { from, to, page, size } },
+  );
+  return data;
+}
+
 export async function auditLogDetail(auditLogId: number) {
   const { data } = await http.get<AdminAuditLogDetailResponse>(`/api/v1/admin/audit-logs/${auditLogId}`);
   return data;
@@ -1213,6 +1357,16 @@ export async function adminUsers(page = 0, size = 20, search = "", status = "") 
 export async function refreshAdminUserProfile() {
   const { data } = await http.get<MeResponse>("/api/v1/auth/me");
   return data.user;
+}
+
+export async function updateMyPreferences(request: { preferredLanguage: string }) {
+  const { data } = await http.put<MeResponse>("/api/v1/me/preferences", request);
+  return data.user;
+}
+
+export async function updateMyProfile(request: { displayName: string; phoneNumber: string }) {
+  const { data } = await http.put<AuthResponse>("/api/v1/me/profile", request);
+  return data;
 }
 
 export async function createAdminUser(request: AdminUserCreateRequest) {
@@ -1369,6 +1523,13 @@ export async function supportTickets(
   const { data } = await http.get<PageResponse<SupportTicketSummaryResponse>>('/api/v1/admin/support/tickets', {
     params: { query, status, category, assignedToUserId, priority, page, size },
   });
+  return data;
+}
+
+export async function supportTicketReport(from: string, to: string, page = 0, size = 100) {
+  const { data } = await http.get<PageResponse<SupportTicketSummaryResponse>>(
+    "/api/v1/admin/support/tickets/report", { params: { from, to, page, size } },
+  );
   return data;
 }
 

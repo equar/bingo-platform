@@ -2,17 +2,42 @@ import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 import { adminUiTranslations } from "./adminUiTranslations";
 
-const storageKey = "bingo-admin-locale";
+const sessionStorageKey = "bingo-admin-session";
+const legacyLocaleStorageKey = "bingo-admin-locale";
 const adminUiEnglish = Object.fromEntries(
   Object.keys(adminUiTranslations).map((text) => [text, text]),
 );
 
-function getInitialLanguage(): "en" | "am" {
+export const SUPPORTED_LANGUAGES = ["en", "am"] as const;
+export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
+export const DEFAULT_LANGUAGE: SupportedLanguage = "en";
+
+export function resolvePreferredLanguage(value: unknown): SupportedLanguage {
+  return value === "am" ? "am" : DEFAULT_LANGUAGE;
+}
+
+// The unauthenticated login screen is always English. An authenticated user's
+// saved preference is read from the backend profile cached in the user-scoped
+// session so a page refresh renders in the right language without a flash.
+// Browser language and shared global storage are intentionally ignored.
+function getInitialLanguage(): SupportedLanguage {
   try {
-    return window.localStorage.getItem(storageKey) === "am" ? "am" : "en";
+    window.localStorage.removeItem(legacyLocaleStorageKey);
+    const raw = window.localStorage.getItem(sessionStorageKey);
+    if (!raw) {
+      return DEFAULT_LANGUAGE;
+    }
+    const session = JSON.parse(raw) as { user?: { preferredLanguage?: unknown } };
+    return resolvePreferredLanguage(session?.user?.preferredLanguage);
   } catch (error) {
     console.warn("Could not read the saved language preference.", error);
-    return "en";
+    return DEFAULT_LANGUAGE;
+  }
+}
+
+export function applyLanguage(language: SupportedLanguage): void {
+  if (i18n.language !== language) {
+    void i18n.changeLanguage(language);
   }
 }
 
@@ -22,12 +47,17 @@ void i18n.use(initReactI18next).init({
       translation: {
         ...adminUiEnglish,
         "language.label": "Language",
+        "language.helper": "Controls the display language of the admin application.",
+        "language.saving": "Saving...",
+        "language.saved": "Your language preference has been saved.",
         "language.saveFailed": "Your language preference could not be saved.",
+        "profile.preferences": "Preferences",
+        "profile.preferencesIntro": "Settings saved to your account.",
         "brand": "Sunset Bingo Admin",
         "nav.overview": "Overview",
         "nav.operations": "Operations",
         "nav.reviews": "Reviews & Support",
-        "nav.accounts": "Accounts",
+        "nav.accounts": "Players & Agents",
         "nav.finance": "Finance",
         "nav.administration": "Administration",
         "nav.dashboard": "Dashboard",
@@ -38,9 +68,11 @@ void i18n.use(initReactI18next).init({
         "nav.rooms": "Rooms",
         "nav.community": "Player community",
         "nav.audit": "Audit Logs",
+        "nav.reports": "Reports",
         "nav.adminUsers": "Admin Users",
         "nav.agents": "Agents",
         "nav.players": "Players",
+        "nav.verification": "Player verification",
         "nav.walletPolicies": "Wallet Policies",
         "nav.transfers": "Transfer History",
         "nav.entitlements": "Prize Entitlements",
@@ -70,13 +102,25 @@ void i18n.use(initReactI18next).init({
         "login.secureAccess": "Secure access for authorized admin and support accounts",
         "login.invalidCredentials": "The email or password is incorrect.",
         "login.unexpected": "Something went wrong. Please try again.",
-        "login.noConnection": "Unable to connect. Check your internet connection and try again.",
+        "login.noConnection": "We couldn’t reach the server right now. Check your connection or try again in a moment.",
         "login.serviceUnavailable": "The service is temporarily unavailable. Please try again later.",
         "profile.adminProfile": "Admin profile",
         "profile.title": "Profile",
         "profile.intro": "Review your signed-in admin account details in one focused place.",
         "profile.accountDetails": "Account details",
         "profile.identity": "Your current admin identity and status.",
+        "profile.personalInfo": "Personal information",
+        "profile.personalInfoIntro": "Keep your name and contact number up to date.",
+        "profile.displayName": "Full name",
+        "profile.email": "Email address",
+        "profile.phone": "Phone number",
+        "profile.emailReadOnly": "Email is used to sign in and cannot be changed here.",
+        "profile.phoneHelper": "Enter a valid Ethiopian mobile number.",
+        "profile.saveChanges": "Save changes",
+        "profile.saving": "Saving…",
+        "profile.saved": "Your profile has been updated.",
+        "profile.saveFailed": "Your profile could not be updated. Check the details and try again.",
+        "profile.nameRequired": "Enter your name.",
         "profile.status": "Status",
         "profile.roles": "Roles",
         "profile.userId": "User ID",
@@ -116,12 +160,17 @@ void i18n.use(initReactI18next).init({
       translation: {
         ...adminUiTranslations,
         "language.label": "ቋንቋ",
+        "language.helper": "የአስተዳደር መተግበሪያውን የማሳያ ቋንቋ ይቆጣጠራል።",
+        "language.saving": "በማስቀመጥ ላይ...",
+        "language.saved": "የቋንቋ ምርጫዎ ተቀምጧል።",
         "language.saveFailed": "የቋንቋ ምርጫዎን ማስቀመጥ አልተቻለም።",
+        "profile.preferences": "ምርጫዎች",
+        "profile.preferencesIntro": "በመለያዎ ላይ የተቀመጡ ቅንብሮች።",
         "brand": "የSunset Bingo አስተዳደር",
         "nav.overview": "አጠቃላይ እይታ",
         "nav.operations": "ክዋኔዎች",
         "nav.reviews": "ግምገማና ድጋፍ",
-        "nav.accounts": "መለያዎች",
+        "nav.accounts": "ተጫዋቾችና ወኪሎች",
         "nav.finance": "ፋይናንስ",
         "nav.administration": "አስተዳደር",
         "nav.dashboard": "ዳሽቦርድ",
@@ -132,9 +181,11 @@ void i18n.use(initReactI18next).init({
         "nav.rooms": "ክፍሎች",
         "nav.community": "የተጫዋቾች ማህበረሰብ",
         "nav.audit": "የኦዲት መዝገቦች",
+        "nav.reports": "ሪፖርቶች",
         "nav.adminUsers": "አስተዳዳሪዎች",
         "nav.agents": "ወኪሎች",
         "nav.players": "ተጫዋቾች",
+        "nav.verification": "የተጫዋች ማረጋገጫ",
         "nav.walletPolicies": "የኪስ ቦርሳ መመሪያዎች",
         "nav.transfers": "የዝውውር ታሪክ",
         "nav.entitlements": "የሽልማት መብቶች",
@@ -164,13 +215,25 @@ void i18n.use(initReactI18next).init({
         "login.secureAccess": "ለተፈቀዱ አስተዳዳሪዎችና የድጋፍ ሰራተኞች የተጠበቀ መግቢያ",
         "login.invalidCredentials": "የኢሜይል አድራሻው ወይም የይለፍ ቃሉ ትክክል አይደለም።",
         "login.unexpected": "ችግኝ ተፈጥሯል። እባክዎ እንደገና ይሞክሩ።",
-        "login.noConnection": "መገናኘት አልተቻለም። የኢንተርኔት ግንኙነትዎን ያረጋግጡና እንደገና ይሞክሩ።",
+        "login.noConnection": "አሁን ከአገልግሎቱ ጋር መገናኘት አልቻልንም። እባክዎ ግንኙነትዎን ያረጋግጡ ወይም ትንሽ ቆይተው እንደገና ይሞክሩ።",
         "login.serviceUnavailable": "አገልግሎቱ ለጊዜው አይገኝም። እባክዎ በኋላ ይሞክሩ።",
         "profile.adminProfile": "የአስተዳዳሪ መገለጫ",
         "profile.title": "መገለጫ",
         "profile.intro": "የገቡበትን የአስተዳዳሪ መለያ ዝርዝር እዚህ ይመልከቱ።",
         "profile.accountDetails": "የመለያ ዝርዝሮች",
         "profile.identity": "የአሁኑ የአስተዳዳሪ መለያዎና ሁኔታዎ።",
+        "profile.personalInfo": "የግል መረጃ",
+        "profile.personalInfoIntro": "ስምዎንና የስልክ ቁጥርዎን ወቅታዊ ያድርጉ።",
+        "profile.displayName": "ሙሉ ስም",
+        "profile.email": "የኢሜይል አድራሻ",
+        "profile.phone": "ስልክ ቁጥር",
+        "profile.emailReadOnly": "ኢሜይሉ ለመግቢያ ይጠቅማል፤ እዚህ ሊቀየር አይችልም።",
+        "profile.phoneHelper": "ትክክለኛ የኢትዮጵያ ሞባይል ቁጥር ያስገቡ።",
+        "profile.saveChanges": "ለውጦችን አስቀምጥ",
+        "profile.saving": "በማስቀመጥ ላይ…",
+        "profile.saved": "የመገለጫ መረጃዎ ተዘምኗል።",
+        "profile.saveFailed": "የመገለጫ መረጃዎን ማዘመን አልተቻለም። ዝርዝሮቹን ያረጋግጡና እንደገና ይሞክሩ።",
+        "profile.nameRequired": "ስምዎን ያስገቡ።",
         "profile.status": "ሁኔታ",
         "profile.roles": "ሚናዎች",
         "profile.userId": "የተጠቃሚ መለያ ቁጥር",
@@ -213,6 +276,16 @@ void i18n.use(initReactI18next).init({
   keySeparator: false,
   interpolation: { escapeValue: false },
 });
+
+i18n.on("languageChanged", (language) => {
+  if (typeof document !== "undefined") {
+    document.documentElement.lang = language;
+  }
+});
+
+if (typeof document !== "undefined") {
+  document.documentElement.lang = i18n.language;
+}
 
 export default i18n;
 

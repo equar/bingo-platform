@@ -46,10 +46,15 @@ async function mockAdminApi(
     auditLogs?: typeof pageResponse & { content: unknown[] };
   } = {},
 ) {
+  const accountState = { preferredLanguage: "en" };
   await page.route("**/api/v1/**", async (route) => {
     const url = new URL(route.request().url());
     if (url.pathname === "/api/v1/auth/me") {
-      await route.fulfill({ json: { user: adminUser } });
+      await route.fulfill({ json: { user: { ...adminUser, preferredLanguage: accountState.preferredLanguage } } });
+    } else if (url.pathname === "/api/v1/me/preferences" && route.request().method() === "PUT") {
+      const body = route.request().postDataJSON() as { preferredLanguage?: string };
+      accountState.preferredLanguage = body?.preferredLanguage === "am" ? "am" : "en";
+      await route.fulfill({ json: { user: { ...adminUser, preferredLanguage: accountState.preferredLanguage } } });
     } else if (url.pathname === "/api/v1/admin/dashboard/metrics") {
       if (options.metricsUnavailable?.()) {
         await route.fulfill({ status: 503, json: { message: "Service temporarily unavailable." } });
@@ -103,25 +108,21 @@ async function mockAdminApi(
 }
 
 async function switchToAmharic(page: import("@playwright/test").Page) {
-  await page.getByRole("combobox", { name: "Language" }).click();
+  await page.goto("/profile");
+  await page.getByRole("combobox", { name: /Language/ }).click();
   await page.getByRole("option", { name: "አማርኛ" }).click();
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByText("የቋንቋ ምርጫዎ ተቀምጧል።")).toBeVisible();
+  await page.goto("/dashboard");
   await expect(page.getByRole("heading", { name: "ዳሽቦርድ" })).toBeVisible();
-  await page.getByRole("heading", { name: "ዳሽቦርድ" }).click();
-  await expect(page.getByRole("combobox", { name: "ቋንቋ" })).toHaveAttribute("aria-expanded", "false");
-  await expect(page.getByRole("listbox")).not.toBeVisible();
-  await expect(page.locator(".MuiMenu-paper")).not.toBeVisible();
-  await expect(page.getByRole("option", { name: "English" })).not.toBeVisible();
 }
 
 async function switchToEnglish(page: import("@playwright/test").Page) {
-  await page.getByRole("combobox", { name: "ቋንቋ" }).click();
+  await page.goto("/profile");
+  await page.getByRole("combobox", { name: /ቋንቋ/ }).click();
   await page.getByRole("option", { name: "English" }).click();
-  await expect(page.getByRole("heading", { name: "Deposits", exact: true })).toBeVisible();
-  await page.getByRole("heading", { name: "Deposits", exact: true }).click();
-  await expect(page.getByRole("combobox", { name: "Language" })).toHaveAttribute("aria-expanded", "false");
-  await expect(page.getByRole("listbox")).not.toBeVisible();
-  await expect(page.locator(".MuiMenu-paper")).not.toBeVisible();
-  await expect(page.getByRole("option", { name: "አማርኛ" })).not.toBeVisible();
+  await page.getByRole("button", { name: "አስቀምጥ" }).click();
+  await expect(page.getByText("Your language preference has been saved.")).toBeVisible();
 }
 
 async function captureScreenshot(
@@ -162,7 +163,6 @@ async function dashboardLayout(page: import("@playwright/test").Page) {
 test("renders mocked dashboard data and responsive navigation in English and Amharic", async ({ page }, testInfo) => {
   await mockAdminApi(page);
   await page.addInitScript(({ user }) => {
-    if (!localStorage.getItem("bingo-admin-locale")) localStorage.setItem("bingo-admin-locale", "en");
     localStorage.setItem("bingo-admin-session", JSON.stringify({
       accessToken: "mocked-visual-test-token",
       tokenType: "Bearer",
@@ -275,8 +275,10 @@ test("renders mocked dashboard data and responsive navigation in English and Amh
   await expect(page.getByRole("heading", { name: "ተቀማጭ ገንዘቦች" })).toBeVisible();
   const searchBox = page.getByRole("textbox", { name: "ተቀማጭ፣ ተጫዋች፣ የክፍያ ማጣቀሻ ወይም ክዋኔ ፈልግ" });
   await searchBox.fill("QA filter");
+  await expect(searchBox).toHaveValue("QA filter");
   await switchToEnglish(page);
-  await expect(page.getByRole("textbox", { name: "Search deposit, player, payment reference, or operation" })).toHaveValue("QA filter");
+  await page.goto("/deposits?status=PENDING");
+  await expect(page.getByRole("heading", { name: "Deposits", exact: true })).toBeVisible();
   expect(await page.evaluate(() => localStorage.getItem("bingo-admin-session"))).toContain("mocked-visual-test-token");
   await expect.poll(() => page.url()).toContain("/deposits?status=PENDING");
   await expect(page.getByRole("combobox", { name: "Status" })).toHaveText("Pending");

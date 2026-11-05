@@ -265,14 +265,6 @@ export function ChangePasswordPage() {
                   >
                     {t("Clear")}
                   </Button>
-                  <Button
-                    variant="text"
-                    color="inherit"
-                    type="button"
-                    onClick={() => navigate("/profile")}
-                  >
-                    {t("Back to profile")}
-                  </Button>
                 </Stack>
                 {!canSubmit && !passwordMutation.isPending ? (
                   <Typography variant="body2" color="text.secondary">

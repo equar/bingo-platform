@@ -1,17 +1,20 @@
 package com.bakaroo.bingo.backend.feature.wallet.controller;
 
 import com.bakaroo.bingo.backend.common.api.PageResponse;
+import com.bakaroo.bingo.backend.common.validation.ReportRangeValidator;
 import com.bakaroo.bingo.backend.common.idempotency.IdempotentResult;
 import com.bakaroo.bingo.backend.feature.auth.service.BingoUserPrincipal;
 import com.bakaroo.bingo.backend.feature.wallet.dto.DepositClaimResponse;
 import com.bakaroo.bingo.backend.feature.wallet.dto.DepositReviewRequest;
 import com.bakaroo.bingo.backend.feature.wallet.dto.DepositPostingResponse;
+import com.bakaroo.bingo.backend.feature.wallet.dto.DepositReportResponse;
 import com.bakaroo.bingo.backend.feature.wallet.dto.DepositVerificationRequest;
 import com.bakaroo.bingo.backend.feature.wallet.dto.DepositVerificationResponse;
 import com.bakaroo.bingo.backend.feature.wallet.entity.DepositClaimStatus;
 import com.bakaroo.bingo.backend.feature.wallet.service.DepositFinancialService;
 import com.bakaroo.bingo.backend.feature.wallet.service.WalletService;
 import jakarta.validation.Valid;
+import java.time.Instant;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
@@ -25,6 +28,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.format.annotation.DateTimeFormat;
 import java.util.List;
 
 @RestController
@@ -45,6 +49,15 @@ public class AdminDepositController {
             @RequestParam(required = false) String query,
             @PageableDefault(size = 20) Pageable pageable) {
         return PageResponse.from(walletService.getAdminDeposits(status, query, pageable));
+    }
+
+    @GetMapping("/report")
+    public PageResponse<DepositReportResponse> depositReport(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to,
+            @PageableDefault(size = 100) Pageable pageable) {
+        ReportRangeValidator.validate(from, to);
+        return PageResponse.from(walletService.depositReport(from, to, pageable));
     }
 
     @PostMapping("/{id}/approve")

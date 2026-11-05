@@ -1,14 +1,14 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AuditLogsPage } from "./AuditLogsPage";
 
-const auditLogsMock = vi.fn();
+const searchAuditLogsMock = vi.fn();
 const auditLogDetailMock = vi.fn();
 
 vi.mock("../../api/admin", () => ({
-  auditLogs: (...args: unknown[]) => auditLogsMock(...args),
+  searchAuditLogs: (...args: unknown[]) => searchAuditLogsMock(...args),
   auditLogDetail: (...args: unknown[]) => auditLogDetailMock(...args),
 }));
 
@@ -20,13 +20,16 @@ function createWrapper() {
 }
 
 describe("AuditLogsPage", () => {
+  afterEach(() => cleanup());
+
   beforeEach(() => {
     vi.clearAllMocks();
-    auditLogsMock.mockResolvedValue({
+    searchAuditLogsMock.mockResolvedValue({
       content: [
         {
           id: 42,
           actorUserId: 7,
+          actorDisplayName: "Admin Example",
           action: "UPDATE_SESSION_STATE",
           targetType: "GameSession",
           targetId: 91,
@@ -82,10 +85,39 @@ describe("AuditLogsPage", () => {
     render(<AuditLogsPage />, { wrapper: createWrapper() });
 
     expect(await screen.findByRole("button", { name: "Go to next page" })).toBeEnabled();
-    expect(auditLogsMock).toHaveBeenCalledWith(0, 20);
+    expect(searchAuditLogsMock).toHaveBeenCalledWith(0, 20, {});
 
     await user.click(screen.getByRole("button", { name: "Go to next page" }));
 
-    await waitFor(() => expect(auditLogsMock).toHaveBeenLastCalledWith(1, 20));
+    await waitFor(() => expect(searchAuditLogsMock).toHaveBeenLastCalledWith(1, 20, {}));
+  });
+
+  it("sends search filters to the server instead of filtering only the current page", async () => {
+    const user = userEvent.setup();
+    render(<AuditLogsPage />, { wrapper: createWrapper() });
+
+    await screen.findByText(/45 matching entries across all pages/);
+    await user.type(screen.getByRole("textbox", { name: "Search all audit fields" }), "transfer");
+    await user.click(screen.getByRole("button", { name: "Search audit logs" }));
+
+    await waitFor(() => {
+      expect(searchAuditLogsMock).toHaveBeenLastCalledWith(0, 20, { query: "transfer" });
+    });
+  });
+
+  it("keeps search controls available when the audit history is empty", async () => {
+    searchAuditLogsMock.mockResolvedValueOnce({
+      content: [],
+      page: 0,
+      size: 20,
+      totalElements: 0,
+      totalPages: 0,
+      first: true,
+      last: true,
+    });
+    render(<AuditLogsPage />, { wrapper: createWrapper() });
+
+    expect(await screen.findByText("No audit entries found.")).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Search all audit fields" })).toBeInTheDocument();
   });
 });

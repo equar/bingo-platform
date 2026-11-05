@@ -15,6 +15,7 @@ import com.bakaroo.bingo.backend.feature.wallet.config.WalletProperties;
 import com.bakaroo.bingo.backend.feature.wallet.dto.DepositClaimRequest;
 import com.bakaroo.bingo.backend.feature.wallet.dto.DepositClaimResponse;
 import com.bakaroo.bingo.backend.feature.wallet.dto.DepositReviewRequest;
+import com.bakaroo.bingo.backend.feature.wallet.dto.DepositReportResponse;
 import com.bakaroo.bingo.backend.feature.wallet.dto.PaymentInstructionsResponse;
 import com.bakaroo.bingo.backend.feature.wallet.dto.WalletAdjustmentRequest;
 import com.bakaroo.bingo.backend.feature.wallet.dto.WalletAdjustmentResponse;
@@ -118,6 +119,13 @@ public class WalletService {
         Page<DepositClaim> page = depositClaimRepository.searchAdminDeposits(status, normalizedQuery, referenceId,
                 pageable);
         return page.map(this::toDepositResponse);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<DepositReportResponse> depositReport(Instant from, Instant to, Pageable pageable) {
+        return depositClaimRepository
+                .findBySubmittedAtGreaterThanEqualAndSubmittedAtLessThanOrderBySubmittedAtDescIdDesc(from, to, pageable)
+                .map(DepositReportResponse::from);
     }
 
     @Transactional

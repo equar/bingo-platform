@@ -28,8 +28,16 @@ const SessionDetailPage = lazy(() =>
 const PlayersPage = lazy(() =>
   import("../features/players/PlayersPage").then((module) => ({ default: module.PlayersPage })),
 );
+const PlayerVerificationPage = lazy(() =>
+  import("../features/verification/PlayerVerificationPage").then((module) => ({
+    default: module.PlayerVerificationPage,
+  })),
+);
 const PlayerDetailPage = lazy(() =>
   import("../features/players/PlayerDetailPage").then((module) => ({ default: module.PlayerDetailPage })),
+);
+const ReportsPage = lazy(() =>
+  import("../features/reports/ReportsPage").then((module) => ({ default: module.ReportsPage })),
 );
 const ClaimsPage = lazy(() =>
   import("../features/claims/ClaimsPage").then((module) => ({ default: module.ClaimsPage })),
@@ -92,6 +100,8 @@ export function AppRouter() {
             <Route path="change-password" element={<ChangePasswordPage />} />
             <Route path="support/tickets" element={<SupportTicketsPage />} />
             <Route path="support/tickets/:ticketId" element={<SupportTicketDetailPage />} />
+            <Route path="reports" element={<ReportsPage />} />
+            <Route path="audit-logs" element={<AuditLogsPage />} />
             <Route element={<ProtectedRoute allowedRoles={["ADMIN"]} />}>
               <Route path="management" element={<Navigate to="/dashboard" replace />} />
               <Route path="dashboard" element={<DashboardPage />} />
@@ -101,6 +111,7 @@ export function AppRouter() {
               <Route path="sessions" element={<SessionsPage />} />
               <Route path="sessions/:sessionId" element={<SessionDetailPage />} />
               <Route path="players" element={<PlayersPage />} />
+              <Route path="player-verifications" element={<PlayerVerificationPage />} />
               <Route path="players/:playerId" element={<PlayerDetailPage />} />
               <Route path="claims" element={<ClaimsPage />} />
               <Route path="prize-entitlements" element={<PrizeEntitlementsPage />} />
@@ -113,7 +124,6 @@ export function AppRouter() {
                 <Route path="transfer-policy" element={<WalletPoliciesPage />} />
               </Route>
               <Route path="wallet/transfers" element={<WalletTransfersPage />} />
-              <Route path="audit-logs" element={<AuditLogsPage />} />
             </Route>
           </Route>
         </Route>

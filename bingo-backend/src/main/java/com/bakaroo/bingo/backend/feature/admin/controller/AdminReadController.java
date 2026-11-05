@@ -1,13 +1,14 @@
 package com.bakaroo.bingo.backend.feature.admin.controller;
 
 import com.bakaroo.bingo.backend.common.api.PageResponse;
+import com.bakaroo.bingo.backend.common.exception.BadRequestException;
+import com.bakaroo.bingo.backend.common.validation.ReportRangeValidator;
 import com.bakaroo.bingo.backend.feature.admin.dto.*;
 import com.bakaroo.bingo.backend.feature.admin.service.AdminReadService;
 import com.bakaroo.bingo.backend.feature.user.entity.AccountStatus;
 import com.bakaroo.bingo.backend.feature.game.entity.GameSessionState;
 import com.bakaroo.bingo.backend.feature.audit.dto.AuditLogDetailResponse;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -15,6 +16,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.format.annotation.DateTimeFormat;
+import java.time.Instant;
 
 @RestController
 @RequestMapping("/api/v1/admin")
@@ -30,6 +33,15 @@ public class AdminReadController {
     @GetMapping("/dashboard/metrics")
     public AdminDashboardMetricsResponse metrics() {
         return adminReadService.dashboardMetrics();
+    }
+
+    @GetMapping("/dashboard/trends")
+    public AdminDashboardTrendsResponse trends(@RequestParam(defaultValue = "14") int days) {
+        if (days < 7 || days > 90) {
+            throw new com.bakaroo.bingo.backend.common.exception.BadRequestException(
+                    "INVALID_TREND_RANGE", "Dashboard trend range must be between 7 and 90 days");
+        }
+        return adminReadService.dashboardTrends(days);
     }
 
     @GetMapping("/players")
@@ -69,12 +81,45 @@ public class AdminReadController {
     }
 
     @GetMapping("/audit-logs")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPPORT')")
     public PageResponse<AdminAuditLogSummaryResponse> auditLogs(
-            @PageableDefault(size = 20, sort = { "createdAt", "id" }, direction = Sort.Direction.DESC) Pageable pageable) {
-        return PageResponse.from(adminReadService.auditLogs(pageable));
+            @RequestParam(required = false) String query,
+            @RequestParam(required = false) Long actorUserId,
+            @RequestParam(required = false) Long auditLogId,
+            @RequestParam(required = false) String action,
+            @RequestParam(required = false) String targetType,
+            @RequestParam(required = false) Long targetId,
+            @RequestParam(required = false) String operationId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to,
+            @PageableDefault(size = 20) Pageable pageable) {
+        if (from != null && to != null && !from.isBefore(to)) {
+            throw new BadRequestException("INVALID_AUDIT_DATE_RANGE", "Audit search start must be before its end");
+        }
+        return PageResponse.from(adminReadService.searchAuditLogs(
+                query, actorUserId, auditLogId, action, targetType, targetId, operationId, from, to, pageable));
+    }
+
+    @GetMapping("/reports/audit-activity")
+    public PageResponse<AdminAuditLogSummaryResponse> auditActivityReport(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to,
+            @PageableDefault(size = 100) Pageable pageable) {
+        ReportRangeValidator.validate(from, to);
+        return PageResponse.from(adminReadService.auditActivityReport(from, to, pageable));
+    }
+
+    @GetMapping("/reports/sessions")
+    public PageResponse<AdminSessionSummaryResponse> sessionsReport(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to,
+            @PageableDefault(size = 100) Pageable pageable) {
+        ReportRangeValidator.validate(from, to);
+        return PageResponse.from(adminReadService.sessionsReport(from, to, pageable));
     }
 
     @GetMapping("/audit-logs/{auditLogId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPPORT')")
     public AuditLogDetailResponse auditLog(@PathVariable Long auditLogId) {
         return adminReadService.auditLogDetail(auditLogId);
     }

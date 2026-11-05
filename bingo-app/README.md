@@ -1,11 +1,11 @@
-# bingo-app
+# Bingo Player
 
-Flutter player app for the bingo backend.
+Flutter player app for the Bingo backend. Requires Flutter 3.41.0+ and Dart
+3.11.0+.
 
-Requires Flutter 3.41.0 or newer and Dart 3.11.0 or newer. CI also checks
-dependency resolution, analysis, and tests with Flutter 3.41.0 and 3.47.7.
+## Local development
 
-Run it with:
+From this directory:
 
 ```bash
 flutter pub get
@@ -13,34 +13,34 @@ flutter gen-l10n
 flutter run -d windows --dart-define=API_BASE_URL=http://localhost:8080
 ```
 
-The local backend must be running at `http://localhost:8080`. `API_BASE_URL`
-remains required; there is no runtime fallback. For Android emulators,
-explicitly pass `--dart-define=API_BASE_URL=http://10.0.2.2:8080`. For a
-deployed backend, replace the local URL with its HTTPS URL. Local HTTP is
-accepted only in debug builds; profile and release builds require HTTPS and
-reject localhost and other loopback addresses.
+Android emulators use `http://10.0.2.2:8080`; replace the URL with the
+deployment's HTTPS origin for deployed backends. Always provide
+`API_BASE_URL`: local HTTP is debug-only, and profile/release builds require
+HTTPS and reject loopback addresses.
 
-Live-game connections use the same host and port as the REST API. The client connects to `/ws` with STOMP, sends the HTTP JWT as a bearer token in the `CONNECT` frame, and subscribes to `/topic/session/{sessionId}/draws` for live draw events. If the backend is behind TLS, use an `https://` API base URL so the app derives `wss://` automatically.
-
-Useful commands:
+Useful checks:
 
 ```bash
-flutter test test/features/game
+flutter test
 flutter analyze
 ```
 
-## Android E2E and credentials
+## Game and community behavior
 
-For the current guarded player Android workflow, use [Local E2E Testing](../docs/local-e2e-testing.md) and the [Module 06A-9 procedure](../docs/qa/modules/module-06a9-android-player-functional-e2e.md). It runs the real Flutter app on `emulator-5554` against the isolated `android-test` backend and `bingo_qa_test`, with read-only before/after reconciliation. A runnable test or a Flutter unit/widget test is not itself a passing Android E2E result; check the [QA status](../docs/qa/module-status.md) for the latest recorded outcome.
+Live draws use STOMP at `/ws` with the API JWT in the `CONNECT` frame and
+subscribe to `/topic/session/{sessionId}/draws`. The backend is authoritative
+for cards, called numbers, ownership, claims, and persisted session state.
+See the [backend API/WebSocket guide](../bingo-backend/README.md) and
+[community-feature rules](../docs/community-features.md).
 
-The older `integration_test/local_e2e_test.dart` harness and `scripts/run-local-e2e.ps1` remain for historical/local development use. They do not enforce the current isolated-schema preflight, and the script's default backend URL is the development service. Do not use this harness against `bingo`, persistent `bingo_qa`, or any shared database, and do not report its Flutter test-harness run as real Android E2E unless it was explicitly run on a device against an authorized isolated MySQL schema.
+## Functional E2E
 
-That legacy harness requires `BINGO_E2E_PRIMARY_PHONE` and `BINGO_E2E_PRIMARY_PASSWORD`; it has no committed account or PIN fallbacks. Its setup test generates a secondary PIN at runtime. For any approved local run, keep credentials in the ignored `e2e-secrets.json` copied from `e2e-secrets.example.json`, pass the file rather than secret values on the command line, and never retain credentials in logs or manifests.
+Use the [guarded real E2E runbook](../docs/qa/platform-e2e-runbook.md) and
+[current scenario matrix](../docs/qa/platform-e2e-scenario-matrix.md). The
+legacy `integration_test/local_e2e_test.dart` and
+`scripts/run-local-e2e.ps1` do not enforce current database isolation; do not
+run them against development, persistent QA, shared, or production databases
+or report a test-harness run as device E2E.
 
-## Direct-share production packages
-
-Production backend: `https://api.bingo.bakaroo.com` (no `/api` suffix).
-REST clients already include `/api/v1`; live draws use `wss://api.bingo.bakaroo.com/ws`.
-From the repository root, run `bash deployment/mobile/build-packages.sh android`
-to build signed APKs for both apps. See [package/signing instructions](../deployment/mobile/README.md)
-for outputs, signing backups, and iOS Ad Hoc requirements.
+Signed package and store release instructions are in the
+[mobile release guide](../deployment/mobile/README.md).

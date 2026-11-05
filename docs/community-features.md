@@ -32,8 +32,15 @@ Daily, Monday-based weekly and all-time rankings use claimed challenge points. P
 
 ## Release and verification
 
-Deploy the backend first, allowing Flyway migration `V23__private_games_and_player_progress.sql`, then the admin and updated player app. Back up the production database through the normal deployment process. No production migration or deployment is performed by local feature tests. Existing agent packages support private ticket sales through their manual session-ID flow.
+Deploy the backend and apply Flyway migration
+`V23__private_games_and_player_progress.sql` before the updated Admin and
+Player clients. Back up the production database through the normal deployment
+process. Local tests do not authorize a production migration or deployment.
+Existing Agent packages support private ticket sales through their manual
+session-ID flow.
 
-Backend tests cover private access, invite rotation/expiry/capacity, ticketing safeguards, duplicate/concurrent claims, exclusion of private/cancelled sessions, opt-in ranking privacy and alias conflicts. WebSocket tests cover authenticated membership and rejection of client-sent broker messages. Tests use an isolated disposable MySQL database. Verification on 2026-10-29: backend Maven `verify` passed 189 tests across 37 classes; admin production build, lint and all 85 tests passed; player Flutter analysis passed; six home/community navigation widget tests passed in an isolated copy with native secure storage stubbed out. The signed player Android APK was rebuilt and its signature, package ID and production API URL verified. Full native Flutter widget tests remain blocked by the workstation’s unaccepted Xcode licence; no native-storage or iOS signing validation is claimed.
+Current execution status belongs in the
+[scenario matrix](qa/platform-e2e-scenario-matrix.md), not in this feature
+guide. Historical test results do not certify the current release.
 
 Design references: [Unity leaderboard features](https://docs.unity.com/en-us/leaderboards/features) and [period reset concepts](https://docs.unity.com/en-us/leaderboards/concepts/resets) inform period scoring; [UKGC RTS 7](https://www.gamblingcommission.gov.uk/standards/remote-gambling-and-software-technical-standards/rts-7-generation-of-random-outcomes) informs fixed rules during play. These references are design guidance, not certification or a statement of local regulatory compliance.

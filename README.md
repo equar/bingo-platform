@@ -59,7 +59,7 @@ database.
 
 - [Documentation index](docs/README.md)
 - [QA policy, current status, and evidence](docs/qa/README.md)
-- [Local E2E procedures and database isolation](docs/local-e2e-testing.md)
+- [Guarded E2E procedures and database isolation](docs/qa/platform-e2e-runbook.md)
 - [Deployment and release](deployment/README.md)
 - Component setup: [backend](bingo-backend/README.md), [Admin](bingo-admin/README.md),
   [Player](bingo-app/README.md), [Agent](bingo-agent/README.md), and

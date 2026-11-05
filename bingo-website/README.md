@@ -62,3 +62,22 @@ Staging and test deployments are noindex by default. To enable indexing for an a
 
 The generated `dist/` folder can fit the existing deployment approach as a static artifact. It can be served from the
 same style of web host or nginx layer used for the other frontend outputs without adding a backend dependency.
+
+## Public release readiness
+
+Do not publish placeholders or mark unavailable platforms as released. Before
+an approved public launch, resolve:
+
+- Android/iOS release URLs and final store listing metadata, if those releases
+  are approved.
+- Verified support email and any approved Telegram/WhatsApp channels.
+- Canonical production hostname, indexing decision, and whether a sitemap is
+  required.
+- Final privacy wording for retention, deletion requests, and any analytics or
+  cookies that are actually implemented.
+- Final terms/game wording for ticket purchase, draws, claims, payouts,
+  licensing, and platform availability.
+
+Keep the site non-indexable until the public release is approved. The generated
+site uses visible unavailable states for missing configuration rather than
+inventing data. See the [production deployment guide](../deployment/README.md).

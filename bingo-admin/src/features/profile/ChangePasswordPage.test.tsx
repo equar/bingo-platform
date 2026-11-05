@@ -88,7 +88,7 @@ describe("ChangePasswordPage", () => {
     });
 
     expect(await screen.findByText("Password updated successfully.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Back to profile" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Back to profile" })).not.toBeInTheDocument();
     expect(readSession()?.user.mustChangePassword).toBe(false);
     expect(navigateMock).toHaveBeenCalledWith("/dashboard", { replace: true });
   });

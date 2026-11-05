@@ -1,6 +1,7 @@
 package com.bakaroo.bingo.backend.feature.admin.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -222,11 +223,8 @@ class AdminReadServiceTest {
                 .thenReturn(new PageImpl<>(List.of(session)));
         when(ticketRepository.countBySessionId(session.getId())).thenReturn(1L);
         when(drawEventRepository.countBySessionId(session.getId())).thenReturn(2L);
-        when(winClaimRepository.findBySessionIdOrderByCreatedAtDesc(session.getId()))
-                .thenReturn(List.of(makeWinClaim(player)));
         when(gameSessionRepository.findByStateInAndStartedAtIsNotNullAndEndedAtIsNullOrderByScheduledStartAtAsc(
                 List.of(GameSessionState.STARTED, GameSessionState.DRAWING))).thenReturn(List.of(session));
-        when(supportTicketRepository.findAll()).thenReturn(List.of(supportTicket));
 
         assertThat(service.sessions(null, null, null, null, PageRequest.of(0, 20))).hasSize(1);
         assertThat(service.liveSessions()).hasSize(1);
@@ -245,7 +243,9 @@ class AdminReadServiceTest {
                 UUID.randomUUID().toString(), "{}");
         ReflectionTestUtils.setField(entry, "id", 81L);
         when(auditLogRepository.findAll(PageRequest.of(0, 20))).thenReturn(new PageImpl<>(List.of(entry)));
-        assertThat(service.auditLogs(PageRequest.of(0, 20))).hasSize(1);
+        assertThat(service.auditLogs(PageRequest.of(0, 20)))
+                .singleElement()
+                .satisfies(summary -> assertThat(summary.actorDisplayName()).isEqualTo(adminUser.getDisplayName()));
         when(auditLogRepository.findById(81L)).thenReturn(Optional.of(entry));
         assertThat(service.auditLogDetail(81L))
                 .satisfies(detail -> {
@@ -256,6 +256,52 @@ class AdminReadServiceTest {
 
         when(supportTicketRepository.findAll(any(Pageable.class))).thenReturn(new PageImpl<>(List.of(supportTicket)));
         assertThat(service.reviewQueue(PageRequest.of(0, 20))).hasSize(1);
+    }
+
+    @Test
+    void searchesAuditLogsUsingServerFiltersAndReturnsActorNames() {
+        Pageable pageable = PageRequest.of(0, 20);
+        AuditLogEntry entry = AuditLogEntry.create(
+                adminUser,
+                "UPDATE_SESSION_STATE",
+                "GAME_SESSION",
+                91L,
+                "Operator closed the draw",
+                UUID.randomUUID().toString(),
+                "{}");
+        ReflectionTestUtils.setField(entry, "id", 81L);
+        Instant from = Instant.parse("2026-01-01T00:00:00Z");
+        Instant to = Instant.parse("2026-01-02T00:00:00Z");
+        when(auditLogRepository.searchAuditLogs(
+                eq("session"),
+                eq(12L),
+                eq(81L),
+                eq("update_session_state"),
+                eq("game_session"),
+                eq(91L),
+                eq("operation-"),
+                eq(from),
+                eq(to),
+                eq(pageable)))
+                .thenReturn(new PageImpl<>(List.of(entry), pageable, 1));
+
+        var result = service.searchAuditLogs(
+                " Session ",
+                12L,
+                81L,
+                " UPDATE_SESSION_STATE ",
+                " GAME_SESSION ",
+                91L,
+                " Operation- ",
+                from,
+                to,
+                pageable);
+
+        assertThat(result.getTotalElements()).isEqualTo(1);
+        assertThat(result.getContent().get(0).actorDisplayName()).isEqualTo("Admin One");
+        assertThatThrownBy(() -> service.searchAuditLogs(
+                null, null, null, null, null, null, null, from, from, pageable))
+                .isInstanceOf(com.bakaroo.bingo.backend.common.exception.BadRequestException.class);
     }
 
     private WinClaim makeWinClaim(User claimant) {

@@ -100,7 +100,7 @@ describe('api types helpers', () => {
     expect(payment.message).toBe(
       'We couldn’t confirm the transaction status. Check your transaction history before trying again.',
     );
-    expect(read.message).toBe('Unable to connect. Check your internet connection and try again.');
+    expect(read.message).toBe('We couldn’t reach the server right now. Check your connection or try again in a moment.');
   });
 
   it('recognizes agent float top-up mutations as financial actions', () => {

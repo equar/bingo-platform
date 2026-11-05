@@ -78,6 +78,32 @@ class AuditLogAspectTest {
     }
 
     @Test
+    void recordsAgentTicketSalesAndSignupRewardGrants() throws Throwable {
+        for (String methodName : new String[] { "sellTicket", "grantForNewPlayer" }) {
+            ProceedingJoinPoint joinPoint = mock(ProceedingJoinPoint.class);
+            MethodSignature signature = mock(MethodSignature.class);
+            Method method = MutationService.class.getMethod(methodName);
+            when(joinPoint.getSignature()).thenReturn(signature);
+            when(joinPoint.getTarget()).thenReturn(new MutationService());
+            when(joinPoint.getArgs()).thenReturn(new Object[0]);
+            when(signature.getMethod()).thenReturn(method);
+            when(signature.getParameterNames()).thenReturn(new String[0]);
+            when(joinPoint.proceed()).thenReturn(null);
+
+            aspect.recordMutations(joinPoint);
+
+            verify(auditLogService).record(
+                    isNull(),
+                    eq(methodName.equals("sellTicket") ? "SELL_TICKET" : "GRANT_FOR_NEW_PLAYER"),
+                    any(),
+                    isNull(),
+                    isNull(),
+                    any(),
+                    any());
+        }
+    }
+
+    @Test
     void recordsFailureOutcomeAndRethrowsTheOriginalFailure() throws Throwable {
         ProceedingJoinPoint joinPoint = mock(ProceedingJoinPoint.class);
         MethodSignature signature = mock(MethodSignature.class);
@@ -140,6 +166,12 @@ class AuditLogAspectTest {
 
         public AuthResult login(LoginRequest request) {
             return null;
+        }
+
+        public void sellTicket() {
+        }
+
+        public void grantForNewPlayer() {
         }
     }
 

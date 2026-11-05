@@ -24,7 +24,6 @@ import { useEffect, useMemo, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { clearSession, useSession } from "../api/session";
 import { useTranslation } from "react-i18next";
-import { LanguageSelector } from "./LanguageSelector";
 import { translateAdminRole } from "../i18n";
 
 const expandedDrawerWidth = 248;
@@ -35,6 +34,7 @@ const activityEvents = ["click", "keydown", "mousemove", "mousedown", "scroll", 
 const navGroups = [
   {
     title: "nav.overview",
+    standalone: true,
     items: [
       { to: "/dashboard", label: "nav.dashboard", icon: "dashboard" },
     ],
@@ -60,6 +60,7 @@ const navGroups = [
     title: "nav.accounts",
     items: [
       { to: "/players", label: "nav.players", icon: "players" },
+      { to: "/player-verifications", label: "nav.verification", icon: "verification" },
       { to: "/agents", label: "nav.agents", icon: "agents" },
     ],
   },
@@ -75,6 +76,7 @@ const navGroups = [
     items: [
       { to: "/admin-users", label: "nav.adminUsers", icon: "adminUsers" },
       { to: "/audit-logs", label: "nav.audit", icon: "audit" },
+      { to: "/reports", label: "nav.reports", icon: "audit" },
     ],
   },
 ] as const;
@@ -89,6 +91,7 @@ type NavIconName =
   | "support"
   | "entitlements"
   | "players"
+  | "verification"
   | "agents"
   | "wallet"
   | "transfers"
@@ -108,6 +111,7 @@ const navIconPaths: Record<NavIconName, string[]> = {
   support: ["M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8z"],
   entitlements: ["M12 3v18", "M17 7H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"],
   players: ["M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2", "M10 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8", "M20 8v6", "M17 11h6"],
+  verification: ["M12 3 4 6v5c0 5 3.4 8.8 8 10 4.6-1.2 8-5 8-10V6z", "m9 12 2 2 4-4"],
   agents: ["M12 2 4 6v6c0 5 3.4 8.8 8 10 4.6-1.2 8-5 8-10V6z", "m9 12 2 2 4-4"],
   wallet: ["M4 6h16v14H4z", "M4 6V4h13", "M16 12h4", "M16 12a2 2 0 1 0 0 4h4v-4z"],
   transfers: ["M7 7h14", "m17 3 4 4-4 4", "M17 17H3", "m7 13-4 4 4 4"],
@@ -167,12 +171,20 @@ export function AppShell() {
     () => supportOnly
       ? [{
           title: "nav.reviews",
-          items: [{ to: "/support/tickets", label: "nav.support", icon: "support" as const }],
+          items: [
+            { to: "/support/tickets", label: "nav.support", icon: "support" as const },
+            { to: "/audit-logs", label: "nav.audit", icon: "audit" as const },
+            { to: "/reports", label: "nav.reports", icon: "audit" as const },
+          ],
         }]
       : navGroups,
     [supportOnly],
   );
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set(navGroups.map((group) => group.title)));
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set(
+    visibleNavGroups
+      .filter((group) => group.items.some((item) => isNavItemActive(location.pathname, item.to)))
+      .map((group) => group.title),
+  ));
 
   const accountMenuOpen = Boolean(accountMenuAnchor);
 
@@ -182,11 +194,7 @@ export function AppShell() {
   );
 
   useEffect(() => {
-    setExpandedGroups((currentGroups) => {
-      const nextGroups = new Set(currentGroups);
-      activeGroupTitles.forEach((groupTitle) => nextGroups.add(groupTitle));
-      return nextGroups;
-    });
+    setExpandedGroups(new Set(activeGroupTitles));
   }, [activeGroupTitles]);
 
   useEffect(() => {
@@ -253,7 +261,6 @@ export function AppShell() {
           <Typography variant="h6" noWrap sx={{ flexGrow: 1 }}>
             {t("brand")}
           </Typography>
-          <LanguageSelector />
           <Button
             color="inherit"
             onClick={(event) => setAccountMenuAnchor(event.currentTarget)}
@@ -372,6 +379,47 @@ export function AppShell() {
               const activeGroup = activeGroupTitles.includes(group.title);
               const groupId = `nav-group-${group.title.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`;
               const groupIcon = group.items[0]?.icon ?? "dashboard";
+              if ("standalone" in group && group.standalone) {
+                const item = group.items[0];
+                const active = isNavItemActive(location.pathname, item.to);
+                return (
+                  <Tooltip key={group.title} title={navigationCollapsed ? t(item.label) : ""} placement="right">
+                    <ListItemButton
+                      component={NavLink}
+                      to={item.to}
+                      onClick={() => setMobileNavOpen(false)}
+                      selected={active}
+                      aria-current={active ? "page" : undefined}
+                      sx={{
+                        borderRadius: "10px",
+                        minHeight: 42,
+                        mb: 0.125,
+                        px: navigationCollapsed ? 1.5 : 1,
+                        justifyContent: navigationCollapsed ? "center" : "flex-start",
+                        "&.Mui-selected": {
+                          color: "primary.main",
+                          bgcolor: "action.selected",
+                          "&::before": {
+                            content: '""',
+                            position: "absolute",
+                            left: 0,
+                            top: 8,
+                            bottom: 8,
+                            width: 3,
+                            borderRadius: 3,
+                            bgcolor: "primary.main",
+                          },
+                        },
+                      }}
+                    >
+                      <ListItemIcon sx={{ minWidth: navigationCollapsed ? 0 : 34, color: "inherit", justifyContent: "center" }}>
+                        <NavIcon name={item.icon} />
+                      </ListItemIcon>
+                      {!navigationCollapsed ? <ListItemText primary={t(item.label)} /> : null}
+                    </ListItemButton>
+                  </Tooltip>
+                );
+              }
               return (
                 <Box key={group.title} sx={{ mb: 0.125 }}>
                   <Tooltip title={navigationCollapsed ? t(group.title) : ""} placement="right">

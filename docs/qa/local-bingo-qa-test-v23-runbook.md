@@ -16,21 +16,21 @@ Run the procedure blocks from the repository root in one PowerShell 7 session so
 - The current schema has 40 InnoDB tables, including `flyway_schema_history`; no routines, events, or triggers were found. The existing QA account can read and dump the source schema, but a separately provisioned DBA/verification identity is required to create and restore a copy and run V23 against it. Do not change grants as part of this preparation.
 - The migration profile uses Flyway, Hibernate `validate`, `clean-disabled=true`, and disables scheduler, fixture bootstrap, and financial simulation/posting controls.
 
-## Repository approval instructions
+## Approval and safety boundaries
 
-The explicit repository instruction in [`mandatory-real-e2e-testing-policy.md`](./mandatory-real-e2e-testing-policy.md) is:
+The maintained [guarded E2E runbook](platform-e2e-runbook.md) prohibits
+Flyway `clean` against persistent data, requires the exact isolated target,
+and does not authorize migration or guard bypass. The
+[current blockers](qa-blockers-and-approvals.md) require DBA provisioning and
+verification for destructive Maven tests. Neither guide approves this V23
+backup/restore rehearsal or migration.
 
-> “Never run Flyway clean against persistent databases. Limit any explicitly authorized destructive recovery operation to its verified disposable target.”
-
-This explicitly restricts destructive recovery and requires it to be authorized and confined to a verified disposable target. It does **not** explicitly prescribe approval for this specific V23 migration.
-
-[`qa-blockers-and-approvals.md`](./qa-blockers-and-approvals.md) says:
-
-> “If local destructive Maven integration tests are needed, first verify an already-approved disposable target/account or obtain DBA provisioning authorization.”
-
-That instruction is explicitly scoped to local destructive Maven integration tests, not this Flyway rehearsal. Applying the same DBA-authorization principle to creating a disposable restore target is an interpretation, not a direct quotation requiring approval for this operation. The document also states “No new approval is granted by this document.”
-
-[`local-environment.md`](./local-environment.md) documents the local Maven schema/account as unprovisioned unless owner-directed and forbids using the Android root exception to target schemas other than `bingo_qa_test`. Those rules do not themselves approve cross-schema access or V23. Because the current runner cannot create/access the verification target and the existing root exception is target-limited, this runbook treats owner/DBA authorization and a separately scoped verification identity as prerequisites.
+This runbook is prepared for review only. Execute no backup, restore, schema
+creation, account/grant change, or V23 migration until the specific owner and
+DBA approvals in the procedure are obtained. The local root exception described
+in the E2E runbook applies only to the guarded Android test backend targeting
+`bingo_qa_test`; it does not authorize access to a verification schema or
+change the required separately scoped verification identity.
 
 ## Preconditions
 

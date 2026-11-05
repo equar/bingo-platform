@@ -22,8 +22,8 @@ The helper creates a separate persistent release keystore per app if no
 `android/key.properties` exists. Back up **all of `signing/` securely**;
 keep those same keys for future app updates. Signing files and build outputs
 are ignored by Git. Existing signing configuration is reused. The player's
-Android ID is `com.equar.bingo.bingo_app`; the agent's is
-`com.equar.bingo.bingo_agent`. Previously installed debug/demo apps may need
+Android application ID is `com.bakaroo.bingo_app`; the agent's is
+`com.bakaroo.bingo_agent`. Previously installed debug/demo apps may need
 uninstalling if their signing identity or package ID differs.
 
 ## iOS
@@ -61,7 +61,7 @@ Production device validation remains separate from local analysis/widget tests.
 Do not run financial integration scenarios against the production database
 merely to test a package build.
 
-The restored iOS bundle IDs are `com.equar.bingo.bingoApp` (player) and
+The checked-in iOS bundle IDs are `com.equar.bingo.bingoApp` (player) and
 `com.equar.bingo.bingoAgent` (agent). Create their Apple profiles accordingly,
 or update the Xcode bundle IDs and export profile mappings together.
 The local Xcode installation currently requires its licence to be reviewed
@@ -143,3 +143,91 @@ remain unverified until that configuration is supplied.
 References: [Flutter Android releases](https://docs.flutter.dev/deployment/android),
 [Android page-size compatibility](https://developer.android.com/guide/practices/page-sizes),
 [Android app signing](https://developer.android.com/studio/publish/app-signing).
+
+## Google Play and Apple store releases
+
+The store workflows publish separately from the direct-share APK/Ad Hoc
+workflow above. All store workflows are manually dispatched. Repository files
+do not verify store credentials, app records, signing profiles, environment
+approvals, or a successful upload. Complete store listings with final metadata
+and approved privacy/support URLs, and resolve Product/Legal review of payment,
+wallet, prize, and bingo policies before public release.
+
+### One-time store setup
+
+**Google Play**
+
+1. Create the Play Console app with the package name configured by
+   `BINGO_ANDROID_PACKAGE_NAME`.
+2. Enable Play App Signing and configure the corresponding upload keystore.
+3. Create a service account with the required Play Console permissions.
+4. Confirm the internal testing track, release notes, and testers.
+
+**Apple**
+
+1. Create the App Store Connect app using `BINGO_IOS_BUNDLE_ID`.
+2. Create an App Store Connect API key and configure its key ID, issuer ID, and
+   private key.
+3. Create the distribution certificate and provisioning profile for the
+   configured bundle ID/team.
+4. Configure TestFlight access and App Review notes.
+
+### Store workflow map
+
+- `bingo-app-mobile-ci.yml` validates Flutter, runs tests, and builds a release
+  bundle without publishing.
+- `bingo-app-android-internal-testing.yml` builds/signs an Android App Bundle
+  and uploads it to the Play internal-testing track.
+- `bingo-app-android-production.yml` promotes the previously tested version
+  code without rebuilding.
+- `bingo-app-ios-testflight.yml` builds/signs an IPA and uploads it to
+  TestFlight.
+- `bingo-app-ios-app-store.yml` submits a processed build for App Review after
+  manual approval.
+
+Repository variables:
+
+- `BINGO_MOBILE_API_BASE_URL`
+- `BINGO_ANDROID_PACKAGE_NAME`
+- `BINGO_IOS_BUNDLE_ID`
+- `BINGO_ANDROID_PRODUCTION_ROLLOUT`
+
+Repository secrets:
+
+- `BINGO_ANDROID_KEYSTORE_BASE64`
+- `BINGO_ANDROID_KEYSTORE_PASSWORD`
+- `BINGO_ANDROID_KEY_ALIAS`
+- `BINGO_ANDROID_KEY_PASSWORD`
+- `BINGO_GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64`
+- `BINGO_APP_STORE_CONNECT_KEY_ID`
+- `BINGO_APP_STORE_CONNECT_ISSUER_ID`
+- `BINGO_APP_STORE_CONNECT_PRIVATE_KEY_BASE64`
+- `BINGO_IOS_DISTRIBUTION_CERTIFICATE_BASE64`
+- `BINGO_IOS_DISTRIBUTION_CERTIFICATE_PASSWORD`
+- `BINGO_IOS_PROVISIONING_PROFILE_BASE64`
+- `BINGO_IOS_KEYCHAIN_PASSWORD`
+
+Production promotion/submission use the `bingo-app-android-production` and
+`bingo-app-ios-production` GitHub environments; require reviewers in repository
+settings. Internal testing and TestFlight do not use those production
+environments. Workflows validate the API URL before build or submission.
+
+### Release flow and recovery
+
+1. Run Android internal testing and verify the uploaded artifact in Play
+   Console before promotion.
+2. Promote the exact Android version code tested internally. Configure a
+   staged rollout fraction only when intended.
+3. Run iOS TestFlight after verifying project and signing settings; confirm
+   the processed build in App Store Connect.
+4. Submit the exact processed iOS build for review through the manually
+   approved production workflow.
+5. If an upload failed before store acceptance, fix the workflow and rerun with
+   the same release inputs. If a wrong build reached a store, verify store
+   state first; do not rebuild blindly. Rotate signing material in the store
+   console before changing GitHub secrets.
+
+Recheck current Google Play billing and Apple review requirements before
+enabling payment-adjacent or prize mechanics. Confirm licensing,
+geo-restrictions, age gating, and disclosures with Product/Legal owners. Store
+workflow files alone do not establish compliance or release readiness.
