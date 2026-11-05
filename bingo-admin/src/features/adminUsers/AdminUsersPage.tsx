@@ -45,11 +45,12 @@ const emptyForm: AdminUserFormState = {
   displayName: "",
   email: "",
   phoneNumber: "",
-  status: "ACTIVE",
+  status: "PENDING",
   role: "ADMIN",
 };
 
-function toLocalEthiopianPhone(phoneNumber: string) {
+function toLocalEthiopianPhone(phoneNumber: string | null) {
+  if (!phoneNumber) return "";
   const normalized = phoneNumber.replace(/\D/g, "");
   return normalized.startsWith("251") && normalized.length === 12
     ? `0${normalized.slice(3)}`
@@ -90,7 +91,7 @@ export function AdminUsersPage() {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim()) || form.email !== form.email.trim()) {
       return "Enter a valid email address.";
     }
-    if (!/^\d{10}$/.test(form.phoneNumber)) return "Enter exactly 10 digits.";
+    if (form.phoneNumber && !/^\d{10}$/.test(form.phoneNumber)) return "Enter exactly 10 digits.";
     if (!statusOptions.some((status) => status === form.status)) return "Choose a valid status.";
     if (!roleOptions.some((role) => role === form.role)) return "Choose a valid role.";
     return null;
@@ -134,7 +135,7 @@ export function AdminUsersPage() {
         return updateAdminUser(selectedUser.id, {
           displayName: form.displayName,
           email: form.email,
-          phoneNumber: form.phoneNumber,
+          phoneNumber: form.phoneNumber || null,
           password: form.password?.trim() ? form.password : undefined,
           status: form.status,
           roles: [form.role],
@@ -144,8 +145,8 @@ export function AdminUsersPage() {
       return createAdminUser({
         displayName: form.displayName,
         email: form.email,
-        phoneNumber: form.phoneNumber,
-        status: form.status,
+        phoneNumber: form.phoneNumber || null,
+        status: "PENDING",
         roles: [form.role],
       });
     },
@@ -313,7 +314,7 @@ export function AdminUsersPage() {
               required
             />
             <TextField
-              label={t("Phone number")}
+              label={t("Phone number (optional)")}
               value={form.phoneNumber}
               onChange={(event) =>
                 setForm((current) => ({
@@ -322,9 +323,8 @@ export function AdminUsersPage() {
                 }))
               }
               fullWidth
-              required
               inputProps={{ inputMode: "numeric", maxLength: 10 }}
-              helperText={t("Enter exactly 10 digits.")}
+              helperText={t("Leave blank or enter exactly 10 digits.")}
             />
             {!selectedUser ? (
               <Alert severity="info">{t("A password will be generated automatically and emailed to the new user.")}</Alert>
@@ -339,19 +339,21 @@ export function AdminUsersPage() {
                 helperText={t("Leave blank to keep the current password.")}
               />
             ) : null}
-            <TextField
-              select
-              label={t("Status")}
-              value={form.status}
-              onChange={(event) => setForm((current) => ({ ...current, status: event.target.value }))}
-              fullWidth
-            >
-              {statusOptions.map((option) => (
-                <MenuItem key={option} value={option}>
-                  {translateAdminStatus(option, t)}
-                </MenuItem>
-              ))}
-            </TextField>
+            {selectedUser ? (
+              <TextField
+                select
+                label={t("Status")}
+                value={form.status}
+                onChange={(event) => setForm((current) => ({ ...current, status: event.target.value }))}
+                fullWidth
+              >
+                {statusOptions.map((option) => (
+                  <MenuItem key={option} value={option}>
+                    {translateAdminStatus(option, t)}
+                  </MenuItem>
+                ))}
+              </TextField>
+            ) : null}
             <FormControl fullWidth>
               <InputLabel id="admin-user-role-label">{t("Role")}</InputLabel>
               <Select

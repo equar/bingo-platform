@@ -5,7 +5,7 @@ export interface AdminUserProfile {
   id: number;
   displayName: string;
   email?: string | null;
-  phoneNumber: string;
+  phoneNumber: string | null;
   roles: string[];
   status: string;
   createdAt: string;

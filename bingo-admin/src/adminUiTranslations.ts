@@ -245,6 +245,8 @@ export const adminUiTranslations = {
   "Pending review": "ግምገማ በመጠባበቅ ላይ",
   Phone: "ስልክ",
   "Phone number": "ስልክ ቁጥር",
+  "Phone number (optional)": "ስልክ ቁጥር (አማራጭ)",
+  "Leave blank or enter exactly 10 digits.": "ባዶ ይተዉት ወይም በትክክል 10 አሃዞችን ያስገቡ።",
   Player: "ተጫዋች",
   "Player verification": "የተጫዋች ማረጋገጫ",
   "Player verification queue": "የተጫዋች ማረጋገጫ ወረፋ",

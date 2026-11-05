@@ -13,7 +13,7 @@ import java.util.Set;
 public record AdminUserUpdateRequest(
                 @NotBlank @Size(max = 120) String displayName,
                 @NotBlank @Email @Size(max = 255) String email,
-                @NotBlank @Pattern(regexp = "\\d{10}", message = "Phone number must be 10 digits") String phoneNumber,
+                @Pattern(regexp = "^$|^\\d{10}$", message = "Phone number must be 10 digits") String phoneNumber,
                 @Size(min = 8, max = 72) String password,
                 @NotNull AccountStatus status,
                 @NotEmpty Set<UserRole> roles) {

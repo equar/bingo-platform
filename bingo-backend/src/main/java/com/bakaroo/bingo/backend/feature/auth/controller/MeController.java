@@ -26,7 +26,7 @@ public class MeController {
 
     @GetMapping("/me")
     public MeResponse me(@AuthenticationPrincipal BingoUserPrincipal principal) {
-        return authService.me(principal.getUsername());
+        return authService.me(principal.getUser().getId());
     }
 
     @PutMapping("/me/preferences")

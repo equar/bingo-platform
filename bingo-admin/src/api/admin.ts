@@ -12,7 +12,7 @@ export interface AdminUserProfile {
   id: number;
   displayName: string;
   email: string | null;
-  phoneNumber: string;
+  phoneNumber: string | null;
   roles: string[];
   status: string;
   createdAt: string;
@@ -172,7 +172,7 @@ export interface UserSummaryResponse {
   id: number;
   displayName: string;
   email: string;
-  phoneNumber: string;
+  phoneNumber: string | null;
   roles: string[];
   status: string;
   createdAt: string;
@@ -182,7 +182,7 @@ export interface UserSummaryResponse {
 export interface AdminUserCreateRequest {
   displayName: string;
   email: string;
-  phoneNumber: string;
+  phoneNumber: string | null;
   status: string;
   roles: string[];
 }
@@ -190,7 +190,7 @@ export interface AdminUserCreateRequest {
 export interface AdminUserUpdateRequest {
   displayName: string;
   email: string;
-  phoneNumber: string;
+  phoneNumber: string | null;
   password?: string;
   status: string;
   roles: string[];

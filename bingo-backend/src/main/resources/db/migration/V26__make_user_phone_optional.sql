@@ -1,0 +1,1 @@
+alter table users modify column normalized_phone varchar(32) null;

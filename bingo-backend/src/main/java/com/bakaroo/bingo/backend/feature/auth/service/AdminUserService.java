@@ -61,10 +61,12 @@ public class AdminUserService {
     @Transactional
     public UserSummaryResponse createUser(AdminUserCreateRequest request) {
         String normalizedEmail = normalizeEmail(request.email());
-        String normalizedPhone = phoneNormalizer.normalize(request.phoneNumber());
+        String normalizedPhone = normalizeOptionalPhone(request.phoneNumber());
         validateRoles(request.roles());
         ensureEmailAvailable(normalizedEmail, null);
-        ensurePhoneAvailable(normalizedPhone, null);
+        if (normalizedPhone != null) {
+            ensurePhoneAvailable(normalizedPhone, request.roles(), null);
+        }
 
         String unsharedPassword = passwordGenerator.generate();
         String activationToken = activationTokenGenerator.generateToken();
@@ -100,10 +102,12 @@ public class AdminUserService {
         }
 
         String normalizedEmail = normalizeEmail(request.email());
-        String normalizedPhone = phoneNormalizer.normalize(request.phoneNumber());
+        String normalizedPhone = normalizeOptionalPhone(request.phoneNumber());
         validateRoles(request.roles());
         ensureEmailAvailable(normalizedEmail, userId);
-        ensurePhoneAvailable(normalizedPhone, userId);
+        if (normalizedPhone != null) {
+            ensurePhoneAvailable(normalizedPhone, request.roles(), userId);
+        }
 
         user.setDisplayName(request.displayName().trim());
         user.setEmail(normalizedEmail);
@@ -127,12 +131,14 @@ public class AdminUserService {
         });
     }
 
-    private void ensurePhoneAvailable(String normalizedPhone, Long currentUserId) {
-        userRepository.findByNormalizedPhone(normalizedPhone).ifPresent(existing -> {
-            if (currentUserId == null || !existing.getId().equals(currentUserId)) {
-                throw new ConflictException("PHONE_ALREADY_REGISTERED", "That phone number is already registered");
-            }
-        });
+    private void ensurePhoneAvailable(String normalizedPhone, Set<UserRole> roles, Long currentUserId) {
+        if (userRepository.countByPhoneAndAnyRoleExceptUser(normalizedPhone, roles, currentUserId) > 0) {
+            throw new ConflictException("PHONE_ALREADY_REGISTERED", "That phone number is already registered for this role");
+        }
+    }
+
+    private String normalizeOptionalPhone(String phoneNumber) {
+        return phoneNumber == null || phoneNumber.isBlank() ? null : phoneNormalizer.normalize(phoneNumber);
     }
 
     private void validateRoles(Set<UserRole> roles) {

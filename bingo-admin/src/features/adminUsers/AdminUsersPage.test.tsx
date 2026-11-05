@@ -68,6 +68,7 @@ describe("AdminUsersPage", () => {
 
     await user.click(screen.getByRole("button", { name: "Create admin user" }));
     const createDialog = await screen.findByRole("dialog", { name: "Create admin user" });
+    expect(within(createDialog).queryByLabelText("Status")).not.toBeInTheDocument();
     await user.type(within(createDialog).getByRole("textbox", { name: /display name/i }), "New Admin");
     await user.type(within(createDialog).getByRole("textbox", { name: /email/i }), "new@bingo.local");
     await user.type(within(createDialog).getByRole("textbox", { name: /phone number/i }), "0925636541");
@@ -78,7 +79,7 @@ describe("AdminUsersPage", () => {
         displayName: "New Admin",
         email: "new@bingo.local",
         phoneNumber: "0925636541",
-        status: "ACTIVE",
+        status: "PENDING",
         roles: ["ADMIN"],
       });
     });

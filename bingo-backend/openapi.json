@@ -13089,7 +13089,8 @@
             "type" : "string"
           },
           "phoneNumber" : {
-            "type" : "string"
+            "type" : "string",
+            "nullable" : true
           },
           "roles" : {
             "type" : "array",
@@ -13149,8 +13150,7 @@
           },
           "phoneNumber" : {
             "type" : "string",
-            "minLength" : 1,
-            "pattern" : "\\d{10}"
+            "pattern" : "^$|^\\d{10}$"
           },
           "password" : {
             "type" : "string",
@@ -13171,7 +13171,7 @@
             "uniqueItems" : true
           }
         },
-        "required" : [ "displayName", "email", "phoneNumber", "roles", "status" ]
+        "required" : [ "displayName", "email", "roles", "status" ]
       },
       "UserSummaryResponse" : {
         "type" : "object",
@@ -13187,7 +13187,8 @@
             "type" : "string"
           },
           "phoneNumber" : {
-            "type" : "string"
+            "type" : "string",
+            "nullable" : true
           },
           "roles" : {
             "type" : "array",
@@ -15026,8 +15027,7 @@
           },
           "phoneNumber" : {
             "type" : "string",
-            "minLength" : 1,
-            "pattern" : "\\d{10}"
+            "pattern" : "^$|^\\d{10}$"
           },
           "status" : {
             "type" : "string",
@@ -15043,7 +15043,7 @@
             "uniqueItems" : true
           }
         },
-        "required" : [ "displayName", "email", "phoneNumber", "roles", "status" ]
+        "required" : [ "displayName", "email", "roles", "status" ]
       },
       "FinanceRoleAssignmentRequest" : {
         "type" : "object",

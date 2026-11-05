@@ -268,7 +268,7 @@ public class WalletTransferService {
 
     private User findPlayerByPhone(String phoneNumber) {
         String normalizedPhone = phoneNormalizer.normalize(phoneNumber);
-        User user = userRepository.findByNormalizedPhone(normalizedPhone)
+        User user = userRepository.findByNormalizedPhoneAndRole(normalizedPhone, UserRole.PLAYER)
                 .orElseThrow(() -> new NotFoundException("PLAYER_NOT_FOUND", "Player account not found"));
         if (!user.hasRole(UserRole.PLAYER)) {
             throw new BadRequestException("NOT_A_PLAYER", "That phone number does not belong to a player account");
