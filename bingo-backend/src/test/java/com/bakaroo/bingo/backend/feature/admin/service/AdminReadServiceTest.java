@@ -223,11 +223,8 @@ class AdminReadServiceTest {
                 .thenReturn(new PageImpl<>(List.of(session)));
         when(ticketRepository.countBySessionId(session.getId())).thenReturn(1L);
         when(drawEventRepository.countBySessionId(session.getId())).thenReturn(2L);
-        when(winClaimRepository.findBySessionIdOrderByCreatedAtDesc(session.getId()))
-                .thenReturn(List.of(makeWinClaim(player)));
         when(gameSessionRepository.findByStateInAndStartedAtIsNotNullAndEndedAtIsNullOrderByScheduledStartAtAsc(
                 List.of(GameSessionState.STARTED, GameSessionState.DRAWING))).thenReturn(List.of(session));
-        when(supportTicketRepository.findAll()).thenReturn(List.of(supportTicket));
 
         assertThat(service.sessions(null, null, null, null, PageRequest.of(0, 20))).hasSize(1);
         assertThat(service.liveSessions()).hasSize(1);

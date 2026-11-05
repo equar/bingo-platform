@@ -57,6 +57,8 @@ class AdminPlayerVerificationServiceTest {
 
     @Test
     void recordsReviewAndUpdatesCurrentPlayerStatus() {
+        player.setPlayerVerificationStatus(PlayerVerificationStatus.IN_REVIEW);
+        player.setPlayerVerificationReason(PlayerVerificationReason.REVIEW_STARTED);
         when(userRepository.findByIdForUpdate(25L)).thenReturn(Optional.of(player));
         when(userRepository.findById(1L)).thenReturn(Optional.of(admin));
         when(userRepository.save(player)).thenReturn(player);
