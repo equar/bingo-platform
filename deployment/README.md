@@ -153,3 +153,7 @@ The one-time first-admin procedure is documented in
 [Admin bootstrap](aws/ADMIN_BOOTSTRAP.md). It is disabled by default, creates
 only the requested first administrator, and must be disabled and cleaned up
 after the initial password is changed.
+
+Email delivery is selected with `APP_EMAIL_PROVIDER=smtp|graph`. See
+[Email providers](aws/EMAIL_PROVIDERS.md) for Graph credentials, sender mailbox,
+and SMTP settings. Both providers support deployment admin bootstrap.

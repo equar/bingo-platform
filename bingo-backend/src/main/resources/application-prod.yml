@@ -1,4 +1,11 @@
 spring:
+  mail:
+    properties:
+      mail:
+        smtp:
+          connectiontimeout: 10000
+          timeout: 10000
+          writetimeout: 10000
   datasource:
     url: jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT:3306}/${MYSQL_DATABASE}?sslMode=VERIFY_IDENTITY&serverTimezone=UTC
     username: ${MYSQL_USER}

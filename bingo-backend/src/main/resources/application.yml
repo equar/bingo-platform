@@ -56,6 +56,11 @@ server:
     include-message: never
 
 app:
+  email:
+    provider: ${APP_EMAIL_PROVIDER:smtp}
+    from: ${APP_EMAIL_FROM:${SPRING_MAIL_USERNAME:}}
+  admin-account-email:
+    from: ${app.email.from}
   qa:
     synthetic-financial-tests-enabled: false
   business-timezone: ${APP_BUSINESS_TIMEZONE:Africa/Addis_Ababa}
