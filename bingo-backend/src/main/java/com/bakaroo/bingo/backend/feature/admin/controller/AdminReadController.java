@@ -5,10 +5,13 @@ import com.bakaroo.bingo.backend.common.exception.BadRequestException;
 import com.bakaroo.bingo.backend.common.validation.ReportRangeValidator;
 import com.bakaroo.bingo.backend.feature.admin.dto.*;
 import com.bakaroo.bingo.backend.feature.admin.service.AdminReadService;
+import com.bakaroo.bingo.backend.feature.agent.entity.AgentStatus;
 import com.bakaroo.bingo.backend.feature.user.entity.AccountStatus;
 import com.bakaroo.bingo.backend.feature.game.entity.GameSessionState;
 import com.bakaroo.bingo.backend.feature.audit.dto.AuditLogDetailResponse;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -18,6 +21,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.format.annotation.DateTimeFormat;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/admin")
@@ -71,8 +76,38 @@ public class AdminReadController {
     }
 
     @GetMapping("/agents")
-    public PageResponse<AdminAgentSummaryResponse> agents(@PageableDefault(size = 20) Pageable pageable) {
-        return PageResponse.from(adminReadService.agents(pageable));
+    public PageResponse<AdminAgentSummaryResponse> agents(@RequestParam(required = false) String query,
+            @RequestParam(required = false) AgentStatus status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) List<String> sort) {
+        if (page < 0 || size < 1 || size > 100) {
+            throw new BadRequestException("INVALID_PAGINATION",
+                    "Agent page must be non-negative and size must be between 1 and 100");
+        }
+        Pageable pageable = PageRequest.of(page, size, agentSort(sort));
+        return PageResponse.from(adminReadService.agents(query, status, pageable));
+    }
+
+    private Sort agentSort(List<String> sortParameters) {
+        if (sortParameters == null || sortParameters.isEmpty()) {
+            return Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id"));
+        }
+        List<Sort.Order> orders = new ArrayList<>();
+        for (String sortParameter : sortParameters) {
+            String[] parts = sortParameter.split(",", -1);
+            if (parts.length < 1 || parts.length > 2 || parts[0].isBlank()) {
+                throw new BadRequestException("INVALID_SORT", "Agent sort must use field[,direction]");
+            }
+            Sort.Direction direction;
+            try {
+                direction = parts.length == 1 ? Sort.Direction.ASC : Sort.Direction.fromString(parts[1].trim());
+            } catch (IllegalArgumentException exception) {
+                throw new BadRequestException("INVALID_SORT_DIRECTION", "Unsupported agent sort direction");
+            }
+            orders.add(new Sort.Order(direction, parts[0].trim()));
+        }
+        return Sort.by(orders);
     }
 
     @GetMapping("/agents/{agentId}")

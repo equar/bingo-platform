@@ -112,6 +112,8 @@ export function AppRouter() {
               <Route path="dashboard" element={<DashboardPage />} />
               <Route path="admin-users" element={<AdminUsersPage />} />
               <Route path="rooms" element={<RoomsPage />} />
+              <Route path="rooms/new" element={<RoomsPage />} />
+              <Route path="rooms/:roomId/edit" element={<RoomsPage />} />
               <Route path="community" element={<CommunityPage />} />
               <Route path="sessions" element={<SessionsPage />} />
               <Route path="sessions/:sessionId" element={<SessionDetailPage />} />

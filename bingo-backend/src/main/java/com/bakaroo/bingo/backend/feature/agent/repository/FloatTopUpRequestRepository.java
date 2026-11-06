@@ -3,6 +3,7 @@ package com.bakaroo.bingo.backend.feature.agent.repository;
 import com.bakaroo.bingo.backend.feature.agent.entity.FloatTopUpRequest;
 import com.bakaroo.bingo.backend.feature.agent.entity.FloatTopUpRequestStatus;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
@@ -16,6 +17,12 @@ import jakarta.persistence.LockModeType;
 public interface FloatTopUpRequestRepository extends JpaRepository<FloatTopUpRequest, Long> {
 
     List<FloatTopUpRequest> findByAgentIdOrderByCreatedAtDesc(Long agentId);
+
+    long countByAgentId(Long agentId);
+
+    @Query("select r.agent.id, count(r) from FloatTopUpRequest r "
+            + "where r.agent.id in :agentIds group by r.agent.id")
+    List<Object[]> countByAgentIds(@Param("agentIds") Collection<Long> agentIds);
 
     List<FloatTopUpRequest> findByStatusOrderByCreatedAtDesc(FloatTopUpRequestStatus status);
 

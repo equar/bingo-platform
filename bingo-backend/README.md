@@ -44,6 +44,10 @@ The checked-in [OpenAPI contract](openapi.json) is the source for client
 generation and mocked API fixtures. During local development the live contract
 is at `http://localhost:8080/v3/api-docs`. After an API change, refresh
 `openapi.json` from that endpoint and commit it with the backend change.
+The Admin agent roster uses zero-based Spring Data pages with a default size of
+20 and a maximum size of 100. Search (`query`) and status filtering are applied
+by the database before pagination; results default to `createdAt DESC, id DESC`
+ordering.
 Admin consumes `/api/v1/admin/**` and `/api/v1/admin/support/**`; Agent consumes
 `/api/v1/agent/**`, `/api/v1/support/**`, and shared auth/game/wallet
 operations; Player consumes public auth/game/wallet/support operations.

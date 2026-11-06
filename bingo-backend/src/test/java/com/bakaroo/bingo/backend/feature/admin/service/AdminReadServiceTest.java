@@ -7,6 +7,8 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 import com.bakaroo.bingo.backend.feature.agent.entity.Agent;
 import com.bakaroo.bingo.backend.feature.agent.entity.AgentStatus;
@@ -66,6 +68,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
@@ -229,15 +232,34 @@ class AdminReadServiceTest {
         assertThat(service.sessions(null, null, null, null, PageRequest.of(0, 20))).hasSize(1);
         assertThat(service.liveSessions()).hasSize(1);
 
-        when(agentRepository.findAll(PageRequest.of(0, 20))).thenReturn(new PageImpl<>(List.of(agent)));
+        when(agentRepository.searchAdminAgents(isNull(), isNull(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(agent)));
         when(agentRepository.findById(agent.getId())).thenReturn(Optional.of(agent));
-        when(ticketRepository.findAll()).thenReturn(List.of(makeTicket(player, session)));
-        when(agentFloatTransactionRepository.findByAgentFloatAgentIdOrderByCreatedAtDesc(agent.getId()))
-                .thenReturn(List.of());
-        when(floatTopUpRequestRepository.findByAgentIdOrderByCreatedAtDesc(agent.getId())).thenReturn(List.of());
-        when(payoutVerificationRecordRepository.findByAgentIdOrderByCreatedAtDesc(agent.getId())).thenReturn(List.of());
-        assertThat(service.agents(PageRequest.of(0, 20))).hasSize(1);
-        assertThat(service.agentDetail(agent.getId()).agentId()).isEqualTo(agent.getId());
+        when(ticketRepository.countByOwnerId(adminUser.getId())).thenReturn(12L);
+        when(agentFloatTransactionRepository.countByAgentFloatAgentId(agent.getId())).thenReturn(13L);
+        when(floatTopUpRequestRepository.countByAgentId(agent.getId())).thenReturn(14L);
+        when(payoutVerificationRecordRepository.countByAgentId(agent.getId())).thenReturn(15L);
+        when(ticketRepository.countByOwnerIds(List.of(adminUser.getId())))
+                .thenReturn(List.<Object[]>of(new Object[] { adminUser.getId(), 12L }));
+        when(agentFloatTransactionRepository.countByAgentIds(List.of(agent.getId())))
+                .thenReturn(List.<Object[]>of(new Object[] { agent.getId(), 13L }));
+        when(floatTopUpRequestRepository.countByAgentIds(List.of(agent.getId())))
+                .thenReturn(List.<Object[]>of(new Object[] { agent.getId(), 14L }));
+        when(payoutVerificationRecordRepository.countByAgentIds(List.of(agent.getId())))
+                .thenReturn(List.<Object[]>of(new Object[] { agent.getId(), 15L }));
+        var agentPage = service.agents(null, null, PageRequest.of(0, 20));
+        assertThat(agentPage.getTotalElements()).isEqualTo(1);
+        assertThat(agentPage.getContent().get(0).ticketSalesCount()).isEqualTo(12L);
+        assertThat(agentPage.getContent().get(0).floatTransactionCount()).isEqualTo(13L);
+        assertThat(agentPage.getContent().get(0).topUpRequestCount()).isEqualTo(14L);
+        assertThat(agentPage.getContent().get(0).payoutVerificationCount()).isEqualTo(15L);
+        verify(agentRepository).searchAdminAgents(isNull(), isNull(), eq(PageRequest.of(0, 20,
+                Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id")))));
+        assertThat(service.agentDetail(agent.getId()).ticketSalesCount()).isEqualTo(12L);
+        verify(ticketRepository, never()).findAll();
+        verify(agentFloatTransactionRepository, never()).findByAgentFloatAgentIdOrderByCreatedAtDesc(agent.getId());
+        verify(floatTopUpRequestRepository, never()).findByAgentIdOrderByCreatedAtDesc(agent.getId());
+        verify(payoutVerificationRecordRepository, never()).findByAgentIdOrderByCreatedAtDesc(agent.getId());
 
         AuditLogEntry entry = AuditLogEntry.create(adminUser, "LOGIN", "USER", player.getId(), "reason",
                 UUID.randomUUID().toString(), "{}");
@@ -256,6 +278,29 @@ class AdminReadServiceTest {
 
         when(supportTicketRepository.findAll(any(Pageable.class))).thenReturn(new PageImpl<>(List.of(supportTicket)));
         assertThat(service.reviewQueue(PageRequest.of(0, 20))).hasSize(1);
+    }
+
+    @Test
+    void agentRosterFiltersBeforePagingAndRejectsUnsafePaginationAndSorts() {
+        Pageable requested = PageRequest.of(2, 50, Sort.by(Sort.Order.asc("city")));
+        Pageable stable = PageRequest.of(2, 50,
+                Sort.by(Sort.Order.asc("city"), Sort.Order.desc("id")));
+        when(agentRepository.searchAdminAgents("addis", AgentStatus.PENDING, stable))
+                .thenReturn(new PageImpl<>(List.of(agent), stable, 200));
+        when(ticketRepository.countByOwnerIds(List.of(adminUser.getId()))).thenReturn(List.of());
+        when(agentFloatTransactionRepository.countByAgentIds(List.of(agent.getId()))).thenReturn(List.of());
+        when(floatTopUpRequestRepository.countByAgentIds(List.of(agent.getId()))).thenReturn(List.of());
+        when(payoutVerificationRecordRepository.countByAgentIds(List.of(agent.getId()))).thenReturn(List.of());
+
+        var result = service.agents("  ADDIS ", AgentStatus.PENDING, requested);
+
+        assertThat(result.getTotalElements()).isEqualTo(200);
+        verify(agentRepository).searchAdminAgents("addis", AgentStatus.PENDING, stable);
+        assertThatThrownBy(() -> service.agents(null, null, PageRequest.of(0, 101)))
+                .isInstanceOf(com.bakaroo.bingo.backend.common.exception.BadRequestException.class);
+        assertThatThrownBy(() -> service.agents(null, null,
+                PageRequest.of(0, 20, Sort.by("user.password"))))
+                .isInstanceOf(com.bakaroo.bingo.backend.common.exception.BadRequestException.class);
     }
 
     @Test

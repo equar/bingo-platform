@@ -1,15 +1,14 @@
 import { useTranslation } from "react-i18next";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import type { ReactNode } from "react";
+import { useEffect, useState } from "react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   Alert,
   Box,
   Button,
   Checkbox,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
+  Divider,
   FormControlLabel,
   Grid,
   MenuItem,
@@ -25,7 +24,7 @@ import {
   TableHead,
   TableRow,
 } from "@mui/material";
-import { BingoRoomResponse, createRoom, listAdminRooms, updateRoom } from "../../api/admin";
+import { BingoRoomResponse, createRoom, getAdminRoom, listAdminRooms, updateRoom } from "../../api/admin";
 import { getUserFacingErrorMessage } from "../../api/types";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { StatusState } from "../../components/StatusState";
@@ -159,10 +158,41 @@ function formatDraftSummary(draft: RoomDraft, t: (key: string, options?: Record<
   ].join(` ${t("·")} `);
 }
 
+function EditorSurface({
+  children,
+  edit,
+}: {
+  children: ReactNode;
+  edit: boolean;
+}) {
+  return (
+    <Paper
+      variant="outlined"
+      sx={{
+        borderRadius: 3,
+        overflow: "hidden",
+        width: "100%",
+        maxWidth: edit ? 1500 : 1180,
+        mx: "auto",
+        bgcolor: "background.paper",
+      }}
+    >
+      {children}
+    </Paper>
+  );
+}
+
 export function RoomsPage() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { roomId: roomIdParam } = useParams<{ roomId: string }>();
+  const isCreatePage = location.pathname.endsWith("/rooms/new");
+  const isEditPage = location.pathname.endsWith("/edit") && roomIdParam !== undefined;
+  const isEditorPage = isCreatePage || isEditPage;
+  const roomId = Number(roomIdParam);
   const queryClient = useQueryClient();
-  const [draft, setDraft] = useState<RoomDraft | null>(null);
+  const [draft, setDraft] = useState<RoomDraft | null>(() => isCreatePage ? { ...emptyDraft } : null);
   const [originalDraft, setOriginalDraft] = useState<RoomDraft | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingSubmit, setPendingSubmit] = useState(false);
@@ -171,6 +201,23 @@ export function RoomsPage() {
   const [roomStatusFilter, setRoomStatusFilter] = useState<"all" | "active" | "inactive">("all");
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(20);
+  const roomDetailQuery = useQuery({
+    queryKey: ["admin-room", roomId],
+    queryFn: () => getAdminRoom(roomId),
+    enabled: isEditPage && Number.isInteger(roomId) && roomId > 0,
+  });
+  useEffect(() => {
+    if (isCreatePage) {
+      setDraft({ ...emptyDraft });
+      setOriginalDraft(null);
+      setPendingError(null);
+    } else if (isEditPage && roomDetailQuery.data) {
+      const nextDraft = roomToDraft(roomDetailQuery.data);
+      setDraft(nextDraft);
+      setOriginalDraft(nextDraft);
+      setPendingError(null);
+    }
+  }, [isCreatePage, isEditPage, roomDetailQuery.data]);
   const normalizedSearch = roomSearch.trim();
   const roomsQuery = useQuery({
     queryKey: ["admin-rooms", normalizedSearch, roomStatusFilter, page, pageSize],
@@ -208,6 +255,7 @@ export function RoomsPage() {
       }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["admin-rooms"] });
+      if (isEditorPage) navigate("/rooms");
       setDraft(null);
       setOriginalDraft(null);
       setConfirmOpen(false);
@@ -242,6 +290,8 @@ export function RoomsPage() {
       }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["admin-rooms"] });
+      await queryClient.invalidateQueries({ queryKey: ["admin-room", roomId] });
+      navigate("/rooms");
       setDraft(null);
       setOriginalDraft(null);
       setConfirmOpen(false);
@@ -265,7 +315,7 @@ export function RoomsPage() {
   };
 
   const rooms = roomsQuery.data?.content ?? [];
-  const title = useMemo(() => (draft?.id ? "Edit room" : "Create room"), [draft?.id]);
+  const title = draft?.id ? "Edit room" : "Create room";
   const hasDraftChanges = draft !== null && (
     draft.id === undefined
       || (originalDraft !== null && !roomDraftsEqual(draft, originalDraft))
@@ -297,15 +347,15 @@ export function RoomsPage() {
     });
   };
 
-  if (roomsQuery.isLoading) {
+  if (roomsQuery.isLoading || (isEditPage && roomDetailQuery.isLoading)) {
     return <StatusState title={t("Loading rooms")} loading message={t("Fetching room catalog")} />;
   }
 
-  if (roomsQuery.error) {
+  if (roomsQuery.error || (isEditPage && roomDetailQuery.error)) {
     return (
       <StatusState
         title={t("Unable to load rooms")}
-        message={t(getUserFacingErrorMessage(roomsQuery.error) ?? "Something went wrong. Please try again.")}
+        message={t(getUserFacingErrorMessage(roomDetailQuery.error ?? roomsQuery.error) ?? "Something went wrong. Please try again.")}
         actionLabel={t("Retry")}
         onAction={() => roomsQuery.refetch()}
       />
@@ -314,22 +364,16 @@ export function RoomsPage() {
 
   return (
     <Stack spacing={3}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" gap={2} flexWrap="wrap">
+      {!isEditorPage ? <Box display="flex" justifyContent="space-between" alignItems="center" gap={2} flexWrap="wrap">
         <div>
           <Typography variant="h4">{t("Rooms")}</Typography>
           <Typography color="text.secondary">{t("Create and edit bingo room configuration and activation.")}</Typography>
         </div>
-        <Button
-          variant="contained"
-          onClick={() => {
-            setOriginalDraft(null);
-            setDraft({ ...emptyDraft });
-          }}
-        >
+        <Button variant="contained" onClick={() => navigate("/rooms/new")}>
           {t("New room")}</Button>
-      </Box>
+      </Box> : null}
 
-      <Paper variant="outlined" sx={{ borderRadius: 3, overflow: "hidden" }}>
+      {!isEditorPage ? <Paper variant="outlined" sx={{ borderRadius: 3, overflow: "hidden" }}>
         <Box
           sx={{
             display: "flex",
@@ -422,11 +466,7 @@ export function RoomsPage() {
                     <Button
                       variant="outlined"
                       size="small"
-                      onClick={() => {
-                        const nextDraft = roomToDraft(room);
-                        setOriginalDraft(nextDraft);
-                        setDraft(nextDraft);
-                      }}
+                      onClick={() => navigate(`/rooms/${room.id}/edit`)}
                     >
                       {t("Edit")}</Button>
                   </TableCell>
@@ -455,21 +495,29 @@ export function RoomsPage() {
           }}
           rowsPerPageOptions={[10, 20, 50]}
         />
-      </Paper>
+      </Paper> : null}
 
-      <Dialog
-        open={Boolean(draft)}
-        onClose={() => {
-          setDraft(null);
-          setOriginalDraft(null);
-        }}
-        fullWidth
-        maxWidth="md"
-      >
-        <DialogTitle>{title}</DialogTitle>
-        <DialogContent>
-          <Stack spacing={2} sx={{ pt: 1 }}>
+      {isEditorPage ? (
+        <>
+          <Button variant="text" onClick={() => navigate("/rooms")} sx={{ alignSelf: "flex-start", px: 0 }}>
+            {t("← Back to rooms list")}
+          </Button>
+          <EditorSurface edit={isEditPage}>
+        <Box sx={{ px: { xs: 2, md: 3 }, py: 2.5, borderBottom: "1px solid", borderColor: "divider", bgcolor: "grey.50" }}>
+          <Typography variant="h5" sx={{ mb: 0.5 }}>{isEditPage ? t("Edit room") : t("Create a bingo room")}</Typography>
+          <Typography variant="body2" color="text.secondary">
+            {isEditPage ? t("Update the room settings and prize rules.") : t("Set up the room, ticket rules, and prizes for your bingo sessions.")}
+          </Typography>
+        </Box>
+        <Box sx={{ px: { xs: 2, md: 3 }, py: { xs: 2, md: 3 } }}>
+          <Grid container spacing={3}>
+            <Grid item xs={12} lg={isEditPage ? 9 : 12}>
+            <Stack spacing={3}>
             {pendingError ? <Alert severity="error">{t(pendingError)}</Alert> : null}
+            <Box>
+              <Typography variant="h6">{t("Room details")}</Typography>
+              <Typography variant="body2" color="text.secondary">{t("Choose a name, currency, and local session settings.")}</Typography>
+            </Box>
             <Grid container spacing={2}>
               <Grid item xs={12} md={6}>
                 <TextField
@@ -498,6 +546,11 @@ export function RoomsPage() {
                   multiline
                   minRows={2}
                 />
+              </Grid>
+              <Grid item xs={12}>
+                <Divider />
+                <Typography variant="h6" sx={{ mt: 2 }}>{t("Ticket and session settings")}</Typography>
+                <Typography variant="body2" color="text.secondary">{t("Set ticket pricing, suggested cadence, and player limits.")}</Typography>
               </Grid>
               <Grid item xs={12} md={4}>
                 <TextField
@@ -552,11 +605,12 @@ export function RoomsPage() {
               </Grid>
               <Grid item xs={12}>
                 <Stack spacing={1}>
+                  <Divider />
                   <Box display="flex" alignItems="center" justifyContent="space-between" gap={2}>
                     <div>
-                      <Typography variant="subtitle1">{t("Prize patterns")}</Typography>
+                      <Typography variant="h6">{t("Prize setup")}</Typography>
                       <Typography variant="caption" color="text.secondary">
-                        {t("Each prize row enables its pattern for this room.")}
+                        {t("Add the winning patterns and define how each prize is awarded.")}
                       </Typography>
                     </div>
                     <Button
@@ -565,131 +619,124 @@ export function RoomsPage() {
                       disabled={!draft || draft.configuredPrizes.length >= patternOptions.length}
                     >{t("Add prize")}</Button>
                   </Box>
-                  <TableContainer component={Paper} variant="outlined">
-                    <Table size="small" aria-label={t("Room prizes")}>
-                      <TableHead>
-                        <TableRow>
-                          <TableCell>{t("Pattern")}</TableCell>
-                          <TableCell>{t("Prize amount")}</TableCell>
-                          <TableCell>{t("Settlement")}</TableCell>
-                          <TableCell>{t("Max winners")}</TableCell>
-                          <TableCell align="right">{t("Actions")}</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {(draft?.configuredPrizes ?? []).map((prize, index) => (
-                          <TableRow key={`${prize.prizeType}-${index}`}>
-                            <TableCell>
-                              <TextField
-                                select
-                                size="small"
-                                label={t("Pattern")}
-                                value={prize.prizeType}
-                                onChange={(event) => updatePrize(index, { prizeType: event.target.value as PatternValue })}
-                                fullWidth
-                              >
+                  <Stack spacing={1.5}>
+                    {(draft?.configuredPrizes ?? []).map((prize, index) => (
+                      <Paper key={`${prize.prizeType}-${index}`} variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+                        <Stack spacing={1.5}>
+                          <Box display="flex" alignItems="center" justifyContent="space-between">
+                            <Typography variant="subtitle2">{t("Prize {{number}}", { number: index + 1 })}</Typography>
+                            <Button
+                              size="small"
+                              color="error"
+                              disabled={(draft?.configuredPrizes.length ?? 0) <= 1}
+                              onClick={() => setDraft((current) => current ? {
+                                ...current,
+                                configuredPrizes: current.configuredPrizes.filter((_, prizeIndex) => prizeIndex !== index),
+                              } : current)}
+                            >{t("Remove")}</Button>
+                          </Box>
+                          <Grid container spacing={1.5}>
+                            <Grid item xs={12} sm={6}>
+                              <TextField select size="small" label={t("Pattern")} value={prize.prizeType}
+                                onChange={(event) => updatePrize(index, { prizeType: event.target.value as PatternValue })} fullWidth>
                                 {patternOptions.map((option) => (
-                                  <MenuItem
-                                    key={option.value}
-                                    value={option.value}
-                                    disabled={(draft?.configuredPrizes ?? []).some((other, otherIndex) =>
-                                      otherIndex !== index && other.prizeType === option.value)}
-                                  >{t(option.label)}</MenuItem>
+                                  <MenuItem key={option.value} value={option.value}
+                                    disabled={(draft?.configuredPrizes ?? []).some((other, otherIndex) => otherIndex !== index && other.prizeType === option.value)}>
+                                    {t(option.label)}
+                                  </MenuItem>
                                 ))}
                               </TextField>
-                            </TableCell>
-                            <TableCell>
-                              <TextField
-                                size="small"
-                                label={t("Prize amount")}
-                                type="number"
-                                value={prize.amount}
+                            </Grid>
+                            <Grid item xs={12} sm={6}>
+                              <TextField size="small" label={t("Prize amount")} type="number" value={prize.amount}
                                 onChange={(event) => updatePrize(index, { amount: event.target.value })}
-                                inputProps={{ min: 0.01, step: 0.01 }}
-                                fullWidth
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <TextField
-                                select
-                                size="small"
-                                label={t("Settlement")}
-                                value={prize.settlementPath}
-                                onChange={(event) => updatePrize(index, { settlementPath: event.target.value as SettlementPath })}
-                                fullWidth
-                              >
+                                inputProps={{ min: 0.01, step: 0.01 }} fullWidth />
+                            </Grid>
+                            <Grid item xs={12} sm={6}>
+                              <TextField select size="small" label={t("Settlement")} value={prize.settlementPath}
+                                onChange={(event) => updatePrize(index, { settlementPath: event.target.value as SettlementPath })} fullWidth>
                                 <MenuItem value="PLAYER_WALLET">{t("Player wallet")}</MenuItem>
                                 <MenuItem value="AGENT_CASH">{t("Agent cash")}</MenuItem>
                               </TextField>
-                            </TableCell>
-                            <TableCell>
-                              <TextField
-                                size="small"
-                                label={t("Max winners")}
-                                type="number"
-                                value={prize.maxWinners}
+                            </Grid>
+                            <Grid item xs={12} sm={6}>
+                              <TextField size="small" label={t("Max winners")} type="number" value={prize.maxWinners}
                                 onChange={(event) => updatePrize(index, { maxWinners: event.target.value })}
-                                inputProps={{ min: 1, step: 1 }}
-                                disabled={!draft?.allowMultipleWinnersPerPrize}
-                                fullWidth
-                              />
-                            </TableCell>
-                            <TableCell align="right">
-                              <Button
-                                size="small"
-                                color="error"
-                                disabled={(draft?.configuredPrizes.length ?? 0) <= 1}
-                                onClick={() => setDraft((current) => current ? {
-                                  ...current,
-                                  configuredPrizes: current.configuredPrizes.filter((_, prizeIndex) => prizeIndex !== index),
-                                } : current)}
-                              >{t("Remove")}</Button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
+                                inputProps={{ min: 1, step: 1 }} disabled={!draft?.allowMultipleWinnersPerPrize} fullWidth />
+                            </Grid>
+                          </Grid>
+                        </Stack>
+                      </Paper>
+                    ))}
+                  </Stack>
                 </Stack>
               </Grid>
             </Grid>
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={draft?.ticketSalesCloseOnSessionStart ?? false}
-                  onChange={(e) => draft && setDraft({ ...draft, ticketSalesCloseOnSessionStart: e.target.checked })}
-                />
-              }
-              label={t("Close ticket sales on session start")}
-            />
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={draft?.allowMultipleWinnersPerPrize ?? false}
-                  onChange={(e) => draft && setDraft({ ...draft, allowMultipleWinnersPerPrize: e.target.checked })}
-                />
-              }
-              label={t("Allow multiple winners per prize")}
-            />
-            <Typography variant="caption" color="text.secondary" sx={{ ml: 2 }}>
-              {t("When enabled, each prize can have up to its configured maxWinners. Otherwise only one claim per prize can be approved per session.")}
-            </Typography>
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={draft?.active ?? false}
-                  onChange={(e) => draft && setDraft({ ...draft, active: e.target.checked })}
-                />
-              }
-              label={t("Active")}
-            />
-          </Stack>
-        </DialogContent>
-        <DialogActions>
+            <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: "grey.50" }}>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>{t("Room rules")}</Typography>
+              <Divider sx={{ mb: 1 }} />
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={draft?.ticketSalesCloseOnSessionStart ?? false}
+                    onChange={(e) => draft && setDraft({ ...draft, ticketSalesCloseOnSessionStart: e.target.checked })}
+                  />
+                }
+                label={t("Close ticket sales when the session starts")}
+              />
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={draft?.allowMultipleWinnersPerPrize ?? false}
+                    onChange={(e) => draft && setDraft({ ...draft, allowMultipleWinnersPerPrize: e.target.checked })}
+                  />
+                }
+                label={t("Allow multiple winners per prize")}
+              />
+              <Typography variant="caption" color="text.secondary" display="block" sx={{ ml: 4 }}>
+                {t("When enabled, each prize can have up to its configured maxWinners. Otherwise only one claim per prize can be approved per session.")}
+              </Typography>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={draft?.active ?? false}
+                    onChange={(e) => draft && setDraft({ ...draft, active: e.target.checked })}
+                  />
+                }
+                label={t("Room is active")}
+              />
+            </Paper>
+            </Stack>
+            </Grid>
+            {isEditPage ? <Grid item xs={12} lg={3}>
+              <Paper variant="outlined" sx={{ p: 2, mt: 1, borderRadius: 2, position: { lg: "sticky" }, top: 16 }}>
+                <Typography variant="h6" gutterBottom>{t("Room history")}</Typography>
+                <Stack spacing={2}>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">{t("Created by")}</Typography>
+                    <Typography>{roomDetailQuery.data?.createdByDisplayName || (isCreatePage ? t("Recorded when saved") : t("Not recorded"))}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">{t("Created at")}</Typography>
+                    <Typography>{roomDetailQuery.data?.createdAt ? new Date(roomDetailQuery.data.createdAt).toLocaleString() : t("Available after creation")}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">{t("Updated by")}</Typography>
+                    <Typography>{roomDetailQuery.data?.updatedByDisplayName || (isCreatePage ? t("Recorded when saved") : t("Not recorded"))}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">{t("Updated at")}</Typography>
+                    <Typography>{roomDetailQuery.data?.updatedAt ? new Date(roomDetailQuery.data.updatedAt).toLocaleString() : t("Available after creation")}</Typography>
+                  </Box>
+                </Stack>
+              </Paper>
+            </Grid> : null}
+          </Grid>
+        </Box>
+        <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1, px: { xs: 2, md: 3 }, py: 2, borderTop: "1px solid", borderColor: "divider", bgcolor: "grey.50" }}>
           <Button
             onClick={() => {
-              setDraft(null);
-              setOriginalDraft(null);
+              navigate("/rooms");
             }}
             disabled={pendingSubmit}
           >
@@ -709,8 +756,10 @@ export function RoomsPage() {
             disabled={pendingSubmit || !hasDraftChanges}
           >
             {t("Save")}</Button>
-        </DialogActions>
-      </Dialog>
+        </Box>
+          </EditorSurface>
+        </>
+      ) : null}
 
       <ConfirmDialog
         open={confirmOpen}

@@ -1,31 +1,64 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { type PropsWithChildren } from "react";
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { listAdminRooms, updateRoom } from "../../api/admin";
+import { getAdminRoom, listAdminRooms, updateRoom } from "../../api/admin";
 import { RoomsPage } from "./RoomsPage";
 
 vi.mock("../../api/admin", () => ({
   createRoom: vi.fn(),
+  getAdminRoom: vi.fn(),
   listAdminRooms: vi.fn(),
   updateRoom: vi.fn(),
 }));
 
+const getAdminRoomMock = vi.mocked(getAdminRoom);
 const listAdminRoomsMock = vi.mocked(listAdminRooms);
 const updateRoomMock = vi.mocked(updateRoom);
 
 function createWrapper({ children }: PropsWithChildren) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+  return (
+    <MemoryRouter initialEntries={["/rooms"]}>
+      <QueryClientProvider client={queryClient}>
+        <Routes>
+          <Route path="/rooms" element={children} />
+          <Route path="/rooms/new" element={children} />
+          <Route path="/rooms/:roomId/edit" element={children} />
+        </Routes>
+      </QueryClientProvider>
+    </MemoryRouter>
+  );
 }
 
 describe("RoomsPage", () => {
   afterEach(cleanup);
 
   beforeEach(() => {
+    getAdminRoomMock.mockReset();
     listAdminRoomsMock.mockReset();
     updateRoomMock.mockReset();
+    getAdminRoomMock.mockResolvedValue({
+      id: 7,
+      version: 1,
+      name: "Evening Room",
+      description: "Daily bingo",
+      ticketPrice: "10.00",
+      currency: "ETB",
+      timezone: "Africa/Addis_Ababa",
+      scheduleRule: "DAILY",
+      sessionCapacity: 100,
+      maxTicketsPerPlayer: 5,
+      ticketSalesCloseOnSessionStart: true,
+      allowMultipleWinnersPerPrize: true,
+      active: true,
+      configuredPatterns: ["LINE"],
+      configuredPrizes: [],
+      createdAt: "2026-01-01T00:00:00Z",
+      updatedAt: "2026-01-01T00:00:00Z",
+    });
     listAdminRoomsMock.mockResolvedValue({
       content: [
         {
@@ -79,11 +112,11 @@ describe("RoomsPage", () => {
     render(<RoomsPage />, { wrapper: createWrapper });
 
     await user.click(await screen.findByRole("button", { name: "Edit" }));
-    const dialog = await screen.findByRole("dialog", { name: "Edit room" });
-    const saveButton = within(dialog).getByRole("button", { name: "Save" });
+    expect(await screen.findByRole("heading", { name: "Edit room" })).toBeInTheDocument();
+    const saveButton = screen.getByRole("button", { name: "Save" });
     expect(saveButton).toBeDisabled();
 
-    const nameField = within(dialog).getByRole("textbox", { name: "Room name" });
+    const nameField = screen.getByRole("textbox", { name: "Room name" });
     await user.clear(nameField);
     await user.type(nameField, "Updated Room");
     expect(saveButton).toBeEnabled();
