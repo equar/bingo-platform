@@ -1,3 +1,4 @@
+import 'package:bingo_app/src/core/widgets/responsive_content.dart';
 import 'package:bingo_app/l10n/app_localizations.dart';
 import 'package:bingo_app/src/core/network/api_error.dart';
 import 'package:bingo_app/src/features/community/data/community_repository.dart';
@@ -21,11 +22,14 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
     _future = ref.read(communityRepositoryProvider).leaderboard(_period, _page);
   }
 
-  void _reload() => setState(
-    () => _future = ref
-        .read(communityRepositoryProvider)
-        .leaderboard(_period, _page),
-  );
+  void _reload() {
+    setState(() {
+      _future = ref
+          .read(communityRepositoryProvider)
+          .leaderboard(_period, _page);
+    });
+  }
+
   Future<void> _profile(Ranking ranking) async {
     final changed = await showDialog<bool>(
       context: context,
@@ -52,152 +56,155 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-            child: DropdownButtonFormField<String>(
-              initialValue: _period,
-              decoration: InputDecoration(labelText: l.leaderboardPeriod),
-              items: [
-                DropdownMenuItem(
-                  value: 'DAILY',
-                  child: Text(l.leaderboardDaily),
-                ),
-                DropdownMenuItem(
-                  value: 'WEEKLY',
-                  child: Text(l.leaderboardWeekly),
-                ),
-                DropdownMenuItem(
-                  value: 'ALL_TIME',
-                  child: Text(l.leaderboardAllTime),
-                ),
-              ],
-              onChanged: (v) {
-                if (v != null) {
-                  _period = v;
-                  _page = 0;
-                  _reload();
-                }
-              },
+      body: ResponsiveContent(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+              child: DropdownButtonFormField<String>(
+                initialValue: _period,
+                decoration: InputDecoration(labelText: l.leaderboardPeriod),
+                items: [
+                  DropdownMenuItem(
+                    value: 'DAILY',
+                    child: Text(l.leaderboardDaily),
+                  ),
+                  DropdownMenuItem(
+                    value: 'WEEKLY',
+                    child: Text(l.leaderboardWeekly),
+                  ),
+                  DropdownMenuItem(
+                    value: 'ALL_TIME',
+                    child: Text(l.leaderboardAllTime),
+                  ),
+                ],
+                onChanged: (v) {
+                  if (v != null) {
+                    _period = v;
+                    _page = 0;
+                    _reload();
+                  }
+                },
+              ),
             ),
-          ),
-          Expanded(
-            child: FutureBuilder<Ranking>(
-              future: _future,
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
+            Expanded(
+              child: FutureBuilder<Ranking>(
+                future: _future,
+                builder: (context, snapshot) {
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            userFacingApiError(snapshot.error, l) ??
+                                l.errorGeneric,
+                          ),
+                          TextButton(onPressed: _reload, child: Text(l.retry)),
+                        ],
+                      ),
+                    );
+                  }
+                  if (snapshot.connectionState != ConnectionState.done ||
+                      !snapshot.hasData) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  final data = snapshot.data!;
+                  return RefreshIndicator(
+                    onRefresh: () async {
+                      _reload();
+                      await _future;
+                    },
+                    child: ListView(
+                      padding: const EdgeInsets.all(20),
                       children: [
-                        Text(
-                          userFacingApiError(snapshot.error, l) ??
-                              l.errorGeneric,
+                        Text(l.leaderboardRules),
+                        const SizedBox(height: 12),
+                        Card(
+                          color: const Color(0xFFF2ECFF),
+                          child: Padding(
+                            padding: const EdgeInsets.all(18),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '${data.myPoints} ${l.communityPoints}',
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.headlineSmall,
+                                ),
+                                Text(
+                                  '${l.leaderboardYourRank}: ${data.myRank ?? '—'}',
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  data.visible
+                                      ? l.leaderboardVisible
+                                      : l.leaderboardHidden,
+                                ),
+                                TextButton.icon(
+                                  onPressed: () => _profile(data),
+                                  icon: const Icon(Icons.privacy_tip_outlined),
+                                  label: Text(l.leaderboardProfile),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
-                        TextButton(onPressed: _reload, child: Text(l.retry)),
+                        if (data.entries.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Text(l.leaderboardEmpty),
+                          ),
+                        for (final row in data.entries)
+                          Card(
+                            color: row.me ? const Color(0xFFEBF4FF) : null,
+                            child: ListTile(
+                              leading: CircleAvatar(child: Text('${row.rank}')),
+                              title: Text(row.alias),
+                              trailing: Text(
+                                '${row.points} ${l.communityPoints}',
+                              ),
+                              subtitle: row.me ? Text(l.leaderboardYou) : null,
+                            ),
+                          ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            TextButton(
+                              onPressed: _page == 0
+                                  ? null
+                                  : () {
+                                      _page--;
+                                      _reload();
+                                    },
+                              child: Text(l.previous),
+                            ),
+                            Text('${_page + 1}'),
+                            TextButton(
+                              onPressed:
+                                  (_page + 1) * data.size >= data.totalPlayers
+                                  ? null
+                                  : () {
+                                      _page++;
+                                      _reload();
+                                    },
+                              child: Text(l.next),
+                            ),
+                          ],
+                        ),
+                        Text(
+                          data.timezone,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
                       ],
                     ),
                   );
-                }
-                if (!snapshot.hasData) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                final data = snapshot.data!;
-                return RefreshIndicator(
-                  onRefresh: () async {
-                    _reload();
-                    await _future;
-                  },
-                  child: ListView(
-                    padding: const EdgeInsets.all(20),
-                    children: [
-                      Text(l.leaderboardRules),
-                      const SizedBox(height: 12),
-                      Card(
-                        color: const Color(0xFFF2ECFF),
-                        child: Padding(
-                          padding: const EdgeInsets.all(18),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '${data.myPoints} ${l.communityPoints}',
-                                style: Theme.of(
-                                  context,
-                                ).textTheme.headlineSmall,
-                              ),
-                              Text(
-                                '${l.leaderboardYourRank}: ${data.myRank ?? '—'}',
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                data.visible
-                                    ? l.leaderboardVisible
-                                    : l.leaderboardHidden,
-                              ),
-                              TextButton.icon(
-                                onPressed: () => _profile(data),
-                                icon: const Icon(Icons.privacy_tip_outlined),
-                                label: Text(l.leaderboardProfile),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      if (data.entries.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Text(l.leaderboardEmpty),
-                        ),
-                      for (final row in data.entries)
-                        Card(
-                          color: row.me ? const Color(0xFFEBF4FF) : null,
-                          child: ListTile(
-                            leading: CircleAvatar(child: Text('${row.rank}')),
-                            title: Text(row.alias),
-                            trailing: Text(
-                              '${row.points} ${l.communityPoints}',
-                            ),
-                            subtitle: row.me ? Text(l.leaderboardYou) : null,
-                          ),
-                        ),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          TextButton(
-                            onPressed: _page == 0
-                                ? null
-                                : () {
-                                    _page--;
-                                    _reload();
-                                  },
-                            child: Text(l.previous),
-                          ),
-                          Text('${_page + 1}'),
-                          TextButton(
-                            onPressed:
-                                (_page + 1) * data.size >= data.totalPlayers
-                                ? null
-                                : () {
-                                    _page++;
-                                    _reload();
-                                  },
-                            child: Text(l.next),
-                          ),
-                        ],
-                      ),
-                      Text(
-                        data.timezone,
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ],
-                  ),
-                );
-              },
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
