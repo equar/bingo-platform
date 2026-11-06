@@ -5,3 +5,5 @@
 *.key
 *.crt
 *.csr
+resources.txt
+resource.txt

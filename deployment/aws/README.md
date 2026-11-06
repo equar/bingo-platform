@@ -73,6 +73,32 @@ and hostname verification. Its `changeit` password protects a public CA store,
 not an application credential. Failed downloads/imports leave the installed
 truststore and running application untouched.
 
+## Database migrations on deployment
+
+Provision the empty `bingo` database and application user before the first
+deployment. On the first backend startup, Flyway creates its
+`flyway_schema_history` table and runs all versioned migrations from
+`bingo-backend/src/main/resources/db/migration` in version order (currently
+V1 through V23). These migrations create the application tables before
+Hibernate validates the schema. Keep `SPRING_JPA_HIBERNATE_DDL_AUTO=validate`
+for the first deployment and all later deployments.
+
+For every later schema change, commit a new SQL migration with the code that
+needs it, starting with `V24__describe_the_change.sql` and increasing the
+version for each subsequent migration. Each backend startup validates the
+checksums of applied migrations and runs only pending migrations. Deployments
+without new migrations leave the schema unchanged. Flyway does not generate
+SQL from entity changes: update entities and add the corresponding migration
+in the same release. Never edit an already applied versioned migration.
+
+Production disables automatic baselining and Flyway clean. A schema with
+existing tables but no migration history requires a deliberate migration
+plan; it is not silently treated as initialized. Migration or validation
+failures prevent backend startup and fail the deployment health check.
+Back up the database before schema changes; restoring the previous JAR does
+not undo migrations. Keep migrations compatible with the previous release
+when relying on application rollback.
+
 The service runs from `/opt/bingo/runtime`, a root-owned directory separate
 from `/opt/bingo/.env`. This also supports older JARs with a hard-coded
 relative `.env` import, including during rollback. The protected environment

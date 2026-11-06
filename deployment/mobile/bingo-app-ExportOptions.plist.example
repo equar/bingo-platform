@@ -6,7 +6,7 @@
 	<string>release-testing</string>
 	<key>provisioningProfiles</key>
 	<dict>
-		<key>com.equar.bingo.bingoApp</key>
+		<key>com.bakaroo.bingo.bingoApp</key>
 		<string>REPLACE_WITH_AD_HOC_PROFILE_NAME</string>
 	</dict>
 	<key>signingCertificate</key>
