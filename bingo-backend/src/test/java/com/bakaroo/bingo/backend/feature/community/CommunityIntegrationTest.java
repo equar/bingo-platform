@@ -386,7 +386,8 @@ class CommunityIntegrationTest extends MySqlIntegrationTest {
           "FINISH_GAME",
           Timestamp.from(time.now()));
     }
-    String suffix = UUID.randomUUID().toString().substring(0, 6);
+    String randomSuffix = UUID.randomUUID().toString().substring(0, 6);
+    String suffix = randomSuffix.substring(0, 3) + "a" + randomSuffix.substring(3);
     progress.profile(new BingoUserPrincipal(host), new LeaderboardProfile("Alpha-" + suffix, true));
     progress.profile(
         new BingoUserPrincipal(member), new LeaderboardProfile("Beta-" + suffix, true));
