@@ -73,6 +73,12 @@ class AdminTemporaryPasswordIntegrationTest extends MySqlIntegrationTest {
         AuthResponse login = login(TEMPORARY_PASSWORD);
         assertTrue(login.user().mustChangePassword());
 
+        // The route guard must refresh identity before it can render the password form.
+        mockMvc.perform(get("/api/v1/auth/me")
+                        .header("Authorization", "Bearer " + login.accessToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.user.mustChangePassword").value(true));
+
         mockMvc.perform(get("/api/v1/admin/users")
                         .header("Authorization", "Bearer " + login.accessToken()))
                 .andExpect(status().isForbidden())
