@@ -36,7 +36,7 @@ def inspect(apk):
     return dict(package=package, version_code=int(code), version=version, min_sdk=minimum, target_sdk=target, signer_sha256=signer)
 
 report = inspect(a.apk)
-expected = {'bingo-app': 'com.equar.bingo.bingo_app', 'bingo-agent': 'com.equar.bingo.bingo_agent'}[a.app]
+expected = {'bingo-app': 'com.bakaroo.bingo_app', 'bingo-agent': 'com.equar.bingo.bingo_agent'}[a.app]
 if report['package'] != expected or report['min_sdk'] != 24:
     raise SystemExit('Unexpected package ID or Android minimum; review compatibility policy')
 # Pin the identities already used for shared releases. Key changes require a deliberate migration.
@@ -45,6 +45,8 @@ if report['signer_sha256'] != certificates[a.app]:
     raise SystemExit('Signing identity changed; this package cannot update existing shared installs')
 if a.previous and a.previous.exists():
     old = inspect(a.previous)
+    if report['package'] != old['package']:
+        raise SystemExit('Package ID changed; this installs as a separate app. Preserve the old artifact and verify this as a new application.')
     if report['signer_sha256'] != old['signer_sha256'] or report['version_code'] <= old['version_code']:
         raise SystemExit('Updates require the same signing certificate and a strictly higher build number; set BINGO_BUILD_NUMBER')
 run('zipalign', '-c', '-P', '16', '4', a.apk)

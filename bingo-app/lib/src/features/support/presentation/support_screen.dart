@@ -1,3 +1,4 @@
+import 'package:bingo_app/src/core/widgets/responsive_content.dart';
 import 'package:bingo_app/l10n/app_localizations.dart';
 import 'package:bingo_app/src/core/network/api_error.dart';
 import 'package:bingo_app/src/core/network/api_provider.dart';
@@ -41,90 +42,93 @@ class SupportScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Text(
-            localizations.supportIntro,
-            style: Theme.of(context).textTheme.bodyLarge,
-          ),
-          const SizedBox(height: 16),
-          FilledButton.icon(
-            key: const ValueKey('support-create-button'),
-            onPressed: () async {
-              final createdTicket = await Navigator.of(context)
-                  .push<SupportTicketSummary>(
-                    MaterialPageRoute(
-                      builder: (_) => const SupportTicketFormScreen(),
-                    ),
+      body: ResponsiveContent(
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            Text(
+              localizations.supportIntro,
+              style: Theme.of(context).textTheme.bodyLarge,
+            ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              key: const ValueKey('support-create-button'),
+              onPressed: () async {
+                final createdTicket = await Navigator.of(context)
+                    .push<SupportTicketSummary>(
+                      MaterialPageRoute(
+                        builder: (_) => const SupportTicketFormScreen(),
+                      ),
+                    );
+                if (createdTicket != null && context.mounted) {
+                  ref.invalidate(playerSupportTicketsProvider);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(localizations.supportSubmitted)),
                   );
-              if (createdTicket != null && context.mounted) {
-                ref.invalidate(playerSupportTicketsProvider);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(localizations.supportSubmitted)),
-                );
-              }
-            },
-            icon: const Icon(Icons.add),
-            label: Text(localizations.supportCreateTicket),
-          ),
-          const SizedBox(height: 20),
-          tickets.when(
-            loading: () => const Center(
-              child: Padding(
-                padding: EdgeInsets.all(24),
-                child: CircularProgressIndicator(),
+                }
+              },
+              icon: const Icon(Icons.add),
+              label: Text(localizations.supportCreateTicket),
+            ),
+            const SizedBox(height: 20),
+            tickets.when(
+              loading: () => const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(24),
+                  child: CircularProgressIndicator(),
+                ),
               ),
-            ),
-            error: (error, _) => Column(
-              children: [
-                Text(
-                  userFacingApiError(error, localizations) ??
-                      localizations.errorGeneric,
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-                OutlinedButton(
-                  onPressed: () => ref.invalidate(playerSupportTicketsProvider),
-                  child: Text(localizations.retry),
-                ),
-              ],
-            ),
-            data: (page) => page.content.isEmpty
-                ? Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 28),
-                    child: Center(child: Text(localizations.supportEmpty)),
-                  )
-                : Column(
-                    children: page.content
-                        .map(
-                          (ticket) => Card(
-                            child: ListTile(
-                              key: ValueKey('support-ticket-${ticket.id}'),
-                              title: Text(ticket.subject),
-                              subtitle: Text(
-                                '${ticket.ticketNumber} · ${ticket.category} · ${ticket.createdAt.toLocal()}',
-                              ),
-                              trailing: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  Text(ticket.status),
-                                  Text(
-                                    ticket.priority,
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.labelSmall,
-                                  ),
-                                ],
+              error: (error, _) => Column(
+                children: [
+                  Text(
+                    userFacingApiError(error, localizations) ??
+                        localizations.errorGeneric,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton(
+                    onPressed: () =>
+                        ref.invalidate(playerSupportTicketsProvider),
+                    child: Text(localizations.retry),
+                  ),
+                ],
+              ),
+              data: (page) => page.content.isEmpty
+                  ? Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 28),
+                      child: Center(child: Text(localizations.supportEmpty)),
+                    )
+                  : Column(
+                      children: page.content
+                          .map(
+                            (ticket) => Card(
+                              child: ListTile(
+                                key: ValueKey('support-ticket-${ticket.id}'),
+                                title: Text(ticket.subject),
+                                subtitle: Text(
+                                  '${ticket.ticketNumber} · ${ticket.category} · ${ticket.createdAt.toLocal()}',
+                                ),
+                                trailing: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text(ticket.status),
+                                    Text(
+                                      ticket.priority,
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.labelSmall,
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
-                          ),
-                        )
-                        .toList(),
-                  ),
-          ),
-        ],
+                          )
+                          .toList(),
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -202,92 +206,98 @@ class _SupportTicketFormScreenState
     final hasInlineError = subjectError != null || descriptionError != null;
     return Scaffold(
       appBar: AppBar(title: Text(localizations.supportCreateTicket)),
-      body: SafeArea(
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              TextFormField(
-                key: const ValueKey('support-subject-field'),
-                controller: _subjectController,
-                textCapitalization: TextCapitalization.sentences,
-                decoration: InputDecoration(
-                  labelText: localizations.supportSubject,
-                  errorText: subjectError,
+      body: ResponsiveContent(
+        child: SafeArea(
+          child: Form(
+            key: _formKey,
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                TextFormField(
+                  key: const ValueKey('support-subject-field'),
+                  controller: _subjectController,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: InputDecoration(
+                    labelText: localizations.supportSubject,
+                    errorText: subjectError,
+                  ),
+                  validator: (value) => value == null || value.trim().isEmpty
+                      ? localizations.requiredField
+                      : null,
                 ),
-                validator: (value) => value == null || value.trim().isEmpty
-                    ? localizations.requiredField
-                    : null,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                key: const ValueKey('support-description-field'),
-                controller: _descriptionController,
-                minLines: 4,
-                maxLines: 7,
-                textCapitalization: TextCapitalization.sentences,
-                decoration: InputDecoration(
-                  labelText: localizations.supportDescription,
-                  errorText: descriptionError,
-                ),
-                validator: (value) => value == null || value.trim().isEmpty
-                    ? localizations.requiredField
-                    : null,
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                key: const ValueKey('support-category-field'),
-                initialValue: _category,
-                decoration: InputDecoration(
-                  labelText: localizations.supportCategory,
-                ),
-                items: _categories
-                    .map(
-                      (value) =>
-                          DropdownMenuItem(value: value, child: Text(value)),
-                    )
-                    .toList(),
-                onChanged: _submitting
-                    ? null
-                    : (value) => setState(() => _category = value ?? _category),
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                key: const ValueKey('support-priority-field'),
-                initialValue: _priority,
-                decoration: InputDecoration(
-                  labelText: localizations.supportPriority,
-                ),
-                items: _priorities
-                    .map(
-                      (value) =>
-                          DropdownMenuItem(value: value, child: Text(value)),
-                    )
-                    .toList(),
-                onChanged: _submitting
-                    ? null
-                    : (value) => setState(() => _priority = value ?? _priority),
-              ),
-              if (_error != null && !hasInlineError) ...[
                 const SizedBox(height: 16),
-                Text(
-                  _error!,
-                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                TextFormField(
+                  key: const ValueKey('support-description-field'),
+                  controller: _descriptionController,
+                  minLines: 4,
+                  maxLines: 7,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: InputDecoration(
+                    labelText: localizations.supportDescription,
+                    errorText: descriptionError,
+                  ),
+                  validator: (value) => value == null || value.trim().isEmpty
+                      ? localizations.requiredField
+                      : null,
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  key: const ValueKey('support-category-field'),
+                  initialValue: _category,
+                  decoration: InputDecoration(
+                    labelText: localizations.supportCategory,
+                  ),
+                  items: _categories
+                      .map(
+                        (value) =>
+                            DropdownMenuItem(value: value, child: Text(value)),
+                      )
+                      .toList(),
+                  onChanged: _submitting
+                      ? null
+                      : (value) =>
+                            setState(() => _category = value ?? _category),
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  key: const ValueKey('support-priority-field'),
+                  initialValue: _priority,
+                  decoration: InputDecoration(
+                    labelText: localizations.supportPriority,
+                  ),
+                  items: _priorities
+                      .map(
+                        (value) =>
+                            DropdownMenuItem(value: value, child: Text(value)),
+                      )
+                      .toList(),
+                  onChanged: _submitting
+                      ? null
+                      : (value) =>
+                            setState(() => _priority = value ?? _priority),
+                ),
+                if (_error != null && !hasInlineError) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    _error!,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 24),
+                FilledButton(
+                  key: const ValueKey('support-submit-button'),
+                  onPressed: _submitting ? null : _submit,
+                  child: _submitting
+                      ? const SizedBox.square(
+                          dimension: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Text(localizations.supportSubmit),
                 ),
               ],
-              const SizedBox(height: 24),
-              FilledButton(
-                key: const ValueKey('support-submit-button'),
-                onPressed: _submitting ? null : _submit,
-                child: _submitting
-                    ? const SizedBox.square(
-                        dimension: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : Text(localizations.supportSubmit),
-              ),
-            ],
+            ),
           ),
         ),
       ),

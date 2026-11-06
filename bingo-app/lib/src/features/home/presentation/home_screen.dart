@@ -27,29 +27,31 @@ class HomeScreen extends StatelessWidget {
       context: context,
       showDragHandle: true,
       builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (final item in [
-              (Icons.grid_view_rounded, l.homeGames, onGames),
-              (Icons.account_balance_wallet_outlined, l.homeWallet, onWallet),
-              (Icons.support_agent_outlined, l.homeSupport, onSupport),
-              (Icons.person_outline_rounded, l.homeProfile, onProfile),
-            ])
-              ListTile(
-                key: item.$2 == l.homeSupport
-                    ? const ValueKey('support-tab')
-                    : null,
-                leading: Icon(item.$1, color: bingoBlue),
-                title: Text(item.$2),
-                trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: () {
-                  Navigator.pop(sheetContext);
-                  item.$3();
-                },
-              ),
-            const SizedBox(height: 12),
-          ],
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final item in [
+                (Icons.grid_view_rounded, l.homeGames, onGames),
+                (Icons.account_balance_wallet_outlined, l.homeWallet, onWallet),
+                (Icons.support_agent_outlined, l.homeSupport, onSupport),
+                (Icons.person_outline_rounded, l.homeProfile, onProfile),
+              ])
+                ListTile(
+                  key: item.$2 == l.homeSupport
+                      ? const ValueKey('support-tab')
+                      : null,
+                  leading: Icon(item.$1, color: bingoBlue),
+                  title: Text(item.$2),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    item.$3();
+                  },
+                ),
+              const SizedBox(height: 12),
+            ],
+          ),
         ),
       ),
     );
@@ -67,67 +69,43 @@ class HomeScreen extends StatelessWidget {
             constraints: const BoxConstraints(maxWidth: 600),
             child: Column(
               children: [
-                Stack(
-                  children: [
-                    AspectRatio(
-                      aspectRatio: 1.27,
-                      child: Image.asset(
-                        'assets/images/bingo-ethiopia-hero.png',
-                        fit: BoxFit.cover,
-                        alignment: Alignment.bottomCenter,
-                        excludeFromSemantics: true,
-                      ),
-                    ),
-                    Positioned(
-                      top: 0,
-                      left: 14,
-                      right: 14,
-                      child: SafeArea(
-                        bottom: false,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            IconButton(
-                              key: const ValueKey('home-menu'),
-                              tooltip: l.homeMenu,
-                              onPressed: () => _menu(context),
-                              icon: const Icon(
-                                Icons.menu_rounded,
-                                size: 30,
-                                color: bingoNavy,
-                              ),
-                            ),
-                            IconButton(
-                              tooltip: l.homeSupport,
-                              onPressed: onSupport,
-                              icon: const Icon(
-                                Icons.notifications_none_rounded,
-                                size: 29,
-                                color: bingoNavy,
-                              ),
-                            ),
-                          ],
+                SafeArea(
+                  bottom: false,
+                  minimum: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      IconButton(
+                        key: const ValueKey('home-menu'),
+                        tooltip: l.homeMenu,
+                        onPressed: () => _menu(context),
+                        icon: const Icon(
+                          Icons.menu_rounded,
+                          size: 30,
+                          color: bingoNavy,
                         ),
                       ),
-                    ),
-                    Positioned(
-                      bottom: 0,
-                      left: 0,
-                      right: 0,
-                      child: IgnorePointer(
-                        child: Container(
-                          height: 24,
-                          decoration: const BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [Color(0x00FAFBFD), Color(0xFFFAFBFD)],
-                            ),
-                          ),
+                      Expanded(
+                        child: Text(
+                          l.homeTitle,
+                          style: Theme.of(context).textTheme.titleLarge,
+                          textAlign: TextAlign.center,
                         ),
                       ),
-                    ),
-                  ],
+                      IconButton(
+                        tooltip: l.homeSupport,
+                        onPressed: onSupport,
+                        icon: const Icon(
+                          Icons.support_agent_rounded,
+                          size: 29,
+                          color: bingoNavy,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 8, 20, 26),
@@ -141,7 +119,7 @@ class HomeScreen extends StatelessWidget {
                             gradient: const LinearGradient(
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
-                              colors: [Color(0xFFFF9719), Color(0xFFFF6500)],
+                              colors: [Color(0xFFD86800), Color(0xFFC94D00)],
                             ),
                             boxShadow: [
                               BoxShadow(
@@ -193,75 +171,53 @@ class HomeScreen extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 20),
-                      IntrinsicHeight(
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Expanded(
-                              child: _FeatureCard(
-                                title: l.homeLiveGames,
-                                subtitle: l.homeLiveGamesBody,
-                                icon: Icons.emoji_events_rounded,
-                                color: bingoBlue,
-                                background: const Color(0xFFEBF4FF),
-                                onTap: onGames,
+                      _HomeFeatureGrid(
+                        children: [
+                          _FeatureCard(
+                            title: l.homeLiveGames,
+                            subtitle: l.homeLiveGamesBody,
+                            icon: Icons.emoji_events_rounded,
+                            color: bingoBlue,
+                            background: const Color(0xFFEBF4FF),
+                            onTap: onGames,
+                          ),
+                          _FeatureCard(
+                            title: l.homePrivateGame,
+                            subtitle: l.privateHomeBody,
+                            icon: Icons.groups_rounded,
+                            color: const Color(0xFFFF8A12),
+                            background: const Color(0xFFFFF5E7),
+                            onTap: () => Navigator.of(context).push<void>(
+                              MaterialPageRoute(
+                                builder: (_) => const PrivateGamesScreen(),
                               ),
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: _FeatureCard(
-                                title: l.homePrivateGame,
-                                subtitle: l.privateHomeBody,
-                                icon: Icons.groups_rounded,
-                                color: const Color(0xFFFF8A12),
-                                background: const Color(0xFFFFF5E7),
-                                onTap: () => Navigator.of(context).push<void>(
-                                  MaterialPageRoute(
-                                    builder: (_) => const PrivateGamesScreen(),
-                                  ),
-                                ),
+                          ),
+                          _FeatureCard(
+                            title: l.homeDailyChallenge,
+                            subtitle: l.challengeHomeBody,
+                            icon: Icons.calendar_month_rounded,
+                            color: const Color(0xFF12892B),
+                            background: const Color(0xFFEAF8EE),
+                            onTap: () => Navigator.of(context).push<void>(
+                              MaterialPageRoute(
+                                builder: (_) => const DailyChallengesScreen(),
                               ),
                             ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      IntrinsicHeight(
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Expanded(
-                              child: _FeatureCard(
-                                title: l.homeDailyChallenge,
-                                subtitle: l.challengeHomeBody,
-                                icon: Icons.calendar_month_rounded,
-                                color: const Color(0xFF12892B),
-                                background: const Color(0xFFEAF8EE),
-                                onTap: () => Navigator.of(context).push<void>(
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                        const DailyChallengesScreen(),
-                                  ),
-                                ),
+                          ),
+                          _FeatureCard(
+                            title: l.homeLeaderboard,
+                            subtitle: l.leaderboardHomeBody,
+                            icon: Icons.bar_chart_rounded,
+                            color: const Color(0xFF8739EF),
+                            background: const Color(0xFFF2ECFF),
+                            onTap: () => Navigator.of(context).push<void>(
+                              MaterialPageRoute(
+                                builder: (_) => const LeaderboardScreen(),
                               ),
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: _FeatureCard(
-                                title: l.homeLeaderboard,
-                                subtitle: l.leaderboardHomeBody,
-                                icon: Icons.bar_chart_rounded,
-                                color: const Color(0xFF8739EF),
-                                background: const Color(0xFFF2ECFF),
-                                onTap: () => Navigator.of(context).push<void>(
-                                  MaterialPageRoute(
-                                    builder: (_) => const LeaderboardScreen(),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 14),
                       Material(
@@ -322,6 +278,34 @@ class HomeScreen extends StatelessWidget {
   }
 }
 
+class _HomeFeatureGrid extends StatelessWidget {
+  const _HomeFeatureGrid({required this.children});
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final largeText = MediaQuery.textScalerOf(context).scale(14) > 20;
+      final columns = constraints.maxWidth < 300 || largeText ? 1 : 2;
+      final width = (constraints.maxWidth - (columns - 1) * 12) / columns;
+      return Wrap(
+        spacing: 12,
+        runSpacing: 12,
+        children: [
+          for (final child in children)
+            SizedBox(
+              width: width,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 164),
+                child: child,
+              ),
+            ),
+        ],
+      );
+    },
+  );
+}
+
 class _FeatureCard extends StatelessWidget {
   const _FeatureCard({
     required this.title,
@@ -355,7 +339,14 @@ class _FeatureCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(icon, size: 32, color: color),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: .85),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(icon, size: 27, color: color),
+                ),
                 const Spacer(),
                 Icon(Icons.chevron_right_rounded, size: 23, color: color),
               ],

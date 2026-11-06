@@ -23,6 +23,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _pinController = TextEditingController();
   bool _registerMode = false;
+  bool _showPin = false;
   bool _busy = false;
   String? _errorMessage;
   ApiError? _apiError;
@@ -103,7 +104,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 480),
               child: Column(
@@ -113,15 +115,39 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                     alignment: AlignmentDirectional.centerEnd,
                     child: LanguageSelector(),
                   ),
+                  Semantics(
+                    label: localizations.appTitle,
+                    image: true,
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 340),
+                        child: AspectRatio(
+                          aspectRatio: 1.27,
+                          child: Image.asset(
+                            'assets/images/bingo-ethiopia-hero.png',
+                            fit: BoxFit.cover,
+                            alignment: Alignment.bottomCenter,
+                            excludeFromSemantics: true,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
                   Text(
-                    localizations.appTitle,
-                    style: Theme.of(context).textTheme.displaySmall,
+                    _registerMode
+                        ? localizations.registerTitle
+                        : localizations.loginTitle,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.headlineSmall,
                   ),
                   const SizedBox(height: 8),
                   Text(
                     _registerMode
                         ? localizations.registerSubtitle
                         : localizations.loginSubtitle,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyMedium,
                   ),
                   if (widget.sessionExpired) ...[
                     const SizedBox(height: 12),
@@ -145,6 +171,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                               onFieldSubmitted: (_) =>
                                   FocusScope.of(context).nextFocus(),
                               decoration: InputDecoration(
+                                prefixIcon: const Icon(
+                                  Icons.person_outline_rounded,
+                                ),
                                 labelText: localizations.displayNameLabel,
                                 errorText: displayNameError,
                               ),
@@ -166,6 +195,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                             onFieldSubmitted: (_) =>
                                 FocusScope.of(context).nextFocus(),
                             decoration: InputDecoration(
+                              prefixIcon: const Icon(Icons.phone_outlined),
                               labelText: localizations.phoneLabel,
                               errorText: phoneError,
                             ),
@@ -185,7 +215,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                             key: const ValueKey('auth-password-field'),
                             controller: _pinController,
                             enabled: !_busy,
-                            obscureText: true,
+                            obscureText: !_showPin,
                             keyboardType: TextInputType.number,
                             textInputAction: TextInputAction.done,
                             onChanged: (_) => _clearStaleErrors(),
@@ -193,6 +223,21 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                             decoration: InputDecoration(
                               labelText: localizations.passwordLabel,
                               errorText: passwordError,
+                              suffixIcon: IconButton(
+                                key: const ValueKey('auth-pin-visibility'),
+                                tooltip: _showPin
+                                    ? localizations.hidePin
+                                    : localizations.showPin,
+                                onPressed: _busy
+                                    ? null
+                                    : () =>
+                                          setState(() => _showPin = !_showPin),
+                                icon: Icon(
+                                  _showPin
+                                      ? Icons.visibility_off_outlined
+                                      : Icons.visibility_outlined,
+                                ),
+                              ),
                             ),
                             validator: (value) {
                               final text = value ?? '';
@@ -218,22 +263,25 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                             ),
                           ],
                           const SizedBox(height: 16),
-                          FilledButton(
-                            key: const ValueKey('auth-submit-button'),
-                            onPressed: _busy ? null : _submit,
-                            child: _busy
-                                ? const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
+                          SizedBox(
+                            width: double.infinity,
+                            child: FilledButton(
+                              key: const ValueKey('auth-submit-button'),
+                              onPressed: _busy ? null : _submit,
+                              child: _busy
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : Text(
+                                      _registerMode
+                                          ? localizations.createAccount
+                                          : localizations.signIn,
                                     ),
-                                  )
-                                : Text(
-                                    _registerMode
-                                        ? localizations.createAccount
-                                        : localizations.signIn,
-                                  ),
+                            ),
                           ),
                           const SizedBox(height: 8),
                           TextButton(
