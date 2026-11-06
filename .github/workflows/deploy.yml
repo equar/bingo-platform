@@ -1,6 +1,13 @@
 name: Build and Deploy Bingo to Lightsail
 
 on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Application to redeploy (also applies changed secrets/variables)
+        type: choice
+        default: all
+        options: [all, backend, frontend, admin, website]
   pull_request:
     types: [closed]
     branches: [main]
@@ -15,9 +22,10 @@ concurrency:
 jobs:
   build-and-deploy:
     if: >-
-      github.event.pull_request.merged == true &&
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event.pull_request.merged == true &&
       github.event.pull_request.head.repo.full_name == github.repository &&
-      github.event.pull_request.base.ref == 'main'
+      github.event.pull_request.base.ref == 'main')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
@@ -72,8 +80,15 @@ jobs:
       - name: Checkout merged release
         uses: actions/checkout@v5
         with:
-          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
+          fetch-depth: 2
+      - name: Detect affected applications
+        id: changes
+        env:
+          DEPLOY_TARGET: ${{ inputs.target || 'auto' }}
+        run: python3 deployment/aws/detect-deployment-changes.py --target "$DEPLOY_TARGET"
       - name: Set up Java
+        if: steps.changes.outputs.backend == 'true'
         uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -81,6 +96,7 @@ jobs:
           cache: maven
           cache-dependency-path: bingo-backend/pom.xml
       - name: Set up Node.js
+        if: steps.changes.outputs.admin == 'true' || steps.changes.outputs.website == 'true'
         uses: actions/setup-node@v5
         with:
           node-version: '22.22.0'
@@ -89,16 +105,20 @@ jobs:
             bingo-admin/package-lock.json
             bingo-website/package-lock.json
       - name: Validate production configuration
+        if: steps.changes.outputs.any == 'true'
         run: python3 deployment/aws/validate-config.py
       - name: Build backend
+        if: steps.changes.outputs.backend == 'true'
         working-directory: bingo-backend
         run: mvn -B -Dmaven.test.skip=true clean package
       - name: Build admin
+        if: steps.changes.outputs.admin == 'true'
         working-directory: bingo-admin
         run: |
           npm ci
           npm run build
       - name: Build public website
+        if: steps.changes.outputs.website == 'true'
         working-directory: bingo-website
         run: |
           npm ci
@@ -106,6 +126,7 @@ jobs:
           npm run validate:links
           npm run build
       - name: Configure SSH
+        if: steps.changes.outputs.any == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -137,9 +158,13 @@ jobs:
           printf 'SSH_KEY=%s\nSERVER=%s@%s\n' "$key" "$LIGHTSAIL_USER" "$LIGHTSAIL_HOST" >> "$GITHUB_ENV"
           ssh -o BatchMode=yes -o ConnectTimeout=20 -i "$key" "$LIGHTSAIL_USER@$LIGHTSAIL_HOST" true
       - name: Deploy backend
+        if: steps.changes.outputs.backend == 'true'
         run: bash deployment/aws/deploy-backend.sh
       - name: Deploy admin and public website
-        run: bash deployment/aws/deploy-frontend.sh
+        if: steps.changes.outputs.admin == 'true' || steps.changes.outputs.website == 'true'
+        env:
+          FRONTEND_TARGET: ${{ steps.changes.outputs.frontend_target }}
+        run: bash deployment/aws/deploy-frontend.sh "$FRONTEND_TARGET"
       - name: Remove deployment key
         if: always()
         run: rm -f "$RUNNER_TEMP/bingo-aws.pem" "$RUNNER_TEMP/bingo-aws.pem.tmp"

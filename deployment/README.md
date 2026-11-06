@@ -4,8 +4,9 @@ Production application deployment uses GitHub Actions to build Bingo and
 upload it over SSH to an existing Ubuntu Lightsail/EC2 host. The sole
 production application deployment workflow is `.github/workflows/deploy.yml`;
 it runs after an in-repository feature-branch pull request is merged into
-`main`. Every qualifying merge deploys its merge commit. There is no manual
-dispatch, OIDC deployment role, or required source-branch naming convention.
+`main`. Changed application files select what is built and deployed from the
+merge commit. Manual dispatch on `main` can redeploy selected applications.
+There is no OIDC deployment role or required source-branch naming convention.
 
 ## Runtime layout and deployment behavior
 
@@ -18,8 +19,8 @@ dispatch, OIDC deployment role, or required source-branch naming convention.
 | MySQL schema | `bingo` |
 | API listener | `127.0.0.1:8088` |
 
-The workflow builds the Java 25 backend with Maven, builds the Admin and Astro
-website with Node 22, then deploys over SSH. PR validation is the test gate:
+The workflow builds selected applications only: the Java 25 backend with Maven,
+and the Admin/Astro frontends with Node 22, then deploys them over SSH. PR validation is the test gate:
 `.github/workflows/pr-validation-pipeline.yml` runs backend tests against
 disposable MySQL, Admin tests/lint/build, and website checks. Require this
 validation in branch protection. The deployment package step skips backend
@@ -157,3 +158,40 @@ after the initial password is changed.
 Email delivery is selected with `APP_EMAIL_PROVIDER=smtp|graph`. See
 [Email providers](aws/EMAIL_PROVIDERS.md) for Graph credentials, sender mailbox,
 and SMTP settings. Both providers support deployment admin bootstrap.
+
+## Selective deployments
+
+For a merged PR, the workflow compares the merged commit with its first parent:
+
+| Changed files | Applications deployed |
+|---|---|
+| `bingo-backend/` | Backend only; Flyway runs on backend startup |
+| `bingo-admin/` | Admin only; backend remains running |
+| `bingo-website/` | Public website only |
+| Backend deploy script, service unit, or RDS truststore script | Backend only |
+| Frontend deploy script | Both frontends |
+| Deployment workflow or other shared AWS deployment configuration | All three |
+| Markdown documentation or mobile-only files | None |
+
+Changes spanning multiple applications select all affected applications. Removed
+and renamed files count as changes. Frontend uploads replace only selected static
+roots and preserve their individual backups. Selected frontends still require
+working HTTPS and a healthy API for verification.
+
+To deploy after changing repository secrets/variables, or to redeploy without a
+source change, use **Actions → Build and Deploy Bingo to Lightsail → Run workflow**,
+select branch **main**, and choose `all`, `backend`, `frontend`, `admin`, or `website`.
+`frontend` selects both frontends. Other branches cannot use manual production
+deployment. Existing concurrency protection serializes these deployments.
+
+The diff selects changes from the current merge, not from the last successful
+deployment. Resolve and rerun failed deployments before subsequent releases;
+if releases were skipped or a previous deployment partly failed, manually deploy
+`all` from the latest `main` to reconcile all application artifacts. Manually
+redeploying an older workflow run can deploy older code, so prefer this latest-main
+manual action for recovery. Nginx and certificate setup remain separate one-time
+host operations.
+
+For direct scripted frontend deployment, pass `admin`, `website`, or `all` to
+`deployment/aws/deploy-frontend.sh`; omitting the argument retains the original
+behavior of uploading both frontends.
