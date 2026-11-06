@@ -1042,8 +1042,14 @@ export async function submitWalletTransfer(request: WalletTransferRequest, idemp
 }
 
 export async function listRooms() {
-  const { data } = await http.get<BingoRoomResponse[]>('/api/v1/rooms');
-  return data;
+  const rooms: BingoRoomResponse[] = [];
+  let page = 0;
+  while (true) {
+    const result = await listAdminRooms(page, 100);
+    rooms.push(...result.content);
+    if (result.last) return rooms;
+    page += 1;
+  }
 }
 
 export async function listAdminRooms(page = 0, size = 20, query?: string, active?: boolean) {

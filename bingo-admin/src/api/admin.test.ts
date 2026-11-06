@@ -18,6 +18,7 @@ import {
   approveWinClaim,
   deposits,
   listSessions,
+  listRooms,
   login,
   playerWalletTransactions,
   playerVerificationHistory,
@@ -58,6 +59,30 @@ describe("admin API client", () => {
   });
 
   afterEach(() => vi.clearAllMocks());
+
+  it("loads every room page from the admin endpoint without requesting player access", async () => {
+    httpMock.get
+      .mockResolvedValueOnce({ data: { content: [{ id: 4, name: "First room" }], last: false } })
+      .mockResolvedValueOnce({ data: { content: [{ id: 9, name: "Second room" }], last: true } });
+
+    expect(await listRooms()).toEqual([
+      { id: 4, name: "First room" },
+      { id: 9, name: "Second room" },
+    ]);
+    expect(httpMock.get).toHaveBeenCalledTimes(2);
+    expect(httpMock.get).toHaveBeenNthCalledWith(1, "/api/v1/admin/rooms", {
+      params: { page: 0, size: 100, query: undefined, active: undefined },
+    });
+    expect(httpMock.get).toHaveBeenNthCalledWith(2, "/api/v1/admin/rooms", {
+      params: { page: 1, size: 100, query: undefined, active: undefined },
+    });
+  });
+
+  it("returns an empty room list when the admin database has no rooms", async () => {
+    httpMock.get.mockResolvedValueOnce({ data: { content: [], last: true } });
+    expect(await listRooms()).toEqual([]);
+    expect(httpMock.get).toHaveBeenCalledTimes(1);
+  });
 
   it("sends admin login credentials only to the login endpoint", async () => {
     const request = { email: "admin@example.test", password: "disposable-test-password" };
