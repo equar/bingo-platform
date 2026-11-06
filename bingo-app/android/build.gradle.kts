@@ -3,6 +3,15 @@ allprojects {
         google()
         mavenCentral()
     }
+
+    // Flutter integration_test requests Espresso 3.2+, whose legacy manifests
+    // share a namespace. AGP 9 requires unique library namespaces.
+    configurations.configureEach {
+        resolutionStrategy.force(
+            "androidx.test.espresso:espresso-core:3.7.0",
+            "androidx.test.espresso:espresso-idling-resource:3.7.0",
+        )
+    }
 }
 
 val newBuildDir: Directory =

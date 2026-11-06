@@ -54,8 +54,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             if (authenticatedPrincipal != null) {
                 if (authenticatedPrincipal.getUser().isMustChangePassword()
-                        && !("PUT".equals(request.getMethod())
-                                && "/api/v1/admin/me/password".equals(request.getRequestURI()))) {
+                        && !isPasswordChangeOrProfileRequest(request)) {
                     errorWriter.write(
                             response,
                             HttpStatus.FORBIDDEN.value(),
@@ -75,5 +74,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    private static boolean isPasswordChangeOrProfileRequest(HttpServletRequest request) {
+        // The admin route guard refreshes identity before rendering the mandatory password form.
+        // Only this read-only identity endpoint and the password update are available at first login.
+        return ("PUT".equals(request.getMethod())
+                && "/api/v1/admin/me/password".equals(request.getRequestURI()))
+                || ("GET".equals(request.getMethod())
+                && "/api/v1/auth/me".equals(request.getRequestURI()));
     }
 }

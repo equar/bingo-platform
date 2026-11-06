@@ -20,7 +20,7 @@ import org.springframework.jdbc.datasource.DriverManagerDataSource;
 class A00FlywayUpgradeRecoveryIntegrationTest extends MySqlIntegrationTest {
 
     @Test
-    void upgradesFromV6AndRepairsDetectedChecksumDrift() {
+    void initializesFreshSchemaUpgradesFromV6AndRepairsDetectedChecksumDrift() {
         TestDatabase testDatabase = requireIsolatedTestDatabase();
         DataSource dataSource = new DriverManagerDataSource(
                 testDatabase.url(), testDatabase.username(), testDatabase.password());
@@ -31,6 +31,16 @@ class A00FlywayUpgradeRecoveryIntegrationTest extends MySqlIntegrationTest {
                 .schemas(DATABASE)
                 .cleanDisabled(false)
                 .load();
+
+        current.clean();
+        MigrationVersion latestVersion = Arrays.stream(current.info().all())
+                .map(MigrationInfo::getVersion)
+                .filter(Objects::nonNull)
+                .max(MigrationVersion::compareTo)
+                .orElseThrow();
+        assertEquals(current.info().pending().length, current.migrate().migrationsExecuted);
+        assertEquals(latestVersion, current.info().current().getVersion());
+        assertDoesNotThrow(current::validate);
 
         current.clean();
         Flyway throughV6 = Flyway.configure()
@@ -44,13 +54,12 @@ class A00FlywayUpgradeRecoveryIntegrationTest extends MySqlIntegrationTest {
         assertEquals("6", throughV6.info().current().getVersion().getVersion());
 
         current.migrate();
-        MigrationVersion latestVersion = Arrays.stream(current.info().all())
-                .map(MigrationInfo::getVersion)
-                .filter(Objects::nonNull)
-                .max(MigrationVersion::compareTo)
-                .orElseThrow();
         assertEquals(latestVersion, current.info().current().getVersion());
         assertDoesNotThrow(current::validate);
+
+        // A later deployment of the same migrations must leave the schema history unchanged.
+        assertEquals(0, current.migrate().migrationsExecuted);
+        assertEquals(latestVersion, current.info().current().getVersion());
 
         JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSource);
         Integer originalChecksum = jdbcTemplate.queryForObject(

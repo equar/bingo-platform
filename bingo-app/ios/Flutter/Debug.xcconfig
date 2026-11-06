@@ -1,2 +1,8 @@
 #include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.debug.xcconfig"
 #include "Generated.xcconfig"
+
+// Build the simulator for this Mac's CPU. This avoids Flutter 3.41's multi-arch
+// lipo invocation, which is incompatible with Xcode 27's lipo argument parsing.
+// Device/archive architectures are unaffected; Intel Macs still use x86_64.
+ARCHS[sdk=iphonesimulator*] = $(NATIVE_ARCH_ACTUAL)
+ONLY_ACTIVE_ARCH[sdk=iphonesimulator*] = YES

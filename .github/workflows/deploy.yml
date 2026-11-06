@@ -1,6 +1,13 @@
 name: Build and Deploy Bingo to Lightsail
 
 on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Application to redeploy (also applies changed secrets/variables)
+        type: choice
+        default: all
+        options: [all, backend, frontend, admin, website]
   pull_request:
     types: [closed]
     branches: [main]
@@ -15,9 +22,10 @@ concurrency:
 jobs:
   build-and-deploy:
     if: >-
-      github.event.pull_request.merged == true &&
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event.pull_request.merged == true &&
       github.event.pull_request.head.repo.full_name == github.repository &&
-      github.event.pull_request.base.ref == 'main'
+      github.event.pull_request.base.ref == 'main')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
@@ -32,6 +40,11 @@ jobs:
       JWT_SECRET: ${{ secrets.JWT_SECRET }}
       SPRING_MAIL_USERNAME: ${{ secrets.SPRING_MAIL_USERNAME }}
       SPRING_MAIL_PASSWORD: ${{ secrets.SPRING_MAIL_PASSWORD }}
+      MICROSOFT_GRAPH_TENANT_ID: ${{ secrets.MICROSOFT_GRAPH_TENANT_ID || secrets.GRAPH_TENANT_ID }}
+      MICROSOFT_GRAPH_CLIENT_ID: ${{ secrets.MICROSOFT_GRAPH_CLIENT_ID || secrets.GRAPH_CLIENT_ID }}
+      MICROSOFT_GRAPH_CLIENT_SECRET: ${{ secrets.MICROSOFT_GRAPH_CLIENT_SECRET || secrets.GRAPH_CLIENT_SECRET }}
+      APP_EMAIL_PROVIDER: ${{ vars.APP_EMAIL_PROVIDER || 'smtp' }}
+      APP_EMAIL_FROM: ${{ vars.APP_EMAIL_FROM }}
       BINGO_FLOAT_BANK_ENCRYPTION_KEY: ${{ secrets.BINGO_FLOAT_BANK_ENCRYPTION_KEY }}
       ADMIN_BOOTSTRAP_PASSWORD: ${{ secrets.ADMIN_BOOTSTRAP_PASSWORD }}
       MYSQL_HOST: ${{ vars.MYSQL_HOST }}
@@ -42,6 +55,8 @@ jobs:
       WEBSOCKET_ALLOWED_ORIGINS: ${{ vars.WEBSOCKET_ALLOWED_ORIGINS }}
       ADMIN_ACCOUNT_ACTIVATION_URL: ${{ vars.ADMIN_ACCOUNT_ACTIVATION_URL }}
       ADMIN_BOOTSTRAP_ENABLED: ${{ vars.ADMIN_BOOTSTRAP_ENABLED || 'false' }}
+      ADMIN_EMAIL_BOOTSTRAP_ENABLED: ${{ vars.ADMIN_EMAIL_BOOTSTRAP_ENABLED || 'true' }}
+      ADMIN_BOOTSTRAP_EMAILS: ${{ vars.ADMIN_BOOTSTRAP_EMAILS || 'apps@bakaroo.com,equarhishe@gmail.com' }}
       ADMIN_BOOTSTRAP_PHONE: ${{ vars.ADMIN_BOOTSTRAP_PHONE }}
       ADMIN_BOOTSTRAP_NAME: ${{ vars.ADMIN_BOOTSTRAP_NAME }}
       ADMIN_BOOTSTRAP_EMAIL: ${{ vars.ADMIN_BOOTSTRAP_EMAIL }}
@@ -65,8 +80,15 @@ jobs:
       - name: Checkout merged release
         uses: actions/checkout@v5
         with:
-          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
+          fetch-depth: 2
+      - name: Detect affected applications
+        id: changes
+        env:
+          DEPLOY_TARGET: ${{ inputs.target || 'auto' }}
+        run: python3 deployment/aws/detect-deployment-changes.py --target "$DEPLOY_TARGET"
       - name: Set up Java
+        if: steps.changes.outputs.backend == 'true'
         uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -74,6 +96,7 @@ jobs:
           cache: maven
           cache-dependency-path: bingo-backend/pom.xml
       - name: Set up Node.js
+        if: steps.changes.outputs.admin == 'true' || steps.changes.outputs.website == 'true'
         uses: actions/setup-node@v5
         with:
           node-version: '22.22.0'
@@ -82,16 +105,20 @@ jobs:
             bingo-admin/package-lock.json
             bingo-website/package-lock.json
       - name: Validate production configuration
+        if: steps.changes.outputs.any == 'true'
         run: python3 deployment/aws/validate-config.py
       - name: Build backend
+        if: steps.changes.outputs.backend == 'true'
         working-directory: bingo-backend
         run: mvn -B -Dmaven.test.skip=true clean package
       - name: Build admin
+        if: steps.changes.outputs.admin == 'true'
         working-directory: bingo-admin
         run: |
           npm ci
           npm run build
       - name: Build public website
+        if: steps.changes.outputs.website == 'true'
         working-directory: bingo-website
         run: |
           npm ci
@@ -99,6 +126,7 @@ jobs:
           npm run validate:links
           npm run build
       - name: Configure SSH
+        if: steps.changes.outputs.any == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -116,16 +144,27 @@ jobs:
             printf '%b' "$LIGHTSAIL_SSH_KEY" > "$key"
           fi
           tr -d '\r' < "$key" > "$key.tmp"
+          # OpenSSH private keys require a terminating newline.
+          if [[ -s "$key.tmp" && "$(tail -c 1 "$key.tmp" | wc -l)" -eq 0 ]]; then
+            printf '\n' >> "$key.tmp"
+          fi
           mv "$key.tmp" "$key"
           chmod 600 "$key"
-          ssh-keygen -y -f "$key" >/dev/null
+          if ! ssh-keygen -y -P '' -f "$key" >/dev/null 2>&1; then
+            echo '::error::Invalid SSH private key or unsupported passphrase. Set LIGHTSAIL_SSH_KEY_B64 to the Base64 encoding of the complete, unencrypted EC2 private key file.'
+            exit 1
+          fi
           ssh-keyscan -T 20 -H "$LIGHTSAIL_HOST" >> "$HOME/.ssh/known_hosts"
           printf 'SSH_KEY=%s\nSERVER=%s@%s\n' "$key" "$LIGHTSAIL_USER" "$LIGHTSAIL_HOST" >> "$GITHUB_ENV"
           ssh -o BatchMode=yes -o ConnectTimeout=20 -i "$key" "$LIGHTSAIL_USER@$LIGHTSAIL_HOST" true
       - name: Deploy backend
+        if: steps.changes.outputs.backend == 'true'
         run: bash deployment/aws/deploy-backend.sh
       - name: Deploy admin and public website
-        run: bash deployment/aws/deploy-frontend.sh
+        if: steps.changes.outputs.admin == 'true' || steps.changes.outputs.website == 'true'
+        env:
+          FRONTEND_TARGET: ${{ steps.changes.outputs.frontend_target }}
+        run: bash deployment/aws/deploy-frontend.sh "$FRONTEND_TARGET"
       - name: Remove deployment key
         if: always()
         run: rm -f "$RUNNER_TEMP/bingo-aws.pem" "$RUNNER_TEMP/bingo-aws.pem.tmp"

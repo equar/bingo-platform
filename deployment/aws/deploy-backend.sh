@@ -12,7 +12,7 @@ trap 'rm -rf "$work"' EXIT
 umask 077
 python3 - "$work/backend.env" <<'PYENV'
 import os, sys, base64
-required=['MYSQL_HOST','MYSQL_USER','MYSQL_PASSWORD','JWT_SECRET','CORS_ALLOWED_ORIGINS','WEBSOCKET_ALLOWED_ORIGINS','ADMIN_ACCOUNT_ACTIVATION_URL','SPRING_MAIL_USERNAME','BINGO_FLOAT_BANK_ENCRYPTION_KEY']
+required=['MYSQL_HOST','MYSQL_USER','MYSQL_PASSWORD','JWT_SECRET','CORS_ALLOWED_ORIGINS','WEBSOCKET_ALLOWED_ORIGINS','ADMIN_ACCOUNT_ACTIVATION_URL','BINGO_FLOAT_BANK_ENCRYPTION_KEY']
 settings={k:os.environ.get(k,'') for k in required}
 missing=[k for k,v in settings.items() if not v or v.startswith(('REPLACE_','YOUR_'))]
 if missing: raise SystemExit('Missing production settings: '+', '.join(missing))
@@ -20,9 +20,11 @@ if len(settings['JWT_SECRET']) < 32: raise SystemExit('JWT_SECRET must contain a
 try:
     if len(base64.b64decode(settings['BINGO_FLOAT_BANK_ENCRYPTION_KEY'],validate=True)) != 32: raise ValueError()
 except Exception: raise SystemExit('BINGO_FLOAT_BANK_ENCRYPTION_KEY must be Base64 encoding of 32 bytes')
-defaults={'SPRING_MAIL_PASSWORD':'','MYSQL_PORT':'3306','MYSQL_DATABASE':'bingo','SPRING_PROFILES_ACTIVE':'prod','BINGO_ENV_IMPORT':'','SERVER_PORT':'8088','SERVER_ADDRESS':'127.0.0.1','SPRING_JPA_HIBERNATE_DDL_AUTO':'validate','JWT_ACCESS_TOKEN_TTL_SECONDS':'3600','SPRING_MAIL_HOST':'smtp.gmail.com','SPRING_MAIL_PORT':'587','APP_DEV_SEED_ENABLED':'false','APP_BUSINESS_TIMEZONE':'Africa/Addis_Ababa','ADMIN_BOOTSTRAP_ENABLED':'false','ADMIN_BOOTSTRAP_PHONE':'','ADMIN_BOOTSTRAP_NAME':'','ADMIN_BOOTSTRAP_EMAIL':'','ADMIN_BOOTSTRAP_PASSWORD':''}
+defaults={'APP_EMAIL_PROVIDER':'smtp','APP_EMAIL_FROM':'','MICROSOFT_GRAPH_TENANT_ID':'','MICROSOFT_GRAPH_CLIENT_ID':'','MICROSOFT_GRAPH_CLIENT_SECRET':'','SPRING_MAIL_USERNAME':'','SPRING_MAIL_PASSWORD':'','MYSQL_PORT':'3306','MYSQL_DATABASE':'bingo','SPRING_PROFILES_ACTIVE':'prod','BINGO_ENV_IMPORT':'','SERVER_PORT':'8088','SERVER_ADDRESS':'127.0.0.1','SPRING_JPA_HIBERNATE_DDL_AUTO':'validate','JWT_ACCESS_TOKEN_TTL_SECONDS':'3600','SPRING_MAIL_HOST':'smtp.gmail.com','SPRING_MAIL_PORT':'587','APP_DEV_SEED_ENABLED':'false','APP_BUSINESS_TIMEZONE':'Africa/Addis_Ababa','ADMIN_EMAIL_BOOTSTRAP_ENABLED':'false','ADMIN_BOOTSTRAP_EMAILS':'','ADMIN_BOOTSTRAP_ENABLED':'false','ADMIN_BOOTSTRAP_PHONE':'','ADMIN_BOOTSTRAP_NAME':'','ADMIN_BOOTSTRAP_EMAIL':'','ADMIN_BOOTSTRAP_PASSWORD':''}
 fixed={'BINGO_ENV_IMPORT','MYSQL_DATABASE','SPRING_PROFILES_ACTIVE','SERVER_PORT','SERVER_ADDRESS','SPRING_JPA_HIBERNATE_DDL_AUTO','APP_DEV_SEED_ENABLED'}
 for k,v in defaults.items(): settings[k]=v if k in fixed else os.environ.get(k) or v
+for suffix in ('TENANT_ID', 'CLIENT_ID', 'CLIENT_SECRET'):
+    settings['MICROSOFT_GRAPH_' + suffix] = os.environ.get('MICROSOFT_GRAPH_' + suffix) or os.environ.get('GRAPH_' + suffix) or ''
 for k in ['APP_PAYMENT_PROVIDER_NAME','APP_PAYMENT_BUSINESS_ACCOUNT','APP_PAYMENT_INSTRUCTIONS']:
     if os.environ.get(k): settings[k]=os.environ[k]
 with open(sys.argv[1],'w') as f:
