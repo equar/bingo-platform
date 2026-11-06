@@ -1,34 +1,29 @@
-# Documentation Index
+# Documentation
 
-Use this page to find the current project guides. The root [README](../README.md) is the quick-start entry point; component READMEs cover per-app setup.
+Start with the root [README](../README.md) for prerequisites and local quick start.
 
-## Development and integration
+## Architecture and business rules
 
-- [Local E2E testing and database isolation](local-e2e-testing.md) — current backend, Admin Chromium, player Android, and agent Android validation boundaries.
-- [Backend README](../bingo-backend/README.md) — local MySQL, configuration, Maven integration-test schemas, and security notes.
-- [Admin README](../bingo-admin/README.md) — Vite configuration, checks, API expectations, and Playwright credential handling.
-- [Player app README](../bingo-app/README.md) — Flutter setup, API URL requirements, WebSocket behavior, and Android E2E pointers.
-- [Agent app README](../bingo-agent/README.md) — Flutter setup, localization, agent operations, and Android test scope.
-- [OpenAPI integration](../bingo-backend/docs/openapi-integration.md) and [live-draw WebSocket contract](websocket.md).
+- [Business-domain inventory and historical coverage](qa/master-business-domain-inventory.md)
+- [Community features and rules](community-features.md)
+- [Backend API, OpenAPI, and live-draw contract](../bingo-backend/README.md)
 
-## Operations and release
+## Development and client guides
 
-- [Deployment guide](../deployment/README.md), [AWS Lightsail design](../deployment/aws/README.md), and [Lightsail setup checklist](../deployment/aws/SETUP_CHECKLIST.md).
-- [GitHub Actions guide](../deployment/github-actions.md).
-- [Mobile release readiness](mobile-release-readiness.md) and [mobile store deployment](mobile-store-deployment.md).
-- [Website checklist](../bingo-website/CHECKLIST.md).
+- [Admin](../bingo-admin/README.md), [Player](../bingo-app/README.md),
+  [Agent](../bingo-agent/README.md), and [website](../bingo-website/README.md)
 
-## QA, security, and financial controls
+## Deployment and operations
 
-- [QA documentation index](qa/README.md) — current policy, status, workflow procedures, and historical evidence.
-- [Mandatory real E2E policy](qa/mandatory-real-e2e-testing-policy.md) — required UI/API/isolated-MySQL evidence and financial safety gates.
-- [QA release checklist](qa/release-checklist.md), [release blockers](qa/release-blockers.md), [security validation](qa/security-validation.md), and [financial reconciliation](qa/financial-reconciliation.md).
-- [Local QA environment record](qa/local-environment.md) — a machine-specific setup snapshot; verify it before relying on any recorded process or account.
+- [Production deployment](../deployment/README.md)
+- [One-time Admin bootstrap](../deployment/aws/ADMIN_BOOTSTRAP.md)
+- [Mobile package and store release](../deployment/mobile/README.md)
+- [V23 local QA backup, restore, and migration runbook](qa/local-bingo-qa-test-v23-runbook.md)
 
-## Historical design
+## Testing and release controls
 
-- [Initial implementation plan](archive/initial-implementation-plan.md) — archived; it describes an empty repository and an obsolete database choice.
-- [Initial domain decisions](archive/initial-domain-decisions.md) — archived product/design intent; it does not authorize financial behavior or override current QA and release gates.
-- Dated QA reports and evidence remain in `docs/qa/` so previous results and decisions are preserved. Check each report's date and scope; a historical PASS is not a current verification.
-
-- [Player community features](community-features.md): private games, daily points challenges, leaderboard privacy and release order.
+- [QA index](qa/README.md)
+- [Guarded real E2E runbook](qa/platform-e2e-runbook.md)
+- [Current E2E scenario matrix](qa/platform-e2e-scenario-matrix.md)
+- [Current blockers and approvals](qa/qa-blockers-and-approvals.md)
+- [Financial controls and reconciliation](qa/financial-reconciliation.md)

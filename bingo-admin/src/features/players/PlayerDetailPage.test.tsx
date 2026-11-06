@@ -121,7 +121,7 @@ describe("PlayerDetailPage", () => {
 
     await user.click(await screen.findByRole("button", { name: "Change account status" }));
     await user.click(screen.getByRole("combobox", { name: "Account status" }));
-    await user.click(await screen.findByRole("option", { name: "PENDING" }));
+    await user.click(await screen.findByRole("option", { name: "Pending" }));
     const save = screen.getByRole("button", { name: "Save status" });
     expect(save).toBeDisabled();
     await user.type(screen.getByRole("textbox", { name: "Reason" }), "Policy review");
@@ -256,7 +256,7 @@ describe("PlayerDetailPage", () => {
     >);
     render(<PlayerDetailPage />, { wrapper: createWrapper });
 
-    expect(await screen.findByText("Reason: Correction")).toBeInTheDocument();
+    expect(await screen.findByText("Correction")).toBeInTheDocument();
     expect(screen.getByText("Supporting reference: CASE-71")).toBeInTheDocument();
     await user.click(await screen.findByRole("button", { name: "Approve request" }));
     await user.type(screen.getByRole("textbox", { name: "Checker review note" }), "Evidence reviewed");
@@ -269,7 +269,9 @@ describe("PlayerDetailPage", () => {
 
   it("rejects zero-value adjustments and reports an API permission error", async () => {
     const user = userEvent.setup();
-    submitWalletAdjustmentRequestMock.mockRejectedValue(new Error("Permission denied"));
+    submitWalletAdjustmentRequestMock.mockRejectedValue({
+      response: { status: 403, data: { code: "ACCESS_DENIED", message: "Internal authorization detail" } },
+    });
     render(<PlayerDetailPage />, { wrapper: createWrapper });
     await screen.findByText("Player Six");
     await user.click(screen.getByRole("button", { name: "Adjust wallet" }));
@@ -283,7 +285,9 @@ describe("PlayerDetailPage", () => {
     await user.click(screen.getByRole("button", { name: "Review" }));
     await user.click(await screen.findByRole("button", { name: "Submit request" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Permission denied");
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "You don’t have permission to perform this action.",
+    );
   });
 
   it("prevents duplicate wallet adjustments while the confirmation is pending", async () => {

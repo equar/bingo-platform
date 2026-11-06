@@ -1,5 +1,5 @@
 {
-  "verifiedAt": "2026-10-27T11:47:10.2584917+03:00",
+  "verifiedAt": "2026-11-02T20:46:55.4256505+03:00",
   "profile": "android-test",
   "database": "bingo_qa_test",
   "jdbcHost": "127.0.0.1",
@@ -12,9 +12,11 @@
   "adminOrigin": "http://127.0.0.1:5174",
   "drawScheduler": "disabled",
   "financialPostingAndSimulation": "disabled",
-  "processId": 23908,
-  "artifactPath": "C:\\Users\\16414\\AppData\\Local\\Temp\\bingo-platform-module-06a5\\backend-build-23e9d43909774000b4b7773d92e756de\\bingo-backend-0.0.1-SNAPSHOT.jar",
-  "sourceCommit": "e7b8849a0f6af20814bcaffc1a9ed700c9bb7985",
-  "artifactSha256": "CDAB66F568564CE93346CE80335DAB595661A9828D1DFE9208C07F032B70962B",
-  "sourceSha256": "AE7B3E94B78C7F8CB0F9052874B95B993B7DE069FF3494161B44495C3ED10536"
+  "processId": 36396,
+  "processStartedAt": "2026-11-02T20:46:29.4510431+03:00",
+  "javaExecutable": "C:\\Program Files\\Java\\jdk-25.0.2\\bin\\java.exe",
+  "artifactPath": "C:\\Users\\16414\\AppData\\Local\\Temp\\bingo-platform-module-06a5\\backend-build-66ee5574044b47c2bd12d93b1b3a2fa4\\bingo-backend-0.0.1-SNAPSHOT.jar",
+  "sourceCommit": "fc80d6f6e10b66d00e6b72bc2f1f4a56408cbaed",
+  "artifactSha256": "211029DEC8AEEFCF23169F70E5A05E46A3536E02A3D2167CD5337146EAB6F0E8",
+  "sourceSha256": "5D6189D439C7CE2D38B06AC3D2C27F2FB950D04B4C90514BDAC6B77FE7891313"
 }

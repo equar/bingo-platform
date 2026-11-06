@@ -20,6 +20,9 @@ import {
   listSessions,
   login,
   playerWalletTransactions,
+  playerVerificationHistory,
+  recordPlayerVerificationReview,
+  searchPlayerVerifications,
   postDraw,
   prizeEntitlements,
   rejectDeposit,
@@ -27,6 +30,8 @@ import {
   reviewFloatTopUpRequest,
   sessionDraws,
   sessionDetail,
+  searchSessionTicketSessions,
+  searchSessionTickets,
   settlePrizeEntitlement,
   verifyDeposit,
   submitWalletAdjustmentRequest,
@@ -60,6 +65,27 @@ describe("admin API client", () => {
     await login(request);
 
     expect(httpMock.post).toHaveBeenCalledWith("/api/v1/admin/login", request);
+  });
+
+  it("uses the admin-only player verification queue and immutable review history routes", async () => {
+    await searchPlayerVerifications("player", "IN_REVIEW", 1, 25);
+    await playerVerificationHistory(25);
+    await recordPlayerVerificationReview(25, {
+      status: "VERIFIED",
+      reason: "IDENTITY_AND_AGE_CONFIRMED",
+    });
+
+    expect(httpMock.get).toHaveBeenNthCalledWith(1, "/api/v1/admin/player-verifications", {
+      params: { query: "player", status: "IN_REVIEW", page: 1, size: 25 },
+    });
+    expect(httpMock.get).toHaveBeenNthCalledWith(
+      2,
+      "/api/v1/admin/players/25/verification/reviews",
+    );
+    expect(httpMock.post).toHaveBeenCalledWith(
+      "/api/v1/admin/players/25/verification/reviews",
+      { status: "VERIFIED", reason: "IDENTITY_AND_AGE_CONFIRMED" },
+    );
   });
 
   it("lists and reviews deposits using the expected routes, payloads, and idempotency headers", async () => {
@@ -199,6 +225,22 @@ describe("admin API client", () => {
       params: { afterSequence: 12 },
     });
     expect(httpMock.post).toHaveBeenCalledWith("/api/v1/admin/sessions/9/draws");
+  });
+
+  it("searches sessions and their tickets through the support lookup endpoints", async () => {
+    await searchSessionTicketSessions("Friday", 1, 15);
+    await searchSessionTickets(15, "Alice", 2, 10);
+
+    expect(httpMock.get).toHaveBeenNthCalledWith(
+      1,
+      "/api/v1/admin/support/session-tickets/sessions",
+      { params: { query: "Friday", page: 1, size: 15 } },
+    );
+    expect(httpMock.get).toHaveBeenNthCalledWith(
+      2,
+      "/api/v1/admin/support/session-tickets/sessions/15/tickets",
+      { params: { query: "Alice", page: 2, size: 10 } },
+    );
   });
 
   it("lists agents and submits an explicit float-review decision", async () => {

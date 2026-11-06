@@ -54,7 +54,7 @@ void main() {
       generateSixDigitPin(except: primaryPassword),
     );
     await tap(tester, find.byKey(const ValueKey('auth-submit-button')));
-    await pumpUntil(tester, find.textContaining('AUTH_INVALID_CREDENTIALS'));
+    await pumpUntil(tester, find.text('The phone number or PIN is incorrect.'));
     expect(find.byKey(const ValueKey('auth-phone-field')), findsOneWidget);
 
     await enterText(
@@ -140,7 +140,10 @@ void main() {
     final secondaryPassword = generateSixDigitPin(except: primaryPassword);
     final secondaryName = 'E2E Secondary $runId';
     await tap(tester, find.byKey(const ValueKey('auth-toggle-button')));
-    await pumpUntil(tester, find.byKey(const ValueKey('auth-display-name-field')));
+    await pumpUntil(
+      tester,
+      find.byKey(const ValueKey('auth-display-name-field')),
+    );
     await enterText(
       tester,
       find.byKey(const ValueKey('auth-display-name-field')),

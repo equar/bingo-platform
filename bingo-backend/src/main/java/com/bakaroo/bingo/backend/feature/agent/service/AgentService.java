@@ -29,6 +29,7 @@ import com.bakaroo.bingo.backend.feature.game.repository.TicketRepository;
 import com.bakaroo.bingo.backend.feature.game.service.BingoGameService;
 import com.bakaroo.bingo.backend.feature.user.entity.AccountStatus;
 import com.bakaroo.bingo.backend.feature.user.entity.User;
+import com.bakaroo.bingo.backend.feature.user.entity.UserLanguages;
 import com.bakaroo.bingo.backend.feature.user.entity.UserRole;
 import com.bakaroo.bingo.backend.feature.user.repository.UserRepository;
 import com.bakaroo.bingo.backend.feature.wallet.config.WalletProperties;
@@ -147,7 +148,7 @@ public class AgentService {
                 agentProperties.loginAttemptLimit(),
                 agentProperties.attemptWindow());
 
-        User user = userRepository.findByNormalizedPhone(normalizedPhone).orElse(null);
+        User user = userRepository.findByNormalizedPhoneAndRole(normalizedPhone, UserRole.AGENT).orElse(null);
         Agent agent = user == null || !user.hasRole(UserRole.AGENT) || !user.isActive()
                 ? null
                 : agentRepository.findByUserId(user.getId()).orElse(null);
@@ -168,7 +169,8 @@ public class AgentService {
     @Transactional
     public AgentProfileResponse registerApplication(AgentApplicationRequest request) {
         String normalizedPhone = phoneNormalizer.normalize(request.phoneNumber());
-        if (userRepository.existsByNormalizedPhone(normalizedPhone)) {
+        if (userRepository.countByPhoneAndAnyRoleExceptUser(
+                normalizedPhone, Set.of(UserRole.AGENT), null) > 0) {
             throw new ConflictException("PHONE_ALREADY_REGISTERED", "That phone number is already registered");
         }
         String documentType = request.idDocumentType().trim();
@@ -204,7 +206,8 @@ public class AgentService {
 
     @Transactional(readOnly = true)
     public UserProfileResponse lookupPlayer(String normalizedPhone) {
-        User player = userRepository.findByNormalizedPhone(phoneNormalizer.normalize(normalizedPhone))
+        User player = userRepository.findByNormalizedPhoneAndRole(
+                        phoneNormalizer.normalize(normalizedPhone), UserRole.PLAYER)
                 .orElseThrow(() -> new NotFoundException("PLAYER_NOT_FOUND", "Player account not found"));
         return toProfile(player);
     }
@@ -212,7 +215,8 @@ public class AgentService {
     @Transactional
     public UserProfileResponse registerPlayer(AgentPlayerRegistrationRequest request) {
         String normalizedPhone = phoneNormalizer.normalize(request.phoneNumber());
-        if (userRepository.existsByNormalizedPhone(normalizedPhone)) {
+        if (userRepository.countByPhoneAndAnyRoleExceptUser(
+                normalizedPhone, Set.of(UserRole.PLAYER), null) > 0) {
             throw new ConflictException("PHONE_ALREADY_REGISTERED", "That phone number is already registered");
         }
         String generatedPassword = UUID.randomUUID().toString() + "!aA1";
@@ -851,7 +855,7 @@ public class AgentService {
 
     private User lookupOrCreatePlayer(String phoneNumber) {
         String normalizedPhone = phoneNormalizer.normalize(phoneNumber);
-        return userRepository.findByNormalizedPhone(normalizedPhone).orElseGet(() -> {
+        return userRepository.findByNormalizedPhoneAndRole(normalizedPhone, UserRole.PLAYER).orElseGet(() -> {
             String generatedPassword = UUID.randomUUID().toString() + "!aA1";
             User player = User.create(normalizedPhone, normalizedPhone, passwordEncoder.encode(generatedPassword),
                     AccountStatus.ACTIVE, Set.of(UserRole.PLAYER), Instant.now());
@@ -869,8 +873,9 @@ public class AgentService {
     }
 
     private UserProfileResponse toProfile(User user) {
-        return new UserProfileResponse(user.getId(), user.getDisplayName(), user.getNormalizedPhone(), user.getRoles(),
-                user.getStatus(), user.getCreatedAt(), user.getUpdatedAt(), user.isMustChangePassword());
+        return new UserProfileResponse(user.getId(), user.getDisplayName(), user.getEmail(), user.getNormalizedPhone(), user.getRoles(),
+                user.getStatus(), user.getCreatedAt(), user.getUpdatedAt(), user.isMustChangePassword(),
+                UserLanguages.resolve(user.getPreferredLanguage()));
     }
 
     private AgentProfileResponse toAgentProfileResponse(Agent agent) {

@@ -1,4 +1,5 @@
 import 'package:bingo_app/l10n/app_localizations.dart';
+import 'package:bingo_app/src/core/network/api_error.dart';
 import 'package:bingo_app/src/features/community/data/community_repository.dart';
 import 'package:bingo_app/src/features/community/domain/community_models.dart';
 import 'package:flutter/material.dart';
@@ -42,9 +43,14 @@ class _DailyChallengesScreenState extends ConsumerState<DailyChallengesScreen> {
       if (mounted) _reload();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(e.toString())));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              userFacingApiError(e, AppLocalizations.of(context)!) ??
+                  AppLocalizations.of(context)!.errorGeneric,
+            ),
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _busy = null);
@@ -73,7 +79,7 @@ class _DailyChallengesScreenState extends ConsumerState<DailyChallengesScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(snapshot.error.toString()),
+                  Text(userFacingApiError(snapshot.error, l) ?? l.errorGeneric),
                   TextButton(onPressed: _reload, child: Text(l.retry)),
                 ],
               ),

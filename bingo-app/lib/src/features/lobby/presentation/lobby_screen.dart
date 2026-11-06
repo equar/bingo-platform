@@ -234,8 +234,12 @@ class RoomDetailsScreen extends ConsumerWidget {
                   onAction: () => ref.invalidate(roomSessionsProvider(roomId)),
                 ),
                 data: (sessions) => sessions.isEmpty
-                    ? SectionCard(child: Text(localizations.sessionsEmpty))
+                    ? SectionCard(
+                        key: ValueKey('room-sessions-loaded-$roomId'),
+                        child: Text(localizations.sessionsEmpty),
+                      )
                     : Column(
+                        key: ValueKey('room-sessions-loaded-$roomId'),
                         children: sessions
                             .map(
                               (session) => Padding(

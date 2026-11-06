@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:bingo_app/src/app.dart';
 import 'package:bingo_app/src/core/config/app_config.dart';
 import 'package:bingo_app/src/core/storage/session_storage.dart';
@@ -20,6 +22,7 @@ void main() {
     expect(_pin.length, 6);
 
     final storage = const SessionStorage();
+    await storage.clear();
     await tester.pumpWidget(const BingoApp(key: ValueKey('player-initial')));
     await tester.pumpAndSettle();
     await _waitForEither(
@@ -29,6 +32,8 @@ void main() {
     );
     if (find.byType(NavigationBar).evaluate().isNotEmpty) {
       await tester.tap(find.text('Profile'));
+      await tester.pumpAndSettle();
+      await tester.drag(find.byType(ListView).last, const Offset(0, -800));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Logout'));
       await tester.pumpAndSettle();
@@ -95,7 +100,12 @@ void main() {
       _pin,
     );
     await tester.tap(find.byKey(const ValueKey('auth-submit-button')));
-    await _waitFor(tester, find.textContaining('HTTP_'));
+    await _waitFor(
+      tester,
+      find.text(
+        'Unable to connect. Check your internet connection and try again.',
+      ),
+    );
     await _captureScreenshot(tester, 'module-01-player-network-error');
 
     await tester.pumpWidget(const BingoApp(key: ValueKey('player-recovered')));
@@ -103,20 +113,65 @@ void main() {
     await _waitFor(tester, find.byKey(const ValueKey('auth-submit-button')));
     await tester.enterText(
       find.byKey(const ValueKey('auth-phone-field')),
-      '+251 900 000 004',
+      _phone,
     );
     await tester.enterText(
       find.byKey(const ValueKey('auth-password-field')),
       '000000',
     );
     await tester.tap(find.byKey(const ValueKey('auth-submit-button')));
-    await _waitFor(tester, find.textContaining('AUTH_'));
+    await _waitFor(tester, find.text('The phone number or PIN is incorrect.'));
     await tester.enterText(
       find.byKey(const ValueKey('auth-password-field')),
       _pin,
     );
     await tester.tap(find.byKey(const ValueKey('auth-submit-button')));
-    await _waitFor(tester, find.byType(NavigationBar));
+    final firstLoginDeadline = DateTime.now().add(const Duration(seconds: 15));
+    while (DateTime.now().isBefore(firstLoginDeadline) &&
+        find.byType(NavigationBar).evaluate().isEmpty) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    final firstStoredSession = await storage.readSession();
+    final firstStoredUser = firstStoredSession['userJson'] == null
+        ? null
+        : jsonDecode(firstStoredSession['userJson']!) as Map<String, dynamic>;
+    final firstStoredExpiry = DateTime.tryParse(
+      firstStoredSession['expiresAt'] ?? '',
+    );
+    final firstAuthFormVisible = find
+        .byKey(const ValueKey('auth-submit-button'))
+        .evaluate()
+        .isNotEmpty;
+    final firstNavigationVisible =
+        find.byType(NavigationBar).evaluate().isNotEmpty;
+    debugPrint(
+      'QA_PLAYER_FIRST_LOGIN_STATE '
+      'tokenStored=${firstStoredSession['token']?.isNotEmpty == true} '
+      'expiryInFuture=${firstStoredExpiry?.isAfter(DateTime.now().toUtc()) == true} '
+      'userStatus=${firstStoredUser?['status'] ?? 'MISSING'} '
+      'hasPlayerRole=${(firstStoredUser?['roles'] as List? ?? const []).contains('PLAYER')} '
+      'authFormVisible=$firstAuthFormVisible '
+      'navigationBarVisible=$firstNavigationVisible',
+    );
+    if (!firstNavigationVisible) {
+      await _captureScreenshot(tester, 'module-01-player-after-valid-login');
+    }
+    expect(
+      firstStoredSession['token'],
+      isNotEmpty,
+      reason: 'valid login should persist an access token',
+    );
+    expect(
+      firstStoredExpiry?.isAfter(DateTime.now().toUtc()),
+      isTrue,
+      reason: 'valid login should persist a future expiry',
+    );
+    expect(firstStoredUser?['status'], 'ACTIVE');
+    expect(
+      (firstStoredUser?['roles'] as List? ?? const []).contains('PLAYER'),
+      isTrue,
+    );
+    expect(find.byType(NavigationBar), findsOneWidget);
     await _captureScreenshot(tester, 'module-01-player-authenticated');
 
     // Rebuild the app root to verify session restoration from secure storage.
@@ -124,6 +179,8 @@ void main() {
     await tester.pumpAndSettle();
     await _waitFor(tester, find.byType(NavigationBar));
     await tester.tap(find.text('Profile'));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView).last, const Offset(0, -800));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Logout'));
     await tester.pumpAndSettle();
@@ -187,12 +244,19 @@ void main() {
         '000000',
       );
       await tester.tap(find.byKey(const ValueKey('auth-submit-button')));
-      await _waitFor(tester, find.textContaining('AUTH_'));
-      if (attempt == 5) {
-        expect(find.textContaining('AUTH_RATE_LIMITED'), findsOneWidget);
-      }
+      await _waitFor(
+        tester,
+        find.text(
+          attempt == 5
+              ? 'Too many attempts. Please wait a moment and try again.'
+              : 'The phone number or PIN is incorrect.',
+        ),
+      );
     }
-    expect(find.textContaining('AUTH_RATE_LIMITED'), findsOneWidget);
+    expect(
+      find.text('Too many attempts. Please wait a moment and try again.'),
+      findsOneWidget,
+    );
     await _captureScreenshot(tester, 'module-01-player-rate-limited');
     await tester.enterText(
       find.byKey(const ValueKey('auth-phone-field')),

@@ -11,20 +11,31 @@ var _surfaceConverted = false;
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('P17 pending player is rejected by the real Android login UI', (tester) async {
+  testWidgets('P17 pending player is rejected by the real Android login UI', (
+    tester,
+  ) async {
     expect(_phone, isNotEmpty);
     expect(_pin, hasLength(6));
     expect((await const SessionStorage().readSession())['token'], isNull);
 
     await tester.pumpWidget(const BingoApp());
     await _waitFor(tester, find.byKey(const ValueKey('auth-submit-button')));
-    await tester.enterText(find.byKey(const ValueKey('auth-phone-field')), _phone);
-    await tester.enterText(find.byKey(const ValueKey('auth-password-field')), _pin);
+    await tester.enterText(
+      find.byKey(const ValueKey('auth-phone-field')),
+      _phone,
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('auth-password-field')),
+      _pin,
+    );
     await tester.tap(find.byKey(const ValueKey('auth-submit-button')));
-    await _waitFor(tester, find.textContaining('AUTH_INVALID_CREDENTIALS'));
+    await _waitFor(tester, find.text('The phone number or PIN is incorrect.'));
     expect(find.byType(NavigationBar), findsNothing);
     expect((await const SessionStorage().readSession())['token'], isNull);
-    await _captureScreenshot(tester, 'module-01-p17-player-pending-login-rejected');
+    await _captureScreenshot(
+      tester,
+      'module-01-p17-player-pending-login-rejected',
+    );
   });
 }
 

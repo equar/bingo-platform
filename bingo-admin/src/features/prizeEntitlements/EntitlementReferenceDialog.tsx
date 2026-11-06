@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import {
   Alert,
@@ -23,7 +24,9 @@ import {
   type TicketResponse,
   type WinClaimResponse,
 } from "../../api/admin";
+import { getUserFacingErrorMessage } from "../../api/types";
 import { StatusState } from "../../components/StatusState";
+import { translateAdminRole, translateAdminStatus } from "../../i18n";
 
 export type EntitlementReference = {
   kind: "player" | "claim" | "session" | "ticket";
@@ -41,87 +44,88 @@ interface EntitlementReferenceDialogProps {
   onClose: () => void;
 }
 
-function formatDate(value: string | null) {
-  return value ? new Date(value).toLocaleString() : "Not available";
+function formatDate(value: string | null, t: (key: string) => string) {
+  return value ? new Date(value).toLocaleString() : t("Not available");
 }
 
-function detailFields(reference: EntitlementReference, record: ReferenceRecord): DetailField[] {
+function detailFields(reference: EntitlementReference, record: ReferenceRecord, t: (key: string) => string): DetailField[] {
   if (reference.kind === "player") {
     const player = record as AdminPlayerDetailResponse;
     return [
-      { label: "Player ID", value: String(player.id) },
-      { label: "Name", value: player.displayName },
-      { label: "Email", value: player.email ?? "Not provided" },
-      { label: "Phone", value: player.normalizedPhone },
-      { label: "Status", value: player.status },
-      { label: "Roles", value: player.roles.join(", ") || "None" },
-      { label: "Wallet currency", value: player.walletCurrency ?? "No wallet" },
-      { label: "Available balance", value: player.walletAvailableBalance ?? "Not available" },
-      { label: "Promotional balance", value: player.walletPromotionalBalance ?? "Not available" },
-      { label: "Wallet transactions", value: String(player.walletTransactionCount) },
-      { label: "Deposits", value: String(player.depositClaimCount) },
-      { label: "Support tickets", value: String(player.supportTicketCount) },
-      { label: "Game tickets / wins", value: `${player.ticketCount} / ${player.winClaimCount}` },
-      { label: "Created", value: formatDate(player.createdAt) },
-      { label: "Last updated", value: formatDate(player.updatedAt) },
+      { label: t("Player ID"), value: String(player.id) },
+      { label: t("Name"), value: player.displayName },
+      { label: t("Email"), value: player.email ?? t("Not provided") },
+      { label: t("Phone"), value: player.normalizedPhone },
+      { label: t("Status"), value: translateAdminStatus(player.status, t) },
+      { label: t("Roles"), value: player.roles.map((role) => translateAdminRole(role, t)).join(", ") || t("None") },
+      { label: t("Wallet currency"), value: player.walletCurrency ?? t("No wallet") },
+      { label: t("Available balance"), value: player.walletAvailableBalance ?? t("Not available") },
+      { label: t("Promotional balance"), value: player.walletPromotionalBalance ?? t("Not available") },
+      { label: t("Wallet transactions"), value: String(player.walletTransactionCount) },
+      { label: t("Deposits"), value: String(player.depositClaimCount) },
+      { label: t("Support tickets"), value: String(player.supportTicketCount) },
+      { label: t("Game tickets / wins"), value: `${player.ticketCount} / ${player.winClaimCount}` },
+      { label: t("Created"), value: formatDate(player.createdAt, t) },
+      { label: t("Last updated"), value: formatDate(player.updatedAt, t) },
     ];
   }
 
   if (reference.kind === "claim") {
     const claim = record as WinClaimResponse;
     return [
-      { label: "Claim ID", value: String(claim.id) },
-      { label: "Player ID", value: String(claim.claimantId) },
-      { label: "Ticket / session", value: `${claim.ticketId} / ${claim.sessionId}` },
-      { label: "Pattern", value: claim.claimedPattern.replace(/_/g, " ") },
-      { label: "Status", value: claim.status.replace(/_/g, " ") },
-      { label: "Server validation", value: claim.serverValidationPassed ? "Passed" : "Failed" },
-      { label: "Validation code", value: claim.serverValidationCode ?? "Not available" },
-      { label: "Validation message", value: claim.serverValidationMessage ?? "Not available" },
-      { label: "Draw sequence", value: String(claim.drawSequenceSnapshot) },
-      { label: "Called numbers", value: claim.calledNumbersSnapshot.join(", ") || "None" },
-      { label: "Review note", value: claim.reviewNote ?? "No review note" },
-      { label: "Reviewed at", value: formatDate(claim.reviewedAt) },
-      { label: "Entitlement ID", value: claim.entitlementId == null ? "Not available" : String(claim.entitlementId) },
-      { label: "Operation ID", value: claim.operationId },
-      { label: "Created", value: formatDate(claim.createdAt) },
-      { label: "Last updated", value: formatDate(claim.updatedAt) },
+      { label: t("Claim ID"), value: String(claim.id) },
+      { label: t("Player ID"), value: String(claim.claimantId) },
+      { label: t("Ticket / session"), value: `${claim.ticketId} / ${claim.sessionId}` },
+      { label: t("Pattern"), value: claim.claimedPattern.replace(/_/g, " ") },
+      { label: t("Status"), value: translateAdminStatus(claim.status, t) },
+      { label: t("Server validation"), value: claim.serverValidationPassed ? t("Passed") : t("Failed") },
+      { label: t("Validation code"), value: claim.serverValidationCode ?? t("Not available") },
+      { label: t("Validation message"), value: claim.serverValidationMessage ?? t("Not available") },
+      { label: t("Draw sequence"), value: String(claim.drawSequenceSnapshot) },
+      { label: t("Called numbers"), value: claim.calledNumbersSnapshot.join(", ") || t("None") },
+      { label: t("Review note"), value: claim.reviewNote ?? t("No review note") },
+      { label: t("Reviewed at"), value: formatDate(claim.reviewedAt, t) },
+      { label: t("Entitlement ID"), value: claim.entitlementId == null ? t("Not available") : String(claim.entitlementId) },
+      { label: t("Operation ID"), value: claim.operationId },
+      { label: t("Created"), value: formatDate(claim.createdAt, t) },
+      { label: t("Last updated"), value: formatDate(claim.updatedAt, t) },
     ];
   }
 
   if (reference.kind === "session") {
     const session = record as GameSessionResponse;
     return [
-      { label: "Session ID", value: String(session.id) },
-      { label: "Name", value: session.sessionName },
-      { label: "Room", value: `${session.roomName} (#${session.roomId})` },
-      { label: "State", value: session.state },
-      { label: "Scheduled start", value: formatDate(session.scheduledStartAt) },
-      { label: "Started", value: formatDate(session.startedAt) },
-      { label: "Ended", value: formatDate(session.endedAt) },
-      { label: "Ticket price", value: `${session.ticketPrice} ${session.currency}` },
-      { label: "Capacity / max per player", value: `${session.sessionCapacity} / ${session.maxTicketsPerPlayer}` },
-      { label: "Tickets / draws", value: `${session.ticketCount} / ${session.drawCount}` },
-      { label: "Patterns", value: session.configuredPatterns.join(", ") || "None" },
-      { label: "Prizes", value: JSON.stringify(session.configuredPrizes) },
-      { label: "Created", value: formatDate(session.createdAt) },
-      { label: "Last updated", value: formatDate(session.updatedAt) },
+      { label: t("Session ID"), value: String(session.id) },
+      { label: t("Name"), value: session.sessionName },
+      { label: t("Room"), value: `${session.roomName} (#${session.roomId})` },
+      { label: t("State"), value: translateAdminStatus(session.state, t) },
+      { label: t("Scheduled start"), value: formatDate(session.scheduledStartAt, t) },
+      { label: t("Started"), value: formatDate(session.startedAt, t) },
+      { label: t("Ended"), value: formatDate(session.endedAt, t) },
+      { label: t("Ticket price"), value: `${session.ticketPrice} ${session.currency}` },
+      { label: t("Capacity / max per player"), value: `${session.sessionCapacity} / ${session.maxTicketsPerPlayer}` },
+      { label: t("Tickets / draws"), value: `${session.ticketCount} / ${session.drawCount}` },
+      { label: t("Patterns"), value: session.configuredPatterns.join(", ") || t("None") },
+      { label: t("Prizes"), value: JSON.stringify(session.configuredPrizes) },
+      { label: t("Created"), value: formatDate(session.createdAt, t) },
+      { label: t("Last updated"), value: formatDate(session.updatedAt, t) },
     ];
   }
 
   const ticket = record as TicketResponse;
   return [
-    { label: "Ticket ID", value: String(ticket.id) },
-    { label: "Public code", value: ticket.publicTicketCode },
-    { label: "Player ID", value: String(ticket.ownerId) },
-    { label: "Session ID", value: String(ticket.sessionId) },
-    { label: "Operation ID", value: ticket.operationId },
-    { label: "Purchased", value: formatDate(ticket.purchasedAt) },
-    { label: "Card grid", value: ticket.grid.map((row) => row.join("  ")).join("\n") },
+    { label: t("Ticket ID"), value: String(ticket.id) },
+    { label: t("Public code"), value: ticket.publicTicketCode },
+    { label: t("Player ID"), value: String(ticket.ownerId) },
+    { label: t("Session ID"), value: String(ticket.sessionId) },
+    { label: t("Operation ID"), value: ticket.operationId },
+    { label: t("Purchased"), value: formatDate(ticket.purchasedAt, t) },
+    { label: t("Card grid"), value: ticket.grid.map((row) => row.join("  ")).join("\n") },
   ];
 }
 
 export function EntitlementReferenceDialog({ reference, onClose }: EntitlementReferenceDialogProps) {
+  const { t } = useTranslation();
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const detailQuery = useQuery<ReferenceRecord>({
@@ -143,10 +147,11 @@ export function EntitlementReferenceDialog({ reference, onClose }: EntitlementRe
     },
     enabled: reference != null,
   });
-  const title = reference
-    ? `${reference.kind === "claim" ? "Claim" : reference.kind[0].toUpperCase() + reference.kind.slice(1)} #${reference.id}`
-    : "Record details";
-  const fields = reference && detailQuery.data ? detailFields(reference, detailQuery.data) : [];
+  const referenceType = reference
+    ? t(reference.kind === "claim" ? "Claim" : reference.kind === "player" ? "Player" : reference.kind === "session" ? "Session" : "Ticket")
+    : "";
+  const title = reference ? t("{{kind}} #{{id}}", { kind: referenceType, id: reference.id }) : t("Record details");
+  const fields = reference && detailQuery.data ? detailFields(reference, detailQuery.data, t) : [];
 
   return (
     <Dialog
@@ -159,17 +164,16 @@ export function EntitlementReferenceDialog({ reference, onClose }: EntitlementRe
     >
       <DialogTitle id="entitlement-reference-title">{title}</DialogTitle>
       <DialogContent dividers>
-        {detailQuery.isLoading ? <StatusState title="Loading record" loading message="Fetching details" /> : null}
+        {detailQuery.isLoading ? <StatusState title={t("Loading record")} loading message={t("Fetching details")} /> : null}
         {detailQuery.error ? (
           <Alert
             severity="error"
             action={
               <Button color="inherit" size="small" onClick={() => detailQuery.refetch()}>
-                Retry
-              </Button>
+                {t("Retry")}</Button>
             }
           >
-            {(detailQuery.error as Error).message || "Unable to load record details."}
+            {t(getUserFacingErrorMessage(detailQuery.error) ?? "Unable to load record details.")}
           </Alert>
         ) : null}
         {detailQuery.data ? (
@@ -192,7 +196,7 @@ export function EntitlementReferenceDialog({ reference, onClose }: EntitlementRe
         ) : null}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Close</Button>
+        <Button onClick={onClose}>{t("Close")}</Button>
       </DialogActions>
     </Dialog>
   );

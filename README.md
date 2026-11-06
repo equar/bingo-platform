@@ -1,39 +1,21 @@
 # Bingo Platform
 
-Bingo Platform is a multi-app system for running and operating a bingo product.
-This repository contains the backend service plus three client apps:
+Bingo Platform is a multi-app bingo service: a Spring Boot backend, React
+admin console, Flutter player and agent apps, and an Astro public website. The
+backend is the source of truth for authentication, business rules, persistence,
+and live game events.
 
-- `bingo-backend` - Spring Boot API, authentication, Flyway migrations, WebSocket feed, and OpenAPI contract
-- `bingo-admin` - React/Vite admin console for operations and support workflows
-- `bingo-app` - Flutter player app for gameplay and live draws
-- `bingo-agent` - Flutter agent app for counter-service workflows
+## Prerequisites
 
-## Local Prerequisites
+- Java 25+ and Maven 3.9+
+- Node.js 22.13+ and npm for the Admin app
+- Flutter 3.41.0+ and Dart 3.11.0+ for the mobile apps
+- MySQL 8 for local backend development
 
-Before starting the apps locally, make sure you have:
+## Local quick start
 
-- Java 25 or newer for the backend
-- Maven 3.9+ or a compatible Maven installation
-- Node.js 18+ and npm
-- Flutter 3.41.0+ (Dart 3.11.0+) for both mobile apps. CI validates the minimum
-  supported Flutter version (3.41.0) and the current pinned version (3.47.7).
-- MySQL 8 running locally
-
-The backend uses local MySQL by default and does not require Docker.
-It connects to `jdbc:mysql://localhost:3306/bingo` and expects the local MySQL user to be able to create the database if it does not already exist. These defaults are for disposable local development only; never use them for production or a shared QA database.
-
-## Start Order
-
-Start the backend first, then the frontends.
-
-1. Start `bingo-backend`
-2. Start `bingo-admin`
-3. Start `bingo-app`
-4. Start `bingo-agent` when you need to work on agent workflows
-
-## Backend
-
-The backend is the source of truth for authentication, business rules, persistence, and realtime updates.
+Start MySQL, then the backend, followed by the clients you need. Run each
+command from the directory shown:
 
 From `bingo-backend`:
 
@@ -41,45 +23,19 @@ From `bingo-backend`:
 mvn spring-boot:run -Dspring-boot.run.profiles=dev
 ```
 
-The backend requires a private JWT signing secret for every profile. For local work, copy
-`bingo-backend/.env.example` to the untracked `bingo-backend/.env` file and replace its
-placeholder `JWT_SECRET` with a randomly generated value before starting the backend.
-The `dev` profile does not seed accounts unless explicitly enabled and supplied with
-private development credentials.
-If Flyway reports a checksum or migration error, do not drop or clean a database as a generic recovery step. Preserve the error and follow the migration-specific recovery guidance. Any destructive recovery must be explicitly authorized and restricted to a verified disposable database; never target production, shared QA, or persistent test data.
-
-When creating new admin or support accounts from the console, the backend generates the password, enforces a 10-digit phone number, and emails the password to the new user. Make sure SMTP is configured before using that flow locally.
-
-Useful backend notes:
-
-- Default local datasource credentials are `root` / `root`
-- The backend exposes OpenAPI from the checked-in contract at `bingo-backend/openapi.json`
-- Live game updates use the backend WebSocket/STOMP transport
-
-## Admin Console
-
-The admin app is a React 18 + TypeScript + Vite frontend.
+Before startup, follow the [backend guide](bingo-backend/README.md) to create
+the ignored `.env` file and configure `JWT_SECRET`.
 
 From `bingo-admin`:
 
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 
-Before starting it, set the backend base URL in `.env.local`:
+Set `VITE_API_BASE_URL` as described in the [Admin guide](bingo-admin/README.md).
 
-```bash
-VITE_API_BASE_URL=http://localhost:8080
-```
-
-The admin UI expects the backend to be running first.
-
-## Player App
-
-The player app is a Flutter client for players.
-
-From `bingo-app`:
+From `bingo-app` or `bingo-agent`:
 
 ```bash
 flutter pub get
@@ -87,49 +43,24 @@ flutter gen-l10n
 flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8080
 ```
 
-The example above is for an Android emulator. For Windows desktop, use
-`flutter run -d windows --dart-define=API_BASE_URL=http://localhost:8080`.
-The backend must be running at the configured URL. Pass `API_BASE_URL`
-explicitly; there is no runtime fallback. Local HTTP is accepted only in debug
-builds. Release/profile builds require an HTTPS endpoint and reject loopback
-addresses.
-For live draws, it connects to the backend WebSocket endpoint and uses the same host as the REST API.
+The Flutter URL above is for an Android emulator. Use
+`http://localhost:8080` for local desktop development. Always provide
+`API_BASE_URL`; local HTTP is debug-only, while profile and release builds
+require HTTPS.
 
-## Agent App
+The backend requires a private `JWT_SECRET` in the ignored
+`bingo-backend/.env`; development account seeding is disabled by default.
+Local MySQL defaults are for disposable development only. Never point tests or
+recovery operations at production, shared QA, or persistent test data. Follow
+migration-specific recovery guidance instead of dropping or cleaning a
+database.
 
-`bingo-agent` is a Flutter client for counter-service agent workflows.
-
-From `bingo-agent`:
-
-```bash
-flutter pub get
-flutter gen-l10n
-flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8080
-```
-
-The example URL is for an Android emulator; use the appropriate explicitly
-configured API URL for other targets. Both Flutter apps require Flutter 3.41.0
-or newer and Dart 3.11.0 or newer.
-
-## API And Contract Notes
-
-- The backend contract is defined by `bingo-backend/openapi.json`
-- The frontend apps are expected to follow that contract when calling admin, auth, session, and support endpoints
-- WebSocket consumers should keep the backend running so live draw traffic and session events are available
-
-## Troubleshooting
-
-- For Flyway startup failures, preserve the error and verify the effective datasource; follow the migration-specific recovery guidance in [Local E2E testing and isolation](docs/local-e2e-testing.md).
-- If the admin app cannot talk to the backend, confirm `VITE_API_BASE_URL` points to `http://localhost:8080`
-- If the Flutter player app exits immediately, confirm `API_BASE_URL` was provided with `--dart-define`
-
-## Related Docs
+## Documentation
 
 - [Documentation index](docs/README.md)
-- [QA workflows and evidence index](docs/qa/README.md)
-- [Local E2E testing and isolation](docs/local-e2e-testing.md)
-- [Deployment guide](deployment/README.md)
-- [Backend README](bingo-backend/README.md)
-- [Admin README](bingo-admin/README.md)
-- [Player app README](bingo-app/README.md)
-- [Agent README](bingo-agent/README.md)
+- [QA policy, current status, and evidence](docs/qa/README.md)
+- [Guarded E2E procedures and database isolation](docs/qa/platform-e2e-runbook.md)
+- [Deployment and release](deployment/README.md)
+- Component setup: [backend](bingo-backend/README.md), [Admin](bingo-admin/README.md),
+  [Player](bingo-app/README.md), [Agent](bingo-agent/README.md), and
+  [website](bingo-website/README.md)

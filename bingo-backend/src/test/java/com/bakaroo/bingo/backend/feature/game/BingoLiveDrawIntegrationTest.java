@@ -177,9 +177,6 @@ class BingoLiveDrawIntegrationTest extends MySqlIntegrationTest {
         GameLiveDrawService gameLiveDrawService;
 
         @Autowired
-        GameLiveDrawScheduler gameLiveDrawScheduler;
-
-        @Autowired
         PlatformTransactionManager transactionManager;
 
         @Autowired
@@ -517,7 +514,7 @@ class BingoLiveDrawIntegrationTest extends MySqlIntegrationTest {
                 Instant recoveredStart = Instant.now().minus(gameProperties.drawInterval()).minusSeconds(1);
                 jdbcTemplate.update("update bingo_sessions set started_at = ? where id = ?",
                                 Timestamp.from(recoveredStart), session.getId());
-                gameLiveDrawScheduler.recoverOnStartup();
+                new GameLiveDrawScheduler(gameLiveDrawService).recoverOnStartup();
                 var recoveredDraw = drawEventRepository.findTopBySessionIdOrderBySequenceNoDesc(session.getId())
                                 .orElseThrow();
                 assertEquals(1, recoveredDraw.getSequenceNo());

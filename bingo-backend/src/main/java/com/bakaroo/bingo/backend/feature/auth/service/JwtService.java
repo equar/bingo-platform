@@ -31,7 +31,7 @@ public class JwtService {
         Instant expiresAt = issuedAt.plusSeconds(jwtProperties.accessTokenTtlSeconds());
 
         return Jwts.builder()
-                .subject(user.getNormalizedPhone())
+                .subject(user.getNormalizedPhone() != null ? user.getNormalizedPhone() : user.getEmail())
                 .issuedAt(Date.from(issuedAt))
                 .expiration(Date.from(expiresAt))
                 .claim("uid", user.getId())
@@ -44,9 +44,21 @@ public class JwtService {
         return parseClaims(token).getSubject();
     }
 
+    public Long extractUserId(String token) {
+        Object userId = parseClaims(token).get("uid");
+        return userId instanceof Number number ? number.longValue() : null;
+    }
+
     public boolean isTokenValid(String token, String subject) {
         Claims claims = parseClaims(token);
         return subject.equals(claims.getSubject()) && claims.getExpiration().after(new Date());
+    }
+
+    public boolean isTokenValidForUser(String token, Long userId) {
+        Claims claims = parseClaims(token);
+        Object tokenUserId = claims.get("uid");
+        return userId != null && tokenUserId instanceof Number number && userId.longValue() == number.longValue()
+                && claims.getExpiration().after(new Date());
     }
 
     public long getExpirationSeconds() {

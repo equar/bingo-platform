@@ -107,7 +107,7 @@ void main() {
       await controller.submitClaim();
       final firstKey = controller.state.pendingClaimIdempotencyKey;
       expect(firstKey, isNotNull);
-      expect(controller.state.errorMessage, isNotNull);
+      expect(controller.state.apiError, isNotNull);
       expect(repo.submittedKeys, hasLength(1));
       expect(repo.submittedKeys.first, firstKey);
 

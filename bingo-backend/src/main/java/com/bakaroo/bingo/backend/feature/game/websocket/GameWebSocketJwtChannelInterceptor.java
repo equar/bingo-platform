@@ -61,9 +61,9 @@ public class GameWebSocketJwtChannelInterceptor implements ChannelInterceptor {
         }
 
         String token = authorization.substring(7);
-        String subject = jwtService.extractSubject(token);
-        BingoUserPrincipal principal = (BingoUserPrincipal) userDetailsService.loadUserByUsername(subject);
-        if (!jwtService.isTokenValid(token, principal.getUsername()) || !principal.isEnabled()) {
+        Long userId = jwtService.extractUserId(token);
+        BingoUserPrincipal principal = userDetailsService.loadById(userId);
+        if (!jwtService.isTokenValidForUser(token, principal.getUser().getId()) || !principal.isEnabled()) {
             throw new IllegalArgumentException("Invalid websocket token");
         }
 

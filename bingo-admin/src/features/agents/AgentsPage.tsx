@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -32,8 +33,10 @@ import {
   currentCommissionRule,
   suspendAgent,
 } from "../../api/admin";
+import { getUserFacingErrorMessage } from "../../api/types";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { StatusState } from "../../components/StatusState";
+import { translateAdminStatus } from "../../i18n";
 import { FloatFundingPanel } from "./FloatFundingPanel";
 
 function formatNullable(value: string | null | undefined) {
@@ -41,6 +44,7 @@ function formatNullable(value: string | null | undefined) {
 }
 
 export function AgentsPage() {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const agentsQuery = useQuery({ queryKey: ["agents"], queryFn: () => adminAgents(0, 100) });
@@ -74,7 +78,7 @@ export function AgentsPage() {
       setSelectedAgent(null);
       setDecisionError(null);
     },
-    onError: (error) => setDecisionError((error as Error).message),
+    onError: (error) => setDecisionError(getUserFacingErrorMessage(error) ?? "Something went wrong. Please try again."),
   });
 
   const suspendMutation = useMutation({
@@ -90,7 +94,7 @@ export function AgentsPage() {
       setSelectedAgent(null);
       setDecisionError(null);
     },
-    onError: (error) => setDecisionError((error as Error).message),
+    onError: (error) => setDecisionError(getUserFacingErrorMessage(error) ?? "Something went wrong. Please try again."),
   });
 
   const commissionMutation = useMutation({
@@ -120,15 +124,15 @@ export function AgentsPage() {
   }, [agentsQuery.data, search]);
 
   if (agentsQuery.isLoading) {
-    return <StatusState title="Loading agents" loading message="Fetching agent roster" />;
+    return <StatusState title={t("Loading agents")} loading message={t("Fetching agent roster")} />;
   }
 
   if (agentsQuery.error) {
     return (
       <StatusState
-        title="Unable to load agents"
-        message={(agentsQuery.error as Error).message}
-        actionLabel="Retry"
+        title={t("Unable to load agents")}
+        message={t(getUserFacingErrorMessage(agentsQuery.error) ?? "Something went wrong. Please try again.")}
+        actionLabel={t("Retry")}
         onAction={() => agentsQuery.refetch()}
       />
     );
@@ -138,18 +142,16 @@ export function AgentsPage() {
     <Stack spacing={3}>
       <Box display="flex" justifyContent="space-between" alignItems="center" gap={2} flexWrap="wrap">
         <div>
-          <Typography variant="h4">Agents</Typography>
+          <Typography variant="h4">{t("Agents")}</Typography>
           <Typography color="text.secondary">
-            Review agent profiles, queue float top-up requests, and publish commission rules.
-          </Typography>
+            {t("Review agent profiles, queue float top-up requests, and publish commission rules.")}</Typography>
         </div>
         <Button
           variant="outlined"
           onClick={() => navigate(`/agents/${filteredAgents[0]?.agentId ?? 0}`)}
           disabled={filteredAgents.length === 0}
         >
-          Open agent detail
-        </Button>
+          {t("Open agent detail")}</Button>
       </Box>
 
       <Grid container spacing={2}>
@@ -157,20 +159,19 @@ export function AgentsPage() {
           <Card sx={{ border: "1px solid", borderColor: "divider", height: "100%" }}>
             <CardContent>
               <Stack spacing={2}>
-                <Typography variant="h6">Commission rules</Typography>
+                <Typography variant="h6">{t("Commission rules")}</Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Publish a versioned rule. The current rule loads again after refresh.
-                </Typography>
+                  {t("Publish a versioned rule. The current rule loads again after refresh.")}</Typography>
                 {commissionRuleQuery.data && commissionRuleQuery.data.versionNumber > 0 ? (
                   <Typography variant="body2" data-testid="current-commission-rule">
-                    Current version {commissionRuleQuery.data.versionNumber} · {commissionRuleQuery.data.active ? "Active" : "Inactive"}
+                    {t("Current version")}{" "}{commissionRuleQuery.data.versionNumber} {t("·")}{" "}{t(commissionRuleQuery.data.active ? "Active" : "Inactive")}
                   </Typography>
                 ) : null}
-                {commissionMutation.isError ? <Alert severity="error" role="alert">{commissionMutation.error.message}</Alert> : null}
+                {commissionMutation.isError ? <Alert severity="error" role="alert">{t(getUserFacingErrorMessage(commissionMutation.error) ?? "Something went wrong. Please try again.")}</Alert> : null}
                 <Grid container spacing={2}>
                   <Grid item xs={12} md={4}>
                     <TextField
-                      label="Commission rate (bps)"
+                      label={t("Commission rate (bps)")}
                       type="number"
                       value={commissionRateBps}
                       onChange={(event) => setCommissionRateBps(event.target.value)}
@@ -179,7 +180,7 @@ export function AgentsPage() {
                   </Grid>
                   <Grid item xs={12} md={4}>
                     <TextField
-                      label="Effective from"
+                      label={t("Effective from")}
                       type="datetime-local"
                       value={commissionEffectiveFrom}
                       onChange={(event) => setCommissionEffectiveFrom(event.target.value)}
@@ -195,7 +196,7 @@ export function AgentsPage() {
                           onChange={(event) => setCommissionActive(event.target.checked)}
                         />
                       }
-                      label="Active"
+                      label={t("Active")}
                     />
                   </Grid>
                 </Grid>
@@ -204,8 +205,7 @@ export function AgentsPage() {
                   onClick={() => commissionMutation.mutate()}
                   disabled={commissionMutation.isPending}
                 >
-                  Publish rule
-                </Button>
+                  {t("Publish rule")}</Button>
               </Stack>
             </CardContent>
           </Card>
@@ -215,28 +215,28 @@ export function AgentsPage() {
       <FloatFundingPanel />
 
       <TextField
-        label="Search agents"
+        label={t("Search agents")}
         value={search}
         onChange={(event) => setSearch(event.target.value)}
         fullWidth
-        helperText="Search by name, phone, city, territory, or status"
+        helperText={t("Search by name, phone, city, territory, or status")}
       />
 
       <Card sx={{ border: "1px solid", borderColor: "divider" }}>
         <CardContent sx={{ p: 0 }}>
-          <Table size="small" aria-label="agents table">
+          <Table size="small" aria-label={t("agents table")}>
             <TableHead>
               <TableRow>
-                <TableCell>Agent</TableCell>
-                <TableCell>City</TableCell>
-                <TableCell>Territory</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Float</TableCell>
-                <TableCell align="right">Tickets</TableCell>
-                <TableCell align="right">Float tx</TableCell>
-                <TableCell align="right">Top-ups</TableCell>
-                <TableCell align="right">Payouts</TableCell>
-                <TableCell>Actions</TableCell>
+                <TableCell>{t("Agent")}</TableCell>
+                <TableCell>{t("City")}</TableCell>
+                <TableCell>{t("Territory")}</TableCell>
+                <TableCell>{t("Status")}</TableCell>
+                <TableCell>{t("Float")}</TableCell>
+                <TableCell align="right">{t("Tickets")}</TableCell>
+                <TableCell align="right">{t("Float tx")}</TableCell>
+                <TableCell align="right">{t("Top-ups")}</TableCell>
+                <TableCell align="right">{t("Payouts")}</TableCell>
+                <TableCell>{t("Actions")}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -253,9 +253,9 @@ export function AgentsPage() {
                   <TableCell>{formatNullable(agent.city)}</TableCell>
                   <TableCell>{formatNullable(agent.territory)}</TableCell>
                   <TableCell>
-                    <Chip label={agent.status} size="small" />
+                    <Chip label={translateAdminStatus(agent.status, t)} size="small" />
                   </TableCell>
-                  <TableCell><Chip label="See top-up queue" variant="outlined" size="small" /></TableCell>
+                  <TableCell><Chip label={t("See top-up queue")} variant="outlined" size="small" /></TableCell>
                   <TableCell align="right">{agent.ticketSalesCount}</TableCell>
                   <TableCell align="right">{agent.floatTransactionCount}</TableCell>
                   <TableCell align="right">{agent.topUpRequestCount}</TableCell>
@@ -263,8 +263,7 @@ export function AgentsPage() {
                   <TableCell>
                     <Stack direction="row" spacing={1} flexWrap="wrap">
                       <Button size="small" component={RouterLink} to={`/agents/${agent.agentId}`}>
-                        Detail
-                      </Button>
+                        {t("Detail")}</Button>
                       <Button
                         size="small"
                         variant="outlined"
@@ -274,8 +273,7 @@ export function AgentsPage() {
                           setDecisionDraft({ mode: "APPROVE" });
                         }}
                       >
-                        Approve
-                      </Button>
+                        {t("Approve")}</Button>
                       <Button
                         size="small"
                         color="warning"
@@ -286,8 +284,7 @@ export function AgentsPage() {
                           setSuspendConfirmOpen(true);
                         }}
                       >
-                        Suspend
-                      </Button>
+                        {t("Suspend")}</Button>
                     </Stack>
                   </TableCell>
                 </TableRow>
@@ -295,7 +292,7 @@ export function AgentsPage() {
               {filteredAgents.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={10}>
-                    <Alert severity="info">No agents match the current search.</Alert>
+                    <Alert severity="info">{t("No agents match the current search.")}</Alert>
                   </TableCell>
                 </TableRow>
               ) : null}
@@ -305,35 +302,38 @@ export function AgentsPage() {
       </Card>
 
       <Dialog open={Boolean(decisionDraft)} onClose={() => setDecisionDraft(null)} fullWidth maxWidth="sm">
-        <DialogTitle>Approve agent application</DialogTitle>
+        <DialogTitle>{t("Approve agent application")}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
-            {decisionError ? <Alert severity="error" role="alert">{decisionError}</Alert> : null}
+            {decisionError ? <Alert severity="error" role="alert">{t(decisionError)}</Alert> : null}
             <Typography>
-              {selectedAgent ? `Approve ${selectedAgent.displayName} (${selectedAgent.normalizedPhone})?` : "Review the agent application before approving."}
+              {selectedAgent
+                ? t("Approve {{name}} ({{phone}})?", {
+                    name: selectedAgent.displayName,
+                    phone: selectedAgent.normalizedPhone,
+                  })
+                : t("Review the agent application before approving.")}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Review the submitted identity details on the agent detail page. Approval activates the agent account; the API ignores client supplied status fields.
-            </Typography>
+              {t("Review the submitted identity details on the agent detail page. Approval activates the agent account; the API ignores client supplied status fields.")}</Typography>
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDecisionDraft(null)} disabled={approveMutation.isPending}>Cancel</Button>
+          <Button onClick={() => setDecisionDraft(null)} disabled={approveMutation.isPending}>{t("Cancel")}</Button>
           <Button variant="contained" onClick={() => approveMutation.mutate()} disabled={approveMutation.isPending || selectedAgent?.status !== "PENDING"}>
-            Approve
-          </Button>
+            {t("Approve")}</Button>
         </DialogActions>
       </Dialog>
       <ConfirmDialog
         open={suspendConfirmOpen}
-        title="Suspend agent"
+        title={t("Suspend agent")}
         description={
           selectedAgent
-            ? `Suspend ${selectedAgent.displayName}? The backend endpoint does not accept a suspension reason.`
-            : "Suspend selected agent?"
+            ? t("Suspend {{name}}? The backend endpoint does not accept a suspension reason.", { name: selectedAgent.displayName })
+            : t("Suspend selected agent?")
         }
-        confirmLabel="Suspend"
-        cancelLabel="Back"
+        confirmLabel={t("Suspend")}
+        cancelLabel={t("Back")}
         confirming={suspendMutation.isPending}
         onCancel={() => setSuspendConfirmOpen(false)}
         onConfirm={() => suspendMutation.mutate()}

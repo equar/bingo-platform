@@ -8,10 +8,12 @@ import java.util.Set;
 public record UserProfileResponse(
         Long id,
         String displayName,
+        String email,
         String phoneNumber,
         Set<UserRole> roles,
         AccountStatus status,
         Instant createdAt,
         Instant updatedAt,
-        boolean mustChangePassword) {
+        boolean mustChangePassword,
+        String preferredLanguage) {
 }

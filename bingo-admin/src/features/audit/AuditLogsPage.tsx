@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import {
   Alert,
@@ -9,8 +10,6 @@ import {
   DialogContent,
   DialogTitle,
   Divider,
-  InputAdornment,
-  MenuItem,
   Paper,
   Stack,
   Table,
@@ -18,14 +17,44 @@ import {
   TableCell,
   TableContainer,
   TableHead,
-  TablePagination,
   TableRow,
   TextField,
   Typography,
 } from "@mui/material";
 import { useState } from "react";
-import { auditLogDetail, auditLogs, type AdminAuditLogSummaryResponse } from "../../api/admin";
+import {
+  auditLogDetail,
+  searchAuditLogs,
+  type AdminAuditLogSummaryResponse,
+  type AuditLogSearchFilters,
+} from "../../api/admin";
+import { getUserFacingErrorMessage } from "../../api/types";
 import { StatusState } from "../../components/StatusState";
+import { AdminTablePagination } from "../../components/AdminTablePagination";
+
+type AuditFilterDraft = {
+  query: string;
+  actorUserId: string;
+  auditLogId: string;
+  action: string;
+  targetType: string;
+  targetId: string;
+  operationId: string;
+  from: string;
+  to: string;
+};
+
+const emptyDraft: AuditFilterDraft = {
+  query: "",
+  actorUserId: "",
+  auditLogId: "",
+  action: "",
+  targetType: "",
+  targetId: "",
+  operationId: "",
+  from: "",
+  to: "",
+};
 
 function hasDetailedMetadata(metadataJson: string) {
   try {
@@ -36,17 +65,84 @@ function hasDetailedMetadata(metadataJson: string) {
   }
 }
 
+function parseOptionalId(value: string) {
+  if (!value.trim()) return undefined;
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed < 1) {
+    throw new Error("IDs must be positive whole numbers.");
+  }
+  return parsed;
+}
+
+function toSearchFilters(draft: AuditFilterDraft): AuditLogSearchFilters {
+  if (draft.from && draft.to && draft.from > draft.to) {
+    throw new Error("The start date must be on or before the end date.");
+  }
+
+  return {
+    query: draft.query.trim() || undefined,
+    actorUserId: parseOptionalId(draft.actorUserId),
+    auditLogId: parseOptionalId(draft.auditLogId),
+    action: draft.action.trim() || undefined,
+    targetType: draft.targetType.trim() || undefined,
+    targetId: parseOptionalId(draft.targetId),
+    operationId: draft.operationId.trim() || undefined,
+    from: draft.from ? `${draft.from}T00:00:00.000Z` : undefined,
+    to: draft.to ? `${draft.to}T23:59:59.999Z` : undefined,
+  };
+}
+
+function csvCell(value: unknown) {
+  let text = value == null ? "" : String(value);
+  if (/^[=+\-@]/.test(text)) text = `'${text}`;
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+function downloadAuditCsv(entries: AdminAuditLogSummaryResponse[]) {
+  const columns = [
+    "ID",
+    "Time",
+    "Actor ID",
+    "Actor",
+    "Action",
+    "Target type",
+    "Target ID",
+    "Reason",
+    "Operation ID",
+  ];
+  const rows = entries.map((entry) => [
+    entry.id,
+    entry.createdAt,
+    entry.actorUserId,
+    entry.actorDisplayName,
+    entry.action,
+    entry.targetType,
+    entry.targetId,
+    entry.reason,
+    entry.operationId,
+  ]);
+  const csv = [columns, ...rows].map((row) => row.map(csvCell).join(",")).join("\r\n");
+  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `audit-logs-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 export function AuditLogsPage() {
+  const { t } = useTranslation();
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(20);
-  const [search, setSearch] = useState("");
-  const [actionFilter, setActionFilter] = useState("ALL");
-  const [targetTypeFilter, setTargetTypeFilter] = useState("ALL");
-  const [dateFilter, setDateFilter] = useState("ALL");
+  const [draftFilters, setDraftFilters] = useState<AuditFilterDraft>(emptyDraft);
+  const [appliedFilters, setAppliedFilters] = useState<AuditLogSearchFilters>({});
+  const [filterError, setFilterError] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<AdminAuditLogSummaryResponse | null>(null);
   const auditQuery = useQuery({
-    queryKey: ["audit-logs", page, pageSize],
-    queryFn: () => auditLogs(page, pageSize),
+    queryKey: ["audit-logs", page, pageSize, appliedFilters],
+    queryFn: () => searchAuditLogs(page, pageSize, appliedFilters),
   });
   const detailQuery = useQuery({
     queryKey: ["audit-logs", "detail", selectedEntry?.id],
@@ -55,204 +151,273 @@ export function AuditLogsPage() {
   });
 
   if (auditQuery.isLoading) {
-    return <StatusState title="Loading audit logs" loading message="Fetching recent audit history" />;
+    return <StatusState title={t("Loading audit logs")} loading message={t("Fetching audit history")} />;
   }
 
   if (auditQuery.error) {
     return (
       <StatusState
-        title="Unable to load audit logs"
-        message={(auditQuery.error as Error).message}
-        actionLabel="Retry"
+        title={t("Unable to load audit logs")}
+        message={t(getUserFacingErrorMessage(auditQuery.error) ?? "Something went wrong. Please try again.")}
+        actionLabel={t("Retry")}
         onAction={() => auditQuery.refetch()}
       />
     );
   }
 
   const entries = auditQuery.data?.content ?? [];
-  const query = search.trim().toLocaleLowerCase();
-  const filteredEntries = entries.filter((entry) => {
-    const searchableText = [
-      entry.id,
-      entry.actorUserId ?? "system",
-      entry.action,
-      entry.targetType,
-      entry.targetId ?? "",
-      entry.reason ?? "",
-      entry.operationId ?? "",
-    ]
-      .join(" ")
-      .toLocaleLowerCase();
-    const matchesSearch = !query || searchableText.includes(query);
-    const matchesAction = actionFilter === "ALL" || entry.action === actionFilter;
-    const matchesTarget = targetTypeFilter === "ALL" || entry.targetType === targetTypeFilter;
-    const age = Date.now() - new Date(entry.createdAt).getTime();
-    const matchesDate =
-      dateFilter === "ALL" ||
-      (dateFilter === "24H" && age <= 24 * 60 * 60 * 1000) ||
-      (dateFilter === "7D" && age <= 7 * 24 * 60 * 60 * 1000) ||
-      (dateFilter === "30D" && age <= 30 * 24 * 60 * 60 * 1000);
-    return matchesSearch && matchesAction && matchesTarget && matchesDate;
-  });
-  const actions = [...new Set(entries.map((entry) => entry.action))].sort();
-  const targetTypes = [...new Set(entries.map((entry) => entry.targetType))].sort();
+  const totalEntries = auditQuery.data?.totalElements ?? 0;
+  const hasFilters = Object.values(appliedFilters).some((value) => value !== undefined && value !== "");
+
+  const applyFilters = () => {
+    try {
+      setAppliedFilters(toSearchFilters(draftFilters));
+      setPage(0);
+      setFilterError(null);
+    } catch (error) {
+      setFilterError(error instanceof Error ? error.message : t("Invalid audit search filters."));
+    }
+  };
+
+  const clearFilters = () => {
+    setDraftFilters(emptyDraft);
+    setAppliedFilters({});
+    setFilterError(null);
+    setExportError(null);
+    setPage(0);
+  };
+
+  const exportFilteredEntries = async () => {
+    setIsExporting(true);
+    setExportError(null);
+    try {
+      const allEntries: AdminAuditLogSummaryResponse[] = [];
+      let exportPage = 0;
+      let totalPages = 1;
+      while (exportPage < totalPages) {
+        const result = await searchAuditLogs(exportPage, 100, appliedFilters);
+        allEntries.push(...result.content);
+        totalPages = result.totalPages;
+        exportPage += 1;
+      }
+      downloadAuditCsv(allEntries);
+    } catch (error) {
+      setExportError(
+        t(getUserFacingErrorMessage(error) ?? "Unable to export the matching audit entries."),
+      );
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   return (
     <Stack spacing={2.5}>
       <Box>
-        <Typography variant="h4">Audit logs</Typography>
-        <Typography color="text.secondary">Recent system activity and review actions.</Typography>
+        <Typography variant="h4">{t("Audit logs")}</Typography>
+        <Typography color="text.secondary">
+          {t("Search and trace activity across the full audit history. Newest activity is shown first.")}
+        </Typography>
       </Box>
 
-      {entries.length === 0 ? <Alert severity="info">No audit entries found.</Alert> : null}
-
-      {entries.length > 0 ? (
-        <Stack spacing={1.25}>
-          <Stack direction={{ xs: "column", md: "row" }} spacing={1.5}>
-            <TextField
-              label="Search audit logs"
-              placeholder="Action, actor, target, reason, operation ID"
-              value={search}
-              onChange={(event) => {
-                setSearch(event.target.value);
-                setPage(0);
-              }}
-              size="small"
-              sx={{ flex: 2, minWidth: { md: 280 } }}
-              InputProps={{ startAdornment: <InputAdornment position="start">⌕</InputAdornment> }}
-            />
-            <TextField
-              select
-              label="Action"
-              value={actionFilter}
-              onChange={(event) => {
-                setActionFilter(event.target.value);
-                setPage(0);
-              }}
-              size="small"
-              sx={{ flex: 1, minWidth: 160 }}
-            >
-              <MenuItem value="ALL">All actions</MenuItem>
-              {actions.map((action) => (
-                <MenuItem key={action} value={action}>
-                  {action}
-                </MenuItem>
-              ))}
-            </TextField>
-            <TextField
-              select
-              label="Target type"
-              value={targetTypeFilter}
-              onChange={(event) => {
-                setTargetTypeFilter(event.target.value);
-                setPage(0);
-              }}
-              size="small"
-              sx={{ flex: 1, minWidth: 160 }}
-            >
-              <MenuItem value="ALL">All target types</MenuItem>
-              {targetTypes.map((targetType) => (
-                <MenuItem key={targetType} value={targetType}>
-                  {targetType}
-                </MenuItem>
-              ))}
-            </TextField>
-            <TextField
-              select
-              label="Time period"
-              value={dateFilter}
-              onChange={(event) => {
-                setDateFilter(event.target.value);
-                setPage(0);
-              }}
-              size="small"
-              sx={{ flex: 1, minWidth: 150 }}
-            >
-              <MenuItem value="ALL">Any time</MenuItem>
-              <MenuItem value="24H">Last 24 hours</MenuItem>
-              <MenuItem value="7D">Last 7 days</MenuItem>
-              <MenuItem value="30D">Last 30 days</MenuItem>
-            </TextField>
-          </Stack>
-          <Typography variant="body2" color="text.secondary">
-            Showing {filteredEntries.length} matching entries on this page
-          </Typography>
-          <TableContainer component={Paper} variant="outlined">
-            <Table size="small" sx={{ minWidth: 1050 }} aria-label="Audit logs">
-              <TableHead>
-                <TableRow>
-                  <TableCell>ID</TableCell>
-                  <TableCell>Time</TableCell>
-                  <TableCell>Action</TableCell>
-                  <TableCell>Actor</TableCell>
-                  <TableCell>Target</TableCell>
-                  <TableCell>Reason</TableCell>
-                  <TableCell>Operation ID</TableCell>
-                  <TableCell align="right">Details</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {filteredEntries.map((entry) => (
-                  <TableRow key={entry.id} hover>
-                    <TableCell>{entry.id}</TableCell>
-                    <TableCell sx={{ whiteSpace: "nowrap" }}>{new Date(entry.createdAt).toLocaleString()}</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>{entry.action}</TableCell>
-                    <TableCell>{entry.actorUserId ?? "System"}</TableCell>
-                    <TableCell sx={{ whiteSpace: "nowrap" }}>
-                      {entry.targetType} · {entry.targetId ?? "n/a"}
-                    </TableCell>
-                    <TableCell sx={{ maxWidth: 260, minWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {entry.reason ?? "—"}
-                    </TableCell>
-                    <TableCell sx={{ maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {entry.operationId ?? "—"}
-                    </TableCell>
-                    <TableCell align="right">
-                      <Button size="small" onClick={() => setSelectedEntry(entry)}>
-                        View details
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {filteredEntries.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
-                      No audit entries match your search and filters.
-                    </TableCell>
-                  </TableRow>
-                ) : null}
-              </TableBody>
-            </Table>
-          </TableContainer>
-          <TablePagination
-            component="div"
-            count={auditQuery.data?.totalElements ?? 0}
-            page={page}
-            onPageChange={(_, nextPage) => setPage(nextPage)}
-            rowsPerPage={pageSize}
-            onRowsPerPageChange={(event) => {
-              setPageSize(Number(event.target.value));
-              setPage(0);
-            }}
-            rowsPerPageOptions={[10, 20, 50, 100]}
+      <Stack
+        component="form"
+        spacing={1.5}
+        onSubmit={(event) => {
+          event.preventDefault();
+          applyFilters();
+        }}
+      >
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(0, 1fr))" },
+            gap: 1.5,
+          }}
+        >
+          <TextField
+            label={t("Search all audit fields")}
+            placeholder={t("Actor, action, target, reason, operation ID, request details")}
+            value={draftFilters.query}
+            onChange={(event) => setDraftFilters({ ...draftFilters, query: event.target.value })}
+            size="small"
           />
+          <TextField
+            label={t("Actor user ID")}
+            type="number"
+            inputProps={{ min: 1, step: 1 }}
+            value={draftFilters.actorUserId}
+            onChange={(event) => setDraftFilters({ ...draftFilters, actorUserId: event.target.value })}
+            size="small"
+          />
+          <TextField
+            label={t("Audit log ID")}
+            type="number"
+            inputProps={{ min: 1, step: 1 }}
+            value={draftFilters.auditLogId}
+            onChange={(event) => setDraftFilters({ ...draftFilters, auditLogId: event.target.value })}
+            size="small"
+          />
+          <TextField
+            label={t("Action")}
+            placeholder={t("Exact action, e.g. UPDATE_SESSION_STATE")}
+            value={draftFilters.action}
+            onChange={(event) => setDraftFilters({ ...draftFilters, action: event.target.value })}
+            size="small"
+          />
+          <TextField
+            label={t("Target type")}
+            placeholder={t("Exact target type")}
+            value={draftFilters.targetType}
+            onChange={(event) => setDraftFilters({ ...draftFilters, targetType: event.target.value })}
+            size="small"
+          />
+          <TextField
+            label={t("Target ID")}
+            type="number"
+            inputProps={{ min: 1, step: 1 }}
+            value={draftFilters.targetId}
+            onChange={(event) => setDraftFilters({ ...draftFilters, targetId: event.target.value })}
+            size="small"
+          />
+          <TextField
+            label={t("Operation ID")}
+            value={draftFilters.operationId}
+            onChange={(event) => setDraftFilters({ ...draftFilters, operationId: event.target.value })}
+            size="small"
+          />
+          <TextField
+            label={t("From date")}
+            type="date"
+            value={draftFilters.from}
+            onChange={(event) => setDraftFilters({ ...draftFilters, from: event.target.value })}
+            size="small"
+            slotProps={{ inputLabel: { shrink: true } }}
+          />
+          <TextField
+            label={t("To date")}
+            type="date"
+            value={draftFilters.to}
+            onChange={(event) => setDraftFilters({ ...draftFilters, to: event.target.value })}
+            size="small"
+            slotProps={{ inputLabel: { shrink: true } }}
+          />
+        </Box>
+        <Typography variant="caption" color="text.secondary">
+          {t("Date filters use UTC calendar days. Leave them blank to search all available history.")}
+        </Typography>
+        {filterError ? <Alert severity="error">{t(filterError)}</Alert> : null}
+        {exportError ? <Alert severity="error">{exportError}</Alert> : null}
+        <Stack direction={{ xs: "column", sm: "row" }} spacing={1} justifyContent="space-between">
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+            <Button type="submit" variant="contained">{t("Search audit logs")}</Button>
+            <Button type="button" onClick={clearFilters}>{t("Clear filters")}</Button>
+          </Stack>
+          <Button
+            type="button"
+            variant="outlined"
+            onClick={() => void exportFilteredEntries()}
+            disabled={isExporting || totalEntries === 0}
+          >
+            {isExporting ? t("Exporting...") : t("Export matching CSV")}
+          </Button>
         </Stack>
-      ) : null}
+      </Stack>
+
+      {totalEntries === 0 ? (
+        <Alert severity="info">
+          {hasFilters ? t("No audit entries match your search and filters.") : t("No audit entries found.")}
+        </Alert>
+      ) : (
+        <Typography variant="body2" color="text.secondary">
+          {t("Showing")} {page * pageSize + 1}–{Math.min((page + 1) * pageSize, totalEntries)} {t("of")}{" "}
+          {totalEntries} {t("matching entries across all pages")}
+        </Typography>
+      )}
+
+      <TableContainer component={Paper} variant="outlined">
+        <Table size="small" sx={{ minWidth: 1050 }} aria-label={t("Audit logs")}>
+          <TableHead>
+            <TableRow>
+              <TableCell>{t("ID")}</TableCell>
+              <TableCell>{t("Time")}</TableCell>
+              <TableCell>{t("Action")}</TableCell>
+              <TableCell>{t("Actor")}</TableCell>
+              <TableCell>{t("Target")}</TableCell>
+              <TableCell>{t("Reason")}</TableCell>
+              <TableCell>{t("Operation ID")}</TableCell>
+              <TableCell align="right">{t("Details")}</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {entries.map((entry) => (
+              <TableRow key={entry.id} hover>
+                <TableCell>{entry.id}</TableCell>
+                <TableCell sx={{ whiteSpace: "nowrap" }}>{new Date(entry.createdAt).toLocaleString()}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{entry.action}</TableCell>
+                <TableCell>
+                  {entry.actorDisplayName
+                    ? `${entry.actorDisplayName} (${entry.actorUserId})`
+                    : entry.actorUserId ?? t("System")}
+                </TableCell>
+                <TableCell sx={{ whiteSpace: "nowrap" }}>
+                  {entry.targetType} {t("·")} {entry.targetId ?? "n/a"}
+                </TableCell>
+                <TableCell
+                  sx={{
+                    maxWidth: 260,
+                    minWidth: 180,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {entry.reason ?? "—"}
+                </TableCell>
+                <TableCell sx={{ maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {entry.operationId ?? "—"}
+                </TableCell>
+                <TableCell align="right">
+                  <Button size="small" onClick={() => setSelectedEntry(entry)}>{t("View details")}</Button>
+                </TableCell>
+              </TableRow>
+            ))}
+            {entries.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
+                  {t("No audit entries match your search and filters.")}
+                </TableCell>
+              </TableRow>
+            ) : null}
+          </TableBody>
+        </Table>
+      </TableContainer>
+      <AdminTablePagination
+        component="div"
+        count={totalEntries}
+        page={page}
+        onPageChange={(_, nextPage) => setPage(nextPage)}
+        rowsPerPage={pageSize}
+        onRowsPerPageChange={(event) => {
+          setPageSize(Number(event.target.value));
+          setPage(0);
+        }}
+        rowsPerPageOptions={[10, 20, 50, 100]}
+      />
 
       <Dialog open={Boolean(selectedEntry)} onClose={() => setSelectedEntry(null)} fullWidth maxWidth="sm">
-        <DialogTitle>Audit log details</DialogTitle>
+        <DialogTitle>{t("Audit log details")}</DialogTitle>
         <DialogContent>
-          {detailQuery.isLoading ? <CircularProgress size={24} aria-label="Loading audit log details" /> : null}
+          {detailQuery.isLoading ? <CircularProgress size={24} aria-label={t("Loading audit log details")} /> : null}
           {detailQuery.error ? (
             <Alert
               severity="error"
               action={
                 <Button color="inherit" size="small" onClick={() => detailQuery.refetch()}>
-                  Retry
+                  {t("Retry")}
                 </Button>
               }
             >
-              Unable to load the full audit details.
+              {t("Unable to load the full audit details.")}
             </Alert>
           ) : null}
           {selectedEntry && detailQuery.data ? (
@@ -265,25 +430,21 @@ export function AuditLogsPage() {
                   "Actor",
                   detailQuery.data.actorDisplayName
                     ? `${detailQuery.data.actorDisplayName} (${detailQuery.data.actorUserId})`
-                    : detailQuery.data.actorUserId ?? "System",
+                    : detailQuery.data.actorUserId ?? t("System"),
                 ],
                 ["Target type", detailQuery.data.targetType],
                 ["Target ID", detailQuery.data.targetId ?? "n/a"],
-                ["Reason", detailQuery.data.reason ?? "No reason provided"],
+                ["Reason", detailQuery.data.reason ?? t("No reason provided")],
                 ["Operation ID", detailQuery.data.operationId ?? "n/a"],
               ].map(([label, value]) => (
                 <Box key={label}>
-                  <Typography variant="caption" color="text.secondary">
-                    {label}
-                  </Typography>
+                  <Typography variant="caption" color="text.secondary">{t(String(label))}</Typography>
                   <Typography sx={{ overflowWrap: "anywhere", whiteSpace: "pre-wrap" }}>{value}</Typography>
                 </Box>
               ))}
               {detailQuery.data.metadataJson ? (
                 <Box>
-                  <Typography variant="subtitle2" gutterBottom>
-                    Recorded context
-                  </Typography>
+                  <Typography variant="subtitle2" gutterBottom>{t("Recorded context")}</Typography>
                   <Box
                     component="pre"
                     sx={{
@@ -309,22 +470,20 @@ export function AuditLogsPage() {
                   </Box>
                   {!hasDetailedMetadata(detailQuery.data.metadataJson) ? (
                     <Alert severity="info" sx={{ mt: 1 }}>
-                      This is a legacy entry with limited context. New audit entries include redacted request and
-                      outcome details.
+                      {t("This is a legacy entry with limited context. New audit entries include redacted request and outcome details.")}
                     </Alert>
                   ) : null}
                 </Box>
               ) : (
                 <Alert severity="info">
-                  This older audit entry has no recorded context. New entries include redacted request and outcome
-                  details.
+                  {t("This older audit entry has no recorded context. New entries include redacted request and outcome details.")}
                 </Alert>
               )}
             </Stack>
           ) : null}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setSelectedEntry(null)}>Close</Button>
+          <Button onClick={() => setSelectedEntry(null)}>{t("Close")}</Button>
         </DialogActions>
       </Dialog>
     </Stack>

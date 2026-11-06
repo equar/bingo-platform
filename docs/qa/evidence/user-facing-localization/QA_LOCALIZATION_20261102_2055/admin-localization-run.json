@@ -1,0 +1,463 @@
+{
+  "application": "Admin",
+  "backendProfile": "android-test",
+  "database": "bingo_qa_test",
+  "checks": [
+    {
+      "check": "real backend admin authentication",
+      "status": "PASS",
+      "route": "/dashboard"
+    },
+    {
+      "check": "dashboard English-to-Amharic switch",
+      "status": "PASS",
+      "headingContainsEthiopic": true
+    },
+    {
+      "check": "language persistence after browser reload",
+      "status": "PASS",
+      "headingContainsEthiopic": true
+    },
+    {
+      "check": "authenticated session preserved through language switch and reload",
+      "status": "PASS",
+      "route": "/dashboard"
+    },
+    {
+      "check": "account page language switch",
+      "status": "PASS",
+      "headingContainsEthiopic": true
+    },
+    {
+      "check": "account route and search input preserved",
+      "status": "PASS",
+      "route": "/players"
+    },
+    {
+      "check": "account page narrow viewport",
+      "status": "PASS",
+      "clientWidth": 390,
+      "scrollWidth": 391
+    },
+    {
+      "check": "support page language switch",
+      "status": "PASS",
+      "headingContainsEthiopic": true
+    },
+    {
+      "check": "support route and filter preserved",
+      "status": "PASS",
+      "route": "/support/tickets"
+    },
+    {
+      "check": "financial history page language switch",
+      "status": "PASS",
+      "headingContainsEthiopic": true
+    },
+    {
+      "check": "financial-history route preserved; read-only screen loaded",
+      "status": "PASS",
+      "route": "/wallet/transfers"
+    },
+    {
+      "check": "financial-history narrow viewport",
+      "status": "PASS",
+      "clientWidth": 390,
+      "scrollWidth": 390
+    },
+    {
+      "check": "create dialog labels translated, required fields present, form input preserved; submit not invoked",
+      "status": "PASS",
+      "requiredInputs": 3
+    },
+    {
+      "check": "live account/support/financial status labels inspected on read-only screens",
+      "status": "PASS",
+      "locale": "am",
+      "statusValues": {
+        "/players": [
+          "በመጠባበቅ ላይ",
+          "ንቁ"
+        ],
+        "/admin-users": [
+          "ንቁ"
+        ],
+        "/support/tickets": [],
+        "/wallet/transfers": []
+      }
+    },
+    {
+      "check": "controlled 403 maps to Amharic permission text and suppresses raw backend message",
+      "status": "PASS",
+      "mode": "controlled client response simulation",
+      "alertCount": 1
+    },
+    {
+      "check": "controlled network failure renders safe connection message without technical detail",
+      "status": "PASS",
+      "mode": "client network simulation",
+      "alertCount": 1
+    },
+    {
+      "check": "Admin account 390px overflow diagnosis",
+      "status": "PASS_WITH_1PX_OVERFLOW",
+      "clientWidth": 390,
+      "documentScrollWidth": 391,
+      "bodyScrollWidth": 391,
+      "overflowing": [
+        {
+          "tag": "TABLE",
+          "cls": "MuiTable-root css-ar2x0h-MuiTable-root",
+          "right": 912.55,
+          "width": 636.55,
+          "overflowX": "visible",
+          "scrollWidth": 637,
+          "clientWidth": 637
+        },
+        {
+          "tag": "THEAD",
+          "cls": "MuiTableHead-root css-1a7iywq-MuiTableHead-root",
+          "right": 912.55,
+          "width": 636.55,
+          "overflowX": "visible",
+          "scrollWidth": 637,
+          "clientWidth": 637
+        },
+        {
+          "tag": "TR",
+          "cls": "MuiTableRow-root MuiTableRow-head",
+          "right": 912.55,
+          "width": 636.55,
+          "overflowX": "visible",
+          "scrollWidth": 637,
+          "clientWidth": 637
+        },
+        {
+          "tag": "TH",
+          "cls": "MuiTableCell-root MuiTableCell-head",
+          "right": 912.55,
+          "width": 103.3,
+          "overflowX": "visible",
+          "scrollWidth": 103,
+          "clientWidth": 103
+        },
+        {
+          "tag": "TBODY",
+          "cls": "MuiTableBody-root css-gmh7jj-MuiTableBody-root",
+          "right": 912.55,
+          "width": 636.55,
+          "overflowX": "visible",
+          "scrollWidth": 637,
+          "clientWidth": 637
+        },
+        {
+          "tag": "TR",
+          "cls": "MuiTableRow-root MuiTableRow-hover",
+          "right": 912.55,
+          "width": 636.55,
+          "overflowX": "visible",
+          "scrollWidth": 637,
+          "clientWidth": 637
+        },
+        {
+          "tag": "TD",
+          "cls": "MuiTableCell-root MuiTableCell-body",
+          "right": 912.55,
+          "width": 103.3,
+          "overflowX": "visible",
+          "scrollWidth": 103,
+          "clientWidth": 103
+        },
+        {
+          "tag": "TR",
+          "cls": "MuiTableRow-root MuiTableRow-hover",
+          "right": 912.55,
+          "width": 636.55,
+          "overflowX": "visible",
+          "scrollWidth": 637,
+          "clientWidth": 637
+        }
+      ]
+    }
+  ],
+  "hmr": {
+    "connected": true,
+    "failures": 0,
+    "status": "PASS"
+  },
+  "apiMethods": [
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/login"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/dashboard/metrics"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/sessions/live"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/review-queue"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/audit-logs"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/support/tickets"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/dashboard/metrics"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/sessions/live"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/review-queue"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/audit-logs"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/support/tickets"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/players"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/players"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/support/tickets/assignees"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/support/tickets"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/support/tickets"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/wallet/transfers"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/users"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/login"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/dashboard/metrics"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/sessions/live"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/review-queue"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/audit-logs"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/support/tickets"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/players"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/login"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/dashboard/metrics"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/sessions/live"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/review-queue"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/audit-logs"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/support/tickets"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/players"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/users"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/support/tickets/assignees"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/support/tickets"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/wallet/transfers"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/players"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/players"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/players"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/dashboard/metrics"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/sessions/live"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/review-queue"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/audit-logs"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/support/tickets"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/login"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/dashboard/metrics"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/sessions/live"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/review-queue"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/audit-logs"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/support/tickets"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/dashboard/metrics"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/sessions/live"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/review-queue"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/audit-logs"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/support/tickets"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/dashboard/metrics"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/players"
+    }
+  ],
+  "status": "PASS",
+  "evidence": "D:\\GitHub\\bingo-platform\\docs\\qa\\evidence\\user-facing-localization\\QA_LOCALIZATION_20261102_2055",
+  "apiMethodsSummary": [
+    {
+      "request": "POST /api/v1/admin/login",
+      "count": 4
+    },
+    {
+      "request": "GET /api/v1/admin/dashboard/metrics",
+      "count": 8
+    },
+    {
+      "request": "GET /api/v1/admin/sessions/live",
+      "count": 7
+    },
+    {
+      "request": "GET /api/v1/admin/review-queue",
+      "count": 7
+    },
+    {
+      "request": "GET /api/v1/admin/audit-logs",
+      "count": 7
+    },
+    {
+      "request": "GET /api/v1/admin/support/tickets",
+      "count": 10
+    },
+    {
+      "request": "GET /api/v1/admin/players",
+      "count": 8
+    },
+    {
+      "request": "GET /api/v1/admin/support/tickets/assignees",
+      "count": 2
+    },
+    {
+      "request": "GET /api/v1/admin/wallet/transfers",
+      "count": 2
+    },
+    {
+      "request": "GET /api/v1/admin/users",
+      "count": 2
+    }
+  ],
+  "onlyLoginPost": true
+}

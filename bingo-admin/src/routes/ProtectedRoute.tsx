@@ -1,8 +1,10 @@
+import { useTranslation } from "react-i18next";
 import { useEffect, useState } from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { refreshAdminUserProfile } from "../api/admin";
 import { clearSession, hasRequiredRole, readSession, useSession, writeSession } from "../api/session";
 import { StatusState } from "../components/StatusState";
+import { getUserFacingErrorMessage, parseApiError } from "../api/types";
 
 interface ProtectedRouteProps {
   allowedRoles?: string[];
@@ -10,9 +12,12 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ allowedRoles = ["ADMIN"], refreshSession = false }: ProtectedRouteProps) {
+  const { t } = useTranslation();
   const session = useSession();
   const location = useLocation();
   const [verifiedToken, setVerifiedToken] = useState<string | null>(null);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
+  const [refreshAttempt, setRefreshAttempt] = useState(0);
 
   useEffect(() => {
     if (!refreshSession || !session?.accessToken) {
@@ -21,6 +26,7 @@ export function ProtectedRoute({ allowedRoles = ["ADMIN"], refreshSession = fals
     }
     let active = true;
     setVerifiedToken(null);
+    setRefreshError(null);
     refreshAdminUserProfile()
       .then((user) => {
         if (!active) return;
@@ -30,27 +36,43 @@ export function ProtectedRoute({ allowedRoles = ["ADMIN"], refreshSession = fals
         }
         setVerifiedToken(session.accessToken);
       })
-      .catch(() => {
+      .catch((error: unknown) => {
         if (!active) return;
-        clearSession();
+        const parsed = parseApiError(error);
+        if (parsed.status === 401) {
+          clearSession({ expired: true });
+          return;
+        }
+        setRefreshError(getUserFacingErrorMessage(parsed) ?? "Something went wrong. Please try again.");
         setVerifiedToken(session.accessToken);
       });
     return () => { active = false; };
-  }, [refreshSession, session?.accessToken]);
+  }, [refreshAttempt, refreshSession, session?.accessToken]);
 
   if (!session) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   }
 
+  if (refreshSession && refreshError) {
+    return (
+      <StatusState
+        title={t("Unable to verify access")}
+        message={t(refreshError)}
+        actionLabel={t("Retry")}
+        onAction={() => setRefreshAttempt((attempt) => attempt + 1)}
+      />
+    );
+  }
+
   if (refreshSession && verifiedToken !== session.accessToken) {
-    return <StatusState title="Checking access" loading message="Refreshing your account permissions" />;
+    return <StatusState title={t("Checking access")} loading message={t("Refreshing your account permissions")} />;
   }
 
   if (!hasRequiredRole(session.user.roles, allowedRoles)) {
     return (
       <StatusState
-        title="Access denied"
-        message="Your account is authenticated but does not have a required admin role."
+        title={t("Access denied")}
+        message={t("Your account is authenticated but does not have a required admin role.")}
       />
     );
   }

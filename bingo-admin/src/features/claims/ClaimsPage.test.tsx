@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { approveWinClaim, rejectWinClaim, winClaims } from "../../api/admin";
+import i18n from "../../i18n";
 import { ClaimsPage } from "./ClaimsPage";
 
 vi.mock("../../api/admin", () => ({
@@ -26,10 +27,20 @@ function createWrapper({ children }: PropsWithChildren) {
   );
 }
 
+function createPendingClaimsWrapper({ children }: PropsWithChildren) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return (
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={["/claims?status=PENDING_REVIEW"]}>{children}</MemoryRouter>
+    </QueryClientProvider>
+  );
+}
+
 describe("ClaimsPage", () => {
   afterEach(cleanup);
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    await i18n.changeLanguage("en");
     winClaimsMock.mockReset();
     approveWinClaimMock.mockReset();
     rejectWinClaimMock.mockReset();
@@ -76,6 +87,13 @@ describe("ClaimsPage", () => {
     expect(winClaimsMock).toHaveBeenCalledWith(0, 20, undefined, undefined, undefined, undefined);
   });
 
+  it("uses the pending review status when opened from the dashboard claim metric", async () => {
+    render(<ClaimsPage />, { wrapper: createPendingClaimsWrapper });
+
+    await screen.findByTestId("claim-row-21");
+    expect(winClaimsMock).toHaveBeenCalledWith(0, 20, undefined, "PENDING_REVIEW", undefined, undefined);
+  });
+
   it("passes search and selected filters to the server and resets to page zero", async () => {
     const user = userEvent.setup();
     render(<ClaimsPage />, { wrapper: createWrapper });
@@ -87,7 +105,7 @@ describe("ClaimsPage", () => {
     );
 
     await user.click(screen.getByRole("combobox", { name: "Status" }));
-    await user.click(await screen.findByRole("option", { name: "APPROVED" }));
+    await user.click(await screen.findByRole("option", { name: "Approved" }));
     await waitFor(() =>
       expect(winClaimsMock).toHaveBeenLastCalledWith(0, 20, "player", "APPROVED", undefined, undefined),
     );
@@ -160,18 +178,27 @@ describe("ClaimsPage", () => {
 
   it("requires a review reason and reports errors without duplicate claim approval", async () => {
     const user = userEvent.setup();
-    approveWinClaimMock.mockRejectedValue(new Error("Permission denied"));
+    approveWinClaimMock.mockRejectedValue({
+      response: { status: 403, data: { code: "ACCESS_DENIED", message: "Internal authorization detail" } },
+    });
     render(<ClaimsPage />, { wrapper: createWrapper });
     await screen.findByTestId("claim-row-21");
 
     await user.click(screen.getByTestId("claim-approve-21"));
     const confirm = screen.getByRole("button", { name: "Confirm" });
     expect(confirm).toBeDisabled();
-    await user.type(screen.getByRole("textbox", { name: "Validation note" }), "Verified against draw");
+    const note = screen.getByRole("textbox", { name: "Validation note" });
+    await user.type(note, "   ");
+    expect(confirm).toBeDisabled();
+    expect(approveWinClaimMock).not.toHaveBeenCalled();
+    await user.clear(note);
+    await user.type(note, "Verified against draw");
     expect(confirm).toBeEnabled();
     await user.click(confirm);
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Permission denied");
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "You don’t have permission to perform this action.",
+    );
     expect(approveWinClaimMock).toHaveBeenCalledTimes(1);
   });
 

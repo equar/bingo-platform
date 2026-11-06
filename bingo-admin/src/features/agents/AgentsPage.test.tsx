@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { adminAgents, adminFloatBankAccounts, adminFloatTopUpRequests, currentCommissionRule, floatTopUpVerificationHistory } from "../../api/admin";
+import i18n from "../../i18n";
 import { AgentsPage } from "./AgentsPage";
 
 vi.mock("../../api/admin", () => ({
@@ -43,7 +44,8 @@ function createWrapper({ children }: PropsWithChildren) {
 describe("AgentsPage float top-up review", () => {
   afterEach(cleanup);
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    await i18n.changeLanguage("en");
     adminAgentsMock.mockReset().mockResolvedValue({
       content: [],
       page: 0,
@@ -81,7 +83,11 @@ describe("AgentsPage float top-up review", () => {
 
     expect(screen.getByRole("button", { name: "Post verified request (QA simulation)" })).toBeDisabled();
     await user.click(within(requestRow!).getByRole("button", { name: "Details" }));
-    expect(await screen.findByText(/Request #17: 25.00 ETB/)).toBeInTheDocument();
+    expect(screen.getByRole("spinbutton", { name: "Request id" })).toHaveValue(17);
+    const requestDetails = screen.getAllByRole("alert").find(
+      (alert) => alert.textContent?.includes("25.00 ETB") && alert.textContent?.includes("QA Bank"),
+    );
+    expect(requestDetails).toBeDefined();
     await user.type(screen.getByRole("textbox", { name: "Review note" }), "QA rejection");
     expect(screen.getByRole("button", { name: "Review request (reject, no credit)" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Post verified request (QA simulation)" })).toBeDisabled();

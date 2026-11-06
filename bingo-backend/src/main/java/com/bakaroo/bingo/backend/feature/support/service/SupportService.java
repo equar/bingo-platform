@@ -129,6 +129,13 @@ public class SupportService {
     }
 
     @Transactional(readOnly = true)
+    public Page<SupportTicketSummaryResponse> reportTickets(Instant from, Instant to, Pageable pageable) {
+        return supportTicketRepository
+                .findByCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(from, to, pageable)
+                .map(this::toSummaryResponse);
+    }
+
+    @Transactional(readOnly = true)
     public List<SupportAssigneeResponse> listAssignees() {
         return userRepository.findAdminUsers(List.of(UserRole.ADMIN, UserRole.SUPPORT), null,
                         AccountStatus.ACTIVE, Pageable.unpaged())

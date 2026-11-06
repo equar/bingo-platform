@@ -11,25 +11,45 @@ var _surfaceConverted = false;
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('Module 03A network failure leaves registration retryable without a session', (tester) async {
-    expect(_displayName, isNotEmpty);
-    expect(_phone, isNotEmpty);
-    expect(_pin, hasLength(6));
+  testWidgets(
+    'Module 03A network failure leaves registration retryable without a session',
+    (tester) async {
+      expect(_displayName, isNotEmpty);
+      expect(_phone, isNotEmpty);
+      expect(_pin, hasLength(6));
 
-    await tester.pumpWidget(const BingoApp());
-    await _waitFor(tester, find.byKey(const ValueKey('auth-submit-button')));
-    await tester.tap(find.byKey(const ValueKey('auth-toggle-button')));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byKey(const ValueKey('auth-display-name-field')), _displayName);
-    await tester.enterText(find.byKey(const ValueKey('auth-phone-field')), _phone);
-    await tester.enterText(find.byKey(const ValueKey('auth-password-field')), _pin);
-    await tester.tap(find.byKey(const ValueKey('auth-submit-button')));
+      await tester.pumpWidget(const BingoApp());
+      await _waitFor(tester, find.byKey(const ValueKey('auth-submit-button')));
+      await tester.tap(find.byKey(const ValueKey('auth-toggle-button')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('auth-display-name-field')),
+        _displayName,
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('auth-phone-field')),
+        _phone,
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('auth-password-field')),
+        _pin,
+      );
+      await tester.tap(find.byKey(const ValueKey('auth-submit-button')));
 
-    await _waitFor(tester, find.textContaining('HTTP_0'));
-    expect(find.byType(NavigationBar), findsNothing);
-    expect(find.byKey(const ValueKey('auth-submit-button')), findsOneWidget);
-    await _captureScreenshot(tester, 'module-03a-network-failure-retry-ready');
-  });
+      await _waitFor(
+        tester,
+        find.text(
+          'Unable to connect. Check your internet connection and try again.',
+        ),
+      );
+      expect(find.byType(NavigationBar), findsNothing);
+      expect(find.byKey(const ValueKey('auth-submit-button')), findsOneWidget);
+      await _captureScreenshot(
+        tester,
+        'module-03a-network-failure-retry-ready',
+      );
+    },
+  );
 }
 
 Future<void> _waitFor(WidgetTester tester, Finder finder) async {

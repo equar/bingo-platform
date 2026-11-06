@@ -22,8 +22,8 @@ The helper creates a separate persistent release keystore per app if no
 `android/key.properties` exists. Back up **all of `signing/` securely**;
 keep those same keys for future app updates. Signing files and build outputs
 are ignored by Git. Existing signing configuration is reused. The player's
-Android ID is `com.equar.bingo.bingo_app`; the agent's is
-`com.equar.bingo.bingo_agent`. Previously installed debug/demo apps may need
+Android application ID is `com.bakaroo.bingo_app`; the agent's is
+`com.bakaroo.bingo_agent`. Previously installed debug/demo apps may need
 uninstalling if their signing identity or package ID differs.
 
 ## iOS
@@ -61,7 +61,7 @@ Production device validation remains separate from local analysis/widget tests.
 Do not run financial integration scenarios against the production database
 merely to test a package build.
 
-The restored iOS bundle IDs are `com.bakaroo.bingo.bingoApp` (player) and
+The checked-in iOS bundle IDs are `com.equar.bingo.bingoApp` (player) and
 `com.equar.bingo.bingoAgent` (agent). Create their Apple profiles accordingly,
 or update the Xcode bundle IDs and export profile mappings together.
 The local Xcode installation currently requires its licence to be reviewed
@@ -135,7 +135,7 @@ launch/login, Amharic text, slow networks, and low-memory behavior on a physical
 if available. No physical phones were connected during this review, so the
 reported failures cannot yet be attributed to a particular cause.
 
-The player iOS project now targets iOS 15+, but installable IPA distribution still
+The iOS projects currently target iOS 13+, but installable IPA distribution still
 requires valid Apple signing and device provisioning. A Telegram IPA is not
 universally installable on iPhones. Apple signing and actual iPhone compatibility
 remain unverified until that configuration is supplied.
@@ -144,138 +144,90 @@ References: [Flutter Android releases](https://docs.flutter.dev/deployment/andro
 [Android page-size compatibility](https://developer.android.com/guide/practices/page-sizes),
 [Android app signing](https://developer.android.com/studio/publish/app-signing).
 
-## Player app branding
+## Google Play and Apple store releases
 
-The player launcher master is `bingo-app/assets/branding/app-icon.png`, prepared
-from the supplied Bingo artwork. To regenerate native icon sizes on macOS:
+The store workflows publish separately from the direct-share APK/Ad Hoc
+workflow above. All store workflows are manually dispatched. Repository files
+do not verify store credentials, app records, signing profiles, environment
+approvals, or a successful upload. Complete store listings with final metadata
+and approved privacy/support URLs, and resolve Product/Legal review of payment,
+wallet, prize, and bingo policies before public release.
 
-```bash
-python3 deployment/mobile/generate-player-icons.py
-```
+### One-time store setup
 
-This updates all five Android legacy densities, the Android 8+ adaptive icon
-resources (blue background with an inset foreground), and every named entry in
-the iOS AppIcon catalog. The iOS 1024px store icon is opaque. Keep the square
-master without pre-applied rounded corners; the operating system supplies the
-launcher mask. The agent app retains its separate existing branding.
+**Google Play**
 
-The player login/register screen shares the home illustration, navy/blue palette
-and orange primary action. Existing field keys and Ethiopian phone/six-digit PIN
-validation remain in place. PIN visibility has localized English/Amharic labels;
-fields and actions are disabled during submission. Auth UI regression tests cover
-login, registration, PIN visibility, duplicate submission and narrow layouts with
-large English and Amharic text.
+1. Create the Play Console app with the package name configured by
+   `BINGO_ANDROID_PACKAGE_NAME`.
+2. Enable Play App Signing and configure the corresponding upload keystore.
+3. Create a service account with the required Play Console permissions.
+4. Confirm the internal testing track, release notes, and testers.
 
-## Install on local virtual devices
+**Apple**
 
-These scripts build **debug packages for emulators/simulators**, separate from
-signed packages shared with real phones. Run from the repository root; Python 3
-and the Flutter SDK are required. The scripts find Flutter and Android tools from
-`android/local.properties`, SDK environment variables, or common SDK locations.
-Override Flutter explicitly with `FLUTTER_BIN=/path/to/flutter/bin/flutter`.
+1. Create the App Store Connect app using `BINGO_IOS_BUNDLE_ID`.
+2. Create an App Store Connect API key and configure its key ID, issuer ID, and
+   private key.
+3. Create the distribution certificate and provisioning profile for the
+   configured bundle ID/team.
+4. Configure TestFlight access and App Review notes.
 
-List the devices on your machine:
+### Store workflow map
 
-```bash
-bash deployment/mobile/install-android-emulator.sh --list
-bash deployment/mobile/install-ios-simulator.sh --list
-```
+- `bingo-app-mobile-ci.yml` validates Flutter, runs tests, and builds a release
+  bundle without publishing.
+- `bingo-app-android-internal-testing.yml` builds/signs an Android App Bundle
+  and uploads it to the Play internal-testing track.
+- `bingo-app-android-production.yml` promotes the previously tested version
+  code without rebuilding.
+- `bingo-app-ios-testflight.yml` builds/signs an IPA and uploads it to
+  TestFlight.
+- `bingo-app-ios-app-store.yml` submits a processed build for App Review after
+  manual approval.
 
-Install and launch the player app (use the exact name or ID from `--list`):
+Repository variables:
 
-```bash
-bash deployment/mobile/install-android-emulator.sh --device Pixel_6
-bash deployment/mobile/install-ios-simulator.sh --device "YOUR_SIMULATOR_UDID"
-```
+- `BINGO_MOBILE_API_BASE_URL`
+- `BINGO_ANDROID_PACKAGE_NAME`
+- `BINGO_IOS_BUNDLE_ID`
+- `BINGO_ANDROID_PRODUCTION_ROLLOUT`
 
-An Android device can be selected by AVD name or a running `emulator-5554` serial.
-An iOS simulator can be selected by UDID or a unique name, such as `iPhone 16`.
-If there is exactly one running virtual device, `--device` can be omitted; if
-several are available the script asks you to select one rather than guessing.
-The selected virtual device is booted if necessary. No devices are created,
-erased, reset or shut down automatically.
+Repository secrets:
 
-Use `--app bingo-agent` for the agent app, or `--app all` for both:
+- `BINGO_ANDROID_KEYSTORE_BASE64`
+- `BINGO_ANDROID_KEYSTORE_PASSWORD`
+- `BINGO_ANDROID_KEY_ALIAS`
+- `BINGO_ANDROID_KEY_PASSWORD`
+- `BINGO_GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64`
+- `BINGO_APP_STORE_CONNECT_KEY_ID`
+- `BINGO_APP_STORE_CONNECT_ISSUER_ID`
+- `BINGO_APP_STORE_CONNECT_PRIVATE_KEY_BASE64`
+- `BINGO_IOS_DISTRIBUTION_CERTIFICATE_BASE64`
+- `BINGO_IOS_DISTRIBUTION_CERTIFICATE_PASSWORD`
+- `BINGO_IOS_PROVISIONING_PROFILE_BASE64`
+- `BINGO_IOS_KEYCHAIN_PASSWORD`
 
-```bash
-bash deployment/mobile/install-android-emulator.sh --device Pixel_6 --app all
-bash deployment/mobile/install-ios-simulator.sh --device "YOUR_SIMULATOR_UDID" --app all
-```
+Production promotion/submission use the `bingo-app-android-production` and
+`bingo-app-ios-production` GitHub environments; require reviewers in repository
+settings. Internal testing and TestFlight do not use those production
+environments. Workflows validate the API URL before build or submission.
 
-Add `--no-launch` to install without opening the app. The default API origin is
-read from `deployment/mobile/production.json`. To use a locally running backend
-on port 8088 instead:
+### Release flow and recovery
 
-```bash
-bash deployment/mobile/install-android-emulator.sh --device Pixel_6 --api-url http://10.0.2.2:8088
-bash deployment/mobile/install-ios-simulator.sh --device "YOUR_SIMULATOR_UDID" --api-url http://127.0.0.1:8088
-```
+1. Run Android internal testing and verify the uploaded artifact in Play
+   Console before promotion.
+2. Promote the exact Android version code tested internally. Configure a
+   staged rollout fraction only when intended.
+3. Run iOS TestFlight after verifying project and signing settings; confirm
+   the processed build in App Store Connect.
+4. Submit the exact processed iOS build for review through the manually
+   approved production workflow.
+5. If an upload failed before store acceptance, fix the workflow and rerun with
+   the same release inputs. If a wrong build reached a store, verify store
+   state first; do not rebuild blindly. Rotate signing material in the store
+   console before changing GitHub secrets.
 
-Android emulators reach the host through `10.0.2.2`; iOS simulators can use host
-loopback. Supply the origin only, without `/api/v1`. The script builds against
-that URL each time; it does not start the backend. Player direct purchases remain
-disabled by default. `--timeout 360` increases the default 240-second boot timeout.
-
-Android requires an installed AVD running API 24+ and a supported CPU (ARM32,
-ARM64 or x86_64). Create AVDs in Android Studio's Device Manager and install SDK
-Build-Tools. Use the IDE's bundled Java or another JDK supported by the current
-Gradle setup; set `JAVA_HOME` if necessary. A debug APK cannot replace a
-release-signed APK with the same application ID: the script reports the installer
-error rather than uninstalling the app and deleting its data.
-
-For iOS, install full Xcode, select its Command Line Tools in **Xcode Settings →
-Locations**, and install an iOS Simulator runtime under **Components/Platforms**.
-Complete Xcode's first-launch setup. If prompted about its licence, review it in
-your Terminal:
-
-```bash
-sudo xcodebuild -license
-```
-
-The script does not accept licence agreements on your behalf. Simulator `.app`
-builds use `flutter build ios --simulator --debug --no-codesign`, require no Apple
-Developer distribution certificate or Ad Hoc profiles, and cannot be installed
-on physical iPhones. iOS simulator installation remains unverified on this
-workstation until its Xcode licence is accepted.
-
-Verification on this workstation: both player and agent debug APKs built and
-installed successfully on the `Pixel_6` Android emulator. Player launch was
-verified using the APK's declared activity (application ID and Kotlin namespace
-are intentionally read separately). No app data was deliberately erased. The
-emulator is left running. Four command-level regression checks also pass:
-
-```bash
-python3 -m unittest discover -s deployment/mobile/tests -v
-```
-
-A debug-build namespace conflict from Flutter integration_test's legacy Espresso
-3.2 dependency was fixed by aligning Espresso core/idling-resource to 3.7.0 in
-both Android projects. See the [AndroidX Test release notes](https://developer.android.com/jetpack/androidx/releases/test).
-
-## Xcode: PhaseScriptExecution troubleshooting
-
-The November 2026 player build failure was caused initially by ignored/generated
-Flutter settings copied from Windows (`FLUTTER_ROOT=C:\src\flutter`). On a new
-Mac checkout, regenerate these settings before opening the workspace. Do not
-commit `Generated.xcconfig` or `flutter_export_environment.sh`:
-
-```bash
-cd bingo-app
-flutter pub get
-flutter gen-l10n
-flutter build ios --config-only --debug --simulator --no-codesign --target=lib/main.dart --dart-define-from-file=../deployment/mobile/production.json
-cd ios
-pod install
-open Runner.xcworkspace
-```
-
-Use the correct Flutter executable if several SDKs are installed (this Mac's
-project uses `/usr/local/share/flutter/bin/flutter`). Open `Runner.xcworkspace`,
-which includes CocoaPods, rather than `Runner.xcodeproj`.
-
-The current Xcode 27 SDK requires iOS 15 or newer; Runner, App.framework metadata,
-and the CocoaPods deployment floor are aligned to 15.0. This means the player app
-no longer supports iOS 13/14 builds with this setup. The Debug xcconfig builds
-simulators for the host Mac's native architecture to avoid Flutter 3.41's
-multi-architecture `lipo -verify_arch` incompatibility with Xcode 27. Physical
-device/archive architectures and the chosen Apple signing team are preserved.
+Recheck current Google Play billing and Apple review requirements before
+enabling payment-adjacent or prize mechanics. Confirm licensing,
+geo-restrictions, age gating, and disclosures with Product/Legal owners. Store
+workflow files alone do not establish compliance or release readiness.

@@ -1,9 +1,9 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { type PropsWithChildren } from "react";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { listAdminRooms } from "../../api/admin";
+import { listAdminRooms, updateRoom } from "../../api/admin";
 import { RoomsPage } from "./RoomsPage";
 
 vi.mock("../../api/admin", () => ({
@@ -13,6 +13,7 @@ vi.mock("../../api/admin", () => ({
 }));
 
 const listAdminRoomsMock = vi.mocked(listAdminRooms);
+const updateRoomMock = vi.mocked(updateRoom);
 
 function createWrapper({ children }: PropsWithChildren) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -24,6 +25,7 @@ describe("RoomsPage", () => {
 
   beforeEach(() => {
     listAdminRoomsMock.mockReset();
+    updateRoomMock.mockReset();
     listAdminRoomsMock.mockResolvedValue({
       content: [
         {
@@ -70,5 +72,24 @@ describe("RoomsPage", () => {
 
     await user.click(screen.getByRole("button", { name: "Go to next page" }));
     await waitFor(() => expect(listAdminRoomsMock).toHaveBeenLastCalledWith(1, 20, "Evening", true));
+  });
+
+  it("enables save for an edited room only while fields differ from the original", async () => {
+    const user = userEvent.setup();
+    render(<RoomsPage />, { wrapper: createWrapper });
+
+    await user.click(await screen.findByRole("button", { name: "Edit" }));
+    const dialog = await screen.findByRole("dialog", { name: "Edit room" });
+    const saveButton = within(dialog).getByRole("button", { name: "Save" });
+    expect(saveButton).toBeDisabled();
+
+    const nameField = within(dialog).getByRole("textbox", { name: "Room name" });
+    await user.clear(nameField);
+    await user.type(nameField, "Updated Room");
+    expect(saveButton).toBeEnabled();
+    await user.clear(nameField);
+    await user.type(nameField, "Evening Room");
+    expect(saveButton).toBeDisabled();
+    expect(updateRoomMock).not.toHaveBeenCalled();
   });
 });

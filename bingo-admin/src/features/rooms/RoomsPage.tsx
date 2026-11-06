@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import {
@@ -25,13 +26,14 @@ import {
   TableCell,
   TableContainer,
   TableHead,
-  TablePagination,
   TableRow,
   ListItemText,
 } from "@mui/material";
 import { BingoPatternConfig, BingoRoomResponse, createRoom, listAdminRooms, updateRoom } from "../../api/admin";
+import { getUserFacingErrorMessage } from "../../api/types";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { StatusState } from "../../components/StatusState";
+import { AdminTablePagination } from "../../components/AdminTablePagination";
 
 const scheduleOptions = [
   { value: "HOURLY", label: "Hourly" },
@@ -109,6 +111,23 @@ function roomToDraft(room: BingoRoomResponse): RoomDraft {
   };
 }
 
+function roomDraftsEqual(left: RoomDraft, right: RoomDraft) {
+  return left.name === right.name
+    && left.description === right.description
+    && left.ticketPrice === right.ticketPrice
+    && left.currency === right.currency
+    && left.timezone === right.timezone
+    && left.scheduleRule === right.scheduleRule
+    && left.sessionCapacity === right.sessionCapacity
+    && left.maxTicketsPerPlayer === right.maxTicketsPerPlayer
+    && left.ticketSalesCloseOnSessionStart === right.ticketSalesCloseOnSessionStart
+    && left.allowMultipleWinnersPerPrize === right.allowMultipleWinnersPerPrize
+    && left.active === right.active
+    && left.configuredPatterns.length === right.configuredPatterns.length
+    && left.configuredPatterns.every((pattern, index) => pattern === right.configuredPatterns[index])
+    && left.configuredPrizes === right.configuredPrizes;
+}
+
 function parsePrizes(json: string): BingoPatternConfig[] {
   const value = JSON.parse(json) as Array<{
     prizeType: string;
@@ -124,7 +143,7 @@ function parsePrizes(json: string): BingoPatternConfig[] {
   }));
 }
 
-function formatDraftSummary(draft: RoomDraft) {
+function formatDraftSummary(draft: RoomDraft, t: (key: string, options?: Record<string, unknown>) => string) {
   const patternCount = draft.configuredPatterns.length;
   const prizeCount = (() => {
     try {
@@ -135,16 +154,18 @@ function formatDraftSummary(draft: RoomDraft) {
   })();
 
   return [
-    `Room: ${draft.name || "Untitled"}`,
-    `Schedule: ${draft.scheduleRule}`,
-    `Patterns: ${patternCount} selected`,
-    `Prizes: ${prizeCount} configured`,
-  ].join(" • ");
+    t("Room: {{name}}", { name: draft.name || t("Untitled") }),
+    t("Schedule: {{rule}}", { rule: draft.scheduleRule }),
+    t("Patterns: {{count}} selected", { count: patternCount }),
+    t("Prizes: {{count}} configured", { count: prizeCount }),
+  ].join(` ${t("·")} `);
 }
 
 export function RoomsPage() {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState<RoomDraft | null>(null);
+  const [originalDraft, setOriginalDraft] = useState<RoomDraft | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingSubmit, setPendingSubmit] = useState(false);
   const [pendingError, setPendingError] = useState<string | null>(null);
@@ -185,10 +206,11 @@ export function RoomsPage() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["admin-rooms"] });
       setDraft(null);
+      setOriginalDraft(null);
       setConfirmOpen(false);
       setPendingError(null);
     },
-    onError: (error) => setPendingError((error as Error).message),
+    onError: (error) => setPendingError(getUserFacingErrorMessage(error) ?? "Something went wrong. Please try again."),
     onSettled: () => setPendingSubmit(false),
   });
 
@@ -213,10 +235,11 @@ export function RoomsPage() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["admin-rooms"] });
       setDraft(null);
+      setOriginalDraft(null);
       setConfirmOpen(false);
       setPendingError(null);
     },
-    onError: (error) => setPendingError((error as Error).message),
+    onError: (error) => setPendingError(getUserFacingErrorMessage(error) ?? "Something went wrong. Please try again."),
     onSettled: () => setPendingSubmit(false),
   });
 
@@ -235,17 +258,21 @@ export function RoomsPage() {
 
   const rooms = roomsQuery.data?.content ?? [];
   const title = useMemo(() => (draft?.id ? "Edit room" : "Create room"), [draft?.id]);
+  const hasDraftChanges = draft !== null && (
+    draft.id === undefined
+      || (originalDraft !== null && !roomDraftsEqual(draft, originalDraft))
+  );
 
   if (roomsQuery.isLoading) {
-    return <StatusState title="Loading rooms" loading message="Fetching room catalog" />;
+    return <StatusState title={t("Loading rooms")} loading message={t("Fetching room catalog")} />;
   }
 
   if (roomsQuery.error) {
     return (
       <StatusState
-        title="Unable to load rooms"
-        message={(roomsQuery.error as Error).message}
-        actionLabel="Retry"
+        title={t("Unable to load rooms")}
+        message={t(getUserFacingErrorMessage(roomsQuery.error) ?? "Something went wrong. Please try again.")}
+        actionLabel={t("Retry")}
         onAction={() => roomsQuery.refetch()}
       />
     );
@@ -255,12 +282,17 @@ export function RoomsPage() {
     <Stack spacing={3}>
       <Box display="flex" justifyContent="space-between" alignItems="center" gap={2} flexWrap="wrap">
         <div>
-          <Typography variant="h4">Rooms</Typography>
-          <Typography color="text.secondary">Create and edit bingo room configuration and activation.</Typography>
+          <Typography variant="h4">{t("Rooms")}</Typography>
+          <Typography color="text.secondary">{t("Create and edit bingo room configuration and activation.")}</Typography>
         </div>
-        <Button variant="contained" onClick={() => setDraft({ ...emptyDraft })}>
-          New room
-        </Button>
+        <Button
+          variant="contained"
+          onClick={() => {
+            setOriginalDraft(null);
+            setDraft({ ...emptyDraft });
+          }}
+        >
+          {t("New room")}</Button>
       </Box>
 
       <Paper variant="outlined" sx={{ borderRadius: 3, overflow: "hidden" }}>
@@ -278,19 +310,19 @@ export function RoomsPage() {
           }}
         >
           <TextField
-            label="Search rooms"
+            label={t("Search rooms")}
             value={roomSearch}
             onChange={(event) => {
               setRoomSearch(event.target.value);
               setPage(0);
             }}
-            placeholder="Name, description, schedule, or pattern"
+            placeholder={t("Name, description, schedule, or pattern")}
             size="small"
             sx={{ minWidth: { xs: "100%", md: 360 }, flex: 1 }}
           />
           <TextField
             select
-            label="Status"
+            label={t("Status")}
             value={roomStatusFilter}
             onChange={(event) => {
               setRoomStatusFilter(event.target.value as "all" | "active" | "inactive");
@@ -299,24 +331,24 @@ export function RoomsPage() {
             size="small"
             sx={{ minWidth: 180 }}
           >
-            <MenuItem value="all">All rooms</MenuItem>
-            <MenuItem value="active">Active only</MenuItem>
-            <MenuItem value="inactive">Inactive only</MenuItem>
+            <MenuItem value="all">{t("All rooms")}</MenuItem>
+            <MenuItem value="active">{t("Active only")}</MenuItem>
+            <MenuItem value="inactive">{t("Inactive only")}</MenuItem>
           </TextField>
         </Box>
 
         <TableContainer>
-          <Table size="small" aria-label="rooms table">
+          <Table size="small" aria-label={t("rooms table")}>
             <TableHead>
               <TableRow>
-                <TableCell>Room</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Price</TableCell>
-                <TableCell>Capacity</TableCell>
-                <TableCell>Schedule</TableCell>
-                <TableCell>Patterns</TableCell>
-                <TableCell>Updated</TableCell>
-                <TableCell align="right">Actions</TableCell>
+                <TableCell>{t("Room")}</TableCell>
+                <TableCell>{t("Status")}</TableCell>
+                <TableCell>{t("Price")}</TableCell>
+                <TableCell>{t("Capacity")}</TableCell>
+                <TableCell>{t("Schedule")}</TableCell>
+                <TableCell>{t("Patterns")}</TableCell>
+                <TableCell>{t("Updated")}</TableCell>
+                <TableCell align="right">{t("Actions")}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -326,13 +358,13 @@ export function RoomsPage() {
                     <Stack spacing={0.5}>
                       <Typography variant="subtitle2">{room.name}</Typography>
                       <Typography variant="body2" color="text.secondary">
-                        {room.description ?? "No description"}
+                        {room.description ?? t("No description")}
                       </Typography>
                     </Stack>
                   </TableCell>
                   <TableCell>
                     <Chip
-                      label={room.active ? "Active" : "Inactive"}
+                      label={room.active ? t("Active") : t("Inactive")}
                       color={room.active ? "success" : "default"}
                       size="small"
                     />
@@ -341,7 +373,7 @@ export function RoomsPage() {
                     {room.ticketPrice} {room.currency}
                   </TableCell>
                   <TableCell>
-                    {room.sessionCapacity} / {room.maxTicketsPerPlayer}
+                    {room.sessionCapacity} {t("/")}{" "}{room.maxTicketsPerPlayer}
                   </TableCell>
                   <TableCell>{room.scheduleRule}</TableCell>
                   <TableCell>
@@ -353,9 +385,16 @@ export function RoomsPage() {
                   </TableCell>
                   <TableCell>{new Date(room.updatedAt).toLocaleString()}</TableCell>
                   <TableCell align="right">
-                    <Button variant="outlined" size="small" onClick={() => setDraft(roomToDraft(room))}>
-                      Edit
-                    </Button>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      onClick={() => {
+                        const nextDraft = roomToDraft(room);
+                        setOriginalDraft(nextDraft);
+                        setDraft(nextDraft);
+                      }}
+                    >
+                      {t("Edit")}</Button>
                   </TableCell>
                 </TableRow>
               ))}
@@ -363,15 +402,14 @@ export function RoomsPage() {
                 <TableRow>
                   <TableCell colSpan={8}>
                     <Alert severity="info" sx={{ my: 1 }}>
-                      No rooms match the current filters.
-                    </Alert>
+                      {t("No rooms match the current filters.")}</Alert>
                   </TableCell>
                 </TableRow>
               ) : null}
             </TableBody>
           </Table>
         </TableContainer>
-        <TablePagination
+        <AdminTablePagination
           component="div"
           count={roomsQuery.data?.totalElements ?? 0}
           page={page}
@@ -385,15 +423,23 @@ export function RoomsPage() {
         />
       </Paper>
 
-      <Dialog open={Boolean(draft)} onClose={() => setDraft(null)} fullWidth maxWidth="md">
+      <Dialog
+        open={Boolean(draft)}
+        onClose={() => {
+          setDraft(null);
+          setOriginalDraft(null);
+        }}
+        fullWidth
+        maxWidth="md"
+      >
         <DialogTitle>{title}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
-            {pendingError ? <Alert severity="error">{pendingError}</Alert> : null}
+            {pendingError ? <Alert severity="error">{t(pendingError)}</Alert> : null}
             <Grid container spacing={2}>
               <Grid item xs={12} md={6}>
                 <TextField
-                  label="Room name"
+                  label={t("Room name")}
                   value={draft?.name ?? ""}
                   onChange={(e) => draft && setDraft({ ...draft, name: e.target.value })}
                   fullWidth
@@ -402,7 +448,7 @@ export function RoomsPage() {
               </Grid>
               <Grid item xs={12} md={6}>
                 <TextField
-                  label="Currency"
+                  label={t("Currency")}
                   value={draft?.currency ?? ""}
                   onChange={(e) => draft && setDraft({ ...draft, currency: e.target.value.toUpperCase() })}
                   fullWidth
@@ -411,7 +457,7 @@ export function RoomsPage() {
               </Grid>
               <Grid item xs={12}>
                 <TextField
-                  label="Description"
+                  label={t("Description")}
                   value={draft?.description ?? ""}
                   onChange={(e) => draft && setDraft({ ...draft, description: e.target.value })}
                   fullWidth
@@ -421,7 +467,7 @@ export function RoomsPage() {
               </Grid>
               <Grid item xs={12} md={4}>
                 <TextField
-                  label="Ticket price"
+                  label={t("Ticket price")}
                   value={draft?.ticketPrice ?? ""}
                   onChange={(e) => draft && setDraft({ ...draft, ticketPrice: e.target.value })}
                   fullWidth
@@ -429,7 +475,7 @@ export function RoomsPage() {
               </Grid>
               <Grid item xs={12} md={4}>
                 <TextField
-                  label="Timezone"
+                  label={t("Timezone")}
                   value={draft?.timezone ?? ""}
                   onChange={(e) => draft && setDraft({ ...draft, timezone: e.target.value })}
                   fullWidth
@@ -438,22 +484,22 @@ export function RoomsPage() {
               <Grid item xs={12} md={4}>
                 <TextField
                   select
-                  label="Schedule rule"
+                  label={t("Schedule rule")}
                   value={draft?.scheduleRule ?? ""}
                   onChange={(e) => draft && setDraft({ ...draft, scheduleRule: e.target.value })}
                   fullWidth
-                  helperText="Recommended preset cadence for the room."
+                  helperText={t("Recommended preset cadence for the room.")}
                 >
                   {scheduleOptions.map((option) => (
                     <MenuItem key={option.value} value={option.value}>
-                      {option.label}
+                      {t(option.label)}
                     </MenuItem>
                   ))}
                 </TextField>
               </Grid>
               <Grid item xs={12} md={6}>
                 <TextField
-                  label="Session capacity"
+                  label={t("Session capacity")}
                   value={draft?.sessionCapacity ?? ""}
                   onChange={(e) => draft && setDraft({ ...draft, sessionCapacity: e.target.value })}
                   fullWidth
@@ -461,7 +507,7 @@ export function RoomsPage() {
               </Grid>
               <Grid item xs={12} md={6}>
                 <TextField
-                  label="Max tickets per player"
+                  label={t("Max tickets per player")}
                   value={draft?.maxTicketsPerPlayer ?? ""}
                   onChange={(e) => draft && setDraft({ ...draft, maxTicketsPerPlayer: e.target.value })}
                   fullWidth
@@ -469,10 +515,10 @@ export function RoomsPage() {
               </Grid>
               <Grid item xs={12}>
                 <FormControl fullWidth>
-                  <InputLabel id="configured-patterns-label">Configured patterns</InputLabel>
+                  <InputLabel id="configured-patterns-label">{t("Configured patterns")}</InputLabel>
                   <Select
                     labelId="configured-patterns-label"
-                    label="Configured patterns"
+                    label={t("Configured patterns")}
                     multiple
                     value={draft?.configuredPatterns ?? []}
                     onChange={(event) => {
@@ -495,24 +541,23 @@ export function RoomsPage() {
                     {patternOptions.map((option) => (
                       <MenuItem key={option.value} value={option.value}>
                         <Checkbox checked={(draft?.configuredPatterns ?? []).includes(option.value)} />
-                        <ListItemText primary={option.label} />
+                        <ListItemText primary={t(option.label)} />
                       </MenuItem>
                     ))}
                   </Select>
                   <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, ml: 1.75 }}>
-                    Best practice: keep the room to a small set of patterns that match the prize structure.
-                  </Typography>
+                    {t("Best practice: keep the room to a small set of patterns that match the prize structure.")}</Typography>
                 </FormControl>
               </Grid>
               <Grid item xs={12}>
                 <TextField
-                  label="Configured prizes JSON"
+                  label={t("Configured prizes JSON")}
                   value={draft?.configuredPrizes ?? ""}
                   onChange={(e) => draft && setDraft({ ...draft, configuredPrizes: e.target.value })}
                   fullWidth
                   multiline
                   minRows={8}
-                  helperText="Array of { prizeType, amount, settlementPath, maxWinners }"
+                  helperText={t("Array of { prizeType, amount, settlementPath, maxWinners }")}
                 />
               </Grid>
             </Grid>
@@ -523,7 +568,7 @@ export function RoomsPage() {
                   onChange={(e) => draft && setDraft({ ...draft, ticketSalesCloseOnSessionStart: e.target.checked })}
                 />
               }
-              label="Close ticket sales on session start"
+              label={t("Close ticket sales on session start")}
             />
             <FormControlLabel
               control={
@@ -532,7 +577,7 @@ export function RoomsPage() {
                   onChange={(e) => draft && setDraft({ ...draft, allowMultipleWinnersPerPrize: e.target.checked })}
                 />
               }
-              label="Allow multiple winners per prize"
+              label={t("Allow multiple winners per prize")}
             />
             <FormControlLabel
               control={
@@ -541,26 +586,34 @@ export function RoomsPage() {
                   onChange={(e) => draft && setDraft({ ...draft, active: e.target.checked })}
                 />
               }
-              label="Active"
+              label={t("Active")}
             />
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDraft(null)} disabled={pendingSubmit}>
-            Cancel
-          </Button>
-          <Button variant="contained" onClick={() => setConfirmOpen(true)} disabled={pendingSubmit}>
-            Save
-          </Button>
+          <Button
+            onClick={() => {
+              setDraft(null);
+              setOriginalDraft(null);
+            }}
+            disabled={pendingSubmit}
+          >
+            {t("Cancel")}</Button>
+          <Button
+            variant="contained"
+            onClick={() => setConfirmOpen(true)}
+            disabled={pendingSubmit || !hasDraftChanges}
+          >
+            {t("Save")}</Button>
         </DialogActions>
       </Dialog>
 
       <ConfirmDialog
         open={confirmOpen}
         title={title}
-        description={draft ? formatDraftSummary(draft) : "This will save the room configuration on the backend."}
-        confirmLabel="Confirm"
-        cancelLabel="Back"
+        description={draft ? formatDraftSummary(draft, t) : t("This will save the room configuration on the backend.")}
+        confirmLabel={t("Confirm")}
+        cancelLabel={t("Back")}
         confirming={pendingSubmit}
         onCancel={() => setConfirmOpen(false)}
         onConfirm={onSubmit}

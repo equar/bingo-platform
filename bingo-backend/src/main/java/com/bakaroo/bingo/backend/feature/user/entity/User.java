@@ -11,6 +11,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
@@ -21,7 +22,6 @@ import java.util.Set;
 
 @Entity
 @Table(name = "users", uniqueConstraints = {
-        @UniqueConstraint(name = "uk_users_normalized_phone", columnNames = "normalized_phone"),
         @UniqueConstraint(name = "uk_users_email", columnNames = "email")
 })
 public class User {
@@ -30,7 +30,7 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "normalized_phone", nullable = false, length = 32)
+    @Column(name = "normalized_phone", length = 32)
     private String normalizedPhone;
 
     @Column(name = "email", length = 255)
@@ -56,6 +56,24 @@ public class User {
 
     @Column(name = "agent_pin_hash", length = 100)
     private String agentPinHash;
+
+    @Column(name = "preferred_language", length = 8)
+    private String preferredLanguage;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "player_verification_status", nullable = false, length = 30)
+    private PlayerVerificationStatus playerVerificationStatus = PlayerVerificationStatus.NOT_REVIEWED;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "player_verification_reason", length = 40)
+    private PlayerVerificationReason playerVerificationReason;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "player_verification_reviewed_by_user_id")
+    private User playerVerificationReviewedBy;
+
+    @Column(name = "player_verification_reviewed_at")
+    private Instant playerVerificationReviewedAt;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
@@ -177,6 +195,15 @@ public class User {
         accountActivationExpiresAt = expiresAt;
     }
 
+    public void requirePasswordReset(String tokenHash, Instant expiresAt) {
+        // The same one-time token fields are used for activation and reset links.
+        // Active status distinguishes a password reset token from a pending invitation.
+        mustChangePassword = true;
+        temporaryPasswordExpiresAt = null;
+        accountActivationTokenHash = tokenHash;
+        accountActivationExpiresAt = expiresAt;
+    }
+
     public void completePasswordChange() {
         mustChangePassword = false;
         temporaryPasswordExpiresAt = null;
@@ -190,6 +217,46 @@ public class User {
 
     public void setAgentPinHash(String agentPinHash) {
         this.agentPinHash = agentPinHash;
+    }
+
+    public String getPreferredLanguage() {
+        return preferredLanguage;
+    }
+
+    public void setPreferredLanguage(String preferredLanguage) {
+        this.preferredLanguage = preferredLanguage;
+    }
+
+    public PlayerVerificationStatus getPlayerVerificationStatus() {
+        return playerVerificationStatus;
+    }
+
+    public void setPlayerVerificationStatus(PlayerVerificationStatus playerVerificationStatus) {
+        this.playerVerificationStatus = playerVerificationStatus;
+    }
+
+    public PlayerVerificationReason getPlayerVerificationReason() {
+        return playerVerificationReason;
+    }
+
+    public void setPlayerVerificationReason(PlayerVerificationReason playerVerificationReason) {
+        this.playerVerificationReason = playerVerificationReason;
+    }
+
+    public User getPlayerVerificationReviewedBy() {
+        return playerVerificationReviewedBy;
+    }
+
+    public void setPlayerVerificationReviewedBy(User playerVerificationReviewedBy) {
+        this.playerVerificationReviewedBy = playerVerificationReviewedBy;
+    }
+
+    public Instant getPlayerVerificationReviewedAt() {
+        return playerVerificationReviewedAt;
+    }
+
+    public void setPlayerVerificationReviewedAt(Instant playerVerificationReviewedAt) {
+        this.playerVerificationReviewedAt = playerVerificationReviewedAt;
     }
 
     public AccountStatus getStatus() {

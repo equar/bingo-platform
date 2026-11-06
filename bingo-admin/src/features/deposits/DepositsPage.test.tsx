@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { approveDeposit, deposits, rejectDeposit, verifyDeposit } from "../../api/admin";
+import i18n from "../../i18n";
 import { DepositsPage } from "./DepositsPage";
 
 vi.mock("../../api/admin", () => ({
@@ -59,10 +60,20 @@ function createWrapper({ children }: PropsWithChildren) {
   );
 }
 
+function createPendingDepositsWrapper({ children }: PropsWithChildren) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return (
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={["/deposits?status=PENDING"]}>{children}</MemoryRouter>
+    </QueryClientProvider>
+  );
+}
+
 describe("DepositsPage", () => {
   afterEach(cleanup);
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    await i18n.changeLanguage("en");
     depositsMock.mockReset();
     approveDepositMock.mockReset().mockResolvedValue({} as Awaited<ReturnType<typeof approveDeposit>>);
     rejectDepositMock.mockReset().mockResolvedValue({} as Awaited<ReturnType<typeof rejectDeposit>>);
@@ -81,6 +92,13 @@ describe("DepositsPage", () => {
     expect(depositsMock).toHaveBeenCalledWith(0, 20, undefined, undefined);
   });
 
+  it("uses the pending status when opened from the dashboard review metric", async () => {
+    render(<DepositsPage />, { wrapper: createPendingDepositsWrapper });
+
+    await screen.findByTestId("deposit-row-32");
+    expect(depositsMock).toHaveBeenCalledWith(0, 20, undefined, "PENDING");
+  });
+
   it("passes search and status filters to the server", async () => {
     const user = userEvent.setup();
     render(<DepositsPage />, { wrapper: createWrapper });
@@ -93,7 +111,7 @@ describe("DepositsPage", () => {
     await waitFor(() => expect(depositsMock).toHaveBeenLastCalledWith(0, 20, "TXN", undefined));
 
     await user.click(screen.getByRole("combobox", { name: "Status" }));
-    await user.click(await screen.findByRole("option", { name: "APPROVED" }));
+    await user.click(await screen.findByRole("option", { name: "Approved" }));
     await waitFor(() => expect(depositsMock).toHaveBeenLastCalledWith(0, 20, "TXN", "APPROVED"));
   });
 
@@ -166,7 +184,9 @@ describe("DepositsPage", () => {
 
   it("shows a deposit review API failure", async () => {
     const user = userEvent.setup();
-    approveDepositMock.mockRejectedValue(new Error("Permission denied"));
+    approveDepositMock.mockRejectedValue({
+      response: { status: 403, data: { code: "ACCESS_DENIED", message: "Internal authorization detail" } },
+    });
     depositsMock.mockResolvedValue(depositResponse("VERIFIED"));
     render(<DepositsPage />, { wrapper: createWrapper });
     await screen.findByTestId("deposit-row-32");
@@ -175,6 +195,8 @@ describe("DepositsPage", () => {
     await user.type(screen.getByRole("textbox", { name: "Review note" }), "Payment verified");
     await user.click(screen.getByRole("button", { name: "Confirm" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Permission denied");
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "You don’t have permission to perform this action.",
+    );
   });
 });

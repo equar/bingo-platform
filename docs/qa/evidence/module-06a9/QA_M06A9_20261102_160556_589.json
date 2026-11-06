@@ -1,0 +1,16 @@
+{
+  "runId": "QA_M06A9_20261102_160556_589",
+  "startedAt": "2026-11-02T16:05:56.5984996+03:00",
+  "completedAt": "2026-11-02T16:06:04.2410578+03:00",
+  "overall": "FAIL",
+  "reason": "The variable '$listener' cannot be retrieved because it has not been set.",
+  "backendPid": 7708,
+  "createdSessionId": null,
+  "createdTicketId": null,
+  "artifacts": {
+    "before": null,
+    "after": null,
+    "flutterLog": null,
+    "fixture": null
+  }
+}

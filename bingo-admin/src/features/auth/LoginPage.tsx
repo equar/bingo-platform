@@ -3,18 +3,27 @@ import { useMutation } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { login } from "../../api/admin";
-import { clearSession, writeSession } from "../../api/session";
+import { clearSession, consumeSessionExpired, writeSession } from "../../api/session";
 import { parseApiError } from "../../api/types";
+import i18n from "../../i18n";
 
 const LOGIN_EMAIL_KEY = "bingo-admin-login-email";
 
 export function LoginPage() {
+  // The login screen always renders in English, regardless of the browser
+  // language or any previously signed-in account's preference.
+  const t = i18n.getFixedT("en");
   const navigate = useNavigate();
   const location = useLocation();
   const [email, setEmail] = useState(() => window.localStorage.getItem(LOGIN_EMAIL_KEY) ?? "");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [sessionExpired, setSessionExpired] = useState(false);
+
+  useEffect(() => {
+    if (consumeSessionExpired()) setSessionExpired(true);
+  }, []);
 
   useEffect(() => {
     if (email.trim()) {
@@ -44,7 +53,17 @@ export function LoginPage() {
     },
     onError: (error) => {
       const parsed = parseApiError(error);
-      setErrorMessage(`${parsed.code ?? "AUTH_FAILED"}: ${parsed.message}`);
+      if (parsed.cancelled) {
+        setErrorMessage(null);
+      } else if (parsed.status === 0) {
+        setErrorMessage("login.noConnection");
+      } else if (parsed.status === 503) {
+        setErrorMessage("login.serviceUnavailable");
+      } else if (parsed.status === 401 || parsed.status === 403 || parsed.code === "AUTH_INVALID_CREDENTIALS") {
+        setErrorMessage("login.invalidCredentials");
+      } else {
+        setErrorMessage("login.unexpected");
+      }
       clearSession();
     },
   });
@@ -104,6 +123,7 @@ export function LoginPage() {
         }}
       >
         <Stack spacing={3.5}>
+          {sessionExpired ? <Alert severity="info">{t("login.sessionExpired")}</Alert> : null}
           <Stack spacing={2} alignItems="center" textAlign="center">
             <Box
               sx={{
@@ -131,14 +151,14 @@ export function LoginPage() {
                 variant="overline"
                 sx={{ color: "#b64f32", fontWeight: 800, letterSpacing: "0.16em", lineHeight: 1.8 }}
               >
-                ADMIN CONSOLE
+                {t("login.adminConsole")}
               </Typography>
               <Typography variant="h4" fontWeight={800} sx={{ mt: 0.25, color: "#252638" }}>
-              Sunset Bingo Admin
+                {t("brand")}
               </Typography>
             </Box>
             <Typography color="text.secondary" sx={{ maxWidth: 340, lineHeight: 1.65 }}>
-              Welcome to Sunset Bingo's operations hub. Sign in to keep every game running smoothly and every player smiling.
+              {t("login.welcome")}
             </Typography>
           </Stack>
           <Stack
@@ -151,7 +171,7 @@ export function LoginPage() {
             }}
           >
             <TextField
-              label="Email address"
+              label={t("login.email")}
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               name="email"
@@ -161,7 +181,7 @@ export function LoginPage() {
               sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2.5, backgroundColor: "#fff" } }}
             />
             <TextField
-              label="Password"
+              label={t("login.password")}
               type={showPassword ? "text" : "password"}
               value={password}
               onChange={(event) => setPassword(event.target.value)}
@@ -175,19 +195,19 @@ export function LoginPage() {
                   <InputAdornment position="end">
                     <Button
                       onClick={() => setShowPassword((current) => !current)}
-                      aria-label={showPassword ? "Hide password" : "Show password"}
+                      aria-label={showPassword ? t("login.hidePassword") : t("login.showPassword")}
                       color="inherit"
                       size="small"
                       sx={{ minWidth: 0, px: 1 }}
                       type="button"
                     >
-                      {showPassword ? "Hide" : "Show"}
+                      {showPassword ? t("login.hide") : t("login.show")}
                     </Button>
                   </InputAdornment>
                 ),
               }}
             />
-            {errorMessage ? <Alert severity="error">{errorMessage}</Alert> : null}
+            {errorMessage ? <Alert severity="error">{t(errorMessage)}</Alert> : null}
             <Button
               type="submit"
               variant="contained"
@@ -206,11 +226,11 @@ export function LoginPage() {
                 },
               }}
             >
-              {mutation.isPending ? "Signing in..." : "Sign in"}
+              {mutation.isPending ? t("login.signingIn") : t("login.signIn")}
             </Button>
           </Stack>
           <Typography variant="caption" color="text.secondary" textAlign="center">
-            Secure access for authorized admin and support accounts
+            {t("login.secureAccess")}
           </Typography>
         </Stack>
       </Paper>

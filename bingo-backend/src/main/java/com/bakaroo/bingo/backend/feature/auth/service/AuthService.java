@@ -1,16 +1,20 @@
 package com.bakaroo.bingo.backend.feature.auth.service;
 
+import com.bakaroo.bingo.backend.common.exception.BadRequestException;
 import com.bakaroo.bingo.backend.common.exception.ConflictException;
 import com.bakaroo.bingo.backend.common.exception.NotFoundException;
 import com.bakaroo.bingo.backend.feature.auth.dto.AuthResponse;
 import com.bakaroo.bingo.backend.feature.auth.dto.LoginRequest;
 import com.bakaroo.bingo.backend.feature.auth.dto.MeResponse;
 import com.bakaroo.bingo.backend.feature.auth.dto.RegisterRequest;
+import com.bakaroo.bingo.backend.feature.auth.dto.UpdateMyPreferencesRequest;
+import com.bakaroo.bingo.backend.feature.auth.dto.UpdateMyProfileRequest;
 import com.bakaroo.bingo.backend.feature.auth.dto.UserProfileResponse;
 import com.bakaroo.bingo.backend.feature.wallet.service.SignupRewardService;
 import com.bakaroo.bingo.backend.feature.wallet.service.WalletService;
 import com.bakaroo.bingo.backend.feature.user.entity.AccountStatus;
 import com.bakaroo.bingo.backend.feature.user.entity.User;
+import com.bakaroo.bingo.backend.feature.user.entity.UserLanguages;
 import com.bakaroo.bingo.backend.feature.user.entity.UserRole;
 import com.bakaroo.bingo.backend.feature.user.repository.UserRepository;
 import java.time.Instant;
@@ -58,7 +62,7 @@ public class AuthService {
     @Transactional
     public AuthResponse register(RegisterRequest request) {
         String normalizedPhone = phoneNormalizer.normalize(request.phoneNumber());
-        if (userRepository.existsByNormalizedPhone(normalizedPhone)) {
+        if (userRepository.countByPhoneAndAnyRoleExceptUser(normalizedPhone, Set.of(UserRole.PLAYER), null) > 0) {
             throw new ConflictException("PHONE_ALREADY_REGISTERED", "That phone number is already registered");
         }
 
@@ -72,7 +76,7 @@ public class AuthService {
 
         User saved;
         try {
-            saved = userRepository.save(user);
+            saved = userRepository.saveAndFlush(user);
         } catch (DataIntegrityViolationException exception) {
             if (isDuplicatePhoneConstraint(exception)) {
                 throw new ConflictException("PHONE_ALREADY_REGISTERED", "That phone number is already registered");
@@ -88,8 +92,7 @@ public class AuthService {
     public AuthResponse login(LoginRequest request) {
         String normalizedPhone = phoneNormalizer.normalize(request.phoneNumber());
         throttleService.requireAccountAllowed("player", normalizedPhone);
-        if (userRepository.findByNormalizedPhone(normalizedPhone)
-                .filter(user -> !user.hasRole(UserRole.PLAYER)).isPresent()) {
+        if (userRepository.findByNormalizedPhoneAndRole(normalizedPhone, UserRole.PLAYER).isEmpty()) {
             throttleService.recordAccountFailure("player", normalizedPhone);
             throw new org.springframework.security.authentication.BadCredentialsException("Invalid credentials");
         }
@@ -110,22 +113,65 @@ public class AuthService {
         return new AuthResponse(token, "Bearer", jwtService.getExpirationSeconds(), toProfile(user));
     }
 
-    public MeResponse me(String normalizedPhone) {
-        User user = userRepository.findByNormalizedPhone(normalizedPhone)
+    public MeResponse me(Long userId) {
+        User user = userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException("USER_NOT_FOUND", "User account not found"));
         return new MeResponse(toProfile(user));
+    }
+
+    @Transactional
+    public MeResponse updateMyPreferences(Long userId, UpdateMyPreferencesRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new NotFoundException("USER_NOT_FOUND", "User account not found"));
+        if (!UserLanguages.isSupported(request.preferredLanguage())) {
+            throw new BadRequestException("UNSUPPORTED_LANGUAGE",
+                    "preferredLanguage must be one of: " + String.join(", ", UserLanguages.SUPPORTED_LANGUAGES));
+        }
+        user.setPreferredLanguage(request.preferredLanguage());
+        return new MeResponse(toProfile(userRepository.save(user)));
+    }
+
+    @Transactional
+    public AuthResponse updateMyProfile(Long userId, UpdateMyProfileRequest request) {
+        User user = userRepository.findByIdForUpdate(userId)
+                .orElseThrow(() -> new NotFoundException("USER_NOT_FOUND", "User account not found"));
+        String displayName = request.displayName().trim();
+        if (displayName.isEmpty()) {
+            throw new BadRequestException("INVALID_DISPLAY_NAME", "Display name is required");
+        }
+        String normalizedPhone = phoneNormalizer.normalize(request.phoneNumber());
+        if (!normalizedPhone.equals(user.getNormalizedPhone())
+                && userRepository.countByPhoneAndAnyRoleExceptUser(
+                        normalizedPhone, user.getRoles(), userId) > 0) {
+            throw new ConflictException("PHONE_ALREADY_REGISTERED", "That phone number is already registered");
+        }
+        user.setDisplayName(displayName);
+        user.setNormalizedPhone(normalizedPhone);
+        User saved;
+        try {
+            saved = userRepository.saveAndFlush(user);
+        } catch (DataIntegrityViolationException exception) {
+            if (isDuplicatePhoneConstraint(exception)) {
+                throw new ConflictException("PHONE_ALREADY_REGISTERED", "That phone number is already registered");
+            }
+            throw exception;
+        }
+        return new AuthResponse(jwtService.generateToken(saved), "Bearer", jwtService.getExpirationSeconds(),
+                toProfile(saved));
     }
 
     private UserProfileResponse toProfile(User user) {
         return new UserProfileResponse(
                 user.getId(),
                 user.getDisplayName(),
+                user.getEmail(),
                 user.getNormalizedPhone(),
                 user.getRoles(),
                 user.getStatus(),
                 user.getCreatedAt(),
                 user.getUpdatedAt(),
-                user.isMustChangePassword());
+                user.isMustChangePassword(),
+                UserLanguages.resolve(user.getPreferredLanguage()));
     }
 
     private boolean isDuplicatePhoneConstraint(Throwable failure) {
@@ -133,7 +179,8 @@ public class AuthService {
             if (cause instanceof SQLException sqlException
                     && "23000".equals(sqlException.getSQLState())
                     && sqlException.getMessage() != null
-                    && sqlException.getMessage().contains("uk_users_normalized_phone")) {
+                    && (sqlException.getMessage().contains("uk_users_normalized_phone")
+                            || sqlException.getMessage().contains("uk_user_roles_role_phone"))) {
                 return true;
             }
         }

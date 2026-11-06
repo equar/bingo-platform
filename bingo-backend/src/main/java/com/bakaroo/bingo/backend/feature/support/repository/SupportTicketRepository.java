@@ -1,9 +1,11 @@
 package com.bakaroo.bingo.backend.feature.support.repository;
 
 import com.bakaroo.bingo.backend.feature.support.entity.SupportTicket;
+import com.bakaroo.bingo.backend.feature.support.entity.SupportLinkedEntityType;
 import com.bakaroo.bingo.backend.feature.support.entity.SupportTicketStatus;
 import java.util.List;
 import java.util.Optional;
+import java.time.Instant;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -20,9 +22,14 @@ public interface SupportTicketRepository
 
     long countByRequesterId(Long requesterId);
 
+    long countByLinkedEntityTypeAndLinkedEntityId(SupportLinkedEntityType linkedEntityType, Long linkedEntityId);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select t from SupportTicket t where t.id = :id")
     Optional<SupportTicket> findByIdForUpdate(@Param("id") Long id);
 
     List<SupportTicket> findByStatusInOrderByCreatedAtDesc(List<SupportTicketStatus> statuses);
+
+    Page<SupportTicket> findByCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(
+            Instant from, Instant to, Pageable pageable);
 }

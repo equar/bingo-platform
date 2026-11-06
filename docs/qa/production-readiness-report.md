@@ -4,7 +4,7 @@
 **Baseline:** October 20, 2026 End-to-End QA Report
 **Branch:** `muse-code-review`
 
-> **Current execution update:** See [qa-execution-plan-and-results.md](./qa-execution-plan-and-results.md), [security-validation.md](./security-validation.md), and [release-blockers.md](./release-blockers.md). A clean `mvn -q clean verify` from an isolated copy of current backend source passed 88 tests and produced the executable JAR. Activation, Mailpit, and OpenAPI checks passed. The prior isolated database restore stopped at V13, before the V14 activation migration. Release remains **NO-GO**.
+> **Historical execution update:** See the [QA execution snapshot](./qa-execution-plan-and-results.md) and [release-blocker snapshot](./release-blockers.md). The isolated `mvn -q clean verify` result, activation, Mailpit, and OpenAPI checks recorded here are evidence for that run, not current certification. The prior isolated database restore stopped at V13, before the V14 activation migration. Release remains **NO-GO** in this snapshot; consult the [maintained blockers and approvals](./qa-blockers-and-approvals.md) for current gates.
 
 ## Release decision
 
@@ -117,4 +117,4 @@ flutter build web
 flutter build web --dart-define=API_BASE_URL=https://api.example.invalid
 ```
 
-For command outcomes and rerun instructions per gate, see [defect-remediation-matrix.md](./defect-remediation-matrix.md), [security-validation.md](./security-validation.md), [load-test-results.md](./load-test-results.md), and [release-checklist.md](./release-checklist.md).
+Historical command outcomes and gate evidence remain in the [defect-remediation matrix](./defect-remediation-matrix.md), [final independent review](./final-independent-qa-review.md), and [release checklist](./release-checklist.md). Current security and load gates are maintained in [blockers and approvals](./qa-blockers-and-approvals.md).

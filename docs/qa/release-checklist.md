@@ -20,8 +20,8 @@
 | Onboarding email and first-login workflow | PASS | Mailpit test verified password-free email, 24-hour single-use activation link, activation, replay rejection, and subsequent login. |
 | Player and agent mobile device E2E | PARTIAL | Android player setup/deposit/registration and support journeys passed against isolated synthetic services; each phase run exited 0 with one selected journey active and four phase cases returning early. Purchase/settlement/claim, agent-device flows, and iOS remain open. Unit tests and agent web build passed. |
 | 1,000-player capacity, 10-ticket cap, and load metrics | BLOCKED | No `k6` script/environment; capacity is unmeasured. |
-| Security validation | PARTIAL | Datasource hardening and password-free account activation are implemented and tested. Fastlane is pinned to 2.241.1; its transitive dependency lock and CI validation, production CA trust, proxy deployment, and external security validation remain open. See [security-validation.md](./security-validation.md). |
-| Load evidence | BLOCKED | No load metrics; see [load-test-results.md](./load-test-results.md). |
+| Security validation | PARTIAL | Datasource hardening and password-free account activation are implemented and tested. Fastlane is pinned to 2.241.1; its transitive dependency lock and CI validation, production CA trust, proxy deployment, and external security validation remain open in this historical snapshot. See the [current blockers and approvals](./qa-blockers-and-approvals.md). |
+| Load evidence | BLOCKED | No load metrics were recorded in this snapshot; see the [current blockers and approvals](./qa-blockers-and-approvals.md) for the maintained release gate. |
 | Production readiness | FAIL | Mandatory database, money-flow, security, live delivery, and capacity evidence is incomplete. |
 
 ## Required before a GO decision

@@ -219,7 +219,7 @@ public class AndroidTestFixtureBootstrapRunner implements ApplicationRunner {
 
     private FixtureIdentity ensurePlayer() {
         String phone = normalize(playerPhone);
-        User existing = users.findByNormalizedPhone(phone).orElse(null);
+        User existing = users.findByNormalizedPhoneAndRole(phone, UserRole.PLAYER).orElse(null);
         if (existing != null) {
             require(existing.getRoles().equals(Set.of(UserRole.PLAYER))
                             && existing.getStatus() == AccountStatus.ACTIVE
@@ -229,14 +229,14 @@ public class AndroidTestFixtureBootstrapRunner implements ApplicationRunner {
         }
 
         authService.register(new RegisterRequest("QA Android Test Player", playerPhone, playerPin));
-        User created = users.findByNormalizedPhone(phone)
+        User created = users.findByNormalizedPhoneAndRole(phone, UserRole.PLAYER)
                 .orElseThrow(() -> new IllegalStateException("Player registration did not persist its account."));
         return new FixtureIdentity("player", created.getId(), null, "ACTIVE", "created");
     }
 
     private FixtureIdentity ensureAdmin() {
         String phone = normalize(adminPhone);
-        User byPhone = users.findByNormalizedPhone(phone).orElse(null);
+        User byPhone = users.findByNormalizedPhoneAndRole(phone, UserRole.ADMIN).orElse(null);
         User byEmail = users.findByEmail(adminEmail).orElse(null);
         require(byPhone == null || byEmail == null || byPhone.getId().equals(byEmail.getId()),
                 "Existing Admin phone and email identify different accounts; no account was changed.");
@@ -266,7 +266,7 @@ public class AndroidTestFixtureBootstrapRunner implements ApplicationRunner {
             String documentSuffix,
             boolean mayAlreadyBeApproved) {
         String phone = normalize(rawPhone);
-        User existing = users.findByNormalizedPhone(phone).orElse(null);
+        User existing = users.findByNormalizedPhoneAndRole(phone, UserRole.AGENT).orElse(null);
         if (existing != null) {
             Agent agent = agents.findByUserId(existing.getId()).orElse(null);
             boolean pending = existing.getStatus() == AccountStatus.PENDING
@@ -301,7 +301,7 @@ public class AndroidTestFixtureBootstrapRunner implements ApplicationRunner {
                 documentNumber,
                 null,
                 null));
-        User created = users.findByNormalizedPhone(phone)
+        User created = users.findByNormalizedPhoneAndRole(phone, UserRole.AGENT)
                 .orElseThrow(() -> new IllegalStateException("Agent registration did not persist its account."));
         Agent agent = agents.findByUserId(created.getId())
                 .orElseThrow(() -> new IllegalStateException("Agent registration did not persist its application."));

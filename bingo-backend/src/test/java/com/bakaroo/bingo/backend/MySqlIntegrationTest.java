@@ -5,10 +5,13 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Locale;
 import com.bakaroo.bingo.backend.config.MavenTestDatabasePolicy;
+import org.junit.jupiter.api.parallel.ResourceAccessMode;
+import org.junit.jupiter.api.parallel.ResourceLock;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
 /** Shared database guard for integration tests that create, mutate, or delete data. */
+@ResourceLock(value = "bingo-maven-mysql", mode = ResourceAccessMode.READ_WRITE)
 public abstract class MySqlIntegrationTest {
     public static final String DATABASE = MavenTestDatabasePolicy.DATABASE;
     private static final TestDatabase TEST_DATABASE = requireIsolatedTestDatabase();

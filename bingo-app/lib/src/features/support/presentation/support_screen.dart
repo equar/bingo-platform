@@ -1,4 +1,5 @@
 import 'package:bingo_app/l10n/app_localizations.dart';
+import 'package:bingo_app/src/core/network/api_error.dart';
 import 'package:bingo_app/src/core/network/api_provider.dart';
 import 'package:bingo_app/src/features/support/domain/support_models.dart';
 import 'package:flutter/material.dart';
@@ -6,8 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final playerSupportTicketsProvider =
     FutureProvider.autoDispose<SupportTicketPage>((ref) {
-  return ref.watch(supportApiProvider).getMyTickets(page: 0, size: 20);
-});
+      return ref.watch(supportApiProvider).getMyTickets(page: 0, size: 20);
+    });
 
 const _categories = [
   'ACCOUNT',
@@ -16,7 +17,7 @@ const _categories = [
   'AGENT',
   'TECHNICAL',
   'BILLING',
-  'OTHER'
+  'OTHER',
 ];
 const _priorities = ['LOW', 'NORMAL', 'HIGH', 'URGENT'];
 
@@ -43,21 +44,25 @@ class SupportScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text(localizations.supportIntro,
-              style: Theme.of(context).textTheme.bodyLarge),
+          Text(
+            localizations.supportIntro,
+            style: Theme.of(context).textTheme.bodyLarge,
+          ),
           const SizedBox(height: 16),
           FilledButton.icon(
             key: const ValueKey('support-create-button'),
             onPressed: () async {
-              final createdTicket =
-                  await Navigator.of(context).push<SupportTicketSummary>(
-                MaterialPageRoute(
-                    builder: (_) => const SupportTicketFormScreen()),
-              );
+              final createdTicket = await Navigator.of(context)
+                  .push<SupportTicketSummary>(
+                    MaterialPageRoute(
+                      builder: (_) => const SupportTicketFormScreen(),
+                    ),
+                  );
               if (createdTicket != null && context.mounted) {
                 ref.invalidate(playerSupportTicketsProvider);
                 ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(localizations.supportSubmitted)));
+                  SnackBar(content: Text(localizations.supportSubmitted)),
+                );
               }
             },
             icon: const Icon(Icons.add),
@@ -66,12 +71,18 @@ class SupportScreen extends ConsumerWidget {
           const SizedBox(height: 20),
           tickets.when(
             loading: () => const Center(
-                child: Padding(
-                    padding: EdgeInsets.all(24),
-                    child: CircularProgressIndicator())),
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: CircularProgressIndicator(),
+              ),
+            ),
             error: (error, _) => Column(
               children: [
-                Text(error.toString(), textAlign: TextAlign.center),
+                Text(
+                  userFacingApiError(error, localizations) ??
+                      localizations.errorGeneric,
+                  textAlign: TextAlign.center,
+                ),
                 const SizedBox(height: 8),
                 OutlinedButton(
                   onPressed: () => ref.invalidate(playerSupportTicketsProvider),
@@ -86,25 +97,30 @@ class SupportScreen extends ConsumerWidget {
                   )
                 : Column(
                     children: page.content
-                        .map((ticket) => Card(
-                              child: ListTile(
-                                key: ValueKey('support-ticket-${ticket.id}'),
-                                title: Text(ticket.subject),
-                                subtitle: Text(
-                                    '${ticket.ticketNumber} · ${ticket.category} · ${ticket.createdAt.toLocal()}'),
-                                trailing: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: [
-                                    Text(ticket.status),
-                                    Text(ticket.priority,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .labelSmall),
-                                  ],
-                                ),
+                        .map(
+                          (ticket) => Card(
+                            child: ListTile(
+                              key: ValueKey('support-ticket-${ticket.id}'),
+                              title: Text(ticket.subject),
+                              subtitle: Text(
+                                '${ticket.ticketNumber} · ${ticket.category} · ${ticket.createdAt.toLocal()}',
                               ),
-                            ))
+                              trailing: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(ticket.status),
+                                  Text(
+                                    ticket.priority,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.labelSmall,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        )
                         .toList(),
                   ),
           ),
@@ -130,6 +146,7 @@ class _SupportTicketFormScreenState
   String _category = 'OTHER';
   String _priority = 'NORMAL';
   String? _error;
+  ApiError? _apiError;
   bool _submitting = false;
 
   @override
@@ -144,10 +161,13 @@ class _SupportTicketFormScreenState
     setState(() {
       _submitting = true;
       _error = null;
+      _apiError = null;
     });
 
     try {
-      final ticket = await ref.read(supportApiProvider).createTicket(
+      final ticket = await ref
+          .read(supportApiProvider)
+          .createTicket(
             SupportTicketCreateRequest(
               subject: _subjectController.text.trim(),
               description: _descriptionController.text.trim(),
@@ -158,9 +178,13 @@ class _SupportTicketFormScreenState
       if (mounted) Navigator.of(context).pop(ticket);
     } catch (error) {
       if (mounted) {
+        final parsed = normalizeApiError(error);
         setState(() {
           _submitting = false;
-          _error = error.toString();
+          _apiError = parsed;
+          _error = parsed.cancelled
+              ? null
+              : parsed.userMessage(AppLocalizations.of(context)!);
         });
       }
     }
@@ -169,6 +193,13 @@ class _SupportTicketFormScreenState
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context)!;
+    final subjectError = fieldErrorMessage(_apiError, 'subject', localizations);
+    final descriptionError = fieldErrorMessage(
+      _apiError,
+      'description',
+      localizations,
+    );
+    final hasInlineError = subjectError != null || descriptionError != null;
     return Scaffold(
       appBar: AppBar(title: Text(localizations.supportCreateTicket)),
       body: SafeArea(
@@ -181,8 +212,10 @@ class _SupportTicketFormScreenState
                 key: const ValueKey('support-subject-field'),
                 controller: _subjectController,
                 textCapitalization: TextCapitalization.sentences,
-                decoration:
-                    InputDecoration(labelText: localizations.supportSubject),
+                decoration: InputDecoration(
+                  labelText: localizations.supportSubject,
+                  errorText: subjectError,
+                ),
                 validator: (value) => value == null || value.trim().isEmpty
                     ? localizations.requiredField
                     : null,
@@ -195,7 +228,9 @@ class _SupportTicketFormScreenState
                 maxLines: 7,
                 textCapitalization: TextCapitalization.sentences,
                 decoration: InputDecoration(
-                    labelText: localizations.supportDescription),
+                  labelText: localizations.supportDescription,
+                  errorText: descriptionError,
+                ),
                 validator: (value) => value == null || value.trim().isEmpty
                     ? localizations.requiredField
                     : null,
@@ -204,11 +239,14 @@ class _SupportTicketFormScreenState
               DropdownButtonFormField<String>(
                 key: const ValueKey('support-category-field'),
                 initialValue: _category,
-                decoration:
-                    InputDecoration(labelText: localizations.supportCategory),
+                decoration: InputDecoration(
+                  labelText: localizations.supportCategory,
+                ),
                 items: _categories
-                    .map((value) =>
-                        DropdownMenuItem(value: value, child: Text(value)))
+                    .map(
+                      (value) =>
+                          DropdownMenuItem(value: value, child: Text(value)),
+                    )
                     .toList(),
                 onChanged: _submitting
                     ? null
@@ -218,21 +256,25 @@ class _SupportTicketFormScreenState
               DropdownButtonFormField<String>(
                 key: const ValueKey('support-priority-field'),
                 initialValue: _priority,
-                decoration:
-                    InputDecoration(labelText: localizations.supportPriority),
+                decoration: InputDecoration(
+                  labelText: localizations.supportPriority,
+                ),
                 items: _priorities
-                    .map((value) =>
-                        DropdownMenuItem(value: value, child: Text(value)))
+                    .map(
+                      (value) =>
+                          DropdownMenuItem(value: value, child: Text(value)),
+                    )
                     .toList(),
                 onChanged: _submitting
                     ? null
                     : (value) => setState(() => _priority = value ?? _priority),
               ),
-              if (_error != null) ...[
+              if (_error != null && !hasInlineError) ...[
                 const SizedBox(height: 16),
-                Text(_error!,
-                    style:
-                        TextStyle(color: Theme.of(context).colorScheme.error)),
+                Text(
+                  _error!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
               ],
               const SizedBox(height: 24),
               FilledButton(
@@ -241,7 +283,8 @@ class _SupportTicketFormScreenState
                 child: _submitting
                     ? const SizedBox.square(
                         dimension: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2))
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
                     : Text(localizations.supportSubmit),
               ),
             ],

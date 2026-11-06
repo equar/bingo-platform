@@ -1,34 +1,114 @@
 import { Alert, Button, Container, Paper, Stack, TextField, Typography } from "@mui/material";
 import { useMutation } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { activateAdminAccount } from "../../api/admin";
-import { parseApiError } from "../../api/types";
+import { activateAdminAccount, resetAdminAccountPassword } from "../../api/admin";
+import { getFieldError, parseApiError } from "../../api/types";
+import i18n from "../../i18n";
 
-export function AdminAccountActivationPage() {
+export function AdminAccountActivationPage({ resetPassword = false }: { resetPassword?: boolean }) {
+  // Unauthenticated account activation always renders in English.
+  const t = i18n.getFixedT("en");
   const navigate = useNavigate();
   const location = useLocation();
   const [token] = useState(() => new URLSearchParams(window.location.hash.slice(1)).get("token") ?? "");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  const newPasswordInput = useRef<HTMLInputElement>(null);
+  const confirmPasswordInput = useRef<HTMLInputElement>(null);
+  const [newPasswordTouched, setNewPasswordTouched] = useState(false);
+  const [confirmPasswordTouched, setConfirmPasswordTouched] = useState(false);
+  const [newPasswordValid, setNewPasswordValid] = useState(false);
+  const [confirmPasswordHasValue, setConfirmPasswordHasValue] = useState(false);
+  const [passwordsMatch, setPasswordsMatch] = useState(false);
+  const [newPasswordChangedAfterFailure, setNewPasswordChangedAfterFailure] = useState(false);
+  const [confirmPasswordChangedAfterFailure, setConfirmPasswordChangedAfterFailure] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const activationMutation = useMutation({
-    mutationFn: () => activateAdminAccount({ token, newPassword }),
+    mutationFn: () => (resetPassword ? resetAdminAccountPassword : activateAdminAccount)({
+      token,
+      newPassword: newPasswordInput.current?.value ?? "",
+    }),
     onSuccess: () => {
-      setSuccessMessage("Your account is ready. Sign in with your new password.");
+      setSuccessMessage(resetPassword ? "Password reset. You can now sign in with your new password." : "activation.success");
       setErrorMessage(null);
-      setNewPassword("");
-      setConfirmPassword("");
-      navigate("/activate-account", { replace: true });
+      if (newPasswordInput.current) newPasswordInput.current.value = "";
+      if (confirmPasswordInput.current) confirmPasswordInput.current.value = "";
+      navigate(resetPassword ? "/reset-password" : "/activate-account", { replace: true });
     },
     onError: (error) => {
       const parsed = parseApiError(error);
-      setErrorMessage(`${parsed.code ?? "ACCOUNT_ACTIVATION_FAILED"}: ${parsed.message}`);
+      if (parsed.cancelled) {
+        setErrorMessage(null);
+      } else if (parsed.status === 0) {
+        setErrorMessage("login.noConnection");
+      } else if (parsed.status === 401 || parsed.status === 403 || parsed.status === 404) {
+        setErrorMessage("activation.invalidCredentials");
+      } else {
+        setErrorMessage("activation.unexpected");
+      }
+      setNewPasswordChangedAfterFailure(false);
+      setConfirmPasswordChangedAfterFailure(false);
       setSuccessMessage(null);
     },
   });
+  const newPasswordError = (newPasswordTouched && !newPasswordValid) ||
+    (!newPasswordChangedAfterFailure &&
+      getFieldError(activationMutation.error, "newPassword"))
+    ? t("activation.passwordRequirements")
+    : undefined;
+  const confirmationError = !confirmPasswordChangedAfterFailure &&
+    getFieldError(activationMutation.error, "confirmPassword")
+    ? t("activation.passwordMismatch")
+    : confirmPasswordTouched
+      ? !confirmPasswordHasValue
+        ? t("This field is required.")
+        : !passwordsMatch
+          ? t("activation.passwordMismatch")
+          : undefined
+      : undefined;
+  const canActivate =
+    Boolean(token) && newPasswordValid && passwordsMatch &&
+    !activationMutation.isPending && !successMessage;
+
+  const updatePasswordValidity = (field: "newPassword" | "confirmPassword") => {
+    const newPassword = newPasswordInput.current?.value ?? "";
+    const confirmPassword = confirmPasswordInput.current?.value ?? "";
+    const nextPasswordValid = newPassword.length >= 8 && newPassword.length <= 72;
+    const nextConfirmHasValue = confirmPassword.length > 0;
+    const nextPasswordsMatch = nextConfirmHasValue && newPassword === confirmPassword;
+    setNewPasswordTouched((touched) => touched || Boolean(newPassword));
+    setConfirmPasswordTouched((touched) => touched || nextConfirmHasValue);
+    setNewPasswordValid((valid) => valid === nextPasswordValid ? valid : nextPasswordValid);
+    setConfirmPasswordHasValue((hasValue) =>
+      hasValue === nextConfirmHasValue ? hasValue : nextConfirmHasValue,
+    );
+    setPasswordsMatch((matches) =>
+      matches === nextPasswordsMatch ? matches : nextPasswordsMatch,
+    );
+    if (field === "newPassword") {
+      setNewPasswordChangedAfterFailure(true);
+    } else {
+      setConfirmPasswordChangedAfterFailure(true);
+    }
+    if (errorMessage) setErrorMessage(null);
+  };
+
+  const submitActivation = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    updatePasswordValidity("newPassword");
+    updatePasswordValidity("confirmPassword");
+    const newPassword = newPasswordInput.current?.value ?? "";
+    const confirmPassword = confirmPasswordInput.current?.value ?? "";
+    if (newPassword.length < 8 || newPassword.length > 72 ||
+        !confirmPassword || newPassword !== confirmPassword) {
+      setNewPasswordTouched(true);
+      setConfirmPasswordTouched(true);
+      return;
+    }
+    setErrorMessage(null);
+    activationMutation.mutate();
+  };
 
   useEffect(() => {
     if (token && window.location.hash) {
@@ -39,61 +119,69 @@ export function AdminAccountActivationPage() {
   return (
     <Container maxWidth="sm" sx={{ py: 8 }}>
       <Paper elevation={3} sx={{ p: 4, borderRadius: 4 }}>
-        <Stack spacing={3}>
+        <Stack component="form" spacing={3} onSubmit={submitActivation} noValidate>
           <div>
             <Typography variant="h4" fontWeight={700} gutterBottom>
-              Set up your Sunset Bingo Admin account
+              {resetPassword ? "Reset your password" : t("activation.title")}
             </Typography>
             <Typography color="text.secondary">
-              Choose a password to activate your account. The activation link can only be used once.
+              {resetPassword
+                ? "Choose a new password to restore access to your admin account."
+                : t("activation.description")}
             </Typography>
           </div>
           {!token && !successMessage ? (
-            <Alert severity="error">This activation link is missing or has already been used.</Alert>
+            <Alert severity="error">{t("activation.invalidLink")}</Alert>
           ) : null}
           <TextField
-            label="New password"
+            label={t("activation.newPassword")}
             type="password"
-            value={newPassword}
-            onChange={(event) => setNewPassword(event.target.value)}
+            inputRef={newPasswordInput}
             autoComplete="new-password"
-            helperText="Use at least 8 characters."
+            error={Boolean(newPasswordError)}
+            helperText={newPasswordError ?? t("activation.passwordHint")}
             required
             fullWidth
+            inputProps={{ maxLength: 72 }}
+            onChange={() => updatePasswordValidity("newPassword")}
             disabled={!token || activationMutation.isPending || Boolean(successMessage)}
           />
           <TextField
-            label="Confirm new password"
+            label={t("activation.confirmPassword")}
             type="password"
-            value={confirmPassword}
-            onChange={(event) => setConfirmPassword(event.target.value)}
+            inputRef={confirmPasswordInput}
             autoComplete="new-password"
+            error={Boolean(confirmationError)}
             required
             fullWidth
+            helperText={confirmationError ?? t("activation.confirmPasswordHint")}
+            onChange={() => updatePasswordValidity("confirmPassword")}
             disabled={!token || activationMutation.isPending || Boolean(successMessage)}
           />
-          {errorMessage ? <Alert severity="error">{errorMessage}</Alert> : null}
-          {successMessage ? <Alert severity="success">{successMessage}</Alert> : null}
+          {errorMessage && !newPasswordError && !confirmationError ? (
+            <Alert severity="error">{t(errorMessage)}</Alert>
+          ) : null}
+          {successMessage ? <Alert severity="success">{t(successMessage)}</Alert> : null}
           {successMessage ? (
-            <Button variant="contained" onClick={() => navigate("/login")}>
-              Sign in
+            <Button type="button" variant="contained" onClick={() => navigate("/login")}>
+              {t("activation.signIn")}
             </Button>
           ) : (
             <Button
               variant="contained"
-              disabled={!token || activationMutation.isPending}
-              onClick={() => {
-                if (newPassword !== confirmPassword) {
-                  setErrorMessage("PASSWORD_CONFIRMATION_MISMATCH: New passwords do not match");
-                  return;
-                }
-                setErrorMessage(null);
-                activationMutation.mutate();
-              }}
+              type="submit"
+              disabled={!canActivate}
             >
-              {activationMutation.isPending ? "Activating..." : "Activate account"}
+              {activationMutation.isPending
+                ? (resetPassword ? "Resetting password..." : t("activation.activating"))
+                : (resetPassword ? "Reset password" : t("activation.activate"))}
             </Button>
           )}
+          {!successMessage && token && !canActivate && !activationMutation.isPending ? (
+            <Typography variant="body2" color="text.secondary">
+              {t("Complete all required fields and make sure the passwords match.")}
+            </Typography>
+          ) : null}
         </Stack>
       </Paper>
     </Container>

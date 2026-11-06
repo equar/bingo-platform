@@ -1,5 +1,7 @@
+import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Alert,
   Box,
@@ -15,23 +17,27 @@ import {
   TableBody,
   TableCell,
   TableHead,
-  TablePagination,
   TableRow,
   TextField,
   Typography,
 } from "@mui/material";
 import { keepPreviousData } from "@tanstack/react-query";
 import { approveWinClaim, rejectWinClaim, winClaims } from "../../api/admin";
+import { getUserFacingErrorMessage, parseApiError } from "../../api/types";
 import { StatusState } from "../../components/StatusState";
+import { AdminTablePagination } from "../../components/AdminTablePagination";
+import { translateAdminStatus } from "../../i18n";
 import { useIdempotencyKey } from "../common/useIdempotencyKey";
 
 const statusOptions = ["PENDING_REVIEW", "APPROVED", "REJECTED", "FAILED_SERVER_VALIDATION"] as const;
 const patternOptions = ["LINE", "TWO_LINES", "FULL_HOUSE"] as const;
 
 export function ClaimsPage() {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams();
   const [query, setQuery] = useState("");
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState(() => statusOptions.find((option) => option === searchParams.get("status")) ?? "");
   const [pattern, setPattern] = useState("");
   const [validation, setValidation] = useState("");
   const [page, setPage] = useState(0);
@@ -56,6 +62,10 @@ export function ClaimsPage() {
   const [mode, setMode] = useState<"APPROVE" | "REJECT">("APPROVE");
   const idempotency = useIdempotencyKey();
 
+  useEffect(() => {
+    setStatus(statusOptions.find((option) => option === searchParams.get("status")) ?? "");
+  }, [searchParams]);
+
   const actionMutation = useMutation({
     mutationFn: async () => {
       if (selectedId == null) {
@@ -74,18 +84,22 @@ export function ClaimsPage() {
       setSelectedId(null);
       setReason("");
     },
+    onError: (error) => {
+      if (!parseApiError(error).outcomeUnknown) idempotency.resetKey();
+    },
   });
+  const actionOutcomeUnknown = actionMutation.isError && parseApiError(actionMutation.error).outcomeUnknown;
 
   if (claimsQuery.isLoading) {
-    return <StatusState title="Loading claims" loading message="Fetching win claims" />;
+    return <StatusState title={t("Loading claims")} loading message={t("Fetching win claims")} />;
   }
 
   if (claimsQuery.error) {
     return (
       <StatusState
-        title="Unable to load claims"
-        message={(claimsQuery.error as Error).message}
-        actionLabel="Retry"
+        title={t("Unable to load claims")}
+        message={t(getUserFacingErrorMessage(claimsQuery.error) ?? "Something went wrong. Please try again.")}
+        actionLabel={t("Retry")}
         onAction={() => claimsQuery.refetch()}
       />
     );
@@ -94,13 +108,13 @@ export function ClaimsPage() {
   return (
     <Stack spacing={3}>
       <Box>
-        <Typography variant="h4">Win claims</Typography>
-        <Typography color="text.secondary">Review submitted claims and record validation evidence.</Typography>
+        <Typography variant="h4">{t("Win claims")}</Typography>
+        <Typography color="text.secondary">{t("Review submitted claims and record validation evidence.")}</Typography>
       </Box>
 
       <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
         <TextField
-          label="Search claim, player, ticket, or session"
+          label={t("Search claim, player, ticket, or session")}
           value={query}
           onChange={(event) => {
             setQuery(event.target.value);
@@ -110,7 +124,7 @@ export function ClaimsPage() {
         />
         <TextField
           select
-          label="Status"
+          label={t("Status")}
           value={status}
           onChange={(event) => {
             setStatus(event.target.value);
@@ -118,16 +132,16 @@ export function ClaimsPage() {
           }}
           sx={{ minWidth: { xs: "100%", md: 220 } }}
         >
-          <MenuItem value="">All statuses</MenuItem>
+          <MenuItem value="">{t("All statuses")}</MenuItem>
           {statusOptions.map((option) => (
             <MenuItem key={option} value={option}>
-              {option.replace(/_/g, " ")}
+              {translateAdminStatus(option, t)}
             </MenuItem>
           ))}
         </TextField>
         <TextField
           select
-          label="Pattern"
+          label={t("Pattern")}
           value={pattern}
           onChange={(event) => {
             setPattern(event.target.value);
@@ -135,7 +149,7 @@ export function ClaimsPage() {
           }}
           sx={{ minWidth: { xs: "100%", md: 180 } }}
         >
-          <MenuItem value="">All patterns</MenuItem>
+          <MenuItem value="">{t("All patterns")}</MenuItem>
           {patternOptions.map((option) => (
             <MenuItem key={option} value={option}>
               {option.replace(/_/g, " ")}
@@ -144,7 +158,7 @@ export function ClaimsPage() {
         </TextField>
         <TextField
           select
-          label="Validation"
+          label={t("Validation")}
           value={validation}
           onChange={(event) => {
             setValidation(event.target.value);
@@ -152,27 +166,27 @@ export function ClaimsPage() {
           }}
           sx={{ minWidth: { xs: "100%", md: 180 } }}
         >
-          <MenuItem value="">All results</MenuItem>
-          <MenuItem value="true">Passed</MenuItem>
-          <MenuItem value="false">Failed</MenuItem>
+          <MenuItem value="">{t("All results")}</MenuItem>
+          <MenuItem value="true">{t("Passed")}</MenuItem>
+          <MenuItem value="false">{t("Failed")}</MenuItem>
         </TextField>
       </Stack>
 
-      {claimsQuery.isFetching && !claimsQuery.isLoading ? <Alert severity="info">Updating claim results...</Alert> : null}
+      {claimsQuery.isFetching && !claimsQuery.isLoading ? <Alert severity="info">{t("Updating claim results...")}</Alert> : null}
 
       <Box sx={{ overflowX: "auto" }}>
-        <Table size="small" aria-label="win claims table">
+        <Table size="small" aria-label={t("win claims table")}>
           <TableHead>
             <TableRow>
-              <TableCell>Claim</TableCell>
-              <TableCell>Player</TableCell>
-              <TableCell>Ticket / session</TableCell>
-              <TableCell>Pattern</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell>Validation</TableCell>
-              <TableCell align="right">Draw seq.</TableCell>
-              <TableCell>Submitted</TableCell>
-              <TableCell align="right">Actions</TableCell>
+              <TableCell>{t("Claim")}</TableCell>
+              <TableCell>{t("Player")}</TableCell>
+              <TableCell>{t("Ticket / session")}</TableCell>
+              <TableCell>{t("Pattern")}</TableCell>
+              <TableCell>{t("Status")}</TableCell>
+              <TableCell>{t("Validation")}</TableCell>
+              <TableCell align="right">{t("Draw seq.")}</TableCell>
+              <TableCell>{t("Submitted")}</TableCell>
+              <TableCell align="right">{t("Actions")}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -180,24 +194,24 @@ export function ClaimsPage() {
               <TableRow key={claim.id} hover data-testid={`claim-row-${claim.id}`}>
                 <TableCell>
                   <Stack spacing={0.5}>
-                    <Typography fontWeight={600}>#{claim.id}</Typography>
+                    <Typography fontWeight={600}>{t("#")}{claim.id}</Typography>
                     <Typography variant="caption" color="text.secondary">
-                      {claim.serverValidationCode ?? "No validation code"}
+                      {claim.serverValidationCode ?? t("No validation code")}
                     </Typography>
                   </Stack>
                 </TableCell>
                 <TableCell>{claim.claimantId}</TableCell>
                 <TableCell>
-                  <Typography variant="body2">Ticket {claim.ticketId}</Typography>
-                  <Typography variant="caption" color="text.secondary">Session {claim.sessionId}</Typography>
+                  <Typography variant="body2">{t("Ticket")}{" "}{claim.ticketId}</Typography>
+                  <Typography variant="caption" color="text.secondary">{t("Session")}{" "}{claim.sessionId}</Typography>
                 </TableCell>
                 <TableCell>{claim.claimedPattern.replace(/_/g, " ")}</TableCell>
                 <TableCell>
-                  <Chip label={claim.status.replace(/_/g, " ")} size="small" />
+                  <Chip label={translateAdminStatus(claim.status, t)} size="small" />
                 </TableCell>
                 <TableCell>
                   <Chip
-                    label={claim.serverValidationPassed ? "Passed" : "Failed"}
+                    label={claim.serverValidationPassed ? t("Passed") : t("Failed")}
                     color={claim.serverValidationPassed ? "success" : "error"}
                     variant="outlined"
                     size="small"
@@ -213,26 +227,30 @@ export function ClaimsPage() {
                       variant="contained"
                       disabled={!claim.serverValidationPassed || claim.status !== "PENDING_REVIEW"}
                       onClick={() => {
+                        idempotency.resetKey();
+                        actionMutation.reset();
+                        setReason("");
                         setMode("APPROVE");
                         setSelectedId(claim.id);
                         setConfirmOpen(true);
                       }}
                     >
-                      Approve
-                    </Button>
+                      {t("Approve")}</Button>
                     <Button
                       data-testid={`claim-reject-${claim.id}`}
                       size="small"
                       variant="outlined"
                       disabled={!claim.serverValidationPassed || claim.status !== "PENDING_REVIEW"}
                       onClick={() => {
+                        idempotency.resetKey();
+                        actionMutation.reset();
+                        setReason("");
                         setMode("REJECT");
                         setSelectedId(claim.id);
                         setConfirmOpen(true);
                       }}
                     >
-                      Reject
-                    </Button>
+                      {t("Reject")}</Button>
                   </Stack>
                 </TableCell>
               </TableRow>
@@ -240,7 +258,7 @@ export function ClaimsPage() {
             {claimsQuery.data && claimsQuery.data.content.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={9}>
-                  <Alert severity="info">No claims match the current search and filters.</Alert>
+                  <Alert severity="info">{t("No claims match the current search and filters.")}</Alert>
                 </TableCell>
               </TableRow>
             ) : null}
@@ -248,7 +266,7 @@ export function ClaimsPage() {
         </Table>
       </Box>
 
-      <TablePagination
+      <AdminTablePagination
         component="div"
         count={claimsQuery.data?.totalElements ?? 0}
         page={page}
@@ -261,17 +279,18 @@ export function ClaimsPage() {
         rowsPerPageOptions={[10, 20, 50]}
       />
 
-      <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>{mode === "APPROVE" ? "Approve claim" : "Reject claim"}</DialogTitle>
+      <Dialog open={confirmOpen} onClose={() => !actionOutcomeUnknown && !actionMutation.isPending && setConfirmOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>{mode === "APPROVE" ? t("Approve claim") : t("Reject claim")}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
             {actionMutation.isError ? (
-              <Alert severity="error">{actionMutation.error.message}</Alert>
+              <Alert severity="error">{t(getUserFacingErrorMessage(actionMutation.error) ?? "Something went wrong. Please try again.")}</Alert>
             ) : null}
             <TextField
-              label={mode === "APPROVE" ? "Validation note" : "Rejection reason"}
+              label={mode === "APPROVE" ? t("Validation note") : t("Rejection reason")}
               value={reason}
               onChange={(event) => setReason(event.target.value)}
+              disabled={actionOutcomeUnknown}
               fullWidth
               multiline
               minRows={3}
@@ -280,13 +299,13 @@ export function ClaimsPage() {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setConfirmOpen(false)}>Cancel</Button>
+          <Button onClick={() => setConfirmOpen(false)} disabled={actionOutcomeUnknown || actionMutation.isPending}>{t("Cancel")}</Button>
           <Button
             variant="contained"
             onClick={() => actionMutation.mutate()}
-            disabled={!reason || actionMutation.isPending}
+            disabled={!reason.trim() || actionMutation.isPending}
           >
-            Confirm
+            {actionOutcomeUnknown ? t("Retry same decision") : t("Confirm")}
           </Button>
         </DialogActions>
       </Dialog>

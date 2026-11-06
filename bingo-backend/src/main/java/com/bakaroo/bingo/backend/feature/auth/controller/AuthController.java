@@ -46,6 +46,6 @@ public class AuthController {
 
     @GetMapping("/me")
     public MeResponse me(@AuthenticationPrincipal BingoUserPrincipal principal) {
-        return authService.me(principal.getUsername());
+        return authService.me(principal.getUser().getId());
     }
 }

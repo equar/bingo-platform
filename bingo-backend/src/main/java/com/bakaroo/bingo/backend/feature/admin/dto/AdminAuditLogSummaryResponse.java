@@ -5,6 +5,7 @@ import java.time.Instant;
 public record AdminAuditLogSummaryResponse(
         Long id,
         Long actorUserId,
+        String actorDisplayName,
         String action,
         String targetType,
         Long targetId,

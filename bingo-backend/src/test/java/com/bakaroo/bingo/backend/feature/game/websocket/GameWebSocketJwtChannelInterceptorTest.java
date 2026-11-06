@@ -49,6 +49,11 @@ class GameWebSocketJwtChannelInterceptorTest {
             public org.springframework.security.core.userdetails.UserDetails loadUserByUsername(String username) {
                 return new BingoUserPrincipal(admin);
             }
+
+            @Override
+            public BingoUserPrincipal loadById(Long userId) {
+                return new BingoUserPrincipal(admin);
+            }
         };
         gameAccess = org.mockito.Mockito.mock(com.bakaroo.bingo.backend.feature.community.service.GameAccessService.class);
         interceptor = new GameWebSocketJwtChannelInterceptor(jwtService, userDetailsService, gameAccess);
@@ -56,6 +61,7 @@ class GameWebSocketJwtChannelInterceptorTest {
         admin = User.create("251911000001", "Admin One", "hash", AccountStatus.ACTIVE, Set.of(UserRole.ADMIN),
                 Instant.parse("2026-01-01T00:00:00Z"));
         admin.setEmail("admin@example.com");
+        org.springframework.test.util.ReflectionTestUtils.setField(admin, "id", 1L);
     }
 
     @Test

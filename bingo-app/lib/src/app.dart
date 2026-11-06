@@ -1,4 +1,5 @@
 import 'package:bingo_app/src/core/config/app_config.dart';
+import 'package:bingo_app/src/core/localization/app_locale_controller.dart';
 import 'package:bingo_app/src/core/storage/session_storage.dart';
 import 'package:bingo_app/src/features/auth/presentation/auth_gate.dart';
 import 'package:flutter/material.dart';
@@ -28,10 +29,12 @@ class _BingoAppView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final appConfig = ref.watch(appConfigProvider);
+    final locale = ref.watch(appLocaleControllerProvider);
     ref.watch(sessionStorageProvider);
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      locale: locale,
       onGenerateTitle: (context) => AppLocalizations.of(context)!.appTitle,
       theme: ThemeData(
         useMaterial3: true,

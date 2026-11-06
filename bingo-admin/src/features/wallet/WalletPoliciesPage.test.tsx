@@ -132,13 +132,15 @@ describe("WalletPoliciesPage", () => {
 
   it("shows backend validation failures for policy saves", async () => {
     const user = userEvent.setup();
-    saveSignupRewardSettingsMock.mockRejectedValue(new Error("Validation failed"));
+    saveSignupRewardSettingsMock.mockRejectedValue({
+      response: { status: 400, data: { code: "VALIDATION_ERROR", message: "Internal validation detail" } },
+    });
     renderAt("/wallet/signup-reward");
 
     await screen.findByRole("heading", { name: "Signup reward" });
     await user.click(screen.getByRole("button", { name: "Save reward policy" }));
 
-    expect(await screen.findByText("Validation failed")).toBeInTheDocument();
+    expect(await screen.findByText("Check the highlighted fields and try again.")).toBeInTheDocument();
     expect(saveSignupRewardSettingsMock).toHaveBeenCalledOnce();
   });
 });
