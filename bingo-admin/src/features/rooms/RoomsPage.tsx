@@ -10,13 +10,10 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  FormControl,
   FormControlLabel,
   Grid,
-  InputLabel,
   MenuItem,
   Paper,
-  Select,
   Stack,
   TextField,
   Typography,
@@ -27,9 +24,8 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  ListItemText,
 } from "@mui/material";
-import { BingoPatternConfig, BingoRoomResponse, createRoom, listAdminRooms, updateRoom } from "../../api/admin";
+import { BingoRoomResponse, createRoom, listAdminRooms, updateRoom } from "../../api/admin";
 import { getUserFacingErrorMessage } from "../../api/types";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { StatusState } from "../../components/StatusState";
@@ -48,6 +44,14 @@ const patternOptions = [
 ] as const;
 
 type PatternValue = (typeof patternOptions)[number]["value"];
+type SettlementPath = "PLAYER_WALLET" | "AGENT_CASH";
+
+interface PrizeDraft {
+  prizeType: PatternValue;
+  amount: string;
+  settlementPath: SettlementPath;
+  maxWinners: string;
+}
 
 interface RoomDraft {
   id?: number;
@@ -63,28 +67,22 @@ interface RoomDraft {
   ticketSalesCloseOnSessionStart: boolean;
   allowMultipleWinnersPerPrize: boolean;
   active: boolean;
-  configuredPatterns: PatternValue[];
-  configuredPrizes: string;
+  configuredPrizes: PrizeDraft[];
 }
 
 const emptyDraft: RoomDraft = {
   name: "",
   description: "",
-  ticketPrice: "0.00",
+  ticketPrice: "0.01",
   currency: "ETB",
   timezone: "Africa/Addis_Ababa",
   scheduleRule: "WEEKLY",
   sessionCapacity: "100",
   maxTicketsPerPlayer: "5",
   ticketSalesCloseOnSessionStart: true,
-  allowMultipleWinnersPerPrize: true,
+  allowMultipleWinnersPerPrize: false,
   active: true,
-  configuredPatterns: patternOptions.map((option) => option.value),
-  configuredPrizes: JSON.stringify(
-    [{ prizeType: "LINE", amount: 100, settlementPath: "PLAYER_WALLET", maxWinners: 1 }],
-    null,
-    2,
-  ),
+  configuredPrizes: [{ prizeType: "LINE", amount: "100", settlementPath: "PLAYER_WALLET", maxWinners: "1" }],
 };
 
 function isPatternValue(value: string): value is PatternValue {
@@ -106,8 +104,14 @@ function roomToDraft(room: BingoRoomResponse): RoomDraft {
     ticketSalesCloseOnSessionStart: room.ticketSalesCloseOnSessionStart,
     allowMultipleWinnersPerPrize: room.allowMultipleWinnersPerPrize,
     active: room.active,
-    configuredPatterns: room.configuredPatterns.filter(isPatternValue),
-    configuredPrizes: JSON.stringify(room.configuredPrizes, null, 2),
+    configuredPrizes: room.configuredPrizes
+      .filter((prize) => isPatternValue(prize.prizeType))
+      .map((prize) => ({
+        prizeType: prize.prizeType as PatternValue,
+        amount: String(prize.amount),
+        settlementPath: prize.settlementPath === "AGENT_CASH" ? "AGENT_CASH" : "PLAYER_WALLET",
+        maxWinners: String(prize.maxWinners ?? 1),
+      })),
   };
 }
 
@@ -123,41 +127,35 @@ function roomDraftsEqual(left: RoomDraft, right: RoomDraft) {
     && left.ticketSalesCloseOnSessionStart === right.ticketSalesCloseOnSessionStart
     && left.allowMultipleWinnersPerPrize === right.allowMultipleWinnersPerPrize
     && left.active === right.active
-    && left.configuredPatterns.length === right.configuredPatterns.length
-    && left.configuredPatterns.every((pattern, index) => pattern === right.configuredPatterns[index])
-    && left.configuredPrizes === right.configuredPrizes;
+    && JSON.stringify(left.configuredPrizes) === JSON.stringify(right.configuredPrizes);
 }
 
-function parsePrizes(json: string): BingoPatternConfig[] {
-  const value = JSON.parse(json) as Array<{
-    prizeType: string;
-    amount: number;
-    settlementPath: string;
-    maxWinners?: number | null;
-  }>;
-  return value.map((item) => ({
-    prizeType: item.prizeType,
-    amount: Number(item.amount),
-    settlementPath: item.settlementPath,
-    maxWinners: item.maxWinners ?? null,
-  }));
+function validateRoomDraft(draft: RoomDraft): string | null {
+  const ticketPrice = Number(draft.ticketPrice);
+  if (!Number.isFinite(ticketPrice) || ticketPrice < 0.01 || !/^\d+(\.\d{1,2})?$/.test(draft.ticketPrice)) {
+    return "Ticket price must be at least 0.01 and have no more than two decimal places.";
+  }
+  if (draft.configuredPrizes.length === 0) {
+    return "Add at least one prize pattern.";
+  }
+  if (new Set(draft.configuredPrizes.map((prize) => prize.prizeType)).size !== draft.configuredPrizes.length) {
+    return "Each pattern can only have one prize configuration.";
+  }
+  if (draft.configuredPrizes.some((prize) => !/^\d+(\.\d{1,2})?$/.test(prize.amount)
+      || !Number.isFinite(Number(prize.amount)) || Number(prize.amount) < 0.01
+      || !/^\d+$/.test(prize.maxWinners) || Number(prize.maxWinners) < 1)) {
+    return "Each prize needs an amount of at least 0.01 and at least one winner.";
+  }
+  return null;
 }
 
 function formatDraftSummary(draft: RoomDraft, t: (key: string, options?: Record<string, unknown>) => string) {
-  const patternCount = draft.configuredPatterns.length;
-  const prizeCount = (() => {
-    try {
-      return JSON.parse(draft.configuredPrizes).length as number;
-    } catch {
-      return 0;
-    }
-  })();
+  const prizeCount = draft.configuredPrizes.length;
 
   return [
     t("Room: {{name}}", { name: draft.name || t("Untitled") }),
     t("Schedule: {{rule}}", { rule: draft.scheduleRule }),
-    t("Patterns: {{count}} selected", { count: patternCount }),
-    t("Prizes: {{count}} configured", { count: prizeCount }),
+    t("Prize patterns: {{count}} configured", { count: prizeCount }),
   ].join(` ${t("·")} `);
 }
 
@@ -200,8 +198,13 @@ export function RoomsPage() {
         ticketSalesCloseOnSessionStart: body.ticketSalesCloseOnSessionStart,
         allowMultipleWinnersPerPrize: body.allowMultipleWinnersPerPrize,
         active: body.active,
-        configuredPatterns: body.configuredPatterns,
-        configuredPrizes: parsePrizes(body.configuredPrizes),
+        configuredPatterns: body.configuredPrizes.map((prize) => prize.prizeType),
+        configuredPrizes: body.configuredPrizes.map((prize) => ({
+          prizeType: prize.prizeType,
+          amount: Number(prize.amount),
+          settlementPath: prize.settlementPath,
+          maxWinners: Number(prize.maxWinners),
+        })),
       }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["admin-rooms"] });
@@ -229,8 +232,13 @@ export function RoomsPage() {
         ticketSalesCloseOnSessionStart: body.ticketSalesCloseOnSessionStart,
         allowMultipleWinnersPerPrize: body.allowMultipleWinnersPerPrize,
         active: body.active,
-        configuredPatterns: body.configuredPatterns,
-        configuredPrizes: parsePrizes(body.configuredPrizes),
+        configuredPatterns: body.configuredPrizes.map((prize) => prize.prizeType),
+        configuredPrizes: body.configuredPrizes.map((prize) => ({
+          prizeType: prize.prizeType,
+          amount: Number(prize.amount),
+          settlementPath: prize.settlementPath,
+          maxWinners: Number(prize.maxWinners),
+        })),
       }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["admin-rooms"] });
@@ -262,6 +270,32 @@ export function RoomsPage() {
     draft.id === undefined
       || (originalDraft !== null && !roomDraftsEqual(draft, originalDraft))
   );
+
+  const updatePrize = (index: number, changes: Partial<PrizeDraft>) => {
+    setDraft((current) => current ? {
+      ...current,
+      configuredPrizes: current.configuredPrizes.map((prize, prizeIndex) =>
+        prizeIndex === index ? { ...prize, ...changes } : prize),
+    } : current);
+  };
+
+  const addPrize = () => {
+    setDraft((current) => {
+      if (!current) return current;
+      const nextPattern = patternOptions.find((option) =>
+        !current.configuredPrizes.some((prize) => prize.prizeType === option.value));
+      if (!nextPattern) return current;
+      return {
+        ...current,
+        configuredPrizes: [...current.configuredPrizes, {
+          prizeType: nextPattern.value,
+          amount: "100",
+          settlementPath: "PLAYER_WALLET",
+          maxWinners: "1",
+        }],
+      };
+    });
+  };
 
   if (roomsQuery.isLoading) {
     return <StatusState title={t("Loading rooms")} loading message={t("Fetching room catalog")} />;
@@ -345,7 +379,7 @@ export function RoomsPage() {
                 <TableCell>{t("Status")}</TableCell>
                 <TableCell>{t("Price")}</TableCell>
                 <TableCell>{t("Capacity")}</TableCell>
-                <TableCell>{t("Schedule")}</TableCell>
+                <TableCell>{t("Suggested cadence")}</TableCell>
                 <TableCell>{t("Patterns")}</TableCell>
                 <TableCell>{t("Updated")}</TableCell>
                 <TableCell align="right">{t("Actions")}</TableCell>
@@ -375,11 +409,11 @@ export function RoomsPage() {
                   <TableCell>
                     {room.sessionCapacity} {t("/")}{" "}{room.maxTicketsPerPlayer}
                   </TableCell>
-                  <TableCell>{room.scheduleRule}</TableCell>
+                  <TableCell>{t(scheduleOptions.find((option) => option.value === room.scheduleRule)?.label ?? room.scheduleRule)}</TableCell>
                   <TableCell>
                     <Stack direction="row" spacing={1} flexWrap="wrap">
-                      {room.configuredPatterns.map((pattern) => (
-                        <Chip key={pattern} label={pattern} size="small" />
+                      {room.configuredPrizes.map((prize) => (
+                        <Chip key={prize.prizeType} label={prize.prizeType} size="small" />
                       ))}
                     </Stack>
                   </TableCell>
@@ -484,12 +518,15 @@ export function RoomsPage() {
               <Grid item xs={12} md={4}>
                 <TextField
                   select
-                  label={t("Schedule rule")}
+                  label={t("Suggested session cadence")}
                   value={draft?.scheduleRule ?? ""}
                   onChange={(e) => draft && setDraft({ ...draft, scheduleRule: e.target.value })}
                   fullWidth
-                  helperText={t("Recommended preset cadence for the room.")}
+                  helperText={t("Planning guidance only; create and schedule sessions from the Sessions page.")}
                 >
+                  {draft?.scheduleRule && !scheduleOptions.some((option) => option.value === draft.scheduleRule) ? (
+                    <MenuItem value={draft.scheduleRule}>{t("Existing custom cadence")}: {draft.scheduleRule}</MenuItem>
+                  ) : null}
                   {scheduleOptions.map((option) => (
                     <MenuItem key={option.value} value={option.value}>
                       {t(option.label)}
@@ -514,51 +551,106 @@ export function RoomsPage() {
                 />
               </Grid>
               <Grid item xs={12}>
-                <FormControl fullWidth>
-                  <InputLabel id="configured-patterns-label">{t("Configured patterns")}</InputLabel>
-                  <Select
-                    labelId="configured-patterns-label"
-                    label={t("Configured patterns")}
-                    multiple
-                    value={draft?.configuredPatterns ?? []}
-                    onChange={(event) => {
-                      if (!draft) {
-                        return;
-                      }
-                      const value = event.target.value;
-                      const nextPatterns = typeof value === "string" ? value.split(",") : value;
-                      setDraft({
-                        ...draft,
-                        configuredPatterns: nextPatterns.filter(isPatternValue),
-                      });
-                    }}
-                    renderValue={(selected) =>
-                      (selected as string[])
-                        .map((pattern) => patternOptions.find((option) => option.value === pattern)?.label ?? pattern)
-                        .join(", ")
-                    }
-                  >
-                    {patternOptions.map((option) => (
-                      <MenuItem key={option.value} value={option.value}>
-                        <Checkbox checked={(draft?.configuredPatterns ?? []).includes(option.value)} />
-                        <ListItemText primary={t(option.label)} />
-                      </MenuItem>
-                    ))}
-                  </Select>
-                  <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, ml: 1.75 }}>
-                    {t("Best practice: keep the room to a small set of patterns that match the prize structure.")}</Typography>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  label={t("Configured prizes JSON")}
-                  value={draft?.configuredPrizes ?? ""}
-                  onChange={(e) => draft && setDraft({ ...draft, configuredPrizes: e.target.value })}
-                  fullWidth
-                  multiline
-                  minRows={8}
-                  helperText={t("Array of { prizeType, amount, settlementPath, maxWinners }")}
-                />
+                <Stack spacing={1}>
+                  <Box display="flex" alignItems="center" justifyContent="space-between" gap={2}>
+                    <div>
+                      <Typography variant="subtitle1">{t("Prize patterns")}</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {t("Each prize row enables its pattern for this room.")}
+                      </Typography>
+                    </div>
+                    <Button
+                      size="small"
+                      onClick={addPrize}
+                      disabled={!draft || draft.configuredPrizes.length >= patternOptions.length}
+                    >{t("Add prize")}</Button>
+                  </Box>
+                  <TableContainer component={Paper} variant="outlined">
+                    <Table size="small" aria-label={t("Room prizes")}>
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>{t("Pattern")}</TableCell>
+                          <TableCell>{t("Prize amount")}</TableCell>
+                          <TableCell>{t("Settlement")}</TableCell>
+                          <TableCell>{t("Max winners")}</TableCell>
+                          <TableCell align="right">{t("Actions")}</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {(draft?.configuredPrizes ?? []).map((prize, index) => (
+                          <TableRow key={`${prize.prizeType}-${index}`}>
+                            <TableCell>
+                              <TextField
+                                select
+                                size="small"
+                                label={t("Pattern")}
+                                value={prize.prizeType}
+                                onChange={(event) => updatePrize(index, { prizeType: event.target.value as PatternValue })}
+                                fullWidth
+                              >
+                                {patternOptions.map((option) => (
+                                  <MenuItem
+                                    key={option.value}
+                                    value={option.value}
+                                    disabled={(draft?.configuredPrizes ?? []).some((other, otherIndex) =>
+                                      otherIndex !== index && other.prizeType === option.value)}
+                                  >{t(option.label)}</MenuItem>
+                                ))}
+                              </TextField>
+                            </TableCell>
+                            <TableCell>
+                              <TextField
+                                size="small"
+                                label={t("Prize amount")}
+                                type="number"
+                                value={prize.amount}
+                                onChange={(event) => updatePrize(index, { amount: event.target.value })}
+                                inputProps={{ min: 0.01, step: 0.01 }}
+                                fullWidth
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <TextField
+                                select
+                                size="small"
+                                label={t("Settlement")}
+                                value={prize.settlementPath}
+                                onChange={(event) => updatePrize(index, { settlementPath: event.target.value as SettlementPath })}
+                                fullWidth
+                              >
+                                <MenuItem value="PLAYER_WALLET">{t("Player wallet")}</MenuItem>
+                                <MenuItem value="AGENT_CASH">{t("Agent cash")}</MenuItem>
+                              </TextField>
+                            </TableCell>
+                            <TableCell>
+                              <TextField
+                                size="small"
+                                label={t("Max winners")}
+                                type="number"
+                                value={prize.maxWinners}
+                                onChange={(event) => updatePrize(index, { maxWinners: event.target.value })}
+                                inputProps={{ min: 1, step: 1 }}
+                                disabled={!draft?.allowMultipleWinnersPerPrize}
+                                fullWidth
+                              />
+                            </TableCell>
+                            <TableCell align="right">
+                              <Button
+                                size="small"
+                                color="error"
+                                disabled={(draft?.configuredPrizes.length ?? 0) <= 1}
+                                onClick={() => setDraft((current) => current ? {
+                                  ...current,
+                                  configuredPrizes: current.configuredPrizes.filter((_, prizeIndex) => prizeIndex !== index),
+                                } : current)}
+                              >{t("Remove")}</Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                </Stack>
               </Grid>
             </Grid>
             <FormControlLabel
@@ -579,6 +671,9 @@ export function RoomsPage() {
               }
               label={t("Allow multiple winners per prize")}
             />
+            <Typography variant="caption" color="text.secondary" sx={{ ml: 2 }}>
+              {t("When enabled, each prize can have up to its configured maxWinners. Otherwise only one claim per prize can be approved per session.")}
+            </Typography>
             <FormControlLabel
               control={
                 <Checkbox
@@ -601,7 +696,16 @@ export function RoomsPage() {
             {t("Cancel")}</Button>
           <Button
             variant="contained"
-            onClick={() => setConfirmOpen(true)}
+            onClick={() => {
+              if (!draft) return;
+              const validationError = validateRoomDraft(draft);
+              if (validationError) {
+                setPendingError(validationError);
+                return;
+              }
+              setPendingError(null);
+              setConfirmOpen(true);
+            }}
             disabled={pendingSubmit || !hasDraftChanges}
           >
             {t("Save")}</Button>

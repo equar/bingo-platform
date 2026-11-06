@@ -33,8 +33,13 @@ class A00FlywayUpgradeRecoveryIntegrationTest extends MySqlIntegrationTest {
                 .load();
 
         current.clean();
-        assertEquals(23, current.migrate().migrationsExecuted);
-        assertEquals("23", current.info().current().getVersion().getVersion());
+        MigrationVersion latestVersion = Arrays.stream(current.info().all())
+                .map(MigrationInfo::getVersion)
+                .filter(Objects::nonNull)
+                .max(MigrationVersion::compareTo)
+                .orElseThrow();
+        assertEquals(current.info().pending().length, current.migrate().migrationsExecuted);
+        assertEquals(latestVersion, current.info().current().getVersion());
         assertDoesNotThrow(current::validate);
 
         current.clean();
@@ -49,17 +54,12 @@ class A00FlywayUpgradeRecoveryIntegrationTest extends MySqlIntegrationTest {
         assertEquals("6", throughV6.info().current().getVersion().getVersion());
 
         current.migrate();
-        MigrationVersion latestVersion = Arrays.stream(current.info().all())
-                .map(MigrationInfo::getVersion)
-                .filter(Objects::nonNull)
-                .max(MigrationVersion::compareTo)
-                .orElseThrow();
         assertEquals(latestVersion, current.info().current().getVersion());
         assertDoesNotThrow(current::validate);
 
         // A later deployment of the same migrations must leave the schema history unchanged.
         assertEquals(0, current.migrate().migrationsExecuted);
-        assertEquals("23", current.info().current().getVersion().getVersion());
+        assertEquals(latestVersion, current.info().current().getVersion());
 
         JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSource);
         Integer originalChecksum = jdbcTemplate.queryForObject(
