@@ -1,4 +1,41 @@
-# One-time production Admin bootstrap
+# Deployment admin accounts by email
+
+The deployment workflow enables email bootstrap for `apps@bakaroo.com` and
+`equarhishe@gmail.com` by default. Repository variables can override this:
+
+| Variable | Default |
+|---|---|
+| `ADMIN_EMAIL_BOOTSTRAP_ENABLED` | `true` in the deployment workflow; `false` outside it |
+| `ADMIN_BOOTSTRAP_EMAILS` | `apps@bakaroo.com,equarhishe@gmail.com` |
+
+Keep the legacy `ADMIN_BOOTSTRAP_ENABLED=false`. The deployment validator rejects
+both modes being enabled together. No bootstrap password or phone number is
+needed for email bootstrap. Configure either SMTP or Graph using `APP_EMAIL_PROVIDER` as described in
+[Email providers](EMAIL_PROVIDERS.md). `APP_EMAIL_FROM` is the sender address;
+it defaults to `SPRING_MAIL_USERNAME` in SMTP mode.
+
+After Flyway completes, each missing email gets an active ADMIN account with
+its own cryptographically random, readable password (six pronounceable groups
+and four digits). The password is emailed only to that account, stored only as
+a password hash, never logged, and expires in 24 hours. First login requires a
+password change. Existing email identities are skipped without changing roles,
+passwords, or status, including existing non-admin accounts.
+
+Each account is created in a separate transaction. Email provider failures fail startup
+and roll back that account, allowing the next deployment to retry it while
+previously completed accounts are skipped. Provider acceptance is not proof of inbox
+delivery; monitor delivery/bounces. Database commit and email delivery cannot be
+atomic, so a rare commit failure after sending can result in another email on
+retry. Expired passwords use the existing administrator password-reset flow.
+Concurrent account creation is constrained by the unique email index; retry a
+failed deployment after confirming the other attempt completed.
+
+Set `ADMIN_EMAIL_BOOTSTRAP_ENABLED=false` to stop checks. It can remain enabled
+for later deployments because existing accounts are never recreated or emailed.
+
+---
+
+# Legacy one-time production Admin bootstrap
 
 The production-only bootstrap creates one active `ADMIN` user and its required
 `user_roles` association after Spring has initialized the database and Flyway

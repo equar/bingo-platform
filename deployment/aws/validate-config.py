@@ -30,4 +30,29 @@ if bootstrap_enabled == 'true':
                 'ADMIN_BOOTSTRAP_PASSWORD'):
         if not os.environ.get(key, '').strip():
             raise SystemExit(key + ' is required when ADMIN_BOOTSTRAP_ENABLED=true')
-print('Bingo production URLs and origins validated')
+
+email_bootstrap = os.environ.get('ADMIN_EMAIL_BOOTSTRAP_ENABLED', 'false').strip().lower()
+if email_bootstrap not in ('true', 'false'):
+    raise SystemExit('ADMIN_EMAIL_BOOTSTRAP_ENABLED must be true or false')
+if email_bootstrap == 'true':
+    import re
+    emails = os.environ.get('ADMIN_BOOTSTRAP_EMAILS', '').split(',')
+    if not all(len(email.strip()) <= 255 and re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', email.strip()) for email in emails):
+        raise SystemExit('ADMIN_BOOTSTRAP_EMAILS must contain comma-separated valid email addresses')
+    if bootstrap_enabled == 'true':
+        raise SystemExit('Enable only one admin bootstrap mode at a time')
+
+
+provider = os.environ.get('APP_EMAIL_PROVIDER', 'smtp') or 'smtp'
+if provider not in ('smtp', 'graph'):
+    raise SystemExit('APP_EMAIL_PROVIDER must be smtp or graph')
+if provider == 'graph':
+    for key in ('TENANT_ID', 'CLIENT_ID', 'CLIENT_SECRET'):
+        if not (os.environ.get('MICROSOFT_GRAPH_' + key) or os.environ.get('GRAPH_' + key)):
+            raise SystemExit('MICROSOFT_GRAPH_' + key + ' is required for Graph email')
+    import re
+    if not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', os.environ.get('APP_EMAIL_FROM', '')):
+        raise SystemExit('APP_EMAIL_FROM must be the Graph sender mailbox email address')
+elif not os.environ.get('SPRING_MAIL_USERNAME', '').strip():
+    raise SystemExit('SPRING_MAIL_USERNAME is required for SMTP email')
+print('Bingo production URLs, origins, bootstrap, and email provider configuration validated')
