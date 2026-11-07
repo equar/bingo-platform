@@ -5,7 +5,7 @@ python3 "$ROOT/deployment/aws/validate-config.py"
 : "${SERVER:?Set SERVER to user@host}"
 : "${SSH_KEY:?Set SSH_KEY}"
 [[ -f "$SSH_KEY" ]] || { echo 'SSH key not found' >&2; exit 1; }
-export MYSQL_DATABASE=bingo SPRING_PROFILES_ACTIVE=prod SERVER_PORT=8088
+export MYSQL_DATABASE=bingo SPRING_PROFILES_ACTIVE=prod SERVER_PORT=8081
 export SPRING_JPA_HIBERNATE_DDL_AUTO=validate
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
@@ -20,7 +20,7 @@ if len(settings['JWT_SECRET']) < 32: raise SystemExit('JWT_SECRET must contain a
 try:
     if len(base64.b64decode(settings['BINGO_FLOAT_BANK_ENCRYPTION_KEY'],validate=True)) != 32: raise ValueError()
 except Exception: raise SystemExit('BINGO_FLOAT_BANK_ENCRYPTION_KEY must be Base64 encoding of 32 bytes')
-defaults={'APP_EMAIL_PROVIDER':'smtp','APP_EMAIL_FROM':'','MICROSOFT_GRAPH_TENANT_ID':'','MICROSOFT_GRAPH_CLIENT_ID':'','MICROSOFT_GRAPH_CLIENT_SECRET':'','SPRING_MAIL_USERNAME':'','SPRING_MAIL_PASSWORD':'','MYSQL_PORT':'3306','MYSQL_DATABASE':'bingo','SPRING_PROFILES_ACTIVE':'prod','BINGO_ENV_IMPORT':'','SERVER_PORT':'8088','SERVER_ADDRESS':'127.0.0.1','SPRING_JPA_HIBERNATE_DDL_AUTO':'validate','JWT_ACCESS_TOKEN_TTL_SECONDS':'3600','SPRING_MAIL_HOST':'smtp.gmail.com','SPRING_MAIL_PORT':'587','APP_DEV_SEED_ENABLED':'false','APP_BUSINESS_TIMEZONE':'Africa/Addis_Ababa','ADMIN_EMAIL_BOOTSTRAP_ENABLED':'false','ADMIN_BOOTSTRAP_EMAILS':'','ADMIN_BOOTSTRAP_ENABLED':'false','ADMIN_BOOTSTRAP_PHONE':'','ADMIN_BOOTSTRAP_NAME':'','ADMIN_BOOTSTRAP_EMAIL':'','ADMIN_BOOTSTRAP_PASSWORD':''}
+defaults={'APP_EMAIL_PROVIDER':'smtp','APP_EMAIL_FROM':'','MICROSOFT_GRAPH_TENANT_ID':'','MICROSOFT_GRAPH_CLIENT_ID':'','MICROSOFT_GRAPH_CLIENT_SECRET':'','SPRING_MAIL_USERNAME':'','SPRING_MAIL_PASSWORD':'','MYSQL_PORT':'3306','MYSQL_DATABASE':'bingo','SPRING_PROFILES_ACTIVE':'prod','BINGO_ENV_IMPORT':'','SERVER_PORT':'8081','SERVER_ADDRESS':'127.0.0.1','SPRING_JPA_HIBERNATE_DDL_AUTO':'validate','JWT_ACCESS_TOKEN_TTL_SECONDS':'3600','SPRING_MAIL_HOST':'smtp.gmail.com','SPRING_MAIL_PORT':'587','APP_DEV_SEED_ENABLED':'false','APP_BUSINESS_TIMEZONE':'Africa/Addis_Ababa','ADMIN_EMAIL_BOOTSTRAP_ENABLED':'false','ADMIN_BOOTSTRAP_EMAILS':'','ADMIN_BOOTSTRAP_ENABLED':'false','ADMIN_BOOTSTRAP_PHONE':'','ADMIN_BOOTSTRAP_NAME':'','ADMIN_BOOTSTRAP_EMAIL':'','ADMIN_BOOTSTRAP_PASSWORD':''}
 fixed={'BINGO_ENV_IMPORT','MYSQL_DATABASE','SPRING_PROFILES_ACTIVE','SERVER_PORT','SERVER_ADDRESS','SPRING_JPA_HIBERNATE_DDL_AUTO','APP_DEV_SEED_ENABLED'}
 for k,v in defaults.items(): settings[k]=v if k in fixed else os.environ.get(k) or v
 for suffix in ('TENANT_ID', 'CLIENT_ID', 'CLIENT_SECRET'):
@@ -62,7 +62,7 @@ install -d -o bingo -g bingo -m 755 /opt/bingo /opt/bingo/logs
 install -d -o root -g root -m 755 /opt/bingo/runtime
 previous_backend_healthy=false
 if systemctl is-active --quiet bingo-backend &&
-   curl -fsS --max-time 3 http://127.0.0.1:8088/actuator/health 2>/dev/null | grep -q '"status":"UP"'; then
+   curl -fsS --max-time 3 http://127.0.0.1:8081/actuator/health 2>/dev/null | grep -q '"status":"UP"'; then
   previous_backend_healthy=true
 fi
 # Keep a complete previous application/config pair. Flyway changes are not reversed.
@@ -94,7 +94,7 @@ systemctl daemon-reload
 systemctl enable bingo-backend
 systemctl restart bingo-backend
 for attempt in $(seq 1 60); do
-  if curl -fsS --max-time 3 http://127.0.0.1:8088/actuator/health 2>/dev/null | grep -q '"status":"UP"'; then
+  if curl -fsS --max-time 3 http://127.0.0.1:8081/actuator/health 2>/dev/null | grep -q '"status":"UP"'; then
     echo 'Bingo backend healthy'
     exit 0
   fi

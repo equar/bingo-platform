@@ -17,7 +17,7 @@ There is no OIDC deployment role or required source-branch naming convention.
 | Admin SPA | `/var/www/bingo-admin` |
 | Public website | `/var/www/bingo-website` |
 | MySQL schema | `bingo` |
-| API listener | `127.0.0.1:8088` |
+| API listener | `127.0.0.1:8081` |
 
 The workflow builds selected applications only: the Java 25 backend with Maven,
 and the Admin/Astro frontends with Node 22, then deploys them over SSH. PR validation is the test gate:
@@ -45,7 +45,7 @@ ownership, and incident procedures before production use.
 1. Provision a separate Ubuntu Lightsail/EC2 server with a static IP. Install
    Java 25 at `/usr/bin/java`, Nginx, curl, Certbot, and gettext-base. The
    deployment SSH user needs noninteractive sudo. Permit SSH from the runner
-   and inbound HTTP/HTTPS; do not expose port 8088 publicly.
+   and inbound HTTP/HTTPS; do not expose port 8081 publicly.
 2. Provision MySQL schema `bingo` and a separate application identity scoped
    to `bingo.*` with the privileges required by Flyway and the application.
    The workflow does not create the database. Keep it private and use its DNS
@@ -121,7 +121,7 @@ Repository **variables**:
 | `PUBLIC_SUPPORT_EMAIL`, `PUBLIC_SUPPORT_TELEGRAM_URL`, `PUBLIC_SUPPORT_WHATSAPP_URL` | Optional public contact channels |
 | `APP_PAYMENT_PROVIDER_NAME`, `APP_PAYMENT_BUSINESS_ACCOUNT`, `APP_PAYMENT_INSTRUCTIONS` | Public payment instructions; defaults to Telebirr |
 
-Production profile, schema `bingo`, port 8088, loopback binding, Hibernate
+Production profile, schema `bingo`, port 8081, loopback binding, Hibernate
 validation, and disabled development seeding are fixed by the deployment
 scripts. This workflow does not require AWS access keys, an OIDC role, or
 Secrets Manager ARNs.
