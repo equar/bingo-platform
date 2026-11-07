@@ -496,17 +496,17 @@ class BingoLiveDrawIntegrationTest extends MySqlIntegrationTest {
 
         @Test
         void cancellationAndInvalidSessionCannotAdvanceTheDrawEngine() {
-                BingoRoom room = bingoGameService.createRoom(roomRequest("Cancelled Draw Room", 2, 2, true));
-                GameSession session = bingoGameService.createSession(room.id(), sessionRequest(GameSessionState.OPEN));
-                bingoGameService.updateSessionState(session.getId(),
+                var room = bingoGameService.createRoom(roomRequest("Cancelled Draw Room"));
+                var session = bingoGameService.createSession(room.id(), sessionRequest(GameSessionState.OPEN));
+                bingoGameService.updateSessionState(session.id(),
                                 new GameSessionStateUpdateRequest(GameSessionState.CANCELLED));
-                Instant dueTime = session.getStartedAt().plus(gameProperties.drawInterval()).plusSeconds(1);
+                Instant dueTime = session.startedAt().plus(gameProperties.drawInterval()).plusSeconds(1);
 
-                assertTrue(gameLiveDrawService.advanceSessionDrawIfDue(session.getId(), dueTime).isEmpty());
+                assertTrue(gameLiveDrawService.advanceSessionDrawIfDue(session.id(), dueTime).isEmpty());
                 assertTrue(gameLiveDrawService.advanceSessionDrawIfDue(Long.MAX_VALUE, dueTime).isEmpty());
-                assertEquals(0L, drawEventRepository.countBySessionId(session.getId()));
+                assertEquals(0L, drawEventRepository.countBySessionId(session.id()));
                 assertEquals(GameSessionState.CANCELLED,
-                                gameSessionRepository.findById(session.getId()).orElseThrow().getState());
+                                gameSessionRepository.findById(session.id()).orElseThrow().getState());
         }
 
         @Test
