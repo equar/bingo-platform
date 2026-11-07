@@ -69,7 +69,8 @@ const navGroups = [
   {
     title: "nav.finance",
     items: [
-      { to: "/wallet/signup-reward", label: "nav.walletPolicies", icon: "wallet" },
+      { to: "/wallet/signup-reward", label: "nav.signupReward", icon: "wallet" },
+      { to: "/wallet/transfer-policy", label: "nav.transferPolicy", icon: "transfers" },
       { to: "/wallet/transfers", label: "nav.transfers", icon: "transfers" },
     ],
   },
@@ -144,9 +145,6 @@ function NavIcon({ name, size = 20 }: { name: NavIconName; size?: number }) {
 }
 
 function isNavItemActive(pathname: string, itemPath: string) {
-  if (itemPath === "/wallet/signup-reward") {
-    return ["/wallet", "/wallet/signup-reward", "/wallet/transfer-policy"].includes(pathname);
-  }
   if (itemPath === "/sessions" && pathname === "/session-tickets") {
     return true;
   }
@@ -175,8 +173,8 @@ const routeTitles: Array<{ match: RegExp; title: string; parent?: string; parent
   { match: /^\/claims$/, title: "nav.claims" },
   { match: /^\/prize-entitlements$/, title: "nav.entitlements" },
   { match: /^\/player-verifications$/, title: "nav.verification" },
-  { match: /^\/wallet\/signup-reward$/, title: "nav.walletPolicies" },
-  { match: /^\/wallet\/transfer-policy$/, title: "Transfer policy", parent: "nav.walletPolicies", parentTo: "/wallet/signup-reward" },
+  { match: /^\/wallet\/signup-reward$/, title: "nav.signupReward" },
+  { match: /^\/wallet\/transfer-policy$/, title: "nav.transferPolicy" },
   { match: /^\/wallet\/transfers$/, title: "nav.transfers" },
   { match: /^\/admin-users$/, title: "nav.adminUsers" },
   { match: /^\/admin-users\/new$/, title: "Create admin user", parent: "nav.adminUsers", parentTo: "/admin-users" },

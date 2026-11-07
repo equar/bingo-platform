@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { approveDeposit, deposits, rejectDeposit, verifyDeposit } from "../../api/admin";
+import { approveDeposit, deposits, rejectDeposit } from "../../api/admin";
 import i18n from "../../i18n";
 import { DepositsPage } from "./DepositsPage";
 
@@ -12,13 +12,11 @@ vi.mock("../../api/admin", () => ({
   approveDeposit: vi.fn(),
   deposits: vi.fn(),
   rejectDeposit: vi.fn(),
-  verifyDeposit: vi.fn(),
 }));
 
 const approveDepositMock = vi.mocked(approveDeposit);
 const depositsMock = vi.mocked(deposits);
 const rejectDepositMock = vi.mocked(rejectDeposit);
-const verifyDepositMock = vi.mocked(verifyDeposit);
 
 function depositResponse(status = "PENDING") {
   return {
@@ -27,6 +25,8 @@ function depositResponse(status = "PENDING") {
         id: 32,
         operationId: "deposit-operation-32",
         playerId: 14,
+        playerDisplayName: "Player Name",
+        playerPhoneNumber: "+251911000014",
         submittedCashAmount: "100.00",
         currency: "ETB",
         conversionRateSnapshot: "1.000000",
@@ -77,16 +77,17 @@ describe("DepositsPage", () => {
     depositsMock.mockReset();
     approveDepositMock.mockReset().mockResolvedValue({} as Awaited<ReturnType<typeof approveDeposit>>);
     rejectDepositMock.mockReset().mockResolvedValue({} as Awaited<ReturnType<typeof rejectDeposit>>);
-    verifyDepositMock.mockReset().mockResolvedValue({} as Awaited<ReturnType<typeof verifyDeposit>>);
     depositsMock.mockResolvedValue(depositResponse());
   });
 
-  it("loads deposits and prevents approving a claim before independent verification", async () => {
+  it("shows player details and only approve and reject actions", async () => {
     render(<DepositsPage />, { wrapper: createWrapper });
 
     expect(await screen.findByTestId("deposit-row-32")).toBeInTheDocument();
     expect(screen.getByText("TXN-8842")).toBeInTheDocument();
-    expect(screen.getByTestId("deposit-verify-32")).toBeEnabled();
+    expect(screen.getByText("Player Name")).toBeInTheDocument();
+    expect(screen.getByText("+251911000014")).toBeInTheDocument();
+    expect(screen.queryByTestId("deposit-verify-32")).not.toBeInTheDocument();
     expect(screen.getByTestId("deposit-approve-32")).toBeDisabled();
     expect(screen.getByTestId("deposit-reject-32")).toBeEnabled();
     expect(depositsMock).toHaveBeenCalledWith(0, 20, undefined, undefined);
@@ -125,21 +126,15 @@ describe("DepositsPage", () => {
     await waitFor(() => expect(depositsMock).toHaveBeenLastCalledWith(1, 20, undefined, undefined));
   });
 
-  it("verifies bank evidence before enabling approval", async () => {
+  it("approves a verified deposit with a review note", async () => {
     const user = userEvent.setup();
-    depositsMock.mockResolvedValueOnce(depositResponse()).mockResolvedValue(depositResponse("VERIFIED"));
+    depositsMock.mockResolvedValue(depositResponse("VERIFIED"));
     render(<DepositsPage />, { wrapper: createWrapper });
     await screen.findByTestId("deposit-row-32");
 
-    await user.click(screen.getByTestId("deposit-verify-32"));
-    await user.type(screen.getByRole("spinbutton", { name: "Bank statement entry ID" }), "81");
-    await user.click(screen.getByRole("button", { name: "Verify payment" }));
-    await waitFor(() => expect(verifyDepositMock).toHaveBeenCalledWith(32, 81));
-    await waitFor(() => expect(screen.getByTestId("deposit-approve-32")).toBeEnabled());
-
     await user.click(screen.getByTestId("deposit-approve-32"));
     await user.type(screen.getByRole("textbox", { name: "Review note" }), "Payment verified");
-    await user.click(screen.getByRole("button", { name: "Confirm" }));
+    await user.click(screen.getByRole("button", { name: "Approve" }));
     await waitFor(() =>
       expect(approveDepositMock).toHaveBeenCalledWith(32, {
         reviewNote: "Payment verified",
@@ -155,8 +150,8 @@ describe("DepositsPage", () => {
     await screen.findByTestId("deposit-row-32");
 
     await user.click(screen.getByTestId("deposit-reject-32"));
-    await user.type(screen.getByRole("textbox", { name: "Rejection reason" }), "Reference not found");
-    await user.click(screen.getByRole("button", { name: "Confirm" }));
+    await user.type(screen.getByRole("textbox", { name: "Review note" }), "Reference not found");
+    await user.click(screen.getByRole("button", { name: "Reject" }));
     await waitFor(() =>
       expect(rejectDepositMock).toHaveBeenCalledWith(32, {
         reviewNote: "Reference not found",
@@ -174,7 +169,7 @@ describe("DepositsPage", () => {
 
     await user.click(screen.getByTestId("deposit-approve-32"));
     await user.type(screen.getByRole("textbox", { name: "Review note" }), "Payment verified");
-    const confirmButton = screen.getByRole("button", { name: "Confirm" });
+    const confirmButton = screen.getByRole("button", { name: "Approve" });
     await user.click(confirmButton);
     await waitFor(() => expect(confirmButton).toBeDisabled());
     fireEvent.click(confirmButton);
@@ -193,7 +188,7 @@ describe("DepositsPage", () => {
 
     await user.click(screen.getByTestId("deposit-approve-32"));
     await user.type(screen.getByRole("textbox", { name: "Review note" }), "Payment verified");
-    await user.click(screen.getByRole("button", { name: "Confirm" }));
+    await user.click(screen.getByRole("button", { name: "Approve" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "You don’t have permission to perform this action.",

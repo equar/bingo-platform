@@ -140,7 +140,6 @@ public class AndroidTestFixtureBootstrapRunner implements ApplicationRunner {
         require("bingo_qa_test".equals(confirmation),
                 "Fixture bootstrap confirmation must identify bingo_qa_test.");
         requireDisabled("app.game.draw-scheduler-enabled");
-        requireDisabled("app.wallet.signup-reward-test-posting-enabled");
         requireDisabled("app.wallet.deposit-simulation-enabled");
         requireDisabled("app.wallet.adjustment-simulation-enabled");
         requireDisabled("app.agent.float-simulation-enabled");

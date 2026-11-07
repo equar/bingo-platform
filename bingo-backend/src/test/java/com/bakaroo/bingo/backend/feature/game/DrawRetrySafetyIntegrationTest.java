@@ -60,7 +60,6 @@ import org.springframework.test.web.servlet.MvcResult;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
         "app.game.draw-interval=PT10S",
         "app.game.draw-scheduler-enabled=false",
-        "app.wallet.signup-reward-test-posting-enabled=false",
         "app.wallet.deposit-simulation-enabled=false",
         "app.wallet.adjustment-simulation-enabled=false",
         "app.agent.float-simulation-enabled=false"

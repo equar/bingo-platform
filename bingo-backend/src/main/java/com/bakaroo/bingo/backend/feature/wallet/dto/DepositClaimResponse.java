@@ -7,6 +7,8 @@ public record DepositClaimResponse(
         Long id,
         String operationId,
         Long playerId,
+        String playerDisplayName,
+        String playerPhoneNumber,
         BigDecimal submittedCashAmount,
         String currency,
         BigDecimal conversionRateSnapshot,

@@ -85,8 +85,8 @@ describe("WalletPoliciesPage", () => {
       enabled: true,
       rewardAmount: "20.00",
       currency: "ETB",
-      effectiveFrom: "2026-10-01T00:00:00Z",
-      effectiveUntil: null,
+      effectiveFrom: new Date(Date.now() + 10 * 60_000).toISOString(),
+      effectiveUntil: new Date(Date.now() + 24 * 60 * 60_000).toISOString(),
       changedByUserId: 2,
       reason: null,
       createdAt: "2026-10-01T00:00:00Z",
@@ -108,13 +108,12 @@ describe("WalletPoliciesPage", () => {
       activeNow: true,
     });
     signupRewardGrantsMock.mockResolvedValue({ content: [], page: 0, size: 8, totalElements: 0, totalPages: 0, first: true, last: true });
-    signupRewardSettingsHistoryMock.mockResolvedValue({ content: [], page: 0, size: 8, totalElements: 0, totalPages: 0, first: true, last: true });
-    walletTransferSettingsHistoryMock.mockResolvedValue({ content: [], page: 0, size: 8, totalElements: 0, totalPages: 0, first: true, last: true });
+    signupRewardSettingsHistoryMock.mockResolvedValue({ content: [], page: 0, size: 20, totalElements: 0, totalPages: 0, first: true, last: true });
+    walletTransferSettingsHistoryMock.mockResolvedValue({ content: [], page: 0, size: 20, totalElements: 0, totalPages: 0, first: true, last: true });
   });
 
-  it("loads only the selected policy and navigates between tabs", async () => {
-    const user = userEvent.setup();
-    renderAt("/wallet/signup-reward");
+  it("loads only the policy selected by its route", async () => {
+    const { unmount } = renderAt("/wallet/signup-reward");
 
     expect(await screen.findByRole("heading", { name: "Signup reward" })).toBeInTheDocument();
     expect(currentSignupRewardSettingsMock).toHaveBeenCalledOnce();
@@ -122,12 +121,68 @@ describe("WalletPoliciesPage", () => {
     expect(signupRewardGrantsMock).toHaveBeenCalledOnce();
     expect(walletTransferSettingsHistoryMock).not.toHaveBeenCalled();
 
-    await user.click(screen.getByRole("tab", { name: "Transfer policy" }));
+    unmount();
+    renderAt("/wallet/transfer-policy");
 
+    expect(await screen.findByRole("heading", { name: "Transfer policy" })).toBeInTheDocument();
     await waitFor(() => expect(currentWalletTransferSettingsMock).toHaveBeenCalledOnce());
     expect(screen.getByTestId("current-location")).toHaveTextContent("/wallet/transfer-policy");
-    expect(await screen.findByRole("heading", { name: "Transfer policy" })).toBeInTheDocument();
     expect(walletTransferSettingsHistoryMock).toHaveBeenCalledOnce();
+  });
+
+  it("defaults a new reward policy to the next minute and restricts dates to the future", async () => {
+    currentSignupRewardSettingsMock.mockResolvedValue({
+      id: null,
+      enabled: false,
+      rewardAmount: "0.00",
+      currency: "ETB",
+      effectiveFrom: "1970-01-01T00:00:00Z",
+      effectiveUntil: null,
+      changedByUserId: null,
+      reason: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      activeNow: false,
+    });
+
+    renderAt("/wallet/signup-reward");
+
+    await screen.findByRole("heading", { name: "Signup reward" });
+    await userEvent.setup().click(screen.getByRole("button", { name: "Add signup reward" }));
+    const effectiveFrom = screen.getByLabelText("Effective from") as HTMLInputElement;
+    const effectiveUntil = screen.getByLabelText("Effective until") as HTMLInputElement;
+
+    expect(effectiveFrom.value).not.toBe("");
+    expect(effectiveFrom.value >= effectiveFrom.min).toBe(true);
+    expect(effectiveUntil.min > effectiveFrom.value).toBe(true);
+    expect(effectiveUntil).toHaveAttribute("min", effectiveUntil.min);
+  });
+
+  it("replaces past saved reward dates with current future defaults", async () => {
+    const yesterday = new Date(Date.now() - 24 * 60 * 60_000).toISOString();
+    currentSignupRewardSettingsMock.mockResolvedValue({
+      id: 1,
+      enabled: false,
+      rewardAmount: "25.00",
+      currency: "ETB",
+      effectiveFrom: yesterday,
+      effectiveUntil: yesterday,
+      changedByUserId: 2,
+      reason: null,
+      createdAt: yesterday,
+      updatedAt: yesterday,
+      activeNow: false,
+    });
+
+    renderAt("/wallet/signup-reward");
+
+    await screen.findByRole("heading", { name: "Signup reward" });
+    await userEvent.setup().click(screen.getByRole("button", { name: "Add signup reward" }));
+    const effectiveFrom = screen.getByLabelText("Effective from") as HTMLInputElement;
+    const effectiveUntil = screen.getByLabelText("Effective until") as HTMLInputElement;
+
+    expect(effectiveFrom.value >= effectiveFrom.min).toBe(true);
+    expect(effectiveUntil.value).toBe("");
   });
 
   it("shows backend validation failures for policy saves", async () => {
@@ -138,6 +193,7 @@ describe("WalletPoliciesPage", () => {
     renderAt("/wallet/signup-reward");
 
     await screen.findByRole("heading", { name: "Signup reward" });
+    await user.click(screen.getByRole("button", { name: "Add signup reward" }));
     await user.click(screen.getByRole("button", { name: "Save reward policy" }));
 
     expect(await screen.findByText("Check the highlighted fields and try again.")).toBeInTheDocument();

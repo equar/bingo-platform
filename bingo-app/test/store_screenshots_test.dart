@@ -1,5 +1,7 @@
 /// Optional capture of real app widgets; fixtures never reach the production API.
 /// Run with --dart-define=STORE_SCREENSHOT_DIR=/absolute/output/path.
+library;
+
 import 'dart:io';
 import 'dart:ui' as ui;
 

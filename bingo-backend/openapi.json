@@ -16855,6 +16855,12 @@
             "type" : "integer",
             "format" : "int64"
           },
+          "playerDisplayName" : {
+            "type" : "string"
+          },
+          "playerPhoneNumber" : {
+            "type" : "string"
+          },
           "submittedCashAmount" : {
             "type" : "number"
           },

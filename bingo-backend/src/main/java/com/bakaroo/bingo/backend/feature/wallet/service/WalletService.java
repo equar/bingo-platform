@@ -296,6 +296,8 @@ public class WalletService {
                 claim.getId(),
                 claim.getOperationId(),
                 claim.getPlayer().getId(),
+                claim.getPlayer().getDisplayName(),
+                claim.getPlayer().getNormalizedPhone(),
                 claim.getSubmittedCashAmount(),
                 claim.getCurrency(),
                 claim.getConversionRateSnapshot(),

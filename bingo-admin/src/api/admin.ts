@@ -713,7 +713,7 @@ export interface WalletTransferDetailResponse {
 }
 
 export interface SignupRewardSettingsResponse {
-  id: number;
+  id: number | null;
   enabled: boolean;
   rewardAmount: string;
   currency: string;
@@ -776,6 +776,8 @@ export interface DepositClaimResponse {
   id: number;
   operationId: string;
   playerId: number;
+  playerDisplayName: string;
+  playerPhoneNumber: string | null;
   submittedCashAmount: string;
   currency: string;
   conversionRateSnapshot: string;

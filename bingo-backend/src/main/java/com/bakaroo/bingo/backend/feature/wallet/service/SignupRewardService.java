@@ -24,7 +24,6 @@ import java.time.Instant;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -37,25 +36,18 @@ public class SignupRewardService {
     private final SignupRewardGrantRepository grantRepository;
     private final WalletRepository walletRepository;
     private final WalletTransactionRepository walletTransactionRepository;
-    private final SignupRewardPostingGuard postingGuard;
     private final WalletProperties walletProperties;
-    private final boolean testPostingEnabled;
 
     public SignupRewardService(SignupRewardPolicyRepository policyRepository,
             SignupRewardGrantRepository grantRepository,
             WalletRepository walletRepository,
             WalletTransactionRepository walletTransactionRepository,
-            SignupRewardPostingGuard postingGuard,
-            WalletProperties walletProperties,
-            @Value("${app.wallet.signup-reward-test-posting-enabled:false}") boolean testPostingEnabled) {
+            WalletProperties walletProperties) {
         this.policyRepository = policyRepository;
         this.grantRepository = grantRepository;
         this.walletRepository = walletRepository;
         this.walletTransactionRepository = walletTransactionRepository;
-        this.postingGuard = postingGuard;
         this.walletProperties = walletProperties;
-        this.testPostingEnabled = testPostingEnabled;
-        postingGuard.validateConfiguration(testPostingEnabled);
     }
 
     @Transactional
@@ -80,8 +72,6 @@ public class SignupRewardService {
         if (grantRepository.existsByPlayerId(player.getId())) {
             return;
         }
-
-        postingGuard.requireIsolatedTestPosting(testPostingEnabled);
 
         Wallet wallet = walletRepository.findByOwnerIdForUpdate(player.getId()).orElseGet(() -> {
             Wallet created = Wallet.create(player, policy.getCurrency());
@@ -142,17 +132,21 @@ public class SignupRewardService {
         if (request.rewardAmount().signum() < 0) {
             throw new BadRequestException("INVALID_SIGNUP_REWARD_AMOUNT", "Signup reward amount cannot be negative");
         }
-        if (request.effectiveUntil() != null && !request.effectiveUntil().isAfter(request.effectiveFrom())) {
+        Instant now = Instant.now();
+        if (request.effectiveFrom().isBefore(now)) {
             throw new BadRequestException("INVALID_SIGNUP_REWARD_DATES",
-                    "Effective until must be later than effective from");
+                    "Effective from must be now or later");
+        }
+        if (request.effectiveUntil() != null
+                && (!request.effectiveUntil().isAfter(now)
+                        || !request.effectiveUntil().isAfter(request.effectiveFrom()))) {
+            throw new BadRequestException("INVALID_SIGNUP_REWARD_DATES",
+                    "Effective until must be in the future and later than effective from");
         }
         String currency = request.currency().trim().toUpperCase(Locale.ROOT);
         if (!walletProperties.currency().equalsIgnoreCase(currency)) {
             throw new BadRequestException("UNSUPPORTED_SIGNUP_REWARD_CURRENCY",
                     "Signup reward currency must match the configured wallet currency");
-        }
-        if (request.enabled() && request.rewardAmount().signum() > 0) {
-            postingGuard.requireIsolatedTestPosting(testPostingEnabled);
         }
         SignupRewardPolicy policy = policyRepository.save(SignupRewardPolicy.create(
                 request.enabled(),
