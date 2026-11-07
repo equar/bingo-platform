@@ -34,6 +34,8 @@ import {
 } from "../../api/admin";
 import { useSession } from "../../api/session";
 import { getUserFacingErrorMessage, type PageResponse } from "../../api/types";
+import { AdminTablePage } from "../../components/AdminTablePage";
+import { AdminPageHeader } from "../../components/AdminPageHeader";
 
 type ReportKind = "supportTickets" | "auditActivity" | "sessionActivity" | "playerVerifications" | "depositActivity";
 type ReportResult = { kind: ReportKind; from: string; to: string; headers: string[]; rows: string[][] };
@@ -185,11 +187,9 @@ export function ReportsPage() {
   const previewRows = result?.rows.slice(0, 15) ?? [];
 
   return (
+    <AdminTablePage>
     <Stack spacing={3}>
-      <Box component="header">
-        <Typography component="h1" variant="h4" fontWeight={700}>{t("Reports")}</Typography>
-        <Typography color="text.secondary">{t("Generate date-filtered operational reports and export them as CSV.")}</Typography>
-      </Box>
+      <AdminPageHeader title={t("Reports")} description={t("Generate date-filtered operational reports and export them as CSV.")} />
       <Card elevation={0} sx={{ border: "1px solid", borderColor: "divider", borderRadius: "12px" }}>
         <CardContent>
           <Stack spacing={2}>
@@ -251,5 +251,6 @@ export function ReportsPage() {
         </Card>
       ) : null}
     </Stack>
+    </AdminTablePage>
   );
 }

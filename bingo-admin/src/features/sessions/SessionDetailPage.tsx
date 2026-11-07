@@ -12,7 +12,7 @@ import {
   Stack,
   Typography,
 } from "@mui/material";
-import { Link as RouterLink, useParams } from "react-router-dom";
+import { Link as RouterLink, useLocation, useParams } from "react-router-dom";
 import {
   DrawEventResponse,
   GameSessionResponse,
@@ -24,16 +24,22 @@ import {
 import { getUserFacingErrorMessage } from "../../api/types";
 import { useSession } from "../../api/session";
 import { StatusState } from "../../components/StatusState";
-import { translateAdminStatus } from "../../i18n";
+import { ConfirmDialog } from "../../components/ConfirmDialog";
+import { translateAdminStatus, translateAdminValue } from "../../i18n";
 import { connectLiveDrawStream } from "./liveDrawSocket";
 
 const allowedStates: Record<string, string[]> = {
   DRAFT: ["OPEN", "CANCELLED"],
   OPEN: ["STARTED", "CANCELLED"],
-  STARTED: ["DRAWING", "CLOSED", "CANCELLED"],
-  DRAWING: ["CLOSED", "CANCELLED"],
-  CLOSED: ["SETTLED", "CANCELLED"],
+  STARTED: ["DRAWING", "CLOSED"],
+  DRAWING: ["CLOSED"],
+  CLOSED: ["SETTLED"],
 };
+
+function availableTransitions(session: GameSessionResponse) {
+  const transitions = allowedStates[session.state] ?? [];
+  return session.ticketCount > 0 ? transitions.filter((state) => state !== "CANCELLED") : transitions;
+}
 
 function mergeDraws(existing: DrawEventResponse[], incoming: DrawEventResponse[]) {
   const map = new Map<number, DrawEventResponse>();
@@ -42,6 +48,7 @@ function mergeDraws(existing: DrawEventResponse[], incoming: DrawEventResponse[]
 }
 
 export function SessionDetailPage() {
+  const location = useLocation();
   const { t } = useTranslation();
   const { sessionId } = useParams();
   const id = Number(sessionId);
@@ -50,6 +57,8 @@ export function SessionDetailPage() {
   const [draws, setDraws] = useState<DrawEventResponse[]>([]);
   const [lastTriggeredDraw, setLastTriggeredDraw] = useState<DrawEventResponse | null>(null);
   const [drawError, setDrawError] = useState<string | null>(null);
+  const [pendingState, setPendingState] = useState<string | null>(null);
+  const [stateError, setStateError] = useState<string | null>(null);
   const liveSequenceRef = useRef(0);
 
   const sessionQuery = useQuery({
@@ -114,11 +123,14 @@ export function SessionDetailPage() {
       await queryClient.invalidateQueries({ queryKey: ["session", id] });
       await queryClient.invalidateQueries({ queryKey: ["sessions"] });
       await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      setPendingState(null);
+      setStateError(null);
     },
+    onError: (error) => setStateError(getUserFacingErrorMessage(error) ?? "Something went wrong. Please try again."),
   });
 
   const session: GameSessionResponse | undefined = sessionQuery.data;
-  const availableTransitions = useMemo(() => (session ? (allowedStates[session.state] ?? []) : []), [session]);
+  const sessionTransitions = useMemo(() => (session ? availableTransitions(session) : []), [session]);
   const roles = authSession?.user.roles ?? [];
   const canOperateDraws = roles.includes("ADMIN") &&
     !roles.some((role) => ["SUPPORT", "FINANCE_VERIFIER", "FINANCE_APPROVER"].includes(role));
@@ -153,7 +165,7 @@ export function SessionDetailPage() {
           <Button component={RouterLink} to={`/session-tickets?sessionId=${session.id}`} variant="outlined">
             {t("View tickets")}
           </Button>
-          <Button component={RouterLink} to="/sessions" variant="outlined">
+          <Button component={RouterLink} to={`/sessions${location.search}`} variant="outlined">
             {t("Back to sessions")}</Button>
         </Stack>
       </Box>
@@ -181,20 +193,31 @@ export function SessionDetailPage() {
                 <Typography>
                   {t("Multiple winners per prize:")}{" "}{session.allowMultipleWinnersPerPrize ? "Yes" : "No"}
                 </Typography>
-                <Typography>{t("Patterns:")}{" "}{session.configuredPatterns.join(", ")}</Typography>
+                <Typography>
+                  {t("Patterns:")}{" "}{session.configuredPatterns.map((pattern) => translateAdminValue(pattern, t)).join(", ")}
+                </Typography>
                 <Typography>{t("Prizes:")}{" "}{session.configuredPrizes.length}</Typography>
                 <Stack direction="row" spacing={1} flexWrap="wrap">
-                  {availableTransitions.map((nextState: string) => (
+                  {sessionTransitions.map((nextState: string) => (
                     <Button
                       key={nextState}
                       data-testid={`session-transition-${nextState.toLowerCase()}`}
                       size="small"
                       variant="outlined"
-                      onClick={() => stateMutation.mutate(nextState)}
+                      disabled={stateMutation.isPending}
+                      onClick={() => {
+                        setStateError(null);
+                        setPendingState(nextState);
+                      }}
                     >
                       {translateAdminStatus(nextState, t)}
                     </Button>
                   ))}
+                {session.ticketCount > 0 && (allowedStates[session.state] ?? []).includes("CANCELLED") ? (
+                  <Typography variant="caption" color="text.secondary">
+                    {t("Cancellation unavailable after tickets have been sold.")}
+                  </Typography>
+                ) : null}
                 </Stack>
               </Stack>
             </CardContent>
@@ -249,6 +272,22 @@ export function SessionDetailPage() {
           </Card>
         </Grid>
       </Grid>
+      <ConfirmDialog
+        open={Boolean(pendingState)}
+        title={t("Change session state")}
+        description={t("Transition the session to {{status}}?", {
+          status: translateAdminStatus(pendingState ?? "", t),
+        })}
+        confirmLabel={t("Confirm")}
+        cancelLabel={t("Back")}
+        confirming={stateMutation.isPending}
+        error={stateError ? t(stateError) : undefined}
+        onCancel={() => {
+          setPendingState(null);
+          setStateError(null);
+        }}
+        onConfirm={() => pendingState && stateMutation.mutate(pendingState)}
+      />
     </Stack>
   );
 }

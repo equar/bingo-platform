@@ -42,9 +42,11 @@ public class FinanceRoleService {
         Set<UserRole> roles = new LinkedHashSet<>(target.getRoles());
         roles.addAll(requested);
         target.setRoles(roles);
+        target.setUpdatedByDisplayName(actor.getDisplayName());
         User saved = users.save(target);
         return new UserSummaryResponse(saved.getId(), saved.getDisplayName(), saved.getEmail(),
-                saved.getNormalizedPhone(), saved.getRoles(), saved.getStatus(), saved.getCreatedAt(), saved.getUpdatedAt());
+                saved.getNormalizedPhone(), saved.getRoles(), saved.getStatus(), saved.getCreatedAt(), saved.getUpdatedAt(),
+                saved.getCreatedByDisplayName(), saved.getUpdatedByDisplayName());
     }
 
     @Transactional
@@ -64,8 +66,10 @@ public class FinanceRoleService {
         Set<UserRole> roles = new LinkedHashSet<>(target.getRoles());
         roles.remove(role);
         target.setRoles(roles);
+        target.setUpdatedByDisplayName(actor.getDisplayName());
         User saved = users.save(target);
         return new UserSummaryResponse(saved.getId(), saved.getDisplayName(), saved.getEmail(),
-                saved.getNormalizedPhone(), saved.getRoles(), saved.getStatus(), saved.getCreatedAt(), saved.getUpdatedAt());
+                saved.getNormalizedPhone(), saved.getRoles(), saved.getStatus(), saved.getCreatedAt(), saved.getUpdatedAt(),
+                saved.getCreatedByDisplayName(), saved.getUpdatedByDisplayName());
     }
 }

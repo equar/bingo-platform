@@ -21,17 +21,21 @@ import {
 import { walletTransferDetail, walletTransfers } from "../../api/admin";
 import { StatusState } from "../../components/StatusState";
 import { AdminTablePagination } from "../../components/AdminTablePagination";
+import { AdminTablePage } from "../../components/AdminTablePage";
+import { AdminPageHeader } from "../../components/AdminPageHeader";
+import { usePrivateListSearch } from "../../components/usePrivateListSearch";
+import { useListSessionState } from "../../components/useListSessionState";
 import { translateAdminValue } from "../../i18n";
 import { translateAdminStatus } from "../../i18n";
 
 export function WalletTransfersPage() {
   const { t } = useTranslation();
-  const [query, setQuery] = useState("");
-  const [status, setStatus] = useState("");
-  const [senderPhone, setSenderPhone] = useState("");
-  const [recipientPhone, setRecipientPhone] = useState("");
-  const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(20);
+  const [query, setQuery] = usePrivateListSearch("wallet-transfers");
+  const [status, setStatus] = useListSessionState("wallet-transfers:status", "");
+  const [senderPhone, setSenderPhone] = usePrivateListSearch("wallet-transfers-sender");
+  const [recipientPhone, setRecipientPhone] = usePrivateListSearch("wallet-transfers-recipient");
+  const [page, setPage] = useListSessionState("wallet-transfers:page", 0);
+  const [pageSize, setPageSize] = useListSessionState("wallet-transfers:size", 20);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const normalizedQuery = query.trim();
   const normalizedSenderPhone = senderPhone.trim();
@@ -83,13 +87,9 @@ export function WalletTransfersPage() {
   }
 
   return (
+    <AdminTablePage>
     <Stack spacing={3}>
-      <Box>
-        <Typography variant="h4" gutterBottom>
-          {t("Transfer history")}</Typography>
-        <Typography color="text.secondary">
-          {t("Search player-to-player wallet transfers by sender, recipient, or note.")}</Typography>
-      </Box>
+      <AdminPageHeader title={t("Transfer history")} description={t("Search player-to-player wallet transfers by sender, recipient, or note.")} />
 
       <Stack direction={{ xs: "column", lg: "row" }} spacing={2}>
         <TextField
@@ -298,5 +298,6 @@ export function WalletTransfersPage() {
         </Grid>
       </Grid>
     </Stack>
+    </AdminTablePage>
   );
 }

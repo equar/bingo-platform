@@ -14,6 +14,8 @@ class GameSessionStateTest {
         assertTrue(GameSessionState.OPEN.canTransitionTo(GameSessionState.STARTED));
         assertTrue(GameSessionState.STARTED.canTransitionTo(GameSessionState.DRAWING));
         assertTrue(GameSessionState.CLOSED.canTransitionTo(GameSessionState.SETTLED));
+        assertTrue(GameSessionState.DRAFT.canTransitionTo(GameSessionState.CANCELLED));
+        assertTrue(GameSessionState.OPEN.canTransitionTo(GameSessionState.CANCELLED));
     }
 
     @Test
@@ -21,5 +23,8 @@ class GameSessionStateTest {
         assertFalse(GameSessionState.SETTLED.canTransitionTo(GameSessionState.OPEN));
         assertFalse(GameSessionState.CANCELLED.canTransitionTo(GameSessionState.DRAFT));
         assertFalse(GameSessionState.OPEN.canTransitionTo(GameSessionState.DRAFT));
+        assertFalse(GameSessionState.STARTED.canTransitionTo(GameSessionState.CANCELLED));
+        assertFalse(GameSessionState.DRAWING.canTransitionTo(GameSessionState.CANCELLED));
+        assertFalse(GameSessionState.CLOSED.canTransitionTo(GameSessionState.CANCELLED));
     }
 }

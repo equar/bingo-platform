@@ -24,6 +24,9 @@ import { useSession } from "../../api/session";
 import { getUserFacingErrorMessage } from "../../api/types";
 import { AdminTablePagination } from "../../components/AdminTablePagination";
 import { StatusState } from "../../components/StatusState";
+import { AdminPageHeader } from "../../components/AdminPageHeader";
+import { usePrivateListSearch } from "../../components/usePrivateListSearch";
+import { useListSessionState } from "../../components/useListSessionState";
 import { translateAdminStatus } from "../../i18n";
 
 function sessionIdFromSearch(search: string) {
@@ -36,10 +39,10 @@ export function SessionTicketsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const currentSessionId = searchParams.get("sessionId") ?? "";
   const [sessionQuery, setSessionQuery] = useState(currentSessionId);
-  const [sessionPage, setSessionPage] = useState(0);
-  const [ticketQuery, setTicketQuery] = useState("");
-  const [ticketPage, setTicketPage] = useState(0);
-  const [ticketPageSize, setTicketPageSize] = useState(20);
+  const [sessionPage, setSessionPage] = useListSessionState("session-tickets:session-page", 0);
+  const [ticketQuery, setTicketQuery] = usePrivateListSearch("session-tickets-query");
+  const [ticketPage, setTicketPage] = useListSessionState("session-tickets:page", 0);
+  const [ticketPageSize, setTicketPageSize] = useListSessionState("session-tickets:size", 20);
   const selectedSessionId = sessionIdFromSearch(currentSessionId);
   const session = useSession();
   const canOpenPlayer = session?.user.roles.includes("ADMIN") ?? false;
@@ -105,12 +108,7 @@ export function SessionTicketsPage() {
 
   return (
     <Stack spacing={3}>
-      <Box>
-        <Typography variant="h4">{t("Session ticket lookup")}</Typography>
-        <Typography color="text.secondary">
-          {t("Find a session, then review the tickets purchased for it.")}
-        </Typography>
-      </Box>
+      <AdminPageHeader title={t("Session ticket lookup")} description={t("Find a session, then review the tickets purchased for it.")} />
 
       <Stack spacing={1.5}>
         <TextField

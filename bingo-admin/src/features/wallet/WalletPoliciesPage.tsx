@@ -32,6 +32,7 @@ import {
 } from "../../api/admin";
 import { getUserFacingErrorMessage } from "../../api/types";
 import { StatusState } from "../../components/StatusState";
+import { AdminPageHeader } from "../../components/AdminPageHeader";
 import { translateAdminStatus } from "../../i18n";
 
 function toLocalInputValue(isoString: string | null | undefined) {
@@ -181,12 +182,7 @@ export function WalletPoliciesPage() {
 
   return (
     <Stack spacing={3}>
-      <Box>
-        <Typography variant="h4" gutterBottom>
-          {t("Wallet policies")}</Typography>
-        <Typography color="text.secondary">
-          {t("Manage player incentives and wallet transfer limits.")}</Typography>
-      </Box>
+      <AdminPageHeader title={t("Wallet policies")} description={t("Manage player incentives and wallet transfer limits.")} />
 
       <Tabs value={isTransferPolicy ? "transfer" : "signup-reward"} aria-label={t("Wallet policy sections")}>
         <Tab

@@ -13,5 +13,7 @@ public record UserSummaryResponse(
         Set<UserRole> roles,
         AccountStatus status,
         Instant createdAt,
-        Instant updatedAt) {
+        Instant updatedAt,
+        String createdByDisplayName,
+        String updatedByDisplayName) {
 }

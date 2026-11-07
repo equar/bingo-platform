@@ -23,5 +23,7 @@ public record BingoRoomResponse(
         List<BingoPrizeConfig> configuredPrizes,
         Instant createdAt,
         Instant updatedAt,
+        String createdByDisplayName,
+        String updatedByDisplayName,
         long version) {
 }

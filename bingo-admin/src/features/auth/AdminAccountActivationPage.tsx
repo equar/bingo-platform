@@ -117,8 +117,8 @@ export function AdminAccountActivationPage({ resetPassword = false }: { resetPas
   }, [location.pathname, location.search, token]);
 
   return (
-    <Container maxWidth="sm" sx={{ py: 8 }}>
-      <Paper elevation={3} sx={{ p: 4, borderRadius: 4 }}>
+    <Container maxWidth="sm" sx={{ minHeight: "100vh", display: "flex", alignItems: "center", py: { xs: 3, sm: 6 } }}>
+      <Paper elevation={0} variant="outlined" sx={{ width: "100%", p: { xs: 2.5, sm: 4 }, borderRadius: 3 }}>
         <Stack component="form" spacing={3} onSubmit={submitActivation} noValidate>
           <div>
             <Typography variant="h4" fontWeight={700} gutterBottom>

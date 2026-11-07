@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -110,22 +110,22 @@ describe("AppShell", () => {
         fireEvent.click(toggle);
       }
     }
-    expect(screen.getAllByRole("link", { name: "Admin Users" })[0]).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: "Admin users" })[0]).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "Dashboard" })[0]).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "Sessions" })[0]).toHaveAttribute("href", "/sessions");
-    expect(screen.getAllByRole("link", { name: "Session tickets" })[0]).toHaveAttribute("href", "/session-tickets");
+    expect(screen.queryByRole("link", { name: "Session tickets" })).not.toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "Rooms" })[0]).toHaveAttribute("href", "/rooms");
     expect(screen.getAllByRole("link", { name: "Player community" })[0]).toHaveAttribute("href", "/community");
     expect(screen.getAllByRole("link", { name: "Deposits" })[0]).toHaveAttribute("href", "/deposits");
-    expect(screen.getAllByRole("link", { name: "Win Claims" })[0]).toHaveAttribute("href", "/claims");
-    expect(screen.getAllByRole("link", { name: "Support" })[0]).toHaveAttribute("href", "/support/tickets");
-    expect(screen.getAllByRole("link", { name: "Prize Entitlements" })[0]).toHaveAttribute("href", "/prize-entitlements");
+    expect(screen.getAllByRole("link", { name: "Win claims" })[0]).toHaveAttribute("href", "/claims");
+    expect(screen.getAllByRole("link", { name: "Support tickets" })[0]).toHaveAttribute("href", "/support/tickets");
+    expect(screen.getAllByRole("link", { name: "Prize entitlements" })[0]).toHaveAttribute("href", "/prize-entitlements");
     expect(screen.getAllByRole("link", { name: "Players" })[0]).toHaveAttribute("href", "/players");
     expect(screen.getAllByRole("link", { name: "Player verification" })[0]).toHaveAttribute("href", "/player-verifications");
     expect(screen.getAllByRole("link", { name: "Agents" })[0]).toHaveAttribute("href", "/agents");
-    expect(screen.getAllByRole("link", { name: "Wallet Policies" })[0]).toHaveAttribute("href", "/wallet/signup-reward");
-    expect(screen.getAllByRole("link", { name: "Transfer History" })[0]).toHaveAttribute("href", "/wallet/transfers");
-    expect(screen.getAllByRole("link", { name: "Audit Logs" })[0]).toHaveAttribute("href", "/audit-logs");
+    expect(screen.getAllByRole("link", { name: "Wallet policies" })[0]).toHaveAttribute("href", "/wallet/signup-reward");
+    expect(screen.getAllByRole("link", { name: "Transfer history" })[0]).toHaveAttribute("href", "/wallet/transfers");
+    expect(screen.getAllByRole("link", { name: "Audit logs" })[0]).toHaveAttribute("href", "/audit-logs");
     expect(screen.getAllByText("Dashboard content")[0]).toBeInTheDocument();
 
     const reviewsToggle = screen.getAllByRole("button", { name: /Reviews & Support/ })[0];
@@ -138,6 +138,52 @@ describe("AppShell", () => {
     fireEvent.click(reviewsToggle);
 
     expect(reviewsToggle).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("keeps session ticket lookup nested under Sessions in the navigation", () => {
+    const queryClient = new QueryClient();
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={["/session-tickets?sessionId=15"]}>
+          <Routes>
+            <Route element={<AppShell />}>
+              <Route path="session-tickets" element={<div>Session ticket results</div>} />
+            </Route>
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    const primaryNavigation = within(screen.getByRole("navigation", { name: "Primary navigation" }));
+    expect(primaryNavigation.getByRole("link", { name: "Sessions" })).toHaveClass("Mui-selected");
+    expect(within(screen.getByRole("navigation", { name: "Breadcrumbs" })).getByRole("link", { name: "Sessions" }))
+      .toHaveAttribute("href", "/sessions?sessionId=15");
+    expect(screen.queryByRole("link", { name: "Session tickets" })).not.toBeInTheDocument();
+    expect(screen.getByText("Session ticket results")).toBeInTheDocument();
+  });
+
+  it("uses the parent destination, active sidebar entry, breadcrumb, and document title on a player detail link", () => {
+    const queryClient = new QueryClient();
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={["/players/42?status=ACTIVE"]}>
+          <Routes>
+            <Route element={<AppShell />}>
+              <Route path="players/:playerId" element={<div>Player record</div>} />
+            </Route>
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    const nav = within(screen.getByRole("navigation", { name: "Primary navigation" }));
+    expect(nav.getByRole("link", { name: "Players" })).toHaveClass("Mui-selected");
+    expect(within(screen.getByRole("navigation", { name: "Breadcrumbs" })).getByRole("link", { name: "Players" }))
+      .toHaveAttribute("href", "/players?status=ACTIVE");
+    expect(screen.getByText("Player record")).toBeInTheDocument();
+    expect(document.title).toBe("Player details | Sunset Bingo Admin");
   });
 
   it("shows session ticket lookup to support staff", () => {
@@ -230,7 +276,7 @@ describe("AppShell", () => {
     expect(screen.getByRole("link", { name: "Dashboard" })).toBeInTheDocument();
   });
 
-  it("shows audit logs to support-only users without exposing admin navigation", () => {
+  it("shows support navigation and room management to support-only users", () => {
     useSessionMock.mockReturnValue({
       accessToken: "support-token",
       tokenType: "Bearer",
@@ -259,12 +305,14 @@ describe("AppShell", () => {
       </QueryClientProvider>,
     );
 
-    expect(screen.getByRole("link", { name: "Support" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Support tickets" })).toHaveAttribute("aria-current", "page");
     expect(screen.queryByRole("link", { name: "Dashboard" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Wallet Policies" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Transfer History" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Wallet policies" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Transfer history" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Player verification" })).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Audit Logs" })).toHaveAttribute("href", "/audit-logs");
+    expect(screen.getByRole("link", { name: "Audit logs" })).toHaveAttribute("href", "/audit-logs");
+    fireEvent.click(screen.getByRole("button", { name: /Operations/ }));
+    expect(screen.getByRole("link", { name: "Rooms" })).toHaveAttribute("href", "/rooms");
     expect(screen.getByText("Support content")).toBeInTheDocument();
   });
 });

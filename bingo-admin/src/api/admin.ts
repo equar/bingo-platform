@@ -187,6 +187,8 @@ export interface UserSummaryResponse {
   status: string;
   createdAt: string;
   updatedAt: string;
+  createdByDisplayName?: string | null;
+  updatedByDisplayName?: string | null;
 }
 
 export interface AdminUserCreateRequest {
@@ -537,6 +539,8 @@ export interface BingoRoomResponse {
   configuredPrizes: BingoPatternConfig[];
   createdAt: string;
   updatedAt: string;
+  createdByDisplayName?: string | null;
+  updatedByDisplayName?: string | null;
 }
 
 export interface GameSessionResponse {
@@ -1059,6 +1063,11 @@ export async function listAdminRooms(page = 0, size = 20, query?: string, active
   return data;
 }
 
+export async function getAdminRoom(roomId: number) {
+  const { data } = await http.get<BingoRoomResponse>(`/api/v1/admin/rooms/${roomId}`);
+  return data;
+}
+
 export async function createRoom(body: Partial<BingoRoomResponse>) {
   const { data } = await http.post<BingoRoomResponse>('/api/v1/admin/rooms', body);
   return data;
@@ -1433,9 +1442,9 @@ export async function setAgentPin(userId: number, pin: string) {
   await http.post<void>(`/api/v1/admin/users/${userId}/agent-pin`, { pin });
 }
 
-export async function adminAgents(page = 0, size = 20) {
+export async function adminAgents(page = 0, size = 20, query?: string, status?: string) {
   const { data } = await http.get<PageResponse<AdminAgentSummaryResponse>>('/api/v1/admin/agents', {
-    params: { page, size },
+    params: { page, size, query: query || undefined, status: status || undefined },
   });
   return data;
 }

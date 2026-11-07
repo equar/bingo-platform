@@ -26,7 +26,7 @@ import {
 } from "../../api/admin";
 import { getUserFacingErrorMessage } from "../../api/types";
 import { StatusState } from "../../components/StatusState";
-import { translateAdminRole, translateAdminStatus } from "../../i18n";
+import { translateAdminRole, translateAdminStatus, translateAdminValue } from "../../i18n";
 
 export type EntitlementReference = {
   kind: "player" | "claim" | "session" | "ticket";
@@ -76,7 +76,7 @@ function detailFields(reference: EntitlementReference, record: ReferenceRecord, 
       { label: t("Claim ID"), value: String(claim.id) },
       { label: t("Player ID"), value: String(claim.claimantId) },
       { label: t("Ticket / session"), value: `${claim.ticketId} / ${claim.sessionId}` },
-      { label: t("Pattern"), value: claim.claimedPattern.replace(/_/g, " ") },
+      { label: t("Pattern"), value: translateAdminValue(claim.claimedPattern, t) },
       { label: t("Status"), value: translateAdminStatus(claim.status, t) },
       { label: t("Server validation"), value: claim.serverValidationPassed ? t("Passed") : t("Failed") },
       { label: t("Validation code"), value: claim.serverValidationCode ?? t("Not available") },
@@ -105,7 +105,10 @@ function detailFields(reference: EntitlementReference, record: ReferenceRecord, 
       { label: t("Ticket price"), value: `${session.ticketPrice} ${session.currency}` },
       { label: t("Capacity / max per player"), value: `${session.sessionCapacity} / ${session.maxTicketsPerPlayer}` },
       { label: t("Tickets / draws"), value: `${session.ticketCount} / ${session.drawCount}` },
-      { label: t("Patterns"), value: session.configuredPatterns.join(", ") || t("None") },
+      {
+        label: t("Patterns"),
+        value: session.configuredPatterns.map((pattern) => translateAdminValue(pattern, t)).join(", ") || t("None"),
+      },
       { label: t("Prizes"), value: JSON.stringify(session.configuredPrizes) },
       { label: t("Created"), value: formatDate(session.createdAt, t) },
       { label: t("Last updated"), value: formatDate(session.updatedAt, t) },

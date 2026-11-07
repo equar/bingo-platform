@@ -56,17 +56,26 @@ public class AdminGameController {
     }
 
     @GetMapping("/rooms")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPPORT')")
     public PageResponse<BingoRoomResponse> rooms(@RequestParam(required = false) String query,
             @RequestParam(required = false) Boolean active, @PageableDefault(size = 20) Pageable pageable) {
         return PageResponse.from(bingoGameService.listAdminRooms(query, active, pageable));
     }
 
+    @GetMapping("/rooms/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPPORT')")
+    public BingoRoomResponse room(@PathVariable Long id) {
+        return bingoGameService.getRoom(id);
+    }
+
     @PostMapping("/rooms")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPPORT')")
     public BingoRoomResponse createRoom(@Valid @RequestBody BingoRoomRequest request) {
         return bingoGameService.createRoom(request);
     }
 
     @PutMapping("/rooms/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPPORT')")
     public BingoRoomResponse updateRoom(@PathVariable Long id, @Valid @RequestBody BingoRoomRequest request) {
         return bingoGameService.updateRoom(id, request);
     }

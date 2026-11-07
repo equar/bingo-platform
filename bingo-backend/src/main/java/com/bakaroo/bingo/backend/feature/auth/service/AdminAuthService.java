@@ -88,6 +88,7 @@ public class AdminAuthService {
 
         user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
         user.setStatus(AccountStatus.ACTIVE);
+        user.setUpdatedByDisplayName(user.getDisplayName());
         user.completePasswordChange();
         userRepository.save(user);
     }
@@ -104,6 +105,7 @@ public class AdminAuthService {
                 .orElseThrow(() -> new BadCredentialsException("Password reset link is invalid or expired"));
 
         user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
+        user.setUpdatedByDisplayName(user.getDisplayName());
         user.completePasswordChange();
         userRepository.save(user);
     }
@@ -122,6 +124,7 @@ public class AdminAuthService {
         }
 
         user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
+        user.setUpdatedByDisplayName(user.getDisplayName());
         user.completePasswordChange();
         userRepository.save(user);
     }

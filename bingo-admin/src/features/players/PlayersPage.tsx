@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect } from "react";
 import {
   Alert,
   Box,
@@ -15,21 +15,42 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { Link as RouterLink } from "react-router-dom";
+import { Link as RouterLink, useLocation, useSearchParams } from "react-router-dom";
 import { searchPlayers } from "../../api/admin";
 import { getUserFacingErrorMessage } from "../../api/types";
 import { StatusState } from "../../components/StatusState";
 import { AdminTablePagination } from "../../components/AdminTablePagination";
+import { AdminTablePage } from "../../components/AdminTablePage";
+import { AdminPageHeader } from "../../components/AdminPageHeader";
+import { usePrivateListSearch } from "../../components/usePrivateListSearch";
 import { translateAdminStatus } from "../../i18n";
 
 const statusOptions = ["ACTIVE", "PENDING", "SUSPENDED", "DISABLED"] as const;
 
 export function PlayersPage() {
   const { t } = useTranslation();
-  const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(20);
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [query, setQuery] = usePrivateListSearch("players");
+  const statusParam = searchParams.get("status") ?? "";
+  const statusFilter = statusOptions.includes(statusParam as (typeof statusOptions)[number]) ? statusParam : "";
+  const pageParam = Number(searchParams.get("page") ?? 0);
+  const page = Number.isSafeInteger(pageParam) ? Math.max(0, pageParam) : 0;
+  const pageSizeValue = Number(searchParams.get("size") ?? 20);
+  const pageSize = [10, 20, 50].includes(pageSizeValue) ? pageSizeValue : 20;
+  const updateListState = (updates: Record<string, string>) => {
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      Object.entries(updates).forEach(([key, value]) => value ? next.set(key, value) : next.delete(key));
+      return next;
+    }, { replace: true });
+  };
+  useEffect(() => {
+    if (!searchParams.has("search")) return;
+    const safeParams = new URLSearchParams(searchParams);
+    safeParams.delete("search");
+    setSearchParams(safeParams, { replace: true });
+  }, [searchParams, setSearchParams]);
   const normalizedQuery = query.trim();
   const playersQuery = useQuery({
     queryKey: ["players", normalizedQuery, statusFilter, page, pageSize],
@@ -40,11 +61,9 @@ export function PlayersPage() {
   const players = playersQuery.data?.content ?? [];
 
   return (
+    <AdminTablePage>
     <Stack spacing={3}>
-      <Box>
-        <Typography variant="h4">{t("Players")}</Typography>
-        <Typography color="text.secondary">{t("Search users and review account details.")}</Typography>
-      </Box>
+      <AdminPageHeader title={t("Players")} description={t("Search users and review account details.")} />
 
       <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
         <TextField
@@ -52,7 +71,7 @@ export function PlayersPage() {
           value={query}
           onChange={(event) => {
             setQuery(event.target.value);
-            setPage(0);
+            updateListState({ page: "" });
           }}
           fullWidth
         />
@@ -61,8 +80,7 @@ export function PlayersPage() {
           label={t("Status")}
           value={statusFilter}
           onChange={(event) => {
-            setStatusFilter(event.target.value);
-            setPage(0);
+            updateListState({ status: event.target.value, page: "" });
           }}
           sx={{ minWidth: { xs: "100%", md: 220 } }}
         >
@@ -105,7 +123,7 @@ export function PlayersPage() {
             {players.map((player) => (
               <TableRow key={player.id} hover>
                 <TableCell>
-                  <Typography component={RouterLink} to={`/players/${player.id}`} fontWeight={600}>
+                  <Typography component={RouterLink} to={`/players/${player.id}${location.search}`} fontWeight={600}>
                     {player.displayName}
                   </Typography>
                 </TableCell>
@@ -139,14 +157,14 @@ export function PlayersPage() {
         component="div"
         count={playersQuery.data?.totalElements ?? 0}
         page={page}
-        onPageChange={(_, nextPage) => setPage(nextPage)}
+        onPageChange={(_, nextPage) => updateListState({ page: String(nextPage) })}
         rowsPerPage={pageSize}
         onRowsPerPageChange={(event) => {
-          setPageSize(Number(event.target.value));
-          setPage(0);
+          updateListState({ size: event.target.value, page: "" });
         }}
         rowsPerPageOptions={[10, 20, 50]}
       />
     </Stack>
+    </AdminTablePage>
   );
 }

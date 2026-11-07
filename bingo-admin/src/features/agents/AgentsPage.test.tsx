@@ -1,10 +1,10 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { type PropsWithChildren } from "react";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { adminAgents, adminFloatBankAccounts, adminFloatTopUpRequests, currentCommissionRule, floatTopUpVerificationHistory } from "../../api/admin";
+import { adminAgents, adminFloatBankAccounts, adminFloatTopUpRequests, approveAgent, currentCommissionRule, floatTopUpVerificationHistory, suspendAgent, type AdminAgentSummaryResponse } from "../../api/admin";
 import i18n from "../../i18n";
 import { AgentsPage } from "./AgentsPage";
 
@@ -32,6 +32,14 @@ const adminFloatBankAccountsMock = vi.mocked(adminFloatBankAccounts);
 const currentCommissionRuleMock = vi.mocked(currentCommissionRule);
 const floatTopUpVerificationHistoryMock = vi.mocked(floatTopUpVerificationHistory);
 
+function agentSummary(agentId: number, displayName: string): AdminAgentSummaryResponse {
+  return {
+    agentId, userId: agentId + 100, displayName, normalizedPhone: "251911000001", status: "APPROVED",
+    city: "Addis", territory: "Central", createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z",
+    ticketSalesCount: 0, floatTransactionCount: 0, topUpRequestCount: 0, payoutVerificationCount: 0,
+  };
+}
+
 function createWrapper({ children }: PropsWithChildren) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return (
@@ -46,6 +54,7 @@ describe("AgentsPage float top-up review", () => {
 
   beforeEach(async () => {
     await i18n.changeLanguage("en");
+    window.sessionStorage.removeItem("admin-list-search:agents");
     adminAgentsMock.mockReset().mockResolvedValue({
       content: [],
       page: 0,
@@ -93,6 +102,74 @@ describe("AgentsPage float top-up review", () => {
     expect(screen.getByRole("button", { name: "Post verified request (QA simulation)" })).toBeDisabled();
   });
 
+  it("requests the next agent page from the backend", async () => {
+    adminAgentsMock.mockResolvedValue({
+      content: [], page: 0, size: 20, totalElements: 21, totalPages: 2, first: true, last: false,
+    });
+    const user = userEvent.setup();
+    render(<AgentsPage />, { wrapper: createWrapper });
+    await screen.findByRole("button", { name: "Go to next page" });
+    await user.click(screen.getByRole("button", { name: "Go to next page" }));
+    await waitFor(() => expect(adminAgentsMock).toHaveBeenCalledWith(1, 20, "", ""));
+  });
+
+  it("resets the page when page size changes", async () => {
+    adminAgentsMock.mockResolvedValue({
+      content: [], page: 0, size: 20, totalElements: 101, totalPages: 6, first: true, last: false,
+    });
+    const user = userEvent.setup();
+    render(<AgentsPage />, { wrapper: createWrapper });
+    await user.click(await screen.findByRole("button", { name: "Go to next page" }));
+    await waitFor(() => expect(adminAgentsMock).toHaveBeenCalledWith(1, 20, "", ""));
+    await user.click(screen.getByRole("combobox", { name: "Rows per page:" }));
+    await user.click(await screen.findByRole("option", { name: "10" }));
+    await waitFor(() => expect(adminAgentsMock).toHaveBeenCalledWith(0, 10, "", ""));
+  });
+
+  it("recovers to the last available page when a page becomes out of range", async () => {
+    adminAgentsMock
+      .mockResolvedValueOnce({ content: [], page: 0, size: 20, totalElements: 21, totalPages: 2, first: true, last: false })
+      .mockResolvedValueOnce({ content: [], page: 1, size: 20, totalElements: 20, totalPages: 1, first: false, last: true })
+      .mockResolvedValue({ content: [], page: 0, size: 20, totalElements: 20, totalPages: 1, first: true, last: true });
+    const user = userEvent.setup();
+    render(<AgentsPage />, { wrapper: createWrapper });
+    await user.click(await screen.findByRole("button", { name: "Go to next page" }));
+    await waitFor(() => expect(adminAgentsMock).toHaveBeenCalledTimes(3));
+    expect(adminAgentsMock).toHaveBeenNthCalledWith(3, 0, 20, "", "");
+  });
+
+  it("does not show a late response from an older query after search changes", async () => {
+    let resolveStalePage!: (response: Awaited<ReturnType<typeof adminAgents>>) => void;
+    const stalePage = new Promise<Awaited<ReturnType<typeof adminAgents>>>((resolve) => {
+      resolveStalePage = resolve;
+    });
+    adminAgentsMock.mockImplementation((page, _size, query) => {
+      if (page === 1) return stalePage;
+      if (query === "Rob") {
+        return Promise.resolve({
+          content: [agentSummary(2, "Rob Agent")], page: 0, size: 20, totalElements: 1, totalPages: 1,
+          first: true, last: true,
+        });
+      }
+      return Promise.resolve({
+        content: [agentSummary(1, "Initial Agent")], page: 0, size: 20, totalElements: 21, totalPages: 2,
+        first: true, last: false,
+      });
+    });
+    const user = userEvent.setup();
+    render(<AgentsPage />, { wrapper: createWrapper });
+    await user.click(await screen.findByRole("button", { name: "Go to next page" }));
+    await waitFor(() => expect(adminAgentsMock).toHaveBeenCalledWith(1, 20, "", ""));
+    await user.type(screen.getByRole("textbox", { name: "Search agents" }), "Rob");
+    expect(await screen.findByText("Rob Agent")).toBeInTheDocument();
+    resolveStalePage({
+      content: [agentSummary(3, "Stale Agent")], page: 1, size: 20, totalElements: 21, totalPages: 2,
+      first: false, last: true,
+    });
+    await waitFor(() => expect(screen.getByText("Rob Agent")).toBeInTheDocument());
+    expect(screen.queryByText("Stale Agent")).not.toBeInTheDocument();
+  });
+
   it("loads the persisted current commission rule", async () => {
     currentCommissionRuleMock.mockResolvedValue({
       id: 8, versionNumber: 3, commissionRateBps: 0, effectiveFrom: "2000-01-01T00:00:00Z",
@@ -102,5 +179,73 @@ describe("AgentsPage float top-up review", () => {
     expect(await screen.findByText("Current version 3 · Inactive")).toBeInTheDocument();
     expect(screen.getByRole("spinbutton", { name: "Commission rate (bps)" })).toHaveValue(0);
     expect(screen.getByRole("checkbox", { name: "Active" })).not.toBeChecked();
+  });
+
+  it("restores agent filters and page through the record URL without putting search text in the URL", async () => {
+    window.sessionStorage.setItem("admin-list-search:agents", "Mekdes");
+    adminAgentsMock.mockResolvedValue({
+      content: [agentSummary(3, "Mekdes Agent")], page: 1, size: 10, totalElements: 21, totalPages: 3,
+      first: false, last: false,
+    });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={["/agents?status=APPROVED&page=1&size=10"]}>
+          <AgentsPage />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    const detailLink = await screen.findByRole("link", { name: "Detail" });
+    await waitFor(() => expect(adminAgentsMock).toHaveBeenCalledWith(1, 10, "Mekdes", "APPROVED"));
+    expect(detailLink).toHaveAttribute("href", "/agents/3?status=APPROVED&page=1&size=10");
+    expect(detailLink.getAttribute("href")).not.toContain("Mekdes");
+  });
+
+  it("keeps the approval dialog open with the error after an API failure", async () => {
+    adminAgentsMock.mockResolvedValue({
+      content: [{ ...agentSummary(3, "Pending Agent"), status: "PENDING" }],
+      page: 0, size: 20, totalElements: 1, totalPages: 1, first: true, last: true,
+    });
+    vi.mocked(approveAgent).mockRejectedValueOnce(new Error("Approval failed"));
+    const user = userEvent.setup();
+    render(<AgentsPage />, { wrapper: createWrapper });
+
+    await user.click(await screen.findByRole("button", { name: "Approve" }));
+    const dialog = screen.getByRole("dialog", { name: "Approve agent application" });
+    await user.click(within(dialog).getByRole("button", { name: "Approve" }));
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("Something went wrong. Please try again.");
+    expect(within(dialog).getByText(/Pending Agent/)).toBeInTheDocument();
+  });
+
+  it("closes the approval dialog after the API confirms success", async () => {
+    adminAgentsMock.mockResolvedValue({
+      content: [{ ...agentSummary(3, "Pending Agent"), status: "PENDING" }],
+      page: 0, size: 20, totalElements: 1, totalPages: 1, first: true, last: true,
+    });
+    const user = userEvent.setup();
+    render(<AgentsPage />, { wrapper: createWrapper });
+
+    await user.click(await screen.findByRole("button", { name: "Approve" }));
+    const dialog = screen.getByRole("dialog", { name: "Approve agent application" });
+    await user.click(within(dialog).getByRole("button", { name: "Approve" }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Approve agent application" })).not.toBeInTheDocument());
+    expect(approveAgent).toHaveBeenCalledWith(3);
+  });
+
+  it("keeps the suspend confirmation open with an API error for retry", async () => {
+    adminAgentsMock.mockResolvedValue({
+      content: [agentSummary(3, "Approved Agent")],
+      page: 0, size: 20, totalElements: 1, totalPages: 1, first: true, last: true,
+    });
+    vi.mocked(suspendAgent).mockRejectedValueOnce(new Error("Failed"));
+    const user = userEvent.setup();
+    render(<AgentsPage />, { wrapper: createWrapper });
+
+    await user.click(await screen.findByRole("button", { name: "Suspend" }));
+    const dialog = screen.getByRole("dialog", { name: "Suspend agent" });
+    await user.click(within(dialog).getByRole("button", { name: "Suspend" }));
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("Something went wrong. Please try again.");
+    expect(within(dialog).getByText(/Approved Agent/)).toBeInTheDocument();
   });
 });

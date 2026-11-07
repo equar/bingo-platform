@@ -62,6 +62,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -74,6 +75,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -286,6 +289,7 @@ public class BingoGameService {
 
     @Transactional
     public BingoRoomResponse createRoom(BingoRoomRequest request) {
+        validateRoomPrizeConfiguration(request);
         BingoRoom room = new BingoRoom();
         room.setName(request.name().trim());
         room.setDescription(request.description());
@@ -300,13 +304,19 @@ public class BingoGameService {
         room.setTicketSalesCloseOnSessionStart(request.ticketSalesCloseOnSessionStart());
         room.setAllowMultipleWinnersPerPrize(request.allowMultipleWinnersPerPrize());
         room.setActive(request.active());
-        room.setConfiguredPatternsJson(writePatterns(request.configuredPatterns()));
+        room.setConfiguredPatternsJson(writePatterns(request.configuredPrizes().stream()
+                .map(BingoPrizeConfigRequest::prizeType)
+                .toList()));
         room.setConfiguredPrizesJson(writePrizes(request.configuredPrizes()));
+        String actorName = currentActorDisplayName();
+        room.setCreatedByDisplayName(actorName);
+        room.setUpdatedByDisplayName(actorName);
         return toRoomResponse(bingoRoomRepository.save(room));
     }
 
     @Transactional
     public BingoRoomResponse updateRoom(Long roomId, BingoRoomRequest request) {
+        validateRoomPrizeConfiguration(request);
         BingoRoom room = requireRoom(roomId);
         if (request.version() == null) {
             throw new BadRequestException("ROOM_VERSION_REQUIRED", "Room version is required when updating configuration");
@@ -327,8 +337,11 @@ public class BingoGameService {
         room.setTicketSalesCloseOnSessionStart(request.ticketSalesCloseOnSessionStart());
         room.setAllowMultipleWinnersPerPrize(request.allowMultipleWinnersPerPrize());
         room.setActive(request.active());
-        room.setConfiguredPatternsJson(writePatterns(request.configuredPatterns()));
+        room.setConfiguredPatternsJson(writePatterns(request.configuredPrizes().stream()
+                .map(BingoPrizeConfigRequest::prizeType)
+                .toList()));
         room.setConfiguredPrizesJson(writePrizes(request.configuredPrizes()));
+        room.setUpdatedByDisplayName(currentActorDisplayName());
         bingoRoomRepository.saveAndFlush(room);
         return toRoomResponse(room);
     }
@@ -338,6 +351,10 @@ public class BingoGameService {
         BingoRoom room = requireRoom(roomId);
         if (!room.isActive()) {
             throw new ConflictException("ROOM_INACTIVE", "Sessions cannot be created for an inactive room");
+        }
+        if (!request.scheduledStartAt().isAfter(Instant.now())) {
+            throw new BadRequestException("SESSION_START_MUST_BE_FUTURE",
+                    "Scheduled session start must be in the future");
         }
         if (request.state() != null && request.state() != GameSessionState.DRAFT
                 && request.state() != GameSessionState.OPEN) {
@@ -395,6 +412,10 @@ public class BingoGameService {
         if (!current.canTransitionTo(next)) {
             throw new ConflictException("INVALID_SESSION_STATE_TRANSITION",
                     "Cannot transition session from " + current + " to " + next);
+        }
+        if (next == GameSessionState.CANCELLED && ticketRepository.countBySessionId(sessionId) > 0) {
+            throw new ConflictException("SESSION_HAS_TICKETS_CANNOT_CANCEL",
+                    "A session with sold tickets cannot be cancelled");
         }
         session.setState(next);
         if (next == GameSessionState.STARTED) {
@@ -622,6 +643,7 @@ public class BingoGameService {
             return toWinClaimResponse(claim);
         }
 
+        enforcePrizeWinnerLimit(claim);
         PrizeEntitlement entitlement = createEntitlementForClaim(claim, admin, request.reviewNote());
         claim.setStatus(WinClaimStatus.APPROVED);
         claim.setReviewedBy(admin);
@@ -698,7 +720,10 @@ public class BingoGameService {
     }
 
     private List<BingoPatternType> roomPatterns(BingoRoom room) {
-        return readPatterns(room.getConfiguredPatternsJson());
+        return roomPrizes(room).stream()
+                .map(BingoPrizeConfig::prizeType)
+                .distinct()
+                .toList();
     }
 
     private List<BingoPrizeConfig> roomPrizes(BingoRoom room) {
@@ -770,6 +795,47 @@ public class BingoGameService {
         }
         entitlement.setSettlementNote(reviewNote);
         return prizeEntitlementRepository.save(entitlement);
+    }
+
+    private void validateRoomPrizeConfiguration(BingoRoomRequest request) {
+        if (request.configuredPatterns() == null || request.configuredPatterns().isEmpty()
+                || request.configuredPrizes() == null || request.configuredPrizes().isEmpty()) {
+            throw new BadRequestException("ROOM_PRIZE_CONFIGURATION_REQUIRED",
+                    "Select at least one pattern and configure its prize");
+        }
+        EnumSet<BingoPatternType> selectedPatterns = EnumSet.copyOf(request.configuredPatterns());
+        if (selectedPatterns.size() != request.configuredPatterns().size()) {
+            throw new BadRequestException("DUPLICATE_ROOM_PATTERN",
+                    "Each configured pattern can only be selected once");
+        }
+        EnumSet<BingoPatternType> prizePatterns = EnumSet.noneOf(BingoPatternType.class);
+        for (var prize : request.configuredPrizes()) {
+            if (!prizePatterns.add(prize.prizeType())) {
+                throw new BadRequestException("DUPLICATE_ROOM_PRIZE_PATTERN",
+                        "Only one prize configuration is allowed for each pattern");
+            }
+        }
+        if (!selectedPatterns.equals(prizePatterns)) {
+            throw new BadRequestException("ROOM_PRIZES_MUST_MATCH_PATTERNS",
+                    "Configure exactly one prize for each selected pattern");
+        }
+    }
+
+    private void enforcePrizeWinnerLimit(WinClaim claim) {
+        GameSession session = gameSessionRepository.findByIdForUpdate(claim.getSession().getId())
+                .orElseThrow(() -> new NotFoundException("SESSION_NOT_FOUND", "Game session not found"));
+        BingoPrizeConfig prize = readPrizes(session.getPrizesSnapshotJson()).stream()
+                .filter(config -> config.prizeType() == claim.getClaimedPattern())
+                .findFirst()
+                .orElseThrow(() -> new ConflictException("PRIZE_NOT_CONFIGURED",
+                        "Prize type is not configured for this session"));
+        long approvedWinners = winClaimRepository.countBySessionIdAndClaimedPatternAndStatus(
+                session.getId(), claim.getClaimedPattern(), WinClaimStatus.APPROVED);
+        int maximumWinners = session.isAllowMultipleWinnersPerPrize() ? prize.maxWinners() : 1;
+        if (approvedWinners >= maximumWinners) {
+            throw new ConflictException("PRIZE_WINNER_LIMIT_REACHED",
+                    "The maximum number of winners for this prize has already been reached");
+        }
     }
 
     private String generatePayoutCode() {
@@ -862,11 +928,22 @@ public class BingoGameService {
                 room.isTicketSalesCloseOnSessionStart(),
                 room.isAllowMultipleWinnersPerPrize(),
                 room.isActive(),
-                readPatterns(room.getConfiguredPatternsJson()),
+                roomPatterns(room),
                 readPrizes(room.getConfiguredPrizesJson()),
                 room.getCreatedAt(),
                 room.getUpdatedAt(),
+                room.getCreatedByDisplayName(),
+                room.getUpdatedByDisplayName(),
                 room.getVersion());
+    }
+
+    private String currentActorDisplayName() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !(authentication.getPrincipal() instanceof BingoUserPrincipal principal)) {
+            return null;
+        }
+        User actor = principal.getUser();
+        return actor == null ? null : actor.getDisplayName();
     }
 
     private PlayerRoomResponse toPlayerRoomResponse(BingoRoom room) {
@@ -880,7 +957,7 @@ public class BingoGameService {
                 room.getScheduleRule(),
                 room.getSessionCapacity(),
                 room.isActive(),
-                readPatterns(room.getConfiguredPatternsJson()),
+                roomPatterns(room),
                 room.getCreatedAt(),
                 room.getUpdatedAt());
     }

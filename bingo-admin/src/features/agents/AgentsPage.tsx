@@ -1,9 +1,8 @@
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Alert,
-  Box,
   Button,
   Card,
   CardContent,
@@ -14,6 +13,7 @@ import {
   DialogTitle,
   FormControlLabel,
   Grid,
+  MenuItem,
   Stack,
   Switch,
   Table,
@@ -24,7 +24,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { Link as RouterLink, useNavigate } from "react-router-dom";
+import { Link as RouterLink, useLocation, useSearchParams } from "react-router-dom";
 import {
   AdminAgentSummaryResponse,
   approveAgent,
@@ -35,9 +35,12 @@ import {
 } from "../../api/admin";
 import { getUserFacingErrorMessage } from "../../api/types";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
+import { AdminPageHeader } from "../../components/AdminPageHeader";
 import { StatusState } from "../../components/StatusState";
 import { translateAdminStatus } from "../../i18n";
 import { FloatFundingPanel } from "./FloatFundingPanel";
+import { AdminTablePagination } from "../../components/AdminTablePagination";
+import { usePrivateListSearch } from "../../components/usePrivateListSearch";
 
 function formatNullable(value: string | null | undefined) {
   return value?.trim() ? value : "n/a";
@@ -46,10 +49,31 @@ function formatNullable(value: string | null | undefined) {
 export function AgentsPage() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
-  const agentsQuery = useQuery({ queryKey: ["agents"], queryFn: () => adminAgents(0, 100) });
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const commissionRuleQuery = useQuery({ queryKey: ["commission-rule"], queryFn: currentCommissionRule });
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = usePrivateListSearch("agents");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const statusValue = searchParams.get("status") ?? "";
+  const statusFilter = ["PENDING", "APPROVED", "SUSPENDED"].includes(statusValue) ? statusValue : "";
+  const pageValue = Number(searchParams.get("page") ?? 0);
+  const page = Number.isSafeInteger(pageValue) ? Math.max(0, pageValue) : 0;
+  const sizeValue = Number(searchParams.get("size") ?? 20);
+  const pageSize = [10, 20, 50, 100].includes(sizeValue) ? sizeValue : 20;
+  const updateListState = useCallback((updates: Record<string, string>) => setSearchParams((current) => {
+    const next = new URLSearchParams(current);
+    Object.entries(updates).forEach(([key, value]) => value ? next.set(key, value) : next.delete(key));
+    return next;
+  }, { replace: true }), [setSearchParams]);
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => window.clearTimeout(timeout);
+  }, [search]);
+  const agentsQuery = useQuery({
+    queryKey: ["agents", page, pageSize, debouncedSearch, statusFilter],
+    queryFn: () => adminAgents(page, pageSize, debouncedSearch, statusFilter),
+    placeholderData: (previous) => previous,
+  });
   const [selectedAgent, setSelectedAgent] = useState<AdminAgentSummaryResponse | null>(null);
   const [decisionDraft, setDecisionDraft] = useState<{ mode: "APPROVE" } | null>(null);
   const [decisionError, setDecisionError] = useState<string | null>(null);
@@ -109,19 +133,13 @@ export function AgentsPage() {
     },
   });
 
-  const filteredAgents = useMemo(() => {
-    const normalized = search.trim().toLowerCase();
-    const items = agentsQuery.data?.content ?? [];
-    if (!normalized) {
-      return items;
-    }
-    return items.filter((agent) => {
-      const haystack = [agent.displayName, agent.normalizedPhone, agent.city ?? "", agent.territory ?? "", agent.status]
-        .join(" ")
-        .toLowerCase();
-      return haystack.includes(normalized);
-    });
-  }, [agentsQuery.data, search]);
+  const agents = agentsQuery.data?.content ?? [];
+  useEffect(() => {
+    const data = agentsQuery.data;
+    if (!data || agentsQuery.isPlaceholderData) return;
+    const lastAvailablePage = Math.max(0, data.totalPages - 1);
+    if (page > lastAvailablePage) updateListState({ page: lastAvailablePage ? String(lastAvailablePage) : "" });
+  }, [agentsQuery.data, agentsQuery.isPlaceholderData, page, updateListState]);
 
   if (agentsQuery.isLoading) {
     return <StatusState title={t("Loading agents")} loading message={t("Fetching agent roster")} />;
@@ -140,19 +158,7 @@ export function AgentsPage() {
 
   return (
     <Stack spacing={3}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" gap={2} flexWrap="wrap">
-        <div>
-          <Typography variant="h4">{t("Agents")}</Typography>
-          <Typography color="text.secondary">
-            {t("Review agent profiles, queue float top-up requests, and publish commission rules.")}</Typography>
-        </div>
-        <Button
-          variant="outlined"
-          onClick={() => navigate(`/agents/${filteredAgents[0]?.agentId ?? 0}`)}
-          disabled={filteredAgents.length === 0}
-        >
-          {t("Open agent detail")}</Button>
-      </Box>
+      <AdminPageHeader title={t("Agents")} description={t("Review agent profiles, queue float top-up requests, and publish commission rules.")} />
 
       <Grid container spacing={2}>
         <Grid item xs={12} md={6}>
@@ -217,10 +223,22 @@ export function AgentsPage() {
       <TextField
         label={t("Search agents")}
         value={search}
-        onChange={(event) => setSearch(event.target.value)}
+        onChange={(event) => { setSearch(event.target.value); updateListState({ page: "" }); }}
         fullWidth
         helperText={t("Search by name, phone, city, territory, or status")}
       />
+      <TextField
+        select
+        label={t("Status")}
+        value={statusFilter}
+        onChange={(event) => updateListState({ status: event.target.value, page: "" })}
+        sx={{ maxWidth: 240 }}
+      >
+        <MenuItem value="">{t("All statuses")}</MenuItem>
+        <MenuItem value="PENDING">{t("Pending")}</MenuItem>
+        <MenuItem value="APPROVED">{t("Approved")}</MenuItem>
+        <MenuItem value="SUSPENDED">{t("Suspended")}</MenuItem>
+      </TextField>
 
       <Card sx={{ border: "1px solid", borderColor: "divider" }}>
         <CardContent sx={{ p: 0 }}>
@@ -240,7 +258,7 @@ export function AgentsPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {filteredAgents.map((agent) => (
+              {agents.map((agent) => (
                 <TableRow key={agent.agentId} hover>
                   <TableCell>
                     <Stack spacing={0.25}>
@@ -262,7 +280,7 @@ export function AgentsPage() {
                   <TableCell align="right">{agent.payoutVerificationCount}</TableCell>
                   <TableCell>
                     <Stack direction="row" spacing={1} flexWrap="wrap">
-                      <Button size="small" component={RouterLink} to={`/agents/${agent.agentId}`}>
+                      <Button size="small" component={RouterLink} to={`/agents/${agent.agentId}${location.search}`}>
                         {t("Detail")}</Button>
                       <Button
                         size="small"
@@ -270,6 +288,7 @@ export function AgentsPage() {
                         disabled={agent.status !== "PENDING"}
                         onClick={() => {
                           setSelectedAgent(agent);
+                          setDecisionError(null);
                           setDecisionDraft({ mode: "APPROVE" });
                         }}
                       >
@@ -281,6 +300,7 @@ export function AgentsPage() {
                         disabled={agent.status !== "APPROVED"}
                         onClick={() => {
                           setSelectedAgent(agent);
+                          setDecisionError(null);
                           setSuspendConfirmOpen(true);
                         }}
                       >
@@ -289,10 +309,10 @@ export function AgentsPage() {
                   </TableCell>
                 </TableRow>
               ))}
-              {filteredAgents.length === 0 ? (
+              {agents.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={10}>
-                    <Alert severity="info">{t("No agents match the current search.")}</Alert>
+                    <Alert severity="info">{t("No agents match the current search and filters.")}</Alert>
                   </TableCell>
                 </TableRow>
               ) : null}
@@ -300,6 +320,17 @@ export function AgentsPage() {
           </Table>
         </CardContent>
       </Card>
+      {agentsQuery.data ? (
+        <AdminTablePagination
+          component="div"
+          count={agentsQuery.data.totalElements}
+          page={page}
+          onPageChange={(_, nextPage) => updateListState({ page: String(nextPage) })}
+          rowsPerPage={pageSize}
+          onRowsPerPageChange={(event) => updateListState({ size: event.target.value, page: "" })}
+          rowsPerPageOptions={[10, 20, 50, 100]}
+        />
+      ) : null}
 
       <Dialog open={Boolean(decisionDraft)} onClose={() => setDecisionDraft(null)} fullWidth maxWidth="sm">
         <DialogTitle>{t("Approve agent application")}</DialogTitle>
@@ -335,7 +366,8 @@ export function AgentsPage() {
         confirmLabel={t("Suspend")}
         cancelLabel={t("Back")}
         confirming={suspendMutation.isPending}
-        onCancel={() => setSuspendConfirmOpen(false)}
+        error={decisionError ? t(decisionError) : undefined}
+        onCancel={() => { setSuspendConfirmOpen(false); setDecisionError(null); }}
         onConfirm={() => suspendMutation.mutate()}
       />
     </Stack>

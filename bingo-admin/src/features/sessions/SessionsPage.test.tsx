@@ -9,7 +9,6 @@ import i18n from "../../i18n";
 import { SessionsPage } from "./SessionsPage";
 
 vi.mock("../../api/admin", () => ({
-  createSession: vi.fn(),
   listRooms: vi.fn(),
   listSessions: vi.fn(),
   updateSessionState: vi.fn(),
@@ -30,6 +29,7 @@ function createWrapper({ children }: PropsWithChildren) {
 describe("SessionsPage", () => {
   afterEach(async () => {
     cleanup();
+    window.sessionStorage.removeItem("admin-list-search:sessions");
     await i18n.changeLanguage("en");
   });
 
@@ -90,6 +90,7 @@ describe("SessionsPage", () => {
     render(<SessionsPage />, { wrapper: createWrapper });
 
     expect(await screen.findByRole("link", { name: "Friday Draw" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Create session" })).toHaveAttribute("href", "/sessions/new");
     expect(screen.getByRole("link", { name: "View tickets" })).toHaveAttribute(
       "href",
       "/session-tickets?sessionId=15",
@@ -126,6 +127,22 @@ describe("SessionsPage", () => {
     await waitFor(() =>
       expect(listSessionsMock).toHaveBeenLastCalledWith(1, 20, undefined, undefined, undefined, undefined),
     );
+  });
+
+  it("restores safe filters and pagination while keeping free-text search private", async () => {
+    window.sessionStorage.setItem("admin-list-search:sessions", "Friday");
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={["/sessions?status=OPEN&room=4&start=UPCOMING&page=2&size=10"]}>
+          <SessionsPage />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    const sessionLink = await screen.findByRole("link", { name: "Friday Draw" });
+      expect(listSessionsMock).toHaveBeenCalledWith(2, 10, "Friday", "OPEN", 4, true);
+    expect(sessionLink).toHaveAttribute("href", "/sessions/15?status=OPEN&room=4&start=UPCOMING&page=2&size=10");
   });
 
   it("shows translated session statuses while sending the original API value", async () => {

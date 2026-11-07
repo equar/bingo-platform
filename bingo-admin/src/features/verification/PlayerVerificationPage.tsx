@@ -22,8 +22,8 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { useState, type FormEvent } from "react";
-import { Link as RouterLink } from "react-router-dom";
+import { useCallback, useState, type FormEvent } from "react";
+import { Link as RouterLink, useLocation, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   playerVerificationHistory,
@@ -35,7 +35,10 @@ import {
 } from "../../api/admin";
 import { getUserFacingErrorMessage } from "../../api/types";
 import { AdminTablePagination } from "../../components/AdminTablePagination";
+import { AdminTablePage } from "../../components/AdminTablePage";
 import { StatusState } from "../../components/StatusState";
+import { AdminPageHeader } from "../../components/AdminPageHeader";
+import { usePrivateListSearch } from "../../components/usePrivateListSearch";
 import { translateAdminStatus } from "../../i18n";
 
 const verificationStatuses: PlayerVerificationStatus[] = [
@@ -101,10 +104,20 @@ function formatDate(value: string | null, locale: string, fallback: string) {
 export function PlayerVerificationPage() {
   const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
-  const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<PlayerVerificationStatus | "">("");
-  const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(20);
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [query, setQuery] = usePrivateListSearch("player-verification");
+  const statusValue = searchParams.get("status") ?? "";
+  const statusFilter = verificationStatuses.includes(statusValue as PlayerVerificationStatus) ? statusValue as PlayerVerificationStatus : "";
+  const pageValue = Number(searchParams.get("page") ?? 0);
+  const page = Number.isSafeInteger(pageValue) ? Math.max(0, pageValue) : 0;
+  const sizeValue = Number(searchParams.get("size") ?? 20);
+  const pageSize = [10, 20, 50].includes(sizeValue) ? sizeValue : 20;
+  const updateListState = useCallback((updates: Record<string, string>) => setSearchParams((current) => {
+    const next = new URLSearchParams(current);
+    Object.entries(updates).forEach(([key, value]) => value ? next.set(key, value) : next.delete(key));
+    return next;
+  }, { replace: true }), [setSearchParams]);
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerVerificationQueueItemResponse | null>(null);
   const [draftStatus, setDraftStatus] = useState<Exclude<PlayerVerificationStatus, "NOT_REVIEWED">>("IN_REVIEW");
   const [draftReason, setDraftReason] = useState<PlayerVerificationReason>("REVIEW_STARTED");
@@ -160,13 +173,9 @@ export function PlayerVerificationPage() {
   };
 
   return (
+    <AdminTablePage>
     <Stack spacing={3}>
-      <Box>
-        <Typography component="h1" variant="h4">{t("Player verification")}</Typography>
-        <Typography color="text.secondary">
-          {t("Track player verification outcomes and review history.")}
-        </Typography>
-      </Box>
+      <AdminPageHeader title={t("Player verification")} description={t("Track player verification outcomes and review history.")} />
 
       <Alert severity="info">
         {t("Track checks performed using your approved process. This screen stores review outcomes only; do not enter or upload identity documents. Verification status does not automatically restrict play or withdrawals.")}
@@ -177,8 +186,8 @@ export function PlayerVerificationPage() {
           label={t("Search by player name, phone, or ID")}
           value={query}
           onChange={(event) => {
-            setQuery(event.target.value);
-            setPage(0);
+                setQuery(event.target.value);
+                updateListState({ page: "" });
           }}
           fullWidth
         />
@@ -187,8 +196,7 @@ export function PlayerVerificationPage() {
           label={t("Filter by verification status")}
           value={statusFilter}
           onChange={(event) => {
-            setStatusFilter(event.target.value as PlayerVerificationStatus | "");
-            setPage(0);
+                updateListState({ status: event.target.value, page: "" });
           }}
           sx={{ minWidth: { xs: "100%", md: 250 } }}
         >
@@ -235,7 +243,7 @@ export function PlayerVerificationPage() {
                       <Stack spacing={0.25}>
                         <Typography
                           component={RouterLink}
-                          to={`/players/${player.playerId}`}
+                          to={`/players/${player.playerId}${location.search}`}
                           fontWeight={600}
                         >
                           {player.displayName}
@@ -286,11 +294,10 @@ export function PlayerVerificationPage() {
             component="div"
             count={queueQuery.data?.totalElements ?? 0}
             page={page}
-            onPageChange={(_, nextPage) => setPage(nextPage)}
+            onPageChange={(_, nextPage) => updateListState({ page: String(nextPage) })}
             rowsPerPage={pageSize}
             onRowsPerPageChange={(event) => {
-              setPageSize(Number(event.target.value));
-              setPage(0);
+              updateListState({ size: event.target.value, page: "" });
             }}
             rowsPerPageOptions={[10, 20, 50]}
           />
@@ -394,5 +401,6 @@ export function PlayerVerificationPage() {
         <Alert severity="success" onClose={() => setSuccessOpen(false)}>{t("Review recorded")}</Alert>
       </Snackbar>
     </Stack>
+    </AdminTablePage>
   );
 }

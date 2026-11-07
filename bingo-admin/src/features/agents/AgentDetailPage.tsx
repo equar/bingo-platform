@@ -14,7 +14,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { Link as RouterLink, useParams } from "react-router-dom";
+import { Link as RouterLink, useLocation, useParams } from "react-router-dom";
 import { adminAgentDetail, adminAgentFloatBalance, adminAgentFloatHistory, approveAgent, commissionRule, reviewFloatTopUpRequest, setAgentPin, suspendAgent } from "../../api/admin";
 import { getUserFacingErrorMessage } from "../../api/types";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
@@ -27,6 +27,7 @@ function formatMoney(value: string | number) {
 }
 
 export function AgentDetailPage() {
+  const location = useLocation();
   const { t } = useTranslation();
   const { agentId } = useParams();
   const id = Number(agentId);
@@ -162,7 +163,7 @@ export function AgentDetailPage() {
           {agent.status === "APPROVED" ? (
             <Button color="warning" variant="outlined" onClick={() => setSuspendConfirmOpen(true)}>{t("Suspend agent")}</Button>
           ) : null}
-          <Button component={RouterLink} to="/agents" variant="outlined">{t("Back to agents")}</Button>
+          <Button component={RouterLink} to={`/agents${location.search}`} variant="outlined">{t("Back to agents")}</Button>
         </Stack>
       </Box>
 

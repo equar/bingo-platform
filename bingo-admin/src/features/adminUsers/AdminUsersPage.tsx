@@ -1,11 +1,13 @@
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Alert,
   Box,
   Button,
   Chip,
+  Card,
+  CardContent,
   Dialog,
   DialogActions,
   DialogContent,
@@ -27,8 +29,14 @@ import { adminUsers, createAdminUser, resendAdminUserActivation, resetAdminUserP
 import { getUserFacingErrorMessage, parseApiError } from "../../api/types";
 import { StatusState } from "../../components/StatusState";
 import { AdminTablePagination } from "../../components/AdminTablePagination";
+import { usePrivateListSearch } from "../../components/usePrivateListSearch";
+import { useListSessionState } from "../../components/useListSessionState";
+import { AdminTablePage } from "../../components/AdminTablePage";
+import { AdminPageHeader } from "../../components/AdminPageHeader";
 import { translateAdminRole, translateAdminStatus } from "../../i18n";
 import { useSession } from "../../api/session";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { ConfirmDialog } from "../../components/ConfirmDialog";
 
 const roleOptions = ["ADMIN", "SUPPORT"] as const;
 const statusOptions = ["ACTIVE", "PENDING", "SUSPENDED", "DISABLED"] as const;
@@ -78,16 +86,23 @@ function hasAdminUserFormChanges(form: AdminUserFormState, user: UserSummaryResp
 
 export function AdminUsersPage() {
   const { t } = useTranslation();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { userId: userIdParam } = useParams<{ userId: string }>();
+  const isCreatePage = location.pathname === "/admin-users/new";
+  const isEditPage = location.pathname.endsWith("/edit");
+  const isEditorPage = isCreatePage || isEditPage;
   const session = useSession();
   const queryClient = useQueryClient();
-  const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(20);
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [page, setPage] = useListSessionState("admin-users:page", 0);
+  const [pageSize, setPageSize] = useListSessionState("admin-users:size", 20);
+  const [search, setSearch] = usePrivateListSearch("admin-users");
+  const [statusFilter, setStatusFilter] = useListSessionState("admin-users:status", "");
+  const [discardOpen, setDiscardOpen] = useState(false);
   const [resendError, setResendError] = useState<string | null>(null);
   const [resendSuccess, setResendSuccess] = useState<string | null>(null);
-  const [selectedUser, setSelectedUser] = useState<UserSummaryResponse | null>(null);
+  const routeUser = (location.state as { adminUser?: UserSummaryResponse } | null)?.adminUser;
+  const routeUserId = Number(userIdParam);
   const [resetTarget, setResetTarget] = useState<UserSummaryResponse | null>(null);
   const [form, setForm] = useState<AdminUserFormState>(emptyForm);
   const [formError, setFormError] = useState<string | null>(null);
@@ -108,6 +123,10 @@ export function AdminUsersPage() {
     queryKey: ["admin-users", page, pageSize, search, statusFilter],
     queryFn: () => adminUsers(page, pageSize, search, statusFilter),
   });
+
+  const selectedUser = isEditPage
+    ? (routeUser?.id === routeUserId ? routeUser : usersQuery.data?.content.find((user) => user.id === routeUserId) ?? null)
+    : null;
 
   const resendMutation = useMutation({
     mutationFn: (userId: number) => resendAdminUserActivation(userId),
@@ -134,6 +153,25 @@ export function AdminUsersPage() {
   const users = usersQuery.data?.content ?? [];
   const isEditingOwnAccount = selectedUser?.id === session?.user.id;
 
+  useEffect(() => {
+    if (!isEditorPage) return;
+    if (isCreatePage) {
+      setForm(emptyForm);
+      setFormError(null);
+      setEmailError(null);
+      setPhoneError(null);
+      setResendError(null);
+      setResendSuccess(null);
+    } else if (selectedUser) {
+      setForm(toAdminUserForm(selectedUser));
+      setFormError(null);
+      setEmailError(null);
+      setPhoneError(null);
+      setResendError(null);
+      setResendSuccess(null);
+    }
+  }, [location.pathname, isEditorPage, isCreatePage, selectedUser]);
+
   const validateForm = () => {
     if (!form.displayName.trim()) return "Enter a display name.";
     if (!selectedUser && (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim()) || form.email !== form.email.trim())) {
@@ -155,24 +193,6 @@ export function AdminUsersPage() {
     setEmailError(null);
     setPhoneError(null);
     saveMutation.mutate();
-  };
-
-  const openCreate = () => {
-    setSelectedUser(null);
-    setForm(emptyForm);
-    setFormError(null);
-    setEmailError(null);
-    setPhoneError(null);
-    setDialogOpen(true);
-  };
-
-  const openEdit = (user: UserSummaryResponse) => {
-    setSelectedUser(user);
-    setForm(toAdminUserForm(user));
-    setFormError(null);
-    setEmailError(null);
-    setPhoneError(null);
-    setDialogOpen(true);
   };
 
   const saveMutation = useMutation({
@@ -197,12 +217,7 @@ export function AdminUsersPage() {
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["admin-users"] });
-      setDialogOpen(false);
-      setSelectedUser(null);
-      setForm(emptyForm);
-      setFormError(null);
-      setEmailError(null);
-      setPhoneError(null);
+      navigate(`/admin-users${location.search}`);
     },
     onError: (error) => {
       const apiError = parseApiError(error);
@@ -221,12 +236,23 @@ export function AdminUsersPage() {
     },
   });
   const hasEditChanges = selectedUser !== null && hasAdminUserFormChanges(form, selectedUser);
+  const hasUnsavedChanges = selectedUser
+    ? hasEditChanges
+    : Boolean(form.displayName || form.email || form.phoneNumber || form.role !== emptyForm.role || form.status !== emptyForm.status);
 
-  if (usersQuery.isLoading) {
+  const cancelEditor = () => {
+    if (hasUnsavedChanges) setDiscardOpen(true);
+    else navigate(`/admin-users${location.search}`);
+  };
+
+  const openCreate = () => navigate(`/admin-users/new${location.search}`);
+  const openEdit = (user: UserSummaryResponse) => navigate(`/admin-users/${user.id}/edit${location.search}`, { state: { adminUser: user } });
+
+  if (!isEditorPage && usersQuery.isLoading) {
     return <StatusState title={t("Loading admin users")} loading message={t("Fetching admin and support accounts")} />;
   }
 
-  if (usersQuery.error) {
+  if (!isEditorPage && usersQuery.error) {
     return (
       <StatusState
         title={t("Unable to load admin users")}
@@ -238,21 +264,16 @@ export function AdminUsersPage() {
   }
 
   return (
+    <AdminTablePage>
     <Stack spacing={3}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" gap={2} flexWrap="wrap">
-        <div>
-          <Typography variant="h4">{t("Admin Users")}</Typography>
-          <Typography color="text.secondary">
-            {t("Create and maintain admin and support accounts for the console.")}</Typography>
-        </div>
-        <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
-          <Button variant="contained" onClick={openCreate}>{t("Create admin user")}</Button>
-        </Stack>
-      </Box>
+      {!isEditorPage ? <>
+      <AdminPageHeader title={t("Admin users")} description={t("Create and maintain admin and support accounts for the console.")} actions={
+        <Button variant="contained" onClick={openCreate}>{t("Create admin user")}</Button>
+      } />
 
       <Alert severity="info">{t("This page manages ADMIN and SUPPORT accounts only.")}</Alert>
       {roleError ? <Alert severity="error" role="alert">{t(roleError)}</Alert> : null}
-      {resendError && !resetTarget && !dialogOpen ? <Alert severity="error" role="alert">{t(resendError)}</Alert> : null}
+      {resendError && !resetTarget ? <Alert severity="error" role="alert">{t(resendError)}</Alert> : null}
       {resendSuccess ? <Alert severity="success" role="status">{t(resendSuccess)}</Alert> : null}
 
       <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
@@ -352,16 +373,30 @@ export function AdminUsersPage() {
         }}
         rowsPerPageOptions={[10, 20, 50]}
       />
+      </> : null}
 
-      <Dialog
-        open={dialogOpen}
-        onClose={() => (saveMutation.isPending ? undefined : setDialogOpen(false))}
-        fullWidth
-        maxWidth="sm"
-      >
-        <DialogTitle>
-          <Box display="flex" alignItems="center" justifyContent="space-between" gap={2} flexWrap="wrap">
-            <span>{selectedUser ? t("Edit admin user") : t("Create admin user")}</span>
+      {isEditorPage ? <>
+        <AdminPageHeader
+          title={t(selectedUser ? "Edit admin user" : "Create admin user")}
+          description={t(selectedUser ? "Update this admin or support account." : "Create an admin or support account.")}
+          actions={<Button onClick={cancelEditor}>{t("Cancel")}</Button>}
+        />
+        {isEditPage && usersQuery.isLoading ? <StatusState title={t("Loading admin user")} loading message={t("Fetching admin and support accounts")} /> : null}
+        {isEditPage && !usersQuery.isLoading && !selectedUser ? (
+          <Alert severity="error" action={<Button color="inherit" onClick={() => navigate(`/admin-users${location.search}`)}>{t("Back to admin users")}</Button>}>
+            {t("Admin user not found. Return to the list and open the account again.")}
+          </Alert>
+        ) : null}
+        {(!isEditPage || selectedUser) && !(isEditPage && usersQuery.isLoading) ? <Card component="section" aria-label={t(selectedUser ? "Edit admin user" : "Create admin user")}>
+          <CardContent sx={{
+            display: "grid",
+            gridTemplateColumns: selectedUser
+              ? { xs: "minmax(0, 1fr)", lg: "minmax(0, 2fr) minmax(260px, 1fr)" }
+              : "minmax(0, 1fr)",
+            gap: 3,
+          }}>
+          <Stack spacing={2} minWidth={0}>
+          {selectedUser?.status === "PENDING" || selectedUser?.status === "ACTIVE" ? <Box display="flex" justifyContent="flex-end" gap={1} flexWrap="wrap">
             {selectedUser?.status === "PENDING" ? (
               <Button
                 size="small"
@@ -386,10 +421,7 @@ export function AdminUsersPage() {
                 }}
               >{t("Reset password")}</Button>
             ) : null}
-          </Box>
-        </DialogTitle>
-        <DialogContent>
-          <Stack spacing={2} sx={{ pt: 1 }}>
+          </Box> : null}
             {resendSuccess ? <Alert severity="success" role="status">{t(resendSuccess)}</Alert> : null}
             {resendError && selectedUser && !resetTarget ? <Alert severity="error" role="alert">{t(resendError)}</Alert> : null}
             <TextField
@@ -494,19 +526,59 @@ export function AdminUsersPage() {
             )}
             {formError ? <Alert severity="error">{t(formError)}</Alert> : null}
           </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDialogOpen(false)} disabled={saveMutation.isPending}>
-            {t("Cancel")}</Button>
+          {selectedUser ? (
+            <Box
+              component="section"
+              aria-label={t("Account activity")}
+              sx={{
+                borderLeft: { lg: 1 },
+                borderTop: { xs: 1, lg: 0 },
+                borderColor: "divider",
+                pl: { lg: 2 },
+                pt: { xs: 2, lg: 0 },
+                minWidth: 0,
+              }}
+            >
+              <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+                {t("Account activity")}
+              </Typography>
+              <Stack spacing={2}>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">{t("Created by")}</Typography>
+                  <Typography variant="body2" sx={{ overflowWrap: "anywhere" }}>
+                    {selectedUser.createdByDisplayName || t("Not recorded")}
+                  </Typography>
+                </Box>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">{t("Created at")}</Typography>
+                  <Typography variant="body2">{new Date(selectedUser.createdAt).toLocaleString()}</Typography>
+                </Box>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">{t("Updated by")}</Typography>
+                  <Typography variant="body2" sx={{ overflowWrap: "anywhere" }}>
+                    {selectedUser.updatedByDisplayName || t("Not recorded")}
+                  </Typography>
+                </Box>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">{t("Updated at")}</Typography>
+                  <Typography variant="body2">{new Date(selectedUser.updatedAt).toLocaleString()}</Typography>
+                </Box>
+              </Stack>
+            </Box>
+          ) : null}
+          </CardContent>
+          <Stack direction="row" justifyContent="flex-end" spacing={1} sx={{ p: 2, pt: 0 }}>
+          <Button onClick={cancelEditor} disabled={saveMutation.isPending}>{t("Cancel")}</Button>
           <Button
             variant="contained"
             onClick={submitForm}
             disabled={saveMutation.isPending || (selectedUser !== null && !hasEditChanges)}
           >
-            {saveMutation.isPending ? t("Saving...") : selectedUser ? t("Save changes") : t("Create user")}
+            {saveMutation.isPending ? t("Saving...") : selectedUser ? t("Save changes") : t("Create admin user")}
           </Button>
-        </DialogActions>
-      </Dialog>
+          </Stack>
+        </Card> : null}
+      </> : null}
 
       <Dialog open={Boolean(resetTarget)} onClose={() => (resetPasswordMutation.isPending ? undefined : setResetTarget(null))} fullWidth maxWidth="xs">
         <DialogTitle>{t("Send password reset link?")}</DialogTitle>
@@ -526,6 +598,20 @@ export function AdminUsersPage() {
           >{resetPasswordMutation.isPending ? t("Sending...") : t("Send reset link")}</Button>
         </DialogActions>
       </Dialog>
+
+      <ConfirmDialog
+        open={discardOpen}
+        title={t("Discard unsaved changes?")}
+        description={t("Your changes have not been saved. Discard them?")}
+        confirmLabel={t("Discard")}
+        cancelLabel={t("Keep editing")}
+        onCancel={() => setDiscardOpen(false)}
+        onConfirm={() => {
+          setDiscardOpen(false);
+          navigate(`/admin-users${location.search}`);
+        }}
+      />
     </Stack>
+    </AdminTablePage>
   );
 }

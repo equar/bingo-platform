@@ -111,7 +111,7 @@ async function switchToAmharic(page: import("@playwright/test").Page) {
   await page.goto("/profile");
   await page.getByRole("combobox", { name: /Language/ }).click();
   await page.getByRole("option", { name: "አማርኛ" }).click();
-  await page.getByRole("button", { name: "Save" }).click();
+  await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByText("የቋንቋ ምርጫዎ ተቀምጧል።")).toBeVisible();
   await page.goto("/dashboard");
   await expect(page.getByRole("heading", { name: "ዳሽቦርድ" })).toBeVisible();
@@ -121,7 +121,7 @@ async function switchToEnglish(page: import("@playwright/test").Page) {
   await page.goto("/profile");
   await page.getByRole("combobox", { name: /ቋንቋ/ }).click();
   await page.getByRole("option", { name: "English" }).click();
-  await page.getByRole("button", { name: "አስቀምጥ" }).click();
+  await page.getByRole("button", { name: "አስቀምጥ", exact: true }).click();
   await expect(page.getByText("Your language preference has been saved.")).toBeVisible();
 }
 

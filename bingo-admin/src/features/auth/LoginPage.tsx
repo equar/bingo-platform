@@ -75,38 +75,11 @@ export function LoginPage() {
         minHeight: "100vh",
         display: "grid",
         placeItems: "center",
-        position: "relative",
-        overflow: "hidden",
         px: 2,
         py: { xs: 4, sm: 6 },
-        background:
-          "radial-gradient(ellipse at 15% 15%, rgba(255, 194, 137, 0.28), transparent 42%), radial-gradient(ellipse at 85% 85%, rgba(226, 105, 83, 0.12), transparent 38%), linear-gradient(135deg, #fffaf5 0%, #f7f7fb 54%, #fff5ee 100%)",
+        bgcolor: "background.default",
       }}
     >
-      <Box
-        aria-hidden="true"
-        sx={{
-          position: "absolute",
-          width: { xs: 240, sm: 340 },
-          height: { xs: 240, sm: 340 },
-          borderRadius: "50%",
-          border: "1px solid rgba(217, 119, 87, 0.12)",
-          top: { xs: -130, sm: -170 },
-          right: { xs: -120, sm: "8%" },
-        }}
-      />
-      <Box
-        aria-hidden="true"
-        sx={{
-          position: "absolute",
-          width: { xs: 180, sm: 260 },
-          height: { xs: 180, sm: 260 },
-          borderRadius: "50%",
-          border: "1px solid rgba(217, 119, 87, 0.1)",
-          bottom: { xs: -100, sm: -130 },
-          left: { xs: -90, sm: "10%" },
-        }}
-      />
       <Paper
         elevation={0}
         sx={{
@@ -115,14 +88,14 @@ export function LoginPage() {
           width: "100%",
           maxWidth: 440,
           p: { xs: 3, sm: 4.5 },
-          borderRadius: 5,
-          border: "1px solid rgba(86, 60, 48, 0.09)",
-          backgroundColor: "rgba(255, 255, 255, 0.94)",
-          boxShadow: "0 24px 70px rgba(78, 47, 33, 0.12), 0 3px 10px rgba(78, 47, 33, 0.04)",
-          backdropFilter: "blur(12px)",
+          borderRadius: 4,
+          border: "1px solid",
+          borderColor: "divider",
+          backgroundColor: "background.paper",
+          boxShadow: "0 18px 48px rgba(23, 36, 59, 0.08), 0 2px 8px rgba(23, 36, 59, 0.03)",
         }}
       >
-        <Stack spacing={3.5}>
+        <Stack spacing={3}>
           {sessionExpired ? <Alert severity="info">{t("login.sessionExpired")}</Alert> : null}
           <Stack spacing={2} alignItems="center" textAlign="center">
             <Box
@@ -131,9 +104,9 @@ export function LoginPage() {
                 height: 58,
                 display: "grid",
                 placeItems: "center",
-                borderRadius: "19px",
-                background: "linear-gradient(145deg, #f6a15a 0%, #e85f49 100%)",
-                boxShadow: "0 10px 24px rgba(226, 105, 75, 0.28)",
+                borderRadius: 3,
+                bgcolor: "primary.main",
+                boxShadow: "0 8px 18px rgba(40, 87, 164, 0.2)",
               }}
             >
               <svg width="32" height="32" viewBox="0 0 40 40" fill="none" aria-hidden="true" focusable="false">
@@ -149,15 +122,15 @@ export function LoginPage() {
             <Box>
               <Typography
                 variant="overline"
-                sx={{ color: "#b64f32", fontWeight: 800, letterSpacing: "0.16em", lineHeight: 1.8 }}
+                sx={{ color: "primary.main", fontWeight: 750, letterSpacing: "0.12em", lineHeight: 1.8 }}
               >
                 {t("login.adminConsole")}
               </Typography>
-              <Typography variant="h4" fontWeight={800} sx={{ mt: 0.25, color: "#252638" }}>
+              <Typography variant="h4" sx={{ mt: 0.25, color: "text.primary" }}>
                 {t("brand")}
               </Typography>
             </Box>
-            <Typography color="text.secondary" sx={{ maxWidth: 340, lineHeight: 1.65 }}>
+            <Typography color="text.secondary" sx={{ maxWidth: 360, lineHeight: 1.6 }}>
               {t("login.welcome")}
             </Typography>
           </Stack>
@@ -178,7 +151,6 @@ export function LoginPage() {
               autoComplete="username"
               fullWidth
               required
-              sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2.5, backgroundColor: "#fff" } }}
             />
             <TextField
               label={t("login.password")}
@@ -189,7 +161,6 @@ export function LoginPage() {
               autoComplete="current-password"
               fullWidth
               required
-              sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2.5, backgroundColor: "#fff" } }}
               InputProps={{
                 endAdornment: (
                   <InputAdornment position="end">
@@ -216,14 +187,6 @@ export function LoginPage() {
               sx={{
                 minHeight: 48,
                 borderRadius: 2.5,
-                background: "linear-gradient(100deg, #da653f 0%, #c84c3d 100%)",
-                boxShadow: "0 8px 18px rgba(200, 76, 61, 0.2)",
-                textTransform: "none",
-                fontWeight: 700,
-                "&:hover": {
-                  background: "linear-gradient(100deg, #c95734 0%, #b84335 100%)",
-                  boxShadow: "0 10px 22px rgba(200, 76, 61, 0.25)",
-                },
               }}
             >
               {mutation.isPending ? t("login.signingIn") : t("login.signIn")}
