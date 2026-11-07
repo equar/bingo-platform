@@ -1,3 +1,4 @@
+import 'package:bingo_app/src/core/localization/ethiopian_date_time.dart';
 import 'package:bingo_app/src/core/widgets/responsive_content.dart';
 import 'package:bingo_app/l10n/app_localizations.dart';
 import 'package:bingo_app/src/core/network/api_error.dart';
@@ -106,7 +107,7 @@ class SupportScreen extends ConsumerWidget {
                                 key: ValueKey('support-ticket-${ticket.id}'),
                                 title: Text(ticket.subject),
                                 subtitle: Text(
-                                  '${ticket.ticketNumber} · ${ticket.category} · ${ticket.createdAt.toLocal()}',
+                                  '${ticket.ticketNumber} · ${ticket.category} · ${EthiopianDateTime.dateTime(ticket.createdAt, languageCode: Localizations.localeOf(context).languageCode)}',
                                 ),
                                 trailing: Column(
                                   mainAxisAlignment: MainAxisAlignment.center,

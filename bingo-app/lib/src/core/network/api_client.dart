@@ -44,7 +44,8 @@ final dioProvider = Provider<Dio>((ref) {
             .read(authSessionControllerProvider)
             .session
             ?.accessToken;
-        if (error.response?.statusCode == 401 &&
+        final suspended = mapDioApiError(error).code == 'ACCOUNT_SUSPENDED';
+        if ((error.response?.statusCode == 401 || suspended) &&
             sentToken != null &&
             sentToken == currentToken &&
             expiringToken != sentToken) {
@@ -52,7 +53,9 @@ final dioProvider = Provider<Dio>((ref) {
           try {
             await ref
                 .read(authSessionControllerProvider.notifier)
-                .clearSession(reason: 'SESSION_EXPIRED');
+                .clearSession(
+                  reason: suspended ? 'ACCOUNT_SUSPENDED' : 'SESSION_EXPIRED',
+                );
           } finally {
             if (expiringToken == sentToken) expiringToken = null;
           }

@@ -44,3 +44,14 @@ or report a test-harness run as device E2E.
 
 Signed package and store release instructions are in the
 [mobile release guide](../deployment/mobile/README.md).
+
+### Ethiopian dates and times
+
+Player-facing dates use the Ethiopian calendar (including Pagume and its leap
+day), with month names in the selected English or Amharic language. Times use
+Ethiopia's UTC+3 timezone and Ethiopian 12-hour clock, with explicit daytime or
+nighttime labels: 07:00 EAT is 1:00 daytime. The date changes at local midnight.
+Use `EthiopianDateTime` in `src/core/localization/ethiopian_date_time.dart` for
+all displayed timestamps, rather than `DateTime.toString()` or `toLocal()`.
+API/storage timestamps remain ISO-8601 instants; durations, token expiry and
+scheduling comparisons continue to use `DateTime`.

@@ -304,5 +304,6 @@
   "leaderboardAlias": "የይፋ ስም (አማራጭ)",
   "leaderboardOptIn": "በደረጃ ሰንጠረዥ ላይ አሳየኝ",
   "showPin": "ፒን አሳይ",
-  "hidePin": "ፒን ደብቅ"
+  "hidePin": "ፒን ደብቅ",
+  "errorAccountSuspended": "መለያዎ ታግዷል። እባክዎ የSunset Bingo ድጋፍ ቡድንን በ0956047345 ያነጋግሩ።"
 }

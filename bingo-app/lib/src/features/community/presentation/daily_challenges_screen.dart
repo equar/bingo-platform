@@ -1,3 +1,4 @@
+import 'package:bingo_app/src/core/localization/ethiopian_date_time.dart';
 import 'package:bingo_app/l10n/app_localizations.dart';
 import 'package:bingo_app/src/core/network/api_error.dart';
 import 'package:bingo_app/src/features/community/data/community_repository.dart';
@@ -117,7 +118,7 @@ class _DailyChallengesScreenState extends ConsumerState<DailyChallengesScreen> {
                         const SizedBox(height: 8),
                         Text('${data.businessDate} · ${data.timezone}'),
                         Text(
-                          '${l.challengeResets}: ${data.resetsAt.toLocal()}',
+                          '${l.challengeResets}: ${EthiopianDateTime.dateTime(data.resetsAt, languageCode: Localizations.localeOf(context).languageCode)}',
                         ),
                       ],
                     ),
