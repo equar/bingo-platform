@@ -34,6 +34,7 @@ class ApiError implements Exception {
 
   String _baseUserMessage(AppLocalizations localizations) {
     if (cancelled) return '';
+    if (code == 'ACCOUNT_SUSPENDED') return localizations.errorAccountSuspended;
     if (outcomeUnknown) return localizations.errorTransactionUnknown;
     if (_isLoginPath &&
         ((statusCode == 401 || statusCode == 403) ||
@@ -138,6 +139,9 @@ class ApiError implements Exception {
 
   String get message {
     if (cancelled) return '';
+    if (code == 'ACCOUNT_SUSPENDED') {
+      return 'Your account has been suspended, please reach out to Sunset Bingo support team at 0956047345';
+    }
     if (outcomeUnknown) {
       return 'We couldn’t confirm the transaction status. Check your transaction history before trying again.';
     }

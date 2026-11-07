@@ -1061,13 +1061,26 @@ class AuthSecurityIntegrationTest extends MySqlIntegrationTest {
         void suspendedPlayerCannotLogIn() throws Exception {
                 User player = userRepository.findByNormalizedPhone(phoneNormalizer.normalize("0911000004"))
                                 .orElseThrow();
+                String token = jwtService.generateToken(player);
                 player.setStatus(AccountStatus.SUSPENDED);
                 userRepository.saveAndFlush(player);
                 mockMvc.perform(post("/api/v1/auth/login")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(new LoginRequest("0911000004", "123456"))))
+                                .andExpect(status().isForbidden())
+                                .andExpect(jsonPath("$.code").value("ACCOUNT_SUSPENDED"))
+                                .andExpect(jsonPath("$.message").value(
+                                                "Your account has been suspended, please reach out to Sunset Bingo support team at 0956047345"));
+                mockMvc.perform(post("/api/v1/auth/login")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(new LoginRequest("0911000004", "999999"))))
                                 .andExpect(status().isUnauthorized())
                                 .andExpect(jsonPath("$.code").value("AUTH_INVALID_CREDENTIALS"));
+                mockMvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer " + token))
+                                .andExpect(status().isForbidden())
+                                .andExpect(jsonPath("$.code").value("ACCOUNT_SUSPENDED"));
+                mockMvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer invalid"))
+                                .andExpect(status().isUnauthorized());
         }
 
         @Test

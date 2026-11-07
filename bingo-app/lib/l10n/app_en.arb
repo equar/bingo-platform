@@ -304,5 +304,6 @@
   "leaderboardAlias": "Public alias (optional)",
   "leaderboardOptIn": "Show me on the leaderboard",
   "showPin": "Show PIN",
-  "hidePin": "Hide PIN"
+  "hidePin": "Hide PIN",
+  "errorAccountSuspended": "Your account has been suspended, please reach out to Sunset Bingo support team at 0956047345"
 }
