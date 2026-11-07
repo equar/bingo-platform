@@ -1,3 +1,5 @@
+import 'package:bingo_app/src/core/theme/app_theme.dart';
+import 'package:bingo_app/src/core/widgets/responsive_content.dart';
 import 'package:bingo_app/src/core/config/app_config.dart';
 import 'package:bingo_app/src/core/localization/app_locale_controller.dart';
 import 'package:bingo_app/src/core/storage/session_storage.dart';
@@ -36,31 +38,14 @@ class _BingoAppView extends ConsumerWidget {
       debugShowCheckedModeBanner: false,
       locale: locale,
       onGenerateTitle: (context) => AppLocalizations.of(context)!.appTitle,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF1688FF),
-          primary: const Color(0xFF1688FF),
-          secondary: const Color(0xFFFF7900),
-          onSurface: const Color(0xFF081D46),
+      theme: buildAppTheme(),
+      builder: (context, child) => ColoredBox(
+        color: const Color(0xFFF0F3F8),
+        child: SafeArea(
+          top: false,
+          bottom: false,
+          child: ResponsiveContent(maxWidth: 1200, child: child!),
         ),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFFFAFBFD),
-          foregroundColor: Color(0xFF081D46),
-          surfaceTintColor: Colors.transparent,
-          centerTitle: false,
-        ),
-        filledButtonTheme: FilledButtonThemeData(
-          style: FilledButton.styleFrom(
-            backgroundColor: const Color(0xFFFF7900),
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-          ),
-        ),
-        scaffoldBackgroundColor: const Color(0xFFFAFBFD),
       ),
       localizationsDelegates: const [
         AppLocalizations.delegate,

@@ -1,3 +1,5 @@
+import 'package:bingo_app/src/features/support/presentation/support_shortcut.dart';
+import 'package:bingo_app/src/core/widgets/responsive_content.dart';
 import 'package:bingo_app/l10n/app_localizations.dart';
 import 'package:bingo_app/src/core/widgets/app_status_view.dart';
 import 'package:bingo_app/src/core/widgets/section_card.dart';
@@ -36,6 +38,7 @@ class LobbyScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Text(localizations.roomsTitle),
         actions: [
+          const SupportShortcut(),
           IconButton(
             key: const ValueKey('lobby-refresh-button'),
             tooltip: localizations.refresh,
@@ -44,103 +47,138 @@ class LobbyScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: roomsAsync.when(
-        skipLoadingOnRefresh: false,
-        loading: () => Center(child: Text(localizations.loading)),
-        error: (error, stack) => AppStatusView(
-          title: localizations.errorGeneric,
-          message: localizations.lobbyLoadError,
-          onAction: () => ref.invalidate(lobbyRoomsProvider),
-        ),
-        data: (rooms) => RefreshIndicator(
-          onRefresh: () async => ref.invalidate(lobbyRoomsProvider),
-          child: rooms.isEmpty
-              ? ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  children: [
-                    const SizedBox(height: 120),
-                    AppStatusView(
-                      title: localizations.lobbyEmptyTitle,
-                      message: localizations.lobbyEmptyBody,
-                    ),
-                  ],
-                )
-              : ListView.builder(
-                  key: const ValueKey('lobby-rooms-list'),
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.all(16),
-                  itemCount: rooms.length,
-                  itemBuilder: (context, index) {
-                    final room = rooms[index];
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: SectionCard(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    room.name,
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.titleLarge,
-                                  ),
-                                ),
-                                Chip(
-                                  label: Text(
-                                    room.active
-                                        ? localizations.roomStatusActive
-                                        : localizations.roomStatusInactive,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            if (room.description?.isNotEmpty == true) ...[
-                              const SizedBox(height: 8),
-                              Text(room.description!),
-                            ],
-                            const SizedBox(height: 12),
-                            Wrap(
-                              spacing: 12,
-                              runSpacing: 8,
-                              children: [
-                                _InfoChip(
-                                  label: localizations.roomPriceLabel,
-                                  value: '${room.ticketPrice} ${room.currency}',
-                                ),
-                                _InfoChip(
-                                  label: localizations.roomCapacityLabel,
-                                  value: room.sessionCapacity.toString(),
-                                ),
-                                _InfoChip(
-                                  label: localizations.roomScheduleLabel,
-                                  value: room.scheduleRule,
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            Align(
-                              alignment: Alignment.centerRight,
-                              child: TextButton.icon(
-                                key: ValueKey('room-details-${room.id}'),
-                                onPressed: () => Navigator.of(context).push(
-                                  MaterialPageRoute<void>(
-                                    builder: (_) =>
-                                        RoomDetailsScreen(roomId: room.id),
-                                  ),
-                                ),
-                                icon: const Icon(Icons.info_outline),
-                                label: Text(localizations.roomDetails),
-                              ),
-                            ),
-                          ],
-                        ),
+      body: ResponsiveContent(
+        child: roomsAsync.when(
+          skipLoadingOnRefresh: false,
+          loading: () => Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const CircularProgressIndicator(),
+                const SizedBox(height: 16),
+                Text(localizations.loading),
+              ],
+            ),
+          ),
+          error: (error, stack) => AppStatusView(
+            title: localizations.errorGeneric,
+            message: localizations.lobbyLoadError,
+            onAction: () => ref.invalidate(lobbyRoomsProvider),
+          ),
+          data: (rooms) => RefreshIndicator(
+            onRefresh: () async => ref.invalidate(lobbyRoomsProvider),
+            child: rooms.isEmpty
+                ? ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    children: [
+                      const SizedBox(height: 120),
+                      AppStatusView(
+                        title: localizations.lobbyEmptyTitle,
+                        message: localizations.lobbyEmptyBody,
                       ),
-                    );
-                  },
-                ),
+                    ],
+                  )
+                : ListView.builder(
+                    key: const ValueKey('lobby-rooms-list'),
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.all(16),
+                    itemCount: rooms.length,
+                    itemBuilder: (context, index) {
+                      final room = rooms[index];
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: SectionCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      room.name,
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.titleLarge,
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: room.active
+                                          ? const Color(0xFFEAF8EE)
+                                          : const Color(0xFFF1F3F7),
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Text(
+                                      room.active
+                                          ? localizations.roomStatusActive
+                                          : localizations.roomStatusInactive,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 12,
+                                        color: room.active
+                                            ? const Color(0xFF167639)
+                                            : const Color(0xFF667084),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              if (room.description?.isNotEmpty == true) ...[
+                                const SizedBox(height: 8),
+                                Text(room.description!),
+                              ],
+                              const SizedBox(height: 12),
+                              Text(
+                                '${room.ticketPrice} ${room.currency}',
+                                style: Theme.of(
+                                  context,
+                                ).textTheme.headlineSmall,
+                              ),
+                              Text(
+                                localizations.roomPriceLabel,
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                              const SizedBox(height: 16),
+                              Wrap(
+                                spacing: 12,
+                                runSpacing: 8,
+                                children: [
+                                  _InfoChip(
+                                    label: localizations.roomCapacityLabel,
+                                    value: room.sessionCapacity.toString(),
+                                  ),
+                                  _InfoChip(
+                                    label: localizations.roomScheduleLabel,
+                                    value: room.scheduleRule,
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              SizedBox(
+                                width: double.infinity,
+                                child: FilledButton.icon(
+                                  key: ValueKey('room-details-${room.id}'),
+                                  onPressed: () => Navigator.of(context).push(
+                                    MaterialPageRoute<void>(
+                                      builder: (_) =>
+                                          RoomDetailsScreen(roomId: room.id),
+                                    ),
+                                  ),
+                                  icon: const Icon(Icons.arrow_forward_rounded),
+                                  label: Text(localizations.roomDetails),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+          ),
         ),
       ),
     );
@@ -160,97 +198,100 @@ class RoomDetailsScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: Text(localizations.roomDetails)),
-      body: roomAsync.when(
-        loading: () => Center(child: Text(localizations.loading)),
-        error: (error, stack) => AppStatusView(
-          title: localizations.errorGeneric,
-          message: localizations.roomDetailsLoadError,
-          onAction: () {
-            ref.invalidate(roomDetailsProvider(roomId));
-            ref.invalidate(roomSessionsProvider(roomId));
-          },
-        ),
-        data: (room) => RefreshIndicator(
-          onRefresh: () async {
-            ref.invalidate(roomDetailsProvider(roomId));
-            ref.invalidate(roomSessionsProvider(roomId));
-          },
-          child: ListView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(16),
-            children: [
-              SectionCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      room.name,
-                      key: const ValueKey('room-detail-name'),
-                      style: Theme.of(context).textTheme.headlineSmall,
-                    ),
-                    if (room.description?.isNotEmpty == true) ...[
-                      const SizedBox(height: 8),
-                      Text(room.description!),
-                    ],
-                    const SizedBox(height: 12),
-                    _DetailLine(
-                      localizations.roomPriceLabel,
-                      '${room.ticketPrice} ${room.currency}',
-                    ),
-                    _DetailLine(
-                      localizations.roomScheduleLabel,
-                      '${room.scheduleRule} (${room.timezone})',
-                    ),
-                    _DetailLine(
-                      localizations.roomCapacityLabel,
-                      room.sessionCapacity.toString(),
-                    ),
-                    _DetailLine(
-                      localizations.sessionStatusLabel,
-                      localizations.roomStatusActive,
-                    ),
-                    if (room.configuredPatterns.isNotEmpty)
+      body: ResponsiveContent(
+        child: roomAsync.when(
+          loading: () => Center(child: Text(localizations.loading)),
+          error: (error, stack) => AppStatusView(
+            title: localizations.errorGeneric,
+            message: localizations.roomDetailsLoadError,
+            onAction: () {
+              ref.invalidate(roomDetailsProvider(roomId));
+              ref.invalidate(roomSessionsProvider(roomId));
+            },
+          ),
+          data: (room) => RefreshIndicator(
+            onRefresh: () async {
+              ref.invalidate(roomDetailsProvider(roomId));
+              ref.invalidate(roomSessionsProvider(roomId));
+            },
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(16),
+              children: [
+                SectionCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        room.name,
+                        key: const ValueKey('room-detail-name'),
+                        style: Theme.of(context).textTheme.headlineSmall,
+                      ),
+                      if (room.description?.isNotEmpty == true) ...[
+                        const SizedBox(height: 8),
+                        Text(room.description!),
+                      ],
+                      const SizedBox(height: 12),
                       _DetailLine(
-                        localizations.gamePatterns,
-                        room.configuredPatterns.join(', '),
+                        localizations.roomPriceLabel,
+                        '${room.ticketPrice} ${room.currency}',
                       ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                localizations.roomSessions,
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 8),
-              sessionsAsync.when(
-                loading: () => Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Center(child: Text(localizations.loading)),
-                ),
-                error: (error, stack) => AppStatusView(
-                  title: localizations.errorGeneric,
-                  message: localizations.sessionsLoadError,
-                  onAction: () => ref.invalidate(roomSessionsProvider(roomId)),
-                ),
-                data: (sessions) => sessions.isEmpty
-                    ? SectionCard(
-                        key: ValueKey('room-sessions-loaded-$roomId'),
-                        child: Text(localizations.sessionsEmpty),
-                      )
-                    : Column(
-                        key: ValueKey('room-sessions-loaded-$roomId'),
-                        children: sessions
-                            .map(
-                              (session) => Padding(
-                                padding: const EdgeInsets.only(bottom: 10),
-                                child: _SessionCard(session: session),
-                              ),
-                            )
-                            .toList(),
+                      _DetailLine(
+                        localizations.roomScheduleLabel,
+                        '${room.scheduleRule} (${room.timezone})',
                       ),
-              ),
-            ],
+                      _DetailLine(
+                        localizations.roomCapacityLabel,
+                        room.sessionCapacity.toString(),
+                      ),
+                      _DetailLine(
+                        localizations.sessionStatusLabel,
+                        localizations.roomStatusActive,
+                      ),
+                      if (room.configuredPatterns.isNotEmpty)
+                        _DetailLine(
+                          localizations.gamePatterns,
+                          room.configuredPatterns.join(', '),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  localizations.roomSessions,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 8),
+                sessionsAsync.when(
+                  loading: () => Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Center(child: Text(localizations.loading)),
+                  ),
+                  error: (error, stack) => AppStatusView(
+                    title: localizations.errorGeneric,
+                    message: localizations.sessionsLoadError,
+                    onAction: () =>
+                        ref.invalidate(roomSessionsProvider(roomId)),
+                  ),
+                  data: (sessions) => sessions.isEmpty
+                      ? SectionCard(
+                          key: ValueKey('room-sessions-loaded-$roomId'),
+                          child: Text(localizations.sessionsEmpty),
+                        )
+                      : Column(
+                          key: ValueKey('room-sessions-loaded-$roomId'),
+                          children: sessions
+                              .map(
+                                (session) => Padding(
+                                  padding: const EdgeInsets.only(bottom: 10),
+                                  child: _SessionCard(session: session),
+                                ),
+                              )
+                              .toList(),
+                        ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -368,5 +409,20 @@ class _InfoChip extends StatelessWidget {
   final String value;
 
   @override
-  Widget build(BuildContext context) => Chip(label: Text('$label: $value'));
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    decoration: BoxDecoration(
+      color: const Color(0xFFF1F5FB),
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: Theme.of(context).textTheme.bodySmall),
+        const SizedBox(height: 3),
+        Text(value, style: Theme.of(context).textTheme.titleSmall),
+      ],
+    ),
+  );
 }

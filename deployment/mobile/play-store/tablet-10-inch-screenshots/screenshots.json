@@ -1,0 +1,48 @@
+{
+  "category": "10-inch tablet",
+  "source": "Current Flutter tablet UI rendered at 1280x720 logical pixels with 2x density, isolated non-personal sample data and local preview fonts",
+  "physical_device_capture": false,
+  "uploaded_to_play_console": false,
+  "screenshots": [
+    {
+      "file": "01-home.png",
+      "width": 2560,
+      "height": 1440,
+      "aspect_ratio": "16:9",
+      "bytes": 167423,
+      "sha256": "45d02dee6a114584bf6427c01ac29e2f79576e1aee4fa689f981a9dd298a6b32"
+    },
+    {
+      "file": "02-games.png",
+      "width": 2560,
+      "height": 1440,
+      "aspect_ratio": "16:9",
+      "bytes": 131651,
+      "sha256": "c4724e3b2f722adc66267031166555518a8a74e70de8a0c6a8179d2488c0182e"
+    },
+    {
+      "file": "03-private-games.png",
+      "width": 2560,
+      "height": 1440,
+      "aspect_ratio": "16:9",
+      "bytes": 107424,
+      "sha256": "100b1cfdf154b584f6d34f8a33c11f98a27c48eb61a2b6a8fe328777d4adb529"
+    },
+    {
+      "file": "04-daily-challenges.png",
+      "width": 2560,
+      "height": 1440,
+      "aspect_ratio": "16:9",
+      "bytes": 195764,
+      "sha256": "12ef564234cd05ad3c5b3401093c40541efa70ff86ef7c53c16b0445bd35baf2"
+    },
+    {
+      "file": "05-leaderboard.png",
+      "width": 2560,
+      "height": 1440,
+      "aspect_ratio": "16:9",
+      "bytes": 167604,
+      "sha256": "4e30749ef8d36a83ee0c690f0dc924740cef579dbfddacbc43ce72ec6fd074d8"
+    }
+  ]
+}

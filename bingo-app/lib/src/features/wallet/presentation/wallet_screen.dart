@@ -1,3 +1,5 @@
+import 'package:bingo_app/src/features/support/presentation/support_shortcut.dart';
+import 'package:bingo_app/src/core/widgets/responsive_content.dart';
 import 'dart:math';
 
 import 'package:bingo_app/l10n/app_localizations.dart';
@@ -145,7 +147,10 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
     return Scaffold(
       appBar: AppBar(
         title: Text(localizations.balanceTitle),
+        actions: const [SupportShortcut()],
         bottom: TabBar(
+          isScrollable: true,
+          tabAlignment: TabAlignment.start,
           controller: _tabController,
           tabs: [
             Tab(text: localizations.walletTransactionsTab),
@@ -154,132 +159,125 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
           ],
         ),
       ),
-      body: balanceAsync.when(
-        loading: () => Center(child: Text(localizations.loading)),
-        error: (error, stack) => AppStatusView(
-          title: localizations.errorGeneric,
-          message:
-              userFacingApiError(error, localizations) ??
-              localizations.errorGeneric,
-          onAction: () => ref.invalidate(walletBalanceProvider),
-        ),
-        data: (balance) {
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              SectionCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      localizations.currentBalance,
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '${balance.totalBalance} ${balance.currency}',
-                      style: Theme.of(context).textTheme.headlineMedium,
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      '${localizations.availableBalanceLabel}: ${balance.availableBalance} ${balance.currency}',
-                    ),
-                    Text(
-                      '${localizations.promotionalBalanceLabel}: ${balance.promotionalBalance} ${balance.currency}',
-                    ),
-                    Text(localizations.balanceDisclaimer),
-                    const SizedBox(height: 12),
-                    if (_depositError != null) ...[
-                      Text(
-                        _depositError!,
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.error,
-                        ),
-                      ),
-                      if (_pendingDeposit != null) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          '${_pendingDeposit!.submittedCashAmount} ${_pendingDeposit!.currency} · ${_pendingDeposit!.telebirrReference}',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ],
-                      const SizedBox(height: 12),
-                    ],
-                    FilledButton(
-                      key: const ValueKey('wallet-submit-deposit-button'),
-                      onPressed: _submittingDeposit
-                          ? null
-                          : () => _createDeposit(balance.currency),
-                      child: _submittingDeposit
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : Text(
-                              _depositOutcomeUnknown
-                                  ? localizations.retry
-                                  : localizations.submitDeposit,
-                            ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              if (_instructions != null) ...[
+      body: ResponsiveContent(
+        child: balanceAsync.when(
+          loading: () => Center(child: Text(localizations.loading)),
+          error: (error, stack) => AppStatusView(
+            title: localizations.errorGeneric,
+            message:
+                userFacingApiError(error, localizations) ??
+                localizations.errorGeneric,
+            onAction: () => ref.invalidate(walletBalanceProvider),
+          ),
+          data: (balance) {
+            return ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
                 SectionCard(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        localizations.telebirrInstructionsTitle,
-                        style: Theme.of(context).textTheme.titleMedium,
+                      _BalanceSummary(balance: balance),
+                      const SizedBox(height: 16),
+                      Text(localizations.balanceDisclaimer),
+                      const SizedBox(height: 12),
+                      if (_depositError != null) ...[
+                        Text(
+                          _depositError!,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                        ),
+                        if (_pendingDeposit != null) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            '${_pendingDeposit!.submittedCashAmount} ${_pendingDeposit!.currency} · ${_pendingDeposit!.telebirrReference}',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                        const SizedBox(height: 12),
+                      ],
+                      FilledButton(
+                        key: const ValueKey('wallet-submit-deposit-button'),
+                        onPressed: _submittingDeposit
+                            ? null
+                            : () => _createDeposit(balance.currency),
+                        child: _submittingDeposit
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : Text(
+                                _depositOutcomeUnknown
+                                    ? localizations.retry
+                                    : localizations.submitDeposit,
+                              ),
                       ),
-                      const SizedBox(height: 8),
-                      Text(_instructions!.providerName),
-                      Text(_instructions!.businessAccount),
-                      const SizedBox(height: 8),
-                      Text(_instructions!.paymentInstructions),
                     ],
                   ),
                 ),
                 const SizedBox(height: 16),
-              ],
-              SizedBox(
-                height: 560,
-                child: TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _TransactionsPane(
-                      asyncValue: transactionsAsync,
-                      page: _transactionPage,
-                      canGoPrevious: _transactionPage > 0,
-                      canGoNext:
-                          transactionsAsync.asData?.value.content.length == 10,
-                      onPrev: () => setState(() => _transactionPage -= 1),
-                      onNext: () => setState(() => _transactionPage += 1),
-                      localizations: localizations,
+                if (_instructions != null) ...[
+                  SectionCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          localizations.telebirrInstructionsTitle,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(_instructions!.providerName),
+                        Text(_instructions!.businessAccount),
+                        const SizedBox(height: 8),
+                        Text(_instructions!.paymentInstructions),
+                      ],
                     ),
-                    _DepositsPane(
-                      asyncValue: depositsAsync,
-                      page: _depositPage,
-                      canGoPrevious: _depositPage > 0,
-                      canGoNext:
-                          depositsAsync.asData?.value.content.length == 10,
-                      onPrev: () => setState(() => _depositPage -= 1),
-                      onNext: () => setState(() => _depositPage += 1),
-                      localizations: localizations,
-                    ),
-                    _TransfersPane(
-                      currency: balance.currency,
-                      onCompleted: _refreshWalletData,
-                    ),
-                  ],
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                SizedBox(
+                  height: (MediaQuery.sizeOf(context).height * .65)
+                      .clamp(360.0, 640.0)
+                      .toDouble(),
+                  child: TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _TransactionsPane(
+                        asyncValue: transactionsAsync,
+                        page: _transactionPage,
+                        canGoPrevious: _transactionPage > 0,
+                        canGoNext:
+                            transactionsAsync.asData?.value.content.length ==
+                            10,
+                        onPrev: () => setState(() => _transactionPage -= 1),
+                        onNext: () => setState(() => _transactionPage += 1),
+                        localizations: localizations,
+                      ),
+                      _DepositsPane(
+                        asyncValue: depositsAsync,
+                        page: _depositPage,
+                        canGoPrevious: _depositPage > 0,
+                        canGoNext:
+                            depositsAsync.asData?.value.content.length == 10,
+                        onPrev: () => setState(() => _depositPage -= 1),
+                        onNext: () => setState(() => _depositPage += 1),
+                        localizations: localizations,
+                      ),
+                      _TransfersPane(
+                        currency: balance.currency,
+                        onCompleted: _refreshWalletData,
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          );
-        },
+              ],
+            );
+          },
+        ),
       ),
     );
   }
@@ -489,7 +487,9 @@ class _TransfersPaneState extends ConsumerState<_TransfersPane> {
                   maxLines: 2,
                 ),
                 const SizedBox(height: 12),
-                Row(
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
                   children: [
                     OutlinedButton(
                       onPressed: _lookingUp || _transferOutcomeUnknown
@@ -501,7 +501,6 @@ class _TransfersPaneState extends ConsumerState<_TransfersPane> {
                             : localizations.lookupRecipient,
                       ),
                     ),
-                    const SizedBox(width: 12),
                     FilledButton(
                       onPressed: _submitting ? null : _submitTransfer,
                       child: Text(
@@ -618,13 +617,18 @@ class _TransactionsPane extends StatelessWidget {
                 },
               ),
             ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 12,
+              runSpacing: 8,
               children: [
                 Text(
                   '${localizations.walletPageLabel} ${page + 1}/${max(1, result.totalPages)}',
                 ),
-                Row(
+                Wrap(
+                  spacing: 4,
+                  runSpacing: 4,
                   children: [
                     TextButton(
                       onPressed: canGoPrevious ? onPrev : null,
@@ -710,13 +714,18 @@ class _DepositsPane extends StatelessWidget {
                 },
               ),
             ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 12,
+              runSpacing: 8,
               children: [
                 Text(
                   '${localizations.walletPageLabel} ${page + 1}/${max(1, result.totalPages)}',
                 ),
-                Row(
+                Wrap(
+                  spacing: 4,
+                  runSpacing: 4,
                   children: [
                     TextButton(
                       onPressed: canGoPrevious ? onPrev : null,
@@ -735,4 +744,98 @@ class _DepositsPane extends StatelessWidget {
       },
     );
   }
+}
+
+class _BalanceSummary extends StatelessWidget {
+  const _BalanceSummary({required this.balance});
+  final WalletBalance balance;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF081D46), Color(0xFF174A89)],
+        ),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.account_balance_wallet_outlined,
+                color: Color(0xFF9ACBFF),
+                size: 22,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  l.currentBalance,
+                  style: const TextStyle(
+                    color: Color(0xFFDAE8FF),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            '${balance.totalBalance} ${balance.currency}',
+            style: const TextStyle(
+              fontSize: 32,
+              color: Colors.white,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -.8,
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 14),
+            child: Divider(color: Color(0xFF3B5A83)),
+          ),
+          Wrap(
+            spacing: 20,
+            runSpacing: 12,
+            children: [
+              _amount(
+                l.availableBalanceLabel,
+                balance.availableBalance.toString(),
+              ),
+              _amount(
+                l.promotionalBalanceLabel,
+                balance.promotionalBalance.toString(),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _amount(String label, String value) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Text(
+        label,
+        style: const TextStyle(color: Color(0xFFDAE8FF), fontSize: 12),
+      ),
+      const SizedBox(height: 4),
+      Text(
+        '$value ${balance.currency}',
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 16,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    ],
+  );
 }

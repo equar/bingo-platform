@@ -1,3 +1,4 @@
+import 'package:bingo_app/src/core/widgets/responsive_content.dart';
 import 'package:bingo_app/l10n/app_localizations.dart';
 import 'package:bingo_app/src/core/network/api_error.dart';
 import 'package:bingo_app/src/features/community/data/community_repository.dart';
@@ -24,9 +25,12 @@ class _PrivateGamesScreenState extends ConsumerState<PrivateGamesScreen> {
     _future = ref.read(communityRepositoryProvider).privateGames();
   }
 
-  void _reload() => setState(
-    () => _future = ref.read(communityRepositoryProvider).privateGames(),
-  );
+  void _reload() {
+    setState(() {
+      _future = ref.read(communityRepositoryProvider).privateGames();
+    });
+  }
+
   Future<void> _open(PrivateGame game) async {
     await Navigator.push<void>(
       context,
@@ -67,6 +71,7 @@ class _PrivateGamesScreenState extends ConsumerState<PrivateGamesScreen> {
   Future<void> _join() async {
     final game = await showDialog<PrivateGame>(
       context: context,
+      barrierDismissible: false,
       builder: (_) => const _JoinGameDialog(),
     );
     if (mounted && game != null) await _open(game);
@@ -86,76 +91,79 @@ class _PrivateGamesScreenState extends ConsumerState<PrivateGamesScreen> {
           ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          _reload();
-          await _future;
-        },
-        child: ListView(
-          padding: const EdgeInsets.all(20),
-          children: [
-            Text(l.privateIntro),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 12,
-              runSpacing: 8,
-              children: [
-                FilledButton.icon(
-                  onPressed: _create,
-                  icon: const Icon(Icons.add),
-                  label: Text(l.privateCreate),
-                ),
-                OutlinedButton.icon(
-                  onPressed: _join,
-                  icon: const Icon(Icons.key),
-                  label: Text(l.privateJoin),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            FutureBuilder<List<PrivateGame>>(
-              future: _future,
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return _ErrorMessage(
-                    message:
-                        userFacingApiError(snapshot.error, l) ?? l.errorGeneric,
-                    onRetry: _reload,
-                  );
-                }
-                if (!snapshot.hasData) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (snapshot.data!.isEmpty) {
-                  return Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Text(l.privateEmpty),
-                  );
-                }
-                return Column(
-                  children: snapshot.data!
-                      .map(
-                        (game) => Card(
-                          child: ListTile(
-                            leading: Icon(
-                              game.host
-                                  ? Icons.workspace_premium
-                                  : Icons.lock_outline,
+      body: ResponsiveContent(
+        child: RefreshIndicator(
+          onRefresh: () async {
+            _reload();
+            await _future;
+          },
+          child: ListView(
+            padding: const EdgeInsets.all(20),
+            children: [
+              Text(l.privateIntro),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 12,
+                runSpacing: 8,
+                children: [
+                  FilledButton.icon(
+                    onPressed: _create,
+                    icon: const Icon(Icons.add),
+                    label: Text(l.privateCreate),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: _join,
+                    icon: const Icon(Icons.key),
+                    label: Text(l.privateJoin),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              FutureBuilder<List<PrivateGame>>(
+                future: _future,
+                builder: (context, snapshot) {
+                  if (snapshot.hasError) {
+                    return _ErrorMessage(
+                      message:
+                          userFacingApiError(snapshot.error, l) ??
+                          l.errorGeneric,
+                      onRetry: _reload,
+                    );
+                  }
+                  if (!snapshot.hasData) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (snapshot.data!.isEmpty) {
+                    return Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(l.privateEmpty),
+                    );
+                  }
+                  return Column(
+                    children: snapshot.data!
+                        .map(
+                          (game) => Card(
+                            child: ListTile(
+                              leading: Icon(
+                                game.host
+                                    ? Icons.workspace_premium
+                                    : Icons.lock_outline,
+                              ),
+                              title: Text(game.name),
+                              subtitle: Text(
+                                '${game.memberCount}/${game.capacity} · ${game.state}',
+                              ),
+                              trailing: const Icon(Icons.chevron_right),
+                              onTap: () => _open(game),
                             ),
-                            title: Text(game.name),
-                            subtitle: Text(
-                              '${game.memberCount}/${game.capacity} · ${game.state}',
-                            ),
-                            trailing: const Icon(Icons.chevron_right),
-                            onTap: () => _open(game),
                           ),
-                        ),
-                      )
-                      .toList(),
-                );
-              },
-            ),
-          ],
+                        )
+                        .toList(),
+                  );
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -178,10 +186,12 @@ class _PrivateGameScreenState extends ConsumerState<PrivateGameScreen> {
     _future = ref.read(communityRepositoryProvider).details(widget.roomId);
   }
 
-  void _reload() => setState(
-    () =>
-        _future = ref.read(communityRepositoryProvider).details(widget.roomId),
-  );
+  void _reload() {
+    setState(() {
+      _future = ref.read(communityRepositoryProvider).details(widget.roomId);
+    });
+  }
+
   Future<void> _action(String action) async {
     final l = AppLocalizations.of(context)!;
     if (action == 'cancel' || action == 'invite') {
@@ -215,6 +225,7 @@ class _PrivateGameScreenState extends ConsumerState<PrivateGameScreen> {
           .manage(widget.roomId, action);
       if (!mounted) return;
       if (action == 'invite') {
+        setState(() => _busy = false);
         await _showInvite(
           context,
           result['code'] as String,
@@ -296,12 +307,15 @@ class _PrivateGameScreenState extends ConsumerState<PrivateGameScreen> {
               ),
               const SizedBox(height: 16),
               FilledButton(
-                onPressed: () => Navigator.push<void>(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => RoomDetailsScreen(roomId: game.roomId),
-                  ),
-                ),
+                onPressed: () async {
+                  await Navigator.push<void>(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => RoomDetailsScreen(roomId: game.roomId),
+                    ),
+                  );
+                  if (mounted) _reload();
+                },
                 child: Text(l.privateOpenRoom),
               ),
               if (game.host && game.open) ...[
@@ -455,40 +469,44 @@ class _JoinGameDialogState extends ConsumerState<_JoinGameDialog> {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
-    return AlertDialog(
-      title: Text(l.privateJoin),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TextField(
-            controller: _code,
-            textCapitalization: TextCapitalization.characters,
-            maxLength: 24,
-            enabled: !_busy,
-            textInputAction: TextInputAction.done,
-            onSubmitted: (_) => _submit(),
-            onChanged: (_) {
-              _key = const Uuid().v4();
-              if (_error != null) setState(() => _error = null);
-            },
-            decoration: InputDecoration(labelText: l.privateCode),
+    return PopScope(
+      canPop: !_busy,
+      child: AlertDialog(
+        scrollable: true,
+        title: Text(l.privateJoin),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _code,
+              textCapitalization: TextCapitalization.characters,
+              maxLength: 24,
+              enabled: !_busy,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => _submit(),
+              onChanged: (_) {
+                _key = const Uuid().v4();
+                if (_error != null) setState(() => _error = null);
+              },
+              decoration: InputDecoration(labelText: l.privateCode),
+            ),
+            if (_error != null && _error != l.requiredField) Text(_error!),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: _busy ? null : () => Navigator.pop(context),
+            child: Text(l.communityBack),
           ),
-          if (_error != null && _error != l.requiredField) Text(_error!),
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: _code,
+            builder: (context, value, _) => FilledButton(
+              onPressed: _busy || value.text.trim().isEmpty ? null : _submit,
+              child: Text(_busy ? l.loading : l.privateJoin),
+            ),
+          ),
         ],
       ),
-      actions: [
-        TextButton(
-          onPressed: _busy ? null : () => Navigator.pop(context),
-          child: Text(l.communityBack),
-        ),
-        ValueListenableBuilder<TextEditingValue>(
-          valueListenable: _code,
-          builder: (context, value, _) => FilledButton(
-            onPressed: _busy || value.text.trim().isEmpty ? null : _submit,
-            child: Text(_busy ? l.loading : l.privateJoin),
-          ),
-        ),
-      ],
     );
   }
 }
@@ -501,7 +519,7 @@ class _CreateGameDialog extends ConsumerStatefulWidget {
 
 class _CreateGameDialogState extends ConsumerState<_CreateGameDialog> {
   final _name = TextEditingController();
-  late final Future<List<BingoRoom>> _rooms;
+  late Future<List<BingoRoom>> _rooms;
   int? _template;
   int _minutes = 10;
   bool _busy = false;
@@ -587,7 +605,20 @@ class _CreateGameDialogState extends ConsumerState<_CreateGameDialog> {
             FutureBuilder<List<BingoRoom>>(
               future: _rooms,
               builder: (context, snapshot) {
-                if (snapshot.hasError) return Text(l.errorGeneric);
+                if (snapshot.hasError) {
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(l.errorGeneric),
+                      TextButton(
+                        onPressed: () => setState(() {
+                          _rooms = ref.read(lobbyRepositoryProvider).getRooms();
+                        }),
+                        child: Text(l.retry),
+                      ),
+                    ],
+                  );
+                }
                 if (!snapshot.hasData) return const LinearProgressIndicator();
                 if (snapshot.data!.isEmpty) return Text(l.lobbyEmptyTitle);
                 return DropdownButtonFormField<int>(

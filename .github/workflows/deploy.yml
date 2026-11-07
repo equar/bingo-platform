@@ -31,7 +31,7 @@ jobs:
     env:
       SPRING_PROFILES_ACTIVE: prod
       MYSQL_DATABASE: bingo
-      SERVER_PORT: '8088'
+      SERVER_PORT: '8081'
       LIGHTSAIL_HOST: ${{ secrets.LIGHTSAIL_HOST }}
       LIGHTSAIL_USER: ${{ secrets.LIGHTSAIL_USER }}
       LIGHTSAIL_SSH_KEY_B64: ${{ secrets.LIGHTSAIL_SSH_KEY_B64 }}

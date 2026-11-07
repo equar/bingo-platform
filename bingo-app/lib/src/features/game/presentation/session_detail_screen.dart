@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:bingo_app/src/core/widgets/responsive_content.dart';
+
 import 'package:bingo_app/l10n/app_localizations.dart';
 import 'package:bingo_app/src/core/config/app_config.dart';
 import 'package:bingo_app/src/core/widgets/app_status_view.dart';
@@ -17,10 +19,12 @@ class SessionDetailScreen extends ConsumerStatefulWidget {
   final GameSession session;
 
   @override
-  ConsumerState<SessionDetailScreen> createState() => _SessionDetailScreenState();
+  ConsumerState<SessionDetailScreen> createState() =>
+      _SessionDetailScreenState();
 }
 
-class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> with WidgetsBindingObserver {
+class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen>
+    with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
@@ -35,10 +39,13 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> with 
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    final controller = ref.read(liveGameControllerProvider(widget.session.id).notifier);
+    final controller = ref.read(
+      liveGameControllerProvider(widget.session.id).notifier,
+    );
     if (state == AppLifecycleState.resumed) {
       unawaited(controller.resume());
-    } else if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
       unawaited(controller.pause());
     }
   }
@@ -47,8 +54,12 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> with 
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context)!;
     final state = ref.watch(liveGameControllerProvider(widget.session.id));
-    final controller = ref.read(liveGameControllerProvider(widget.session.id).notifier);
-    final purchasesEnabled = ref.watch(appConfigProvider).playerTicketPurchasesEnabled;
+    final controller = ref.read(
+      liveGameControllerProvider(widget.session.id).notifier,
+    );
+    final purchasesEnabled = ref
+        .watch(appConfigProvider)
+        .playerTicketPurchasesEnabled;
     final session = state.session ?? widget.session;
 
     return Scaffold(
@@ -62,44 +73,62 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> with 
           ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: controller.refresh,
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16),
-          children: [
-            if (state.isLoading) ...[
-              const SizedBox(height: 72),
-              Center(child: Text(localizations.loading)),
-            ] else ...[
-              if (state.errorMessage != null || state.apiError != null) ...[
-                SectionCard(
-                  child: Text(
-                    state.apiError?.userMessage(localizations) ?? state.errorMessage!,
-                    style: TextStyle(color: Theme.of(context).colorScheme.error),
+      body: ResponsiveContent(
+        child: RefreshIndicator(
+          onRefresh: controller.refresh,
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(16),
+            children: [
+              if (state.isLoading) ...[
+                const SizedBox(height: 72),
+                Center(child: Text(localizations.loading)),
+              ] else ...[
+                if (state.errorMessage != null || state.apiError != null) ...[
+                  SectionCard(
+                    child: Text(
+                      state.apiError?.userMessage(localizations) ??
+                          state.errorMessage!,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
                   ),
+                  const SizedBox(height: 16),
+                ],
+                _SessionSummaryCard(
+                  session: session,
+                  state: state,
+                  controller: controller,
+                  localizations: localizations,
+                  purchasesEnabled: purchasesEnabled,
                 ),
                 const SizedBox(height: 16),
+                _CalledNumbersCard(
+                  draws: state.draws,
+                  localizations: localizations,
+                ),
+                const SizedBox(height: 16),
+                _TicketsCard(
+                  state: state,
+                  controller: controller,
+                  localizations: localizations,
+                ),
+                const SizedBox(height: 16),
+                _ClaimCard(
+                  state: state,
+                  controller: controller,
+                  localizations: localizations,
+                ),
+                const SizedBox(height: 16),
+                _ClaimHistoryCard(state: state, localizations: localizations),
+                const SizedBox(height: 16),
+                SectionCard(
+                  child: Text(localizations.claimSettlementUnavailableBody),
+                ),
               ],
-              _SessionSummaryCard(
-                session: session,
-                state: state,
-                controller: controller,
-                localizations: localizations,
-                purchasesEnabled: purchasesEnabled,
-              ),
-              const SizedBox(height: 16),
-              _CalledNumbersCard(draws: state.draws, localizations: localizations),
-              const SizedBox(height: 16),
-              _TicketsCard(state: state, controller: controller, localizations: localizations),
-              const SizedBox(height: 16),
-              _ClaimCard(state: state, controller: controller, localizations: localizations),
-              const SizedBox(height: 16),
-              _ClaimHistoryCard(state: state, localizations: localizations),
-              const SizedBox(height: 16),
-              SectionCard(child: Text(localizations.claimSettlementUnavailableBody)),
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -159,7 +188,10 @@ class _SessionSummaryCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(session.sessionName, style: Theme.of(context).textTheme.titleLarge),
+                    Text(
+                      session.sessionName,
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
                     const SizedBox(height: 6),
                     Text(session.roomName),
                   ],
@@ -173,11 +205,26 @@ class _SessionSummaryCard extends StatelessWidget {
             spacing: 12,
             runSpacing: 8,
             children: [
-              _InfoChip(label: localizations.sessionStatusLabel, value: session.state),
-              _InfoChip(label: localizations.ticketCountLabel, value: session.ticketCount.toString()),
-              _InfoChip(label: localizations.drawCountLabel, value: state.draws.length.toString()),
-              _InfoChip(label: localizations.roomCapacityLabel, value: session.sessionCapacity.toString()),
-              _InfoChip(label: localizations.availableSeatsLabel, value: session.availableSeats.toString()),
+              _InfoChip(
+                label: localizations.sessionStatusLabel,
+                value: session.state,
+              ),
+              _InfoChip(
+                label: localizations.ticketCountLabel,
+                value: session.ticketCount.toString(),
+              ),
+              _InfoChip(
+                label: localizations.drawCountLabel,
+                value: state.draws.length.toString(),
+              ),
+              _InfoChip(
+                label: localizations.roomCapacityLabel,
+                value: session.sessionCapacity.toString(),
+              ),
+              _InfoChip(
+                label: localizations.availableSeatsLabel,
+                value: session.availableSeats.toString(),
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -188,7 +235,11 @@ class _SessionSummaryCard extends StatelessWidget {
                   ? null
                   : () => _confirmPurchase(context),
               icon: state.isPurchasingTicket
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
                   : const Icon(Icons.confirmation_number_outlined),
               label: Text(localizations.purchaseTicket),
             )
@@ -199,7 +250,10 @@ class _SessionSummaryCard extends StatelessWidget {
             ),
           if (state.infoMessage == 'TICKET_PURCHASED') ...[
             const SizedBox(height: 8),
-            Text(localizations.purchaseSuccess, style: TextStyle(color: Theme.of(context).colorScheme.primary)),
+            Text(
+              localizations.purchaseSuccess,
+              style: TextStyle(color: Theme.of(context).colorScheme.primary),
+            ),
           ],
           if (session.state == 'OPEN' && !purchasesEnabled) ...[
             const SizedBox(height: 8),
@@ -207,7 +261,10 @@ class _SessionSummaryCard extends StatelessWidget {
           ],
           if (state.isTerminalSession) ...[
             const SizedBox(height: 12),
-            Text(localizations.liveConnectionFinished, style: TextStyle(color: Theme.of(context).colorScheme.primary)),
+            Text(
+              localizations.liveConnectionFinished,
+              style: TextStyle(color: Theme.of(context).colorScheme.primary),
+            ),
           ],
         ],
       ),
@@ -227,10 +284,16 @@ class _CalledNumbersCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(localizations.calledNumbersTitle, style: Theme.of(context).textTheme.titleMedium),
+          Text(
+            localizations.calledNumbersTitle,
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
           const SizedBox(height: 12),
           if (draws.isEmpty)
-            AppStatusView(title: localizations.emptyState, message: localizations.contractGapBody)
+            AppStatusView(
+              title: localizations.emptyState,
+              message: localizations.contractGapBody,
+            )
           else
             Wrap(
               spacing: 8,
@@ -251,7 +314,11 @@ class _CalledNumbersCard extends StatelessWidget {
 }
 
 class _TicketsCard extends StatelessWidget {
-  const _TicketsCard({required this.state, required this.controller, required this.localizations});
+  const _TicketsCard({
+    required this.state,
+    required this.controller,
+    required this.localizations,
+  });
 
   final LiveGameState state;
   final LiveGameController controller;
@@ -269,14 +336,24 @@ class _TicketsCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Expanded(child: Text(localizations.myTicketsTitle, style: Theme.of(context).textTheme.titleMedium)),
+              Expanded(
+                child: Text(
+                  localizations.myTicketsTitle,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
               if (ticketPage != null)
-                Text('${localizations.ticketPageLabel} ${ticketPage.page + 1}/${ticketPage.totalPages == 0 ? 1 : ticketPage.totalPages}'),
+                Text(
+                  '${localizations.ticketPageLabel} ${ticketPage.page + 1}/${ticketPage.totalPages == 0 ? 1 : ticketPage.totalPages}',
+                ),
             ],
           ),
           const SizedBox(height: 12),
           if (tickets.isEmpty)
-            AppStatusView(title: localizations.emptyState, message: localizations.contractGapBody)
+            AppStatusView(
+              title: localizations.emptyState,
+              message: localizations.contractGapBody,
+            )
           else ...[
             Wrap(
               spacing: 8,
@@ -292,18 +369,30 @@ class _TicketsCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             if (selectedTicket != null) ...[
-              _TicketGridCard(ticket: selectedTicket, calledNumbers: state.calledNumbers, localizations: localizations),
+              _TicketGridCard(
+                ticket: selectedTicket,
+                calledNumbers: state.calledNumbers,
+                localizations: localizations,
+              ),
               const SizedBox(height: 12),
             ],
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 TextButton(
-                  onPressed: state.canPageBackTickets ? () => controller.selectTicketPage(state.ticketPageIndex - 1) : null,
+                  onPressed: state.canPageBackTickets
+                      ? () => controller.selectTicketPage(
+                          state.ticketPageIndex - 1,
+                        )
+                      : null,
                   child: Text(localizations.previous),
                 ),
                 TextButton(
-                  onPressed: state.canPageForwardTickets ? () => controller.selectTicketPage(state.ticketPageIndex + 1) : null,
+                  onPressed: state.canPageForwardTickets
+                      ? () => controller.selectTicketPage(
+                          state.ticketPageIndex + 1,
+                        )
+                      : null,
                   child: Text(localizations.next),
                 ),
               ],
@@ -316,7 +405,11 @@ class _TicketsCard extends StatelessWidget {
 }
 
 class _TicketGridCard extends StatelessWidget {
-  const _TicketGridCard({required this.ticket, required this.calledNumbers, required this.localizations});
+  const _TicketGridCard({
+    required this.ticket,
+    required this.calledNumbers,
+    required this.localizations,
+  });
 
   final TicketResponse ticket;
   final List<int> calledNumbers;
@@ -328,7 +421,10 @@ class _TicketGridCard extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(ticket.publicTicketCode, style: Theme.of(context).textTheme.titleMedium),
+        Text(
+          ticket.publicTicketCode,
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
         const SizedBox(height: 12),
         AspectRatio(
           aspectRatio: 1,
@@ -364,7 +460,11 @@ class _TicketGridCard extends StatelessWidget {
 }
 
 class _ClaimCard extends StatelessWidget {
-  const _ClaimCard({required this.state, required this.controller, required this.localizations});
+  const _ClaimCard({
+    required this.state,
+    required this.controller,
+    required this.localizations,
+  });
 
   final LiveGameState state;
   final LiveGameController controller;
@@ -380,29 +480,43 @@ class _ClaimCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(localizations.claimSettlementLabel, style: Theme.of(context).textTheme.titleMedium),
+          Text(
+            localizations.claimSettlementLabel,
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
             key: const ValueKey('claim-pattern-field'),
             initialValue: state.selectedClaimPattern,
-            decoration: InputDecoration(labelText: localizations.claimPatternLabel),
+            decoration: InputDecoration(
+              labelText: localizations.claimPatternLabel,
+            ),
             items: [
               for (final pattern in patterns)
-                DropdownMenuItem<String>(
-                  value: pattern,
-                  child: Text(pattern),
-                ),
+                DropdownMenuItem<String>(value: pattern, child: Text(pattern)),
             ],
-            onChanged: patterns.isEmpty ? null : (value) => value == null ? null : controller.selectClaimPattern(value),
+            onChanged: patterns.isEmpty
+                ? null
+                : (value) => value == null
+                      ? null
+                      : controller.selectClaimPattern(value),
           ),
           const SizedBox(height: 12),
           FilledButton(
             key: const ValueKey('claim-submit-button'),
-            onPressed: state.isSubmittingClaim || ticket == null || state.selectedClaimPattern == null || state.isTerminalSession
+            onPressed:
+                state.isSubmittingClaim ||
+                    ticket == null ||
+                    state.selectedClaimPattern == null ||
+                    state.isTerminalSession
                 ? null
                 : controller.submitClaim,
             child: state.isSubmittingClaim
-                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
                 : Text(localizations.submitClaim),
           ),
           if (ticket == null) ...[
@@ -412,7 +526,9 @@ class _ClaimCard extends StatelessWidget {
           if (state.infoMessage != null) ...[
             const SizedBox(height: 12),
             Text(
-              state.infoMessage == 'CLAIM_SUBMITTED' ? localizations.claimSubmitted : state.infoMessage!,
+              state.infoMessage == 'CLAIM_SUBMITTED'
+                  ? localizations.claimSubmitted
+                  : state.infoMessage!,
               style: TextStyle(color: Theme.of(context).colorScheme.primary),
             ),
           ],
@@ -437,19 +553,28 @@ class _ClaimHistoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final claims = List<WinClaimRecord>.from(state.claimPage?.content ?? const <WinClaimRecord>[])
-      ..sort((left, right) => right.createdAt.compareTo(left.createdAt));
+    final claims = List<WinClaimRecord>.from(
+      state.claimPage?.content ?? const <WinClaimRecord>[],
+    )..sort((left, right) => right.createdAt.compareTo(left.createdAt));
     final sessionId = state.session?.id;
-    final sessionClaims = sessionId == null ? claims : claims.where((claim) => claim.sessionId == sessionId).toList();
+    final sessionClaims = sessionId == null
+        ? claims
+        : claims.where((claim) => claim.sessionId == sessionId).toList();
 
     return SectionCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(localizations.claimHistoryTitle, style: Theme.of(context).textTheme.titleMedium),
+          Text(
+            localizations.claimHistoryTitle,
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
           const SizedBox(height: 12),
           if (sessionClaims.isEmpty)
-            AppStatusView(title: localizations.emptyState, message: localizations.contractGapBody)
+            AppStatusView(
+              title: localizations.emptyState,
+              message: localizations.contractGapBody,
+            )
           else
             Column(
               children: [
@@ -469,15 +594,30 @@ class _ClaimHistoryCard extends StatelessWidget {
                                   style: Theme.of(context).textTheme.titleSmall,
                                 ),
                               ),
-                              _ClaimStatusChip(status: claim.status, localizations: localizations),
+                              _ClaimStatusChip(
+                                status: claim.status,
+                                localizations: localizations,
+                              ),
                             ],
                           ),
                           const SizedBox(height: 8),
-                          Text('${localizations.drawSnapshotLabel}: ${claim.drawSequenceSnapshot}'),
-                          Text('${localizations.calledNumbersLabel}: ${claim.calledNumbersSnapshot.join(', ')}'),
-                          Text('${localizations.serverValidationLabel}: ${claim.serverValidationPassed ? localizations.claimPatternApproved : localizations.claimPatternFailed}'),
-                          if (claim.reviewNote != null) Text('${localizations.reviewNoteLabel}: ${claim.reviewNote}'),
-                          if (claim.entitlementId != null) Text('${localizations.claimSettlementLabel}: #${claim.entitlementId}'),
+                          Text(
+                            '${localizations.drawSnapshotLabel}: ${claim.drawSequenceSnapshot}',
+                          ),
+                          Text(
+                            '${localizations.calledNumbersLabel}: ${claim.calledNumbersSnapshot.join(', ')}',
+                          ),
+                          Text(
+                            '${localizations.serverValidationLabel}: ${claim.serverValidationPassed ? localizations.claimPatternApproved : localizations.claimPatternFailed}',
+                          ),
+                          if (claim.reviewNote != null)
+                            Text(
+                              '${localizations.reviewNoteLabel}: ${claim.reviewNote}',
+                            ),
+                          if (claim.entitlementId != null)
+                            Text(
+                              '${localizations.claimSettlementLabel}: #${claim.entitlementId}',
+                            ),
                         ],
                       ),
                     ),
@@ -519,7 +659,10 @@ class _ConnectionChip extends StatelessWidget {
   }
 }
 
-String _connectionLabel(LiveGameConnectionState connectionState, AppLocalizations localizations) {
+String _connectionLabel(
+  LiveGameConnectionState connectionState,
+  AppLocalizations localizations,
+) {
   switch (connectionState) {
     case LiveGameConnectionState.idle:
       return localizations.liveConnectionDisconnected;
@@ -553,7 +696,11 @@ class _InfoChip extends StatelessWidget {
 }
 
 class _DrawChip extends StatelessWidget {
-  const _DrawChip({required this.number, required this.sequenceNo, required this.isLatest});
+  const _DrawChip({
+    required this.number,
+    required this.sequenceNo,
+    required this.isLatest,
+  });
 
   final int number;
   final int sequenceNo;
@@ -562,7 +709,9 @@ class _DrawChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AnimatedScale(
-      duration: const Duration(milliseconds: 220),
+      duration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : const Duration(milliseconds: 220),
       scale: isLatest ? 1.04 : 1.0,
       child: Chip(
         avatar: CircleAvatar(
@@ -594,29 +743,43 @@ class _TicketCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final background = isFree
-      ? Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.75)
-      : isCalled
-        ? Theme.of(context).colorScheme.secondaryContainer.withValues(alpha: 0.9)
+        ? Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.75)
+        : isCalled
+        ? Theme.of(
+            context,
+          ).colorScheme.secondaryContainer.withValues(alpha: 0.9)
         : Theme.of(context).colorScheme.surfaceContainerHighest;
     return AnimatedScale(
-      duration: const Duration(milliseconds: 220),
+      duration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : const Duration(milliseconds: 220),
       scale: isLatest ? 1.04 : 1.0,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
+        duration: MediaQuery.disableAnimationsOf(context)
+            ? Duration.zero
+            : const Duration(milliseconds: 220),
         decoration: BoxDecoration(
           color: background,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: isCalled ? Theme.of(context).colorScheme.primary : Theme.of(context).dividerColor,
+            color: isCalled
+                ? Theme.of(context).colorScheme.primary
+                : Theme.of(context).dividerColor,
             width: isLatest ? 2 : 1,
           ),
         ),
         child: Center(
-          child: Text(
-            isFree ? localizations.freeCenterLabel : value.toString(),
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+          child: Padding(
+            padding: const EdgeInsets.all(4),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                isFree ? localizations.freeCenterLabel : value.toString(),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+              ),
+            ),
           ),
         ),
       ),

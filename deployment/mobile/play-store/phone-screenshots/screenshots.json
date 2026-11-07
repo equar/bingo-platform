@@ -1,0 +1,47 @@
+{
+  "source": "Current Flutter app UI rendered with isolated non-personal sample data and local preview fonts",
+  "production_data_accessed": false,
+  "uploaded_to_play_console": false,
+  "screenshots": [
+    {
+      "file": "01-home.png",
+      "width": 1080,
+      "height": 1920,
+      "aspect_ratio": "9:16",
+      "bytes": 191084,
+      "sha256": "663ccff5dc82102a270630d5de311dbbe13e42c4d2b6849273d48c3812fc9d02"
+    },
+    {
+      "file": "02-games.png",
+      "width": 1080,
+      "height": 1920,
+      "aspect_ratio": "9:16",
+      "bytes": 143093,
+      "sha256": "7b963b786df1e71a4c296166b5d4f49595404ff77b36f785a9553d2ed165c9b7"
+    },
+    {
+      "file": "03-private-games.png",
+      "width": 1080,
+      "height": 1920,
+      "aspect_ratio": "9:16",
+      "bytes": 123440,
+      "sha256": "0d65651745f9aac7f23c64ec52f0bf1ea312c1c1316ab8ce1dffd785861ea37c"
+    },
+    {
+      "file": "04-daily-challenges.png",
+      "width": 1080,
+      "height": 1920,
+      "aspect_ratio": "9:16",
+      "bytes": 191182,
+      "sha256": "c6f980dbee3dba084d3a337cd662bf17a6a582de61a381cee8fc7348facbba2c"
+    },
+    {
+      "file": "05-leaderboard.png",
+      "width": 1080,
+      "height": 1920,
+      "aspect_ratio": "9:16",
+      "bytes": 196308,
+      "sha256": "cc0b4e5fac0c78923ccc02fb63a3c324b12e7e1bb3041e40645ba622f8c1cabe"
+    }
+  ]
+}

@@ -1,3 +1,4 @@
+import 'package:bingo_app/src/core/widgets/responsive_content.dart';
 import 'package:bingo_app/l10n/app_localizations.dart';
 import 'package:bingo_app/src/core/widgets/app_status_view.dart';
 import 'package:bingo_app/src/core/widgets/section_card.dart';
@@ -15,16 +16,16 @@ class _TicketPreviewData {
 
 final ticketPreviewProvider = FutureProvider.autoDispose
     .family<_TicketPreviewData, (int, int)>((ref, ids) async {
-  final repository = ref.read(lobbyRepositoryProvider);
-  final results = await Future.wait([
-    repository.getSession(ids.$1),
-    repository.getRoom(ids.$2),
-  ]);
-  return _TicketPreviewData(
-    session: results[0] as GameSession,
-    room: results[1] as BingoRoom,
-  );
-});
+      final repository = ref.read(lobbyRepositoryProvider);
+      final results = await Future.wait([
+        repository.getSession(ids.$1),
+        repository.getRoom(ids.$2),
+      ]);
+      return _TicketPreviewData(
+        session: results[0] as GameSession,
+        room: results[1] as BingoRoom,
+      );
+    });
 
 class TicketPreviewScreen extends ConsumerWidget {
   const TicketPreviewScreen({
@@ -48,144 +49,157 @@ class TicketPreviewScreen extends ConsumerWidget {
           IconButton(
             key: const ValueKey('ticket-preview-refresh'),
             tooltip: l10n.refresh,
-            onPressed: () => ref.invalidate(
-              ticketPreviewProvider((sessionId, roomId)),
-            ),
+            onPressed: () =>
+                ref.invalidate(ticketPreviewProvider((sessionId, roomId))),
             icon: const Icon(Icons.refresh),
           ),
         ],
       ),
-      body: preview.when(
-        loading: () => Center(child: Text(l10n.loading)),
-        error: (error, stack) => AppStatusView(
-          title: l10n.errorGeneric,
-          message: l10n.ticketPreviewLoadError,
-          onAction: () => ref.invalidate(
-            ticketPreviewProvider((sessionId, roomId)),
+      body: ResponsiveContent(
+        child: preview.when(
+          loading: () => Center(child: Text(l10n.loading)),
+          error: (error, stack) => AppStatusView(
+            title: l10n.errorGeneric,
+            message: l10n.ticketPreviewLoadError,
+            onAction: () =>
+                ref.invalidate(ticketPreviewProvider((sessionId, roomId))),
           ),
-        ),
-        data: (data) {
-          final session = data.session;
-          final activeRoom = data.room.active;
-          final isOpen = session.state.toUpperCase() == 'OPEN';
-          final hasCapacity = session.availableSeats > 0;
+          data: (data) {
+            final session = data.session;
+            final activeRoom = data.room.active;
+            final isOpen = session.state.toUpperCase() == 'OPEN';
+            final hasCapacity = session.availableSeats > 0;
 
-          return RefreshIndicator(
-            onRefresh: () async => ref.invalidate(
-              ticketPreviewProvider((sessionId, roomId)),
-            ),
-            child: ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.all(16),
-              children: [
-                SectionCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(session.sessionName,
-                          style: Theme.of(context).textTheme.titleLarge),
-                      const SizedBox(height: 8),
-                      Text(session.roomName),
-                      const SizedBox(height: 12),
-                      _PreviewLine(
-                        label: l10n.roomPriceLabel,
-                        value: '${session.ticketPrice} ${session.currency}',
-                        key: const ValueKey('ticket-preview-price'),
-                      ),
-                      _PreviewLine(
-                        label: l10n.sessionStatusLabel,
-                        value: session.state,
-                      ),
-                      _PreviewLine(
-                        label: l10n.ticketAvailabilityLabel,
-                        value:
-                            '${session.availableSeats} / ${session.sessionCapacity}',
-                        key: const ValueKey('ticket-preview-availability'),
-                      ),
-                      _PreviewLine(
-                        label: l10n.gamePatterns,
-                        value: session.configuredPatterns.isEmpty
-                            ? l10n.ticketPatternsUnavailable
-                            : session.configuredPatterns.join(', '),
-                      ),
-                    ],
+            return RefreshIndicator(
+              onRefresh: () async =>
+                  ref.invalidate(ticketPreviewProvider((sessionId, roomId))),
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(16),
+                children: [
+                  SectionCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          session.sessionName,
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(session.roomName),
+                        const SizedBox(height: 12),
+                        _PreviewLine(
+                          label: l10n.roomPriceLabel,
+                          value: '${session.ticketPrice} ${session.currency}',
+                          key: const ValueKey('ticket-preview-price'),
+                        ),
+                        _PreviewLine(
+                          label: l10n.sessionStatusLabel,
+                          value: session.state,
+                        ),
+                        _PreviewLine(
+                          label: l10n.ticketAvailabilityLabel,
+                          value:
+                              '${session.availableSeats} / ${session.sessionCapacity}',
+                          key: const ValueKey('ticket-preview-availability'),
+                        ),
+                        _PreviewLine(
+                          label: l10n.gamePatterns,
+                          value: session.configuredPatterns.isEmpty
+                              ? l10n.ticketPatternsUnavailable
+                              : session.configuredPatterns.join(', '),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                SectionCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(l10n.ticketCardModel,
-                          style: Theme.of(context).textTheme.titleMedium),
-                      const SizedBox(height: 8),
-                      Text(l10n.ticketGeneratedAtPurchase),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          for (final column in const [
-                            ('B', '1–15'),
-                            ('I', '16–30'),
-                            ('N', '31–45'),
-                            ('G', '46–60'),
-                            ('O', '61–75'),
-                          ])
-                            Expanded(
-                              child: Column(
-                                children: [
-                                  Text(column.$1,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleMedium),
-                                  Text(column.$2,
+                  const SizedBox(height: 12),
+                  SectionCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          l10n.ticketCardModel,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(l10n.ticketGeneratedAtPurchase),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            for (final column in const [
+                              ('B', '1–15'),
+                              ('I', '16–30'),
+                              ('N', '31–45'),
+                              ('G', '46–60'),
+                              ('O', '61–75'),
+                            ])
+                              Expanded(
+                                child: Column(
+                                  children: [
+                                    Text(
+                                      column.$1,
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.titleMedium,
+                                    ),
+                                    Text(
+                                      column.$2,
                                       textAlign: TextAlign.center,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall),
-                                ],
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.bodySmall,
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(l10n.ticketFreeCenter),
-                    ],
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(l10n.ticketFreeCenter),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                SectionCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(l10n.ticketEligibilityTitle,
-                          style: Theme.of(context).textTheme.titleMedium),
-                      const SizedBox(height: 8),
-                      Text(!activeRoom
-                          ? l10n.ticketRoomInactive
-                          : !isOpen
+                  const SizedBox(height: 12),
+                  SectionCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          l10n.ticketEligibilityTitle,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          !activeRoom
+                              ? l10n.ticketRoomInactive
+                              : !isOpen
                               ? l10n.ticketSessionIneligible(session.state)
                               : !hasCapacity
-                                  ? l10n.ticketSessionFull
-                                  : l10n.ticketSessionAvailable),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        width: double.infinity,
-                        child: FilledButton.icon(
-                          key: const ValueKey('ticket-preview-purchase-disabled'),
-                          onPressed: null,
-                          icon: const Icon(Icons.lock_outline),
-                          label: Text(l10n.purchaseTicket),
+                              ? l10n.ticketSessionFull
+                              : l10n.ticketSessionAvailable,
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(l10n.ticketPurchaseDisabledBody),
-                    ],
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton.icon(
+                            key: const ValueKey(
+                              'ticket-preview-purchase-disabled',
+                            ),
+                            onPressed: null,
+                            icon: const Icon(Icons.lock_outline),
+                            label: Text(l10n.purchaseTicket),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(l10n.ticketPurchaseDisabledBody),
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            ),
-          );
-        },
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -199,7 +213,7 @@ class _PreviewLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(top: 6),
-        child: Text('$label: $value'),
-      );
+    padding: const EdgeInsets.only(top: 6),
+    child: Text('$label: $value'),
+  );
 }

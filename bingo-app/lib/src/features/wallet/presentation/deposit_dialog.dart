@@ -80,6 +80,7 @@ class _DepositDialogState extends State<DepositDialog> {
             localizations,
           );
     return AlertDialog(
+      scrollable: true,
       title: Text(localizations.submitDeposit),
       content: Form(
         key: _formKey,
