@@ -10856,7 +10856,7 @@
           "required" : false,
           "schema" : {
             "type" : "string",
-            "enum" : [ "LINE", "TWO_LINES", "FULL_HOUSE" ]
+            "enum" : [ "LINE", "TWO_LINES", "FULL_HOUSE", "FOUR_CORNERS", "POSTAGE_STAMP", "X_SHAPE", "T_SHAPE", "L_SHAPE", "OUTER_FRAME" ]
           }
         }, {
           "name" : "serverValidationPassed",
@@ -16090,6 +16090,12 @@
           "updatedAt" : {
             "type" : "string",
             "format" : "date-time"
+          },
+          "createdByDisplayName" : {
+            "type" : "string"
+          },
+          "updatedByDisplayName" : {
+            "type" : "string"
           }
         }
       },
@@ -16235,7 +16241,7 @@
         "properties" : {
           "prizeType" : {
             "type" : "string",
-            "enum" : [ "LINE", "TWO_LINES", "FULL_HOUSE" ]
+            "enum" : [ "LINE", "TWO_LINES", "FULL_HOUSE", "FOUR_CORNERS", "POSTAGE_STAMP", "X_SHAPE", "T_SHAPE", "L_SHAPE", "OUTER_FRAME" ]
           },
           "amount" : {
             "type" : "number"
@@ -16307,7 +16313,7 @@
             "type" : "array",
             "items" : {
               "type" : "string",
-              "enum" : [ "LINE", "TWO_LINES", "FULL_HOUSE" ]
+              "enum" : [ "LINE", "TWO_LINES", "FULL_HOUSE", "FOUR_CORNERS", "POSTAGE_STAMP", "X_SHAPE", "T_SHAPE", "L_SHAPE", "OUTER_FRAME" ]
             }
           },
           "configuredPrizes" : {
@@ -16339,7 +16345,7 @@
         "properties" : {
           "prizeType" : {
             "type" : "string",
-            "enum" : [ "LINE", "TWO_LINES", "FULL_HOUSE" ]
+            "enum" : [ "LINE", "TWO_LINES", "FULL_HOUSE", "FOUR_CORNERS", "POSTAGE_STAMP", "X_SHAPE", "T_SHAPE", "L_SHAPE", "OUTER_FRAME" ]
           },
           "amount" : {
             "type" : "number",
@@ -16407,7 +16413,7 @@
             "type" : "array",
             "items" : {
               "type" : "string",
-              "enum" : [ "LINE", "TWO_LINES", "FULL_HOUSE" ]
+              "enum" : [ "LINE", "TWO_LINES", "FULL_HOUSE", "FOUR_CORNERS", "POSTAGE_STAMP", "X_SHAPE", "T_SHAPE", "L_SHAPE", "OUTER_FRAME" ]
             },
             "minItems" : 1
           },
@@ -16471,7 +16477,7 @@
             "type" : "array",
             "items" : {
               "type" : "string",
-              "enum" : [ "LINE", "TWO_LINES", "FULL_HOUSE" ]
+              "enum" : [ "LINE", "TWO_LINES", "FULL_HOUSE", "FOUR_CORNERS", "POSTAGE_STAMP", "X_SHAPE", "T_SHAPE", "L_SHAPE", "OUTER_FRAME" ]
             }
           },
           "configuredPrizes" : {
@@ -16955,7 +16961,7 @@
         "properties" : {
           "claimedPattern" : {
             "type" : "string",
-            "enum" : [ "LINE", "TWO_LINES", "FULL_HOUSE" ]
+            "enum" : [ "LINE", "TWO_LINES", "FULL_HOUSE", "FOUR_CORNERS", "POSTAGE_STAMP", "X_SHAPE", "T_SHAPE", "L_SHAPE", "OUTER_FRAME" ]
           }
         },
         "required" : [ "claimedPattern" ]
@@ -16981,7 +16987,7 @@
           },
           "claimedPattern" : {
             "type" : "string",
-            "enum" : [ "LINE", "TWO_LINES", "FULL_HOUSE" ]
+            "enum" : [ "LINE", "TWO_LINES", "FULL_HOUSE", "FOUR_CORNERS", "POSTAGE_STAMP", "X_SHAPE", "T_SHAPE", "L_SHAPE", "OUTER_FRAME" ]
           },
           "status" : {
             "type" : "string",
@@ -18041,7 +18047,7 @@
             "type" : "array",
             "items" : {
               "type" : "string",
-              "enum" : [ "LINE", "TWO_LINES", "FULL_HOUSE" ]
+              "enum" : [ "LINE", "TWO_LINES", "FULL_HOUSE", "FOUR_CORNERS", "POSTAGE_STAMP", "X_SHAPE", "T_SHAPE", "L_SHAPE", "OUTER_FRAME" ]
             }
           },
           "configuredPrizes" : {
@@ -18091,7 +18097,7 @@
           },
           "prizeType" : {
             "type" : "string",
-            "enum" : [ "LINE", "TWO_LINES", "FULL_HOUSE" ]
+            "enum" : [ "LINE", "TWO_LINES", "FULL_HOUSE", "FOUR_CORNERS", "POSTAGE_STAMP", "X_SHAPE", "T_SHAPE", "L_SHAPE", "OUTER_FRAME" ]
           },
           "settlementPath" : {
             "type" : "string",
@@ -18834,7 +18840,7 @@
             "type" : "array",
             "items" : {
               "type" : "string",
-              "enum" : [ "LINE", "TWO_LINES", "FULL_HOUSE" ]
+              "enum" : [ "LINE", "TWO_LINES", "FULL_HOUSE", "FOUR_CORNERS", "POSTAGE_STAMP", "X_SHAPE", "T_SHAPE", "L_SHAPE", "OUTER_FRAME" ]
             }
           },
           "ticketCount" : {
@@ -18924,7 +18930,7 @@
             "type" : "array",
             "items" : {
               "type" : "string",
-              "enum" : [ "LINE", "TWO_LINES", "FULL_HOUSE" ]
+              "enum" : [ "LINE", "TWO_LINES", "FULL_HOUSE", "FOUR_CORNERS", "POSTAGE_STAMP", "X_SHAPE", "T_SHAPE", "L_SHAPE", "OUTER_FRAME" ]
             }
           },
           "createdAt" : {

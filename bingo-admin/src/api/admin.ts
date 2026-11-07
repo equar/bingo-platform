@@ -187,6 +187,8 @@ export interface UserSummaryResponse {
   status: string;
   createdAt: string;
   updatedAt: string;
+  createdByDisplayName?: string | null;
+  updatedByDisplayName?: string | null;
 }
 
 export interface AdminUserCreateRequest {

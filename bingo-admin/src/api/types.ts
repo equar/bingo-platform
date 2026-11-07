@@ -100,6 +100,8 @@ const CODE_MESSAGES: Record<string, string> = {
   TOP_UP_NOT_VERIFIED: "This request must be independently verified before it can be posted.",
   CLOSED_TICKET_TERMINAL: "This support ticket is closed and can no longer be changed.",
   SESSION_NOT_DRAWING: "This game is not currently open for draws.",
+  SESSION_HAS_TICKETS_CANNOT_CANCEL: "Cancellation is unavailable after tickets have been sold.",
+  SESSION_START_MUST_BE_FUTURE: "Scheduled start must be in the future.",
   SESSION_CAPACITY_REACHED: "This game is full. Choose another game.",
   TRANSFER_LIMIT_EXCEEDED: "This transfer is above the allowed limit.",
   DAILY_TRANSFER_LIMIT_EXCEEDED: "You have reached the daily transfer limit.",

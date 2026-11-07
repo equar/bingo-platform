@@ -67,7 +67,10 @@ describe("PlayerVerificationPage", () => {
     });
   });
 
-  afterEach(() => cleanup());
+  afterEach(() => {
+    cleanup();
+    window.sessionStorage.removeItem("admin-list-search:player-verification");
+  });
 
   it("explains manual review, lists players, and records verified status with its matching reason", async () => {
     const user = userEvent.setup();

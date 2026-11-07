@@ -31,6 +31,9 @@ import {
 import { getUserFacingErrorMessage } from "../../api/types";
 import { StatusState } from "../../components/StatusState";
 import { AdminTablePagination } from "../../components/AdminTablePagination";
+import { AdminTablePage } from "../../components/AdminTablePage";
+import { AdminPageHeader } from "../../components/AdminPageHeader";
+import { useListSessionState } from "../../components/useListSessionState";
 
 type AuditFilterDraft = {
   query: string;
@@ -132,10 +135,10 @@ function downloadAuditCsv(entries: AdminAuditLogSummaryResponse[]) {
 
 export function AuditLogsPage() {
   const { t } = useTranslation();
-  const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(20);
-  const [draftFilters, setDraftFilters] = useState<AuditFilterDraft>(emptyDraft);
-  const [appliedFilters, setAppliedFilters] = useState<AuditLogSearchFilters>({});
+  const [page, setPage] = useListSessionState("audit-logs:page", 0);
+  const [pageSize, setPageSize] = useListSessionState("audit-logs:size", 20);
+  const [draftFilters, setDraftFilters] = useListSessionState("audit-logs:draft", emptyDraft);
+  const [appliedFilters, setAppliedFilters] = useListSessionState<AuditLogSearchFilters>("audit-logs:filters", {});
   const [filterError, setFilterError] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
@@ -211,13 +214,9 @@ export function AuditLogsPage() {
   };
 
   return (
+    <AdminTablePage>
     <Stack spacing={2.5}>
-      <Box>
-        <Typography variant="h4">{t("Audit logs")}</Typography>
-        <Typography color="text.secondary">
-          {t("Search and trace activity across the full audit history. Newest activity is shown first.")}
-        </Typography>
-      </Box>
+      <AdminPageHeader title={t("Audit logs")} description={t("Search and trace activity across the full audit history. Newest activity is shown first.")} />
 
       <Stack
         component="form"
@@ -487,5 +486,6 @@ export function AuditLogsPage() {
         </DialogActions>
       </Dialog>
     </Stack>
+    </AdminTablePage>
   );
 }

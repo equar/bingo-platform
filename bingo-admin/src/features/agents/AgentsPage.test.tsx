@@ -4,7 +4,7 @@ import { cleanup, render, screen, waitFor, within } from "@testing-library/react
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { adminAgents, adminFloatBankAccounts, adminFloatTopUpRequests, currentCommissionRule, floatTopUpVerificationHistory, type AdminAgentSummaryResponse } from "../../api/admin";
+import { adminAgents, adminFloatBankAccounts, adminFloatTopUpRequests, approveAgent, currentCommissionRule, floatTopUpVerificationHistory, suspendAgent, type AdminAgentSummaryResponse } from "../../api/admin";
 import i18n from "../../i18n";
 import { AgentsPage } from "./AgentsPage";
 
@@ -54,6 +54,7 @@ describe("AgentsPage float top-up review", () => {
 
   beforeEach(async () => {
     await i18n.changeLanguage("en");
+    window.sessionStorage.removeItem("admin-list-search:agents");
     adminAgentsMock.mockReset().mockResolvedValue({
       content: [],
       page: 0,
@@ -178,5 +179,73 @@ describe("AgentsPage float top-up review", () => {
     expect(await screen.findByText("Current version 3 · Inactive")).toBeInTheDocument();
     expect(screen.getByRole("spinbutton", { name: "Commission rate (bps)" })).toHaveValue(0);
     expect(screen.getByRole("checkbox", { name: "Active" })).not.toBeChecked();
+  });
+
+  it("restores agent filters and page through the record URL without putting search text in the URL", async () => {
+    window.sessionStorage.setItem("admin-list-search:agents", "Mekdes");
+    adminAgentsMock.mockResolvedValue({
+      content: [agentSummary(3, "Mekdes Agent")], page: 1, size: 10, totalElements: 21, totalPages: 3,
+      first: false, last: false,
+    });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={["/agents?status=APPROVED&page=1&size=10"]}>
+          <AgentsPage />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    const detailLink = await screen.findByRole("link", { name: "Detail" });
+    await waitFor(() => expect(adminAgentsMock).toHaveBeenCalledWith(1, 10, "Mekdes", "APPROVED"));
+    expect(detailLink).toHaveAttribute("href", "/agents/3?status=APPROVED&page=1&size=10");
+    expect(detailLink.getAttribute("href")).not.toContain("Mekdes");
+  });
+
+  it("keeps the approval dialog open with the error after an API failure", async () => {
+    adminAgentsMock.mockResolvedValue({
+      content: [{ ...agentSummary(3, "Pending Agent"), status: "PENDING" }],
+      page: 0, size: 20, totalElements: 1, totalPages: 1, first: true, last: true,
+    });
+    vi.mocked(approveAgent).mockRejectedValueOnce(new Error("Approval failed"));
+    const user = userEvent.setup();
+    render(<AgentsPage />, { wrapper: createWrapper });
+
+    await user.click(await screen.findByRole("button", { name: "Approve" }));
+    const dialog = screen.getByRole("dialog", { name: "Approve agent application" });
+    await user.click(within(dialog).getByRole("button", { name: "Approve" }));
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("Something went wrong. Please try again.");
+    expect(within(dialog).getByText(/Pending Agent/)).toBeInTheDocument();
+  });
+
+  it("closes the approval dialog after the API confirms success", async () => {
+    adminAgentsMock.mockResolvedValue({
+      content: [{ ...agentSummary(3, "Pending Agent"), status: "PENDING" }],
+      page: 0, size: 20, totalElements: 1, totalPages: 1, first: true, last: true,
+    });
+    const user = userEvent.setup();
+    render(<AgentsPage />, { wrapper: createWrapper });
+
+    await user.click(await screen.findByRole("button", { name: "Approve" }));
+    const dialog = screen.getByRole("dialog", { name: "Approve agent application" });
+    await user.click(within(dialog).getByRole("button", { name: "Approve" }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Approve agent application" })).not.toBeInTheDocument());
+    expect(approveAgent).toHaveBeenCalledWith(3);
+  });
+
+  it("keeps the suspend confirmation open with an API error for retry", async () => {
+    adminAgentsMock.mockResolvedValue({
+      content: [agentSummary(3, "Approved Agent")],
+      page: 0, size: 20, totalElements: 1, totalPages: 1, first: true, last: true,
+    });
+    vi.mocked(suspendAgent).mockRejectedValueOnce(new Error("Failed"));
+    const user = userEvent.setup();
+    render(<AgentsPage />, { wrapper: createWrapper });
+
+    await user.click(await screen.findByRole("button", { name: "Suspend" }));
+    const dialog = screen.getByRole("dialog", { name: "Suspend agent" });
+    await user.click(within(dialog).getByRole("button", { name: "Suspend" }));
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("Something went wrong. Please try again.");
+    expect(within(dialog).getByText(/Approved Agent/)).toBeInTheDocument();
   });
 });

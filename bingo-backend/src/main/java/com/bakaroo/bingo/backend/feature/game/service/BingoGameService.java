@@ -352,6 +352,10 @@ public class BingoGameService {
         if (!room.isActive()) {
             throw new ConflictException("ROOM_INACTIVE", "Sessions cannot be created for an inactive room");
         }
+        if (!request.scheduledStartAt().isAfter(Instant.now())) {
+            throw new BadRequestException("SESSION_START_MUST_BE_FUTURE",
+                    "Scheduled session start must be in the future");
+        }
         if (request.state() != null && request.state() != GameSessionState.DRAFT
                 && request.state() != GameSessionState.OPEN) {
             throw new BadRequestException("INVALID_INITIAL_SESSION_STATE",
@@ -408,6 +412,10 @@ public class BingoGameService {
         if (!current.canTransitionTo(next)) {
             throw new ConflictException("INVALID_SESSION_STATE_TRANSITION",
                     "Cannot transition session from " + current + " to " + next);
+        }
+        if (next == GameSessionState.CANCELLED && ticketRepository.countBySessionId(sessionId) > 0) {
+            throw new ConflictException("SESSION_HAS_TICKETS_CANNOT_CANCEL",
+                    "A session with sold tickets cannot be cancelled");
         }
         session.setState(next);
         if (next == GameSessionState.STARTED) {

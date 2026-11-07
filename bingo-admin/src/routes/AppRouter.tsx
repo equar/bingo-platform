@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Box, CircularProgress } from "@mui/material";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { ProtectedRoute } from "./ProtectedRoute";
 import { useSession } from "../api/session";
 
@@ -21,6 +21,9 @@ const AdminUsersPage = lazy(() =>
 const RoomsPage = lazy(() => import("../features/rooms/RoomsPage").then((module) => ({ default: module.RoomsPage })));
 const SessionsPage = lazy(() =>
   import("../features/sessions/SessionsPage").then((module) => ({ default: module.SessionsPage })),
+);
+const SessionCreatePage = lazy(() =>
+  import("../features/sessions/SessionCreatePage").then((module) => ({ default: module.SessionCreatePage })),
 );
 const SessionDetailPage = lazy(() =>
   import("../features/sessions/SessionDetailPage").then((module) => ({ default: module.SessionDetailPage })),
@@ -85,6 +88,14 @@ const CommunityPage = lazy(() => import("../features/community/CommunityPage").t
 
 export function AppRouter() {
   const { t } = useTranslation();
+  const location = useLocation();
+  useEffect(() => {
+    const title = location.pathname === "/login"
+      ? "auth.signInTitle"
+      : location.pathname === "/reset-password" ? "auth.resetPasswordTitle"
+        : location.pathname === "/activate-account" ? "auth.activateAccountTitle" : null;
+    if (title) document.title = `${t(title)} | ${t("brand")}`;
+  }, [location.pathname, t]);
   return (
     <Suspense
       fallback={
@@ -107,15 +118,18 @@ export function AppRouter() {
             <Route path="session-tickets" element={<SessionTicketsPage />} />
             <Route path="reports" element={<ReportsPage />} />
             <Route path="audit-logs" element={<AuditLogsPage />} />
+            <Route path="rooms" element={<RoomsPage />} />
+            <Route path="rooms/new" element={<RoomsPage />} />
+            <Route path="rooms/:roomId/edit" element={<RoomsPage />} />
             <Route element={<ProtectedRoute allowedRoles={["ADMIN"]} />}>
               <Route path="management" element={<Navigate to="/dashboard" replace />} />
               <Route path="dashboard" element={<DashboardPage />} />
               <Route path="admin-users" element={<AdminUsersPage />} />
-              <Route path="rooms" element={<RoomsPage />} />
-              <Route path="rooms/new" element={<RoomsPage />} />
-              <Route path="rooms/:roomId/edit" element={<RoomsPage />} />
+              <Route path="admin-users/new" element={<AdminUsersPage />} />
+              <Route path="admin-users/:userId/edit" element={<AdminUsersPage />} />
               <Route path="community" element={<CommunityPage />} />
               <Route path="sessions" element={<SessionsPage />} />
+              <Route path="sessions/new" element={<SessionCreatePage />} />
               <Route path="sessions/:sessionId" element={<SessionDetailPage />} />
               <Route path="players" element={<PlayersPage />} />
               <Route path="player-verifications" element={<PlayerVerificationPage />} />

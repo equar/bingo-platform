@@ -93,21 +93,28 @@ class AdminUserServiceTest {
                                 Set.of(UserRole.ADMIN, UserRole.SUPPORT), Instant.parse("2026-01-01T00:00:00Z"));
                 ReflectionTestUtils.setField(saved, "id", 21L);
                 saved.setEmail("admin@example.com");
+                saved.setCreatedByDisplayName("Platform Owner");
+                saved.setUpdatedByDisplayName("Platform Owner");
                 when(userRepository.save(any(User.class))).thenReturn(saved);
 
                 var response = service.createUser(new AdminUserCreateRequest("  New Admin  ", "Admin@Example.com ",
-                                "0911000001", AccountStatus.ACTIVE, Set.of(UserRole.ADMIN, UserRole.SUPPORT)));
+                                "0911000001", AccountStatus.ACTIVE, Set.of(UserRole.ADMIN, UserRole.SUPPORT)),
+                                "Platform Owner");
 
                 assertThat(response.id()).isEqualTo(21L);
                 assertThat(response.displayName()).isEqualTo("New Admin");
                 assertThat(response.email()).isEqualTo("admin@example.com");
                 assertThat(response.phoneNumber()).isEqualTo("251911000001");
+                assertThat(response.createdByDisplayName()).isEqualTo("Platform Owner");
+                assertThat(response.updatedByDisplayName()).isEqualTo("Platform Owner");
 
                 ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
                 verify(userRepository).save(userCaptor.capture());
                 User createdUser = userCaptor.getValue();
                 assertThat(createdUser.getDisplayName()).isEqualTo("New Admin");
                 assertThat(createdUser.getEmail()).isEqualTo("admin@example.com");
+                assertThat(createdUser.getCreatedByDisplayName()).isEqualTo("Platform Owner");
+                assertThat(createdUser.getUpdatedByDisplayName()).isEqualTo("Platform Owner");
                 assertThat(createdUser.getPasswordHash()).isEqualTo("encoded-password");
                 assertThat(createdUser.isMustChangePassword()).isTrue();
                 assertThat(createdUser.getAccountActivationTokenHash()).matches("[a-f0-9]{64}");
@@ -145,14 +152,16 @@ class AdminUserServiceTest {
                 var response = service.updateUser(31L,
                                 new AdminUserUpdateRequest(" Updated Admin ", "existing@example.com",
                                                 "0911000003", "   ", AccountStatus.SUSPENDED,
-                                                Set.of(UserRole.ADMIN)));
+                                                Set.of(UserRole.ADMIN)), 17L, "Operations Admin");
 
                 assertThat(response.displayName()).isEqualTo("Updated Admin");
                 assertThat(response.email()).isEqualTo("existing@example.com");
                 assertThat(response.phoneNumber()).isEqualTo("251911000003");
+                assertThat(response.updatedByDisplayName()).isEqualTo("Operations Admin");
                 assertThat(existing.getPasswordHash()).isEqualTo("old-password");
                 assertThat(existing.getStatus()).isEqualTo(AccountStatus.SUSPENDED);
                 assertThat(existing.getRoles()).containsExactly(UserRole.ADMIN);
+                assertThat(existing.getUpdatedByDisplayName()).isEqualTo("Operations Admin");
         }
 
         @Test

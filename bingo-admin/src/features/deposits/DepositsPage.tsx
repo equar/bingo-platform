@@ -31,6 +31,10 @@ import {
 import { getUserFacingErrorMessage, parseApiError } from "../../api/types";
 import { StatusState } from "../../components/StatusState";
 import { AdminTablePagination } from "../../components/AdminTablePagination";
+import { AdminTablePage } from "../../components/AdminTablePage";
+import { AdminPageHeader } from "../../components/AdminPageHeader";
+import { usePrivateListSearch } from "../../components/usePrivateListSearch";
+import { useListSessionState } from "../../components/useListSessionState";
 import { translateAdminStatus } from "../../i18n";
 import { useIdempotencyKey } from "../common/useIdempotencyKey";
 
@@ -47,10 +51,10 @@ export function DepositsPage() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
-  const [query, setQuery] = useState("");
-  const [status, setStatus] = useState(() => statusOptions.find((option) => option === searchParams.get("status")) ?? "");
-  const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(20);
+  const [query, setQuery] = usePrivateListSearch("deposits");
+  const [status, setStatus] = useListSessionState("deposits:status", () => statusOptions.find((option) => option === searchParams.get("status")) ?? "");
+  const [page, setPage] = useListSessionState("deposits:page", 0);
+  const [pageSize, setPageSize] = useListSessionState("deposits:size", 20);
   const normalizedQuery = query.trim();
   const depositsQuery = useQuery({
     queryKey: ["deposits", normalizedQuery, status, page, pageSize],
@@ -67,8 +71,8 @@ export function DepositsPage() {
   const idempotency = useIdempotencyKey();
 
   useEffect(() => {
-    setStatus(statusOptions.find((option) => option === searchParams.get("status")) ?? "");
-  }, [searchParams]);
+    if (searchParams.has("status")) setStatus(statusOptions.find((option) => option === searchParams.get("status")) ?? "");
+  }, [searchParams, setStatus]);
 
   const actionMutation = useMutation({
     mutationFn: async () => {
@@ -125,11 +129,9 @@ export function DepositsPage() {
   }
 
   return (
+    <AdminTablePage>
     <Stack spacing={3}>
-      <Box>
-        <Typography variant="h4">{t("Deposits")}</Typography>
-        <Typography color="text.secondary">{t("Verify payment references, snapshots, and review history.")}</Typography>
-      </Box>
+      <AdminPageHeader title={t("Deposits")} description={t("Verify payment references, snapshots, and review history.")} />
 
       <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
         <TextField
@@ -356,5 +358,6 @@ export function DepositsPage() {
         </DialogActions>
       </Dialog>
     </Stack>
+    </AdminTablePage>
   );
 }

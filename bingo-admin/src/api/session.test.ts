@@ -36,6 +36,14 @@ describe('session helpers', () => {
     expect(readSession()).toBeNull();
   });
 
+  it('clears potentially personal list searches when the admin session ends', () => {
+    window.sessionStorage.setItem('admin-list-search:players', 'player phone');
+    window.sessionStorage.setItem('admin-list-state:agents:page', '2');
+    clearSession();
+    expect(window.sessionStorage.getItem('admin-list-search:players')).toBeNull();
+    expect(window.sessionStorage.getItem('admin-list-state:agents:page')).toBeNull();
+  });
+
   it('applies the saved account language on sign-in and returns to English on sign-out', () => {
     writeSession(buildSession({ preferredLanguage: 'am' }));
     expect(i18n.language).toBe('am');

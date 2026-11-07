@@ -82,6 +82,11 @@ public class AdminUserService {
 
     @Transactional
     public UserSummaryResponse createUser(AdminUserCreateRequest request) {
+        return createUser(request, null);
+    }
+
+    @Transactional
+    public UserSummaryResponse createUser(AdminUserCreateRequest request, String actorDisplayName) {
         String normalizedEmail = normalizeEmail(request.email());
         String normalizedPhone = normalizeOptionalPhone(request.phoneNumber());
         validateRoles(request.roles());
@@ -102,6 +107,8 @@ public class AdminUserService {
                 new LinkedHashSet<>(request.roles()),
                 createdAt);
         user.setEmail(normalizedEmail);
+        user.setCreatedByDisplayName(actorDisplayName);
+        user.setUpdatedByDisplayName(actorDisplayName);
         user.requireAccountActivation(
                 activationTokenGenerator.hashToken(activationToken),
                 createdAt.plus(Duration.ofHours(24)));
@@ -117,6 +124,11 @@ public class AdminUserService {
 
     @Transactional
     public void resendActivation(Long userId, Long actorUserId) {
+        resendActivation(userId, actorUserId, null);
+    }
+
+    @Transactional
+    public void resendActivation(Long userId, Long actorUserId, String actorDisplayName) {
         User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new NotFoundException("USER_NOT_FOUND", "User account not found"));
         if (actorUserId != null && actorUserId.equals(user.getId())) {
@@ -131,12 +143,20 @@ public class AdminUserService {
 
         Instant now = Instant.now();
         String activationToken = activationTokenGenerator.generateToken();
+        if (actorDisplayName != null) {
+            user.setUpdatedByDisplayName(actorDisplayName);
+        }
         user.requireAccountActivation(activationTokenGenerator.hashToken(activationToken), now.plus(Duration.ofHours(24)));
         queueActivationEmailAfterCommit(user, buildActivationLink(activationToken));
     }
 
     @Transactional
     public void resetPassword(Long userId, Long actorUserId) {
+        resetPassword(userId, actorUserId, null);
+    }
+
+    @Transactional
+    public void resetPassword(Long userId, Long actorUserId, String actorDisplayName) {
         User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new NotFoundException("USER_NOT_FOUND", "User account not found"));
         if (actorUserId != null && actorUserId.equals(user.getId())) {
@@ -151,6 +171,9 @@ public class AdminUserService {
 
         Instant now = Instant.now();
         String resetToken = activationTokenGenerator.generateToken();
+        if (actorDisplayName != null) {
+            user.setUpdatedByDisplayName(actorDisplayName);
+        }
         user.requirePasswordReset(activationTokenGenerator.hashToken(resetToken), now.plus(Duration.ofHours(24)));
         queuePasswordResetEmailAfterCommit(user, buildLink(resetPasswordUrl, resetToken));
     }
@@ -162,6 +185,12 @@ public class AdminUserService {
 
     @Transactional
     public UserSummaryResponse updateUser(Long userId, AdminUserUpdateRequest request, Long actorUserId) {
+        return updateUser(userId, request, actorUserId, null);
+    }
+
+    @Transactional
+    public UserSummaryResponse updateUser(Long userId, AdminUserUpdateRequest request, Long actorUserId,
+            String actorDisplayName) {
         User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new NotFoundException("USER_NOT_FOUND", "User account not found"));
         if (user.hasRole(UserRole.AGENT)) {
@@ -197,6 +226,9 @@ public class AdminUserService {
         user.setDisplayName(request.displayName().trim());
         user.setNormalizedPhone(normalizedPhone);
         user.setStatus(request.status());
+        if (actorDisplayName != null) {
+            user.setUpdatedByDisplayName(actorDisplayName);
+        }
 
         return toSummary(userRepository.save(user));
     }
@@ -259,7 +291,9 @@ public class AdminUserService {
                 user.getRoles(),
                 user.getStatus(),
                 user.getCreatedAt(),
-                user.getUpdatedAt());
+                user.getUpdatedAt(),
+                user.getCreatedByDisplayName(),
+                user.getUpdatedByDisplayName());
     }
 
     private void queueActivationEmail(User user, String activationLink) {

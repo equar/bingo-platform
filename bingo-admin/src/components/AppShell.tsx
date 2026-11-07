@@ -2,6 +2,7 @@ import {
   AppBar,
   Avatar,
   Box,
+  Breadcrumbs,
   Button,
   CssBaseline,
   Divider,
@@ -13,6 +14,7 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
+  Link,
   Stack,
   Toolbar,
   Tooltip,
@@ -43,7 +45,6 @@ const navGroups = [
     title: "nav.operations",
     items: [
       { to: "/sessions", label: "nav.sessions", icon: "sessions" },
-      { to: "/session-tickets", label: "nav.sessionTickets", icon: "sessions" },
       { to: "/rooms", label: "nav.rooms", icon: "rooms" },
       { to: "/community", label: "nav.community", icon: "community" },
     ],
@@ -123,9 +124,9 @@ const navIconPaths: Record<NavIconName, string[]> = {
   close: ["m18 6-12 12", "m6 6 12 12"],
 };
 
-function NavIcon({ name }: { name: NavIconName }) {
+function NavIcon({ name, size = 20 }: { name: NavIconName; size?: number }) {
   return (
-    <Box component="svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false" sx={{ width: 20, height: 20, flexShrink: 0 }}>
+    <Box component="svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false" sx={{ width: size, height: size, flexShrink: 0 }}>
       {navIconPaths[name].map((path) => (
         <Box
           component="path"
@@ -146,8 +147,43 @@ function isNavItemActive(pathname: string, itemPath: string) {
   if (itemPath === "/wallet/signup-reward") {
     return ["/wallet", "/wallet/signup-reward", "/wallet/transfer-policy"].includes(pathname);
   }
+  if (itemPath === "/sessions" && pathname === "/session-tickets") {
+    return true;
+  }
   return pathname === itemPath || pathname.startsWith(`${itemPath}/`);
 }
+
+const routeTitles: Array<{ match: RegExp; title: string; parent?: string; parentTo?: string }> = [
+  { match: /^\/dashboard$/, title: "nav.dashboard" },
+  { match: /^\/sessions\/new$/, title: "Create session", parent: "nav.sessions", parentTo: "/sessions" },
+  { match: /^\/sessions\/[^/]+$/, title: "Session details", parent: "nav.sessions", parentTo: "/sessions" },
+  { match: /^\/session-tickets$/, title: "Session ticket lookup", parent: "nav.sessions", parentTo: "/sessions" },
+  { match: /^\/sessions$/, title: "nav.sessions" },
+  { match: /^\/rooms\/new$/, title: "Create room", parent: "nav.rooms", parentTo: "/rooms" },
+  { match: /^\/rooms\/[^/]+\/edit$/, title: "Edit room", parent: "nav.rooms", parentTo: "/rooms" },
+  { match: /^\/rooms$/, title: "nav.rooms" },
+  { match: /^\/players\/[^/]+$/, title: "Player details", parent: "nav.players", parentTo: "/players" },
+  { match: /^\/players$/, title: "nav.players" },
+  { match: /^\/agents\/[^/]+$/, title: "Agent details", parent: "nav.agents", parentTo: "/agents" },
+  { match: /^\/agents$/, title: "nav.agents" },
+  { match: /^\/support\/tickets\/[^/]+$/, title: "Ticket details", parent: "nav.support", parentTo: "/support/tickets" },
+  { match: /^\/support\/tickets$/, title: "nav.support" },
+  { match: /^\/change-password$/, title: "Change password", parent: "Profile", parentTo: "/profile" },
+  { match: /^\/profile$/, title: "Profile" },
+  { match: /^\/community$/, title: "nav.community" },
+  { match: /^\/deposits$/, title: "nav.deposits" },
+  { match: /^\/claims$/, title: "nav.claims" },
+  { match: /^\/prize-entitlements$/, title: "nav.entitlements" },
+  { match: /^\/player-verifications$/, title: "nav.verification" },
+  { match: /^\/wallet\/signup-reward$/, title: "nav.walletPolicies" },
+  { match: /^\/wallet\/transfer-policy$/, title: "Transfer policy", parent: "nav.walletPolicies", parentTo: "/wallet/signup-reward" },
+  { match: /^\/wallet\/transfers$/, title: "nav.transfers" },
+  { match: /^\/admin-users$/, title: "nav.adminUsers" },
+  { match: /^\/admin-users\/new$/, title: "Create admin user", parent: "nav.adminUsers", parentTo: "/admin-users" },
+  { match: /^\/admin-users\/[^/]+\/edit$/, title: "Edit admin user", parent: "nav.adminUsers", parentTo: "/admin-users" },
+  { match: /^\/audit-logs$/, title: "nav.audit" },
+  { match: /^\/reports$/, title: "nav.reports" },
+];
 
 export function AppShell() {
   const { t } = useTranslation();
@@ -167,18 +203,36 @@ export function AppShell() {
   });
   const navigationCollapsed = !isMobile && desktopNavCollapsed;
   const drawerWidth = navigationCollapsed ? collapsedDrawerWidth : expandedDrawerWidth;
+  const pageTrail = useMemo(
+    () => routeTitles.find((route) => route.match.test(location.pathname)),
+    [location.pathname],
+  );
+
+  useEffect(() => {
+    if (pageTrail) {
+      document.title = `${t(pageTrail.title)} | ${t("brand")}`;
+    }
+  }, [pageTrail, t]);
   const supportOnly = Boolean(session?.user.roles.includes("SUPPORT") && !session.user.roles.includes("ADMIN"));
   const visibleNavGroups = useMemo(
     () => supportOnly
-      ? [{
-          title: "nav.reviews",
-          items: [
-            { to: "/support/tickets", label: "nav.support", icon: "support" as const },
-            { to: "/session-tickets", label: "nav.sessionTickets", icon: "sessions" as const },
-            { to: "/audit-logs", label: "nav.audit", icon: "audit" as const },
-            { to: "/reports", label: "nav.reports", icon: "audit" as const },
-          ],
-        }]
+      ? [
+          {
+            title: "nav.operations",
+            items: [
+              { to: "/rooms", label: "nav.rooms", icon: "rooms" as const },
+            ],
+          },
+          {
+            title: "nav.reviews",
+            items: [
+              { to: "/support/tickets", label: "nav.support", icon: "support" as const },
+              { to: "/session-tickets", label: "nav.sessionTickets", icon: "sessions" as const },
+              { to: "/audit-logs", label: "nav.audit", icon: "audit" as const },
+              { to: "/reports", label: "nav.reports", icon: "audit" as const },
+            ],
+          },
+        ]
       : navGroups,
     [supportOnly],
   );
@@ -244,10 +298,26 @@ export function AppShell() {
   };
 
   return (
-    <Box sx={{ display: "flex", minHeight: "100vh", bgcolor: "background.default" }}>
+    <Box sx={{ display: "flex", minHeight: "100dvh", bgcolor: "background.default" }}>
       <CssBaseline />
+      <Link
+        href="#admin-main-content"
+        sx={{
+          position: "fixed",
+          zIndex: (theme: Theme) => theme.zIndex.tooltip + 1,
+          top: 8,
+          left: 8,
+          px: 2,
+          py: 1,
+          borderRadius: 2,
+          bgcolor: "background.paper",
+          boxShadow: 3,
+          transform: "translateY(-160%)",
+          "&:focus": { transform: "translateY(0)" },
+        }}
+      >{t("Skip to main content")}</Link>
       <AppBar position="fixed" sx={{ zIndex: (theme: Theme) => theme.zIndex.drawer + 1 }}>
-        <Toolbar sx={{ gap: 1 }}>
+        <Toolbar sx={{ gap: 1, px: { xs: 1, sm: 2 } }}>
           {isMobile ? (
             <Button
               color="inherit"
@@ -260,9 +330,18 @@ export function AppShell() {
               {t("menu.open")}
             </Button>
           ) : null}
-          <Typography variant="h6" noWrap sx={{ flexGrow: 1 }}>
-            {t("brand")}
-          </Typography>
+          <Box
+            aria-hidden="true"
+            sx={{ width: 34, height: 34, display: "grid", placeItems: "center", borderRadius: 2.25, bgcolor: "primary.main", color: "#fff", fontSize: 17, fontWeight: 800, letterSpacing: "-0.06em", flexShrink: 0 }}
+          >S</Box>
+          <Stack spacing={0} sx={{ flexGrow: 1, minWidth: 0 }}>
+            <Typography variant="subtitle1" noWrap sx={{ color: "text.primary", fontWeight: 750, lineHeight: 1.2 }}>
+              {t("brand")}
+            </Typography>
+            <Typography variant="caption" color="text.secondary" noWrap sx={{ display: { xs: "none", sm: "block" } }}>
+              {t("Operations console")}
+            </Typography>
+          </Stack>
           <Button
             color="inherit"
             onClick={(event) => setAccountMenuAnchor(event.currentTarget)}
@@ -273,20 +352,24 @@ export function AppShell() {
               px: 1.5,
               py: 0.75,
               borderRadius: 999,
-              border: "1px solid rgba(255,255,255,0.28)",
+              border: "1px solid",
+              borderColor: "divider",
               textTransform: "none",
-              color: "inherit",
+              color: "text.primary",
+              maxWidth: { xs: 156, sm: 230 },
+              minWidth: 0,
+              "&:hover": { bgcolor: "action.hover" },
             }}
           >
             <Stack direction="row" spacing={1} alignItems="center">
-              <Avatar sx={{ width: 28, height: 28, bgcolor: "rgba(255,255,255,0.18)", fontSize: 13 }}>
+              <Avatar sx={{ width: 30, height: 30, bgcolor: "primary.light", color: "primary.dark", fontSize: 13, fontWeight: 700 }}>
                 {session?.user.displayName?.slice(0, 1)?.toUpperCase() ?? "A"}
               </Avatar>
               <Stack spacing={0} alignItems="flex-start">
-                <Typography variant="body2" lineHeight={1.2}>
+                <Typography variant="body2" lineHeight={1.2} noWrap sx={{ maxWidth: { xs: 88, sm: 160 } }}>
                   {session?.user.displayName ?? t("account")}
                 </Typography>
-                <Typography variant="caption" sx={{ opacity: 0.8, lineHeight: 1.2 }}>
+                <Typography variant="caption" color="text.secondary" noWrap sx={{ lineHeight: 1.2, maxWidth: 160, display: { xs: "none", sm: "block" } }}>
                   {session?.user.roles.map((role) => translateAdminRole(role, t)).join(", ") ?? t("noRole")}
                 </Typography>
               </Stack>
@@ -423,7 +506,7 @@ export function AppShell() {
                 );
               }
               return (
-                <Box key={group.title} sx={{ mb: 0.125 }}>
+                <Box key={group.title} sx={{ mb: 0.25 }}>
                   <Tooltip title={navigationCollapsed ? t(group.title) : ""} placement="right">
                     <ListItemButton
                       onClick={() => {
@@ -438,11 +521,18 @@ export function AppShell() {
                         });
                       }}
                       sx={{
-                        borderRadius: "10px",
-                        minHeight: 40,
-                        px: navigationCollapsed ? 1.5 : 1,
+                        borderRadius: "8px",
+                        minHeight: navigationCollapsed ? 40 : 36,
+                        mb: 0.25,
+                        px: navigationCollapsed ? 1.5 : 1.25,
                         justifyContent: navigationCollapsed ? "center" : "flex-start",
-                        color: activeGroup ? "primary.main" : "text.secondary",
+                        color: activeGroup ? "primary.main" : "text.primary",
+                        bgcolor: activeGroup ? "action.selected" : "transparent",
+                        borderLeft: "3px solid",
+                        borderColor: activeGroup ? "primary.main" : "transparent",
+                        "&:hover": {
+                          bgcolor: activeGroup ? "action.selected" : "action.hover",
+                        },
                       }}
                       aria-expanded={isExpanded}
                       aria-controls={groupId}
@@ -454,15 +544,17 @@ export function AppShell() {
                           justifyContent: "center",
                         }}
                       >
-                        <NavIcon name={groupIcon} />
+                        <NavIcon name={groupIcon} size={16} />
                       </ListItemIcon>
                       {!navigationCollapsed ? (
                         <>
                           <ListItemText
                             primary={t(group.title)}
                             primaryTypographyProps={{
-                              variant: "overline",
-                              fontWeight: activeGroup ? 700 : 600,
+                              variant: "caption",
+                              fontWeight: 700,
+                              letterSpacing: "0.06em",
+                              lineHeight: 1.2,
                               noWrap: true,
                             }}
                           />
@@ -474,7 +566,18 @@ export function AppShell() {
                     </ListItemButton>
                   </Tooltip>
                   {isExpanded ? (
-                    <List id={groupId} disablePadding sx={{ py: 0 }}>
+                    <List
+                      id={groupId}
+                      disablePadding
+                      sx={{
+                        position: "relative",
+                        py: 0.25,
+                        ml: navigationCollapsed ? 0 : 1.5,
+                        pl: navigationCollapsed ? 0 : 1,
+                        borderLeft: navigationCollapsed ? "none" : "1px solid",
+                        borderColor: "divider",
+                      }}
+                    >
                       {group.items.map((item) => {
                         const active = isNavItemActive(location.pathname, item.to);
                         return (
@@ -487,10 +590,9 @@ export function AppShell() {
                               aria-current={active ? "page" : undefined}
                               sx={{
                                 borderRadius: "10px",
-                                minHeight: 42,
+                                minHeight: 38,
                                 mb: 0.125,
-                                ml: navigationCollapsed ? 0 : 1,
-                                px: navigationCollapsed ? 1.5 : 1,
+                                px: navigationCollapsed ? 1.5 : 0.75,
                                 justifyContent: navigationCollapsed ? "center" : "flex-start",
                                 "&.Mui-selected": {
                                   color: "primary.main",
@@ -515,7 +617,7 @@ export function AppShell() {
                                   justifyContent: "center",
                                 }}
                               >
-                                <NavIcon name={item.icon} />
+                                <NavIcon name={item.icon} size={18} />
                               </ListItemIcon>
                               {!navigationCollapsed ? (
                                 <ListItemText
@@ -544,14 +646,30 @@ export function AppShell() {
       <Box
         component="main"
         id="admin-main-content"
+        tabIndex={-1}
         sx={{
           flex: 1,
           minWidth: 0,
-          p: { xs: 2, md: 3 },
+          px: { xs: 1.5, sm: 2.5, lg: 3.5 },
+          pb: { xs: 3, md: 4 },
         }}
       >
         <Toolbar />
-        <Outlet />
+          <Box className="admin-page-content" sx={{ width: "100%", minWidth: 0, mx: "auto" }}>
+          {pageTrail ? (
+            <Breadcrumbs aria-label={t("Breadcrumbs")} sx={{ mb: 1.5, color: "text.secondary", "& .MuiBreadcrumbs-separator": { mx: 1 } }}>
+              {pageTrail.parent && pageTrail.parentTo ? (
+                <Link component={NavLink} to={`${pageTrail.parentTo}${location.search}`} underline="hover" color="inherit" sx={{ fontSize: "0.79rem", fontWeight: 550 }}>
+                  {t(pageTrail.parent)}
+                </Link>
+              ) : null}
+              <Typography color="text.primary" variant="body2" aria-current="page" sx={{ fontWeight: 650 }}>
+                {t(pageTrail.title)}
+              </Typography>
+            </Breadcrumbs>
+          ) : null}
+          <Outlet />
+        </Box>
       </Box>
     </Box>
   );

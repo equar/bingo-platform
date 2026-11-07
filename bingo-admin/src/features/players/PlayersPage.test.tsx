@@ -21,7 +21,10 @@ function createWrapper({ children }: PropsWithChildren) {
 }
 
 describe("PlayersPage", () => {
-  afterEach(cleanup);
+  afterEach(() => {
+    cleanup();
+    window.sessionStorage.removeItem("admin-list-search:players");
+  });
 
   beforeEach(() => {
     searchPlayersMock.mockReset();
@@ -84,5 +87,21 @@ describe("PlayersPage", () => {
     await user.click(screen.getByRole("button", { name: "Go to next page" }));
 
     await waitFor(() => expect(searchPlayersMock).toHaveBeenLastCalledWith("", 1, 20, undefined));
+  });
+
+  it("restores safe filters and page from the URL while keeping search private", async () => {
+    window.sessionStorage.setItem("admin-list-search:players", "Alice");
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={["/players?status=SUSPENDED&page=2&size=10"]}>
+          <PlayersPage />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    const playerLink = await screen.findByRole("link", { name: "E2E Player One" });
+    expect(playerLink).toHaveAttribute("href", "/players/10?status=SUSPENDED&page=2&size=10");
+    expect(searchPlayersMock).toHaveBeenCalledWith("Alice", 2, 10, "SUSPENDED");
   });
 });

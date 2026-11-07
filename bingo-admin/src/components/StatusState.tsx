@@ -17,15 +17,19 @@ export function StatusState({ title, message, actionLabel, onAction, icon, loadi
       aria-live="polite"
       sx={{
         borderRadius: 3,
-        border: "1px dashed",
+        border: "1px solid",
         borderColor: "divider",
-        p: 3,
+        p: { xs: 2.5, sm: 4 },
+        minHeight: loading ? 178 : 188,
+        display: "grid",
+        placeItems: "center",
         backgroundColor: "background.paper",
+        boxShadow: "0 1px 3px rgba(23,36,59,0.025)",
       }}
     >
       <Stack spacing={2} alignItems="center" textAlign="center">
         {loading ? <CircularProgress size={28} /> : icon}
-        <Typography variant="h6">{title}</Typography>
+        <Typography component="h2" variant="h6">{title}</Typography>
         {message ? (
           <Alert severity="info" sx={{ width: "100%" }}>
             {message}

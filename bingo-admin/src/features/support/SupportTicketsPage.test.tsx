@@ -26,7 +26,10 @@ function createWrapper({ children }: PropsWithChildren) {
 }
 
 describe("SupportTicketsPage", () => {
-  afterEach(cleanup);
+  afterEach(() => {
+    cleanup();
+    window.sessionStorage.removeItem("admin-list-search:support-tickets");
+  });
 
   beforeEach(async () => {
     await i18n.changeLanguage("en");
@@ -112,5 +115,23 @@ describe("SupportTicketsPage", () => {
     await waitFor(() =>
       expect(supportTicketsMock).toHaveBeenLastCalledWith(undefined, undefined, undefined, undefined, undefined, 1, 20),
     );
+  });
+
+  it("restores safe queue filters and paging while keeping ticket search private", async () => {
+    window.sessionStorage.setItem("admin-list-search:support-tickets", "wallet phone 251911000000");
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={["/support/tickets?status=OPEN&category=WALLET&priority=HIGH&assignee=7&page=1&size=10"]}>
+          <SupportTicketsPage />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByRole("link", { name: "ST-TEST-18" })).toHaveAttribute(
+      "href",
+      "/support/tickets/18?status=OPEN&category=WALLET&priority=HIGH&assignee=7&page=1&size=10",
+    );
+    expect(supportTicketsMock).toHaveBeenCalledWith("wallet phone 251911000000", "OPEN", "WALLET", "7", "HIGH", 1, 10);
   });
 });

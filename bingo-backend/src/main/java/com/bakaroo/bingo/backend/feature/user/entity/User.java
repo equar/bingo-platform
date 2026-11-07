@@ -91,6 +91,12 @@ public class User {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    @Column(name = "created_by_display_name", length = 120)
+    private String createdByDisplayName;
+
+    @Column(name = "updated_by_display_name", length = 120)
+    private String updatedByDisplayName;
+
     protected User() {
     }
 
@@ -281,6 +287,22 @@ public class User {
 
     public Instant getUpdatedAt() {
         return updatedAt;
+    }
+
+    public String getCreatedByDisplayName() {
+        return createdByDisplayName;
+    }
+
+    public void setCreatedByDisplayName(String createdByDisplayName) {
+        this.createdByDisplayName = createdByDisplayName;
+    }
+
+    public String getUpdatedByDisplayName() {
+        return updatedByDisplayName;
+    }
+
+    public void setUpdatedByDisplayName(String updatedByDisplayName) {
+        this.updatedByDisplayName = updatedByDisplayName;
     }
 
     public boolean hasRole(UserRole role) {

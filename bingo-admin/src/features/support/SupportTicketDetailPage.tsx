@@ -15,7 +15,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { Link as RouterLink, useParams } from "react-router-dom";
+import { Link as RouterLink, useLocation, useParams } from "react-router-dom";
 import {
   assignSupportTicket,
   noteSupportTicket,
@@ -32,6 +32,7 @@ import { translateAdminStatus, translateAdminValue } from "../../i18n";
 const statusOptions = ["OPEN", "IN_PROGRESS", "WAITING_FOR_CUSTOMER", "RESOLVED", "CLOSED"] as const;
 
 export function SupportTicketDetailPage() {
+  const location = useLocation();
   const { t } = useTranslation();
   const { ticketId } = useParams();
   const id = Number(ticketId);
@@ -134,7 +135,7 @@ export function SupportTicketDetailPage() {
           <Typography variant="h4">{ticket.ticketNumber}</Typography>
           <Typography color="text.secondary">{ticket.subject}</Typography>
         </div>
-        <Button component={RouterLink} to="/support/tickets" variant="outlined">
+        <Button component={RouterLink} to={`/support/tickets${location.search}`} variant="outlined">
           {t("Back to queue")}</Button>
       </Box>
 

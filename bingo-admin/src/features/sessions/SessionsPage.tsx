@@ -1,15 +1,10 @@
 import { useTranslation } from "react-i18next";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Alert,
-  Box,
   Button,
   Chip,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   Link,
   MenuItem,
   Paper,
@@ -23,50 +18,66 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { Link as RouterLink, useNavigate } from "react-router-dom";
-import { createSession, listRooms, listSessions, updateSessionState } from "../../api/admin";
+import { Link as RouterLink, useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { listRooms, listSessions, updateSessionState } from "../../api/admin";
 import { getUserFacingErrorMessage } from "../../api/types";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { StatusState } from "../../components/StatusState";
 import { AdminTablePagination } from "../../components/AdminTablePagination";
+import { AdminTablePage } from "../../components/AdminTablePage";
+import { AdminPageHeader } from "../../components/AdminPageHeader";
+import { usePrivateListSearch } from "../../components/usePrivateListSearch";
 import { translateAdminStatus } from "../../i18n";
-
-interface SessionDraft {
-  roomId: string;
-  sessionName: string;
-  scheduledStartAt: string;
-  state: string;
-}
-
-const initialDraft: SessionDraft = {
-  roomId: "",
-  sessionName: "",
-  scheduledStartAt: new Date().toISOString().slice(0, 16),
-  state: "OPEN",
-};
 
 const allowedStates: Record<string, string[]> = {
   DRAFT: ["OPEN", "CANCELLED"],
   OPEN: ["STARTED", "CANCELLED"],
-  STARTED: ["DRAWING", "CLOSED", "CANCELLED"],
-  DRAWING: ["CLOSED", "CANCELLED"],
-  CLOSED: ["SETTLED", "CANCELLED"],
+  STARTED: ["DRAWING", "CLOSED"],
+  DRAWING: ["CLOSED"],
+  CLOSED: ["SETTLED"],
 };
+const sessionStates = ["DRAFT", "OPEN", "STARTED", "DRAWING", "CLOSED", "SETTLED", "CANCELLED"];
+
+function availableTransitions(session: { state: string; ticketCount: number }) {
+  const transitions = allowedStates[session.state] ?? [];
+  return session.ticketCount > 0 ? transitions.filter((state) => state !== "CANCELLED") : transitions;
+}
 
 export function SessionsPage() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [search, setSearch] = usePrivateListSearch("sessions");
   const roomsQuery = useQuery({ queryKey: ["rooms"], queryFn: listRooms });
-  const [draft, setDraft] = useState<SessionDraft | null>(null);
-  const [search, setSearch] = useState("");
-  const [stateFilter, setStateFilter] = useState("ALL");
-  const [roomFilter, setRoomFilter] = useState("ALL");
-  const [startFilter, setStartFilter] = useState("ALL");
-  const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(20);
+  const stateParam = searchParams.get("status") ?? "ALL";
+  const stateFilter = sessionStates.includes(stateParam) ? stateParam : "ALL";
+  const roomParam = searchParams.get("room") ?? "ALL";
+  const roomFilter = roomParam === "ALL" || /^[1-9]\d*$/.test(roomParam) ? roomParam : "ALL";
+  const startParam = searchParams.get("start") ?? "ALL";
+  const startFilter = ["ALL", "UPCOMING", "PAST"].includes(startParam) ? startParam : "ALL";
+  const pageParam = Number(searchParams.get("page") ?? 0);
+  const page = Number.isSafeInteger(pageParam) ? Math.max(0, pageParam) : 0;
+  const pageSizeValue = Number(searchParams.get("size") ?? 20);
+  const pageSize = [10, 20, 50].includes(pageSizeValue) ? pageSizeValue : 20;
+  const updateListState = (updates: Record<string, string>) => {
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      Object.entries(updates).forEach(([key, value]) => value ? next.set(key, value) : next.delete(key));
+      return next;
+    }, { replace: true });
+  };
+  // Remove legacy free-text values from the URL; session names may contain personal data.
+  useEffect(() => {
+    if (!searchParams.has("search")) return;
+    const safeParams = new URLSearchParams(searchParams);
+    safeParams.delete("search");
+    setSearchParams(safeParams, { replace: true });
+  }, [searchParams, setSearchParams]);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingTransition, setPendingTransition] = useState<{ sessionId: number; nextState: string } | null>(null);
+  const [transitionError, setTransitionError] = useState<string | null>(null);
   const normalizedSearch = search.trim();
   const sessionsQuery = useQuery({
     queryKey: ["sessions", normalizedSearch, stateFilter, roomFilter, startFilter, page, pageSize],
@@ -82,21 +93,6 @@ export function SessionsPage() {
     placeholderData: keepPreviousData,
   });
 
-  const createMutation = useMutation({
-    mutationFn: (body: SessionDraft) =>
-      createSession(Number(body.roomId), {
-        sessionName: body.sessionName,
-        scheduledStartAt: new Date(body.scheduledStartAt).toISOString(),
-        state: body.state,
-      }),
-    onSuccess: async (session) => {
-      await queryClient.invalidateQueries({ queryKey: ["sessions"] });
-      await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-      setDraft(null);
-      navigate(`/sessions/${session.id}`);
-    },
-  });
-
   const transitionMutation = useMutation({
     mutationFn: ({ sessionId, nextState }: { sessionId: number; nextState: string }) =>
       updateSessionState(sessionId, nextState),
@@ -106,11 +102,11 @@ export function SessionsPage() {
       setPendingTransition(null);
       setConfirmOpen(false);
     },
+    onError: (error) => setTransitionError(getUserFacingErrorMessage(error) ?? "Something went wrong. Please try again."),
   });
 
   const rooms = roomsQuery.data ?? [];
   const sessions = sessionsQuery.data?.content ?? [];
-  const title = draft ? "Create session" : "";
 
   if (sessionsQuery.isLoading) {
     return <StatusState title={t("Loading sessions")} loading message={t("Fetching session list")} />;
@@ -128,15 +124,12 @@ export function SessionsPage() {
   }
 
   return (
+    <AdminTablePage>
     <Stack spacing={3}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" gap={2} flexWrap="wrap">
-        <div>
-          <Typography variant="h4">{t("Sessions")}</Typography>
-          <Typography color="text.secondary">{t("Create, activate, and open live draw views.")}</Typography>
-        </div>
-        <Button variant="contained" onClick={() => setDraft({ ...initialDraft })}>
-          {t("New session")}</Button>
-      </Box>
+      <AdminPageHeader title={t("Sessions")} description={t("Create, activate, and open live draw views.")} actions={
+        <Button component={RouterLink} to={`/sessions/new${location.search}`} variant="contained">
+          {t("Create session")}</Button>
+      } />
 
       <Stack spacing={1.5}>
           <Stack direction={{ xs: "column", md: "row" }} spacing={1.5}>
@@ -146,7 +139,7 @@ export function SessionsPage() {
               value={search}
               onChange={(event) => {
                 setSearch(event.target.value);
-                setPage(0);
+                updateListState({ page: "" });
               }}
               size="small"
               sx={{ flex: 2, minWidth: { md: 260 } }}
@@ -156,14 +149,13 @@ export function SessionsPage() {
               label={t("Status")}
               value={stateFilter}
               onChange={(event) => {
-                setStateFilter(event.target.value);
-                setPage(0);
+                updateListState({ status: event.target.value === "ALL" ? "" : event.target.value, page: "" });
               }}
               size="small"
               sx={{ flex: 1, minWidth: 150 }}
             >
               <MenuItem value="ALL">{t("All statuses")}</MenuItem>
-              {["DRAFT", "OPEN"].map((state) => (
+              {sessionStates.map((state) => (
                 <MenuItem key={state} value={state}>
                   {translateAdminStatus(state, t)}
                 </MenuItem>
@@ -174,8 +166,7 @@ export function SessionsPage() {
               label={t("Room")}
               value={roomFilter}
               onChange={(event) => {
-                setRoomFilter(event.target.value);
-                setPage(0);
+                updateListState({ room: event.target.value === "ALL" ? "" : event.target.value, page: "" });
               }}
               size="small"
               sx={{ flex: 1, minWidth: 150 }}
@@ -192,8 +183,7 @@ export function SessionsPage() {
               label={t("Start date")}
               value={startFilter}
               onChange={(event) => {
-                setStartFilter(event.target.value);
-                setPage(0);
+                updateListState({ start: event.target.value === "ALL" ? "" : event.target.value, page: "" });
               }}
               size="small"
               sx={{ flex: 1, minWidth: 150 }}
@@ -227,7 +217,7 @@ export function SessionsPage() {
               {sessions.map((session) => (
                 <TableRow key={session.id} hover>
                   <TableCell component="th" scope="row">
-                    <Link component={RouterLink} to={`/sessions/${session.id}`} fontWeight={600}>
+                    <Link component={RouterLink} to={`/sessions/${session.id}${location.search}`} fontWeight={600}>
                       {session.sessionName}
                     </Link>
                   </TableCell>
@@ -245,12 +235,13 @@ export function SessionsPage() {
                   </TableCell>
                   <TableCell>
                     <Stack direction="row" spacing={0.75}>
-                      {(allowedStates[session.state] ?? []).map((nextState) => (
+                      {availableTransitions(session).map((nextState) => (
                         <Button
                           key={nextState}
                           size="small"
                           variant="outlined"
                           onClick={() => {
+                            setTransitionError(null);
                             setPendingTransition({ sessionId: session.id, nextState });
                             setConfirmOpen(true);
                           }}
@@ -258,9 +249,14 @@ export function SessionsPage() {
                           {translateAdminStatus(nextState, t)}
                         </Button>
                       ))}
-                      {(allowedStates[session.state] ?? []).length === 0 ? (
+                      {availableTransitions(session).length === 0 ? (
                         <Typography variant="body2" color="text.secondary">
                           {t("—")}</Typography>
+                      ) : null}
+                      {session.ticketCount > 0 && (allowedStates[session.state] ?? []).includes("CANCELLED") ? (
+                        <Typography variant="caption" color="text.secondary">
+                          {t("Cancellation unavailable after tickets have been sold.")}
+                        </Typography>
                       ) : null}
                     </Stack>
                   </TableCell>
@@ -274,7 +270,7 @@ export function SessionsPage() {
                       >
                         {t("View tickets")}
                       </Button>
-                      <Button size="small" variant="text" onClick={() => navigate(`/sessions/${session.id}`)}>
+                      <Button size="small" variant="text" onClick={() => navigate(`/sessions/${session.id}${location.search}`)}>
                         {t("Open live view")}
                       </Button>
                     </Stack>
@@ -294,72 +290,14 @@ export function SessionsPage() {
           component="div"
           count={sessionsQuery.data?.totalElements ?? 0}
           page={page}
-          onPageChange={(_, nextPage) => setPage(nextPage)}
+          onPageChange={(_, nextPage) => updateListState({ page: String(nextPage) })}
           rowsPerPage={pageSize}
           onRowsPerPageChange={(event) => {
-            setPageSize(Number(event.target.value));
-            setPage(0);
+            updateListState({ size: event.target.value, page: "" });
           }}
           rowsPerPageOptions={[10, 20, 50]}
         />
       </Stack>
-
-      <Dialog open={Boolean(draft)} onClose={() => setDraft(null)} fullWidth maxWidth="sm">
-        <DialogTitle>{title}</DialogTitle>
-        <DialogContent>
-          <Stack spacing={2} sx={{ pt: 1 }}>
-            <TextField
-              select
-              label={t("Room")}
-              value={draft?.roomId ?? ""}
-              onChange={(event) => draft && setDraft({ ...draft, roomId: event.target.value })}
-              fullWidth
-            >
-              {rooms.map((room) => (
-                <MenuItem value={room.id} key={room.id}>
-                  {room.name}
-                </MenuItem>
-              ))}
-            </TextField>
-            <TextField
-              label={t("Session name")}
-              value={draft?.sessionName ?? ""}
-              onChange={(event) => draft && setDraft({ ...draft, sessionName: event.target.value })}
-              fullWidth
-            />
-            <TextField
-              label={t("Scheduled start")}
-              type="datetime-local"
-              value={draft?.scheduledStartAt ?? ""}
-              onChange={(event) => draft && setDraft({ ...draft, scheduledStartAt: event.target.value })}
-              fullWidth
-              InputLabelProps={{ shrink: true }}
-            />
-            <TextField
-              select
-              label={t("Initial state")}
-              value={draft?.state ?? "OPEN"}
-              onChange={(event) => draft && setDraft({ ...draft, state: event.target.value })}
-              fullWidth
-            >
-              {["DRAFT", "OPEN", "STARTED", "DRAWING", "CLOSED", "SETTLED", "CANCELLED"].map((state) => (
-                <MenuItem key={state} value={state}>
-                  {translateAdminStatus(state, t)}
-                </MenuItem>
-              ))}
-            </TextField>
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDraft(null)}>{t("Cancel")}</Button>
-          <Button
-            variant="contained"
-            onClick={() => draft && createMutation.mutate(draft)}
-            disabled={createMutation.isPending}
-          >
-            {t("Create")}</Button>
-        </DialogActions>
-      </Dialog>
 
       <ConfirmDialog
         open={confirmOpen}
@@ -370,9 +308,14 @@ export function SessionsPage() {
         confirmLabel={t("Confirm")}
         cancelLabel={t("Back")}
         confirming={transitionMutation.isPending}
-        onCancel={() => setConfirmOpen(false)}
+        error={transitionError ? t(transitionError) : undefined}
+        onCancel={() => {
+          setConfirmOpen(false);
+          setTransitionError(null);
+        }}
         onConfirm={() => pendingTransition && transitionMutation.mutate(pendingTransition)}
       />
     </Stack>
+    </AdminTablePage>
   );
 }
