@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect } from "react";
 import {
   Alert,
   Box,
@@ -15,11 +15,14 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { Link as RouterLink } from "react-router-dom";
+import { Link as RouterLink, useLocation, useSearchParams } from "react-router-dom";
 import { supportAssignees, supportTickets } from "../../api/admin";
 import { getUserFacingErrorMessage } from "../../api/types";
 import { StatusState } from "../../components/StatusState";
 import { AdminTablePagination } from "../../components/AdminTablePagination";
+import { AdminTablePage } from "../../components/AdminTablePage";
+import { AdminPageHeader } from "../../components/AdminPageHeader";
+import { usePrivateListSearch } from "../../components/usePrivateListSearch";
 import { translateAdminStatus, translateAdminValue } from "../../i18n";
 
 const statusOptions = ["", "OPEN", "IN_PROGRESS", "WAITING_FOR_CUSTOMER", "RESOLVED", "CLOSED"];
@@ -28,13 +31,28 @@ const priorityOptions = ["LOW", "NORMAL", "HIGH", "URGENT"];
 
 export function SupportTicketsPage() {
   const { t } = useTranslation();
-  const [query, setQuery] = useState("");
-  const [status, setStatus] = useState("");
-  const [category, setCategory] = useState("");
-  const [priority, setPriority] = useState("");
-  const [assignee, setAssignee] = useState("");
-  const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(20);
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [query, setQuery] = usePrivateListSearch("support-tickets");
+  const status = searchParams.get("status") ?? "";
+  const category = searchParams.get("category") ?? "";
+  const priority = searchParams.get("priority") ?? "";
+  const assignee = searchParams.get("assignee") ?? "";
+  const pageValue = Number(searchParams.get("page") ?? 0);
+  const page = Number.isSafeInteger(pageValue) ? Math.max(0, pageValue) : 0;
+  const sizeValue = Number(searchParams.get("size") ?? 20);
+  const pageSize = [10, 20, 50].includes(sizeValue) ? sizeValue : 20;
+  const updateListState = (updates: Record<string, string>) => setSearchParams((current) => {
+    const next = new URLSearchParams(current);
+    Object.entries(updates).forEach(([key, value]) => value ? next.set(key, value) : next.delete(key));
+    return next;
+  }, { replace: true });
+  useEffect(() => {
+    if (!searchParams.has("query")) return;
+    const safeParams = new URLSearchParams(searchParams);
+    safeParams.delete("query");
+    setSearchParams(safeParams, { replace: true });
+  }, [searchParams, setSearchParams]);
   const normalizedQuery = query.trim();
   const usersQuery = useQuery({ queryKey: ["support-assignees"], queryFn: supportAssignees });
   const ticketsQuery = useQuery({
@@ -70,12 +88,9 @@ export function SupportTicketsPage() {
   }
 
   return (
+    <AdminTablePage>
     <Stack spacing={3}>
-      <Box>
-        <Typography variant="h4">{t("Support tickets")}</Typography>
-        <Typography color="text.secondary">
-          {t("Queue, filter, and review call-center tickets with public and internal notes kept separate.")}</Typography>
-      </Box>
+      <AdminPageHeader title={t("Support tickets")} description={t("Queue, filter, and review call-center tickets with public and internal notes kept separate.")} />
 
       <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
         <TextField
@@ -83,7 +98,7 @@ export function SupportTicketsPage() {
           value={query}
           onChange={(event) => {
             setQuery(event.target.value);
-            setPage(0);
+            updateListState({ page: "" });
           }}
           fullWidth
         />
@@ -92,8 +107,7 @@ export function SupportTicketsPage() {
           label={t("Status")}
           value={status}
           onChange={(event) => {
-            setStatus(event.target.value);
-            setPage(0);
+            updateListState({ status: event.target.value, page: "" });
           }}
           sx={{ minWidth: { xs: "100%", md: 200 } }}
         >
@@ -109,8 +123,7 @@ export function SupportTicketsPage() {
           label={t("Category")}
           value={category}
           onChange={(event) => {
-            setCategory(event.target.value);
-            setPage(0);
+            updateListState({ category: event.target.value, page: "" });
           }}
           sx={{ minWidth: { xs: "100%", md: 180 } }}
         >
@@ -126,8 +139,7 @@ export function SupportTicketsPage() {
           label={t("Priority")}
           value={priority}
           onChange={(event) => {
-            setPriority(event.target.value);
-            setPage(0);
+            updateListState({ priority: event.target.value, page: "" });
           }}
           sx={{ minWidth: { xs: "100%", md: 150 } }}
         >
@@ -143,8 +155,7 @@ export function SupportTicketsPage() {
           label={t("Assignee")}
           value={assignee}
           onChange={(event) => {
-            setAssignee(event.target.value);
-            setPage(0);
+            updateListState({ assignee: event.target.value, page: "" });
           }}
           sx={{ minWidth: { xs: "100%", md: 180 } }}
         >
@@ -182,7 +193,7 @@ export function SupportTicketsPage() {
                       <Typography
                         fontWeight={600}
                         component={RouterLink}
-                        to={`/support/tickets/${ticket.id}`}
+                        to={`/support/tickets/${ticket.id}${location.search}`}
                         sx={{ textDecoration: "none" }}
                       >
                         {ticket.ticketNumber}
@@ -217,14 +228,14 @@ export function SupportTicketsPage() {
         component="div"
         count={ticketsQuery.data?.totalElements ?? 0}
         page={page}
-        onPageChange={(_, nextPage) => setPage(nextPage)}
+        onPageChange={(_, nextPage) => updateListState({ page: String(nextPage) })}
         rowsPerPage={pageSize}
         onRowsPerPageChange={(event) => {
-          setPageSize(Number(event.target.value));
-          setPage(0);
+          updateListState({ size: event.target.value, page: "" });
         }}
         rowsPerPageOptions={[10, 20, 50]}
       />
     </Stack>
+    </AdminTablePage>
   );
 }

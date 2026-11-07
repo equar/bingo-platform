@@ -301,7 +301,7 @@ export function PlayerActivityDialog({ open, playerId, initialActivity, onClose 
                           <TableCell>
                             {t("#")}{claim.ticketId} {t("/ #")}{claim.sessionId}
                           </TableCell>
-                          <TableCell>{claim.claimedPattern.replace(/_/g, " ")}</TableCell>
+                          <TableCell>{translateAdminValue(claim.claimedPattern, t)}</TableCell>
                           <TableCell>{translateAdminStatus(claim.status, t)}</TableCell>
                           <TableCell>
                             {claim.serverValidationPassed ? t("Passed") : t("Failed")}

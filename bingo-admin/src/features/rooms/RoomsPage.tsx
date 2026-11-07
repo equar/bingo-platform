@@ -1,14 +1,13 @@
 import { useTranslation } from "react-i18next";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useCallback, useEffect, useState } from "react";
+import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   Alert,
   Box,
   Button,
   Checkbox,
-  Divider,
   FormControlLabel,
   Grid,
   MenuItem,
@@ -27,8 +26,12 @@ import {
 import { BingoRoomResponse, createRoom, getAdminRoom, listAdminRooms, updateRoom } from "../../api/admin";
 import { getUserFacingErrorMessage } from "../../api/types";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
+import { AdminPageHeader } from "../../components/AdminPageHeader";
 import { StatusState } from "../../components/StatusState";
 import { AdminTablePagination } from "../../components/AdminTablePagination";
+import { AdminTablePage } from "../../components/AdminTablePage";
+import { translateAdminValue } from "../../i18n";
+import { usePrivateListSearch } from "../../components/usePrivateListSearch";
 
 const scheduleOptions = [
   { value: "HOURLY", label: "Hourly" },
@@ -39,6 +42,12 @@ const scheduleOptions = [
 const patternOptions = [
   { value: "LINE", label: "Line" },
   { value: "TWO_LINES", label: "Two lines" },
+  { value: "FOUR_CORNERS", label: "Four corners" },
+  { value: "POSTAGE_STAMP", label: "Postage stamp" },
+  { value: "X_SHAPE", label: "X shape" },
+  { value: "T_SHAPE", label: "T shape" },
+  { value: "L_SHAPE", label: "L shape" },
+  { value: "OUTER_FRAME", label: "Outer frame" },
   { value: "FULL_HOUSE", label: "Full house" },
 ] as const;
 
@@ -158,13 +167,7 @@ function formatDraftSummary(draft: RoomDraft, t: (key: string, options?: Record<
   ].join(` ${t("·")} `);
 }
 
-function EditorSurface({
-  children,
-  edit,
-}: {
-  children: ReactNode;
-  edit: boolean;
-}) {
+function EditorSurface({ children }: { children: ReactNode }) {
   return (
     <Paper
       variant="outlined"
@@ -172,7 +175,7 @@ function EditorSurface({
         borderRadius: 3,
         overflow: "hidden",
         width: "100%",
-        maxWidth: edit ? 1500 : 1180,
+        maxWidth: 1200,
         mx: "auto",
         bgcolor: "background.paper",
       }}
@@ -187,6 +190,7 @@ export function RoomsPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { roomId: roomIdParam } = useParams<{ roomId: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
   const isCreatePage = location.pathname.endsWith("/rooms/new");
   const isEditPage = location.pathname.endsWith("/edit") && roomIdParam !== undefined;
   const isEditorPage = isCreatePage || isEditPage;
@@ -195,12 +199,21 @@ export function RoomsPage() {
   const [draft, setDraft] = useState<RoomDraft | null>(() => isCreatePage ? { ...emptyDraft } : null);
   const [originalDraft, setOriginalDraft] = useState<RoomDraft | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [discardOpen, setDiscardOpen] = useState(false);
   const [pendingSubmit, setPendingSubmit] = useState(false);
   const [pendingError, setPendingError] = useState<string | null>(null);
-  const [roomSearch, setRoomSearch] = useState("");
-  const [roomStatusFilter, setRoomStatusFilter] = useState<"all" | "active" | "inactive">("all");
-  const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(20);
+  const [roomSearch, setRoomSearch] = usePrivateListSearch("rooms");
+  const roomStatusValue = searchParams.get("status") ?? "all";
+  const roomStatusFilter = ["all", "active", "inactive"].includes(roomStatusValue) ? roomStatusValue as "all" | "active" | "inactive" : "all";
+  const pageValue = Number(searchParams.get("page") ?? 0);
+  const page = Number.isSafeInteger(pageValue) ? Math.max(0, pageValue) : 0;
+  const sizeValue = Number(searchParams.get("size") ?? 20);
+  const pageSize = [10, 20, 50].includes(sizeValue) ? sizeValue : 20;
+  const updateListState = useCallback((updates: Record<string, string>) => setSearchParams((current) => {
+    const next = new URLSearchParams(current);
+    Object.entries(updates).forEach(([key, value]) => value && value !== "all" ? next.set(key, value) : next.delete(key));
+    return next;
+  }, { replace: true }), [setSearchParams]);
   const roomDetailQuery = useQuery({
     queryKey: ["admin-room", roomId],
     queryFn: () => getAdminRoom(roomId),
@@ -255,7 +268,7 @@ export function RoomsPage() {
       }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["admin-rooms"] });
-      if (isEditorPage) navigate("/rooms");
+      if (isEditorPage) navigate(`/rooms${location.search}`);
       setDraft(null);
       setOriginalDraft(null);
       setConfirmOpen(false);
@@ -291,7 +304,7 @@ export function RoomsPage() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["admin-rooms"] });
       await queryClient.invalidateQueries({ queryKey: ["admin-room", roomId] });
-      navigate("/rooms");
+      navigate(`/rooms${location.search}`);
       setDraft(null);
       setOriginalDraft(null);
       setConfirmOpen(false);
@@ -363,15 +376,11 @@ export function RoomsPage() {
   }
 
   return (
+    <AdminTablePage enabled={!isEditorPage}>
     <Stack spacing={3}>
-      {!isEditorPage ? <Box display="flex" justifyContent="space-between" alignItems="center" gap={2} flexWrap="wrap">
-        <div>
-          <Typography variant="h4">{t("Rooms")}</Typography>
-          <Typography color="text.secondary">{t("Create and edit bingo room configuration and activation.")}</Typography>
-        </div>
-        <Button variant="contained" onClick={() => navigate("/rooms/new")}>
-          {t("New room")}</Button>
-      </Box> : null}
+      {!isEditorPage ? <AdminPageHeader title={t("Rooms")} description={t("Create and edit bingo room configuration and activation.")} actions={
+        <Button variant="contained" onClick={() => navigate(`/rooms/new${location.search}`)}>{t("Create room")}</Button>
+      } /> : null}
 
       {!isEditorPage ? <Paper variant="outlined" sx={{ borderRadius: 3, overflow: "hidden" }}>
         <Box
@@ -392,7 +401,7 @@ export function RoomsPage() {
             value={roomSearch}
             onChange={(event) => {
               setRoomSearch(event.target.value);
-              setPage(0);
+              updateListState({ page: "" });
             }}
             placeholder={t("Name, description, schedule, or pattern")}
             size="small"
@@ -403,8 +412,7 @@ export function RoomsPage() {
             label={t("Status")}
             value={roomStatusFilter}
             onChange={(event) => {
-              setRoomStatusFilter(event.target.value as "all" | "active" | "inactive");
-              setPage(0);
+              updateListState({ status: event.target.value, page: "" });
             }}
             size="small"
             sx={{ minWidth: 180 }}
@@ -457,7 +465,7 @@ export function RoomsPage() {
                   <TableCell>
                     <Stack direction="row" spacing={1} flexWrap="wrap">
                       {room.configuredPrizes.map((prize) => (
-                        <Chip key={prize.prizeType} label={prize.prizeType} size="small" />
+                        <Chip key={prize.prizeType} label={translateAdminValue(prize.prizeType, t)} size="small" />
                       ))}
                     </Stack>
                   </TableCell>
@@ -466,7 +474,7 @@ export function RoomsPage() {
                     <Button
                       variant="outlined"
                       size="small"
-                      onClick={() => navigate(`/rooms/${room.id}/edit`)}
+                      onClick={() => navigate(`/rooms/${room.id}/edit${location.search}`)}
                     >
                       {t("Edit")}</Button>
                   </TableCell>
@@ -487,11 +495,10 @@ export function RoomsPage() {
           component="div"
           count={roomsQuery.data?.totalElements ?? 0}
           page={page}
-          onPageChange={(_, nextPage) => setPage(nextPage)}
+          onPageChange={(_, nextPage) => updateListState({ page: String(nextPage) })}
           rowsPerPage={pageSize}
           onRowsPerPageChange={(event) => {
-            setPageSize(Number(event.target.value));
-            setPage(0);
+            updateListState({ size: event.target.value, page: "" });
           }}
           rowsPerPageOptions={[10, 20, 50]}
         />
@@ -499,26 +506,19 @@ export function RoomsPage() {
 
       {isEditorPage ? (
         <>
-          <Button variant="text" onClick={() => navigate("/rooms")} sx={{ alignSelf: "flex-start", px: 0 }}>
-            {t("← Back to rooms list")}
+          <EditorSurface>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2, px: { xs: 2, md: 3 }, py: 1.5, borderBottom: "1px solid", borderColor: "divider" }}>
+          <Button variant="text" onClick={() => navigate(`/rooms${location.search}`)} sx={{ minWidth: 0, px: 0 }}>
+            {t("← Rooms")}
           </Button>
-          <EditorSurface edit={isEditPage}>
-        <Box sx={{ px: { xs: 2, md: 3 }, py: 2.5, borderBottom: "1px solid", borderColor: "divider", bgcolor: "grey.50" }}>
-          <Typography variant="h5" sx={{ mb: 0.5 }}>{isEditPage ? t("Edit room") : t("Create a bingo room")}</Typography>
-          <Typography variant="body2" color="text.secondary">
-            {isEditPage ? t("Update the room settings and prize rules.") : t("Set up the room, ticket rules, and prizes for your bingo sessions.")}
-          </Typography>
+          <Typography variant="h5">{isEditPage ? t("Edit room") : t("Create room")}</Typography>
         </Box>
-        <Box sx={{ px: { xs: 2, md: 3 }, py: { xs: 2, md: 3 } }}>
-          <Grid container spacing={3}>
+        <Box sx={{ px: { xs: 2, md: 3 }, py: { xs: 2, md: 2.5 } }}>
+          <Grid container spacing={2.5}>
             <Grid item xs={12} lg={isEditPage ? 9 : 12}>
-            <Stack spacing={3}>
+            <Stack spacing={2.5}>
             {pendingError ? <Alert severity="error">{t(pendingError)}</Alert> : null}
-            <Box>
-              <Typography variant="h6">{t("Room details")}</Typography>
-              <Typography variant="body2" color="text.secondary">{t("Choose a name, currency, and local session settings.")}</Typography>
-            </Box>
-            <Grid container spacing={2}>
+            <Grid container spacing={1.5}>
               <Grid item xs={12} md={6}>
                 <TextField
                   label={t("Room name")}
@@ -548,9 +548,7 @@ export function RoomsPage() {
                 />
               </Grid>
               <Grid item xs={12}>
-                <Divider />
-                <Typography variant="h6" sx={{ mt: 2 }}>{t("Ticket and session settings")}</Typography>
-                <Typography variant="body2" color="text.secondary">{t("Set ticket pricing, suggested cadence, and player limits.")}</Typography>
+                <Typography variant="h6" sx={{ mt: 0.5 }}>{t("Ticket and session settings")}</Typography>
               </Grid>
               <Grid item xs={12} md={4}>
                 <TextField
@@ -575,7 +573,6 @@ export function RoomsPage() {
                   value={draft?.scheduleRule ?? ""}
                   onChange={(e) => draft && setDraft({ ...draft, scheduleRule: e.target.value })}
                   fullWidth
-                  helperText={t("Planning guidance only; create and schedule sessions from the Sessions page.")}
                 >
                   {draft?.scheduleRule && !scheduleOptions.some((option) => option.value === draft.scheduleRule) ? (
                     <MenuItem value={draft.scheduleRule}>{t("Existing custom cadence")}: {draft.scheduleRule}</MenuItem>
@@ -604,14 +601,10 @@ export function RoomsPage() {
                 />
               </Grid>
               <Grid item xs={12}>
-                <Stack spacing={1}>
-                  <Divider />
-                  <Box display="flex" alignItems="center" justifyContent="space-between" gap={2}>
+                <Stack spacing={1.25}>
+                  <Box display="flex" alignItems="center" justifyContent="space-between" gap={2} sx={{ mt: 0.5 }}>
                     <div>
                       <Typography variant="h6">{t("Prize setup")}</Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {t("Add the winning patterns and define how each prize is awarded.")}
-                      </Typography>
                     </div>
                     <Button
                       size="small"
@@ -621,8 +614,8 @@ export function RoomsPage() {
                   </Box>
                   <Stack spacing={1.5}>
                     {(draft?.configuredPrizes ?? []).map((prize, index) => (
-                      <Paper key={`${prize.prizeType}-${index}`} variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
-                        <Stack spacing={1.5}>
+                      <Paper key={`${prize.prizeType}-${index}`} variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+                        <Stack spacing={1}>
                           <Box display="flex" alignItems="center" justifyContent="space-between">
                             <Typography variant="subtitle2">{t("Prize {{number}}", { number: index + 1 })}</Typography>
                             <Button
@@ -635,7 +628,7 @@ export function RoomsPage() {
                               } : current)}
                             >{t("Remove")}</Button>
                           </Box>
-                          <Grid container spacing={1.5}>
+                          <Grid container spacing={1.25}>
                             <Grid item xs={12} sm={6}>
                               <TextField select size="small" label={t("Pattern")} value={prize.prizeType}
                                 onChange={(event) => updatePrize(index, { prizeType: event.target.value as PatternValue })} fullWidth>
@@ -672,9 +665,8 @@ export function RoomsPage() {
                 </Stack>
               </Grid>
             </Grid>
-            <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: "grey.50" }}>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>{t("Room rules")}</Typography>
-              <Divider sx={{ mb: 1 }} />
+            <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+              <Typography variant="h6" sx={{ mb: 0.5 }}>{t("Room rules")}</Typography>
               <FormControlLabel
                 control={
                   <Checkbox
@@ -693,9 +685,6 @@ export function RoomsPage() {
                 }
                 label={t("Allow multiple winners per prize")}
               />
-              <Typography variant="caption" color="text.secondary" display="block" sx={{ ml: 4 }}>
-                {t("When enabled, each prize can have up to its configured maxWinners. Otherwise only one claim per prize can be approved per session.")}
-              </Typography>
               <FormControlLabel
                 control={
                   <Checkbox
@@ -709,8 +698,8 @@ export function RoomsPage() {
             </Stack>
             </Grid>
             {isEditPage ? <Grid item xs={12} lg={3}>
-              <Paper variant="outlined" sx={{ p: 2, mt: 1, borderRadius: 2, position: { lg: "sticky" }, top: 16 }}>
-                <Typography variant="h6" gutterBottom>{t("Room history")}</Typography>
+              <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2, position: { lg: "sticky" }, top: 16 }}>
+                <Typography variant="subtitle1" sx={{ mb: 1 }}>{t("Room history")}</Typography>
                 <Stack spacing={2}>
                   <Box>
                     <Typography variant="caption" color="text.secondary">{t("Created by")}</Typography>
@@ -733,10 +722,11 @@ export function RoomsPage() {
             </Grid> : null}
           </Grid>
         </Box>
-        <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1, px: { xs: 2, md: 3 }, py: 2, borderTop: "1px solid", borderColor: "divider", bgcolor: "grey.50" }}>
+        <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1, px: { xs: 2, md: 3 }, py: 1.5, borderTop: "1px solid", borderColor: "divider", bgcolor: "grey.50" }}>
           <Button
             onClick={() => {
-              navigate("/rooms");
+              if (hasDraftChanges) setDiscardOpen(true);
+              else navigate(`/rooms${location.search}`);
             }}
             disabled={pendingSubmit}
           >
@@ -755,7 +745,7 @@ export function RoomsPage() {
             }}
             disabled={pendingSubmit || !hasDraftChanges}
           >
-            {t("Save")}</Button>
+            {t(isEditPage ? "Save changes" : "Create room")}</Button>
         </Box>
           </EditorSurface>
         </>
@@ -771,6 +761,16 @@ export function RoomsPage() {
         onCancel={() => setConfirmOpen(false)}
         onConfirm={onSubmit}
       />
+      <ConfirmDialog
+        open={discardOpen}
+        title={t("Discard unsaved changes?")}
+        description={t("Your changes have not been saved. Discard them?")}
+        confirmLabel={t("Discard")}
+        cancelLabel={t("Keep editing")}
+        onCancel={() => setDiscardOpen(false)}
+        onConfirm={() => navigate(`/rooms${location.search}`)}
+      />
     </Stack>
+    </AdminTablePage>
   );
 }

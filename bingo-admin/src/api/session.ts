@@ -63,6 +63,10 @@ export function writeSession(session: AdminAuthSession): void {
 
 export function clearSession(options: { expired?: boolean } = {}): void {
   window.localStorage.removeItem(SESSION_KEY);
+  for (let index = window.sessionStorage.length - 1; index >= 0; index -= 1) {
+    const key = window.sessionStorage.key(index);
+    if (key?.startsWith('admin-list-search:') || key?.startsWith('admin-list-state:')) window.sessionStorage.removeItem(key);
+  }
   cachedSessionRaw = null;
   cachedSessionValue = null;
   sessionExpiredPending = options.expired === true;

@@ -117,7 +117,7 @@ test("keeps the player table scroll inside its container at mobile widths in bot
       await page.goto("/profile");
       await page.getByRole("combobox", { name: /Language/ }).click();
       await page.getByRole("option", { name: "አማርኛ" }).click();
-      await page.getByRole("button", { name: "Save" }).click();
+      await page.getByRole("button", { name: "Save", exact: true }).click();
       await expect(page.getByText("የቋንቋ ምርጫዎ ተቀምጧል።")).toBeVisible();
       await expect.poll(() => page.evaluate(() => {
         const session = window.localStorage.getItem("bingo-admin-session");

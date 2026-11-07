@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { AdminUsersPage } from "./AdminUsersPage";
 import i18n from "../../i18n";
 
@@ -27,7 +28,17 @@ function createWrapper() {
   });
 
   return function Wrapper({ children }: { children: React.ReactNode }) {
-    return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+    return (
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={["/admin-users"]}>
+          <Routes>
+            <Route path="/admin-users" element={children} />
+            <Route path="/admin-users/new" element={children} />
+            <Route path="/admin-users/:userId/edit" element={children} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
   };
 }
 
@@ -65,16 +76,16 @@ describe("AdminUsersPage", () => {
     const user = userEvent.setup();
     render(<AdminUsersPage />, { wrapper: createWrapper() });
 
-    expect((await screen.findAllByRole("heading", { name: "Admin Users" }))[0]).toBeInTheDocument();
+    expect((await screen.findAllByRole("heading", { name: "Admin users" }))[0]).toBeInTheDocument();
     expect(screen.getByText("Alice Admin")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Create admin user" }));
-    const createDialog = await screen.findByRole("dialog", { name: "Create admin user" });
-    expect(within(createDialog).queryByLabelText("Status")).not.toBeInTheDocument();
-    await user.type(within(createDialog).getByRole("textbox", { name: /display name/i }), "New Admin");
-    await user.type(within(createDialog).getByRole("textbox", { name: /email/i }), "new@bingo.local");
-    await user.type(within(createDialog).getByRole("textbox", { name: /phone number/i }), "0925636541");
-    await user.click(screen.getByRole("button", { name: "Create user" }));
+    expect(await screen.findByRole("heading", { name: "Create admin user" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("Status")).not.toBeInTheDocument();
+    await user.type(screen.getByRole("textbox", { name: /display name/i }), "New Admin");
+    await user.type(screen.getByRole("textbox", { name: /email/i }), "new@bingo.local");
+    await user.type(screen.getByRole("textbox", { name: /phone number/i }), "0925636541");
+    await user.click(screen.getByRole("button", { name: "Create admin user" }));
 
     await waitFor(() => {
       expect(createAdminUserMock).toHaveBeenCalledWith({
@@ -101,31 +112,29 @@ describe("AdminUsersPage", () => {
     const user = userEvent.setup();
     render(<AdminUsersPage />, { wrapper: createWrapper() });
     await user.click(await screen.findByRole("button", { name: "Create admin user" }));
-    const dialog = await screen.findByRole("dialog", { name: "Create admin user" });
-    const submit = within(dialog).getByRole("button", { name: "Create user" });
+    await screen.findByRole("heading", { name: "Create admin user" });
+    const submit = screen.getByRole("button", { name: "Create admin user" });
 
     await user.click(submit);
-    await within(dialog).findByText("Enter a display name.");
-    expect(dialog).toHaveTextContent("Enter a display name.");
+    await screen.findByText("Enter a display name.");
 
-    await user.type(within(dialog).getByRole("textbox", { name: /display name/i }), "New Admin");
-    await user.type(within(dialog).getByRole("textbox", { name: /^email$/i }), "not-an-email");
-    await user.type(within(dialog).getByRole("textbox", { name: /phone number/i }), "123456789");
+    await user.type(screen.getByRole("textbox", { name: /display name/i }), "New Admin");
+    await user.type(screen.getByRole("textbox", { name: /^email$/i }), "not-an-email");
+    await user.type(screen.getByRole("textbox", { name: /phone number/i }), "123456789");
     await user.click(submit);
-    await within(dialog).findByText("Enter a valid email address.");
-    expect(dialog).toHaveTextContent("Enter a valid email address.");
+    await screen.findByText("Enter a valid email address.");
 
-    await user.clear(within(dialog).getByRole("textbox", { name: /^email$/i }));
-    await user.type(within(dialog).getByRole("textbox", { name: /^email$/i }), "new@bingo.local");
+    await user.clear(screen.getByRole("textbox", { name: /^email$/i }));
+    await user.type(screen.getByRole("textbox", { name: /^email$/i }), "new@bingo.local");
     await user.click(submit);
-    expect(dialog).toHaveTextContent("Enter exactly 10 digits.");
+    expect(screen.getByText("Enter exactly 10 digits.")).toBeInTheDocument();
     await act(async () => { await i18n.changeLanguage("am"); });
-    expect(dialog).toHaveTextContent("በትክክል 10 አሃዞች ያስገቡ።");
+    expect(screen.getByText("በትክክል 10 አሃዞች ያስገቡ።")).toBeInTheDocument();
     expect(createAdminUserMock).not.toHaveBeenCalled();
     expect(updateAdminUserMock).not.toHaveBeenCalled();
   });
 
-  it("opens an edit dialog and saves changes", async () => {
+  it("opens the edit details route and saves changes", async () => {
     adminUsersMock.mockResolvedValue({
       content: [
         {
@@ -153,12 +162,12 @@ describe("AdminUsersPage", () => {
 
     expect(await screen.findByText("Alice Admin")).toBeInTheDocument();
     await user.click(await screen.findByRole("button", { name: "Edit" }));
-    const editDialog = await screen.findByRole("dialog", { name: /Edit admin user/ });
-    expect(within(editDialog).getByRole("textbox", { name: /phone number/i })).toHaveValue("0911000001");
-    const saveButton = within(editDialog).getByRole("button", { name: "Save changes" });
+    expect(await screen.findByRole("heading", { name: "Edit admin user" })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: /phone number/i })).toHaveValue("0911000001");
+    const saveButton = screen.getByRole("button", { name: "Save changes" });
     expect(saveButton).toBeDisabled();
 
-    const nameField = within(editDialog).getByRole("textbox", { name: /display name/i });
+    const nameField = screen.getByRole("textbox", { name: /display name/i });
     await user.clear(nameField);
     await user.type(nameField, "Alice Administrator");
     expect(saveButton).toBeEnabled();
@@ -178,6 +187,24 @@ describe("AdminUsersPage", () => {
         roles: ["ADMIN", "SUPPORT"],
       });
     });
+  });
+
+  it("keeps unsaved create values when editing continues and returns to the list after discard", async () => {
+    adminUsersMock.mockResolvedValue({
+      content: [], page: 0, size: 20, totalElements: 0, totalPages: 0, first: true, last: true,
+    });
+    const user = userEvent.setup();
+    render(<AdminUsersPage />, { wrapper: createWrapper() });
+    await user.click(await screen.findByRole("button", { name: "Create admin user" }));
+    const nameField = screen.getByRole("textbox", { name: /display name/i });
+    await user.type(nameField, "Draft account");
+    await user.click(screen.getAllByRole("button", { name: "Cancel" })[0]);
+    const discardDialog = screen.getByRole("dialog", { name: "Discard unsaved changes?" });
+    await user.click(within(discardDialog).getByRole("button", { name: "Keep editing" }));
+    expect(await screen.findByRole("textbox", { name: /display name/i })).toHaveValue("Draft account");
+    await user.click(screen.getAllByRole("button", { name: "Cancel" })[0]);
+    await user.click(within(screen.getByRole("dialog", { name: "Discard unsaved changes?" })).getByRole("button", { name: "Discard" }));
+    expect(await screen.findByText("No admin users match the current filters.")).toBeInTheDocument();
   });
 
   it("revokes a finance role and refreshes the admin user list", async () => {
@@ -226,13 +253,13 @@ describe("AdminUsersPage", () => {
       });
 
       render(<AdminUsersPage />, { wrapper: createWrapper() });
-      expect((await screen.findAllByRole("heading", { name: "Admin Users" }))[0]).toBeInTheDocument();
+      expect((await screen.findAllByRole("heading", { name: "Admin users" }))[0]).toBeInTheDocument();
 
       await act(async () => {
         await i18n.changeLanguage("am");
       });
 
-      expect((await screen.findAllByRole("heading", { name: "አስተዳዳሪዎች" }))[0]).toBeInTheDocument();
+      expect((await screen.findAllByRole("heading", { name: "የአስተዳዳሪ ተጠቃሚዎች" }))[0]).toBeInTheDocument();
       expect(screen.getAllByText("ንቁ")[0]).toBeInTheDocument();
       expect(screen.getAllByText("Alice Admin")[0]).toBeInTheDocument();
       expect(adminUsersMock).toHaveBeenCalledWith(0, 20, "", "");

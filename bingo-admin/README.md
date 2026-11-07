@@ -49,3 +49,19 @@ The checked-in backend [OpenAPI contract](../bingo-backend/openapi.json) is the
 authoritative route reference. See the [backend guide](../bingo-backend/README.md)
 for API and WebSocket details and the [guarded E2E runbook](../docs/qa/platform-e2e-runbook.md)
 for real Chromium execution. Component tests alone are not browser E2E.
+
+## Navigation and interaction conventions
+
+| Context | Convention |
+| --- | --- |
+| Navigation and page names | Use the route's staff-facing entity name consistently in the sidebar, page heading, breadcrumb, and browser title. Keep entity distinctions such as room, session, ticket, claim, deposit, and transfer. |
+| Create and edit | Use **Create [entity]** for new records, **Save changes** for edits, and **Cancel** to abandon unsubmitted form changes. |
+| Record navigation | Use links for destinations and buttons for actions. Detail pages link back to their parent list; nested routes keep the parent active in the sidebar. |
+| Search and results | Keep search and filters with their result list; keep pagination below the table. Preserve server pagination and export semantics. |
+| List state | Keep non-sensitive filters, page, and page size in the URL and carry them into detail/editor links when a record route exists. Keep free-text searches (which may contain names, email addresses, or phone numbers) and the controls for modal-based queues in tab session storage; clear both on sign-out. URL state is enabled for sessions, players, agents, support tickets, rooms, and player verification. Audit logs, claims, deposits, prize entitlements, admin users, wallet transfers, and session tickets retain their controls in tab session storage. |
+| Dialogs | Use **Close** for read-only dialogs and **Cancel** for an unsubmitted decision. Name consequential actions and affected records in confirmation copy. |
+| Action wording | Use explicit business verbs such as approve, reject, suspend, activate, reconcile, and settle. Never show success until the API confirms the action. |
+| Access | Hide unavailable actions according to the existing role capabilities. Backend authorization remains authoritative; do not infer or introduce permissions from UI visibility. |
+| Language | Add shared labels and page-specific copy to `adminUiTranslations.ts` and keep English keys in `i18n.ts`; preserve equivalent meaning in English and Amharic. |
+
+Review and verification dialogs are intentional exceptions to page-based detail/edit flows where the existing workflow must keep queue context visible. Financial actions retain their precise business names and confirmation steps instead of generic save or submit labels. List filters should be represented in URL query parameters when a page already supports deep links; never put credentials, tokens, or other sensitive data in a URL.

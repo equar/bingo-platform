@@ -96,24 +96,24 @@ export function ProfilePage() {
     <Stack spacing={3}>
       <Box
         sx={{
-          p: { xs: 3, md: 4 },
-          borderRadius: 4,
-          color: "common.white",
-          background:
-            "linear-gradient(135deg, rgba(11,92,171,0.98) 0%, rgba(18,62,108,0.96) 45%, rgba(10,71,132,0.94) 100%)",
-          boxShadow: 3,
+          p: { xs: 2.5, md: 3 },
+          borderRadius: 3,
+          color: "text.primary",
+          bgcolor: "background.paper",
+          border: "1px solid",
+          borderColor: "divider",
         }}
       >
         <Stack direction={{ xs: "column", md: "row" }} spacing={3} alignItems={{ md: "center" }}>
-          <Avatar sx={{ width: 72, height: 72, bgcolor: "rgba(255,255,255,0.16)", fontSize: 30 }}>{initials}</Avatar>
+          <Avatar sx={{ width: 64, height: 64, bgcolor: "primary.light", color: "primary.dark", fontSize: 26, fontWeight: 700 }}>{initials}</Avatar>
           <Stack spacing={1} flexGrow={1}>
-            <Typography variant="overline" sx={{ opacity: 0.8, letterSpacing: 1.5 }}>
+            <Typography variant="overline" color="primary.main">
               {t("profile.adminProfile")}
             </Typography>
             <Typography component="h1" variant="h4" fontWeight={800}>
               {t("profile.title")}
             </Typography>
-            <Typography sx={{ maxWidth: 760, opacity: 0.9 }}>
+            <Typography color="text.secondary" sx={{ maxWidth: 760 }}>
               {t("profile.intro")}
             </Typography>
           </Stack>
@@ -122,7 +122,7 @@ export function ProfilePage() {
               <Chip
                 key={role}
                 label={role}
-                sx={{ color: "common.white", borderColor: "rgba(255,255,255,0.35)" }}
+                sx={{ color: "primary.dark", borderColor: "primary.light", bgcolor: "primary.light" }}
                 variant="outlined"
               />
             ))}

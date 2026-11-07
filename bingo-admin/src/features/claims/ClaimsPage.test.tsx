@@ -111,7 +111,7 @@ describe("ClaimsPage", () => {
     );
 
     await user.click(screen.getByRole("combobox", { name: "Pattern" }));
-    await user.click(await screen.findByRole("option", { name: "FULL HOUSE" }));
+    await user.click(await screen.findByRole("option", { name: "Full house" }));
     await waitFor(() =>
       expect(winClaimsMock).toHaveBeenLastCalledWith(0, 20, "player", "APPROVED", "FULL_HOUSE", undefined),
     );

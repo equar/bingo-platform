@@ -18,23 +18,30 @@ const getAdminRoomMock = vi.mocked(getAdminRoom);
 const listAdminRoomsMock = vi.mocked(listAdminRooms);
 const updateRoomMock = vi.mocked(updateRoom);
 
-function createWrapper({ children }: PropsWithChildren) {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return (
-    <MemoryRouter initialEntries={["/rooms"]}>
-      <QueryClientProvider client={queryClient}>
-        <Routes>
-          <Route path="/rooms" element={children} />
-          <Route path="/rooms/new" element={children} />
-          <Route path="/rooms/:roomId/edit" element={children} />
-        </Routes>
-      </QueryClientProvider>
-    </MemoryRouter>
-  );
+function createWrapperFor(initialEntry: string) {
+  return function Wrapper({ children }: PropsWithChildren) {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    return (
+      <MemoryRouter initialEntries={[initialEntry]}>
+        <QueryClientProvider client={queryClient}>
+          <Routes>
+            <Route path="/rooms" element={children} />
+            <Route path="/rooms/new" element={children} />
+            <Route path="/rooms/:roomId/edit" element={children} />
+          </Routes>
+        </QueryClientProvider>
+      </MemoryRouter>
+    );
+  };
 }
 
+const createWrapper = createWrapperFor("/rooms");
+
 describe("RoomsPage", () => {
-  afterEach(cleanup);
+  afterEach(() => {
+    cleanup();
+    window.sessionStorage.removeItem("admin-list-search:rooms");
+  });
 
   beforeEach(() => {
     getAdminRoomMock.mockReset();
@@ -89,6 +96,31 @@ describe("RoomsPage", () => {
     });
   });
 
+  it("shows a back link in the editor header", async () => {
+    render(<RoomsPage />, { wrapper: createWrapperFor("/rooms/new") });
+
+    expect(await screen.findByRole("button", { name: "← Rooms" })).toBeInTheDocument();
+  });
+
+  it("offers common 75-ball patterns in prize setup", async () => {
+    const user = userEvent.setup();
+    render(<RoomsPage />, { wrapper: createWrapperFor("/rooms/new") });
+
+    await user.click(await screen.findByRole("combobox", { name: "Pattern" }));
+
+    for (const label of [
+      "Four corners",
+      "Postage stamp",
+      "X shape",
+      "T shape",
+      "L shape",
+      "Outer frame",
+      "Full house",
+    ]) {
+      expect(await screen.findByRole("option", { name: label })).toBeInTheDocument();
+    }
+  });
+
   it("forwards search, status, and pagination to the admin rooms API", async () => {
     const user = userEvent.setup();
     render(<RoomsPage />, { wrapper: createWrapper });
@@ -113,7 +145,7 @@ describe("RoomsPage", () => {
 
     await user.click(await screen.findByRole("button", { name: "Edit" }));
     expect(await screen.findByRole("heading", { name: "Edit room" })).toBeInTheDocument();
-    const saveButton = screen.getByRole("button", { name: "Save" });
+    const saveButton = screen.getByRole("button", { name: "Save changes" });
     expect(saveButton).toBeDisabled();
 
     const nameField = screen.getByRole("textbox", { name: "Room name" });

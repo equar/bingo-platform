@@ -496,7 +496,8 @@ class BingoLiveDrawIntegrationTest extends MySqlIntegrationTest {
 
         @Test
         void cancellationAndInvalidSessionCannotAdvanceTheDrawEngine() {
-                GameSession session = startedSession("Cancelled Draw Room");
+                BingoRoom room = bingoGameService.createRoom(roomRequest("Cancelled Draw Room", 2, 2, true));
+                GameSession session = bingoGameService.createSession(room.id(), sessionRequest(GameSessionState.OPEN));
                 bingoGameService.updateSessionState(session.getId(),
                                 new GameSessionStateUpdateRequest(GameSessionState.CANCELLED));
                 Instant dueTime = session.getStartedAt().plus(gameProperties.drawInterval()).plusSeconds(1);

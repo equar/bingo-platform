@@ -81,6 +81,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -465,6 +466,53 @@ class BingoGameIntegrationTest extends MySqlIntegrationTest {
 
                 mockMvc.perform(get("/api/v1/admin/support/session-tickets/sessions/" + session.id() + "/tickets")
                                 .header("Authorization", "Bearer " + playerToken))
+                                .andExpect(status().isForbidden());
+        }
+
+        @Test
+        void supportCanManageRoomsButCannotCreateSessions() throws Exception {
+                User support = userRepository.save(User.create(
+                                phoneNormalizer.normalize("0911000208"),
+                                "Room Support User",
+                                passwordEncoder.encode("123456"),
+                                AccountStatus.ACTIVE,
+                                Set.of(UserRole.SUPPORT),
+                                Instant.now()));
+                String supportToken = jwtService.generateToken(support);
+                String roomName = "Support Managed Room";
+
+                var createdRoomResponse = mockMvc.perform(post("/api/v1/admin/rooms")
+                                .header("Authorization", "Bearer " + supportToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(roomRequest(roomName, 4, 5, true))))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.name").value(roomName))
+                                .andReturn();
+                long roomId = objectMapper.readTree(createdRoomResponse.getResponse().getContentAsString())
+                                .path("id").asLong();
+
+                mockMvc.perform(get("/api/v1/admin/rooms")
+                                .param("query", roomName)
+                                .header("Authorization", "Bearer " + supportToken))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.totalElements").value(1));
+                mockMvc.perform(get("/api/v1/admin/rooms/" + roomId)
+                                .header("Authorization", "Bearer " + supportToken))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.name").value(roomName));
+
+                var update = roomUpdateRequest(bingoGameService.getRoom(roomId), new BigDecimal("5.00"));
+                mockMvc.perform(put("/api/v1/admin/rooms/" + roomId)
+                                .header("Authorization", "Bearer " + supportToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(update)))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.name").value(roomName));
+
+                mockMvc.perform(post("/api/v1/admin/rooms/" + roomId + "/sessions")
+                                .header("Authorization", "Bearer " + supportToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(sessionRequest(GameSessionState.OPEN))))
                                 .andExpect(status().isForbidden());
         }
 

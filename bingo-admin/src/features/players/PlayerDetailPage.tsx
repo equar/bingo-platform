@@ -19,7 +19,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { useParams } from "react-router-dom";
+import { useLocation, useParams } from "react-router-dom";
 import { Link as RouterLink } from "react-router-dom";
 import {
   playerDetail,
@@ -88,6 +88,7 @@ function PlayerActivityCard({
 }
 
 export function PlayerDetailPage() {
+  const location = useLocation();
   const { t } = useTranslation();
   const { playerId } = useParams();
   const id = Number(playerId);
@@ -169,7 +170,7 @@ export function PlayerDetailPage() {
   const reviewOutcomeUnknown =
     reviewRequestId != null && uncertainReviewRequestIds.has(reviewRequestId);
   const backButton = (
-    <Button component={RouterLink} to="/players" size="small" variant="outlined">
+    <Button component={RouterLink} to={`/players${location.search}`} size="small" variant="outlined">
       {t("Back to players")}</Button>
   );
 

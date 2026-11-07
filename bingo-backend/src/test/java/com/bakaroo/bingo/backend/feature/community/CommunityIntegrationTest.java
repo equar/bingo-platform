@@ -164,7 +164,7 @@ class CommunityIntegrationTest extends MySqlIntegrationTest {
             room,
             new GameSessionRequest(
                 UUID.randomUUID().toString(),
-                time.now().minusSeconds(ThreadLocalRandom.current().nextInt(1000, 10000)),
+                time.now().plusSeconds(3600),
                 GameSessionState.OPEN,
                 null,
                 null,
@@ -176,7 +176,8 @@ class CommunityIntegrationTest extends MySqlIntegrationTest {
                 null));
     ticket(session.id(), player);
     jdbc.update(
-        "update bingo_sessions set state='CLOSED',started_at=?,ended_at=? where id=?",
+        "update bingo_sessions set state='CLOSED',scheduled_start_at=?,started_at=?,ended_at=? where id=?",
+        Timestamp.from(time.now().minusSeconds(ThreadLocalRandom.current().nextInt(1000, 10000))),
         Timestamp.from(time.now().minusSeconds(200)),
         Timestamp.from(time.now().minusSeconds(30)),
         session.id());

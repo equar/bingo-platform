@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link as RouterLink } from "react-router-dom";
 import { http } from "../../api/http";
+import { AdminTablePage } from "../../components/AdminTablePage";
+import { AdminPageHeader } from "../../components/AdminPageHeader";
 import { translateAdminStatus } from "../../i18n";
 
 type Summary = { privateGames: number; dailyClaims: number; dailyPoints: number; visiblePlayers: number; timezone: string };
@@ -37,8 +39,9 @@ export function CommunityPage() {
     : [];
 
   return (
+    <AdminTablePage>
     <Stack spacing={3} sx={{ minWidth: 0 }}>
-      <Typography variant="h4">{t("Player community")}</Typography>
+      <AdminPageHeader title={t("Player community")} />
 
       <Alert severity="info">
         {t("Private games follow the approved room rules. Hosts cannot change draws or prizes. Challenges award points only and never affect wallet balances. Leaderboards are optional and show public aliases.")}
@@ -159,5 +162,6 @@ export function CommunityPage() {
         </DialogActions>
       </Dialog>
     </Stack>
+    </AdminTablePage>
   );
 }

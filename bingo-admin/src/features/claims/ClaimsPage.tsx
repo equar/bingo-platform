@@ -26,22 +26,36 @@ import { approveWinClaim, rejectWinClaim, winClaims } from "../../api/admin";
 import { getUserFacingErrorMessage, parseApiError } from "../../api/types";
 import { StatusState } from "../../components/StatusState";
 import { AdminTablePagination } from "../../components/AdminTablePagination";
-import { translateAdminStatus } from "../../i18n";
+import { AdminTablePage } from "../../components/AdminTablePage";
+import { AdminPageHeader } from "../../components/AdminPageHeader";
+import { translateAdminStatus, translateAdminValue } from "../../i18n";
 import { useIdempotencyKey } from "../common/useIdempotencyKey";
+import { usePrivateListSearch } from "../../components/usePrivateListSearch";
+import { useListSessionState } from "../../components/useListSessionState";
 
 const statusOptions = ["PENDING_REVIEW", "APPROVED", "REJECTED", "FAILED_SERVER_VALIDATION"] as const;
-const patternOptions = ["LINE", "TWO_LINES", "FULL_HOUSE"] as const;
+const patternOptions = [
+  "LINE",
+  "TWO_LINES",
+  "FOUR_CORNERS",
+  "POSTAGE_STAMP",
+  "X_SHAPE",
+  "T_SHAPE",
+  "L_SHAPE",
+  "OUTER_FRAME",
+  "FULL_HOUSE",
+] as const;
 
 export function ClaimsPage() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
-  const [query, setQuery] = useState("");
-  const [status, setStatus] = useState(() => statusOptions.find((option) => option === searchParams.get("status")) ?? "");
-  const [pattern, setPattern] = useState("");
-  const [validation, setValidation] = useState("");
-  const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(20);
+  const [query, setQuery] = usePrivateListSearch("claims");
+  const [status, setStatus] = useListSessionState("claims:status", () => statusOptions.find((option) => option === searchParams.get("status")) ?? "");
+  const [pattern, setPattern] = useListSessionState("claims:pattern", "");
+  const [validation, setValidation] = useListSessionState("claims:validation", "");
+  const [page, setPage] = useListSessionState("claims:page", 0);
+  const [pageSize, setPageSize] = useListSessionState("claims:size", 20);
   const normalizedQuery = query.trim();
   const claimsQuery = useQuery({
     queryKey: ["win-claims", normalizedQuery, status, pattern, validation, page, pageSize],
@@ -63,8 +77,8 @@ export function ClaimsPage() {
   const idempotency = useIdempotencyKey();
 
   useEffect(() => {
-    setStatus(statusOptions.find((option) => option === searchParams.get("status")) ?? "");
-  }, [searchParams]);
+    if (searchParams.has("status")) setStatus(statusOptions.find((option) => option === searchParams.get("status")) ?? "");
+  }, [searchParams, setStatus]);
 
   const actionMutation = useMutation({
     mutationFn: async () => {
@@ -106,11 +120,9 @@ export function ClaimsPage() {
   }
 
   return (
+    <AdminTablePage>
     <Stack spacing={3}>
-      <Box>
-        <Typography variant="h4">{t("Win claims")}</Typography>
-        <Typography color="text.secondary">{t("Review submitted claims and record validation evidence.")}</Typography>
-      </Box>
+      <AdminPageHeader title={t("Win claims")} description={t("Review submitted claims and record validation evidence.")} />
 
       <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
         <TextField
@@ -152,7 +164,7 @@ export function ClaimsPage() {
           <MenuItem value="">{t("All patterns")}</MenuItem>
           {patternOptions.map((option) => (
             <MenuItem key={option} value={option}>
-              {option.replace(/_/g, " ")}
+              {translateAdminValue(option, t)}
             </MenuItem>
           ))}
         </TextField>
@@ -205,7 +217,7 @@ export function ClaimsPage() {
                   <Typography variant="body2">{t("Ticket")}{" "}{claim.ticketId}</Typography>
                   <Typography variant="caption" color="text.secondary">{t("Session")}{" "}{claim.sessionId}</Typography>
                 </TableCell>
-                <TableCell>{claim.claimedPattern.replace(/_/g, " ")}</TableCell>
+                <TableCell>{translateAdminValue(claim.claimedPattern, t)}</TableCell>
                 <TableCell>
                   <Chip label={translateAdminStatus(claim.status, t)} size="small" />
                 </TableCell>
@@ -310,5 +322,6 @@ export function ClaimsPage() {
         </DialogActions>
       </Dialog>
     </Stack>
+    </AdminTablePage>
   );
 }

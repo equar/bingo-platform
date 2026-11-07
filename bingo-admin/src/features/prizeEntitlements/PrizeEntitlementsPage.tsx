@@ -3,7 +3,6 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import { useState } from "react";
 import {
   Alert,
-  Box,
   Button,
   Chip,
   Dialog,
@@ -26,16 +25,20 @@ import { prizeEntitlements, settlePrizeEntitlement } from "../../api/admin";
 import { getUserFacingErrorMessage } from "../../api/types";
 import { StatusState } from "../../components/StatusState";
 import { AdminTablePagination } from "../../components/AdminTablePagination";
+import { AdminTablePage } from "../../components/AdminTablePage";
+import { AdminPageHeader } from "../../components/AdminPageHeader";
+import { usePrivateListSearch } from "../../components/usePrivateListSearch";
+import { useListSessionState } from "../../components/useListSessionState";
 import { translateAdminStatus, translateAdminValue } from "../../i18n";
 import { EntitlementReferenceDialog, type EntitlementReference } from "./EntitlementReferenceDialog";
 
 export function PrizeEntitlementsPage() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
-  const [query, setQuery] = useState("");
-  const [status, setStatus] = useState("");
-  const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(20);
+  const [query, setQuery] = usePrivateListSearch("prize-entitlements");
+  const [status, setStatus] = useListSessionState("prize-entitlements:status", "");
+  const [page, setPage] = useListSessionState("prize-entitlements:page", 0);
+  const [pageSize, setPageSize] = useListSessionState("prize-entitlements:size", 20);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [settlementReference, setSettlementReference] = useState("");
   const [settlementNote, setSettlementNote] = useState("");
@@ -86,11 +89,9 @@ export function PrizeEntitlementsPage() {
   const entitlements = entitlementsQuery.data?.content ?? [];
 
   return (
+    <AdminTablePage>
     <Stack spacing={3}>
-      <Box>
-        <Typography variant="h4">{t("Prize entitlements")}</Typography>
-        <Typography color="text.secondary">{t("Review approved claims and their prize entitlement details.")}</Typography>
-      </Box>
+      <AdminPageHeader title={t("Prize entitlements")} description={t("Review approved claims and their prize entitlement details.")} />
 
       <Alert severity="warning">
         {t("Prize settlement is blocked until payout evidence, accounting treatment, and reconciliation controls are approved.")}</Alert>
@@ -304,5 +305,6 @@ export function PrizeEntitlementsPage() {
         </DialogActions>
       </Dialog>
     </Stack>
+    </AdminTablePage>
   );
 }
