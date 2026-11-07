@@ -75,6 +75,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -306,6 +308,9 @@ public class BingoGameService {
                 .map(BingoPrizeConfigRequest::prizeType)
                 .toList()));
         room.setConfiguredPrizesJson(writePrizes(request.configuredPrizes()));
+        String actorName = currentActorDisplayName();
+        room.setCreatedByDisplayName(actorName);
+        room.setUpdatedByDisplayName(actorName);
         return toRoomResponse(bingoRoomRepository.save(room));
     }
 
@@ -336,6 +341,7 @@ public class BingoGameService {
                 .map(BingoPrizeConfigRequest::prizeType)
                 .toList()));
         room.setConfiguredPrizesJson(writePrizes(request.configuredPrizes()));
+        room.setUpdatedByDisplayName(currentActorDisplayName());
         bingoRoomRepository.saveAndFlush(room);
         return toRoomResponse(room);
     }
@@ -918,7 +924,18 @@ public class BingoGameService {
                 readPrizes(room.getConfiguredPrizesJson()),
                 room.getCreatedAt(),
                 room.getUpdatedAt(),
+                room.getCreatedByDisplayName(),
+                room.getUpdatedByDisplayName(),
                 room.getVersion());
+    }
+
+    private String currentActorDisplayName() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !(authentication.getPrincipal() instanceof BingoUserPrincipal principal)) {
+            return null;
+        }
+        User actor = principal.getUser();
+        return actor == null ? null : actor.getDisplayName();
     }
 
     private PlayerRoomResponse toPlayerRoomResponse(BingoRoom room) {

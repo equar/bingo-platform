@@ -61,6 +61,11 @@ public class AdminGameController {
         return PageResponse.from(bingoGameService.listAdminRooms(query, active, pageable));
     }
 
+    @GetMapping("/rooms/{id}")
+    public BingoRoomResponse room(@PathVariable Long id) {
+        return bingoGameService.getRoom(id);
+    }
+
     @PostMapping("/rooms")
     public BingoRoomResponse createRoom(@Valid @RequestBody BingoRoomRequest request) {
         return bingoGameService.createRoom(request);

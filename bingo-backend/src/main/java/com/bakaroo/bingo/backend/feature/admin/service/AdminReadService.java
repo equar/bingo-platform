@@ -4,6 +4,7 @@ import com.bakaroo.bingo.backend.common.exception.NotFoundException;
 import com.bakaroo.bingo.backend.common.exception.BadRequestException;
 import com.bakaroo.bingo.backend.feature.admin.dto.*;
 import com.bakaroo.bingo.backend.feature.agent.entity.Agent;
+import com.bakaroo.bingo.backend.feature.agent.entity.AgentStatus;
 import com.bakaroo.bingo.backend.feature.agent.repository.AgentFloatRepository;
 import com.bakaroo.bingo.backend.feature.agent.repository.AgentFloatTransactionRepository;
 import com.bakaroo.bingo.backend.feature.agent.repository.AgentRepository;
@@ -35,6 +36,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.Map;
+import java.util.HashMap;
 import java.util.TreeMap;
 import java.util.List;
 import java.util.Locale;
@@ -230,8 +232,47 @@ public class AdminReadService {
         }
 
         @Transactional(readOnly = true)
-        public Page<AdminAgentSummaryResponse> agents(Pageable pageable) {
-                return agentRepository.findAll(pageable).map(this::toAgentSummary);
+        public Page<AdminAgentSummaryResponse> agents(String query, AgentStatus status, Pageable pageable) {
+                if (pageable.getPageNumber() < 0 || pageable.getPageSize() < 1 || pageable.getPageSize() > 100) {
+                        throw new BadRequestException("INVALID_PAGINATION",
+                                        "Agent page must be non-negative and size must be between 1 and 100");
+                }
+                String search = query == null || query.isBlank() ? null : query.trim().toLowerCase(Locale.ROOT);
+                java.util.Set<String> sortable = java.util.Set.of(
+                                "id", "createdAt", "updatedAt", "status", "city", "territory");
+                for (org.springframework.data.domain.Sort.Order order : pageable.getSort()) {
+                        if (!sortable.contains(order.getProperty())) {
+                                throw new BadRequestException("INVALID_SORT_FIELD", "Unsupported agent sort field");
+                        }
+                }
+                org.springframework.data.domain.Sort stableSort = pageable.getSort().isSorted()
+                                ? pageable.getSort()
+                                : org.springframework.data.domain.Sort.by(
+                                                org.springframework.data.domain.Sort.Order.desc("createdAt"));
+                if (stableSort.getOrderFor("id") == null) {
+                        stableSort = stableSort.and(org.springframework.data.domain.Sort.by(
+                                        org.springframework.data.domain.Sort.Order.desc("id")));
+                }
+                Pageable stablePageable = org.springframework.data.domain.PageRequest.of(pageable.getPageNumber(),
+                                pageable.getPageSize(), stableSort);
+                Page<Agent> agentPage = agentRepository.searchAdminAgents(search, status, stablePageable);
+                if (agentPage.isEmpty()) {
+                        return new org.springframework.data.domain.PageImpl<>(List.of(), stablePageable,
+                                        agentPage.getTotalElements());
+                }
+                List<Long> agentIds = agentPage.getContent().stream().map(Agent::getId).toList();
+                List<Long> userIds = agentPage.getContent().stream().map(agent -> agent.getUser().getId()).toList();
+                Map<Long, Long> ticketCounts = countMap(ticketRepository.countByOwnerIds(userIds));
+                Map<Long, Long> floatCounts = countMap(agentFloatTransactionRepository.countByAgentIds(agentIds));
+                Map<Long, Long> topUpCounts = countMap(floatTopUpRequestRepository.countByAgentIds(agentIds));
+                Map<Long, Long> payoutCounts = countMap(payoutVerificationRecordRepository.countByAgentIds(agentIds));
+                return agentPage.map(agent -> new AdminAgentSummaryResponse(agent.getId(), agent.getUser().getId(),
+                                agent.getUser().getDisplayName(), agent.getUser().getNormalizedPhone(),
+                                agent.getStatus(), agent.getCity(), agent.getTerritory(), agent.getCreatedAt(),
+                                agent.getUpdatedAt(), ticketCounts.getOrDefault(agent.getUser().getId(), 0L),
+                                floatCounts.getOrDefault(agent.getId(), 0L),
+                                topUpCounts.getOrDefault(agent.getId(), 0L),
+                                payoutCounts.getOrDefault(agent.getId(), 0L)));
         }
 
         @Transactional(readOnly = true)
@@ -343,19 +384,12 @@ public class AdminReadService {
                                                 SupportLinkedEntityType.GAME_SESSION, session.getId()));
         }
 
-        private AdminAgentSummaryResponse toAgentSummary(Agent agent) {
-                return new AdminAgentSummaryResponse(agent.getId(), agent.getUser().getId(),
-                                agent.getUser().getDisplayName(), agent.getUser().getNormalizedPhone(),
-                                agent.getStatus(), agent.getCity(), agent.getTerritory(), agent.getCreatedAt(),
-                                agent.getUpdatedAt(), ticketRepository.findAll().stream()
-                                                .filter(ticket -> ticket.getOwner().getId()
-                                                                .equals(agent.getUser().getId()))
-                                                .count(),
-                                agentFloatTransactionRepository
-                                                .findByAgentFloatAgentIdOrderByCreatedAtDesc(agent.getId()).size(),
-                                floatTopUpRequestRepository.findByAgentIdOrderByCreatedAtDesc(agent.getId()).size(),
-                                payoutVerificationRecordRepository.findByAgentIdOrderByCreatedAtDesc(agent.getId())
-                                                .size());
+        private Map<Long, Long> countMap(List<Object[]> rows) {
+                Map<Long, Long> counts = new HashMap<>();
+                for (Object[] row : rows) {
+                        counts.put(((Number) row[0]).longValue(), ((Number) row[1]).longValue());
+                }
+                return counts;
         }
 
         private AdminAgentDetailResponse toAgentDetail(Agent agent) {
@@ -365,14 +399,9 @@ public class AdminReadService {
                                 agent.getTerritory(), agent.getIdDocumentType(), agent.getIdDocumentNumber(),
                                 agent.getIdDocumentFrontReference(), agent.getIdDocumentBackReference(),
                                 agent.getCreatedAt(), agent.getUpdatedAt(),
-                                ticketRepository.findAll().stream()
-                                                .filter(ticket -> ticket.getOwner().getId()
-                                                                .equals(agent.getUser().getId()))
-                                                .count(),
-                                agentFloatTransactionRepository
-                                                .findByAgentFloatAgentIdOrderByCreatedAtDesc(agent.getId()).size(),
-                                floatTopUpRequestRepository.findByAgentIdOrderByCreatedAtDesc(agent.getId()).size(),
-                                payoutVerificationRecordRepository.findByAgentIdOrderByCreatedAtDesc(agent.getId())
-                                                .size());
+                                ticketRepository.countByOwnerId(agent.getUser().getId()),
+                                agentFloatTransactionRepository.countByAgentFloatAgentId(agent.getId()),
+                                floatTopUpRequestRepository.countByAgentId(agent.getId()),
+                                payoutVerificationRecordRepository.countByAgentId(agent.getId()));
         }
 }

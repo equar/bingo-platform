@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Alert,
   Box,
@@ -14,6 +14,7 @@ import {
   DialogTitle,
   FormControlLabel,
   Grid,
+  MenuItem,
   Stack,
   Switch,
   Table,
@@ -38,6 +39,7 @@ import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { StatusState } from "../../components/StatusState";
 import { translateAdminStatus } from "../../i18n";
 import { FloatFundingPanel } from "./FloatFundingPanel";
+import { AdminTablePagination } from "../../components/AdminTablePagination";
 
 function formatNullable(value: string | null | undefined) {
   return value?.trim() ? value : "n/a";
@@ -47,9 +49,21 @@ export function AgentsPage() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const agentsQuery = useQuery({ queryKey: ["agents"], queryFn: () => adminAgents(0, 100) });
   const commissionRuleQuery = useQuery({ queryKey: ["commission-rule"], queryFn: currentCommissionRule });
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => window.clearTimeout(timeout);
+  }, [search]);
+  const agentsQuery = useQuery({
+    queryKey: ["agents", page, pageSize, debouncedSearch, statusFilter],
+    queryFn: () => adminAgents(page, pageSize, debouncedSearch, statusFilter),
+    placeholderData: (previous) => previous,
+  });
   const [selectedAgent, setSelectedAgent] = useState<AdminAgentSummaryResponse | null>(null);
   const [decisionDraft, setDecisionDraft] = useState<{ mode: "APPROVE" } | null>(null);
   const [decisionError, setDecisionError] = useState<string | null>(null);
@@ -109,19 +123,13 @@ export function AgentsPage() {
     },
   });
 
-  const filteredAgents = useMemo(() => {
-    const normalized = search.trim().toLowerCase();
-    const items = agentsQuery.data?.content ?? [];
-    if (!normalized) {
-      return items;
-    }
-    return items.filter((agent) => {
-      const haystack = [agent.displayName, agent.normalizedPhone, agent.city ?? "", agent.territory ?? "", agent.status]
-        .join(" ")
-        .toLowerCase();
-      return haystack.includes(normalized);
-    });
-  }, [agentsQuery.data, search]);
+  const agents = agentsQuery.data?.content ?? [];
+  useEffect(() => {
+    const data = agentsQuery.data;
+    if (!data || agentsQuery.isPlaceholderData) return;
+    const lastAvailablePage = Math.max(0, data.totalPages - 1);
+    if (page > lastAvailablePage) setPage(lastAvailablePage);
+  }, [agentsQuery.data, agentsQuery.isPlaceholderData, page]);
 
   if (agentsQuery.isLoading) {
     return <StatusState title={t("Loading agents")} loading message={t("Fetching agent roster")} />;
@@ -148,8 +156,8 @@ export function AgentsPage() {
         </div>
         <Button
           variant="outlined"
-          onClick={() => navigate(`/agents/${filteredAgents[0]?.agentId ?? 0}`)}
-          disabled={filteredAgents.length === 0}
+          onClick={() => navigate(`/agents/${agents[0]?.agentId ?? 0}`)}
+          disabled={agents.length === 0}
         >
           {t("Open agent detail")}</Button>
       </Box>
@@ -217,10 +225,22 @@ export function AgentsPage() {
       <TextField
         label={t("Search agents")}
         value={search}
-        onChange={(event) => setSearch(event.target.value)}
+        onChange={(event) => { setSearch(event.target.value); setPage(0); }}
         fullWidth
         helperText={t("Search by name, phone, city, territory, or status")}
       />
+      <TextField
+        select
+        label={t("Status")}
+        value={statusFilter}
+        onChange={(event) => { setStatusFilter(event.target.value); setPage(0); }}
+        sx={{ maxWidth: 240 }}
+      >
+        <MenuItem value="">{t("All statuses")}</MenuItem>
+        <MenuItem value="PENDING">{t("Pending")}</MenuItem>
+        <MenuItem value="APPROVED">{t("Approved")}</MenuItem>
+        <MenuItem value="SUSPENDED">{t("Suspended")}</MenuItem>
+      </TextField>
 
       <Card sx={{ border: "1px solid", borderColor: "divider" }}>
         <CardContent sx={{ p: 0 }}>
@@ -240,7 +260,7 @@ export function AgentsPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {filteredAgents.map((agent) => (
+              {agents.map((agent) => (
                 <TableRow key={agent.agentId} hover>
                   <TableCell>
                     <Stack spacing={0.25}>
@@ -289,10 +309,10 @@ export function AgentsPage() {
                   </TableCell>
                 </TableRow>
               ))}
-              {filteredAgents.length === 0 ? (
+              {agents.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={10}>
-                    <Alert severity="info">{t("No agents match the current search.")}</Alert>
+                    <Alert severity="info">{t("No agents match the current search and filters.")}</Alert>
                   </TableCell>
                 </TableRow>
               ) : null}
@@ -300,6 +320,17 @@ export function AgentsPage() {
           </Table>
         </CardContent>
       </Card>
+      {agentsQuery.data ? (
+        <AdminTablePagination
+          component="div"
+          count={agentsQuery.data.totalElements}
+          page={page}
+          onPageChange={(_, nextPage) => setPage(nextPage)}
+          rowsPerPage={pageSize}
+          onRowsPerPageChange={(event) => { setPageSize(Number(event.target.value)); setPage(0); }}
+          rowsPerPageOptions={[10, 20, 50, 100]}
+        />
+      ) : null}
 
       <Dialog open={Boolean(decisionDraft)} onClose={() => setDecisionDraft(null)} fullWidth maxWidth="sm">
         <DialogTitle>{t("Approve agent application")}</DialogTitle>

@@ -1,10 +1,10 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { type PropsWithChildren } from "react";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { adminAgents, adminFloatBankAccounts, adminFloatTopUpRequests, currentCommissionRule, floatTopUpVerificationHistory } from "../../api/admin";
+import { adminAgents, adminFloatBankAccounts, adminFloatTopUpRequests, currentCommissionRule, floatTopUpVerificationHistory, type AdminAgentSummaryResponse } from "../../api/admin";
 import i18n from "../../i18n";
 import { AgentsPage } from "./AgentsPage";
 
@@ -31,6 +31,14 @@ const adminFloatTopUpRequestsMock = vi.mocked(adminFloatTopUpRequests);
 const adminFloatBankAccountsMock = vi.mocked(adminFloatBankAccounts);
 const currentCommissionRuleMock = vi.mocked(currentCommissionRule);
 const floatTopUpVerificationHistoryMock = vi.mocked(floatTopUpVerificationHistory);
+
+function agentSummary(agentId: number, displayName: string): AdminAgentSummaryResponse {
+  return {
+    agentId, userId: agentId + 100, displayName, normalizedPhone: "251911000001", status: "APPROVED",
+    city: "Addis", territory: "Central", createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z",
+    ticketSalesCount: 0, floatTransactionCount: 0, topUpRequestCount: 0, payoutVerificationCount: 0,
+  };
+}
 
 function createWrapper({ children }: PropsWithChildren) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -91,6 +99,74 @@ describe("AgentsPage float top-up review", () => {
     await user.type(screen.getByRole("textbox", { name: "Review note" }), "QA rejection");
     expect(screen.getByRole("button", { name: "Review request (reject, no credit)" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Post verified request (QA simulation)" })).toBeDisabled();
+  });
+
+  it("requests the next agent page from the backend", async () => {
+    adminAgentsMock.mockResolvedValue({
+      content: [], page: 0, size: 20, totalElements: 21, totalPages: 2, first: true, last: false,
+    });
+    const user = userEvent.setup();
+    render(<AgentsPage />, { wrapper: createWrapper });
+    await screen.findByRole("button", { name: "Go to next page" });
+    await user.click(screen.getByRole("button", { name: "Go to next page" }));
+    await waitFor(() => expect(adminAgentsMock).toHaveBeenCalledWith(1, 20, "", ""));
+  });
+
+  it("resets the page when page size changes", async () => {
+    adminAgentsMock.mockResolvedValue({
+      content: [], page: 0, size: 20, totalElements: 101, totalPages: 6, first: true, last: false,
+    });
+    const user = userEvent.setup();
+    render(<AgentsPage />, { wrapper: createWrapper });
+    await user.click(await screen.findByRole("button", { name: "Go to next page" }));
+    await waitFor(() => expect(adminAgentsMock).toHaveBeenCalledWith(1, 20, "", ""));
+    await user.click(screen.getByRole("combobox", { name: "Rows per page:" }));
+    await user.click(await screen.findByRole("option", { name: "10" }));
+    await waitFor(() => expect(adminAgentsMock).toHaveBeenCalledWith(0, 10, "", ""));
+  });
+
+  it("recovers to the last available page when a page becomes out of range", async () => {
+    adminAgentsMock
+      .mockResolvedValueOnce({ content: [], page: 0, size: 20, totalElements: 21, totalPages: 2, first: true, last: false })
+      .mockResolvedValueOnce({ content: [], page: 1, size: 20, totalElements: 20, totalPages: 1, first: false, last: true })
+      .mockResolvedValue({ content: [], page: 0, size: 20, totalElements: 20, totalPages: 1, first: true, last: true });
+    const user = userEvent.setup();
+    render(<AgentsPage />, { wrapper: createWrapper });
+    await user.click(await screen.findByRole("button", { name: "Go to next page" }));
+    await waitFor(() => expect(adminAgentsMock).toHaveBeenCalledTimes(3));
+    expect(adminAgentsMock).toHaveBeenNthCalledWith(3, 0, 20, "", "");
+  });
+
+  it("does not show a late response from an older query after search changes", async () => {
+    let resolveStalePage!: (response: Awaited<ReturnType<typeof adminAgents>>) => void;
+    const stalePage = new Promise<Awaited<ReturnType<typeof adminAgents>>>((resolve) => {
+      resolveStalePage = resolve;
+    });
+    adminAgentsMock.mockImplementation((page, _size, query) => {
+      if (page === 1) return stalePage;
+      if (query === "Rob") {
+        return Promise.resolve({
+          content: [agentSummary(2, "Rob Agent")], page: 0, size: 20, totalElements: 1, totalPages: 1,
+          first: true, last: true,
+        });
+      }
+      return Promise.resolve({
+        content: [agentSummary(1, "Initial Agent")], page: 0, size: 20, totalElements: 21, totalPages: 2,
+        first: true, last: false,
+      });
+    });
+    const user = userEvent.setup();
+    render(<AgentsPage />, { wrapper: createWrapper });
+    await user.click(await screen.findByRole("button", { name: "Go to next page" }));
+    await waitFor(() => expect(adminAgentsMock).toHaveBeenCalledWith(1, 20, "", ""));
+    await user.type(screen.getByRole("textbox", { name: "Search agents" }), "Rob");
+    expect(await screen.findByText("Rob Agent")).toBeInTheDocument();
+    resolveStalePage({
+      content: [agentSummary(3, "Stale Agent")], page: 1, size: 20, totalElements: 21, totalPages: 2,
+      first: false, last: true,
+    });
+    await waitFor(() => expect(screen.getByText("Rob Agent")).toBeInTheDocument());
+    expect(screen.queryByText("Stale Agent")).not.toBeInTheDocument();
   });
 
   it("loads the persisted current commission rule", async () => {

@@ -2,6 +2,7 @@ package com.bakaroo.bingo.backend.feature.game.repository;
 
 import com.bakaroo.bingo.backend.feature.game.entity.Ticket;
 import com.bakaroo.bingo.backend.feature.game.dto.SessionTicketLookupResponse;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
@@ -59,4 +60,7 @@ public interface TicketRepository extends JpaRepository<Ticket, Long> {
     long countBySessionIdAndOwnerId(Long sessionId, Long ownerId);
 
     long countByOwnerId(Long ownerId);
+
+    @Query("select t.owner.id, count(t) from Ticket t where t.owner.id in :ownerIds group by t.owner.id")
+    List<Object[]> countByOwnerIds(@Param("ownerIds") Collection<Long> ownerIds);
 }

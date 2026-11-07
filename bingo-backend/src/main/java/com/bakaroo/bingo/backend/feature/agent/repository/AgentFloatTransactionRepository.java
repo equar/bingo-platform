@@ -1,9 +1,10 @@
 package com.bakaroo.bingo.backend.feature.agent.repository;
 
 import com.bakaroo.bingo.backend.feature.agent.entity.AgentFloatTransaction;
+import java.util.Collection;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
-import java.time.Instant;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -15,6 +16,12 @@ public interface AgentFloatTransactionRepository extends JpaRepository<AgentFloa
     Optional<AgentFloatTransaction> findByOperationId(String operationId);
 
     List<AgentFloatTransaction> findByAgentFloatAgentIdOrderByCreatedAtDesc(Long agentId);
+
+    long countByAgentFloatAgentId(Long agentId);
+
+    @Query("select t.agentFloat.agent.id, count(t) from AgentFloatTransaction t "
+            + "where t.agentFloat.agent.id in :agentIds group by t.agentFloat.agent.id")
+    List<Object[]> countByAgentIds(@Param("agentIds") Collection<Long> agentIds);
 
     @Query(value = """
             select transaction from AgentFloatTransaction transaction
