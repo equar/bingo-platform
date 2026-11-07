@@ -16090,6 +16090,12 @@
           "updatedAt" : {
             "type" : "string",
             "format" : "date-time"
+          },
+          "createdByDisplayName" : {
+            "type" : "string"
+          },
+          "updatedByDisplayName" : {
+            "type" : "string"
           }
         }
       },

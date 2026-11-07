@@ -44,27 +44,31 @@ public class AdminUserController {
     }
 
     @PostMapping
-    public UserSummaryResponse createUser(@Valid @RequestBody AdminUserCreateRequest request) {
-        return adminUserService.createUser(request);
+    public UserSummaryResponse createUser(@Valid @RequestBody AdminUserCreateRequest request,
+            @AuthenticationPrincipal BingoUserPrincipal principal) {
+        return adminUserService.createUser(request, principal.getUser().getDisplayName());
     }
 
     @PostMapping("/{userId}/resend-activation")
     public void resendActivation(@PathVariable Long userId,
             @AuthenticationPrincipal BingoUserPrincipal principal) {
-        adminUserService.resendActivation(userId, principal.getUser().getId());
+        adminUserService.resendActivation(userId, principal.getUser().getId(),
+                principal.getUser().getDisplayName());
     }
 
     @PostMapping("/{userId}/reset-password")
     public void resetPassword(@PathVariable Long userId,
             @AuthenticationPrincipal BingoUserPrincipal principal) {
-        adminUserService.resetPassword(userId, principal.getUser().getId());
+        adminUserService.resetPassword(userId, principal.getUser().getId(),
+                principal.getUser().getDisplayName());
     }
 
     @PutMapping("/{userId}")
     public UserSummaryResponse updateUser(@PathVariable Long userId,
             @Valid @RequestBody AdminUserUpdateRequest request,
             @AuthenticationPrincipal BingoUserPrincipal principal) {
-        return adminUserService.updateUser(userId, request, principal.getUser().getId());
+        return adminUserService.updateUser(userId, request, principal.getUser().getId(),
+                principal.getUser().getDisplayName());
     }
 
     @PostMapping("/{userId}/agent-pin")

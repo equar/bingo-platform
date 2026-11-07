@@ -388,8 +388,14 @@ export function AdminUsersPage() {
           </Alert>
         ) : null}
         {(!isEditPage || selectedUser) && !(isEditPage && usersQuery.isLoading) ? <Card component="section" aria-label={t(selectedUser ? "Edit admin user" : "Create admin user")}>
-          <CardContent>
-          <Stack spacing={2}>
+          <CardContent sx={{
+            display: "grid",
+            gridTemplateColumns: selectedUser
+              ? { xs: "minmax(0, 1fr)", lg: "minmax(0, 2fr) minmax(260px, 1fr)" }
+              : "minmax(0, 1fr)",
+            gap: 3,
+          }}>
+          <Stack spacing={2} minWidth={0}>
           {selectedUser?.status === "PENDING" || selectedUser?.status === "ACTIVE" ? <Box display="flex" justifyContent="flex-end" gap={1} flexWrap="wrap">
             {selectedUser?.status === "PENDING" ? (
               <Button
@@ -520,6 +526,46 @@ export function AdminUsersPage() {
             )}
             {formError ? <Alert severity="error">{t(formError)}</Alert> : null}
           </Stack>
+          {selectedUser ? (
+            <Box
+              component="section"
+              aria-label={t("Account activity")}
+              sx={{
+                borderLeft: { lg: 1 },
+                borderTop: { xs: 1, lg: 0 },
+                borderColor: "divider",
+                pl: { lg: 2 },
+                pt: { xs: 2, lg: 0 },
+                minWidth: 0,
+              }}
+            >
+              <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+                {t("Account activity")}
+              </Typography>
+              <Stack spacing={2}>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">{t("Created by")}</Typography>
+                  <Typography variant="body2" sx={{ overflowWrap: "anywhere" }}>
+                    {selectedUser.createdByDisplayName || t("Not recorded")}
+                  </Typography>
+                </Box>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">{t("Created at")}</Typography>
+                  <Typography variant="body2">{new Date(selectedUser.createdAt).toLocaleString()}</Typography>
+                </Box>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">{t("Updated by")}</Typography>
+                  <Typography variant="body2" sx={{ overflowWrap: "anywhere" }}>
+                    {selectedUser.updatedByDisplayName || t("Not recorded")}
+                  </Typography>
+                </Box>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">{t("Updated at")}</Typography>
+                  <Typography variant="body2">{new Date(selectedUser.updatedAt).toLocaleString()}</Typography>
+                </Box>
+              </Stack>
+            </Box>
+          ) : null}
           </CardContent>
           <Stack direction="row" justifyContent="flex-end" spacing={1} sx={{ p: 2, pt: 0 }}>
           <Button onClick={cancelEditor} disabled={saveMutation.isPending}>{t("Cancel")}</Button>

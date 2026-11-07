@@ -61,7 +61,9 @@ describe("AdminUsersPage", () => {
           roles: ["ADMIN"],
           status: "ACTIVE",
           createdAt: "2026-01-01T00:00:00.000Z",
-          updatedAt: "2026-01-01T00:00:00.000Z",
+          updatedAt: "2026-01-02T00:00:00.000Z",
+          createdByDisplayName: "Platform Owner",
+          updatedByDisplayName: "Operations Admin",
         },
       ],
       page: 0,
@@ -145,7 +147,9 @@ describe("AdminUsersPage", () => {
           roles: ["ADMIN", "SUPPORT"],
           status: "ACTIVE",
           createdAt: "2026-01-01T00:00:00.000Z",
-          updatedAt: "2026-01-01T00:00:00.000Z",
+          updatedAt: "2026-01-02T00:00:00.000Z",
+          createdByDisplayName: "Platform Owner",
+          updatedByDisplayName: "Operations Admin",
         },
       ],
       page: 0,
@@ -164,6 +168,11 @@ describe("AdminUsersPage", () => {
     await user.click(await screen.findByRole("button", { name: "Edit" }));
     expect(await screen.findByRole("heading", { name: "Edit admin user" })).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: /phone number/i })).toHaveValue("0911000001");
+    const accountActivity = screen.getByRole("region", { name: "Account activity" });
+    expect(within(accountActivity).getByText("Platform Owner")).toBeInTheDocument();
+    expect(within(accountActivity).getByText("Operations Admin")).toBeInTheDocument();
+    expect(within(accountActivity).getByText(new Date("2026-01-01T00:00:00.000Z").toLocaleString())).toBeInTheDocument();
+    expect(within(accountActivity).getByText(new Date("2026-01-02T00:00:00.000Z").toLocaleString())).toBeInTheDocument();
     const saveButton = screen.getByRole("button", { name: "Save changes" });
     expect(saveButton).toBeDisabled();
 
