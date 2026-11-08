@@ -19,12 +19,17 @@ import {
   TextField,
   Typography,
   FormControlLabel,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
 } from "@mui/material";
 import { useLocation } from "react-router-dom";
 import {
   currentSignupRewardSettings,
   currentWalletTransferSettings,
   saveSignupRewardSettings,
+  setSignupRewardPolicyStatus,
   saveWalletTransferSettings,
   signupRewardGrants,
   signupRewardSettingsHistory,
@@ -45,6 +50,42 @@ function toLocalInputValue(isoString: string | null | undefined) {
 
 function toIsoValue(localValue: string) {
   return localValue ? new Date(localValue).toISOString() : "";
+}
+
+function toLocalDateValue(isoString: string | null | undefined, inclusiveEnd = false) {
+  if (!isoString) return "";
+  const date = new Date(isoString);
+  if (inclusiveEnd && date.getHours() === 0 && date.getMinutes() === 0
+    && date.getSeconds() === 0 && date.getMilliseconds() === 0) {
+    date.setDate(date.getDate() - 1);
+  }
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+function toDateStartIso(dateValue: string) {
+  return dateValue ? new Date(`${dateValue}T00:00:00`).toISOString() : "";
+}
+
+function toDateEndExclusiveIso(dateValue: string) {
+  if (!dateValue) return "";
+  const date = new Date(`${dateValue}T00:00:00`);
+  date.setDate(date.getDate() + 1);
+  return date.toISOString();
+}
+
+function getTodayDateValue() {
+  return toLocalDateValue(new Date().toISOString());
+}
+
+function isValidRewardDateRange(effectiveFrom: string, effectiveUntil: string) {
+  return Boolean(effectiveFrom && effectiveFrom >= getTodayDateValue()
+    && (!effectiveUntil || effectiveUntil >= effectiveFrom));
+}
+
+function formatPolicyDate(value: string | null, inclusiveEnd = false) {
+  const dateValue = toLocalDateValue(value, inclusiveEnd);
+  return dateValue ? new Date(`${dateValue}T00:00:00`).toLocaleDateString() : "";
 }
 
 function getMinimumEffectiveDateTime() {
@@ -126,6 +167,7 @@ export function WalletPoliciesPage() {
     queryKey: ["wallet-policies", "grants"],
     queryFn: () => signupRewardGrants(0, 20),
     enabled: !isTransferPolicy,
+    staleTime: 0,
   });
 
   const [rewardDraft, setRewardDraft] = useState({
@@ -148,21 +190,16 @@ export function WalletPoliciesPage() {
 
   useEffect(() => {
     if (rewardQuery.data) {
-      const defaultEffectiveFrom = getMinimumEffectiveDateTime();
-      const savedEffectiveFrom = toLocalInputValue(rewardQuery.data.effectiveFrom);
-      const effectiveFrom = savedEffectiveFrom >= defaultEffectiveFrom
-        ? savedEffectiveFrom
-        : defaultEffectiveFrom;
-      const savedEffectiveUntil = toLocalInputValue(rewardQuery.data.effectiveUntil);
+      const defaultEffectiveFrom = getTodayDateValue();
+      const savedEffectiveFrom = toLocalDateValue(rewardQuery.data.effectiveFrom);
+      const effectiveFrom = savedEffectiveFrom >= defaultEffectiveFrom ? savedEffectiveFrom : defaultEffectiveFrom;
+      const savedEffectiveUntil = toLocalDateValue(rewardQuery.data.effectiveUntil, true);
       setRewardDraft({
         enabled: rewardQuery.data.enabled,
         rewardAmount: rewardQuery.data.rewardAmount,
         currency: rewardQuery.data.currency,
         effectiveFrom,
-        effectiveUntil: savedEffectiveUntil
-          && savedEffectiveUntil >= getMinimumEffectiveUntil(effectiveFrom)
-          ? savedEffectiveUntil
-          : "",
+        effectiveUntil: savedEffectiveUntil && savedEffectiveUntil >= effectiveFrom ? savedEffectiveUntil : "",
         reason: rewardQuery.data.reason ?? "",
       });
     }
@@ -196,8 +233,8 @@ export function WalletPoliciesPage() {
         enabled: rewardDraft.enabled,
         rewardAmount: Number(rewardDraft.rewardAmount),
         currency: rewardDraft.currency,
-        effectiveFrom: toIsoValue(rewardDraft.effectiveFrom),
-        effectiveUntil: rewardDraft.effectiveUntil ? toIsoValue(rewardDraft.effectiveUntil) : null,
+        effectiveFrom: toDateStartIso(rewardDraft.effectiveFrom),
+        effectiveUntil: rewardDraft.effectiveUntil ? toDateEndExclusiveIso(rewardDraft.effectiveUntil) : null,
         reason: rewardDraft.reason || null,
       }),
     onSuccess: async () => {
@@ -220,6 +257,14 @@ export function WalletPoliciesPage() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["wallet-policies"] });
       setFormOpen(false);
+    },
+  });
+
+  const rewardStatusMutation = useMutation({
+    mutationFn: ({ policyId, enabled }: { policyId: number; enabled: boolean }) =>
+      setSignupRewardPolicyStatus(policyId, enabled),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["wallet-policies"] });
     },
   });
 
@@ -276,16 +321,21 @@ export function WalletPoliciesPage() {
           <Card elevation={0} sx={{ border: "1px solid", borderColor: "divider" }}>
             <CardContent>
               <Stack spacing={2}>
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={rewardDraft.enabled}
-                      onChange={(event) => setRewardDraft({ ...rewardDraft, enabled: event.target.checked })}
-                    />
-                  }
-                  label={rewardDraft.enabled ? t("Enabled") : t("Disabled")}
-                />
                 <Grid container spacing={2}>
+                  <Grid item xs={12} sm={6}>
+                    <FormControl fullWidth>
+                      <InputLabel id="signup-reward-status-label">{t("Status")}</InputLabel>
+                      <Select
+                        labelId="signup-reward-status-label"
+                        label={t("Status")}
+                        value={rewardDraft.enabled ? "active" : "inactive"}
+                        onChange={(event) => setRewardDraft({ ...rewardDraft, enabled: event.target.value === "active" })}
+                      >
+                        <MenuItem value="active">{t("Active")}</MenuItem>
+                        <MenuItem value="inactive">{t("Inactive")}</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Grid>
                   <Grid item xs={12} sm={6}>
                     <TextField
                       label={t("Reward amount")}
@@ -308,10 +358,10 @@ export function WalletPoliciesPage() {
                   <Grid item xs={12} sm={6}>
                     <TextField
                       label={t("Effective from")}
-                      type="datetime-local"
+                      type="date"
                       value={rewardDraft.effectiveFrom}
                       onChange={(event) => setRewardDraft({ ...rewardDraft, effectiveFrom: event.target.value })}
-                      inputProps={{ min: getMinimumEffectiveDateTime() }}
+                      inputProps={{ min: getTodayDateValue() }}
                       fullWidth
                       InputLabelProps={{ shrink: true }}
                     />
@@ -319,11 +369,11 @@ export function WalletPoliciesPage() {
                   <Grid item xs={12} sm={6}>
                     <TextField
                       label={t("Effective until")}
-                      type="datetime-local"
+                      type="date"
                       value={rewardDraft.effectiveUntil}
                       onChange={(event) => setRewardDraft({ ...rewardDraft, effectiveUntil: event.target.value })}
-                      inputProps={{ min: getMinimumEffectiveUntil(rewardDraft.effectiveFrom) }}
-                      helperText={t("Leave blank for no expiry. If set, the end time must be in the future.")}
+                      inputProps={{ min: rewardDraft.effectiveFrom || getTodayDateValue() }}
+                      helperText={t("Leave blank for no expiry. The end date is included.")}
                       fullWidth
                       InputLabelProps={{ shrink: true }}
                     />
@@ -345,7 +395,7 @@ export function WalletPoliciesPage() {
                     onClick={() => saveRewardMutation.mutate()}
                     disabled={
                       saveRewardMutation.isPending
-                      || !isValidPolicyDateRange(rewardDraft.effectiveFrom, rewardDraft.effectiveUntil)
+                      || !isValidRewardDateRange(rewardDraft.effectiveFrom, rewardDraft.effectiveUntil)
                     }
                   >
                     {t("Save reward policy")}
@@ -533,6 +583,9 @@ export function WalletPoliciesPage() {
                 {rewardHistoryQuery.error ? (
                   <Alert severity="error">{t(getUserFacingErrorMessage(rewardHistoryQuery.error) ?? "Something went wrong. Please try again.")}</Alert>
                 ) : null}
+                {rewardStatusMutation.error ? (
+                  <Alert severity="error" sx={{ mb: 1 }}>{t(getUserFacingErrorMessage(rewardStatusMutation.error) ?? "Something went wrong. Please try again.")}</Alert>
+                ) : null}
                 <Box sx={{ overflowX: "auto" }}>
                   <Table size="small" aria-label={t("Reward history")}>
                     <TableHead>
@@ -543,24 +596,34 @@ export function WalletPoliciesPage() {
                         <TableCell>{t("Effective from")}</TableCell>
                         <TableCell>{t("Effective until")}</TableCell>
                         <TableCell>{t("Reason")}</TableCell>
+                        <TableCell>{t("Actions")}</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
                       {rewardHistory.map((entry) => (
                         <TableRow key={entry.id} hover>
                           <TableCell><Chip
-                            label={translateAdminStatus(getPolicyStatus(entry.enabled, entry.activeNow, entry.effectiveFrom, entry.effectiveUntil), t)}
+                            label={entry.enabled ? t("Active") : t("Inactive")}
                             size="small"
-                            color={getPolicyStatusColor(getPolicyStatus(entry.enabled, entry.activeNow, entry.effectiveFrom, entry.effectiveUntil))}
+                            color={entry.enabled ? "success" : "default"}
                           /></TableCell>
                           <TableCell align="right">{entry.rewardAmount}</TableCell>
                           <TableCell>{entry.currency}</TableCell>
-                          <TableCell>{new Date(entry.effectiveFrom).toLocaleString()}</TableCell>
-                          <TableCell>{entry.effectiveUntil ? new Date(entry.effectiveUntil).toLocaleString() : t("No expiry")}</TableCell>
+                          <TableCell>{formatPolicyDate(entry.effectiveFrom)}</TableCell>
+                          <TableCell>{entry.effectiveUntil ? formatPolicyDate(entry.effectiveUntil, true) : t("No expiry")}</TableCell>
                           <TableCell>{entry.reason ?? t("n/a")}</TableCell>
+                          <TableCell>
+                            <Button
+                              size="small"
+                              disabled={rewardStatusMutation.isPending}
+                              onClick={() => rewardStatusMutation.mutate({ policyId: entry.id!, enabled: !entry.enabled })}
+                            >
+                              {entry.enabled ? t("Make inactive") : t("Make active")}
+                            </Button>
+                          </TableCell>
                         </TableRow>
                       ))}
-                      {!rewardHistoryQuery.isLoading && !rewardHistoryQuery.error && rewardHistory.length === 0 ? <TableRow><TableCell colSpan={6}>{t("No signup reward history yet.")}</TableCell></TableRow> : null}
+                      {!rewardHistoryQuery.isLoading && !rewardHistoryQuery.error && rewardHistory.length === 0 ? <TableRow><TableCell colSpan={7}>{t("No signup reward history yet.")}</TableCell></TableRow> : null}
                     </TableBody>
                   </Table>
                 </Box>
@@ -579,7 +642,17 @@ export function WalletPoliciesPage() {
           <Grid item xs={12}>
             <Card elevation={0} sx={{ border: "1px solid", borderColor: "divider" }}>
               <CardContent>
-                <Typography variant="h6" gutterBottom>{t("Recent grants")}</Typography>
+                <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={2}>
+                  <Typography variant="h6" gutterBottom>{t("Recent grants")}</Typography>
+                  <Button size="small" onClick={() => grantsQuery.refetch()} disabled={grantsQuery.isFetching}>
+                    {grantsQuery.isFetching ? t("Loading") : t("Refresh")}
+                  </Button>
+                </Stack>
+                {grantsQuery.error ? (
+                  <Alert severity="error" sx={{ mb: 1 }}>
+                    {t(getUserFacingErrorMessage(grantsQuery.error) ?? "Something went wrong. Please try again.")}
+                  </Alert>
+                ) : null}
                 <Box sx={{ overflowX: "auto" }}>
                   <Table size="small" aria-label={t("Recent grants")}>
                     <TableHead>
@@ -601,7 +674,7 @@ export function WalletPoliciesPage() {
                           <TableCell>{new Date(grant.awardedAt).toLocaleString()}</TableCell>
                         </TableRow>
                       ))}
-                      {grants.length === 0 ? <TableRow><TableCell colSpan={5}>{t("No signup reward grants yet.")}</TableCell></TableRow> : null}
+                      {!grantsQuery.isLoading && !grantsQuery.error && grants.length === 0 ? <TableRow><TableCell colSpan={5}>{t("No signup reward grants yet.")}</TableCell></TableRow> : null}
                     </TableBody>
                   </Table>
                 </Box>

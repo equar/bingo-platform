@@ -97,6 +97,10 @@ public class SignupRewardPolicy {
         return enabled;
     }
 
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
+
     public BigDecimal getRewardAmount() {
         return rewardAmount;
     }
@@ -115,6 +119,10 @@ public class SignupRewardPolicy {
 
     public User getChangedBy() {
         return changedBy;
+    }
+
+    public void setChangedBy(User changedBy) {
+        this.changedBy = changedBy;
     }
 
     public String getReason() {

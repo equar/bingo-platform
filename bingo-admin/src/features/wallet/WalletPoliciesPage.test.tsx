@@ -130,7 +130,7 @@ describe("WalletPoliciesPage", () => {
     expect(walletTransferSettingsHistoryMock).toHaveBeenCalledOnce();
   });
 
-  it("defaults a new reward policy to the next minute and restricts dates to the future", async () => {
+  it("defaults a new reward policy to today and allows an inclusive same-day end date", async () => {
     currentSignupRewardSettingsMock.mockResolvedValue({
       id: null,
       enabled: false,
@@ -152,9 +152,10 @@ describe("WalletPoliciesPage", () => {
     const effectiveFrom = screen.getByLabelText("Effective from") as HTMLInputElement;
     const effectiveUntil = screen.getByLabelText("Effective until") as HTMLInputElement;
 
-    expect(effectiveFrom.value).not.toBe("");
-    expect(effectiveFrom.value >= effectiveFrom.min).toBe(true);
-    expect(effectiveUntil.min > effectiveFrom.value).toBe(true);
+    expect(effectiveFrom.type).toBe("date");
+    expect(effectiveUntil.type).toBe("date");
+    expect(effectiveFrom.value).toBe(effectiveFrom.min);
+    expect(effectiveUntil.min).toBe(effectiveFrom.value);
     expect(effectiveUntil).toHaveAttribute("min", effectiveUntil.min);
   });
 

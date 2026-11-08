@@ -2,6 +2,7 @@ package com.bakaroo.bingo.backend.feature.wallet.service;
 
 import com.bakaroo.bingo.backend.common.exception.BadRequestException;
 import com.bakaroo.bingo.backend.common.exception.ConflictException;
+import com.bakaroo.bingo.backend.common.exception.NotFoundException;
 import com.bakaroo.bingo.backend.common.money.MoneyValues;
 import com.bakaroo.bingo.backend.feature.auth.service.BingoUserPrincipal;
 import com.bakaroo.bingo.backend.feature.user.entity.User;
@@ -56,16 +57,17 @@ public class SignupRewardService {
             return;
         }
 
-        Optional<SignupRewardPolicy> policyOptional = policyRepository.findFirstByOrderByCreatedAtDesc();
+        Instant registeredAt = Optional.ofNullable(player.getCreatedAt()).orElseGet(Instant::now);
+        Optional<SignupRewardPolicy> policyOptional = policyRepository.findAllByEnabledTrueOrderByCreatedAtDesc()
+                .stream()
+                .filter(policy -> isActive(policy, registeredAt))
+                .filter(policy -> policy.getRewardAmount().compareTo(BigDecimal.ZERO) > 0)
+                .findFirst();
         if (policyOptional.isEmpty()) {
             return;
         }
-
         SignupRewardPolicy policy = policyOptional.get();
         Instant now = Instant.now();
-        if (!isActive(policy, now) || !policy.isEnabled()) {
-            return;
-        }
         if (policy.getRewardAmount().compareTo(BigDecimal.ZERO) <= 0) {
             return;
         }
@@ -132,16 +134,10 @@ public class SignupRewardService {
         if (request.rewardAmount().signum() < 0) {
             throw new BadRequestException("INVALID_SIGNUP_REWARD_AMOUNT", "Signup reward amount cannot be negative");
         }
-        Instant now = Instant.now();
-        if (request.effectiveFrom().isBefore(now)) {
-            throw new BadRequestException("INVALID_SIGNUP_REWARD_DATES",
-                    "Effective from must be now or later");
-        }
         if (request.effectiveUntil() != null
-                && (!request.effectiveUntil().isAfter(now)
-                        || !request.effectiveUntil().isAfter(request.effectiveFrom()))) {
+                && !request.effectiveUntil().isAfter(request.effectiveFrom())) {
             throw new BadRequestException("INVALID_SIGNUP_REWARD_DATES",
-                    "Effective until must be in the future and later than effective from");
+                    "Effective until must be later than effective from");
         }
         String currency = request.currency().trim().toUpperCase(Locale.ROOT);
         if (!walletProperties.currency().equalsIgnoreCase(currency)) {
@@ -157,6 +153,17 @@ public class SignupRewardService {
                 principal.getUser(),
                 request.reason(),
                 Instant.now()));
+        return toSettingsResponse(policy);
+    }
+
+    @Transactional
+    public SignupRewardSettingsResponse setPolicyStatus(BingoUserPrincipal principal, Long policyId,
+            boolean enabled) {
+        SignupRewardPolicy policy = policyRepository.findById(policyId)
+                .orElseThrow(() -> new NotFoundException("SIGNUP_REWARD_POLICY_NOT_FOUND",
+                        "Signup reward policy not found"));
+        policy.setEnabled(enabled);
+        policy.setChangedBy(principal.getUser());
         return toSettingsResponse(policy);
     }
 

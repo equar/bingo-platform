@@ -1291,6 +1291,14 @@ export async function saveSignupRewardSettings(request: SignupRewardSettingsRequ
   return data;
 }
 
+export async function setSignupRewardPolicyStatus(policyId: number, enabled: boolean) {
+  const { data } = await http.put<SignupRewardSettingsResponse>(
+    `/api/v1/admin/wallet/signup-rewards/settings/${policyId}/status`,
+    { enabled },
+  );
+  return data;
+}
+
 export async function signupRewardGrants(page = 0, size = 20) {
   const { data } = await http.get<PageResponse<SignupRewardGrantResponse>>('/api/v1/admin/wallet/signup-rewards/grants', {
     params: { page, size },
