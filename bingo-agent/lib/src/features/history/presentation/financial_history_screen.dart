@@ -1,4 +1,6 @@
 import 'package:bingo_agent/src/features/agents/data/agent_repository.dart';
+import 'package:bingo_agent/src/core/formatting/financial_amount.dart';
+import 'package:bingo_agent/src/core/network/api_error.dart';
 import 'package:bingo_agent/src/features/history/data/financial_history_entry.dart';
 import 'package:bingo_agent/src/l10n/generated/app_localizations.dart';
 import 'package:flutter/material.dart';
@@ -70,7 +72,9 @@ class _FinancialHistoryScreenState
     return asyncValue.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, stack) => _HistoryError(
-          onRetry: () => ref.invalidate(financialHistoryProvider(query))),
+        message: userFacingApiError(error, l10n) ?? l10n.requestFailed,
+        onRetry: () => ref.invalidate(financialHistoryProvider(query)),
+      ),
       data: (historyPage) {
         final entries = historyPage.content;
         const statuses = [
@@ -82,7 +86,13 @@ class _FinancialHistoryScreenState
           'SETTLED',
         ];
         return RefreshIndicator(
-          onRefresh: () async => ref.invalidate(financialHistoryProvider(query)),
+          onRefresh: () async {
+            try {
+              await ref.refresh(financialHistoryProvider(query).future);
+            } catch (_) {
+              // The provider error state includes a retry action.
+            }
+          },
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(16),
@@ -240,7 +250,7 @@ class _FinancialHistoryScreenState
       child: ListTile(
         title: Text(_typeLabel(l10n, entry.type)),
         subtitle: Text('$date · ${_statusLabel(l10n, entry.status)}'),
-        trailing: Text(currency.format(double.tryParse(entry.amount) ?? 0)),
+        trailing: Text(formatFinancialAmount(entry.amount, currency)),
         onTap: () => _showDetails(l10n, entry, currency, date),
       ),
     );
@@ -267,8 +277,10 @@ class _FinancialHistoryScreenState
               const SizedBox(height: 16),
               _detailLine(
                   l10n.transactionTypeLabel, _typeLabel(l10n, entry.type)),
-              _detailLine(l10n.transactionAmount,
-                  currency.format(double.tryParse(entry.amount) ?? 0)),
+              _detailLine(
+                l10n.transactionAmount,
+                formatFinancialAmount(entry.amount, currency),
+              ),
               _detailLine(l10n.transactionDate, date),
               _detailLine(
                   l10n.transactionStatus, _statusLabel(l10n, entry.status)),
@@ -332,8 +344,9 @@ class _FinancialHistoryScreenState
 }
 
 class _HistoryError extends StatelessWidget {
-  const _HistoryError({required this.onRetry});
+  const _HistoryError({required this.message, required this.onRetry});
 
+  final String message;
   final VoidCallback onRetry;
 
   @override
@@ -343,7 +356,10 @@ class _HistoryError extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(l10n.requestFailed),
+          Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(message, textAlign: TextAlign.center),
+          ),
           const SizedBox(height: 8),
           FilledButton(onPressed: onRetry, child: Text(l10n.retry)),
         ],

@@ -1,6 +1,7 @@
 import 'package:bingo_agent/src/core/network/api_error.dart';
 import 'package:bingo_agent/src/core/network/idempotency.dart';
 import 'package:bingo_agent/src/features/agents/data/agent_repository.dart';
+import 'package:bingo_agent/src/features/agents/data/agent_models.dart';
 import 'package:bingo_agent/src/l10n/generated/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,6 +17,7 @@ class _PayoutsScreenState extends ConsumerState<PayoutsScreen> {
   final _codeController = TextEditingController();
   final _pinController = TextEditingController();
   String? _lookup;
+  PayoutLookup? _payout;
   String? _error;
   bool _busy = false;
   String? _idempotencyKey;
@@ -31,6 +33,7 @@ class _PayoutsScreenState extends ConsumerState<PayoutsScreen> {
     if (_lookup != null || _apiError != null || _error != null || _completed) {
       setState(() {
         _lookup = null;
+        _payout = null;
         _apiError = null;
         _error = null;
         _completed = false;
@@ -55,6 +58,7 @@ class _PayoutsScreenState extends ConsumerState<PayoutsScreen> {
   }
 
   Future<void> _lookupCode() async {
+    if (_busy || _outcomeUnknown) return;
     final l10n = AppLocalizations.of(context)!;
     if (!_validCode) {
       setState(() => _error = l10n.requiredField);
@@ -65,13 +69,17 @@ class _PayoutsScreenState extends ConsumerState<PayoutsScreen> {
       _error = null;
       _apiError = null;
       _lookup = null;
+      _payout = null;
     });
     try {
       final payout = await ref
           .read(agentRepositoryProvider)
           .lookupPayout(_codeController.text.trim());
       if (mounted) {
-        setState(() => _lookup = '${payout.prizeAmount} ${payout.currency}');
+        setState(() {
+          _payout = payout;
+          _lookup = '${payout.prizeAmount} ${payout.currency}';
+        });
       }
     } catch (error) {
       if (mounted) {
@@ -89,6 +97,23 @@ class _PayoutsScreenState extends ConsumerState<PayoutsScreen> {
   Future<void> _verify() async {
     if (_busy || _completed) return;
     final l10n = AppLocalizations.of(context)!;
+    final payout = _payout;
+    if (payout == null ||
+        payout.payoutCode != _codeController.text.trim()) {
+      setState(() {
+        _error = l10n.payoutLookupFirst;
+        _apiError = null;
+      });
+      return;
+    }
+    if (payout.status.toUpperCase() != 'PENDING' ||
+        payout.settlementPath != 'AGENT_CASH') {
+      setState(() {
+        _error = l10n.payoutUnavailable;
+        _apiError = null;
+      });
+      return;
+    }
     if (!_validCode || !_validPin) {
       setState(() {
         _error = !_validCode ? l10n.requiredField : l10n.agentPinLength;
@@ -122,6 +147,7 @@ class _PayoutsScreenState extends ConsumerState<PayoutsScreen> {
           _outcomeUnknown = false;
           _completed = true;
         });
+        _pinController.clear();
       }
     } catch (error) {
       if (mounted) {
@@ -175,7 +201,7 @@ class _PayoutsScreenState extends ConsumerState<PayoutsScreen> {
           controller: _pinController,
           enabled: !_busy && !_outcomeUnknown,
           textInputAction: TextInputAction.done,
-          onSubmitted: (_) => _verify(),
+          onSubmitted: (_) => _confirmVerify(),
           onChanged: (_) => _clearPinErrors(),
           decoration: InputDecoration(
             labelText: l10n.pinLabel,
@@ -188,11 +214,19 @@ class _PayoutsScreenState extends ConsumerState<PayoutsScreen> {
           listenable: Listenable.merge([_codeController, _pinController]),
           builder: (context, _) {
             final canLookup = _validCode && !_outcomeUnknown;
-            final canVerify = _validCode && _validPin && !_completed;
+            final canVerify =
+                _validCode &&
+                _validPin &&
+                _payout?.payoutCode == _codeController.text.trim() &&
+                _payout?.status.toUpperCase() == 'PENDING' &&
+                _payout?.settlementPath == 'AGENT_CASH' &&
+                !_completed;
             final hint = !_validCode
                 ? l10n.requiredField
                 : !_validPin
                 ? l10n.agentPinLength
+                : _payout?.payoutCode != _codeController.text.trim()
+                ? l10n.payoutLookupFirst
                 : null;
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -205,7 +239,7 @@ class _PayoutsScreenState extends ConsumerState<PayoutsScreen> {
                       child: Text(l10n.lookup),
                     ),
                     OutlinedButton(
-                      onPressed: _busy || !canVerify ? null : _verify,
+                      onPressed: _busy || !canVerify ? null : _confirmVerify,
                       child: Text(
                         _outcomeUnknown ? l10n.retry : l10n.verifyAndDisburse,
                       ),
@@ -227,8 +261,73 @@ class _PayoutsScreenState extends ConsumerState<PayoutsScreen> {
             style: TextStyle(color: Theme.of(context).colorScheme.error),
           ),
         ],
-        if (_lookup != null) ...[const SizedBox(height: 16), Text(_lookup!)],
+        if (_lookup != null && _payout != null) ...[
+          const SizedBox(height: 16),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _lookup!,
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 8),
+                  Text('${l10n.payoutCode}: ${_payout!.payoutCode}'),
+                  Text('${l10n.sessionId}: ${_payout!.sessionId}'),
+                  Text('${l10n.ticketId}: ${_payout!.ticketId}'),
+                  Text(
+                    '${l10n.transactionStatus}: ${_payout!.status}',
+                  ),
+                  if (_payout!.status.toUpperCase() != 'PENDING') ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      l10n.payoutUnavailable,
+                      style: TextStyle(color: Theme.of(context).colorScheme.error),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ],
       ],
     );
+  }
+
+  Future<void> _confirmVerify() async {
+    final payout = _payout;
+    if (_busy ||
+        _completed ||
+        payout == null ||
+        payout.status.toUpperCase() != 'PENDING' ||
+        payout.settlementPath != 'AGENT_CASH') {
+      return;
+    }
+    final l10n = AppLocalizations.of(context)!;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(l10n.verifyAndDisburse),
+        content: Text(
+          '${payout.prizeAmount} ${payout.currency}\n'
+          '${l10n.payoutCode}: ${payout.payoutCode}\n'
+          '${l10n.sessionId}: ${payout.sessionId} · '
+          '${l10n.ticketId}: ${payout.ticketId}',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(l10n.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(l10n.verifyAndDisburse),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) await _verify();
   }
 }

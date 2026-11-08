@@ -89,6 +89,7 @@ class _TicketSaleScreenState extends ConsumerState<TicketSaleScreen> {
           _idempotencyKey = null;
           _outcomeUnknown = false;
         });
+        _pinController.clear();
       }
     } catch (error) {
       if (mounted) {

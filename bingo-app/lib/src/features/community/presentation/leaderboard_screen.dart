@@ -113,7 +113,11 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                   return RefreshIndicator(
                     onRefresh: () async {
                       _reload();
-                      await _future;
+                      try {
+                        await _future;
+                      } catch (_) {
+                        // The FutureBuilder shows the load error and retry.
+                      }
                     },
                     child: ListView(
                       padding: const EdgeInsets.all(20),

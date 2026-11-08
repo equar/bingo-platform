@@ -164,11 +164,13 @@ class AgentFloatBankAccount {
 }
 
 class PayoutLookup {
-  PayoutLookup({required this.entitlementId, required this.ticketId, required this.claimantId, required this.prizeAmount, required this.currency, required this.payoutCode, required this.status});
+  PayoutLookup({required this.entitlementId, required this.sessionId, required this.ticketId, required this.claimantId, required this.settlementPath, required this.prizeAmount, required this.currency, required this.payoutCode, required this.status});
 
   final int entitlementId;
+  final int sessionId;
   final int ticketId;
   final int claimantId;
+  final String settlementPath;
   final String prizeAmount;
   final String currency;
   final String payoutCode;
@@ -176,8 +178,10 @@ class PayoutLookup {
 
   factory PayoutLookup.fromJson(Map<String, dynamic> json) => PayoutLookup(
         entitlementId: (json['entitlementId'] as num?)?.toInt() ?? 0,
+        sessionId: (json['sessionId'] as num?)?.toInt() ?? 0,
         ticketId: (json['ticketId'] as num?)?.toInt() ?? 0,
         claimantId: (json['claimantId'] as num?)?.toInt() ?? 0,
+        settlementPath: json['settlementPath']?.toString() ?? '',
         prizeAmount: json['prizeAmount']?.toString() ?? '0',
         currency: json['currency']?.toString() ?? '',
         payoutCode: json['payoutCode']?.toString() ?? '',

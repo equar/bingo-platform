@@ -52,11 +52,24 @@ class AuthRepository {
 
   Future<AuthResponse?> restore() async {
     final session = await _storage.readSession();
+    final token = session['token'];
     final jsonValue = session['sessionJson'];
-    if (jsonValue == null || jsonValue.isEmpty) {
+    if ((token == null || token.isEmpty) &&
+        (jsonValue == null || jsonValue.isEmpty)) {
       return null;
     }
-    return AuthResponse.fromJson(jsonDecode(jsonValue) as Map<String, dynamic>);
+    if (token == null || token.isEmpty || jsonValue == null || jsonValue.isEmpty) {
+      await _storage.clear();
+      return null;
+    }
+    final response = AuthResponse.fromJson(
+      jsonDecode(jsonValue) as Map<String, dynamic>,
+    );
+    if (response.accessToken != token) {
+      await _storage.clear();
+      return null;
+    }
+    return response;
   }
 
   Future<void> clear() => _storage.clear();

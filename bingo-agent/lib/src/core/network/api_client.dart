@@ -47,6 +47,8 @@ final Provider<Dio> dioProvider = Provider<Dio>((ref) {
               await ref
                   .read(authSessionControllerProvider.notifier)
                   .clearSession(reason: 'SESSION_EXPIRED');
+            } catch (_) {
+              // Still deliver the original 401 when secure-storage cleanup fails.
             } finally {
               if (expiringToken == sentToken) expiringToken = null;
             }

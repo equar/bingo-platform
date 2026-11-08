@@ -27,28 +27,51 @@ class AuthSessionController extends StateNotifier<AuthSessionState> {
   final SessionStorage _storage;
 
   Future<void> restore() async {
-    final stored = await _storage.readSession();
-    if (!mounted) {
-      return;
-    }
-    final token = stored['token'];
-    final expiresAt = stored['expiresAt'];
-    final userJson = stored['userJson'];
-    if (token == null || expiresAt == null || userJson == null) {
-      state = const AuthSessionState(isLoading: false);
-      return;
-    }
-
-    final user = UserProfile.fromJson(Map<String, dynamic>.from(jsonDecode(userJson) as Map));
-    final session = AuthSession(accessToken: token, expiresAt: DateTime.parse(expiresAt), user: user);
-    if (session.isExpired) {
-      await _storage.clear();
-      if (mounted) {
-        state = const AuthSessionState(isLoading: false, errorMessage: 'SESSION_EXPIRED');
+    try {
+      final stored = await _storage.readSession();
+      if (!mounted) {
+        return;
       }
-      return;
+
+      final token = stored['token'];
+      final expiresAt = stored['expiresAt'];
+      final userJson = stored['userJson'];
+      if (token == null || expiresAt == null || userJson == null) {
+        state = const AuthSessionState(isLoading: false);
+        return;
+      }
+
+      final user = UserProfile.fromJson(
+        Map<String, dynamic>.from(jsonDecode(userJson) as Map),
+      );
+      final session = AuthSession(
+        accessToken: token,
+        expiresAt: DateTime.parse(expiresAt),
+        user: user,
+      );
+      if (session.isExpired) {
+        await _storage.clear();
+        if (mounted) {
+          state = const AuthSessionState(
+            isLoading: false,
+            errorMessage: 'SESSION_EXPIRED',
+          );
+        }
+        return;
+      }
+      state = AuthSessionState(isLoading: false, session: session);
+    } catch (_) {
+      // Invalid or partially written secure-storage data should recover to
+      // sign-in instead of leaving the app on a crashing/loading screen.
+      try {
+        await _storage.clear();
+      } catch (_) {
+        // The sign-in screen is still usable if secure-storage cleanup fails.
+      }
+      if (mounted) {
+        state = const AuthSessionState(isLoading: false);
+      }
     }
-    state = AuthSessionState(isLoading: false, session: session);
   }
 
   Future<void> setSession(AuthResponse response) async {
