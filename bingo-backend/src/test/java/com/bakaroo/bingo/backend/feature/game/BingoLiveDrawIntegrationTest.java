@@ -500,7 +500,7 @@ class BingoLiveDrawIntegrationTest extends MySqlIntegrationTest {
                 var session = bingoGameService.createSession(room.id(), sessionRequest(GameSessionState.OPEN));
                 bingoGameService.updateSessionState(session.id(),
                                 new GameSessionStateUpdateRequest(GameSessionState.CANCELLED));
-                Instant dueTime = session.startedAt().plus(gameProperties.drawInterval()).plusSeconds(1);
+                Instant dueTime = Instant.now().plus(gameProperties.drawInterval()).plusSeconds(1);
 
                 assertTrue(gameLiveDrawService.advanceSessionDrawIfDue(session.id(), dueTime).isEmpty());
                 assertTrue(gameLiveDrawService.advanceSessionDrawIfDue(Long.MAX_VALUE, dueTime).isEmpty());

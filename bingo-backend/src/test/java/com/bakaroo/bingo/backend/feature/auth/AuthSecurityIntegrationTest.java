@@ -626,7 +626,7 @@ class AuthSecurityIntegrationTest extends MySqlIntegrationTest {
                                                 + "\"roles\":[\"SUPPORT\"]}"))
                                 .andExpect(status().isOk());
                 mockMvc.perform(get("/api/v1/admin/support/tickets").header("Authorization", "Bearer " + tokenIssuedAsSupport))
-                                .andExpect(status().isUnauthorized());
+                                .andExpect(status().isForbidden());
                 assertEquals(2, jdbcTemplate.queryForObject(
                                 "select count(*) from audit_log_entries where action='UPDATE_USER' and target_id=?",
                                 Integer.class, target.getId()));
@@ -828,14 +828,14 @@ class AuthSecurityIntegrationTest extends MySqlIntegrationTest {
                                 .andExpect(jsonPath("$.status").value("SUSPENDED"));
                 assertEquals(AccountStatus.SUSPENDED, userRepository.findById(userId).orElseThrow().getStatus());
                 mockMvc.perform(get("/api/v1/agent/dashboard").header("Authorization", "Bearer " + approvedToken))
-                                .andExpect(status().isUnauthorized());
+                                .andExpect(status().isForbidden());
                 mockMvc.perform(get("/api/v1/agent/float").header("Authorization", "Bearer " + approvedToken))
-                                .andExpect(status().isUnauthorized());
+                                .andExpect(status().isForbidden());
                 mockMvc.perform(post("/api/v1/agent/float/transfers")
                                 .header("Authorization", "Bearer " + approvedToken)
                                 .header("Idempotency-Key", "m02a-suspended-float-transfer")
                                 .contentType(MediaType.APPLICATION_JSON).content("{}"))
-                                .andExpect(status().isUnauthorized());
+                                .andExpect(status().isForbidden());
                 mockMvc.perform(post("/api/v1/agent/login").contentType(MediaType.APPLICATION_JSON)
                                 .content(loginJson))
                                 .andExpect(status().isUnauthorized());

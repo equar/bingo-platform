@@ -42,6 +42,9 @@ schema, verifies access is denied to `bingo`, `bingo_qa`, `bingo_qa_test`, and
 `bingo_qa_maven_test`, and accepts only an empty schema or one already
 migrated successfully through V28. It refuses to run if the
 synthetic-financial opt-in is true.
+JUnit skips the class unless `BINGO_MAVEN_AGENT_PAGINATION_TESTS_ENABLED=true`,
+so the general Maven suite does not initialize or connect to this dedicated
+database by default.
 The existing `MySqlIntegrationTest` guard remains unchanged and continues to
 bind the broad Maven suite to `bingo_qa_maven_test` and
 `bingo_qa_maven_runner`.

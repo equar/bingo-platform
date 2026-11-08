@@ -100,6 +100,8 @@ public class SecurityConfig {
                                                                 "/api/v1/admin/float-bank-accounts/**",
                                                                 "/api/v1/admin/wallet-adjustment-requests/**")
                                                 .hasAnyRole("ADMIN", "FINANCE_VERIFIER", "FINANCE_APPROVER")
+                                                .requestMatchers("/api/v1/admin/rooms", "/api/v1/admin/rooms/**")
+                                                .hasAnyRole("ADMIN", "SUPPORT")
                                                 .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                                                 .requestMatchers("/api/v1/agent/**").hasRole("AGENT")
                                                 .anyRequest().authenticated())
