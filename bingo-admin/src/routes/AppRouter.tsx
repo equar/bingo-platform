@@ -83,6 +83,9 @@ const WalletPoliciesPage = lazy(() =>
 const WalletTransfersPage = lazy(() =>
   import("../features/wallet/WalletTransfersPage").then((module) => ({ default: module.WalletTransfersPage })),
 );
+const SignupRewardGrantsPage = lazy(() =>
+  import("../features/wallet/SignupRewardGrantsPage").then((module) => ({ default: module.SignupRewardGrantsPage })),
+);
 
 const CommunityPage = lazy(() => import("../features/community/CommunityPage").then(module => ({ default: module.CommunityPage })));
 
@@ -143,6 +146,7 @@ export function AppRouter() {
                 <Route index element={<Navigate to="signup-reward" replace />} />
                 <Route path="signup-reward" element={<WalletPoliciesPage />} />
                 <Route path="transfer-policy" element={<WalletPoliciesPage />} />
+                <Route path="signup-reward-grants" element={<SignupRewardGrantsPage />} />
               </Route>
               <Route path="wallet/transfers" element={<WalletTransfersPage />} />
             </Route>

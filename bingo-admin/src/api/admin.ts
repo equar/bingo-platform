@@ -1278,10 +1278,10 @@ export async function currentSignupRewardSettings() {
   return data;
 }
 
-export async function signupRewardSettingsHistory(page = 0, size = 20) {
+export async function signupRewardSettingsHistory(page = 0, size = 20, query?: string, enabled?: boolean) {
   const { data } = await http.get<PageResponse<SignupRewardSettingsResponse>>(
     '/api/v1/admin/wallet/signup-rewards/settings/history',
-    { params: { page, size } },
+    { params: { page, size, query, enabled } },
   );
   return data;
 }
@@ -1299,9 +1299,9 @@ export async function setSignupRewardPolicyStatus(policyId: number, enabled: boo
   return data;
 }
 
-export async function signupRewardGrants(page = 0, size = 20) {
+export async function signupRewardGrants(page = 0, size = 20, query?: string) {
   const { data } = await http.get<PageResponse<SignupRewardGrantResponse>>('/api/v1/admin/wallet/signup-rewards/grants', {
-    params: { page, size },
+    params: { page, size, query },
   });
   return data;
 }
@@ -1311,10 +1311,10 @@ export async function currentWalletTransferSettings() {
   return data;
 }
 
-export async function walletTransferSettingsHistory(page = 0, size = 20) {
+export async function walletTransferSettingsHistory(page = 0, size = 20, query?: string, enabled?: boolean) {
   const { data } = await http.get<PageResponse<WalletTransferSettingsResponse>>(
     '/api/v1/admin/wallet/transfers/settings/history',
-    { params: { page, size } },
+    { params: { page, size, query, enabled } },
   );
   return data;
 }

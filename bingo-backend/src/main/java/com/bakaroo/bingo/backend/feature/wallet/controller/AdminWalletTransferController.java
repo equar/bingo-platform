@@ -38,8 +38,11 @@ public class AdminWalletTransferController {
     }
 
     @GetMapping("/settings/history")
-    public PageResponse<WalletTransferSettingsResponse> settingsHistory(@PageableDefault(size = 20) Pageable pageable) {
-        return PageResponse.from(walletTransferService.settingsHistory(pageable));
+    public PageResponse<WalletTransferSettingsResponse> settingsHistory(
+            @RequestParam(required = false) String query,
+            @RequestParam(required = false) Boolean enabled,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return PageResponse.from(walletTransferService.settingsHistory(query, enabled, pageable));
     }
 
     @PostMapping("/settings")

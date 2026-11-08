@@ -13,6 +13,7 @@ import {
   signupRewardSettingsHistory,
   walletTransferSettingsHistory,
 } from "../../api/admin";
+import { SignupRewardGrantsPage } from "./SignupRewardGrantsPage";
 import { WalletPoliciesPage } from "./WalletPoliciesPage";
 
 vi.mock("../../api/admin", () => ({
@@ -118,7 +119,7 @@ describe("WalletPoliciesPage", () => {
     expect(await screen.findByRole("heading", { name: "Signup reward" })).toBeInTheDocument();
     expect(currentSignupRewardSettingsMock).toHaveBeenCalledOnce();
     expect(currentWalletTransferSettingsMock).not.toHaveBeenCalled();
-    expect(signupRewardGrantsMock).toHaveBeenCalledOnce();
+    expect(signupRewardGrantsMock).not.toHaveBeenCalled();
     expect(walletTransferSettingsHistoryMock).not.toHaveBeenCalled();
 
     unmount();
@@ -128,6 +129,15 @@ describe("WalletPoliciesPage", () => {
     await waitFor(() => expect(currentWalletTransferSettingsMock).toHaveBeenCalledOnce());
     expect(screen.getByTestId("current-location")).toHaveTextContent("/wallet/transfer-policy");
     expect(walletTransferSettingsHistoryMock).toHaveBeenCalledOnce();
+  });
+
+  it("loads grants from the dedicated signup reward grants page", async () => {
+    render(<SignupRewardGrantsPage />, { wrapper: createWrapper });
+
+    expect(
+      await screen.findByRole("heading", { name: "Signup reward grants" }),
+    ).toBeInTheDocument();
+    expect(signupRewardGrantsMock).toHaveBeenCalledWith(0, 20, undefined);
   });
 
   it("defaults a new reward policy to today and allows an inclusive same-day end date", async () => {

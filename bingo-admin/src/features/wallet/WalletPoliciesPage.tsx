@@ -31,7 +31,6 @@ import {
   saveSignupRewardSettings,
   setSignupRewardPolicyStatus,
   saveWalletTransferSettings,
-  signupRewardGrants,
   signupRewardSettingsHistory,
   walletTransferSettingsHistory,
 } from "../../api/admin";
@@ -39,6 +38,8 @@ import { getUserFacingErrorMessage } from "../../api/types";
 import { StatusState } from "../../components/StatusState";
 import { AdminPageHeader } from "../../components/AdminPageHeader";
 import { AdminTablePagination } from "../../components/AdminTablePagination";
+import { usePrivateListSearch } from "../../components/usePrivateListSearch";
+import { useListSessionState } from "../../components/useListSessionState";
 import { translateAdminStatus } from "../../i18n";
 
 function toLocalInputValue(isoString: string | null | undefined) {
@@ -138,11 +139,15 @@ export function WalletPoliciesPage() {
   const location = useLocation();
   const isTransferPolicy = location.pathname === "/wallet/transfer-policy";
   const [formOpen, setFormOpen] = useState(false);
-  const [historyPage, setHistoryPage] = useState(0);
+  const [rewardSearch, setRewardSearch] = usePrivateListSearch("signup-reward-history");
+  const [transferQueryText, setTransferQueryText] = usePrivateListSearch("transfer-policy-history");
+  const [rewardStatus, setRewardStatus] = useListSessionState("signup-reward-history:status", "");
+  const [transferStatus, setTransferStatus] = useListSessionState("transfer-policy-history:status", "");
+  const [historyPage, setHistoryPage] = useListSessionState("wallet-policy-history:page", 0);
   useEffect(() => {
     setHistoryPage(0);
     setFormOpen(false);
-  }, [isTransferPolicy]);
+  }, [isTransferPolicy, setHistoryPage]);
   const rewardQuery = useQuery({
     queryKey: ["wallet-policies", "signup-reward"],
     queryFn: currentSignupRewardSettings,
@@ -154,20 +159,14 @@ export function WalletPoliciesPage() {
     enabled: isTransferPolicy,
   });
   const rewardHistoryQuery = useQuery({
-    queryKey: ["wallet-policies", "signup-reward-history", historyPage],
-    queryFn: () => signupRewardSettingsHistory(historyPage, 20),
+    queryKey: ["wallet-policies", "signup-reward-history", historyPage, rewardSearch.trim(), rewardStatus],
+    queryFn: () => signupRewardSettingsHistory(historyPage, 20, rewardSearch.trim() || undefined, rewardStatus === "" ? undefined : rewardStatus === "active"),
     enabled: !isTransferPolicy,
   });
   const transferHistoryQuery = useQuery({
-    queryKey: ["wallet-policies", "transfer-history", historyPage],
-    queryFn: () => walletTransferSettingsHistory(historyPage, 20),
+    queryKey: ["wallet-policies", "transfer-history", historyPage, transferQueryText.trim(), transferStatus],
+    queryFn: () => walletTransferSettingsHistory(historyPage, 20, transferQueryText.trim() || undefined, transferStatus === "" ? undefined : transferStatus === "active"),
     enabled: isTransferPolicy,
-  });
-  const grantsQuery = useQuery({
-    queryKey: ["wallet-policies", "grants"],
-    queryFn: () => signupRewardGrants(0, 20),
-    enabled: !isTransferPolicy,
-    staleTime: 0,
   });
 
   const [rewardDraft, setRewardDraft] = useState({
@@ -270,7 +269,6 @@ export function WalletPoliciesPage() {
 
   const rewardHistory = rewardHistoryQuery.data?.content ?? [];
   const transferHistory = transferHistoryQuery.data?.content ?? [];
-  const grants = grantsQuery.data?.content ?? [];
 
   const activePolicyQuery = isTransferPolicy ? transferQuery : rewardQuery;
 
@@ -525,6 +523,25 @@ export function WalletPoliciesPage() {
             <Card elevation={0} sx={{ border: "1px solid", borderColor: "divider" }}>
               <CardContent>
                 <Typography variant="h6" gutterBottom>{t("Transfer policy history")}</Typography>
+                <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ mb: 2 }}>
+                  <TextField
+                    label={t("Search amount, currency, or reason")}
+                    value={transferQueryText}
+                    onChange={(event) => { setTransferQueryText(event.target.value); setHistoryPage(0); }}
+                    fullWidth
+                  />
+                  <TextField
+                    select
+                    label={t("Status")}
+                    value={transferStatus}
+                    onChange={(event) => { setTransferStatus(event.target.value); setHistoryPage(0); }}
+                    sx={{ minWidth: { xs: "100%", sm: 180 } }}
+                  >
+                    <MenuItem value="">{t("All statuses")}</MenuItem>
+                    <MenuItem value="active">{t("Active")}</MenuItem>
+                    <MenuItem value="inactive">{t("Inactive")}</MenuItem>
+                  </TextField>
+                </Stack>
                 {transferHistoryQuery.error ? (
                   <Alert severity="error">{t(getUserFacingErrorMessage(transferHistoryQuery.error) ?? "Something went wrong. Please try again.")}</Alert>
                 ) : null}
@@ -580,6 +597,25 @@ export function WalletPoliciesPage() {
             <Card elevation={0} sx={{ border: "1px solid", borderColor: "divider" }}>
               <CardContent>
                 <Typography variant="h6" gutterBottom>{t("Reward history")}</Typography>
+                <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ mb: 2 }}>
+                  <TextField
+                    label={t("Search amount, currency, or reason")}
+                    value={rewardSearch}
+                    onChange={(event) => { setRewardSearch(event.target.value); setHistoryPage(0); }}
+                    fullWidth
+                  />
+                  <TextField
+                    select
+                    label={t("Status")}
+                    value={rewardStatus}
+                    onChange={(event) => { setRewardStatus(event.target.value); setHistoryPage(0); }}
+                    sx={{ minWidth: { xs: "100%", sm: 180 } }}
+                  >
+                    <MenuItem value="">{t("All statuses")}</MenuItem>
+                    <MenuItem value="active">{t("Active")}</MenuItem>
+                    <MenuItem value="inactive">{t("Inactive")}</MenuItem>
+                  </TextField>
+                </Stack>
                 {rewardHistoryQuery.error ? (
                   <Alert severity="error">{t(getUserFacingErrorMessage(rewardHistoryQuery.error) ?? "Something went wrong. Please try again.")}</Alert>
                 ) : null}
@@ -636,48 +672,6 @@ export function WalletPoliciesPage() {
                   onRowsPerPageChange={() => undefined}
                   rowsPerPageOptions={[]}
                 />
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12}>
-            <Card elevation={0} sx={{ border: "1px solid", borderColor: "divider" }}>
-              <CardContent>
-                <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={2}>
-                  <Typography variant="h6" gutterBottom>{t("Recent grants")}</Typography>
-                  <Button size="small" onClick={() => grantsQuery.refetch()} disabled={grantsQuery.isFetching}>
-                    {grantsQuery.isFetching ? t("Loading") : t("Refresh")}
-                  </Button>
-                </Stack>
-                {grantsQuery.error ? (
-                  <Alert severity="error" sx={{ mb: 1 }}>
-                    {t(getUserFacingErrorMessage(grantsQuery.error) ?? "Something went wrong. Please try again.")}
-                  </Alert>
-                ) : null}
-                <Box sx={{ overflowX: "auto" }}>
-                  <Table size="small" aria-label={t("Recent grants")}>
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>{t("Player")}</TableCell>
-                        <TableCell>{t("Phone number")}</TableCell>
-                        <TableCell align="right">{t("Reward amount")}</TableCell>
-                        <TableCell>{t("Currency")}</TableCell>
-                        <TableCell>{t("Awarded")}</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {grants.map((grant) => (
-                        <TableRow key={grant.id} hover>
-                          <TableCell>{grant.playerDisplayName}</TableCell>
-                          <TableCell>{grant.playerPhoneNumber}</TableCell>
-                          <TableCell align="right">{grant.rewardAmount}</TableCell>
-                          <TableCell>{grant.currency}</TableCell>
-                          <TableCell>{new Date(grant.awardedAt).toLocaleString()}</TableCell>
-                        </TableRow>
-                      ))}
-                      {!grantsQuery.isLoading && !grantsQuery.error && grants.length === 0 ? <TableRow><TableCell colSpan={5}>{t("No signup reward grants yet.")}</TableCell></TableRow> : null}
-                    </TableBody>
-                  </Table>
-                </Box>
               </CardContent>
             </Card>
           </Grid>

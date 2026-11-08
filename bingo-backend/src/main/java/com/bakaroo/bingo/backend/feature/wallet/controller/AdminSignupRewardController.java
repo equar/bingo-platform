@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -37,8 +38,11 @@ public class AdminSignupRewardController {
     }
 
     @GetMapping("/settings/history")
-    public PageResponse<SignupRewardSettingsResponse> settingsHistory(@PageableDefault(size = 20) Pageable pageable) {
-        return PageResponse.from(signupRewardService.settingsHistory(pageable));
+    public PageResponse<SignupRewardSettingsResponse> settingsHistory(
+            @RequestParam(required = false) String query,
+            @RequestParam(required = false) Boolean enabled,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return PageResponse.from(signupRewardService.settingsHistory(query, enabled, pageable));
     }
 
     @PostMapping("/settings")
@@ -55,7 +59,8 @@ public class AdminSignupRewardController {
     }
 
     @GetMapping("/grants")
-    public PageResponse<SignupRewardGrantResponse> grants(@PageableDefault(size = 20) Pageable pageable) {
-        return PageResponse.from(signupRewardService.grants(pageable));
+    public PageResponse<SignupRewardGrantResponse> grants(@RequestParam(required = false) String query,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return PageResponse.from(signupRewardService.listGrants(query, pageable));
     }
 }

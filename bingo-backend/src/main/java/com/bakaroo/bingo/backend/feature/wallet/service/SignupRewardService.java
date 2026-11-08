@@ -122,7 +122,14 @@ public class SignupRewardService {
 
     @Transactional(readOnly = true)
     public Page<SignupRewardSettingsResponse> settingsHistory(Pageable pageable) {
-        return policyRepository.findAllByOrderByCreatedAtDesc(pageable).map(this::toSettingsResponse);
+        return settingsHistory(null, null, pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<SignupRewardSettingsResponse> settingsHistory(String query, Boolean enabled, Pageable pageable) {
+        String search = normalizeSearch(query);
+        return policyRepository.searchHistory(search, enabled, parseAmount(search), pageable)
+                .map(this::toSettingsResponse);
     }
 
     @Transactional
@@ -168,8 +175,29 @@ public class SignupRewardService {
     }
 
     @Transactional(readOnly = true)
-    public Page<SignupRewardGrantResponse> grants(Pageable pageable) {
+    public Page<SignupRewardGrantResponse> listGrants(Pageable pageable) {
         return grantRepository.findAllByOrderByAwardedAtDesc(pageable).map(this::toGrantResponse);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<SignupRewardGrantResponse> listGrants(String query, Pageable pageable) {
+        String search = normalizeSearch(query);
+        return grantRepository.search(search, parseAmount(search), pageable).map(this::toGrantResponse);
+    }
+
+    private String normalizeSearch(String query) {
+        return query == null || query.isBlank() ? null : query.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private BigDecimal parseAmount(String search) {
+        if (search == null) {
+            return null;
+        }
+        try {
+            return new BigDecimal(search);
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
     }
 
     private boolean isActive(SignupRewardPolicy policy, Instant now) {
