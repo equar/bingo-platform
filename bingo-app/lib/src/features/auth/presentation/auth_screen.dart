@@ -8,9 +8,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class AuthScreen extends ConsumerStatefulWidget {
-  const AuthScreen({super.key, required this.sessionExpired});
+  const AuthScreen({
+    super.key,
+    required this.sessionExpired,
+    this.accountSuspended = false,
+  });
 
   final bool sessionExpired;
+  final bool accountSuspended;
 
   @override
   ConsumerState<AuthScreen> createState() => _AuthScreenState();
@@ -26,6 +31,55 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   bool _busy = false;
   String? _errorMessage;
   ApiError? _apiError;
+  bool _suspensionDialogOpen = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.accountSuspended) _scheduleSuspensionDialog();
+  }
+
+  @override
+  void didUpdateWidget(covariant AuthScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.accountSuspended && !oldWidget.accountSuspended) {
+      _scheduleSuspensionDialog();
+    }
+  }
+
+  void _scheduleSuspensionDialog() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _showSuspensionDialog();
+    });
+  }
+
+  Future<void> _showSuspensionDialog() async {
+    if (_suspensionDialogOpen) return;
+    _suspensionDialogOpen = true;
+    FocusScope.of(context).unfocus();
+    try {
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) => AlertDialog(
+          icon: const Icon(Icons.block_outlined),
+          content: Text(
+            AppLocalizations.of(dialogContext)!.errorAccountSuspended,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text(
+                MaterialLocalizations.of(dialogContext).okButtonLabel,
+              ),
+            ),
+          ],
+        ),
+      );
+    } finally {
+      _suspensionDialogOpen = false;
+    }
+  }
 
   @override
   void dispose() {
@@ -70,6 +124,11 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     } catch (error) {
       if (!mounted) return;
       final parsed = normalizeApiError(error);
+      if (!parsed.cancelled && parsed.code == 'ACCOUNT_SUSPENDED') {
+        setState(() => _busy = false);
+        await _showSuspensionDialog();
+        return;
+      }
       setState(() {
         _apiError = parsed;
         _errorMessage = parsed.cancelled

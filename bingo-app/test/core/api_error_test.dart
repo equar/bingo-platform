@@ -29,6 +29,34 @@ void main() {
     );
   }
 
+  test(
+    'suspension takes precedence over login and generic authorization errors',
+    () async {
+      for (final path in [
+        '/api/v1/auth/login',
+        '/api/v1/player/login',
+        '/api/v1/auth/me',
+      ]) {
+        final error = mapDioApiError(
+          responseError(
+            status: 403,
+            path: path,
+            method: 'POST',
+            data: {'code': 'ACCOUNT_SUSPENDED'},
+          ),
+        );
+        expect(
+          error.userMessage(localizations),
+          'Your account has been suspended, please reach out to Sunset Bingo support team at 0956047345',
+        );
+        expect(error.message, error.userMessage(localizations));
+        final am = await AppLocalizations.delegate.load(const Locale('am'));
+        expect(error.userMessage(am), am.errorAccountSuspended);
+        expect(error.userMessage(am), contains('0956047345'));
+      }
+    },
+  );
+
   test('maps session, permission, and login statuses to safe messages', () {
     final loginError = mapDioApiError(
       responseError(

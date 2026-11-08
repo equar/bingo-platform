@@ -1,3 +1,4 @@
+import 'package:bingo_app/src/core/localization/ethiopian_date_time.dart';
 import 'package:bingo_app/src/features/support/presentation/support_shortcut.dart';
 import 'package:bingo_app/src/core/widgets/responsive_content.dart';
 import 'package:bingo_app/l10n/app_localizations.dart';
@@ -133,7 +134,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     Text(profile.phoneNumber),
                     const SizedBox(height: 12),
                     Text(
-                      '${localizations.profileMemberSince}: ${profile.createdAt.toLocal()}',
+                      '${localizations.profileMemberSince}: ${EthiopianDateTime.date(profile.createdAt, languageCode: Localizations.localeOf(context).languageCode)}',
                     ),
                     const SizedBox(height: 12),
                     Wrap(

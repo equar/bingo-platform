@@ -1,6 +1,8 @@
 package com.bakaroo.bingo.backend.feature.auth.security;
 
 import com.bakaroo.bingo.backend.common.api.ApiErrorResponseWriter;
+import com.bakaroo.bingo.backend.common.exception.AccountSuspendedException;
+import com.bakaroo.bingo.backend.feature.user.entity.AccountStatus;
 import com.bakaroo.bingo.backend.feature.auth.service.BingoUserDetailsService;
 import com.bakaroo.bingo.backend.feature.auth.service.BingoUserPrincipal;
 import com.bakaroo.bingo.backend.feature.auth.service.JwtService;
@@ -41,15 +43,26 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (StringUtils.hasText(authorization) && authorization.startsWith("Bearer ")) {
             String token = authorization.substring(7);
             BingoUserPrincipal authenticatedPrincipal = null;
+            boolean suspended = false;
             try {
                 Long userId = jwtService.extractUserId(token);
                 BingoUserPrincipal principal = userDetailsService.loadById(userId);
-                if (jwtService.isTokenValidForUser(token, principal.getUser().getId()) && principal.isEnabled()
+                boolean validToken = jwtService.isTokenValidForUser(token, principal.getUser().getId());
+                suspended = validToken && principal.getUser().getStatus() == AccountStatus.SUSPENDED;
+                if (validToken && principal.isEnabled()
                         && principal.isAccountNonLocked()) {
                     authenticatedPrincipal = principal;
                 }
             } catch (Exception ignored) {
                 SecurityContextHolder.clearContext();
+            }
+
+            if (suspended) {
+                SecurityContextHolder.clearContext();
+                errorWriter.write(response, HttpStatus.FORBIDDEN.value(),
+                        AccountSuspendedException.CODE, AccountSuspendedException.MESSAGE,
+                        request.getRequestURI(), ApiErrorResponseWriter.resolveCorrelationId(request));
+                return;
             }
 
             if (authenticatedPrincipal != null) {

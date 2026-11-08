@@ -1,3 +1,4 @@
+import 'package:bingo_app/src/core/localization/ethiopian_date_time.dart';
 import 'package:bingo_app/src/core/widgets/responsive_content.dart';
 import 'package:bingo_app/l10n/app_localizations.dart';
 import 'package:bingo_app/src/core/network/api_error.dart';
@@ -376,7 +377,13 @@ Future<void> _showInvite(BuildContext context, String code, String? expiry) {
           ),
           const SizedBox(height: 12),
           Text(l.privateInviteHelp),
-          if (expiry != null) Text(DateTime.parse(expiry).toLocal().toString()),
+          if (expiry != null)
+            Text(
+              EthiopianDateTime.dateTime(
+                DateTime.parse(expiry),
+                languageCode: Localizations.localeOf(context).languageCode,
+              ),
+            ),
         ],
       ),
       actions: [

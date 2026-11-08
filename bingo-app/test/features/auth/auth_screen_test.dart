@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:bingo_app/src/core/network/api_error.dart';
 
 import 'package:bingo_app/l10n/app_localizations.dart';
 import 'package:bingo_app/src/core/storage/session_storage.dart';
@@ -56,6 +57,7 @@ Future<ProviderContainer> mount(
   WidgetTester t,
   TestAuthRepository repo, {
   bool expired = false,
+  bool suspended = false,
   bool narrow = false,
   Locale locale = const Locale('en'),
 }) async {
@@ -83,7 +85,7 @@ Future<ProviderContainer> mount(
           ).copyWith(textScaler: TextScaler.linear(narrow ? 1.5 : 1)),
           child: child!,
         ),
-        home: AuthScreen(sessionExpired: expired),
+        home: AuthScreen(sessionExpired: expired, accountSuspended: suspended),
       ),
     ),
   );
@@ -110,15 +112,54 @@ Future<void> fill(WidgetTester t) async {
 }
 
 void main() {
-  testWidgets('language preference is available only after signing in', (
+  testWidgets('signed-out suspended users see the support notice', (t) async {
+    await mount(t, TestAuthRepository(), suspended: true);
+    expect(
+      find.text(
+        'Your account has been suspended, please reach out to Sunset Bingo support team at 0956047345',
+      ),
+      findsOneWidget,
+    );
+    expect(find.byType(AlertDialog), findsOneWidget);
+    await t.tap(find.widgetWithText(TextButton, 'OK'));
+    await t.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsNothing);
+    await t.pump();
+    expect(
+      find.textContaining('Your account has been suspended'),
+      findsNothing,
+    );
+    expect(
+      find.text('Your session has expired. Please sign in again.'),
+      findsNothing,
+    );
+  });
+
+  testWidgets('suspended login opens an OK dialog without an inline error', (
     t,
   ) async {
-    await mount(t, TestAuthRepository());
-
-    expect(find.byKey(const ValueKey('player-language-selector')), findsNothing);
-
-    await tapKey(t, 'auth-toggle-button');
-    expect(find.byKey(const ValueKey('player-language-selector')), findsNothing);
+    final repo = TestAuthRepository()..pending = Completer<AuthResponse>();
+    await mount(t, repo);
+    await fill(t);
+    await t.tap(find.byKey(const ValueKey('auth-submit-button')));
+    await t.pump();
+    repo.pending!.completeError(
+      ApiError(code: 'ACCOUNT_SUSPENDED', statusCode: 403),
+    );
+    await t.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(
+      find.textContaining('Your account has been suspended'),
+      findsOneWidget,
+    );
+    await t.tap(find.widgetWithText(TextButton, 'OK'));
+    await t.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(
+      find.textContaining('Your account has been suspended'),
+      findsNothing,
+    );
+    expect(repo.logins, hasLength(1));
   });
 
   testWidgets('login retains Ethiopian phone and six-digit PIN validation', (

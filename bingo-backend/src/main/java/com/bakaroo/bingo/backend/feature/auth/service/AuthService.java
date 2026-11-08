@@ -1,6 +1,7 @@
 package com.bakaroo.bingo.backend.feature.auth.service;
 
 import com.bakaroo.bingo.backend.common.exception.BadRequestException;
+import com.bakaroo.bingo.backend.common.exception.AccountSuspendedException;
 import com.bakaroo.bingo.backend.common.exception.ConflictException;
 import com.bakaroo.bingo.backend.common.exception.NotFoundException;
 import com.bakaroo.bingo.backend.feature.auth.dto.AuthResponse;
@@ -92,9 +93,18 @@ public class AuthService {
     public AuthResponse login(LoginRequest request) {
         String normalizedPhone = phoneNormalizer.normalize(request.phoneNumber());
         throttleService.requireAccountAllowed("player", normalizedPhone);
-        if (userRepository.findByNormalizedPhoneAndRole(normalizedPhone, UserRole.PLAYER).isEmpty()) {
+        var player = userRepository.findByNormalizedPhoneAndRole(normalizedPhone, UserRole.PLAYER);
+        if (player.isEmpty()) {
             throttleService.recordAccountFailure("player", normalizedPhone);
             throw new org.springframework.security.authentication.BadCredentialsException("Invalid credentials");
+        }
+        if (player.get().getStatus() == AccountStatus.SUSPENDED) {
+            if (!passwordEncoder.matches(request.password(), player.get().getPasswordHash())) {
+                throttleService.recordAccountFailure("player", normalizedPhone);
+                throw new org.springframework.security.authentication.BadCredentialsException("Invalid credentials");
+            }
+            throttleService.clearAccountAttempts("player", normalizedPhone);
+            throw new AccountSuspendedException();
         }
         Authentication authentication;
         try {
