@@ -14,15 +14,16 @@ class AuthGate extends ConsumerWidget {
     final localizations = AppLocalizations.of(context)!;
 
     if (state.isLoading) {
-      return Scaffold(
-        body: Center(child: Text(localizations.loading)),
-      );
+      return Scaffold(body: Center(child: Text(localizations.loading)));
     }
 
     if (state.isAuthenticated) {
       return const HomeShell();
     }
 
-    return AuthScreen(sessionExpired: state.errorMessage == 'SESSION_EXPIRED');
+    return AuthScreen(
+      sessionExpired: state.errorMessage == 'SESSION_EXPIRED',
+      accountSuspended: state.errorMessage == 'ACCOUNT_SUSPENDED',
+    );
   }
 }
