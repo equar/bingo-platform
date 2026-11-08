@@ -54,6 +54,7 @@ class _WalletTopUpScreenState extends ConsumerState<WalletTopUpScreen> {
 
   Future<void> _submit() async {
     final l10n = AppLocalizations.of(context)!;
+    final isNewAttempt = _attemptBody == null;
     if (_attemptBody == null) {
       final amount = double.tryParse(_amountController.text.trim());
       if (!_validPhone ||
@@ -83,6 +84,34 @@ class _WalletTopUpScreenState extends ConsumerState<WalletTopUpScreen> {
     if (_idempotencyKey == null || _busy) {
       return;
     }
+    if (isNewAttempt) {
+      final amount = double.parse(_attemptBody!['amount'].toString());
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text(l10n.playerWalletTopUpTitle),
+          content: Text(
+            '${l10n.playerPhone}: ${_attemptBody!['playerPhoneNumber']}\n'
+            '${l10n.topUpAmount}: ${amount.toStringAsFixed(2)} ETB',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text(l10n.cancel),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text(l10n.confirm),
+            ),
+          ],
+        ),
+      );
+      if (!mounted || confirmed != true) {
+        _attemptBody = null;
+        _idempotencyKey = null;
+        return;
+      }
+    }
     setState(() {
       _busy = true;
       _error = null;
@@ -99,6 +128,7 @@ class _WalletTopUpScreenState extends ConsumerState<WalletTopUpScreen> {
           _idempotencyKey = null;
           _outcomeUnknown = false;
         });
+        _pinController.clear();
       }
     } catch (error) {
       if (mounted) {

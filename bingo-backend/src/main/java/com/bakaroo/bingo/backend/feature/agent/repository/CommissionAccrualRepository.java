@@ -17,6 +17,8 @@ public interface CommissionAccrualRepository extends JpaRepository<CommissionAcc
 
     List<CommissionAccrual> findByAgentIdOrderByCreatedAtDesc(Long agentId);
 
+    long countByAgentId(Long agentId);
+
     List<CommissionAccrual> findByStatusOrderByCreatedAtDesc(CommissionAccrualStatus status);
 
     @Query(value = """

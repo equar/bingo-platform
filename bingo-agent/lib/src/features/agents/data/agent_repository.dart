@@ -60,7 +60,9 @@ class AgentRepository {
   }
 
   Future<PayoutLookup> lookupPayout(String code) async =>
-      PayoutLookup.fromJson((await _dio.get<Map<String, dynamic>>('/api/v1/agent/payouts/$code')).data ?? {});
+      PayoutLookup.fromJson((await _dio.get<Map<String, dynamic>>(
+        '/api/v1/agent/payouts/${Uri.encodeComponent(code)}',
+      )).data ?? {});
 
   Future<PayoutVerificationResult> verifyPayout(Map<String, dynamic> body, String key) async {
     final response = await _dio.post<Map<String, dynamic>>(

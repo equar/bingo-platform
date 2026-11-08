@@ -199,9 +199,10 @@ public class AgentService {
         AgentFloat agentFloat = requireAgentFloat(agent.getId());
         return new AgentDashboardResponse(agent.getId(), agent.getStatus().name(), agentFloat.getAvailableBalance(),
                 agentFloat.getClearingBalance(),
-                commissionAccrualRepository.findByAgentIdOrderByCreatedAtDesc(agent.getId()).size(),
-                commissionAccrualRepository.findByAgentIdOrderByCreatedAtDesc(agent.getId()).size(),
-                floatTopUpRequestRepository.findByAgentIdOrderByCreatedAtDesc(agent.getId()).size(), Instant.now());
+                agentFloatTransactionRepository.countByAgentIdAndTransactionType(
+                        agent.getId(), AgentFloatTransactionType.TICKET_SALE_DEBIT),
+                commissionAccrualRepository.countByAgentId(agent.getId()),
+                floatTopUpRequestRepository.countByAgentId(agent.getId()), Instant.now());
     }
 
     @Transactional(readOnly = true)
