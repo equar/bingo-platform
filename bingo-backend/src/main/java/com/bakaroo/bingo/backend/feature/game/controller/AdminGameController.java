@@ -2,6 +2,7 @@ package com.bakaroo.bingo.backend.feature.game.controller;
 
 import com.bakaroo.bingo.backend.common.exception.BadRequestException;
 import com.bakaroo.bingo.backend.common.api.PageResponse;
+import com.bakaroo.bingo.backend.common.validation.ReportRangeValidator;
 import com.bakaroo.bingo.backend.feature.auth.service.BingoUserPrincipal;
 import com.bakaroo.bingo.backend.feature.game.dto.BingoRoomRequest;
 import com.bakaroo.bingo.backend.feature.game.dto.BingoRoomResponse;
@@ -36,7 +37,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.format.annotation.DateTimeFormat;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
 
@@ -147,17 +150,21 @@ public class AdminGameController {
     public PageResponse<PrizeEntitlementResponse> prizeEntitlements(@RequestParam(required = false) String query,
             @RequestParam(required = false) PrizeEntitlementStatus status,
             @PageableDefault(size = 20, sort = "createdAt", direction = org.springframework.data.domain.Sort.Direction.DESC) Pageable pageable) {
-        String normalizedQuery = query == null || query.isBlank() ? null : query.trim().toLowerCase(Locale.ROOT);
-        Long numericQuery = null;
-        if (normalizedQuery != null) {
-            try {
-                numericQuery = Long.valueOf(normalizedQuery);
-            } catch (NumberFormatException ignored) {
-                numericQuery = null;
-            }
-        }
         return PageResponse.from(prizeEntitlementRepository
-                .searchAdmin(normalizedQuery, numericQuery, status, pageable)
+                .searchAdmin(normalizeQuery(query), parseNumericQuery(query), status, pageable)
+                .map(this::toPrizeEntitlementResponse));
+    }
+
+    @GetMapping("/prize-entitlements/report")
+    public PageResponse<PrizeEntitlementResponse> prizeEntitlementReport(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to,
+            @RequestParam(required = false) String query,
+            @RequestParam(required = false) PrizeEntitlementStatus status,
+            @PageableDefault(size = 100) Pageable pageable) {
+        ReportRangeValidator.validate(from, to);
+        return PageResponse.from(prizeEntitlementRepository
+                .searchReport(from, to, normalizeQuery(query), parseNumericQuery(query), status, pageable)
                 .map(this::toPrizeEntitlementResponse));
     }
 
@@ -186,5 +193,21 @@ public class AdminGameController {
                 entitlement.getSettledBy() == null ? null : entitlement.getSettledBy().getId(),
                 entitlement.getSettlementReference(),
                 entitlement.getSettlementNote());
+    }
+
+    private String normalizeQuery(String query) {
+        return query == null || query.isBlank() ? null : query.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private Long parseNumericQuery(String query) {
+        String normalizedQuery = normalizeQuery(query);
+        if (normalizedQuery == null) {
+            return null;
+        }
+        try {
+            return Long.valueOf(normalizedQuery);
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
     }
 }

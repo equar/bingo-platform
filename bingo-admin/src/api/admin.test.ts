@@ -26,6 +26,7 @@ import {
   searchPlayerVerifications,
   postDraw,
   prizeEntitlements,
+  prizeEntitlementsReport,
   rejectDeposit,
   rejectWinClaim,
   reviewFloatTopUpRequest,
@@ -188,6 +189,7 @@ describe("admin API client", () => {
         serverValidationPassed: true,
       },
     });
+
     expect(httpMock.post).toHaveBeenNthCalledWith(
       1,
       "/api/v1/admin/win-claims/21/approve",
@@ -204,6 +206,21 @@ describe("admin API client", () => {
       "/api/v1/admin/prize-entitlements/24/settle",
       { settlementReference: "PAYOUT-24", settlementNote: "Paid" },
     );
+  });
+
+  it("requests a date-, search-, and status-filtered prize entitlement report", async () => {
+    await prizeEntitlementsReport("2026-11-01T00:00:00Z", "2026-11-08T00:00:00Z", 2, 50, "winner", "SETTLED");
+
+    expect(httpMock.get).toHaveBeenCalledWith("/api/v1/admin/prize-entitlements/report", {
+      params: {
+        from: "2026-11-01T00:00:00Z",
+        to: "2026-11-08T00:00:00Z",
+        query: "winner",
+        status: "SETTLED",
+        page: 2,
+        size: 50,
+      },
+    });
   });
 
   it("uses authoritative wallet endpoints and sends idempotency keys for money operations", async () => {

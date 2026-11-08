@@ -1349,30 +1349,47 @@ export async function searchAuditLogs(page = 0, size = 20, filters: AuditLogSear
   return data;
 }
 
-export async function auditActivityReport(from: string, to: string, page = 0, size = 100) {
+export async function auditActivityReport(from: string, to: string, page = 0, size = 100, query?: string) {
   const { data } = await http.get<PageResponse<AdminAuditLogSummaryResponse>>(
-    "/api/v1/admin/reports/audit-activity", { params: { from, to, page, size } },
+    "/api/v1/admin/reports/audit-activity", { params: { from, to, query: query?.trim() || undefined, page, size } },
   );
   return data;
 }
 
-export async function sessionActivityReport(from: string, to: string, page = 0, size = 100) {
+export async function sessionActivityReport(
+  from: string, to: string, page = 0, size = 100, query?: string, state?: string,
+) {
   const { data } = await http.get<PageResponse<AdminSessionSummaryResponse>>(
-    "/api/v1/admin/reports/sessions", { params: { from, to, page, size } },
+    "/api/v1/admin/reports/sessions",
+    { params: { from, to, query: query?.trim() || undefined, state, page, size } },
   );
   return data;
 }
 
-export async function playerVerificationReport(from: string, to: string, page = 0, size = 100) {
+export async function playerVerificationReport(
+  from: string, to: string, page = 0, size = 100, query?: string, status?: string,
+) {
   const { data } = await http.get<PageResponse<PlayerVerificationReviewResponse>>(
-    "/api/v1/admin/player-verifications/report", { params: { from, to, page, size } },
+    "/api/v1/admin/player-verifications/report",
+    { params: { from, to, query: query?.trim() || undefined, status, page, size } },
   );
   return data;
 }
 
-export async function depositReport(from: string, to: string, page = 0, size = 100) {
+export async function depositReport(from: string, to: string, page = 0, size = 100, query?: string, status?: string) {
   const { data } = await http.get<PageResponse<DepositReportResponse>>(
-    "/api/v1/admin/deposits/report", { params: { from, to, page, size } },
+    "/api/v1/admin/deposits/report",
+    { params: { from, to, query: query?.trim() || undefined, status, page, size } },
+  );
+  return data;
+}
+
+export async function prizeEntitlementsReport(
+  from: string, to: string, page = 0, size = 100, query?: string, status?: string,
+) {
+  const { data } = await http.get<PageResponse<PrizeEntitlementResponse>>(
+    "/api/v1/admin/prize-entitlements/report",
+    { params: { from, to, query: query?.trim() || undefined, status, page, size } },
   );
   return data;
 }
@@ -1580,9 +1597,12 @@ export async function supportTickets(
   return data;
 }
 
-export async function supportTicketReport(from: string, to: string, page = 0, size = 100) {
+export async function supportTicketReport(
+  from: string, to: string, page = 0, size = 100, query?: string, status?: string,
+) {
   const { data } = await http.get<PageResponse<SupportTicketSummaryResponse>>(
-    "/api/v1/admin/support/tickets/report", { params: { from, to, page, size } },
+    "/api/v1/admin/support/tickets/report",
+    { params: { from, to, query: query?.trim() || undefined, status, page, size } },
   );
   return data;
 }

@@ -36,8 +36,8 @@
   "historyTitle": "ታሪክ",
   "connectionLost": "ግንኙነት ተቋርጧል",
   "financialActionDisabled": "ከመስመር ውጭ የገንዘብ እንቅስቃሴ አይፈቀድም",
-  "missingApiBaseUrlTitle": "የAPI አድራሻ የለም",
-  "missingApiBaseUrlBody": "የጀርባ አገልጋዩን መሠረታዊ አድራሻ በ{label} ያዋቅሩ።",
+  "missingApiBaseUrlTitle": "የጀርባ አገልጋይ አድራሻ የለም ወይም ልክ አይደለም",
+  "missingApiBaseUrlBody": "{label} ፍጹም HTTP ወይም HTTPS መነሻ አድራሻ እንዲሆን ያዋቅሩ። የአካባቢ HTTP በdebug ብቻ ይፈቀዳል፤ profile እና release HTTPS ይፈልጋሉ እና loopback አድራሻ አይቀበሉም።",
   "@missingApiBaseUrlBody": {
     "placeholders": {
       "label": {

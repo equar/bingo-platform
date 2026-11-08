@@ -214,11 +214,19 @@ public class AdminReadService {
         }
 
         @Transactional(readOnly = true)
-        public Page<AdminSessionSummaryResponse> sessionsReport(Instant from, Instant to, Pageable pageable) {
-                return gameSessionRepository
-                                .findByScheduledStartAtGreaterThanEqualAndScheduledStartAtLessThanOrderByScheduledStartAtDescIdDesc(
-                                                from, to, pageable)
-                                .map(this::toSessionSummary);
+        public Page<AdminSessionSummaryResponse> sessionsReport(
+                        Instant from, Instant to, String query, GameSessionState state, Pageable pageable) {
+                String normalizedQuery = normalizeFilter(query);
+                Long numericQuery = null;
+                if (normalizedQuery != null) {
+                        try {
+                                numericQuery = Long.valueOf(normalizedQuery);
+                        } catch (NumberFormatException ignored) {
+                                numericQuery = null;
+                        }
+                }
+                return gameSessionRepository.reportAdminSessions(from, to, normalizedQuery, numericQuery, state,
+                                SupportLinkedEntityType.GAME_SESSION, pageable);
         }
 
         @Transactional(readOnly = true)
@@ -318,11 +326,9 @@ public class AdminReadService {
         }
 
         @Transactional(readOnly = true)
-        public Page<AdminAuditLogSummaryResponse> auditActivityReport(Instant from, Instant to, Pageable pageable) {
-                return auditLogRepository
-                                .findByCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDescIdDesc(
-                                                        from, to, pageable)
-                                        .map(this::toAuditLogSummary);
+        public Page<AdminAuditLogSummaryResponse> auditActivityReport(
+                        Instant from, Instant to, String query, Pageable pageable) {
+                return searchAuditLogs(query, null, null, null, null, null, null, from, to, pageable);
         }
 
         @Transactional(readOnly = true)

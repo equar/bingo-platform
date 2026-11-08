@@ -61,9 +61,19 @@ public class AdminPlayerVerificationService {
     }
 
     @Transactional(readOnly = true)
-    public Page<PlayerVerificationReviewResponse> report(Instant from, Instant to, Pageable pageable) {
+    public Page<PlayerVerificationReviewResponse> report(
+            Instant from, Instant to, String query, PlayerVerificationStatus status, Pageable pageable) {
+        String normalizedQuery = query == null || query.isBlank() ? null : query.trim().toLowerCase(Locale.ROOT);
+        Long numericQuery = null;
+        if (normalizedQuery != null) {
+            try {
+                numericQuery = Long.valueOf(normalizedQuery);
+            } catch (NumberFormatException ignored) {
+                numericQuery = null;
+            }
+        }
         return reviewRepository
-                .findByReviewedAtGreaterThanEqualAndReviewedAtLessThanOrderByReviewedAtDescIdDesc(from, to, pageable)
+                .searchReport(from, to, normalizedQuery, numericQuery, status, pageable)
                 .map(PlayerVerificationReviewResponse::from);
     }
 

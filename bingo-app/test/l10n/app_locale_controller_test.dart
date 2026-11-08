@@ -13,6 +13,15 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
+  test('defaults to English when no language preference is saved', () async {
+    final preferences = await SharedPreferences.getInstance();
+    final controller = AppLocaleController(preferences: preferences);
+    await controller.ready;
+
+    expect(controller.state, const Locale('en'));
+    controller.dispose();
+  });
+
   test('restores and persists the selected language', () async {
     final preferences = await SharedPreferences.getInstance();
     await preferences.setString('player.locale', 'am');

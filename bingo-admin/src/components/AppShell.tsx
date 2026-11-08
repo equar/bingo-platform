@@ -32,6 +32,14 @@ const expandedDrawerWidth = 248;
 const collapsedDrawerWidth = 72;
 const idleTimeoutMs = 15 * 60 * 1000;
 const activityEvents = ["click", "keydown", "mousemove", "mousedown", "scroll", "touchstart", "pointerdown"];
+const navGroupAccents: Record<string, { color: string; background: string }> = {
+  "nav.overview": { color: "#8fc5ff", background: "rgba(80, 153, 255, 0.18)" },
+  "nav.operations": { color: "#62dec5", background: "rgba(47, 201, 168, 0.16)" },
+  "nav.reviews": { color: "#ffc276", background: "rgba(241, 161, 67, 0.17)" },
+  "nav.accounts": { color: "#c4a4ff", background: "rgba(159, 111, 240, 0.18)" },
+  "nav.finance": { color: "#74d6ff", background: "rgba(71, 185, 232, 0.17)" },
+  "nav.administration": { color: "#ff9eae", background: "rgba(234, 104, 132, 0.17)" },
+};
 
 const navGroups = [
   {
@@ -413,7 +421,15 @@ export function AppShell() {
             width: drawerWidth,
             boxSizing: "border-box",
             overflowX: "hidden",
+            color: "#e7eefb",
+            backgroundColor: "#111d36",
+            backgroundImage: "linear-gradient(180deg, #172746 0%, #111d36 38%, #101a31 100%)",
+            borderRight: "1px solid #263858",
             transition: (theme: Theme) => theme.transitions.create("width"),
+            "& .MuiIconButton-root": {
+              color: "#a9bad4",
+              "&:hover": { color: "#fff", bgcolor: "rgba(255,255,255,0.08)" },
+            },
           },
         }}
       >
@@ -422,16 +438,16 @@ export function AppShell() {
           component="nav"
           id="admin-primary-navigation"
           aria-label={t("navigation.primary")}
-          sx={{ display: "flex", flex: 1, minHeight: 0, flexDirection: "column", overflowY: "auto", px: 1, pb: 1 }}
+          sx={{ display: "flex", flex: 1, minHeight: 0, flexDirection: "column", overflowY: "auto", px: 1.25, pb: 1.5 }}
         >
           <Stack
             direction={navigationCollapsed ? "column" : "row"}
             alignItems="center"
             justifyContent={navigationCollapsed ? "center" : "space-between"}
-            sx={{ px: navigationCollapsed ? 0 : 1, py: 0.5 }}
+            sx={{ px: navigationCollapsed ? 0 : 0.75, py: 1, mb: 0.5 }}
           >
             {!navigationCollapsed ? (
-              <Typography variant="overline" color="text.secondary" noWrap sx={{ fontWeight: 700 }}>
+              <Typography variant="overline" noWrap sx={{ color: "#9bacc7", fontSize: "0.72rem", fontWeight: 750, letterSpacing: "0.12em" }}>
                 {t("navigation.primary")}
               </Typography>
             ) : null}
@@ -462,6 +478,7 @@ export function AppShell() {
               const activeGroup = activeGroupTitles.includes(group.title);
               const groupId = `nav-group-${group.title.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`;
               const groupIcon = group.items[0]?.icon ?? "dashboard";
+              const accent = navGroupAccents[group.title] ?? navGroupAccents["nav.operations"];
               if ("standalone" in group && group.standalone) {
                 const item = group.items[0];
                 const active = isNavItemActive(location.pathname, item.to);
@@ -474,28 +491,32 @@ export function AppShell() {
                       selected={active}
                       aria-current={active ? "page" : undefined}
                       sx={{
-                        borderRadius: "10px",
-                        minHeight: 42,
-                        mb: 0.125,
+                        position: "relative",
+                        borderRadius: "12px",
+                        minHeight: 44,
+                        mb: 0.75,
                         px: navigationCollapsed ? 1.5 : 1,
                         justifyContent: navigationCollapsed ? "center" : "flex-start",
+                        color: active ? accent.color : "#d5deed",
+                        transition: "background-color 140ms ease, color 140ms ease",
+                        "&:hover": { bgcolor: "rgba(255,255,255,0.07)" },
                         "&.Mui-selected": {
-                          color: "primary.main",
-                          bgcolor: "action.selected",
+                          color: accent.color,
+                          bgcolor: accent.background,
                           "&::before": {
                             content: '""',
                             position: "absolute",
-                            left: 0,
-                            top: 8,
-                            bottom: 8,
+                            left: -10,
+                            top: 9,
+                            bottom: 9,
                             width: 3,
-                            borderRadius: 3,
-                            bgcolor: "primary.main",
+                            borderRadius: "0 4px 4px 0",
+                            bgcolor: accent.color,
                           },
                         },
                       }}
                     >
-                      <ListItemIcon sx={{ minWidth: navigationCollapsed ? 0 : 34, color: "inherit", justifyContent: "center" }}>
+                      <ListItemIcon sx={{ minWidth: navigationCollapsed ? 0 : 38, color: "inherit", justifyContent: "center" }}>
                         <NavIcon name={item.icon} />
                       </ListItemIcon>
                       {!navigationCollapsed ? <ListItemText primary={t(item.label)} /> : null}
@@ -519,17 +540,15 @@ export function AppShell() {
                         });
                       }}
                       sx={{
-                        borderRadius: "8px",
+                        borderRadius: "10px",
                         minHeight: navigationCollapsed ? 40 : 36,
-                        mb: 0.25,
+                        mb: 0.5,
                         px: navigationCollapsed ? 1.5 : 1.25,
                         justifyContent: navigationCollapsed ? "center" : "flex-start",
-                        color: activeGroup ? "primary.main" : "text.primary",
-                        bgcolor: activeGroup ? "action.selected" : "transparent",
-                        borderLeft: "3px solid",
-                        borderColor: activeGroup ? "primary.main" : "transparent",
+                        color: activeGroup ? accent.color : "#d5deed",
+                        transition: "background-color 140ms ease, color 140ms ease",
                         "&:hover": {
-                          bgcolor: activeGroup ? "action.selected" : "action.hover",
+                          bgcolor: "rgba(255,255,255,0.06)",
                         },
                       }}
                       aria-expanded={isExpanded}
@@ -538,8 +557,14 @@ export function AppShell() {
                       <ListItemIcon
                         sx={{
                           minWidth: navigationCollapsed ? 0 : 34,
-                          color: "inherit",
+                          color: accent.color,
                           justifyContent: "center",
+                          "& > svg": {
+                            boxSizing: "content-box",
+                            p: 0.6,
+                            borderRadius: "9px",
+                            backgroundColor: accent.background,
+                          },
                         }}
                       >
                         <NavIcon name={groupIcon} size={16} />
@@ -551,12 +576,14 @@ export function AppShell() {
                             primaryTypographyProps={{
                               variant: "caption",
                               fontWeight: 700,
-                              letterSpacing: "0.06em",
+                              fontSize: "0.78rem",
+                              letterSpacing: "0.055em",
                               lineHeight: 1.2,
                               noWrap: true,
+                              sx: { color: "inherit" },
                             }}
                           />
-                          <Typography component="span" variant="caption" aria-hidden="true" sx={{ ml: 0.5 }}>
+                          <Typography component="span" variant="caption" aria-hidden="true" sx={{ ml: 0.5, color: "#8fa2c0" }}>
                             {isExpanded ? "▾" : "▸"}
                           </Typography>
                         </>
@@ -571,9 +598,9 @@ export function AppShell() {
                         position: "relative",
                         py: 0.25,
                         ml: navigationCollapsed ? 0 : 1.5,
-                        pl: navigationCollapsed ? 0 : 1,
+                        pl: navigationCollapsed ? 0 : 1.25,
                         borderLeft: navigationCollapsed ? "none" : "1px solid",
-                        borderColor: "divider",
+                        borderColor: "rgba(164, 185, 218, 0.18)",
                       }}
                     >
                       {group.items.map((item) => {
@@ -587,23 +614,27 @@ export function AppShell() {
                               selected={active}
                               aria-current={active ? "page" : undefined}
                               sx={{
+                                position: "relative",
                                 borderRadius: "10px",
                                 minHeight: 38,
-                                mb: 0.125,
+                                mb: 0.25,
                                 px: navigationCollapsed ? 1.5 : 0.75,
                                 justifyContent: navigationCollapsed ? "center" : "flex-start",
+                                color: active ? accent.color : "#bac8dc",
+                                transition: "background-color 140ms ease, color 140ms ease",
+                                "&:hover": { bgcolor: "rgba(255,255,255,0.07)" },
                                 "&.Mui-selected": {
-                                  color: "primary.main",
-                                  bgcolor: "action.selected",
+                                  color: accent.color,
+                                  bgcolor: accent.background,
                                   "&::before": {
                                     content: '""',
                                     position: "absolute",
-                                    left: 0,
+                                    left: -10,
                                     top: 8,
                                     bottom: 8,
                                     width: 3,
-                                    borderRadius: 2,
-                                    bgcolor: "primary.main",
+                                    borderRadius: "0 4px 4px 0",
+                                    bgcolor: accent.color,
                                   },
                                 },
                               }}
@@ -611,7 +642,7 @@ export function AppShell() {
                               <ListItemIcon
                                 sx={{
                                   minWidth: navigationCollapsed ? 0 : 34,
-                                  color: active ? "primary.main" : "text.secondary",
+                                  color: active ? accent.color : "#91a3bd",
                                   justifyContent: "center",
                                 }}
                               >
@@ -620,7 +651,11 @@ export function AppShell() {
                               {!navigationCollapsed ? (
                                 <ListItemText
                                   primary={t(item.label)}
-                                  primaryTypographyProps={{ variant: "body2", fontWeight: active ? 600 : 400 }}
+                                  primaryTypographyProps={{
+                                    variant: "body2",
+                                    fontWeight: active ? 650 : 450,
+                                    sx: { color: "inherit", fontSize: "0.875rem", lineHeight: 1.35 },
+                                  }}
                                 />
                               ) : null}
                             </ListItemButton>
@@ -629,13 +664,13 @@ export function AppShell() {
                       })}
                     </List>
                   ) : null}
-                  {groupIndex < visibleNavGroups.length - 1 ? <Divider sx={{ my: 0.25, mx: 1 }} /> : null}
+                  {groupIndex < visibleNavGroups.length - 1 ? <Divider sx={{ my: 0.5, mx: 1, borderColor: "rgba(164, 185, 218, 0.13)" }} /> : null}
                 </Box>
               );
             })}
           </Box>
           {!navigationCollapsed ? (
-            <Typography variant="caption" color="text.secondary" sx={{ px: 1, pt: 1 }}>
+            <Typography variant="caption" sx={{ mx: 0.75, px: 0.25, pt: 1.5, mt: 1, color: "#91a3bd", borderTop: "1px solid rgba(164, 185, 218, 0.16)" }}>
               {t("navigation.note")}
             </Typography>
           ) : null}

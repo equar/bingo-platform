@@ -72,7 +72,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         title: Text(localizations.profileTitle),
         actions: [
           const SupportShortcut(),
-          const LanguageSelector(),
           IconButton(
             key: const ValueKey('profile-refresh-button'),
             tooltip: localizations.profileRefresh,
@@ -142,6 +141,25 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       children: profile.roles
                           .map((role) => Chip(label: Text(role)))
                           .toList(),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              SectionCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      localizations.profileLanguagePreference,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(localizations.profileLanguagePreferenceDescription),
+                    const SizedBox(height: 8),
+                    const Align(
+                      alignment: AlignmentDirectional.centerEnd,
+                      child: LanguageSelector(),
                     ),
                   ],
                 ),

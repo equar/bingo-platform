@@ -9,20 +9,24 @@ class AppConfig {
   const AppConfig({
     required String apiBaseUrl,
     required this.apiBaseUrlLabel,
+    String webSocketBaseUrl = '',
     this.isProduction = false,
     this.playerTicketPurchasesEnabled = false,
-  }) : _apiBaseUrl = apiBaseUrl;
+  }) : _apiBaseUrl = apiBaseUrl,
+       _webSocketBaseUrl = webSocketBaseUrl;
 
   AppConfig.fromEnvironment()
     : this(
         apiBaseUrl: const String.fromEnvironment('API_BASE_URL'),
         apiBaseUrlLabel: 'API_BASE_URL',
+        webSocketBaseUrl: const String.fromEnvironment('WS_BASE_URL'),
         isProduction: !kDebugMode,
         playerTicketPurchasesEnabled:
             const bool.fromEnvironment('BINGO_PLAYER_PURCHASES_ENABLED'),
       );
 
   final String _apiBaseUrl;
+  final String _webSocketBaseUrl;
   final String apiBaseUrlLabel;
   final bool isProduction;
   final bool playerTicketPurchasesEnabled;
@@ -50,6 +54,23 @@ class AppConfig {
     if (isProduction && uri.scheme != 'https') {
       return ApiBaseUrlProblem.productionRequiresHttps;
     }
+
+    final webSocketUrl = _webSocketBaseUrl.trim();
+    if (webSocketUrl.isNotEmpty) {
+      final webSocketUri = Uri.tryParse(webSocketUrl);
+      if (webSocketUri == null ||
+          !webSocketUri.hasAuthority ||
+          webSocketUri.host.isEmpty ||
+          (webSocketUri.scheme != 'ws' && webSocketUri.scheme != 'wss')) {
+        return ApiBaseUrlProblem.invalidWebSocket;
+      }
+      if (isProduction && _isLoopback(webSocketUri.host)) {
+        return ApiBaseUrlProblem.productionLoopback;
+      }
+      if (isProduction && webSocketUri.scheme != 'wss') {
+        return ApiBaseUrlProblem.productionRequiresHttps;
+      }
+    }
     return null;
   }
 
@@ -63,6 +84,10 @@ class AppConfig {
   }
 
   Uri? get liveGameWebSocketUri {
+    final explicitUrl = _webSocketBaseUrl.trim();
+    if (explicitUrl.isNotEmpty) {
+      return isValid ? Uri.parse(explicitUrl) : null;
+    }
     final baseUri = apiBaseUri;
     if (baseUri == null) {
       return null;
@@ -97,4 +122,5 @@ enum ApiBaseUrlProblem {
   unsupportedScheme,
   productionLoopback,
   productionRequiresHttps,
+  invalidWebSocket,
 }

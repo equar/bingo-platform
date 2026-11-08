@@ -20,6 +20,7 @@ import com.bakaroo.bingo.backend.feature.wallet.repository.WalletRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Instant;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -129,9 +130,19 @@ public class SupportService {
     }
 
     @Transactional(readOnly = true)
-    public Page<SupportTicketSummaryResponse> reportTickets(Instant from, Instant to, Pageable pageable) {
+    public Page<SupportTicketSummaryResponse> reportTickets(
+            Instant from, Instant to, String query, SupportTicketStatus status, Pageable pageable) {
+        String normalizedQuery = query == null || query.isBlank() ? null : query.trim().toLowerCase(Locale.ROOT);
+        Long numericQuery = null;
+        if (normalizedQuery != null) {
+            try {
+                numericQuery = Long.valueOf(normalizedQuery);
+            } catch (NumberFormatException ignored) {
+                numericQuery = null;
+            }
+        }
         return supportTicketRepository
-                .findByCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(from, to, pageable)
+                .searchReport(from, to, normalizedQuery, numericQuery, status, pageable)
                 .map(this::toSummaryResponse);
     }
 

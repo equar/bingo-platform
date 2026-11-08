@@ -105,14 +105,12 @@ class AdminPlayerVerificationServiceTest {
         Instant from = Instant.parse("2026-01-01T00:00:00Z");
         Instant to = Instant.parse("2026-01-08T00:00:00Z");
         var pageable = PageRequest.of(1, 25);
-        when(reviewRepository
-                .findByReviewedAtGreaterThanEqualAndReviewedAtLessThanOrderByReviewedAtDescIdDesc(from, to, pageable))
+        when(reviewRepository.searchReport(from, to, null, null, null, pageable))
                 .thenReturn(Page.empty(pageable));
 
-        assertThat(service.report(from, to, pageable)).isEmpty();
+        assertThat(service.report(from, to, null, null, pageable)).isEmpty();
 
-        verify(reviewRepository)
-                .findByReviewedAtGreaterThanEqualAndReviewedAtLessThanOrderByReviewedAtDescIdDesc(from, to, pageable);
+        verify(reviewRepository).searchReport(from, to, null, null, null, pageable);
     }
 
     @Test

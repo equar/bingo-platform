@@ -1,11 +1,11 @@
 {
-    "name": "bingo_agent",
-    "short_name": "bingo_agent",
+    "name": "Bingo Agent",
+    "short_name": "Bingo Agent",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Bingo Agent local development app.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

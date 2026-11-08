@@ -35,8 +35,8 @@
   "historyTitle": "History",
   "connectionLost": "Connection lost",
   "financialActionDisabled": "Financial actions are disabled offline",
-  "missingApiBaseUrlTitle": "Missing API URL",
-  "missingApiBaseUrlBody": "Configure the backend base URL with {label}.",
+  "missingApiBaseUrlTitle": "Backend URL is missing or invalid",
+  "missingApiBaseUrlBody": "Set {label} to an absolute HTTP or HTTPS origin. Local HTTP is for debug only; profile and release builds require HTTPS and reject loopback URLs.",
   "@missingApiBaseUrlBody": {
     "placeholders": {
       "label": {

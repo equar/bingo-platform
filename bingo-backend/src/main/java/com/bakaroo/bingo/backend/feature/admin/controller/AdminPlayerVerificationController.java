@@ -53,9 +53,11 @@ public class AdminPlayerVerificationController {
     public PageResponse<PlayerVerificationReviewResponse> playerVerificationReport(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to,
+            @RequestParam(required = false) String query,
+            @RequestParam(required = false) PlayerVerificationStatus status,
             @PageableDefault(size = 100) Pageable pageable) {
         ReportRangeValidator.validate(from, to);
-        return PageResponse.from(service.report(from, to, pageable));
+        return PageResponse.from(service.report(from, to, query, status, pageable));
     }
 
     @PostMapping("/players/{playerId}/verification/reviews")

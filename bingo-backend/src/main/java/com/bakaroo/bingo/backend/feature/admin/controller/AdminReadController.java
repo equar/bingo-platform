@@ -139,18 +139,21 @@ public class AdminReadController {
     public PageResponse<AdminAuditLogSummaryResponse> auditActivityReport(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to,
+            @RequestParam(required = false) String query,
             @PageableDefault(size = 100) Pageable pageable) {
         ReportRangeValidator.validate(from, to);
-        return PageResponse.from(adminReadService.auditActivityReport(from, to, pageable));
+        return PageResponse.from(adminReadService.auditActivityReport(from, to, query, pageable));
     }
 
     @GetMapping("/reports/sessions")
     public PageResponse<AdminSessionSummaryResponse> sessionsReport(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to,
+            @RequestParam(required = false) String query,
+            @RequestParam(required = false) GameSessionState state,
             @PageableDefault(size = 100) Pageable pageable) {
         ReportRangeValidator.validate(from, to);
-        return PageResponse.from(adminReadService.sessionsReport(from, to, pageable));
+        return PageResponse.from(adminReadService.sessionsReport(from, to, query, state, pageable));
     }
 
     @GetMapping("/audit-logs/{auditLogId}")
