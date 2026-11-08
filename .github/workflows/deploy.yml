@@ -110,7 +110,30 @@ jobs:
       - name: Build backend
         if: steps.changes.outputs.backend == 'true'
         working-directory: bingo-backend
-        run: mvn -B -Dmaven.test.skip=true clean package
+        shell: bash
+        run: |
+          set -uo pipefail
+          log_file="$RUNNER_TEMP/bingo-maven-build.log"
+          for attempt in 1 2 3 4; do
+            echo "Maven build attempt ${attempt}/4"
+            if mvn -B -Dmaven.test.skip=true clean package >"$log_file" 2>&1; then
+              cat "$log_file"
+              exit 0
+            else
+              status=$?
+            fi
+            cat "$log_file"
+            if ! grep -Eqi 'HTTP Status: 429|status code: 429|Too Many Requests' "$log_file"; then
+              exit "$status"
+            fi
+            if [[ "$attempt" -eq 4 ]]; then
+              echo '::error::Maven Central kept returning HTTP 429 after four attempts.'
+              exit "$status"
+            fi
+            delay=$((15 * (2 ** (attempt - 1))))
+            echo "Maven Central rate limited this build; retrying in ${delay}s."
+            sleep "$delay"
+          done
       - name: Build admin
         if: steps.changes.outputs.admin == 'true'
         working-directory: bingo-admin
