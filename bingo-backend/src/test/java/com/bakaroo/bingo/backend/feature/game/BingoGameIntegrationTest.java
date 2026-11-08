@@ -331,7 +331,7 @@ class BingoGameIntegrationTest extends MySqlIntegrationTest {
                                 .andExpect(status().isForbidden());
                 mockMvc.perform(get("/api/v1/rooms")
                                 .header("Authorization", "Bearer " + suspendedToken))
-                                .andExpect(status().isUnauthorized());
+                                .andExpect(status().isForbidden());
                 mockMvc.perform(post("/api/v1/sessions/" + session.id() + "/tickets")
                                 .header("Idempotency-Key", "anonymous-ticket"))
                                 .andExpect(status().isUnauthorized());
@@ -350,12 +350,12 @@ class BingoGameIntegrationTest extends MySqlIntegrationTest {
                                 .andExpect(status().isForbidden());
                 mockMvc.perform(get("/api/v1/sessions/" + session.id())
                                 .header("Authorization", "Bearer " + suspendedToken))
-                                .andExpect(status().isUnauthorized());
+                                .andExpect(status().isForbidden());
                 mockMvc.perform(post("/api/v1/sessions/" + session.id() + "/tickets")
                                 .header("Authorization", "Bearer " + suspendedToken)
                                 .header("Idempotency-Key", "suspended-player-ticket")
                                 .contentType(MediaType.APPLICATION_JSON))
-                                .andExpect(status().isUnauthorized());
+                                .andExpect(status().isForbidden());
 
                 mockMvc.perform(get("/api/v1/rooms")
                                 .header("Authorization", "Bearer " + playerToken))

@@ -48,4 +48,24 @@ public interface DepositClaimRepository extends JpaRepository<DepositClaim, Long
 
     Page<DepositClaim> findBySubmittedAtGreaterThanEqualAndSubmittedAtLessThanOrderBySubmittedAtDescIdDesc(
             Instant from, Instant to, Pageable pageable);
+
+    @Query("""
+            select d from DepositClaim d
+            where d.submittedAt >= :from and d.submittedAt < :to
+                and (:status is null or d.status = :status)
+                and (:query is null
+                    or lower(d.normalizedTelebirrReference) like concat('%', :query, '%')
+                    or lower(d.operationId) like concat('%', :query, '%')
+                    or lower(d.player.displayName) like concat('%', :query, '%')
+                    or lower(d.player.normalizedPhone) like concat('%', :query, '%')
+                    or (:numericQuery is not null and (d.id = :numericQuery or d.player.id = :numericQuery)))
+            order by d.submittedAt desc, d.id desc
+            """)
+    Page<DepositClaim> searchReport(
+            @Param("from") Instant from,
+            @Param("to") Instant to,
+            @Param("query") String query,
+            @Param("numericQuery") Long numericQuery,
+            @Param("status") DepositClaimStatus status,
+            Pageable pageable);
 }

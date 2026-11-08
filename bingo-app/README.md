@@ -5,18 +5,37 @@ Flutter player app for the Bingo backend. Requires Flutter 3.41.0+ and Dart
 
 ## Local development
 
-From this directory:
+Install Flutter 3.41.0+ and Dart 3.11.0+. The repository launcher works from
+any directory and starts the app with the correct API and live-draw URLs:
 
-```bash
-flutter pub get
-flutter gen-l10n
-flutter run -d windows --dart-define=API_BASE_URL=http://localhost:8080
+```powershell
+.\scripts\Run-BingoLocal.ps1 -App player -Platform android
+.\scripts\Run-BingoLocal.ps1 -App player -Platform chrome
+.\scripts\Run-BingoLocal.ps1 -App player -Platform windows
 ```
 
-Android emulators use `http://10.0.2.2:8080`; replace the URL with the
-deployment's HTTPS origin for deployed backends. Always provide
-`API_BASE_URL`: local HTTP is debug-only, and profile/release builds require
-HTTPS and reject loopback addresses.
+For Android, the launcher selects a connected device or starts the only
+configured emulator. Use `-DeviceId <id>` when you want a specific device.
+Chrome uses port 5180. Windows desktop builds require Visual Studio 2022 Build
+Tools with the **Desktop development with C++** workload and a Windows 10/11
+SDK. Start MySQL and the backend `dev` profile first; the backend guide
+explains its local `.env` setup.
+
+The equivalent VS Code launch configurations are **Bingo Player — Android
+emulator**, **Bingo Player — Chrome**, and **Bingo Player — Windows**. For
+Android, select the emulator in the VS Code device picker. The app uses the
+backend origin `http://10.0.2.2:8080` in the emulator and
+`http://localhost:8080` in Chrome/Windows. REST routes are under `/api/v1`;
+live draws use `ws://<backend-host>:8080/ws`. Chrome authentication is stored
+for its origin; logout clears that app's saved session. Chrome's localhost
+origin is separate from the Agent app's origin on port 5181.
+
+Switching platforms starts a separate app instance and does not transfer an
+in-progress game session. Development HTTP/WS URLs are debug-only; profile and
+release builds require HTTPS/WSS and reject loopback addresses. Local player
+accounts must be configured through the backend's documented development
+account setup or created through its supported registration flow. Keep local
+credentials in the ignored backend `.env`, never in launch files.
 
 Useful checks:
 

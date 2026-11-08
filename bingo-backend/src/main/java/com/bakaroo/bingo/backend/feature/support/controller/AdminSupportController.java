@@ -55,9 +55,11 @@ public class AdminSupportController {
     public PageResponse<SupportTicketSummaryResponse> report(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to,
+            @RequestParam(required = false) String query,
+            @RequestParam(required = false) SupportTicketStatus status,
             @PageableDefault(size = 100) Pageable pageable) {
         ReportRangeValidator.validate(from, to);
-        return PageResponse.from(supportService.reportTickets(from, to, pageable));
+        return PageResponse.from(supportService.reportTickets(from, to, query, status, pageable));
     }
 
     @GetMapping("/assignees")

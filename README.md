@@ -9,7 +9,10 @@ and live game events.
 
 - Java 25+ and Maven 3.9+
 - Node.js 22.13+ and npm for the Admin app
-- Flutter 3.41.0+ and Dart 3.11.0+ for the mobile apps
+- Flutter 3.41.0+ and Dart 3.11.0+ for Player and Agent
+- Visual Studio 2022 Build Tools with **Desktop development with C++** and a Windows 10/11 SDK for Windows desktop builds
+- Android Studio and an Android SDK for Android emulators
+- Google Chrome for browser runs
 - MySQL 8 for local backend development
 
 ## Local quick start
@@ -35,18 +38,45 @@ npm run dev
 
 Set `VITE_API_BASE_URL` as described in the [Admin guide](bingo-admin/README.md).
 
-From `bingo-app` or `bingo-agent`:
+Start Player or Agent on a selected platform from the repository root:
 
-```bash
-flutter pub get
-flutter gen-l10n
-flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8080
+```powershell
+.\scripts\Run-BingoLocal.ps1 -App player -Platform android
+.\scripts\Run-BingoLocal.ps1 -App player -Platform chrome
+.\scripts\Run-BingoLocal.ps1 -App player -Platform windows
+.\scripts\Run-BingoLocal.ps1 -App agent -Platform android
+.\scripts\Run-BingoLocal.ps1 -App agent -Platform chrome
+.\scripts\Run-BingoLocal.ps1 -App agent -Platform windows
 ```
 
-The Flutter URL above is for an Android emulator. Use
-`http://localhost:8080` for local desktop development. Always provide
-`API_BASE_URL`; local HTTP is debug-only, while profile and release builds
-require HTTPS.
+The launcher resolves paths from its own location, so it can be run from any
+working directory. It uses `10.0.2.2:8080` from an Android emulator and
+`localhost:8080` from Chrome and Windows. Player live draws connect to `/ws`;
+the API origin is the backend root at port 8080 and API routes use `/api/v1`.
+Player and Agent use separate Chrome ports (5180 and 5181), so both can run at
+once. Android uses the currently connected device when there is one, prompts
+when several are connected, and starts the only configured emulator when none
+is running. Pass `-DeviceId <id>` to select a particular Android device or
+configured emulator.
+
+You can launch the same six targets from **Run and Debug** in VS Code using the
+`Bingo Player — Android emulator`, `Bingo Player — Chrome`, `Bingo Player — Windows`,
+`Bingo Agent — Android emulator`, `Bingo Agent — Chrome`, and
+`Bingo Agent — Windows` configurations. Select the Android emulator in the
+VS Code device picker; the configurations do not pin a machine-specific ID.
+
+Start the local backend and MySQL first, following the [backend guide](bingo-backend/README.md).
+Its `dev` profile allows only the configured local client origins; production
+CORS and WebSocket origin rules remain separate. Development seeding is off by
+default. Local test accounts must be configured using the documented
+`DEV_PLAYER_*` and `DEV_AGENT_*` environment entries or created through the
+supported local workflow; keep credentials in the ignored backend `.env` and
+do not copy them into source or launch settings.
+
+Each platform launch is a separate app instance with its own local session
+storage. Switching platform does not move an in-progress game or workflow.
+The development URLs use HTTP/WS only in debug mode; profile and release
+configurations require HTTPS/WSS and reject loopback endpoints.
 
 The backend requires a private `JWT_SECRET` in the ignored
 `bingo-backend/.env`; development account seeding is disabled by default.

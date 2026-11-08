@@ -25,8 +25,6 @@ import {
   approveDeposit,
   deposits,
   rejectDeposit,
-  verifyDeposit,
-  type DepositVerificationResponse,
 } from "../../api/admin";
 import { getUserFacingErrorMessage, parseApiError } from "../../api/types";
 import { StatusState } from "../../components/StatusState";
@@ -65,9 +63,6 @@ export function DepositsPage() {
   const [comment, setComment] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [mode, setMode] = useState<"APPROVE" | "REJECT">("APPROVE");
-  const [verifyOpen, setVerifyOpen] = useState(false);
-  const [statementEntryId, setStatementEntryId] = useState("");
-  const [lastVerification, setLastVerification] = useState<DepositVerificationResponse | null>(null);
   const idempotency = useIdempotencyKey();
 
   useEffect(() => {
@@ -80,9 +75,9 @@ export function DepositsPage() {
         throw new Error("Missing deposit id");
       }
       if (mode === "APPROVE") {
-        return approveDeposit(selectedId, { reviewNote: comment, idempotencyKey: idempotency.getKey() });
+        return approveDeposit(selectedId, { reviewNote: comment.trim(), idempotencyKey: idempotency.getKey() });
       }
-      return rejectDeposit(selectedId, { reviewNote: comment, idempotencyKey: idempotency.getKey() });
+      return rejectDeposit(selectedId, { reviewNote: comment.trim(), idempotencyKey: idempotency.getKey() });
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["deposits"] });
@@ -97,22 +92,6 @@ export function DepositsPage() {
     },
   });
   const actionOutcomeUnknown = actionMutation.isError && parseApiError(actionMutation.error).outcomeUnknown;
-  const verificationMutation = useMutation({
-    mutationFn: async () => {
-      if (selectedId == null || !/^[1-9]\d*$/.test(statementEntryId)) {
-        throw new Error("Enter a valid bank statement entry ID");
-      }
-      return verifyDeposit(selectedId, Number(statementEntryId));
-    },
-    onSuccess: async (verification) => {
-      setLastVerification(verification);
-      await queryClient.invalidateQueries({ queryKey: ["deposits"] });
-      setVerifyOpen(false);
-      setSelectedId(null);
-      setStatementEntryId("");
-    },
-  });
-
   if (depositsQuery.isLoading) {
     return <StatusState title={t("Loading deposits")} loading message={t("Fetching deposit queue")} />;
   }
@@ -130,8 +109,8 @@ export function DepositsPage() {
 
   return (
     <AdminTablePage>
-    <Stack spacing={3}>
-      <AdminPageHeader title={t("Deposits")} description={t("Verify payment references, snapshots, and review history.")} />
+      <Stack spacing={3}>
+      <AdminPageHeader title={t("Deposits")} description={t("Review player deposit requests.")} />
 
       <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
         <TextField
@@ -165,20 +144,13 @@ export function DepositsPage() {
       {depositsQuery.isFetching && !depositsQuery.isLoading ? (
         <Alert severity="info">{t("Updating deposit results...")}</Alert>
       ) : null}
-      {lastVerification ? (
-        <Alert
-          severity={lastVerification.outcome === "MATCHED" ? "success" : "warning"}
-          onClose={() => setLastVerification(null)}
-        >
-          {t("Bank evidence #")}{lastVerification.statementEntryId} {t("outcome:")}{" "}{lastVerification.outcome}{t(". Account #")}{lastVerification.receivingBankAccountId ?? t("Unknown")}{t("Reference:")}{" "}{lastVerification.transactionReference ?? t("Unavailable")}{t(";")}{" "}{lastVerification.amount ?? t("Unknown")} {lastVerification.currency ?? ""}{t("Date")}{t(":")}{" "}
-          {lastVerification.transactionDate ?? t("Unknown")}{t(";")}{" "}{lastVerification.synthetic ? t("synthetic QA statement") : lastVerification.evidenceSource}{t(".")}</Alert>
-      ) : null}
-
       <Box sx={{ overflowX: "auto" }}>
         <Table size="small" aria-label={t("deposit reviews table")}>
           <TableHead>
             <TableRow>
-              <TableCell>{t("Deposit / player")}</TableCell>
+              <TableCell>{t("Deposit")}</TableCell>
+              <TableCell>{t("Player")}</TableCell>
+              <TableCell>{t("Phone number")}</TableCell>
               <TableCell>{t("Payment reference")}</TableCell>
               <TableCell align="right">{t("Submitted cash")}</TableCell>
               <TableCell align="right">{t("Credit")}</TableCell>
@@ -194,14 +166,18 @@ export function DepositsPage() {
                 <TableCell>
                   <Stack spacing={0.25}>
                     <Typography fontWeight={600}>{t("Deposit #")}{deposit.id}</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {t("Player")}{" "}{deposit.playerId}
-                    </Typography>
                     <Typography variant="caption" color="text.secondary">
                       {deposit.operationId}
                     </Typography>
                   </Stack>
                 </TableCell>
+                <TableCell>
+                  <Stack spacing={0.25}>
+                    <Typography fontWeight={600}>{deposit.playerDisplayName || `${t("Player")} #${deposit.playerId}`}</Typography>
+                    <Typography variant="caption" color="text.secondary">{t("Player #")}{deposit.playerId}</Typography>
+                  </Stack>
+                </TableCell>
+                <TableCell>{deposit.playerPhoneNumber ?? t("n/a")}</TableCell>
                 <TableCell>{deposit.normalizedTelebirrReference}</TableCell>
                 <TableCell align="right">
                   {deposit.submittedCashAmount} {deposit.currency}
@@ -225,20 +201,6 @@ export function DepositsPage() {
                 <TableCell>{deposit.reviewNote ?? t("n/a")}</TableCell>
                 <TableCell align="right">
                   <Stack direction="row" spacing={1} justifyContent="flex-end">
-                    <Button
-                      data-testid={`deposit-verify-${deposit.id}`}
-                      size="small"
-                      variant="outlined"
-                      disabled={!["PENDING", "AWAITING_VERIFICATION", "VERIFIED", "VERIFICATION_EXCEPTION"].includes(deposit.status)}
-                      onClick={() => {
-                        setSelectedId(deposit.id);
-                        setStatementEntryId("");
-                        setLastVerification(null);
-                        verificationMutation.reset();
-                        setVerifyOpen(true);
-                      }}
-                    >
-                      {t("Verify")}</Button>
                     <Button
                       data-testid={`deposit-approve-${deposit.id}`}
                       size="small"
@@ -275,7 +237,7 @@ export function DepositsPage() {
             ))}
             {depositsQuery.data && depositsQuery.data.content.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8}>
+                <TableCell colSpan={10}>
                   <Alert severity="info">{t("No deposits match the current search and filters.")}</Alert>
                 </TableCell>
               </TableRow>
@@ -305,7 +267,7 @@ export function DepositsPage() {
               <Alert severity="error">{t(getUserFacingErrorMessage(actionMutation.error) ?? "Something went wrong. Please try again.")}</Alert>
             ) : null}
             <TextField
-              label={mode === "APPROVE" ? t("Review note") : t("Rejection reason")}
+              label={t("Review note")}
               value={comment}
               onChange={(event) => setComment(event.target.value)}
               disabled={actionOutcomeUnknown}
@@ -321,43 +283,13 @@ export function DepositsPage() {
           <Button
             variant="contained"
             onClick={() => actionMutation.mutate()}
-            disabled={!comment || actionMutation.isPending}
+            disabled={!comment.trim() || actionMutation.isPending}
           >
-            {actionOutcomeUnknown ? t("Retry same decision") : t("Confirm")}
+            {actionOutcomeUnknown ? t("Retry same decision") : mode === "APPROVE" ? t("Approve") : t("Reject")}
           </Button>
         </DialogActions>
       </Dialog>
-      <Dialog open={verifyOpen} onClose={() => !verificationMutation.isPending && setVerifyOpen(false)}
-        fullWidth maxWidth="sm">
-        <DialogTitle>{t("Independently verify bank payment")}</DialogTitle>
-        <DialogContent>
-          <Stack spacing={2} sx={{ pt: 1 }}>
-            <Alert severity="warning">
-              {t("A player receipt or review note is not payment evidence. Use an independently reconciled bank statement entry.")}</Alert>
-            {verificationMutation.isError ? (
-              <Alert severity="error">{t(getUserFacingErrorMessage(verificationMutation.error) ?? "Something went wrong. Please try again.")}</Alert>
-            ) : null}
-            <TextField
-              label={t("Bank statement entry ID")}
-              type="number"
-              value={statementEntryId}
-              onChange={(event) => setStatementEntryId(event.target.value)}
-              inputProps={{ min: 1, step: 1 }}
-              required
-            />
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setVerifyOpen(false)} disabled={verificationMutation.isPending}>{t("Cancel")}</Button>
-          <Button
-            variant="contained"
-            onClick={() => verificationMutation.mutate()}
-            disabled={!/^[1-9]\d*$/.test(statementEntryId) || verificationMutation.isPending}
-          >
-            {t("Verify payment")}</Button>
-        </DialogActions>
-      </Dialog>
-    </Stack>
+      </Stack>
     </AdminTablePage>
   );
 }

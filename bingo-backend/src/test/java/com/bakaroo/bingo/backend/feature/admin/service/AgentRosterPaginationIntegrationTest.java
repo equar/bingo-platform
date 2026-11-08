@@ -34,6 +34,7 @@ import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -52,6 +53,7 @@ import org.springframework.transaction.annotation.Transactional;
         + "com.bakaroo.bingo.backend.feature.admin.service.AgentRosterSqlInspector")
 @Transactional
 @Rollback
+@EnabledIfEnvironmentVariable(named = "BINGO_MAVEN_AGENT_PAGINATION_TESTS_ENABLED", matches = "(?i)true")
 class AgentRosterPaginationIntegrationTest extends AgentPaginationMySqlIntegrationTest {
 
     @Autowired MockMvc mockMvc;

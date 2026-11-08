@@ -29,7 +29,7 @@ void main() {
 
     expect(find.text('API base URL is invalid'), findsOneWidget);
     expect(
-      find.textContaining('production builds require HTTPS'),
+      find.textContaining('profile and release builds require HTTPS/WSS'),
       findsOneWidget,
     );
   });

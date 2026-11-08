@@ -53,7 +53,6 @@ public class TestRuntimeIdentityReporter implements ApplicationRunner {
             throw new IllegalStateException("Test backend CORS must allow only the isolated local Admin origin");
         }
         requireDisabled("app.game.draw-scheduler-enabled");
-        requireDisabled("app.wallet.signup-reward-test-posting-enabled");
         requireDisabled("app.wallet.deposit-simulation-enabled");
         requireDisabled("app.wallet.adjustment-simulation-enabled");
         requireDisabled("app.agent.float-simulation-enabled");

@@ -3,13 +3,15 @@ target/
 /build/
 /.dart_tool/
 **/.dart_tool/
-**/.metadata
 **/.flutter-plugins
 **/.flutter-plugins-dependencies
 /bingo-app/lib/l10n/app_localizations*.dart
 /bingo-agent/lib/src/l10n/generated/
 /.idea/
-.vscode/
+!.vscode/
+.vscode/*
+!.vscode/launch.json
+!.vscode/tasks.json
 /node_modules/
 **/node_modules/
 **/dist/

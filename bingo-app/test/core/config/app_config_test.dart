@@ -35,6 +35,38 @@ void main() {
     expect(config.liveGameWebSocketUri, Uri.parse('ws://10.0.2.2:8080/ws'));
   });
 
+  test('uses an explicitly configured WebSocket URL in development', () {
+    const config = AppConfig(
+      apiBaseUrl: 'http://localhost:8080',
+      apiBaseUrlLabel: 'API_BASE_URL',
+      webSocketBaseUrl: 'ws://localhost:8080/ws',
+    );
+
+    expect(config.isValid, isTrue);
+    expect(
+      config.liveGameWebSocketUri,
+      Uri.parse('ws://localhost:8080/ws'),
+    );
+  });
+
+  test('rejects invalid and insecure production WebSocket URLs', () {
+    for (final value in [
+      'localhost:8080/ws',
+      'http://localhost:8080/ws',
+      'ws://api.example.com/ws',
+      'wss://localhost:8080/ws',
+    ]) {
+      final config = AppConfig(
+        apiBaseUrl: 'https://api.example.com',
+        apiBaseUrlLabel: 'API_BASE_URL',
+        webSocketBaseUrl: value,
+        isProduction: true,
+      );
+      expect(config.isValid, isFalse, reason: value);
+      expect(config.liveGameWebSocketUri, isNull, reason: value);
+    }
+  });
+
   test('requires HTTPS and rejects loopback hosts in production', () {
     for (final value in [
       'http://api.example.com',

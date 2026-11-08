@@ -34,7 +34,7 @@ public class SecurityConfig {
 
         private final List<String> allowedOrigins;
 
-        public SecurityConfig(@Value("${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173,http://localhost:3001,http://127.0.0.1:3001}") String allowedOrigins) {
+        public SecurityConfig(@Value("${app.cors.allowed-origins:${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173,http://localhost:3001,http://127.0.0.1:3001}}") String allowedOrigins) {
                 this.allowedOrigins = parseOrigins(allowedOrigins);
         }
 
@@ -100,6 +100,8 @@ public class SecurityConfig {
                                                                 "/api/v1/admin/float-bank-accounts/**",
                                                                 "/api/v1/admin/wallet-adjustment-requests/**")
                                                 .hasAnyRole("ADMIN", "FINANCE_VERIFIER", "FINANCE_APPROVER")
+                                                .requestMatchers("/api/v1/admin/rooms", "/api/v1/admin/rooms/**")
+                                                .hasAnyRole("ADMIN", "SUPPORT")
                                                 .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                                                 .requestMatchers("/api/v1/agent/**").hasRole("AGENT")
                                                 .anyRequest().authenticated())

@@ -112,6 +112,17 @@ Future<void> fill(WidgetTester t) async {
 }
 
 void main() {
+  testWidgets('language preference is available only after signing in', (
+    t,
+  ) async {
+    await mount(t, TestAuthRepository());
+
+    expect(find.byKey(const ValueKey('player-language-selector')), findsNothing);
+
+    await tapKey(t, 'auth-toggle-button');
+    expect(find.byKey(const ValueKey('player-language-selector')), findsNothing);
+  });
+
   testWidgets('signed-out suspended users see the support notice', (t) async {
     await mount(t, TestAuthRepository(), suspended: true);
     expect(

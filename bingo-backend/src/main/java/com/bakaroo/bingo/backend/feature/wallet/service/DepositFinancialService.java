@@ -389,6 +389,7 @@ public class DepositFinancialService {
     private DepositClaimResponse toDepositResponse(DepositClaim claim) {
         var instructions = paymentProvider.currentInstructions();
         return new DepositClaimResponse(claim.getId(), claim.getOperationId(), claim.getPlayer().getId(),
+                claim.getPlayer().getDisplayName(), claim.getPlayer().getNormalizedPhone(),
                 claim.getSubmittedCashAmount(), claim.getCurrency(), claim.getConversionRateSnapshot(),
                 claim.getCalculatedCreditAmount(), claim.getNormalizedTelebirrReference(), claim.getStatus().name(),
                 claim.getSubmittedAt(), claim.getReviewedBy() == null ? null : claim.getReviewedBy().getId(),

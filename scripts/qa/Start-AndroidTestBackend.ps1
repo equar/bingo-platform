@@ -244,7 +244,6 @@ $args = @(
     "--server.port=$Port",
     '--app.qa.test-runtime-identity-reporting-enabled=true',
     '--app.game.draw-scheduler-enabled=false',
-    '--app.wallet.signup-reward-test-posting-enabled=false',
     '--app.wallet.deposit-simulation-enabled=false',
     '--app.wallet.adjustment-simulation-enabled=false',
     '--app.agent.float-simulation-enabled=false',

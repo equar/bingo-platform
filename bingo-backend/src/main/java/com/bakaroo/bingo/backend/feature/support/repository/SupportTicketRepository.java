@@ -32,4 +32,29 @@ public interface SupportTicketRepository
 
     Page<SupportTicket> findByCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(
             Instant from, Instant to, Pageable pageable);
+
+    @Query("""
+            select t from SupportTicket t
+            left join t.assignedTo assigned
+            where t.createdAt >= :from and t.createdAt < :to
+                and (:status is null or t.status = :status)
+                and (:query is null
+                    or lower(t.ticketNumber) like concat('%', :query, '%')
+                    or lower(t.subject) like concat('%', :query, '%')
+                    or lower(t.requester.displayName) like concat('%', :query, '%')
+                    or lower(t.requester.normalizedPhone) like concat('%', :query, '%')
+                    or lower(coalesce(t.linkedEntityReference, '')) like concat('%', :query, '%')
+                    or (:numericQuery is not null and (t.id = :numericQuery
+                        or t.requester.id = :numericQuery
+                        or t.linkedEntityId = :numericQuery
+                        or assigned.id = :numericQuery)))
+            order by t.createdAt desc, t.id desc
+            """)
+    Page<SupportTicket> searchReport(
+            @Param("from") Instant from,
+            @Param("to") Instant to,
+            @Param("query") String query,
+            @Param("numericQuery") Long numericQuery,
+            @Param("status") SupportTicketStatus status,
+            Pageable pageable);
 }

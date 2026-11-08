@@ -41,6 +41,7 @@ import com.bakaroo.bingo.backend.feature.game.repository.TicketRepository;
 import com.bakaroo.bingo.backend.feature.game.repository.WinClaimRepository;
 import com.bakaroo.bingo.backend.feature.support.entity.SupportTicket;
 import com.bakaroo.bingo.backend.feature.support.entity.SupportTicketCategory;
+import com.bakaroo.bingo.backend.feature.support.entity.SupportLinkedEntityType;
 import com.bakaroo.bingo.backend.feature.support.entity.SupportTicketPriority;
 import com.bakaroo.bingo.backend.feature.support.entity.SupportTicketStatus;
 import com.bakaroo.bingo.backend.feature.support.repository.SupportTicketRepository;
@@ -278,6 +279,24 @@ class AdminReadServiceTest {
 
         when(supportTicketRepository.findAll(any(Pageable.class))).thenReturn(new PageImpl<>(List.of(supportTicket)));
         assertThat(service.reviewQueue(PageRequest.of(0, 20))).hasSize(1);
+    }
+
+    @Test
+    void sessionReportAppliesSearchAndStateInDatabaseQuery() {
+        Instant from = Instant.parse("2026-01-01T00:00:00Z");
+        Instant to = Instant.parse("2026-02-01T00:00:00Z");
+        Pageable pageable = PageRequest.of(0, 100);
+        when(gameSessionRepository.reportAdminSessions(
+                eq(from),
+                eq(to),
+                eq("morning"),
+                isNull(),
+                eq(GameSessionState.CLOSED),
+                eq(SupportLinkedEntityType.GAME_SESSION),
+                eq(pageable)))
+                .thenReturn(new PageImpl<>(List.of()));
+
+        assertThat(service.sessionsReport(from, to, " Morning ", GameSessionState.CLOSED, pageable)).isEmpty();
     }
 
     @Test

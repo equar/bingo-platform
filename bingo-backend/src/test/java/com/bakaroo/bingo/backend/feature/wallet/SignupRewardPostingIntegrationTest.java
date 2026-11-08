@@ -36,10 +36,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
-@SpringBootTest(properties = "app.wallet.signup-reward-test-posting-enabled=false")
+@SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-class SignupRewardPostingGuardIntegrationTest extends MySqlIntegrationTest {
+class SignupRewardPostingIntegrationTest extends MySqlIntegrationTest {
     private static final String ADMIN_PHONE = "0911000191";
     private static final String PLAYER_PHONE = "0911000192";
     private static final String REGISTER_PHONE = "0911000193";
@@ -86,7 +86,7 @@ class SignupRewardPostingGuardIntegrationTest extends MySqlIntegrationTest {
     }
 
     @Test
-    void positiveRewardConfigurationIsDeniedAndAuthorizationIsEnforced() throws Exception {
+    void positiveRewardConfigurationAndAuthorizationAreEnforced() throws Exception {
         mockMvc.perform(get("/api/v1/admin/wallet/signup-rewards/settings"))
                 .andExpect(status().isUnauthorized());
         mockMvc.perform(get("/api/v1/admin/wallet/signup-rewards/settings")
@@ -106,38 +106,51 @@ class SignupRewardPostingGuardIntegrationTest extends MySqlIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].id").value(activePolicy.getId()));
 
-        String positivePolicy = """
+        String expiredPolicy = """
                 {"enabled":true,"rewardAmount":25.00,"currency":"ETB",
-                 "effectiveFrom":"%s","effectiveUntil":"%s","reason":"unapproved posting probe"}
+                 "effectiveFrom":"%s","effectiveUntil":"%s","reason":"expired policy probe"}
                 """.formatted(Instant.now().minusSeconds(60), Instant.now().plusSeconds(3600));
         mockMvc.perform(post("/api/v1/admin/wallet/signup-rewards/settings")
                 .header("Authorization", "Bearer " + adminToken)
-                .contentType(MediaType.APPLICATION_JSON).content(positivePolicy))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("SIGNUP_REWARD_POSTING_NOT_APPROVED"));
+                .contentType(MediaType.APPLICATION_JSON).content(expiredPolicy))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_SIGNUP_REWARD_DATES"));
 
-        assertEquals(initialPolicyCount, policyRepository.count());
+        String positivePolicy = """
+                {"enabled":true,"rewardAmount":25.00,"currency":"ETB",
+                 "effectiveFrom":"%s","effectiveUntil":"%s","reason":"approved signup reward"}
+                """.formatted(Instant.now().plusSeconds(60), Instant.now().plusSeconds(3600));
+        mockMvc.perform(post("/api/v1/admin/wallet/signup-rewards/settings")
+                .header("Authorization", "Bearer " + adminToken)
+                .contentType(MediaType.APPLICATION_JSON).content(positivePolicy))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.enabled").value(true))
+                .andExpect(jsonPath("$.rewardAmount").value(25.00));
+
+        assertEquals(initialPolicyCount + 1, policyRepository.count());
         assertTrue(policyRepository.findFirstByOrderByCreatedAtDesc().orElseThrow().getId()
-                .equals(activePolicy.getId()));
+                .compareTo(activePolicy.getId()) > 0);
         assertTrue(jdbcTemplate.queryForObject(
                 "select count(*) from audit_log_entries where actor_user_id = ? and action = 'SAVE_SETTINGS'",
                 Long.class, admin.getId()) > 0);
     }
 
     @Test
-    void registrationWithPositiveUnapprovedPolicyRollsBackUserAndWallet() throws Exception {
+    void registrationWithPositivePolicyCreditsNewWallet() throws Exception {
         String registrationBody = objectMapper.writeValueAsString(
-                new RegisterRequest("M03D Guarded Registration", REGISTER_PHONE, "123456"));
+                new RegisterRequest("M03D Rewarded Registration", REGISTER_PHONE, "123456"));
         mockMvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON)
                 .content(registrationBody))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("SIGNUP_REWARD_POSTING_NOT_APPROVED"));
+                .andExpect(status().isCreated());
 
-        assertTrue(userRepository.findByNormalizedPhone(phoneNormalizer.normalize(REGISTER_PHONE)).isEmpty());
+        User registeredPlayer = userRepository.findByNormalizedPhone(phoneNormalizer.normalize(REGISTER_PHONE))
+                .orElseThrow();
+        var wallet = walletRepository.findByOwnerId(registeredPlayer.getId()).orElseThrow();
+        assertEquals(new BigDecimal("25.00"), wallet.getPromotionalBalance());
         assertEquals(initialPolicyCount, policyRepository.count());
-        assertEquals(initialGrantCount, grantRepository.count());
-        assertEquals(initialWalletCount, walletRepository.count());
-        assertEquals(initialTransactionCount, transactionRepository.count());
+        assertEquals(initialGrantCount + 1, grantRepository.count());
+        assertEquals(initialWalletCount + 1, walletRepository.count());
+        assertEquals(initialTransactionCount + 1, transactionRepository.count());
     }
 
     private void cleanupFixtures() {

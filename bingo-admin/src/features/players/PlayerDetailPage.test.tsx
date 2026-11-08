@@ -150,6 +150,8 @@ describe("PlayerDetailPage", () => {
           id: 61,
           operationId: "deposit-op-61",
           playerId: 6,
+          playerDisplayName: "Player Six",
+          playerPhoneNumber: "+251911000006",
           submittedCashAmount: "50.00",
           currency: "ETB",
           conversionRateSnapshot: "1.00",

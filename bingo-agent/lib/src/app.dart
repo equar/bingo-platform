@@ -44,7 +44,7 @@ class _BingoAgentView extends ConsumerWidget {
       ),
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
-      home: config.apiBaseUrl.isEmpty
+      home: config.apiBaseUri == null
           ? _MissingConfigView(label: config.apiBaseUrlLabel)
           : const AuthGate(),
     );

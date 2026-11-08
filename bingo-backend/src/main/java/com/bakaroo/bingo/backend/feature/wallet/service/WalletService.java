@@ -122,9 +122,19 @@ public class WalletService {
     }
 
     @Transactional(readOnly = true)
-    public Page<DepositReportResponse> depositReport(Instant from, Instant to, Pageable pageable) {
+    public Page<DepositReportResponse> depositReport(
+            Instant from, Instant to, String query, DepositClaimStatus status, Pageable pageable) {
+        String normalizedQuery = query == null || query.isBlank() ? null : query.trim().toLowerCase(Locale.ROOT);
+        Long numericQuery = null;
+        if (normalizedQuery != null) {
+            try {
+                numericQuery = Long.valueOf(normalizedQuery);
+            } catch (NumberFormatException ignored) {
+                numericQuery = null;
+            }
+        }
         return depositClaimRepository
-                .findBySubmittedAtGreaterThanEqualAndSubmittedAtLessThanOrderBySubmittedAtDescIdDesc(from, to, pageable)
+                .searchReport(from, to, normalizedQuery, numericQuery, status, pageable)
                 .map(DepositReportResponse::from);
     }
 
@@ -296,6 +306,8 @@ public class WalletService {
                 claim.getId(),
                 claim.getOperationId(),
                 claim.getPlayer().getId(),
+                claim.getPlayer().getDisplayName(),
+                claim.getPlayer().getNormalizedPhone(),
                 claim.getSubmittedCashAmount(),
                 claim.getCurrency(),
                 claim.getConversionRateSnapshot(),
