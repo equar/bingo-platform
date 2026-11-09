@@ -28,8 +28,9 @@ class CommissionHistoryScreen extends ConsumerWidget {
       ),
       data: (value) => RefreshIndicator(
         onRefresh: () async {
+          ref.invalidate(commissionHistoryProvider);
           try {
-            await ref.refresh(commissionHistoryProvider.future);
+            await ref.read(commissionHistoryProvider.future);
           } catch (_) {
             // The provider error state includes a retry action.
           }

@@ -35,8 +35,9 @@ class AgentDashboardScreen extends ConsumerWidget {
         final count = NumberFormat.decimalPattern(locale);
         return RefreshIndicator(
           onRefresh: () async {
+            ref.invalidate(agentDashboardProvider);
             try {
-              await ref.refresh(agentDashboardProvider.future);
+              await ref.read(agentDashboardProvider.future);
             } catch (_) {
               // The provider error state includes a retry action.
             }
@@ -45,37 +46,55 @@ class AgentDashboardScreen extends ConsumerWidget {
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(16),
             children: [
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: [
-                  _Metric(
-                    label: l10n.availableFloat,
-                    value: formatFinancialAmount(
-                      dashboard.availableFloat,
-                      currency,
-                    ),
-                  ),
-                  _Metric(
-                    label: l10n.clearingFloat,
-                    value: formatFinancialAmount(
-                      dashboard.clearingFloat,
-                      currency,
-                    ),
-                  ),
-                  _Metric(
-                    label: l10n.ticketsSold,
-                    value: count.format(dashboard.ticketsSold),
-                  ),
-                  _Metric(
-                    label: l10n.commissions,
-                    value: count.format(dashboard.commissionAccruals),
-                  ),
-                  _Metric(
-                    label: l10n.topUpRequests,
-                    value: count.format(dashboard.topUpRequests),
-                  ),
-                ],
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final columns = constraints.maxWidth >= 680 ? 2 : 1;
+                  final gap = 12.0;
+                  final cardWidth =
+                      (constraints.maxWidth - gap * (columns - 1)) / columns;
+                  return Wrap(
+                    spacing: gap,
+                    runSpacing: gap,
+                    children: [
+                      _Metric(
+                        label: l10n.availableFloat,
+                        value: formatFinancialAmount(
+                          dashboard.availableFloat,
+                          currency,
+                        ),
+                        icon: Icons.account_balance_wallet_outlined,
+                        width: cardWidth,
+                      ),
+                      _Metric(
+                        label: l10n.clearingFloat,
+                        value: formatFinancialAmount(
+                          dashboard.clearingFloat,
+                          currency,
+                        ),
+                        icon: Icons.sync_alt_rounded,
+                        width: cardWidth,
+                      ),
+                      _Metric(
+                        label: l10n.ticketsSold,
+                        value: count.format(dashboard.ticketsSold),
+                        icon: Icons.confirmation_number_outlined,
+                        width: cardWidth,
+                      ),
+                      _Metric(
+                        label: l10n.commissions,
+                        value: count.format(dashboard.commissionAccruals),
+                        icon: Icons.trending_up_rounded,
+                        width: cardWidth,
+                      ),
+                      _Metric(
+                        label: l10n.topUpRequests,
+                        value: count.format(dashboard.topUpRequests),
+                        icon: Icons.add_card_rounded,
+                        width: cardWidth,
+                      ),
+                    ],
+                  );
+                },
               ),
             ],
           ),
@@ -111,24 +130,53 @@ class _DashboardError extends StatelessWidget {
 }
 
 class _Metric extends StatelessWidget {
-  const _Metric({required this.label, required this.value});
+  const _Metric({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.width,
+  });
 
   final String label;
   final String value;
+  final IconData icon;
+  final double width;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 220,
+      width: width,
       child: Card(
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child:
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(label),
-            const SizedBox(height: 8),
-            Text(value, style: Theme.of(context).textTheme.headlineSmall)
-          ]),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(icon, color: Theme.of(context).colorScheme.primary),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      label,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                value,
+                style: Theme.of(context)
+                    .textTheme
+                    .headlineSmall
+                    ?.copyWith(fontWeight: FontWeight.w800),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -1,5 +1,6 @@
 import 'package:bingo_agent/src/core/network/api_error.dart';
 import 'package:bingo_agent/src/core/network/idempotency.dart';
+import 'package:bingo_agent/src/core/widgets/responsive_form_content.dart';
 import 'package:bingo_agent/src/features/agents/data/agent_repository.dart';
 import 'package:bingo_agent/src/features/agents/data/agent_models.dart';
 import 'package:bingo_agent/src/l10n/generated/app_localizations.dart';
@@ -177,122 +178,124 @@ class _PayoutsScreenState extends ConsumerState<PayoutsScreen> {
         fieldErrorMessage(_apiError, 'pin', l10n) ??
         (_error == l10n.agentPinLength ? _error : null);
     final hasInlineError = codeError != null || pinError != null;
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        Text(
-          l10n.approvedAgentCashPayout,
-          style: Theme.of(context).textTheme.headlineSmall,
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          controller: _codeController,
-          enabled: !_busy && !_outcomeUnknown,
-          textInputAction: TextInputAction.next,
-          onSubmitted: (_) => FocusScope.of(context).nextFocus(),
-          onChanged: (_) => _clearCodeState(),
-          decoration: InputDecoration(
-            labelText: l10n.payoutCode,
-            errorText: codeError,
-          ),
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          controller: _pinController,
-          enabled: !_busy && !_outcomeUnknown,
-          textInputAction: TextInputAction.done,
-          onSubmitted: (_) => _confirmVerify(),
-          onChanged: (_) => _clearPinErrors(),
-          decoration: InputDecoration(
-            labelText: l10n.pinLabel,
-            errorText: pinError,
-          ),
-          obscureText: true,
-        ),
-        const SizedBox(height: 12),
-        ListenableBuilder(
-          listenable: Listenable.merge([_codeController, _pinController]),
-          builder: (context, _) {
-            final canLookup = _validCode && !_outcomeUnknown;
-            final canVerify =
-                _validCode &&
-                _validPin &&
-                _payout?.payoutCode == _codeController.text.trim() &&
-                _payout?.status.toUpperCase() == 'PENDING' &&
-                _payout?.settlementPath == 'AGENT_CASH' &&
-                !_completed;
-            final hint = !_validCode
-                ? l10n.requiredField
-                : !_validPin
-                ? l10n.agentPinLength
-                : _payout?.payoutCode != _codeController.text.trim()
-                ? l10n.payoutLookupFirst
-                : null;
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Wrap(
-                  spacing: 12,
-                  children: [
-                    FilledButton(
-                      onPressed: _busy || !canLookup ? null : _lookupCode,
-                      child: Text(l10n.lookup),
-                    ),
-                    OutlinedButton(
-                      onPressed: _busy || !canVerify ? null : _confirmVerify,
-                      child: Text(
-                        _outcomeUnknown ? l10n.retry : l10n.verifyAndDisburse,
-                      ),
-                    ),
-                  ],
-                ),
-                if (hint != null && hint != _error) ...[
-                  const SizedBox(height: 8),
-                  Text(hint, style: Theme.of(context).textTheme.bodySmall),
-                ],
-              ],
-            );
-          },
-        ),
-        if (_error != null && !hasInlineError) ...[
-          const SizedBox(height: 8),
+    return ResponsiveFormContent(
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
           Text(
-            _error!,
-            style: TextStyle(color: Theme.of(context).colorScheme.error),
+            l10n.approvedAgentCashPayout,
+            style: Theme.of(context).textTheme.headlineSmall,
           ),
-        ],
-        if (_lookup != null && _payout != null) ...[
-          const SizedBox(height: 16),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    _lookup!,
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 8),
-                  Text('${l10n.payoutCode}: ${_payout!.payoutCode}'),
-                  Text('${l10n.sessionId}: ${_payout!.sessionId}'),
-                  Text('${l10n.ticketId}: ${_payout!.ticketId}'),
-                  Text(
-                    '${l10n.transactionStatus}: ${_payout!.status}',
-                  ),
-                  if (_payout!.status.toUpperCase() != 'PENDING') ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      l10n.payoutUnavailable,
-                      style: TextStyle(color: Theme.of(context).colorScheme.error),
-                    ),
-                  ],
-                ],
-              ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _codeController,
+            enabled: !_busy && !_outcomeUnknown,
+            textInputAction: TextInputAction.next,
+            onSubmitted: (_) => FocusScope.of(context).nextFocus(),
+            onChanged: (_) => _clearCodeState(),
+            decoration: InputDecoration(
+              labelText: l10n.payoutCode,
+              errorText: codeError,
             ),
           ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _pinController,
+            enabled: !_busy && !_outcomeUnknown,
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => _confirmVerify(),
+            onChanged: (_) => _clearPinErrors(),
+            decoration: InputDecoration(
+              labelText: l10n.pinLabel,
+              errorText: pinError,
+            ),
+            obscureText: true,
+          ),
+          const SizedBox(height: 12),
+          ListenableBuilder(
+            listenable: Listenable.merge([_codeController, _pinController]),
+            builder: (context, _) {
+              final canLookup = _validCode && !_outcomeUnknown;
+              final canVerify =
+                  _validCode &&
+                  _validPin &&
+                  _payout?.payoutCode == _codeController.text.trim() &&
+                  _payout?.status.toUpperCase() == 'PENDING' &&
+                  _payout?.settlementPath == 'AGENT_CASH' &&
+                  !_completed;
+              final hint = !_validCode
+                  ? l10n.requiredField
+                  : !_validPin
+                  ? l10n.agentPinLength
+                  : _payout?.payoutCode != _codeController.text.trim()
+                  ? l10n.payoutLookupFirst
+                  : null;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Wrap(
+                    spacing: 12,
+                    children: [
+                      FilledButton(
+                        onPressed: _busy || !canLookup ? null : _lookupCode,
+                        child: Text(l10n.lookup),
+                      ),
+                      OutlinedButton(
+                        onPressed: _busy || !canVerify ? null : _confirmVerify,
+                        child: Text(
+                          _outcomeUnknown ? l10n.retry : l10n.verifyAndDisburse,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (hint != null && hint != _error) ...[
+                    const SizedBox(height: 8),
+                    Text(hint, style: Theme.of(context).textTheme.bodySmall),
+                  ],
+                ],
+              );
+            },
+          ),
+          if (_error != null && !hasInlineError) ...[
+            const SizedBox(height: 8),
+            Text(
+              _error!,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+          ],
+          if (_lookup != null && _payout != null) ...[
+            const SizedBox(height: 16),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _lookup!,
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    const SizedBox(height: 8),
+                    Text('${l10n.payoutCode}: ${_payout!.payoutCode}'),
+                    Text('${l10n.sessionId}: ${_payout!.sessionId}'),
+                    Text('${l10n.ticketId}: ${_payout!.ticketId}'),
+                    Text(
+                      '${l10n.transactionStatus}: ${_payout!.status}',
+                    ),
+                    if (_payout!.status.toUpperCase() != 'PENDING') ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        l10n.payoutUnavailable,
+                        style: TextStyle(color: Theme.of(context).colorScheme.error),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ],
         ],
-      ],
+      ),
     );
   }
 

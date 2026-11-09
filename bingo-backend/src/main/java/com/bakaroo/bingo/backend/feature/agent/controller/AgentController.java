@@ -8,6 +8,7 @@ import com.bakaroo.bingo.backend.feature.auth.dto.AuthResponse;
 import com.bakaroo.bingo.backend.feature.auth.dto.UserProfileResponse;
 import com.bakaroo.bingo.backend.feature.auth.service.BingoUserPrincipal;
 import com.bakaroo.bingo.backend.feature.game.dto.TicketPurchaseResponse;
+import com.bakaroo.bingo.backend.feature.game.dto.PlayerGameSessionResponse;
 import jakarta.validation.Valid;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -71,6 +72,13 @@ public class AgentController {
     @PreAuthorize("hasRole('AGENT')")
     public UserProfileResponse registerPlayer(@Valid @RequestBody AgentPlayerRegistrationRequest request) {
         return agentService.registerPlayer(request);
+    }
+
+    @GetMapping("/ticket-sale-sessions")
+    @PreAuthorize("hasRole('AGENT')")
+    public List<PlayerGameSessionResponse> ticketSaleSessions(
+            @AuthenticationPrincipal BingoUserPrincipal principal) {
+        return agentService.getTicketSaleSessions(principal);
     }
 
     @PostMapping("/tickets")

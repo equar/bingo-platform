@@ -119,31 +119,65 @@ class _HomeShellState extends ConsumerState<HomeShell> {
           ),
         ],
       ),
-      body: IndexedStack(
-        index: _index,
-        children: [
-          for (var index = 0; index < pageCount; index++)
-            if (_visited.contains(index))
-              TickerMode(
-                enabled: _index == index,
-                child: index == 8
-                    ? _MoreActionsScreen(
-                        onPayouts: () => _select(4),
-                        onFloat: () => _select(5),
-                        onHistory: () => _select(6),
-                        onSupport: () => _select(7),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final wide =
+              constraints.maxWidth >= 840 && constraints.maxHeight >= 480;
+          final content = IndexedStack(
+            index: _index,
+            children: [
+              for (var index = 0; index < pageCount; index++)
+                if (_visited.contains(index))
+                  TickerMode(
+                    enabled: _index == index,
+                    child: index == 8
+                        ? _MoreActionsScreen(
+                            onPayouts: () => _select(4),
+                            onFloat: () => _select(5),
+                            onHistory: () => _select(6),
+                            onSupport: () => _select(7),
+                          )
+                        : pages[index],
+                  )
+                else
+                  const SizedBox.shrink(),
+            ],
+          );
+          if (!wide) return content;
+          return Row(
+            children: [
+              SafeArea(
+                child: NavigationRail(
+                  selectedIndex: _index < 4 ? _index : 4,
+                  onDestinationSelected: (value) =>
+                      _select(value == 4 ? 8 : value),
+                  labelType: NavigationRailLabelType.all,
+                  destinations: items
+                      .map(
+                        (item) => NavigationRailDestination(
+                          icon: item.icon,
+                          selectedIcon: item.selectedIcon,
+                          label: Text(item.label),
+                        ),
                       )
-                    : pages[index],
-              )
-            else
-              const SizedBox.shrink(),
-        ],
+                      .toList(),
+                ),
+              ),
+              const VerticalDivider(width: 1),
+              Expanded(child: content),
+            ],
+          );
+        },
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index < 4 ? _index : 4,
-        onDestinationSelected: (value) => _select(value == 4 ? 8 : value),
-        destinations: items,
-      ),
+      bottomNavigationBar:
+          MediaQuery.sizeOf(context).width >= 840 &&
+              MediaQuery.sizeOf(context).height >= 480
+          ? null
+          : NavigationBar(
+              selectedIndex: _index < 4 ? _index : 4,
+              onDestinationSelected: (value) => _select(value == 4 ? 8 : value),
+              destinations: items,
+            ),
     );
   }
 }

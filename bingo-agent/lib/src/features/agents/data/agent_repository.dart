@@ -3,6 +3,7 @@ import 'package:bingo_agent/src/core/models/page_response.dart';
 import 'package:bingo_agent/src/features/agents/data/agent_models.dart';
 import 'package:bingo_agent/src/features/auth/data/auth_models.dart';
 import 'package:bingo_agent/src/features/history/data/financial_history_entry.dart';
+import 'package:bingo_agent/src/features/tickets/data/ticket_sale_session.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -90,6 +91,16 @@ class AgentRepository {
       options: Options(headers: {'Idempotency-Key': key}),
     );
     return response.data ?? {};
+  }
+
+  Future<List<TicketSaleSession>> ticketSaleSessions() async {
+    final response = await _dio.get<List<dynamic>>(
+      '/api/v1/agent/ticket-sale-sessions',
+    );
+    return (response.data ?? const [])
+        .whereType<Map>()
+        .map((item) => TicketSaleSession.fromJson(Map<String, dynamic>.from(item)))
+        .toList();
   }
 
   Future<Map<String, dynamic>> transferFloat(Map<String, dynamic> body, String key) async {

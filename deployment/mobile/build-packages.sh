@@ -15,7 +15,11 @@ for app in "${apps[@]}"; do
   [[ "$build_number" =~ ^[1-9][0-9]*$ ]] || { echo 'A positive BINGO_BUILD_NUMBER is required' >&2; exit 1; }
   if [[ "$PLATFORM" == android ]]; then
     python3 "$ROOT/deployment/mobile/prepare-android-signing.py" "$app"
-    flutter build apk --release --build-number="$build_number" --target-platform=android-arm,android-arm64,android-x64 --target=lib/main.dart --dart-define-from-file="$ROOT/deployment/mobile/production.json"
+    purchase_defines=()
+    if [[ "$app" == bingo-app ]]; then
+      purchase_defines+=(--dart-define=BINGO_PLAYER_PURCHASES_ENABLED=true)
+    fi
+    flutter build apk --release --build-number="$build_number" --target-platform=android-arm,android-arm64,android-x64 --target=lib/main.dart "${purchase_defines[@]}" --dart-define-from-file="$ROOT/deployment/mobile/production.json"
     python3 "$ROOT/deployment/mobile/verify-android-package.py" build/app/outputs/flutter-apk/app-release.apk "$app" --previous "$output/$app-android.apk" --report "$output/$app-android.compatibility.json"
     cp build/app/outputs/flutter-apk/app-release.apk "$output/$app-android.apk"
     (cd "$output" && shasum -a 256 "$app-android.apk" > "$app-android.apk.sha256")
