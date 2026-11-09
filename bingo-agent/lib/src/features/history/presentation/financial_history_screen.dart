@@ -87,8 +87,9 @@ class _FinancialHistoryScreenState
         ];
         return RefreshIndicator(
           onRefresh: () async {
+            ref.invalidate(financialHistoryProvider(query));
             try {
-              await ref.refresh(financialHistoryProvider(query).future);
+              await ref.read(financialHistoryProvider(query).future);
             } catch (_) {
               // The provider error state includes a retry action.
             }

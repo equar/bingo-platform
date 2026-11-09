@@ -52,8 +52,9 @@ class FloatHistoryScreen extends ConsumerWidget {
         );
         return RefreshIndicator(
           onRefresh: () async {
+            ref.invalidate(floatHistoryProvider);
             try {
-              await ref.refresh(floatHistoryProvider.future);
+              await ref.read(floatHistoryProvider.future);
             } catch (_) {
               // The provider error state includes a retry action.
             }

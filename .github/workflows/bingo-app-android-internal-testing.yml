@@ -94,7 +94,7 @@ jobs:
         run: flutter pub get
 
       - name: Build Android app bundle
-        run: flutter build appbundle --release --dart-define=API_BASE_URL="${MOBILE_API_BASE_URL}"
+        run: flutter build appbundle --release --dart-define=API_BASE_URL="${MOBILE_API_BASE_URL}" --dart-define=BINGO_PLAYER_PURCHASES_ENABLED=true
 
       - name: Install Fastlane
         run: sudo gem install fastlane -v 2.241.1 --no-document
