@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 
 ThemeData buildAgentTheme() {
   const ink = Color(0xFF102B46);
-  const green = Color(0xFF176B4A);
-  const page = Color(0xFFF5F8F6);
+  const green = Color(0xFF006B45);
+  const verificationRed = Color(0xFFC7362F);
+  const page = Color(0xFFF3F7F4);
   final scheme = ColorScheme.fromSeed(
     seedColor: green,
     primary: green,
-    secondary: const Color(0xFF39866A),
+    secondary: verificationRed,
     surface: Colors.white,
     onSurface: ink,
     outlineVariant: const Color(0xFFDCE6E0),
@@ -24,13 +25,13 @@ ThemeData buildAgentTheme() {
     materialTapTargetSize: MaterialTapTargetSize.padded,
     visualDensity: VisualDensity.standard,
     appBarTheme: const AppBarTheme(
-      backgroundColor: page,
-      foregroundColor: ink,
+      backgroundColor: ink,
+      foregroundColor: Colors.white,
       surfaceTintColor: Colors.transparent,
       titleSpacing: 20,
       centerTitle: false,
       titleTextStyle: TextStyle(
-        color: ink,
+        color: Colors.white,
         fontSize: 22,
         fontWeight: FontWeight.w800,
         letterSpacing: -.3,
@@ -43,7 +44,7 @@ ThemeData buildAgentTheme() {
       color: Colors.white,
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         side: BorderSide(color: scheme.outlineVariant),
       ),
     ),
@@ -82,10 +83,20 @@ ThemeData buildAgentTheme() {
       style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
     ),
     navigationBarTheme: NavigationBarThemeData(
-      backgroundColor: Colors.white,
+      backgroundColor: ink,
       surfaceTintColor: Colors.transparent,
-      indicatorColor: green.withValues(alpha: .11),
+      indicatorColor: Colors.white.withValues(alpha: .16),
+      iconTheme: WidgetStateProperty.resolveWith(
+        (states) => IconThemeData(
+          color: states.contains(WidgetState.selected)
+              ? Colors.white
+              : Colors.white70,
+        ),
+      ),
       labelTextStyle: WidgetStateProperty.resolveWith((states) => TextStyle(
+        color: states.contains(WidgetState.selected)
+            ? Colors.white
+            : Colors.white70,
         fontSize: 11,
         fontWeight: states.contains(WidgetState.selected)
             ? FontWeight.w800
@@ -93,10 +104,15 @@ ThemeData buildAgentTheme() {
       )),
     ),
     navigationRailTheme: NavigationRailThemeData(
-      backgroundColor: Colors.white,
-      indicatorColor: green.withValues(alpha: .11),
-      selectedIconTheme: const IconThemeData(color: green),
-      unselectedIconTheme: const IconThemeData(color: Color(0xFF68786F)),
+      backgroundColor: ink,
+      indicatorColor: Colors.white.withValues(alpha: .16),
+      selectedIconTheme: const IconThemeData(color: Colors.white),
+      unselectedIconTheme: const IconThemeData(color: Colors.white70),
+      selectedLabelTextStyle: const TextStyle(
+        color: Colors.white,
+        fontWeight: FontWeight.w800,
+      ),
+      unselectedLabelTextStyle: const TextStyle(color: Colors.white70),
     ),
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,

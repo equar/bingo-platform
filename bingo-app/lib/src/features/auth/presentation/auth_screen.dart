@@ -171,10 +171,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                 children: [
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 18,
-                    ),
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
                         begin: Alignment.topLeft,
@@ -185,22 +181,18 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                     ),
                     child: Column(
                       children: [
-                        const Icon(
-                          Icons.emoji_events_rounded,
-                          color: Color(0xFFFFC52D),
-                          size: 40,
-                        ),
-                        const SizedBox(height: 4),
-                        const Text(
-                          'BINGO',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 25,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 1.3,
+                        ClipRRect(
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(24),
+                          ),
+                          child: Image.asset(
+                            'assets/images/bingo-ethiopia-hero.png',
+                            width: double.infinity,
+                            fit: BoxFit.fitWidth,
+                            excludeFromSemantics: true,
                           ),
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 16),
                         Text(
                           _registerMode
                               ? localizations.registerTitle
@@ -211,13 +203,16 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                           ).textTheme.titleLarge?.copyWith(color: Colors.white),
                         ),
                         const SizedBox(height: 4),
-                        Text(
-                          _registerMode
-                              ? localizations.registerSubtitle
-                              : localizations.loginSubtitle,
-                          textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(color: Colors.white70),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
+                          child: Text(
+                            _registerMode
+                                ? localizations.registerSubtitle
+                                : localizations.loginSubtitle,
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(color: Colors.white70),
+                          ),
                         ),
                       ],
                     ),

@@ -3,6 +3,7 @@ import 'package:bingo_agent/src/features/agents/data/agent_repository.dart';
 import 'package:bingo_agent/src/features/auth/data/auth_models.dart';
 import 'package:bingo_agent/src/features/players/presentation/players_screen.dart';
 import 'package:bingo_agent/src/features/payouts/presentation/payouts_screen.dart';
+import 'package:bingo_agent/src/features/tickets/data/ticket_sale_session.dart';
 import 'package:bingo_agent/src/features/tickets/presentation/ticket_sale_screen.dart';
 import 'package:bingo_agent/src/features/wallet/presentation/wallet_topup_screen.dart';
 import 'package:bingo_agent/src/l10n/generated/app_localizations.dart';
@@ -74,6 +75,13 @@ void main() {
       await tester.tap(find.byType(TextField).at(2));
       await tester.testTextInput.receiveAction(TextInputAction.done);
       await tester.pumpAndSettle();
+      await tester.tap(
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.byType(FilledButton),
+        ),
+      );
+      await tester.pumpAndSettle();
       expect(repository.transferKeys, hasLength(1));
       expect(
         find.text(
@@ -96,25 +104,49 @@ void main() {
   );
 
   testWidgets(
-    'ticket sale rejects nonpositive session IDs and valid input sells once',
+    'ticket sale requires a selected session and sells once after confirmation',
     (tester) async {
       final repository = _FakeAgentRepository();
       await tester.pumpWidget(
-        _app(repository, const TicketSaleScreen(), locale: const Locale('am')),
+        _app(
+          repository,
+          const TicketSaleScreen(),
+          locale: const Locale('am'),
+          ticketSaleSessions: [
+            TicketSaleSession(
+              id: 42,
+              roomName: 'QA Room',
+              sessionName: 'QA Session',
+              scheduledStartAt: DateTime(2026, 11, 10),
+              ticketPrice: 3,
+              currency: 'ETB',
+              sessionCapacity: 100,
+              ticketCount: 0,
+            ),
+          ],
+        ),
       );
 
-      await tester.enterText(find.byType(TextField).at(0), '0');
-      await tester.enterText(find.byType(TextField).at(1), '0911000001');
-      await tester.enterText(find.byType(TextField).at(2), '1234');
-      final sale = find.byType(FilledButton);
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).at(0), '0911000001');
+      await tester.enterText(find.byType(TextField).at(1), '1234');
+      final sale = find.byType(FilledButton).first;
       expect(tester.widget<FilledButton>(sale).onPressed, isNull);
       expect(repository.ticketBodies, isEmpty);
-      expect(find.text('ከዜሮ በላይ የሆነ ትክክለኛ የሴሽን መለያ ያስገቡ።'), findsOneWidget);
 
-      await tester.enterText(find.byType(TextField).at(0), '42');
-      await tester.pump();
+      await tester.tap(find.byType(DropdownButtonFormField<int>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('QA Room · QA Session · 3 ETB').last);
+      await tester.pumpAndSettle();
       expect(tester.widget<FilledButton>(sale).onPressed, isNotNull);
       await tester.tap(sale);
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.byType(FilledButton),
+        ),
+      );
       await tester.pumpAndSettle();
       expect(repository.ticketBodies, hasLength(1));
       expect(repository.ticketBodies.single['sessionId'], 42);
@@ -145,10 +177,18 @@ void main() {
       await tester.pump();
       expect(find.text('2.00 ETB'), findsNothing);
       await tester.enterText(pin, '1234');
+      await tester.tap(find.widgetWithText(FilledButton, 'Lookup'));
       await tester.pump();
       expect(tester.widget<OutlinedButton>(verify).onPressed, isNotNull);
       await tester.tap(
         find.widgetWithText(OutlinedButton, 'Verify and disburse'),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.byType(FilledButton),
+        ),
       );
       await tester.pumpAndSettle();
       expect(repository.verifyBodies, hasLength(1));
@@ -167,9 +207,16 @@ Widget _app(
   AgentRepository repository,
   Widget home, {
   Locale locale = const Locale('en'),
+  List<TicketSaleSession>? ticketSaleSessions,
 }) {
   return ProviderScope(
-    overrides: [agentRepositoryProvider.overrideWithValue(repository)],
+    overrides: [
+      agentRepositoryProvider.overrideWithValue(repository),
+      if (ticketSaleSessions != null)
+        ticketSaleSessionsProvider.overrideWith(
+          (ref) async => ticketSaleSessions,
+        ),
+    ],
     child: MaterialApp(
       locale: locale,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -256,7 +303,8 @@ class _FakeAgentRepository extends AgentRepository {
       'prizeAmount': '2.00',
       'currency': 'ETB',
       'payoutCode': code,
-      'status': 'APPROVED',
+      'status': 'PENDING',
+      'settlementPath': 'AGENT_CASH',
     });
   }
 
