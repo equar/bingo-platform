@@ -46,6 +46,14 @@ class AgentDashboardScreen extends ConsumerWidget {
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(16),
             children: [
+              _OperationsBanner(
+                availableFloat: formatFinancialAmount(
+                  dashboard.availableFloat,
+                  currency,
+                ),
+                title: l10n.agentOperations,
+              ),
+              const SizedBox(height: 16),
               LayoutBuilder(
                 builder: (context, constraints) {
                   final columns = constraints.maxWidth >= 680 ? 2 : 1;
@@ -100,6 +108,62 @@ class AgentDashboardScreen extends ConsumerWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _OperationsBanner extends StatelessWidget {
+  const _OperationsBanner({required this.availableFloat, required this.title});
+
+  final String availableFloat;
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF102B46),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFC7362F).withValues(alpha: .65)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF006B45),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Icon(Icons.verified_user_outlined, color: Colors.white),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title.toUpperCase(),
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: const Color(0xFFFFD8D5),
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.1,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  availableFloat,
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Icon(Icons.arrow_forward_rounded, color: Colors.white70),
+        ],
+      ),
     );
   }
 }
