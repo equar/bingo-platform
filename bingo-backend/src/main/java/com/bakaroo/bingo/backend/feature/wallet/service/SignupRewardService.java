@@ -58,11 +58,8 @@ public class SignupRewardService {
         }
 
         Instant registeredAt = Optional.ofNullable(player.getCreatedAt()).orElseGet(Instant::now);
-        Optional<SignupRewardPolicy> policyOptional = policyRepository.findAllByEnabledTrueOrderByCreatedAtDesc()
-                .stream()
-                .filter(policy -> isActive(policy, registeredAt))
-                .filter(policy -> policy.getRewardAmount().compareTo(BigDecimal.ZERO) > 0)
-                .findFirst();
+        Optional<SignupRewardPolicy> policyOptional = policyRepository.findFirstByOrderByCreatedAtDesc()
+                .filter(policy -> policy.isEnabled() && isActive(policy, registeredAt));
         if (policyOptional.isEmpty()) {
             return;
         }
