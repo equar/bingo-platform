@@ -55,7 +55,6 @@ import com.bakaroo.bingo.backend.feature.wallet.entity.WalletTransaction;
 import com.bakaroo.bingo.backend.feature.wallet.entity.WalletTransactionType;
 import com.bakaroo.bingo.backend.feature.wallet.repository.WalletRepository;
 import com.bakaroo.bingo.backend.feature.wallet.repository.WalletTransactionRepository;
-import com.bakaroo.bingo.backend.feature.wallet.service.LocalFinancialSimulationGuard;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
@@ -103,7 +102,6 @@ public class BingoGameService {
     private final IdempotencyService idempotencyService;
     private final RequestHashService requestHashService;
     private final ObjectMapper objectMapper;
-    private final LocalFinancialSimulationGuard ticketPurchasePostingGuard;
     private final GameLiveDrawService gameLiveDrawService;
     private final WinClaimSessionValidator winClaimSessionValidator;
 
@@ -121,7 +119,6 @@ public class BingoGameService {
             IdempotencyService idempotencyService,
             RequestHashService requestHashService,
             ObjectMapper objectMapper,
-            LocalFinancialSimulationGuard ticketPurchasePostingGuard,
             GameLiveDrawService gameLiveDrawService,
             com.bakaroo.bingo.backend.feature.community.service.GameAccessService gameAccess) {
         this.gameAccess = gameAccess;
@@ -141,7 +138,6 @@ public class BingoGameService {
         this.idempotencyService = idempotencyService;
         this.requestHashService = requestHashService;
         this.objectMapper = objectMapper;
-        this.ticketPurchasePostingGuard = ticketPurchasePostingGuard;
         this.gameLiveDrawService = gameLiveDrawService;
         this.winClaimSessionValidator = new WinClaimSessionValidator();
     }
@@ -440,7 +436,6 @@ public class BingoGameService {
     public IdempotentResult<TicketPurchaseResponse> purchaseTicket(Long sessionId, BingoUserPrincipal principal,
             String idempotencyKey) {
         User player = requirePlayer(principal);
-        ticketPurchasePostingGuard.requireIsolatedTestDatabase("Player ticket purchase");
         GameSession session = gameSessionRepository.findByIdForUpdate(sessionId)
                 .orElseThrow(() -> new NotFoundException("SESSION_NOT_FOUND", "Game session not found"));
         BingoRoom room = session.getRoom();

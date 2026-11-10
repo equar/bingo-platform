@@ -118,7 +118,9 @@ class _HomeShellState extends State<HomeShell> {
                           onDestinationSelected: _select,
                           labelType: NavigationRailLabelType.all,
                           backgroundColor: Colors.white,
-                          indicatorColor: bingoBlue.withValues(alpha: .09),
+                          indicatorColor: Theme.of(
+                            context,
+                          ).colorScheme.primary.withValues(alpha: .10),
                           destinations: [
                             NavigationRailDestination(
                               icon: const Icon(Icons.home_outlined),
@@ -163,7 +165,9 @@ class _HomeShellState extends State<HomeShell> {
                       data: NavigationBarThemeData(
                         backgroundColor: Colors.white,
                         surfaceTintColor: Colors.transparent,
-                        indicatorColor: bingoBlue.withValues(alpha: .09),
+                        indicatorColor: Theme.of(
+                          context,
+                        ).colorScheme.primary.withValues(alpha: .10),
                         labelTextStyle: WidgetStateProperty.resolveWith(
                           (states) => TextStyle(
                             fontSize: 12,
@@ -171,7 +175,7 @@ class _HomeShellState extends State<HomeShell> {
                                 ? FontWeight.w800
                                 : FontWeight.w600,
                             color: states.contains(WidgetState.selected)
-                                ? bingoBlue
+                                ? Theme.of(context).colorScheme.primary
                                 : const Color(0xFF667084),
                           ),
                         ),
@@ -179,7 +183,7 @@ class _HomeShellState extends State<HomeShell> {
                           (states) => IconThemeData(
                             size: 27,
                             color: states.contains(WidgetState.selected)
-                                ? bingoBlue
+                                ? Theme.of(context).colorScheme.primary
                                 : const Color(0xFF667084),
                           ),
                         ),
