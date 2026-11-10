@@ -17,7 +17,7 @@ startup because checked-out source requires Flyway V23 while local
 |---|---|---|
 | `bingo` | Local development only | Not functional QA or destructive integration tests. |
 | `bingo_qa` | Persistent historical QA data | Read-only comparisons only; preserve existing records. |
-| `bingo_qa_test` | Local guarded Android/Admin functional E2E | Verify exact local host, port, schema, runtime account, grants, Flyway version, and disabled financial/scheduler flags. Never reset or clean it. |
+| `bingo_qa_test` | Local guarded Android/Admin functional E2E | Verify exact local host, port, schema, runtime account, grants, and Flyway version. Player ticket purchases use the normal production path. Never reset or clean it. |
 | `bingo_qa_maven_test` | Destructive Maven integration tests | Dedicated disposable schema/account only. Provisioning is not verified; do not run the suite until the guard and exact target are verified. |
 
 ## Ignored local runner configuration
@@ -75,8 +75,8 @@ any runner:
 
 3. Proceed only when fresh evidence confirms the exact runtime identity,
    expected local account scope, current Flyway version, and isolated backend
-   on `127.0.0.1:8082`. Confirm scheduler and all financial posting/simulation
-   switches are disabled.
+   on `127.0.0.1:8082`. Confirm scheduler configuration and the runtime database
+   identity. Player ticket purchases use the same path as production.
 
 4. Capture read-only before/after state for the authorized scenario. Use only
    approved existing accounts/fixtures; retain run-owned records. Never print
@@ -151,12 +151,12 @@ account is missing or uncertain, do not run database-backed Maven tests.
 
 ## Prohibited financial and unsafe fixture scenarios
 
-Do not run ticket purchases, deposits, wallet credits/adjustments, transfers,
-Agent float funding, prize settlement/payout, external payments, or synthetic
-financial posting in the current QA schema. These require a separately
-provisioned and explicitly approved financial test environment, approved
-fixtures, idempotency/reconciliation controls, and read-only before/after
-checks. No runner in this repository grants that authorization.
+Player ticket purchases are permitted in the current QA schema and use the
+normal production API path. Do not run deposits, wallet credits/adjustments,
+transfers, Agent float funding, prize settlement/payout, external payments, or
+other synthetic financial posting without a separately provisioned and
+explicitly approved financial test environment, approved fixtures,
+idempotency/reconciliation controls, and read-only before/after checks.
 
 Do not create a claim ticket by purchase or Agent sale: those paths debit wallet
 or float and may accrue commission. Any future nonfinancial claim fixture must

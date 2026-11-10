@@ -34,6 +34,12 @@ public class DevelopmentDataSeeder implements CommandLineRunner {
     private final String agentPin;
     private final String playerPhone;
     private final String playerPin;
+    private final String playerTwoPhone;
+    private final String playerTwoPin;
+    private final String playerTwoName;
+    private final String playerThreePhone;
+    private final String playerThreePin;
+    private final String playerThreeName;
 
     public DevelopmentDataSeeder(UserRepository userRepository,
             PasswordEncoder passwordEncoder,
@@ -48,7 +54,13 @@ public class DevelopmentDataSeeder implements CommandLineRunner {
             @Value("${DEV_AGENT_PASSWORD:}") String agentPassword,
             @Value("${DEV_AGENT_PIN:}") String agentPin,
             @Value("${DEV_PLAYER_PHONE:}") String playerPhone,
-            @Value("${DEV_PLAYER_PIN:}") String playerPin) {
+            @Value("${DEV_PLAYER_PIN:}") String playerPin,
+            @Value("${DEV_PLAYER_TWO_PHONE:}") String playerTwoPhone,
+            @Value("${DEV_PLAYER_TWO_PIN:}") String playerTwoPin,
+            @Value("${DEV_PLAYER_TWO_NAME:Local Player Two}") String playerTwoName,
+            @Value("${DEV_PLAYER_THREE_PHONE:}") String playerThreePhone,
+            @Value("${DEV_PLAYER_THREE_PIN:}") String playerThreePin,
+            @Value("${DEV_PLAYER_THREE_NAME:Local Player Three}") String playerThreeName) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.agentPinEncoder = agentPinEncoder;
@@ -63,6 +75,12 @@ public class DevelopmentDataSeeder implements CommandLineRunner {
         this.agentPin = agentPin;
         this.playerPhone = playerPhone;
         this.playerPin = playerPin;
+        this.playerTwoPhone = playerTwoPhone;
+        this.playerTwoPin = playerTwoPin;
+        this.playerTwoName = playerTwoName;
+        this.playerThreePhone = playerThreePhone;
+        this.playerThreePin = playerThreePin;
+        this.playerThreeName = playerThreeName;
     }
 
     @Override
@@ -80,16 +98,21 @@ public class DevelopmentDataSeeder implements CommandLineRunner {
         requireConfigured("DEV_AGENT_PIN", agentPin);
         requireConfigured("DEV_PLAYER_PHONE", playerPhone);
         requireConfigured("DEV_PLAYER_PIN", playerPin);
+        validateOptionalPlayer("DEV_PLAYER_TWO", playerTwoPhone, playerTwoPin);
+        validateOptionalPlayer("DEV_PLAYER_THREE", playerThreePhone, playerThreePin);
+        requireDistinctPlayerPhones();
 
         Instant now = Instant.now();
         User admin = upsertAdmin(now);
         User agent = upsertAgent(now);
-        User player = upsertPlayer(now);
+        User player = upsertPlayer(playerPhone, "Dev Player", playerPin, now);
 
         agent.setAgentPinHash(agentPinEncoder.encode(agentPin));
         userRepository.save(agent);
 
         walletService.createWalletIfMissing(player);
+        seedOptionalPlayer(playerTwoPhone, playerTwoName, playerTwoPin, now);
+        seedOptionalPlayer(playerThreePhone, playerThreeName, playerThreePin, now);
     }
 
     private User upsertAdmin(Instant now) {
@@ -135,22 +158,57 @@ public class DevelopmentDataSeeder implements CommandLineRunner {
                         now)));
     }
 
-    private User upsertPlayer(Instant now) {
-        return userRepository.findByNormalizedPhoneAndRole(playerPhone, UserRole.PLAYER)
+    private User upsertPlayer(String phone, String name, String pin, Instant now) {
+        User player = userRepository.findByNormalizedPhoneAndRole(phone, UserRole.PLAYER)
                 .map(existing -> {
-                    existing.setDisplayName("Dev Player");
-                    existing.setPasswordHash(passwordEncoder.encode(playerPin));
+                    existing.setDisplayName(name);
+                    existing.setPasswordHash(passwordEncoder.encode(pin));
                     existing.setStatus(AccountStatus.ACTIVE);
                     existing.setRoles(new LinkedHashSet<>(Set.of(UserRole.PLAYER)));
                     return userRepository.save(existing);
                 })
                 .orElseGet(() -> userRepository.save(User.create(
-                        playerPhone,
-                        "Dev Player",
-                        passwordEncoder.encode(playerPin),
+                        phone,
+                        name,
+                        passwordEncoder.encode(pin),
                         AccountStatus.ACTIVE,
                         Set.of(UserRole.PLAYER),
                         now)));
+        return player;
+    }
+
+    private void seedOptionalPlayer(String phone, String name, String pin, Instant now) {
+        if (phone == null || phone.isBlank()) {
+            return;
+        }
+        User player = upsertPlayer(phone, name, pin, now);
+        walletService.createWalletIfMissing(player);
+    }
+
+    private void validateOptionalPlayer(String prefix, String phone, String pin) {
+        boolean hasPhone = phone != null && !phone.isBlank();
+        boolean hasPin = pin != null && !pin.isBlank();
+        if (!hasPhone && !hasPin) {
+            return;
+        }
+        if (!hasPhone || !hasPin) {
+            throw new IllegalStateException(prefix + "_PHONE and " + prefix + "_PIN must be set together");
+        }
+        if (!phone.matches("\\d{9,15}")) {
+            throw new IllegalStateException(prefix + "_PHONE must be a normalized phone number containing 9-15 digits");
+        }
+        if (!pin.matches("\\d{6}")) {
+            throw new IllegalStateException(prefix + "_PIN must be a six-digit PIN");
+        }
+    }
+
+    private void requireDistinctPlayerPhones() {
+        Set<String> phones = new LinkedHashSet<>();
+        for (String phone : new String[] {adminPhone, agentPhone, playerPhone, playerTwoPhone, playerThreePhone}) {
+            if (phone != null && !phone.isBlank() && !phones.add(phone)) {
+                throw new IllegalStateException("Development account phone numbers must be unique");
+            }
+        }
     }
 
     private void requireConfigured(String name, String value) {

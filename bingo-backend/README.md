@@ -24,7 +24,9 @@ mvn spring-boot:run -Dspring-boot.run.profiles=dev
 The local datasource defaults to `jdbc:mysql://localhost:3306/bingo` and may
 create the development database. Development account seeding is disabled by
 default; enabling it requires unique `DEV_ADMIN_*`, `DEV_AGENT_*`, and
-`DEV_PLAYER_*` values in the ignored `.env`. Never use these development
+`DEV_PLAYER_*` values in the ignored `.env`. Optional `DEV_PLAYER_TWO_*` and
+`DEV_PLAYER_THREE_*` settings seed two additional players when each phone and
+six-digit PIN pair is configured. Never use these development
 settings for QA or production.
 
 Admin/support accounts require a valid phone number. The backend sends a

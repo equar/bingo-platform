@@ -75,6 +75,14 @@ public interface GameSessionRepository extends JpaRepository<GameSession, Long> 
 
         Optional<GameSession> findByIdAndStateIn(Long id, List<GameSessionState> states);
 
+        @Query("""
+                        select s from GameSession s join fetch s.room r
+                        where s.state = com.bakaroo.bingo.backend.feature.game.entity.GameSessionState.OPEN
+                                and r.active = true and r.privateRoom = false
+                        order by s.scheduledStartAt asc, s.id asc
+                        """)
+        List<GameSession> findOpenPublicRoomSessionsForAgents();
+
         List<GameSession> findByRoomIdOrderByScheduledStartAtDesc(Long roomId);
 
         List<GameSession> findByStateInAndStartedAtIsNotNullAndEndedAtIsNullOrderByScheduledStartAtAsc(

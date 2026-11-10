@@ -33,6 +33,42 @@
   "floatTitle": "Float",
   "supportTitle": "Support",
   "historyTitle": "History",
+  "more": "More",
+  "payoutLookupFirst": "Look up and review this payout before disbursing it.",
+  "payoutUnavailable": "This payout is not available for disbursement. Check its current status.",
+  "noSupportTickets": "You don’t have any support tickets yet.",
+  "supportCreateTicket": "New support request",
+  "supportTicketDetails": "Request details",
+  "supportTicketStatus": "Status",
+  "supportTicketConversation": "Conversation",
+  "supportYou": "You",
+  "supportTeam": "Support team",
+  "supportTicketReply": "Write a reply",
+  "supportTicketSendReply": "Send reply",
+  "supportTicketCreated": "Your support request was sent.",
+  "supportTicketReplySent": "Your reply was sent.",
+  "supportTicketClosed": "This request is closed and can no longer receive replies.",
+  "supportSubject": "Subject",
+  "supportDescription": "Describe the issue",
+  "supportCategory": "Category",
+  "supportPriority": "Priority",
+  "supportAccount": "Account",
+  "supportWallet": "Wallet",
+  "supportGame": "Game",
+  "supportAgent": "Agent",
+  "supportTechnical": "Technical",
+  "supportBilling": "Billing",
+  "supportOther": "Other",
+  "priorityLow": "Low",
+  "priorityNormal": "Normal",
+  "priorityHigh": "High",
+  "priorityUrgent": "Urgent",
+  "supportStatusOpen": "Open",
+  "supportStatusInProgress": "In progress",
+  "supportStatusWaiting": "Waiting for you",
+  "supportStatusResolved": "Resolved",
+  "supportStatusClosed": "Closed",
+  "ticketId": "Ticket ID",
   "connectionLost": "Connection lost",
   "financialActionDisabled": "Financial actions are disabled offline",
   "missingApiBaseUrlTitle": "Backend URL is missing or invalid",
@@ -213,6 +249,28 @@
   "verifyAndDisburse": "Verify and disburse",
   "ticketSaleTitle": "Ticket sale",
   "sessionId": "Session ID",
+  "ticketSaleSelectSession": "Choose an open session",
+  "ticketSaleNoSessions": "There are no open sessions with seats available right now.",
+  "ticketSaleSessionsLoadFailed": "Open sessions could not be loaded.",
+  "ticketSaleRefreshSessions": "Refresh sessions",
+  "ticketSaleConfirmation": "Review the session, player and price before selling this ticket.",
+  "ticketSaleAvailableSeats": "{count} seats left",
+  "@ticketSaleAvailableSeats": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "ticketSaleConfirmTitle": "Confirm ticket sale",
+  "ticketSaleSessionId": "Session #{id}",
+  "@ticketSaleSessionId": {
+    "placeholders": {
+      "id": {
+        "type": "int"
+      }
+    }
+  },
   "sellTicket": "Sell ticket",
   "publicTicketCode": "Public ticket code",
   "supportTickets": "Support tickets",

@@ -13,6 +13,12 @@ import 'package:bingo_app/src/features/lobby/domain/lobby_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+const _bingoGridBlue = Color(0xFF12345A);
+const _bingoHeaderFill = Color(0xFFE8F0FA);
+const _bingoCalledFill = Color(0xFFDDF2E1);
+const _bingoLatestFill = Color(0xFFBDE4C5);
+const _bingoMarkGreen = Color(0xFF267A3E);
+
 class SessionDetailScreen extends ConsumerStatefulWidget {
   const SessionDetailScreen({super.key, required this.session});
 
@@ -427,31 +433,59 @@ class _TicketGridCard extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         AspectRatio(
-          aspectRatio: 1,
-          child: GridView.builder(
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: 25,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 5,
-              crossAxisSpacing: 8,
-              mainAxisSpacing: 8,
+          aspectRatio: 5 / 6,
+          child: Container(
+            clipBehavior: Clip.hardEdge,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border.all(color: _bingoGridBlue, width: 1),
             ),
-            itemBuilder: (context, index) {
-              final row = index ~/ 5;
-              final column = index % 5;
-              final value = ticket.grid[row][column];
-              final isFree = value == 0;
-              final isCalled = isFree || calledNumbers.contains(value);
-              final isLatest = value == latestCalled;
-              return _TicketCell(
-                key: ValueKey('ticket-cell-$row-$column'),
-                value: value,
-                isFree: isFree,
-                isCalled: isCalled,
-                isLatest: isLatest,
-                localizations: localizations,
-              );
-            },
+            padding: const EdgeInsets.all(1),
+            child: GridView.builder(
+              padding: EdgeInsets.zero,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: 30,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 5,
+                crossAxisSpacing: 0,
+                mainAxisSpacing: 0,
+                childAspectRatio: 1,
+              ),
+              itemBuilder: (context, index) {
+                final row = index ~/ 5;
+                final column = index % 5;
+                final cellBorder = Border(
+                  right: column == 4
+                      ? BorderSide.none
+                      : const BorderSide(color: _bingoGridBlue, width: 1),
+                  bottom: row == 5
+                      ? BorderSide.none
+                      : const BorderSide(color: _bingoGridBlue, width: 1),
+                );
+                if (row == 0) {
+                  return _BingoHeaderCell(
+                    letter: const ['B', 'I', 'N', 'G', 'O'][column],
+                    border: cellBorder,
+                  );
+                }
+
+                final ticketRow = row - 1;
+                final value = ticket.grid[ticketRow][column];
+                final isFree = value == 0;
+                final isCalled = isFree || calledNumbers.contains(value);
+                final isLatest = value == latestCalled;
+                return _TicketCell(
+                  key: ValueKey('ticket-cell-$ticketRow-$column'),
+                  value: value,
+                  columnLetter: const ['B', 'I', 'N', 'G', 'O'][column],
+                  isFree: isFree,
+                  isCalled: isCalled,
+                  isLatest: isLatest,
+                  border: cellBorder,
+                  localizations: localizations,
+                );
+              },
+            ),
           ),
         ),
       ],
@@ -728,58 +762,110 @@ class _TicketCell extends StatelessWidget {
   const _TicketCell({
     super.key,
     required this.value,
+    required this.columnLetter,
     required this.isFree,
     required this.isCalled,
     required this.isLatest,
+    required this.border,
     required this.localizations,
   });
 
   final int value;
+  final String columnLetter;
   final bool isFree;
   final bool isCalled;
   final bool isLatest;
+  final Border border;
   final AppLocalizations localizations;
 
   @override
   Widget build(BuildContext context) {
-    final background = isFree
-        ? Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.75)
+    final background = isLatest
+        ? _bingoLatestFill
         : isCalled
-        ? Theme.of(
-            context,
-          ).colorScheme.secondaryContainer.withValues(alpha: 0.9)
-        : Theme.of(context).colorScheme.surfaceContainerHighest;
-    return AnimatedScale(
-      duration: MediaQuery.disableAnimationsOf(context)
-          ? Duration.zero
-          : const Duration(milliseconds: 220),
-      scale: isLatest ? 1.04 : 1.0,
-      child: AnimatedContainer(
-        duration: MediaQuery.disableAnimationsOf(context)
-            ? Duration.zero
-            : const Duration(milliseconds: 220),
-        decoration: BoxDecoration(
-          color: background,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: isCalled
-                ? Theme.of(context).colorScheme.primary
-                : Theme.of(context).dividerColor,
-            width: isLatest ? 2 : 1,
+        ? _bingoCalledFill
+        : Colors.white;
+    final numberColor = isCalled
+        ? _bingoGridBlue
+        : Theme.of(context).colorScheme.onSurface;
+
+    return Semantics(
+      label: '$columnLetter ${isFree ? localizations.freeCenterLabel : value}',
+      selected: isCalled && !isFree,
+      child: ExcludeSemantics(
+        child: AnimatedContainer(
+          duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 180),
+          decoration: BoxDecoration(color: background, border: border),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (isFree)
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(2),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        localizations.freeCenterLabel.toUpperCase(),
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: _bingoGridBlue,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
+                )
+              else
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(2),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        value.toString(),
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: numberColor,
+                          fontWeight:
+                              isCalled ? FontWeight.w700 : FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              if (isCalled && !isFree)
+                const Positioned(
+                  top: 1,
+                  right: 1,
+                  child: Icon(Icons.check, size: 13, color: _bingoMarkGreen),
+                ),
+            ],
           ),
         ),
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(4),
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                isFree ? localizations.freeCenterLabel : value.toString(),
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-              ),
-            ),
+      ),
+    );
+  }
+}
+
+class _BingoHeaderCell extends StatelessWidget {
+  const _BingoHeaderCell({required this.letter, required this.border});
+
+  final String letter;
+  final Border border;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(color: _bingoHeaderFill, border: border),
+      alignment: Alignment.center,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(
+          letter,
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            color: _bingoGridBlue,
+            fontWeight: FontWeight.w800,
           ),
         ),
       ),

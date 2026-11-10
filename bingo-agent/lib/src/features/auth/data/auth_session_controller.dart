@@ -27,16 +27,32 @@ class AuthSessionController extends StateNotifier<AuthSessionState> {
   final AuthRepository _repository;
 
   Future<void> _restore() async {
-    final session = await _repository.restore();
-    if (session != null && session.isExpired) {
-      await _repository.clear();
-      state = const AuthSessionState(
-        loading: false,
-        errorCode: 'SESSION_EXPIRED',
-      );
-      return;
+    try {
+      final session = await _repository.restore();
+      if (!mounted) return;
+      if (session != null && session.isExpired) {
+        await _repository.clear();
+        if (mounted) {
+          state = const AuthSessionState(
+            loading: false,
+            errorCode: 'SESSION_EXPIRED',
+          );
+        }
+        return;
+      }
+      state = AuthSessionState(loading: false, session: session);
+    } catch (_) {
+      // Corrupt or partially written secure-storage data should recover to
+      // sign-in instead of leaving the app stuck during startup.
+      try {
+        await _repository.clear();
+      } catch (_) {
+        // The sign-in screen remains usable if cleanup is unavailable.
+      }
+      if (mounted) {
+        state = const AuthSessionState(loading: false);
+      }
     }
-    state = AuthSessionState(loading: false, session: session);
   }
 
   Future<void> signIn(AgentLoginRequest request) async {
@@ -46,12 +62,26 @@ class AuthSessionController extends StateNotifier<AuthSessionState> {
   }
 
   Future<void> signOut() async {
-    await _repository.clear();
-    state = const AuthSessionState(loading: false, session: null);
+    try {
+      await _repository.clear();
+    } finally {
+      if (mounted) {
+        state = const AuthSessionState(loading: false, session: null);
+      }
+    }
   }
 
   Future<void> clearSession({String? reason}) async {
-    await _repository.clear();
-    state = AuthSessionState(loading: false, session: null, errorCode: reason);
+    try {
+      await _repository.clear();
+    } finally {
+      if (mounted) {
+        state = AuthSessionState(
+          loading: false,
+          session: null,
+          errorCode: reason,
+        );
+      }
+    }
   }
 }

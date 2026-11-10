@@ -20,6 +20,7 @@ import com.bakaroo.bingo.backend.feature.auth.service.EthiopianPhoneNormalizer;
 import com.bakaroo.bingo.backend.feature.auth.service.JwtService;
 import com.bakaroo.bingo.backend.feature.game.dto.TicketPurchaseResponse;
 import com.bakaroo.bingo.backend.feature.game.dto.TicketResponse;
+import com.bakaroo.bingo.backend.feature.game.dto.PlayerGameSessionResponse;
 import com.bakaroo.bingo.backend.feature.game.entity.Ticket;
 import com.bakaroo.bingo.backend.feature.game.entity.PrizeEntitlement;
 import com.bakaroo.bingo.backend.feature.game.entity.PrizeEntitlementStatus;
@@ -199,9 +200,10 @@ public class AgentService {
         AgentFloat agentFloat = requireAgentFloat(agent.getId());
         return new AgentDashboardResponse(agent.getId(), agent.getStatus().name(), agentFloat.getAvailableBalance(),
                 agentFloat.getClearingBalance(),
-                commissionAccrualRepository.findByAgentIdOrderByCreatedAtDesc(agent.getId()).size(),
-                commissionAccrualRepository.findByAgentIdOrderByCreatedAtDesc(agent.getId()).size(),
-                floatTopUpRequestRepository.findByAgentIdOrderByCreatedAtDesc(agent.getId()).size(), Instant.now());
+                agentFloatTransactionRepository.countByAgentIdAndTransactionType(
+                        agent.getId(), AgentFloatTransactionType.TICKET_SALE_DEBIT),
+                commissionAccrualRepository.countByAgentId(agent.getId()),
+                floatTopUpRequestRepository.countByAgentId(agent.getId()), Instant.now());
     }
 
     @Transactional(readOnly = true)
@@ -252,6 +254,12 @@ public class AgentService {
                     createCommissionAccrual(agent, ticket, ticketPrice, operationId);
                     return response;
                 });
+    }
+
+    @Transactional(readOnly = true)
+    public List<PlayerGameSessionResponse> getTicketSaleSessions(BingoUserPrincipal principal) {
+        requireApprovedAgent(principal.getUser().getId());
+        return bingoGameService.listAgentTicketSaleSessions();
     }
 
     @Transactional

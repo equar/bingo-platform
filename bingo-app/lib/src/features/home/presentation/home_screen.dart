@@ -71,44 +71,93 @@ class HomeScreen extends StatelessWidget {
               children: [
                 SafeArea(
                   bottom: false,
-                  minimum: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      IconButton(
-                        key: const ValueKey('home-menu'),
-                        tooltip: l.homeMenu,
-                        onPressed: () => _menu(context),
-                        icon: const Icon(
-                          Icons.menu_rounded,
-                          size: 30,
-                          color: bingoNavy,
-                        ),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.fromLTRB(12, 4, 12, 18),
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [Color(0xFF0B2B5B), bingoNavy],
                       ),
-                      Expanded(
-                        child: Text(
-                          l.homeTitle,
-                          style: Theme.of(context).textTheme.titleLarge,
-                          textAlign: TextAlign.center,
-                        ),
+                      borderRadius: BorderRadius.vertical(
+                        bottom: Radius.circular(24),
                       ),
-                      IconButton(
-                        tooltip: l.homeSupport,
-                        onPressed: onSupport,
-                        icon: const Icon(
-                          Icons.support_agent_rounded,
-                          size: 29,
-                          color: bingoNavy,
+                    ),
+                    child: Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            IconButton(
+                              key: const ValueKey('home-menu'),
+                              tooltip: l.homeMenu,
+                              onPressed: () => _menu(context),
+                              color: Colors.white,
+                              icon: const Icon(Icons.menu_rounded, size: 28),
+                            ),
+                            Expanded(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(
+                                        Icons.emoji_events_rounded,
+                                        color: Color(0xFFFFC52D),
+                                        size: 20,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Flexible(
+                                        child: Text(
+                                          'BINGO',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .titleLarge
+                                              ?.copyWith(
+                                                color: Colors.white,
+                                                letterSpacing: 1.2,
+                                              ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  Text(
+                                    l.homeTitle,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    textAlign: TextAlign.center,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelSmall
+                                        ?.copyWith(
+                                          color: Colors.white70,
+                                          letterSpacing: .5,
+                                        ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              tooltip: l.homeSupport,
+                              onPressed: onSupport,
+                              color: Colors.white,
+                              icon: const Icon(
+                                Icons.support_agent_rounded,
+                                size: 27,
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 26),
+                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 26),
                   child: Column(
                     children: [
                       Semantics(
@@ -296,7 +345,7 @@ class _HomeFeatureGrid extends StatelessWidget {
             SizedBox(
               width: width,
               child: ConstrainedBox(
-                constraints: const BoxConstraints(minHeight: 164),
+                constraints: const BoxConstraints(minHeight: 140),
                 child: child,
               ),
             ),

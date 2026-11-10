@@ -34,6 +34,42 @@
   "floatTitle": "ፍሎት",
   "supportTitle": "ድጋፍ",
   "historyTitle": "ታሪክ",
+  "more": "ተጨማሪ",
+  "payoutLookupFirst": "ከመክፈልዎ በፊት ይህን ክፍያ ይፈልጉና ይገምግሙ።",
+  "payoutUnavailable": "ይህ ክፍያ ለመክፈል አይገኝም። የአሁኑን ሁኔታ ያረጋግጡ።",
+  "noSupportTickets": "ገና የድጋፍ ጥያቄ የለዎትም።",
+  "supportCreateTicket": "አዲስ የድጋፍ ጥያቄ",
+  "supportTicketDetails": "የጥያቄ ዝርዝር",
+  "supportTicketStatus": "ሁኔታ",
+  "supportTicketConversation": "ውይይት",
+  "supportYou": "እርስዎ",
+  "supportTeam": "የድጋፍ ቡድን",
+  "supportTicketReply": "መልስ ይጻፉ",
+  "supportTicketSendReply": "መልስ ይላኩ",
+  "supportTicketCreated": "የድጋፍ ጥያቄዎ ተልኳል።",
+  "supportTicketReplySent": "መልስዎ ተልኳል።",
+  "supportTicketClosed": "ይህ ጥያቄ ተዘግቷል፤ ተጨማሪ መልስ መላክ አይቻልም።",
+  "supportSubject": "ርዕስ",
+  "supportDescription": "ችግሩን ይግለጹ",
+  "supportCategory": "ምድብ",
+  "supportPriority": "ቅድሚያ",
+  "supportAccount": "መለያ",
+  "supportWallet": "ቦርሳ",
+  "supportGame": "ጨዋታ",
+  "supportAgent": "ኤጀንት",
+  "supportTechnical": "ቴክኒክ",
+  "supportBilling": "ክፍያ",
+  "supportOther": "ሌላ",
+  "priorityLow": "ዝቅተኛ",
+  "priorityNormal": "መደበኛ",
+  "priorityHigh": "ከፍተኛ",
+  "priorityUrgent": "አስቸኳይ",
+  "supportStatusOpen": "ክፍት",
+  "supportStatusInProgress": "በሂደት ላይ",
+  "supportStatusWaiting": "ከእርስዎ መልስ ይጠበቃል",
+  "supportStatusResolved": "ተፈትቷል",
+  "supportStatusClosed": "ተዘግቷል",
+  "ticketId": "የቲኬት መለያ",
   "connectionLost": "ግንኙነት ተቋርጧል",
   "financialActionDisabled": "ከመስመር ውጭ የገንዘብ እንቅስቃሴ አይፈቀድም",
   "missingApiBaseUrlTitle": "የጀርባ አገልጋይ አድራሻ የለም ወይም ልክ አይደለም",
@@ -213,6 +249,28 @@
   "verifyAndDisburse": "አረጋግጥና ክፈል",
   "ticketSaleTitle": "የቲኬት ሽያጭ",
   "sessionId": "የዙር መለያ",
+  "ticketSaleSelectSession": "ክፍት ጨዋታ ይምረጡ",
+  "ticketSaleNoSessions": "አሁን ክፍት የሆነና ነፃ ቦታ ያለው ጨዋታ የለም።",
+  "ticketSaleSessionsLoadFailed": "ክፍት ጨዋታዎችን መጫን አልተቻለም።",
+  "ticketSaleRefreshSessions": "ጨዋታዎችን ያድሱ",
+  "ticketSaleConfirmation": "ቲኬቱን ከመሸጥዎ በፊት ጨዋታውን፣ ተጫዋቹንና ዋጋውን ያረጋግጡ።",
+  "ticketSaleAvailableSeats": "{count} ቦታ ቀርቷል",
+  "@ticketSaleAvailableSeats": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "ticketSaleConfirmTitle": "የቲኬት ሽያጩን ያረጋግጡ",
+  "ticketSaleSessionId": "የጨዋታ ቁጥር {id}",
+  "@ticketSaleSessionId": {
+    "placeholders": {
+      "id": {
+        "type": "int"
+      }
+    }
+  },
   "sellTicket": "ቲኬት ሽጥ",
   "publicTicketCode": "የሕዝብ ቲኬት ኮድ",
   "supportTickets": "የድጋፍ ጥያቄዎች",

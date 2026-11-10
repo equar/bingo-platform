@@ -1,0 +1,101 @@
+BINGO ANDROID BUILD GUIDE
+========================
+
+Run these commands from the repository root. These steps build the Player app
+in bingo-app. The Agent app is in bingo-agent and is not the Play Store app
+configured by the current Android publishing workflows.
+
+Prerequisites
+-------------
+
+- Flutter 3.47.7 (the version pinned by the Android Play workflows), Android
+  SDK/build tools, Java 17 or newer, and an internet connection for dependencies.
+- For local testing, docker-mysql must be running and bingo-backend/.env must
+  point to the local bingo database. APP_DEV_SEED_ENABLED=true enables local
+  sample accounts; these accounts are not AWS production accounts.
+- Android emulator local-host routing uses 10.0.2.2. A physical phone needs
+  the computer's reachable LAN address instead.
+
+1. Local backend + local debug APK
+----------------------------------
+
+Start MySQL if it is stopped:
+
+    docker start docker-mysql
+
+In a backend terminal, start the local development backend:
+
+    cd bingo-backend
+    mvn spring-boot:run -Dspring-boot.run.profiles=dev
+
+Wait until this succeeds in another terminal:
+
+    curl -fsS http://127.0.0.1:8080/actuator/health
+
+Build the Player debug APK from the repository root. The local API URL is
+compiled into the APK; Android emulators reach the host computer at 10.0.2.2:
+
+    cd bingo-app
+    flutter pub get
+    flutter gen-l10n
+    flutter build apk --debug --build-number=5 --target-platform=android-arm,android-arm64,android-x64 --target=lib/main.dart --dart-define=API_BASE_URL=http://10.0.2.2:8080 --dart-define=BINGO_PLAYER_PURCHASES_ENABLED=true
+    mkdir -p ../deployment/mobile/artifacts
+    cp build/app/outputs/flutter-apk/app-debug.apk ../deployment/mobile/artifacts/bingo-app-local-debug.apk
+    cd ..
+
+The output is deployment/mobile/artifacts/bingo-app-local-debug.apk. For a
+physical Android phone, replace 10.0.2.2 with the computer's LAN IP and make
+sure the backend listens on the LAN interface and the firewall permits port
+8080. Local HTTP is for debug builds only.
+
+2. AWS production build
+-----------------------
+
+The public production API is https://api.bingo.bakaroo.com. Check that it is
+deployed and healthy before building:
+
+    curl -fsS https://api.bingo.bakaroo.com/actuator/health
+
+Before each release, set BINGO_BUILD_NUMBER to an integer greater than the
+latest versionCode in Google Play Console. Example below uses 6; increase it
+for every new Play upload. The Android package ID in the current source is
+com.bakaroo.bingo_app and must exactly match the Play Console app's package ID.
+
+For release signing, bingo-app/android/key.properties must refer to the
+upload keystore registered with Play App Signing. The repository's local APK
+signing key is not automatically the Play upload key. Check the key
+certificate against the upload certificate in Play Console before uploading.
+
+From the repository root, build the production Android App Bundle with the
+repeatable script (replace 6 with the next unused Play version code):
+
+    ./playstoreBuild.sh 6
+
+The script hardcodes and validates the AWS API URL, enables ticket purchasing,
+requires the Player app's upload signing configuration, builds the release bundle, and writes
+deployment/mobile/artifacts/bingo-app-playstore-6.aab plus its SHA-256 file.
+For sideload/QA only, build a production APK separately from bingo-app using
+the same release API URL and registered upload key; do not upload that APK to
+Google Play. Google Play uses Android App Bundles
+to generate device-specific APKs; new Play apps are required to publish using
+the bundle format. See https://developer.android.com/studio/publish/upload-bundle.
+
+For the configured CI release path, upload to the internal testing track first
+with .github/workflows/bingo-app-android-internal-testing.yml, verify it in
+Play Console, then promote that tested version with
+.github/workflows/bingo-app-android-production.yml. Promotion does not rebuild
+the app. Both workflows require the configured Play service account, upload
+keystore secrets, package name, and production API URL.
+
+Important
+---------
+
+- Local debug builds use http://10.0.2.2:8080 and local database accounts.
+- AWS release builds use https://api.bingo.bakaroo.com and require accounts
+  registered in the AWS production database. Local .env accounts do not exist
+  there automatically.
+- Do not upload a bundle until its package ID and upload signing certificate
+  match the Play Console app. A different package ID creates a separate app.
+- Release version codes must increase for each Play upload.
+- Replacing a release-signed app on an emulator with a debug-signed build needs
+  uninstall/reinstall and removes that app's local data.

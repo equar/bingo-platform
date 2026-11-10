@@ -1,4 +1,5 @@
 import 'package:bingo_agent/src/core/network/api_error.dart';
+import 'package:bingo_agent/src/core/formatting/financial_amount.dart';
 import 'package:bingo_agent/src/core/network/idempotency.dart';
 import 'package:bingo_agent/src/features/agents/data/agent_repository.dart';
 import 'package:bingo_agent/src/features/agents/data/agent_models.dart';
@@ -50,7 +51,14 @@ class FloatHistoryScreen extends ConsumerWidget {
           Localizations.localeOf(context).languageCode,
         );
         return RefreshIndicator(
-          onRefresh: () async => ref.invalidate(floatHistoryProvider),
+          onRefresh: () async {
+            ref.invalidate(floatHistoryProvider);
+            try {
+              await ref.read(floatHistoryProvider.future);
+            } catch (_) {
+              // The provider error state includes a retry action.
+            }
+          },
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(16),
@@ -61,9 +69,7 @@ class FloatHistoryScreen extends ConsumerWidget {
               ),
               Text(
                 l10n.availableBalance(
-                  number.format(
-                    double.tryParse(floatBalance.availableBalance) ?? 0,
-                  ),
+                  formatFinancialAmount(floatBalance.availableBalance, number),
                   floatBalance.currency,
                 ),
               ),
@@ -83,7 +89,7 @@ class FloatHistoryScreen extends ConsumerWidget {
                     ).add_jm().format(entry.createdAt.toLocal()),
                   ),
                   trailing: Text(
-                    currency.format(double.tryParse(entry.amount) ?? 0),
+                    formatFinancialAmount(entry.amount, currency),
                   ),
                 ),
               ),
@@ -95,7 +101,7 @@ class FloatHistoryScreen extends ConsumerWidget {
               ...requests.map(
                 (entry) => ListTile(
                   title: Text(
-                    currency.format(double.tryParse(entry.amount) ?? 0),
+                    formatFinancialAmount(entry.amount, currency),
                   ),
                   subtitle: Text(
                     [

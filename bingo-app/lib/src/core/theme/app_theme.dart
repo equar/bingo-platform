@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 /// Shared, inexpensive Material styling; system fonts retain native text scaling.
 ThemeData buildAppTheme() {
   final scheme = ColorScheme.fromSeed(
-    seedColor: const Color(0xFF1688FF),
-    primary: const Color(0xFF1264C8),
-    secondary: const Color(0xFFFF7900),
+    seedColor: const Color(0xFFFF7900),
+    primary: const Color(0xFFBA4900),
+    secondary: const Color(0xFF1264C8),
     surface: Colors.white,
     onSurface: const Color(0xFF081D46),
     outlineVariant: const Color(0xFFE2E7F0),
@@ -14,7 +14,7 @@ ThemeData buildAppTheme() {
   return ThemeData(
     useMaterial3: true,
     colorScheme: scheme,
-    scaffoldBackgroundColor: const Color(0xFFFAFBFD),
+    scaffoldBackgroundColor: const Color(0xFFF4F6FA),
     materialTapTargetSize: MaterialTapTargetSize.padded,
     textTheme: ThemeData.light().textTheme.copyWith(
       headlineMedium: const TextStyle(
@@ -88,8 +88,8 @@ ThemeData buildAppTheme() {
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
     ),
     tabBarTheme: TabBarThemeData(
-      labelColor: scheme.primary,
-      unselectedLabelColor: const Color(0xFF667084),
+      labelColor: const Color(0xFFFFB46A),
+      unselectedLabelColor: Colors.white70,
       labelStyle: const TextStyle(
         fontFamily: 'Roboto',
         fontSize: 14,
@@ -101,7 +101,8 @@ ThemeData buildAppTheme() {
         fontWeight: FontWeight.w600,
       ),
       indicatorSize: TabBarIndicatorSize.label,
-      dividerColor: scheme.outlineVariant,
+      dividerColor: Colors.white24,
+      indicatorColor: const Color(0xFFFFB46A),
     ),
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
@@ -109,16 +110,16 @@ ThemeData buildAppTheme() {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
     ),
     appBarTheme: const AppBarTheme(
-      backgroundColor: Color(0xFFFAFBFD),
-      foregroundColor: Color(0xFF081D46),
+      backgroundColor: Color(0xFF081D46),
+      foregroundColor: Colors.white,
       surfaceTintColor: Colors.transparent,
-      centerTitle: false,
+      centerTitle: true,
       titleSpacing: 20,
       titleTextStyle: TextStyle(
         fontFamily: 'Roboto',
-        fontSize: 23,
+        fontSize: 20,
         fontWeight: FontWeight.w800,
-        color: Color(0xFF081D46),
+        color: Colors.white,
         letterSpacing: -.5,
       ),
       scrolledUnderElevation: 0,
