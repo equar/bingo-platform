@@ -35,6 +35,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Comparator;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -136,7 +137,21 @@ public class WalletTransferService {
 
     @Transactional(readOnly = true)
     public Page<WalletTransferSettingsResponse> settingsHistory(Pageable pageable) {
-        return policyRepository.findAllByOrderByCreatedAtDescIdDesc(pageable).map(this::toSettingsResponse);
+        return settingsHistory(null, null, pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<WalletTransferSettingsResponse> settingsHistory(String query, Boolean enabled, Pageable pageable) {
+        String search = query == null || query.isBlank() ? null : query.trim().toLowerCase(Locale.ROOT);
+        BigDecimal amount = null;
+        if (search != null) {
+            try {
+                amount = new BigDecimal(search);
+            } catch (NumberFormatException ignored) {
+                // Text searches still match currency and policy reason.
+            }
+        }
+        return policyRepository.searchHistory(search, enabled, amount, pageable).map(this::toSettingsResponse);
     }
 
     @Transactional

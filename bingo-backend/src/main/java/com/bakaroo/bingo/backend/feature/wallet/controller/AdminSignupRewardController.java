@@ -3,6 +3,7 @@ package com.bakaroo.bingo.backend.feature.wallet.controller;
 import com.bakaroo.bingo.backend.common.api.PageResponse;
 import com.bakaroo.bingo.backend.feature.auth.service.BingoUserPrincipal;
 import com.bakaroo.bingo.backend.feature.wallet.dto.SignupRewardGrantResponse;
+import com.bakaroo.bingo.backend.feature.wallet.dto.SignupRewardPolicyStatusRequest;
 import com.bakaroo.bingo.backend.feature.wallet.dto.SignupRewardSettingsRequest;
 import com.bakaroo.bingo.backend.feature.wallet.dto.SignupRewardSettingsResponse;
 import com.bakaroo.bingo.backend.feature.wallet.service.SignupRewardService;
@@ -13,13 +14,16 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/admin/wallet/signup-rewards")
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasAnyRole('ADMIN', 'SUPPORT')")
 public class AdminSignupRewardController {
 
     private final SignupRewardService signupRewardService;
@@ -34,18 +38,29 @@ public class AdminSignupRewardController {
     }
 
     @GetMapping("/settings/history")
-    public PageResponse<SignupRewardSettingsResponse> settingsHistory(@PageableDefault(size = 20) Pageable pageable) {
-        return PageResponse.from(signupRewardService.settingsHistory(pageable));
+    public PageResponse<SignupRewardSettingsResponse> settingsHistory(
+            @RequestParam(required = false) String query,
+            @RequestParam(required = false) Boolean enabled,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return PageResponse.from(signupRewardService.settingsHistory(query, enabled, pageable));
     }
 
     @PostMapping("/settings")
+    @PreAuthorize("hasRole('ADMIN')")
     public SignupRewardSettingsResponse updateSettings(@AuthenticationPrincipal BingoUserPrincipal principal,
             @Valid @RequestBody SignupRewardSettingsRequest request) {
         return signupRewardService.saveSettings(principal, request);
     }
 
+    @PutMapping("/settings/{policyId}/status")
+    public SignupRewardSettingsResponse updatePolicyStatus(@AuthenticationPrincipal BingoUserPrincipal principal,
+            @PathVariable Long policyId, @RequestBody SignupRewardPolicyStatusRequest request) {
+        return signupRewardService.setPolicyStatus(principal, policyId, request.enabled());
+    }
+
     @GetMapping("/grants")
-    public PageResponse<SignupRewardGrantResponse> grants(@PageableDefault(size = 20) Pageable pageable) {
-        return PageResponse.from(signupRewardService.grants(pageable));
+    public PageResponse<SignupRewardGrantResponse> grants(@RequestParam(required = false) String query,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return PageResponse.from(signupRewardService.listGrants(query, pageable));
     }
 }

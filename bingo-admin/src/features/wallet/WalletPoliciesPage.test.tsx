@@ -13,6 +13,7 @@ import {
   signupRewardSettingsHistory,
   walletTransferSettingsHistory,
 } from "../../api/admin";
+import { SignupRewardGrantsPage } from "./SignupRewardGrantsPage";
 import { WalletPoliciesPage } from "./WalletPoliciesPage";
 
 vi.mock("../../api/admin", () => ({
@@ -118,7 +119,7 @@ describe("WalletPoliciesPage", () => {
     expect(await screen.findByRole("heading", { name: "Signup reward" })).toBeInTheDocument();
     expect(currentSignupRewardSettingsMock).toHaveBeenCalledOnce();
     expect(currentWalletTransferSettingsMock).not.toHaveBeenCalled();
-    expect(signupRewardGrantsMock).toHaveBeenCalledOnce();
+    expect(signupRewardGrantsMock).not.toHaveBeenCalled();
     expect(walletTransferSettingsHistoryMock).not.toHaveBeenCalled();
 
     unmount();
@@ -130,7 +131,16 @@ describe("WalletPoliciesPage", () => {
     expect(walletTransferSettingsHistoryMock).toHaveBeenCalledOnce();
   });
 
-  it("defaults a new reward policy to the next minute and restricts dates to the future", async () => {
+  it("loads grants from the dedicated signup reward grants page", async () => {
+    render(<SignupRewardGrantsPage />, { wrapper: createWrapper });
+
+    expect(
+      await screen.findByRole("heading", { name: "Signup reward grants" }),
+    ).toBeInTheDocument();
+    expect(signupRewardGrantsMock).toHaveBeenCalledWith(0, 20, undefined);
+  });
+
+  it("defaults a new reward policy to today and allows an inclusive same-day end date", async () => {
     currentSignupRewardSettingsMock.mockResolvedValue({
       id: null,
       enabled: false,
@@ -152,9 +162,10 @@ describe("WalletPoliciesPage", () => {
     const effectiveFrom = screen.getByLabelText("Effective from") as HTMLInputElement;
     const effectiveUntil = screen.getByLabelText("Effective until") as HTMLInputElement;
 
-    expect(effectiveFrom.value).not.toBe("");
-    expect(effectiveFrom.value >= effectiveFrom.min).toBe(true);
-    expect(effectiveUntil.min > effectiveFrom.value).toBe(true);
+    expect(effectiveFrom.type).toBe("date");
+    expect(effectiveUntil.type).toBe("date");
+    expect(effectiveFrom.value).toBe(effectiveFrom.min);
+    expect(effectiveUntil.min).toBe(effectiveFrom.value);
     expect(effectiveUntil).toHaveAttribute("min", effectiveUntil.min);
   });
 
