@@ -41,7 +41,6 @@ import com.bakaroo.bingo.backend.feature.user.entity.UserRole;
 import com.bakaroo.bingo.backend.feature.user.repository.UserRepository;
 import com.bakaroo.bingo.backend.feature.wallet.repository.WalletRepository;
 import com.bakaroo.bingo.backend.feature.wallet.repository.WalletTransactionRepository;
-import com.bakaroo.bingo.backend.feature.wallet.service.LocalFinancialSimulationGuard;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Optional;
 import java.util.Arrays;
@@ -76,7 +75,6 @@ class WinClaimSessionSecurityTest {
     @Mock private IdempotencyService idempotencyService;
     @Mock private RequestHashService requestHashService;
     @Mock private ObjectMapper objectMapper;
-    @Mock private LocalFinancialSimulationGuard ticketPurchasePostingGuard;
     @Mock private GameLiveDrawService gameLiveDrawService;
 
     private BingoGameService service;
@@ -89,8 +87,8 @@ class WinClaimSessionSecurityTest {
         service = new BingoGameService(bingoRoomRepository, gameSessionRepository, ticketRepository,
                 drawEventRepository, winClaimRepository, prizeEntitlementRepository, userRepository,
                 walletRepository, walletTransactionRepository, gameProperties, snapshotMapper,
-                idempotencyService, requestHashService, objectMapper, ticketPurchasePostingGuard,
-                gameLiveDrawService, org.mockito.Mockito.mock(com.bakaroo.bingo.backend.feature.community.service.GameAccessService.class));
+                idempotencyService, requestHashService, objectMapper, gameLiveDrawService,
+                org.mockito.Mockito.mock(com.bakaroo.bingo.backend.feature.community.service.GameAccessService.class));
 
     }
 

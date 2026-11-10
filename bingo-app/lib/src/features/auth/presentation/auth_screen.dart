@@ -169,39 +169,58 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Semantics(
-                    label: localizations.appTitle,
-                    image: true,
-                    child: Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 340),
-                        child: AspectRatio(
-                          aspectRatio: 1.27,
-                          child: Image.asset(
-                            'assets/images/bingo-ethiopia-hero.png',
-                            fit: BoxFit.cover,
-                            alignment: Alignment.bottomCenter,
-                            excludeFromSemantics: true,
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 18,
+                    ),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [Color(0xFF0B2B5B), Color(0xFF081D46)],
+                      ),
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                    child: Column(
+                      children: [
+                        const Icon(
+                          Icons.emoji_events_rounded,
+                          color: Color(0xFFFFC52D),
+                          size: 40,
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'BINGO',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 25,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 1.3,
                           ),
                         ),
-                      ),
+                        const SizedBox(height: 12),
+                        Text(
+                          _registerMode
+                              ? localizations.registerTitle
+                              : localizations.loginTitle,
+                          textAlign: TextAlign.center,
+                          style: Theme.of(
+                            context,
+                          ).textTheme.titleLarge?.copyWith(color: Colors.white),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _registerMode
+                              ? localizations.registerSubtitle
+                              : localizations.loginSubtitle,
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(color: Colors.white70),
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    _registerMode
-                        ? localizations.registerTitle
-                        : localizations.loginTitle,
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.headlineSmall,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _registerMode
-                        ? localizations.registerSubtitle
-                        : localizations.loginSubtitle,
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodyMedium,
                   ),
                   if (widget.sessionExpired) ...[
                     const SizedBox(height: 12),
