@@ -3,6 +3,7 @@ package com.bakaroo.bingo.backend.feature.game.dto;
 import com.bakaroo.bingo.backend.feature.game.entity.BingoPatternType;
 import com.bakaroo.bingo.backend.feature.game.entity.PrizeEntitlementStatus;
 import com.bakaroo.bingo.backend.feature.game.entity.PrizeSettlementPath;
+import com.bakaroo.bingo.backend.feature.game.entity.WinClaimStatus;
 import java.math.BigDecimal;
 import java.time.Instant;
 
@@ -12,6 +13,11 @@ public record PrizeEntitlementResponse(
         Long sessionId,
         Long ticketId,
         Long claimantId,
+        String claimantDisplayName,
+        BingoPatternType claimedPattern,
+        WinClaimStatus claimStatus,
+        String sessionName,
+        String publicTicketCode,
         BingoPatternType prizeType,
         PrizeSettlementPath settlementPath,
         PrizeEntitlementStatus status,

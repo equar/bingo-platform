@@ -753,8 +753,8 @@ public class BingoGameService {
     private User requireDrawOperator(BingoUserPrincipal principal) {
         User user = requireAdmin(principal);
         if (user.hasRole(UserRole.SUPPORT)
-                || user.hasRole(UserRole.FINANCE_VERIFIER)
-                || user.hasRole(UserRole.FINANCE_APPROVER)) {
+                || user.hasRole(UserRole.SUPPORT)
+                || user.hasRole(UserRole.ADMIN)) {
             throw new AccessDeniedException("Support and finance roles cannot operate game draws");
         }
         return user;
@@ -881,6 +881,9 @@ public class BingoGameService {
                 claim.getTicket().getId(),
                 claim.getSession().getId(),
                 claim.getClaimant().getId(),
+                claim.getClaimant().getDisplayName(),
+                claim.getClaimant().getNormalizedPhone(),
+                claim.getTicket().getPublicTicketCode(),
                 claim.getClaimedPattern(),
                 claim.getStatus(),
                 claim.isServerValidationPassed(),
@@ -905,6 +908,11 @@ public class BingoGameService {
                 entitlement.getSession().getId(),
                 entitlement.getTicket().getId(),
                 entitlement.getClaimant().getId(),
+                entitlement.getClaimant().getDisplayName(),
+                entitlement.getWinClaim().getClaimedPattern(),
+                entitlement.getWinClaim().getStatus(),
+                entitlement.getSession().getSessionName(),
+                entitlement.getTicket().getPublicTicketCode(),
                 entitlement.getPrizeType(),
                 entitlement.getSettlementPath(),
                 entitlement.getStatus(),

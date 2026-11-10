@@ -2,6 +2,7 @@ package com.bakaroo.bingo.backend.feature.auth.dto;
 
 import com.bakaroo.bingo.backend.feature.user.entity.AccountStatus;
 import com.bakaroo.bingo.backend.feature.user.entity.UserRole;
+import com.bakaroo.bingo.backend.feature.user.entity.ActivationEmailStatus;
 import java.time.Instant;
 import java.util.Set;
 
@@ -15,5 +16,6 @@ public record UserSummaryResponse(
         Instant createdAt,
         Instant updatedAt,
         String createdByDisplayName,
-        String updatedByDisplayName) {
+        String updatedByDisplayName,
+        ActivationEmailStatus activationEmailStatus) {
 }

@@ -104,7 +104,7 @@ describe("ProtectedRoute", () => {
         id: 4,
         displayName: "Finance Support",
         phoneNumber: "251911000004",
-        roles: ["SUPPORT", "FINANCE_VERIFIER"],
+        roles: ["SUPPORT", "SUPPORT"],
         status: "ACTIVE",
         createdAt: "2026-01-01T00:00:00.000Z",
         updatedAt: "2026-01-01T00:00:00.000Z",
@@ -114,7 +114,7 @@ describe("ProtectedRoute", () => {
     render(
       <MemoryRouter initialEntries={["/deposits"]}>
         <Routes>
-          <Route element={<ProtectedRoute allowedRoles={["FINANCE_VERIFIER"]} refreshSession />}>
+          <Route element={<ProtectedRoute allowedRoles={["SUPPORT"]} refreshSession />}>
             <Route path="/deposits" element={<div>finance deposits</div>} />
           </Route>
         </Routes>

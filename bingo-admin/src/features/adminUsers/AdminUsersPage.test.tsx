@@ -223,7 +223,7 @@ describe("AdminUsersPage", () => {
         displayName: "Finance QA",
         email: "finance@example.invalid",
         phoneNumber: "251911000017",
-        roles: ["ADMIN", "FINANCE_VERIFIER"],
+        roles: ["ADMIN", "SUPPORT"],
         status: "ACTIVE",
         createdAt: "2026-01-01T00:00:00.000Z",
         updatedAt: "2026-01-01T00:00:00.000Z",
@@ -235,7 +235,7 @@ describe("AdminUsersPage", () => {
     render(<AdminUsersPage />, { wrapper: createWrapper() });
     await user.click(await screen.findByRole("button", { name: "Revoke Finance verifier from Finance QA" }));
     await waitFor(() => {
-      expect(revokeFinanceRoleMock).toHaveBeenCalledWith(17, "FINANCE_VERIFIER");
+      expect(revokeFinanceRoleMock).toHaveBeenCalledWith(17, "SUPPORT");
     });
   });
 

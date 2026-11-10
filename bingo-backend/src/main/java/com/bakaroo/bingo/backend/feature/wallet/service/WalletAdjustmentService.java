@@ -55,7 +55,7 @@ public class WalletAdjustmentService {
     @Transactional
     public WalletAdjustmentRequestResponse submit(Long playerId, BingoUserPrincipal principal,
             WalletAdjustmentSubmissionRequest input) {
-        User maker = requireRole(principal.getUser(), UserRole.FINANCE_VERIFIER);
+        User maker = requireRole(principal.getUser(), UserRole.SUPPORT);
         User player = users.findById(playerId)
                 .orElseThrow(() -> new NotFoundException("PLAYER_NOT_FOUND", "Player account not found"));
         if (!player.hasRole(UserRole.PLAYER)) {
@@ -82,7 +82,7 @@ public class WalletAdjustmentService {
     @Transactional
     public WalletAdjustmentRequestResponse approve(Long requestId, BingoUserPrincipal principal,
             WalletAdjustmentReviewRequest input) {
-        User checker = requireRole(principal.getUser(), UserRole.FINANCE_APPROVER);
+        User checker = requireRole(principal.getUser(), UserRole.ADMIN);
         AdjustmentRequest request = findForUpdate(requestId);
         if ("APPROVED".equals(request.status())) {
             return findRequest(requestId);
@@ -144,7 +144,7 @@ public class WalletAdjustmentService {
     @Transactional
     public WalletAdjustmentRequestResponse reject(Long requestId, BingoUserPrincipal principal,
             WalletAdjustmentReviewRequest input) {
-        User checker = requireRole(principal.getUser(), UserRole.FINANCE_APPROVER);
+        User checker = requireRole(principal.getUser(), UserRole.ADMIN);
         AdjustmentRequest request = findForUpdate(requestId);
         if (!"PENDING".equals(request.status())) {
             throw new ConflictException("WALLET_ADJUSTMENT_NOT_PENDING",

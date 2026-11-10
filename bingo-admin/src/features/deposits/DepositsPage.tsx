@@ -19,12 +19,14 @@ import {
   TableHead,
   TableRow,
   TextField,
+  Tooltip,
   Typography,
 } from "@mui/material";
 import {
   approveDeposit,
   deposits,
   rejectDeposit,
+  verifyDeposit,
 } from "../../api/admin";
 import { getUserFacingErrorMessage, parseApiError } from "../../api/types";
 import { StatusState } from "../../components/StatusState";
@@ -34,6 +36,7 @@ import { AdminPageHeader } from "../../components/AdminPageHeader";
 import { usePrivateListSearch } from "../../components/usePrivateListSearch";
 import { useListSessionState } from "../../components/useListSessionState";
 import { translateAdminStatus } from "../../i18n";
+import { useSession } from "../../api/session";
 import { useIdempotencyKey } from "../common/useIdempotencyKey";
 
 const statusOptions = [
@@ -47,6 +50,7 @@ const statusOptions = [
 
 export function DepositsPage() {
   const { t } = useTranslation();
+  const authSession = useSession();
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const [query, setQuery] = usePrivateListSearch("deposits");
@@ -63,7 +67,12 @@ export function DepositsPage() {
   const [comment, setComment] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [mode, setMode] = useState<"APPROVE" | "REJECT">("APPROVE");
+  const [verificationDepositId, setVerificationDepositId] = useState<number | null>(null);
+  const [statementEntryId, setStatementEntryId] = useState("");
+  const [verificationOpen, setVerificationOpen] = useState(false);
   const idempotency = useIdempotencyKey();
+  const canVerifyDeposits = authSession?.user.roles.includes("SUPPORT") ?? false;
+  const canApproveDeposits = authSession?.user.roles.includes("ADMIN") ?? false;
 
   useEffect(() => {
     if (searchParams.has("status")) setStatus(statusOptions.find((option) => option === searchParams.get("status")) ?? "");
@@ -92,6 +101,21 @@ export function DepositsPage() {
     },
   });
   const actionOutcomeUnknown = actionMutation.isError && parseApiError(actionMutation.error).outcomeUnknown;
+  const verificationMutation = useMutation({
+    mutationFn: () => {
+      if (verificationDepositId == null || !Number.isSafeInteger(Number(statementEntryId)) || Number(statementEntryId) <= 0) {
+        throw new Error("A valid bank statement entry ID is required");
+      }
+      return verifyDeposit(verificationDepositId, Number(statementEntryId));
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["deposits"] });
+      await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      setVerificationOpen(false);
+      setVerificationDepositId(null);
+      setStatementEntryId("");
+    },
+  });
   if (depositsQuery.isLoading) {
     return <StatusState title={t("Loading deposits")} loading message={t("Fetching deposit queue")} />;
   }
@@ -191,6 +215,11 @@ export function DepositsPage() {
                     : deposit.status === "VERIFIED" ? "success" : "default"}
                   size="small"
                   />
+                  {["PENDING", "AWAITING_VERIFICATION", "VERIFICATION_EXCEPTION"].includes(deposit.status) ? (
+                    <Typography variant="caption" display="block" color="warning.main">
+                      {t("Awaiting independent bank verification")}
+                    </Typography>
+                  ) : null}
                   {deposit.verifiedBy != null ? (
                   <Typography variant="caption" display="block" color="text.secondary">
                     {t("Verified by user #")}{deposit.verifiedBy}
@@ -201,21 +230,53 @@ export function DepositsPage() {
                 <TableCell>{deposit.reviewNote ?? t("n/a")}</TableCell>
                 <TableCell align="right">
                   <Stack direction="row" spacing={1} justifyContent="flex-end">
-                    <Button
-                      data-testid={`deposit-approve-${deposit.id}`}
-                      size="small"
-                      variant="contained"
-                      disabled={deposit.status !== "VERIFIED"}
-                      onClick={() => {
-                        idempotency.resetKey();
-                        actionMutation.reset();
-                        setComment("");
-                        setMode("APPROVE");
-                        setSelectedId(deposit.id);
-                        setConfirmOpen(true);
-                      }}
+                    <Tooltip
+                      title={deposit.status !== "VERIFIED"
+                        ? t("A matched bank verification is required before approval.")
+                        : !canApproveDeposits
+                        ? t("An admin role is required to approve deposits.")
+                          : deposit.verifiedBy === authSession?.user.id
+                            ? t("A different admin must approve this verified deposit.")
+                            : ""}
                     >
-                      {t("Approve")}</Button>
+                      <span>
+                        <Button
+                          data-testid={`deposit-approve-${deposit.id}`}
+                          size="small"
+                          variant="contained"
+                          disabled={
+                            deposit.status !== "VERIFIED" ||
+                            !canApproveDeposits ||
+                            deposit.verifiedBy === authSession?.user.id
+                          }
+                          onClick={() => {
+                            idempotency.resetKey();
+                            actionMutation.reset();
+                            setComment("");
+                            setMode("APPROVE");
+                            setSelectedId(deposit.id);
+                            setConfirmOpen(true);
+                          }}
+                        >
+                          {t("Approve")}
+                        </Button>
+                      </span>
+                    </Tooltip>
+                    {canVerifyDeposits && ["PENDING", "AWAITING_VERIFICATION", "VERIFIED", "VERIFICATION_EXCEPTION"].includes(deposit.status) ? (
+                      <Button
+                        data-testid={`deposit-verify-${deposit.id}`}
+                        size="small"
+                        variant="outlined"
+                        onClick={() => {
+                          verificationMutation.reset();
+                          setVerificationDepositId(deposit.id);
+                          setStatementEntryId("");
+                          setVerificationOpen(true);
+                        }}
+                      >
+                        {t("Verify")}
+                      </Button>
+                    ) : null}
                     <Button
                       data-testid={`deposit-reject-${deposit.id}`}
                       size="small"
@@ -286,6 +347,45 @@ export function DepositsPage() {
             disabled={!comment.trim() || actionMutation.isPending}
           >
             {actionOutcomeUnknown ? t("Retry same decision") : mode === "APPROVE" ? t("Approve") : t("Reject")}
+          </Button>
+        </DialogActions>
+      </Dialog>
+      <Dialog
+        open={verificationOpen}
+        onClose={() => !verificationMutation.isPending && setVerificationOpen(false)}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle>{t("Verify deposit")}</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ pt: 1 }}>
+            {verificationMutation.isError ? (
+              <Alert severity="error">
+                {t(getUserFacingErrorMessage(verificationMutation.error) ?? "Something went wrong. Please try again.")}
+              </Alert>
+            ) : null}
+            <Typography variant="body2" color="text.secondary">
+              {t("Match this deposit against an independent bank statement entry.")}
+            </Typography>
+            <TextField
+              label={t("Bank statement entry ID")}
+              type="number"
+              value={statementEntryId}
+              onChange={(event) => setStatementEntryId(event.target.value)}
+              inputProps={{ min: 1, step: 1 }}
+              fullWidth
+              required
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setVerificationOpen(false)} disabled={verificationMutation.isPending}>{t("Cancel")}</Button>
+          <Button
+            variant="contained"
+            onClick={() => verificationMutation.mutate()}
+            disabled={verificationMutation.isPending || !Number.isSafeInteger(Number(statementEntryId)) || Number(statementEntryId) <= 0}
+          >
+            {t("Verify")}
           </Button>
         </DialogActions>
       </Dialog>

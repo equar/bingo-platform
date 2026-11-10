@@ -11,6 +11,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  Link,
   MenuItem,
   Stack,
   Table,
@@ -32,6 +33,7 @@ import { translateAdminStatus, translateAdminValue } from "../../i18n";
 import { useIdempotencyKey } from "../common/useIdempotencyKey";
 import { usePrivateListSearch } from "../../components/usePrivateListSearch";
 import { useListSessionState } from "../../components/useListSessionState";
+import { EntitlementReferenceDialog, type EntitlementReference } from "../prizeEntitlements/EntitlementReferenceDialog";
 
 const statusOptions = ["PENDING_REVIEW", "APPROVED", "REJECTED", "FAILED_SERVER_VALIDATION"] as const;
 const patternOptions = [
@@ -74,6 +76,7 @@ export function ClaimsPage() {
   const [reason, setReason] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [mode, setMode] = useState<"APPROVE" | "REJECT">("APPROVE");
+  const [reference, setReference] = useState<EntitlementReference | null>(null);
   const idempotency = useIdempotencyKey();
 
   useEffect(() => {
@@ -212,10 +215,40 @@ export function ClaimsPage() {
                     </Typography>
                   </Stack>
                 </TableCell>
-                <TableCell>{claim.claimantId}</TableCell>
                 <TableCell>
-                  <Typography variant="body2">{t("Ticket")}{" "}{claim.ticketId}</Typography>
-                  <Typography variant="caption" color="text.secondary">{t("Session")}{" "}{claim.sessionId}</Typography>
+                  <Stack spacing={0.5}>
+                    <Link
+                      component="button"
+                      type="button"
+                      variant="body2"
+                      underline="hover"
+                      onClick={() => setReference({ kind: "player", id: claim.claimantId })}
+                    >
+                      {claim.claimantDisplayName || t("Player details unavailable")}
+                    </Link>
+                  </Stack>
+                </TableCell>
+                <TableCell>
+                  <Stack spacing={0.5}>
+                    <Link
+                      component="button"
+                      type="button"
+                      variant="body2"
+                      underline="hover"
+                      onClick={() => setReference({ kind: "ticket", id: claim.ticketId })}
+                    >
+                      {t("Ticket")}{" "}{claim.publicTicketCode || t("Ticket number unavailable")}
+                    </Link>
+                    <Link
+                      component="button"
+                      type="button"
+                      variant="caption"
+                      underline="hover"
+                      onClick={() => setReference({ kind: "session", id: claim.sessionId })}
+                    >
+                      {t("Session")}{" "}{claim.sessionId}
+                    </Link>
+                  </Stack>
                 </TableCell>
                 <TableCell>{translateAdminValue(claim.claimedPattern, t)}</TableCell>
                 <TableCell>
@@ -321,6 +354,7 @@ export function ClaimsPage() {
           </Button>
         </DialogActions>
       </Dialog>
+      <EntitlementReferenceDialog reference={reference} onClose={() => setReference(null)} />
     </Stack>
     </AdminTablePage>
   );

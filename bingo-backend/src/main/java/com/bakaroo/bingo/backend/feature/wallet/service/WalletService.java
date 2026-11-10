@@ -259,7 +259,7 @@ public class WalletService {
     private User requireFinanceApprover(BingoUserPrincipal principal) {
         User user = principal.getUser();
         boolean staffUser = user.hasRole(UserRole.ADMIN) || user.hasRole(UserRole.SUPPORT);
-        if (!user.isActive() || !staffUser || !user.hasRole(UserRole.FINANCE_APPROVER)) {
+        if (!user.isActive() || !staffUser || !user.hasRole(UserRole.ADMIN)) {
             throw new ConflictException("FINANCE_APPROVER_REQUIRED",
                     "An active finance approver is required");
         }

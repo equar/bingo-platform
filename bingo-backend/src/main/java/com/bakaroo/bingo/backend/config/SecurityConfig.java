@@ -75,8 +75,7 @@ public class SecurityConfig {
                                                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                                 .authorizeHttpRequests(authorize -> authorize
                                                 .requestMatchers("/api/v1/me", "/api/v1/me/preferences", "/api/v1/auth/me")
-                                                .hasAnyRole("PLAYER", "ADMIN", "SUPPORT", "FINANCE_VERIFIER",
-                                                                "FINANCE_APPROVER")
+                                                .hasAnyRole("PLAYER", "ADMIN", "SUPPORT")
                                                 .requestMatchers("/api/v1/auth/**", "/api/v1/admin/login",
                                                                 "/api/v1/admin/activate",
                                                                 "/api/v1/admin/reset-password",
@@ -99,7 +98,7 @@ public class SecurityConfig {
                                                                 "/api/v1/admin/float-reconciliation/**",
                                                                 "/api/v1/admin/float-bank-accounts/**",
                                                                 "/api/v1/admin/wallet-adjustment-requests/**")
-                                                .hasAnyRole("ADMIN", "FINANCE_VERIFIER", "FINANCE_APPROVER")
+                                                .hasAnyRole("ADMIN", "SUPPORT")
                                                 .requestMatchers("/api/v1/admin/rooms", "/api/v1/admin/rooms/**")
                                                 .hasAnyRole("ADMIN", "SUPPORT")
                                                 .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")

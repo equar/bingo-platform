@@ -105,7 +105,7 @@ public class AdminGameController {
     }
 
     @PostMapping("/sessions/{id}/draws")
-    @PreAuthorize("hasRole('ADMIN') and !hasRole('FINANCE_VERIFIER') and !hasRole('FINANCE_APPROVER') and !hasRole('SUPPORT')")
+    @PreAuthorize("hasRole('ADMIN') and !hasRole('SUPPORT')")
     public DrawEventResponse draw(@PathVariable Long id,
             @AuthenticationPrincipal BingoUserPrincipal principal,
             HttpServletRequest request) throws java.io.IOException {
@@ -182,6 +182,11 @@ public class AdminGameController {
                 entitlement.getSession().getId(),
                 entitlement.getTicket().getId(),
                 entitlement.getClaimant().getId(),
+                entitlement.getClaimant().getDisplayName(),
+                entitlement.getWinClaim().getClaimedPattern(),
+                entitlement.getWinClaim().getStatus(),
+                entitlement.getSession().getSessionName(),
+                entitlement.getTicket().getPublicTicketCode(),
                 entitlement.getPrizeType(),
                 entitlement.getSettlementPath(),
                 entitlement.getStatus(),

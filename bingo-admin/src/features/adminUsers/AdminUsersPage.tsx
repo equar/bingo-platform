@@ -25,7 +25,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { adminUsers, createAdminUser, resendAdminUserActivation, resetAdminUserPassword, revokeFinanceRole, updateAdminUser, type UserSummaryResponse } from "../../api/admin";
+import { adminUsers, createAdminUser, resendAdminUserActivation, resetAdminUserPassword, updateAdminUser, type UserSummaryResponse } from "../../api/admin";
 import { getUserFacingErrorMessage, parseApiError } from "../../api/types";
 import { StatusState } from "../../components/StatusState";
 import { AdminTablePagination } from "../../components/AdminTablePagination";
@@ -101,6 +101,7 @@ export function AdminUsersPage() {
   const [discardOpen, setDiscardOpen] = useState(false);
   const [resendError, setResendError] = useState<string | null>(null);
   const [resendSuccess, setResendSuccess] = useState<string | null>(null);
+  const [resendTarget, setResendTarget] = useState<UserSummaryResponse | null>(null);
   const routeUser = (location.state as { adminUser?: UserSummaryResponse } | null)?.adminUser;
   const routeUserId = Number(userIdParam);
   const [resetTarget, setResetTarget] = useState<UserSummaryResponse | null>(null);
@@ -108,30 +109,31 @@ export function AdminUsersPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [phoneError, setPhoneError] = useState<string | null>(null);
-  const [roleError, setRoleError] = useState<string | null>(null);
 
-  const revokeFinanceMutation = useMutation({
-    mutationFn: ({ userId, role }: { userId: number; role: string }) => revokeFinanceRole(userId, role),
-    onSuccess: async () => {
-      setRoleError(null);
-      await queryClient.invalidateQueries({ queryKey: ["admin-users"] });
-    },
-    onError: (error) => setRoleError(getUserFacingErrorMessage(error) ?? "Something went wrong. Please try again."),
-  });
+
 
   const usersQuery = useQuery({
     queryKey: ["admin-users", page, pageSize, search, statusFilter],
     queryFn: () => adminUsers(page, pageSize, search, statusFilter),
+    refetchInterval: (query) => query.state.data?.content.some((user) =>
+      user.id === routeUserId && user.status === "PENDING" && (
+        user.activationEmailStatus === "SENDING"
+        || user.activationEmailStatus === "UNKNOWN"
+        || user.activationEmailStatus === undefined
+      ),
+    ) ? 1000 : false,
   });
 
   const selectedUser = isEditPage
-    ? (routeUser?.id === routeUserId ? routeUser : usersQuery.data?.content.find((user) => user.id === routeUserId) ?? null)
+    ? (usersQuery.data?.content.find((user) => user.id === routeUserId)
+      ?? (routeUser?.id === routeUserId ? routeUser : null))
     : null;
 
   const resendMutation = useMutation({
     mutationFn: (userId: number) => resendAdminUserActivation(userId),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      setResendTarget(null);
       setResendError(null);
       setResendSuccess("Activation email queued.");
     },
@@ -272,7 +274,6 @@ export function AdminUsersPage() {
       } />
 
       <Alert severity="info">{t("This page manages ADMIN and SUPPORT accounts only.")}</Alert>
-      {roleError ? <Alert severity="error" role="alert">{t(roleError)}</Alert> : null}
       {resendError && !resetTarget ? <Alert severity="error" role="alert">{t(resendError)}</Alert> : null}
       {resendSuccess ? <Alert severity="success" role="status">{t(resendSuccess)}</Alert> : null}
 
@@ -339,21 +340,7 @@ export function AdminUsersPage() {
                 <TableCell>{new Date(user.updatedAt).toLocaleString()}</TableCell>
                 <TableCell align="right">
                   <Button size="small" onClick={() => openEdit(user)}>{t("Edit")}</Button>
-                  {user.roles.filter((role) => role === "FINANCE_VERIFIER" || role === "FINANCE_APPROVER").map((role) => (
-                    <Button
-                      key={role}
-                      size="small"
-                      color="warning"
-                      aria-label={t("Revoke {{role}} from {{name}}", {
-                        role: translateAdminRole(role, t),
-                        name: user.displayName,
-                      })}
-                      disabled={revokeFinanceMutation.isPending}
-                      onClick={() => revokeFinanceMutation.mutate({ userId: user.id, role })}
-                    >
-                      {t("Revoke")}{" "}{translateAdminRole(role, t)}
-                    </Button>
-                  ))}
+
                 </TableCell>
               </TableRow>
             ))}
@@ -396,19 +383,8 @@ export function AdminUsersPage() {
             gap: 3,
           }}>
           <Stack spacing={2} minWidth={0}>
-          {selectedUser?.status === "PENDING" || selectedUser?.status === "ACTIVE" ? <Box display="flex" justifyContent="flex-end" gap={1} flexWrap="wrap">
-            {selectedUser?.status === "PENDING" ? (
-              <Button
-                size="small"
-                disabled={isEditingOwnAccount || resendMutation.isPending}
-                title={isEditingOwnAccount ? t("You cannot resend an activation email to your own account.") : undefined}
-                onClick={() => {
-                  setResendError(null);
-                  setResendSuccess(null);
-                  resendMutation.mutate(selectedUser.id);
-                }}
-              >{resendMutation.isPending ? t("Sending...") : t("Resend activation email")}</Button>
-            ) : selectedUser?.status === "ACTIVE" ? (
+          {selectedUser?.status === "ACTIVE" ? (
+            <Box display="flex" justifyContent="flex-end" gap={1} flexWrap="wrap">
               <Button
                 size="small"
                 color="warning"
@@ -420,10 +396,8 @@ export function AdminUsersPage() {
                   setResetTarget(selectedUser);
                 }}
               >{t("Reset password")}</Button>
-            ) : null}
-          </Box> : null}
-            {resendSuccess ? <Alert severity="success" role="status">{t(resendSuccess)}</Alert> : null}
-            {resendError && selectedUser && !resetTarget ? <Alert severity="error" role="alert">{t(resendError)}</Alert> : null}
+            </Box>
+          ) : null}
             <TextField
               label={t("Display name")}
               value={form.displayName}
@@ -543,6 +517,39 @@ export function AdminUsersPage() {
                 {t("Account activity")}
               </Typography>
               <Stack spacing={2}>
+                {selectedUser.status === "PENDING" ? (
+                  <>
+                    <Alert
+                      severity={selectedUser.activationEmailStatus === "SENT"
+                        ? "success"
+                        : selectedUser.activationEmailStatus === "FAILED" ? "error" : "info"}
+                      role="status"
+                    >
+                      {t("Activation email status")}: {t(
+                        selectedUser.activationEmailStatus === "SENT" ? "Sent successfully"
+                          : selectedUser.activationEmailStatus === "FAILED" ? "Failed to send"
+                            : selectedUser.activationEmailStatus === "SENDING" ? "Sending"
+                              : selectedUser.activationEmailStatus === "NOT_SENT" ? "Not sent"
+                                : "Not recorded — resend the activation email to check delivery"
+                      )}
+                    </Alert>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      disabled={isEditingOwnAccount || resendMutation.isPending || selectedUser.activationEmailStatus === "SENDING"}
+                      title={isEditingOwnAccount ? t("You cannot resend an activation email to your own account.") : undefined}
+                      onClick={() => {
+                        setResendError(null);
+                        setResendSuccess(null);
+                        setResendTarget(selectedUser);
+                      }}
+                    >{resendMutation.isPending || selectedUser.activationEmailStatus === "SENDING"
+                      ? t("Sending...")
+                      : t("Resend activation email")}</Button>
+                  </>
+                ) : null}
+                {resendSuccess ? <Alert severity="success" role="status">{t(resendSuccess)}</Alert> : null}
+                {resendError && !resetTarget && !resendTarget ? <Alert severity="error" role="alert">{t(resendError)}</Alert> : null}
                 <Box>
                   <Typography variant="caption" color="text.secondary">{t("Created by")}</Typography>
                   <Typography variant="body2" sx={{ overflowWrap: "anywhere" }}>
@@ -598,6 +605,25 @@ export function AdminUsersPage() {
           >{resetPasswordMutation.isPending ? t("Sending...") : t("Send reset link")}</Button>
         </DialogActions>
       </Dialog>
+
+      <ConfirmDialog
+        open={Boolean(resendTarget)}
+        title={t("Resend activation email?")}
+        description={t("A new activation link will be sent to {{email}}. The previous activation link will stop working.", {
+          email: resendTarget?.email ?? "",
+        })}
+        confirmLabel={t("Send activation email")}
+        cancelLabel={t("Cancel")}
+        confirming={resendMutation.isPending}
+        error={resendError ? t(resendError) : undefined}
+        onCancel={() => {
+          setResendTarget(null);
+          setResendError(null);
+        }}
+        onConfirm={() => {
+          if (resendTarget) resendMutation.mutate(resendTarget.id);
+        }}
+      />
 
       <ConfirmDialog
         open={discardOpen}

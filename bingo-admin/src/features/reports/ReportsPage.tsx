@@ -272,7 +272,7 @@ export function ReportsPage() {
                   {isAdmin ? <MenuItem value="sessionActivity">{t("Game session activity")}</MenuItem> : null}
                   {isAdmin ? <MenuItem value="playerVerifications">{t("Player verification activity")}</MenuItem> : null}
                   {isAdmin ? <MenuItem value="prizeEntitlements">{t("Prize entitlement activity")}</MenuItem> : null}
-                  {session?.user.roles.some((role) => ["ADMIN", "FINANCE_VERIFIER", "FINANCE_APPROVER"].includes(role))
+                  {session?.user.roles.some((role) => ["ADMIN", "SUPPORT", "ADMIN"].includes(role))
                     ? <MenuItem value="depositActivity">{t("Deposit review activity")}</MenuItem>
                     : null}
                 </Select>

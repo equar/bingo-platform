@@ -1,6 +1,9 @@
 package com.bakaroo.bingo.backend.feature.auth.service;
 
 import com.bakaroo.bingo.backend.feature.user.entity.User;
+import com.bakaroo.bingo.backend.feature.user.entity.ActivationEmailStatus;
+import com.bakaroo.bingo.backend.feature.user.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.mail.SimpleMailMessage;
@@ -16,11 +19,19 @@ public class AdminAccountNotificationService {
 
     private final JavaMailSender mailSender;
     private final String fromAddress;
+    private final UserRepository users;
 
+    @Autowired
     public AdminAccountNotificationService(JavaMailSender mailSender,
+            UserRepository users,
             @Value("${app.admin-account-email.from:no-reply@bingo.local}") String fromAddress) {
         this.mailSender = mailSender;
+        this.users = users;
         this.fromAddress = fromAddress;
+    }
+
+    public AdminAccountNotificationService(JavaMailSender mailSender, String fromAddress) {
+        this(mailSender, null, fromAddress);
     }
 
     @Async
@@ -32,8 +43,16 @@ public class AdminAccountNotificationService {
             message.setSubject("Complete your Bingo Admin account setup");
             message.setText(buildMessage(user, activationLink));
             mailSender.send(message);
+            updateActivationStatus(user, ActivationEmailStatus.SENT);
         } catch (RuntimeException exception) {
             log.error("Unable to send admin account activation email for user id {}", user.getId(), exception);
+            updateActivationStatus(user, ActivationEmailStatus.FAILED);
+        }
+    }
+
+    private void updateActivationStatus(User user, ActivationEmailStatus status) {
+        if (users != null) {
+            users.updateActivationEmailStatus(user.getId(), status);
         }
     }
 

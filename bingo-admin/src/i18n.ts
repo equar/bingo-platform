@@ -346,8 +346,8 @@ const displayValueLabels: Record<string, string> = {
   BILLING: "Billing",
   COMMISSION_CREDIT: "Commission credit",
   DEPOSIT_CREDIT: "Deposit credit",
-  FINANCE_APPROVER: "Finance approver",
-  FINANCE_VERIFIER: "Finance verifier",
+  ADMIN: "Admin",
+  SUPPORT: "Support",
   FOUR_CORNERS: "Four corners",
   FULL_HOUSE: "Full house",
   GAME: "Game",
@@ -385,8 +385,8 @@ const displayValueLabels: Record<string, string> = {
 
 const displayRoleLabels: Record<string, string> = {
   ADMIN: "Administrator",
-  FINANCE_APPROVER: "Finance approver",
-  FINANCE_VERIFIER: "Finance verifier",
+  ADMIN: "Admin",
+  SUPPORT: "Support",
   PLAYER: "Player",
   SUPPORT: "Support staff",
 };

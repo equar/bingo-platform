@@ -24,7 +24,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/admin")
-@PreAuthorize("hasAnyRole('ADMIN','FINANCE_VERIFIER','FINANCE_APPROVER')")
+@PreAuthorize("hasAnyRole('ADMIN','SUPPORT')")
 public class AdminWalletAdjustmentController {
 
     private final WalletService walletService;
@@ -46,7 +46,7 @@ public class AdminWalletAdjustmentController {
     }
 
     @PostMapping("/players/{id}/wallet-adjustments/requests")
-    @PreAuthorize("hasRole('FINANCE_VERIFIER')")
+    @PreAuthorize("hasRole('SUPPORT')")
     public WalletAdjustmentRequestResponse submit(@PathVariable Long id,
             @AuthenticationPrincipal BingoUserPrincipal principal,
             @Valid @RequestBody WalletAdjustmentSubmissionRequest request) {
@@ -59,13 +59,13 @@ public class AdminWalletAdjustmentController {
     }
 
     @GetMapping("/wallet-adjustment-requests")
-    @PreAuthorize("hasAnyRole('ADMIN','FINANCE_APPROVER')")
+    @PreAuthorize("hasRole('ADMIN')")
     public List<WalletAdjustmentRequestResponse> pending() {
         return adjustmentService.pending();
     }
 
     @PostMapping("/wallet-adjustment-requests/{requestId}/approve")
-    @PreAuthorize("hasRole('FINANCE_APPROVER')")
+    @PreAuthorize("hasRole('ADMIN')")
     public WalletAdjustmentRequestResponse approve(@PathVariable Long requestId,
             @AuthenticationPrincipal BingoUserPrincipal principal,
             @Valid @RequestBody WalletAdjustmentReviewRequest request) {
@@ -73,7 +73,7 @@ public class AdminWalletAdjustmentController {
     }
 
     @PostMapping("/wallet-adjustment-requests/{requestId}/reject")
-    @PreAuthorize("hasRole('FINANCE_APPROVER')")
+    @PreAuthorize("hasRole('ADMIN')")
     public WalletAdjustmentRequestResponse reject(@PathVariable Long requestId,
             @AuthenticationPrincipal BingoUserPrincipal principal,
             @Valid @RequestBody WalletAdjustmentReviewRequest request) {

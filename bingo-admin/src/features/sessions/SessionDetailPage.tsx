@@ -133,7 +133,7 @@ export function SessionDetailPage() {
   const sessionTransitions = useMemo(() => (session ? availableTransitions(session) : []), [session]);
   const roles = authSession?.user.roles ?? [];
   const canOperateDraws = roles.includes("ADMIN") &&
-    !roles.some((role) => ["SUPPORT", "FINANCE_VERIFIER", "FINANCE_APPROVER"].includes(role));
+    !roles.some((role) => ["SUPPORT", "SUPPORT", "ADMIN"].includes(role));
   const sessionCanDraw = session?.state === "STARTED" || session?.state === "DRAWING";
 
   if (sessionQuery.isLoading) {

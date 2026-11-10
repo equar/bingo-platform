@@ -54,6 +54,10 @@ public class User {
     @Column(name = "account_activation_expires_at")
     private Instant accountActivationExpiresAt;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "activation_email_status", nullable = false, length = 20)
+    private ActivationEmailStatus activationEmailStatus = ActivationEmailStatus.NOT_SENT;
+
     @Column(name = "agent_pin_hash", length = 100)
     private String agentPinHash;
 
@@ -177,6 +181,14 @@ public class User {
 
     public Instant getAccountActivationExpiresAt() {
         return accountActivationExpiresAt;
+    }
+
+    public ActivationEmailStatus getActivationEmailStatus() {
+        return activationEmailStatus;
+    }
+
+    public void setActivationEmailStatus(ActivationEmailStatus activationEmailStatus) {
+        this.activationEmailStatus = activationEmailStatus;
     }
 
     public boolean isAccountActivationExpired(Instant now) {
