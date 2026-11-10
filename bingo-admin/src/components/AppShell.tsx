@@ -78,6 +78,7 @@ const navGroups = [
     title: "nav.finance",
     items: [
       { to: "/wallet/signup-reward", label: "nav.signupReward", icon: "wallet" },
+      { to: "/wallet/signup-reward-grants", label: "nav.signupRewardGrants", icon: "wallet" },
       { to: "/wallet/transfer-policy", label: "nav.transferPolicy", icon: "transfers" },
       { to: "/wallet/transfers", label: "nav.transfers", icon: "transfers" },
     ],
@@ -182,6 +183,7 @@ const routeTitles: Array<{ match: RegExp; title: string; parent?: string; parent
   { match: /^\/prize-entitlements$/, title: "nav.entitlements" },
   { match: /^\/player-verifications$/, title: "nav.verification" },
   { match: /^\/wallet\/signup-reward$/, title: "nav.signupReward" },
+  { match: /^\/wallet\/signup-reward-grants$/, title: "nav.signupRewardGrants" },
   { match: /^\/wallet\/transfer-policy$/, title: "nav.transferPolicy" },
   { match: /^\/wallet\/transfers$/, title: "nav.transfers" },
   { match: /^\/admin-users$/, title: "nav.adminUsers" },

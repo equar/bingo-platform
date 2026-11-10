@@ -106,13 +106,13 @@ class SignupRewardPostingIntegrationTest extends MySqlIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].id").value(activePolicy.getId()));
 
-        String expiredPolicy = """
+        String invalidDatePolicy = """
                 {"enabled":true,"rewardAmount":25.00,"currency":"ETB",
-                 "effectiveFrom":"%s","effectiveUntil":"%s","reason":"expired policy probe"}
-                """.formatted(Instant.now().minusSeconds(60), Instant.now().plusSeconds(3600));
+                 "effectiveFrom":"%s","effectiveUntil":"%s","reason":"invalid date range probe"}
+                """.formatted(Instant.now().plusSeconds(3600), Instant.now().plusSeconds(1800));
         mockMvc.perform(post("/api/v1/admin/wallet/signup-rewards/settings")
                 .header("Authorization", "Bearer " + adminToken)
-                .contentType(MediaType.APPLICATION_JSON).content(expiredPolicy))
+                .contentType(MediaType.APPLICATION_JSON).content(invalidDatePolicy))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_SIGNUP_REWARD_DATES"));
 
