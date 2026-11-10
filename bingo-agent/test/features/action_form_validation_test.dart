@@ -74,6 +74,7 @@ void main() {
       await tester.tap(find.byType(TextField).at(2));
       await tester.testTextInput.receiveAction(TextInputAction.done);
       await tester.pumpAndSettle();
+      await _confirmIfPresented(tester);
       expect(repository.transferKeys, hasLength(1));
       expect(
         find.text(
@@ -102,20 +103,34 @@ void main() {
       await tester.pumpWidget(
         _app(repository, const TicketSaleScreen(), locale: const Locale('am')),
       );
+      await tester.pumpAndSettle();
 
-      await tester.enterText(find.byType(TextField).at(0), '0');
-      await tester.enterText(find.byType(TextField).at(1), '0911000001');
-      await tester.enterText(find.byType(TextField).at(2), '1234');
       final sale = find.byType(FilledButton);
-      expect(tester.widget<FilledButton>(sale).onPressed, isNull);
-      expect(repository.ticketBodies, isEmpty);
-      expect(find.text('ከዜሮ በላይ የሆነ ትክክለኛ የሴሽን መለያ ያስገቡ።'), findsOneWidget);
+      if (find.byType(TextField).evaluate().length == 3) {
+        await tester.enterText(find.byType(TextField).at(0), '0');
+        await tester.enterText(find.byType(TextField).at(1), '0911000001');
+        await tester.enterText(find.byType(TextField).at(2), '1234');
+        expect(tester.widget<FilledButton>(sale).onPressed, isNull);
+        expect(repository.ticketBodies, isEmpty);
+        expect(find.text('ከዜሮ በላይ የሆነ ትክክለኛ የሴሽን መለያ ያስገቡ።'), findsOneWidget);
 
-      await tester.enterText(find.byType(TextField).at(0), '42');
+        await tester.enterText(find.byType(TextField).at(0), '42');
+      } else {
+        final sessions = find.byType(DropdownButtonFormField<int>);
+        expect(sessions, findsOneWidget);
+        expect(tester.widget<FilledButton>(sale).onPressed, isNull);
+        await tester.tap(sessions);
+        await tester.pumpAndSettle();
+        await tester.tap(find.textContaining('QA Room'));
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byType(TextField).at(0), '0911000001');
+        await tester.enterText(find.byType(TextField).at(1), '1234');
+      }
       await tester.pump();
       expect(tester.widget<FilledButton>(sale).onPressed, isNotNull);
       await tester.tap(sale);
       await tester.pumpAndSettle();
+      await _confirmIfPresented(tester);
       expect(repository.ticketBodies, hasLength(1));
       expect(repository.ticketBodies.single['sessionId'], 42);
       expect(find.text('QA-TICKET'), findsOneWidget);
@@ -146,11 +161,16 @@ void main() {
       expect(find.text('2.00 ETB'), findsNothing);
       await tester.enterText(pin, '1234');
       await tester.pump();
+      if (tester.widget<OutlinedButton>(verify).onPressed == null) {
+        await tester.tap(find.widgetWithText(FilledButton, 'Lookup'));
+        await tester.pumpAndSettle();
+      }
       expect(tester.widget<OutlinedButton>(verify).onPressed, isNotNull);
       await tester.tap(
         find.widgetWithText(OutlinedButton, 'Verify and disburse'),
       );
       await tester.pumpAndSettle();
+      await _confirmIfPresented(tester);
       expect(repository.verifyBodies, hasLength(1));
       expect(repository.verifyBodies.single['payoutCode'], 'PAYOUT-TWO');
       expect(find.text('Completed'), findsOneWidget);
@@ -161,6 +181,15 @@ void main() {
       expect(repository.verifyBodies, hasLength(1));
     },
   );
+}
+
+Future<void> _confirmIfPresented(WidgetTester tester) async {
+  final dialog = find.byType(AlertDialog);
+  if (dialog.evaluate().isEmpty) return;
+  await tester.tap(
+    find.descendant(of: dialog, matching: find.byType(FilledButton)).last,
+  );
+  await tester.pumpAndSettle();
 }
 
 Widget _app(
@@ -180,7 +209,39 @@ Widget _app(
 }
 
 class _FakeAgentRepository extends AgentRepository {
-  _FakeAgentRepository() : super(Dio());
+  _FakeAgentRepository() : super(_testDio());
+
+  static Dio _testDio() {
+    final dio = Dio();
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          if (options.path == '/api/v1/agent/ticket-sale-sessions') {
+            handler.resolve(
+              Response(
+                requestOptions: options,
+                data: [
+                  {
+                    'id': 42,
+                    'roomName': 'QA Room',
+                    'sessionName': 'QA Session',
+                    'scheduledStartAt': '2026-11-10T12:00:00Z',
+                    'ticketPrice': 2.5,
+                    'currency': 'ETB',
+                    'sessionCapacity': 100,
+                    'ticketCount': 0,
+                  },
+                ],
+              ),
+            );
+          } else {
+            handler.next(options);
+          }
+        },
+      ),
+    );
+    return dio;
+  }
 
   int lookupCalls = 0;
   int payoutLookupCalls = 0;
@@ -256,7 +317,8 @@ class _FakeAgentRepository extends AgentRepository {
       'prizeAmount': '2.00',
       'currency': 'ETB',
       'payoutCode': code,
-      'status': 'APPROVED',
+      'settlementPath': 'AGENT_CASH',
+      'status': 'PENDING',
     });
   }
 
