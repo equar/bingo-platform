@@ -132,8 +132,7 @@ export function SessionDetailPage() {
   const session: GameSessionResponse | undefined = sessionQuery.data;
   const sessionTransitions = useMemo(() => (session ? availableTransitions(session) : []), [session]);
   const roles = authSession?.user.roles ?? [];
-  const canOperateDraws = roles.includes("ADMIN") &&
-    !roles.some((role) => ["SUPPORT", "SUPPORT", "ADMIN"].includes(role));
+  const canOperateDraws = roles.includes("ADMIN");
   const sessionCanDraw = session?.state === "STARTED" || session?.state === "DRAWING";
 
   if (sessionQuery.isLoading) {

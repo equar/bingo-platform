@@ -845,7 +845,6 @@ export const adminUiTranslations = {
   HIGH: "ከፍተኛ",
   URGENT: "አስቸኳይ",
   "Unavailable": "አይገኝም",
-  Unknown: "ያልታወቀ",
   "synthetic QA statement": "ሰው ሰራሽ የQA መግለጫ",
   "Loading…": "በመጫን ላይ…",
   Hide: "ደብቅ",

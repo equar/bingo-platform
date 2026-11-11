@@ -47,8 +47,16 @@
 			"label": "Start Bingo backend",
 			"type": "shell",
 			"command": "mvn",
-			"args": ["spring-boot:run", "-Dspring-boot.run.profiles=dev"],
-			"options": { "cwd": "${workspaceFolder}\\bingo-backend" },
+			"args": [
+				"spring-boot:run",
+				"--define=spring-boot.run.profiles=dev"
+			],
+			"options": {
+				"cwd": "${workspaceFolder}\\bingo-backend",
+				"env": {
+					"JAVA_TOOL_OPTIONS": "-Djava.io.tmpdir=${env:LOCALAPPDATA}\\BingoPlatform\\tmp"
+				}
+			},
 			"isBackground": true,
 			"problemMatcher": []
 		}

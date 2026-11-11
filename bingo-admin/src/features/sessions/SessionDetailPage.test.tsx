@@ -1,9 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { postDraw, sessionDetail, sessionDraws } from "../../api/admin";
 import { SessionDetailPage } from "./SessionDetailPage";
+
+const sessionState = vi.hoisted(() => ({ roles: ["ADMIN"] as string[] }));
 
 vi.mock("../../api/admin", () => ({
   postDraw: vi.fn(),
@@ -15,7 +17,7 @@ vi.mock("../../api/admin", () => ({
 vi.mock("../../api/session", () => ({
   useSession: () => ({
     accessToken: "test-token",
-    user: { roles: ["ADMIN"] },
+    user: { roles: sessionState.roles },
   }),
   consumeSessionExpired: () => false,
 }));
@@ -25,8 +27,11 @@ vi.mock("./liveDrawSocket", () => ({
 }));
 
 describe("SessionDetailPage automatic draws", () => {
+  afterEach(cleanup);
+
   beforeEach(() => {
     vi.clearAllMocks();
+    sessionState.roles = ["ADMIN"];
     vi.mocked(sessionDetail).mockResolvedValue({
       id: 9,
       roomId: 2,
@@ -99,5 +104,23 @@ describe("SessionDetailPage automatic draws", () => {
     expect(pendingButton).toBeDisabled();
     fireEvent.click(pendingButton);
     expect(postDraw).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not allow SUPPORT users to trigger draws", async () => {
+    sessionState.roles = ["SUPPORT"];
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={["/sessions/9"]}>
+          <Routes>
+            <Route path="/sessions/:sessionId" element={<SessionDetailPage />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    await screen.findAllByText("Live draw");
+    expect(screen.queryByTestId("automatic-draw-button")).not.toBeInTheDocument();
+    expect(postDraw).not.toHaveBeenCalled();
   });
 });

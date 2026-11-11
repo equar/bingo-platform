@@ -103,10 +103,27 @@ cross-schema grants. Synthetic financial tests additionally require the
 explicit `BINGO_MAVEN_SYNTHETIC_FINANCIAL_TESTS_ENABLED=true` opt-in in the
 isolated test job.
 
+Migration V27 creates MySQL triggers. When binary logging is enabled, MySQL
+8.0.36 requires `log_bin_trust_function_creators=1` for these trigger
+definitions. On a verified, dedicated, nonproduction local test server, a
+MySQL administrator can persist the setting with:
+
+```sql
+SET PERSIST log_bin_trust_function_creators = 1;
+SELECT @@global.log_bin, @@global.log_bin_trust_function_creators;
+```
+
+`SET PERSIST` requires `SYSTEM_VARIABLES_ADMIN` (or the deprecated `SUPER`)
+privilege and takes effect immediately. This is a server-wide setting: confirm
+the instance is not shared or production and check its bind address and firewall
+rules before changing it. Do not disable binary logging or grant `SUPER` to the
+Maven runner. A loopback JDBC URL alone does not prove that the MySQL server is
+local-only.
+
 Do not point Maven tests at `bingo`, persistent `bingo_qa`, or Android/Admin
 `bingo_qa_test`. The test suite includes cleanup and a Flyway recovery test
-that calls `clean()`. The disposable Maven schema/account is not provisioned
-for the current local environment, so do not run database-backed Maven tests
-until its target and source guard are verified. See the
+that calls `clean()`. Verify the isolated target and source guard, as well as
+the server-wide trigger prerequisite, before running database-backed Maven
+tests. See the
 [guarded E2E runbook](../docs/qa/platform-e2e-runbook.md) and
 [current blockers](../docs/qa/qa-blockers-and-approvals.md).

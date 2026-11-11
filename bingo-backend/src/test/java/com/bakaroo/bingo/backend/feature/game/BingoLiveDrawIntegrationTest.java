@@ -276,14 +276,14 @@ class BingoLiveDrawIntegrationTest extends MySqlIntegrationTest {
                                 "Finance Verifier",
                                 passwordEncoder.encode("123456"),
                                 AccountStatus.ACTIVE,
-                                Set.of(UserRole.ADMIN, UserRole.FINANCE_VERIFIER),
+                                Set.of(UserRole.SUPPORT),
                                 now));
                 financeChecker = userRepository.save(User.create(
                                 phoneNormalizer.normalize("0911000204"),
                                 "Finance Approver",
                                 passwordEncoder.encode("123456"),
                                 AccountStatus.ACTIVE,
-                                Set.of(UserRole.ADMIN, UserRole.FINANCE_APPROVER),
+                                Set.of(UserRole.ADMIN),
                                 now));
                 walletService.createWalletIfMissing(playerUser);
                 var adjustment = walletAdjustmentService.submit(playerUser.getId(),
