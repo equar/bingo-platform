@@ -44,6 +44,24 @@ flutter test
 flutter analyze
 ```
 
+## Device compatibility
+
+The player release baseline is Android 7.0 (API 24) and iOS 15. iOS 15 still
+supports iPhone 6s and first-generation iPhone SE hardware. The Android
+SDK levels are pinned in `android/app/build.gradle.kts`; iOS deployment targets
+are pinned in the Podfile and Xcode project so SDK upgrades cannot silently
+drop older devices. Before each release, test the login, wallet, lobby, live
+game reconnect, and app restart flows on:
+
+- Android API 24 on a low-memory phone or emulator;
+- a current Android device;
+- iOS 15 on an iPhone 6s, first-generation iPhone SE, or simulator; and
+- a current iPhone and iPad.
+
+The app follows the device light/dark appearance and respects system text
+scaling. On older or lower-end hardware, keep the same functional checks while
+also exercising weak-network and background/foreground live-game recovery.
+
 ## Game and community behavior
 
 Live draws use STOMP at `/ws` with the API JWT in the `CONNECT` frame and

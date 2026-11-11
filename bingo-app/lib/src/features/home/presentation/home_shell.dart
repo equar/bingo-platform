@@ -117,7 +117,7 @@ class _HomeShellState extends State<HomeShell> {
                           selectedIndex: _index,
                           onDestinationSelected: _select,
                           labelType: NavigationRailLabelType.all,
-                          backgroundColor: Colors.white,
+                          backgroundColor: Theme.of(context).colorScheme.surface,
                           indicatorColor: Theme.of(
                             context,
                           ).colorScheme.primary.withValues(alpha: .10),
@@ -149,7 +149,10 @@ class _HomeShellState extends State<HomeShell> {
                           ],
                         ),
                       ),
-                      const VerticalDivider(width: 1, color: Color(0xFFECEEF3)),
+                      VerticalDivider(
+                        width: 1,
+                        color: Theme.of(context).colorScheme.outlineVariant,
+                      ),
                       Expanded(child: ResponsiveContent(child: page)),
                     ],
                   )
@@ -157,13 +160,17 @@ class _HomeShellState extends State<HomeShell> {
             bottomNavigationBar: wide
                 ? null
                 : DecoratedBox(
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      border: Border(top: BorderSide(color: Color(0xFFECEEF3))),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surface,
+                      border: Border(
+                        top: BorderSide(
+                          color: Theme.of(context).colorScheme.outlineVariant,
+                        ),
+                      ),
                     ),
                     child: NavigationBarTheme(
                       data: NavigationBarThemeData(
-                        backgroundColor: Colors.white,
+                        backgroundColor: Theme.of(context).colorScheme.surface,
                         surfaceTintColor: Colors.transparent,
                         indicatorColor: Theme.of(
                           context,
@@ -176,7 +183,7 @@ class _HomeShellState extends State<HomeShell> {
                                 : FontWeight.w600,
                             color: states.contains(WidgetState.selected)
                                 ? Theme.of(context).colorScheme.primary
-                                : const Color(0xFF667084),
+                                : Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                         ),
                         iconTheme: WidgetStateProperty.resolveWith(
@@ -184,7 +191,7 @@ class _HomeShellState extends State<HomeShell> {
                             size: 27,
                             color: states.contains(WidgetState.selected)
                                 ? Theme.of(context).colorScheme.primary
-                                : const Color(0xFF667084),
+                                : Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                         ),
                       ),

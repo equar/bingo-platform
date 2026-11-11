@@ -39,8 +39,10 @@ class _BingoAppView extends ConsumerWidget {
       locale: locale,
       onGenerateTitle: (context) => AppLocalizations.of(context)!.appTitle,
       theme: buildAppTheme(),
+      darkTheme: buildAppTheme(brightness: Brightness.dark),
+      themeMode: ThemeMode.system,
       builder: (context, child) => ColoredBox(
-        color: const Color(0xFFF0F3F8),
+        color: Theme.of(context).scaffoldBackgroundColor,
         child: SafeArea(
           top: false,
           bottom: false,

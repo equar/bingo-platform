@@ -15,7 +15,7 @@ val releaseKeystoreProperties = Properties().apply {
 }
 
 android {
-    namespace = "com.bakaroo.bingo.bingo_app"
+    namespace = "com.bakaroo.bingo_app"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -29,8 +29,10 @@ android {
         applicationId = "com.bakaroo.bingo_app"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        // Android 7.0 is the lowest player release target. Keep this explicit
+        // so Flutter SDK upgrades cannot silently alter device support.
+        minSdk = 24
+        targetSdk = 35
         // Uses the version code from pubspec.yaml. When using split APKs, 1000 * ABI_VERSION
         // is added automatically by Flutter. (https://developer.android.com/studio/build/configure-apk-splits#configure-APK-versions)
         // You can force using the value of versionCode by specifying the `-P force-version-code-ignoring-abi=true`

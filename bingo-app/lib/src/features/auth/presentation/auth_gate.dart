@@ -24,6 +24,8 @@ class AuthGate extends ConsumerWidget {
     return AuthScreen(
       sessionExpired: state.errorMessage == 'SESSION_EXPIRED',
       accountSuspended: state.errorMessage == 'ACCOUNT_SUSPENDED',
+      sessionStorageUnavailable:
+          state.errorMessage == 'SESSION_STORAGE_UNAVAILABLE',
     );
   }
 }
