@@ -274,7 +274,8 @@ class _TicketSaleScreenState extends ConsumerState<TicketSaleScreen> {
             onSubmitted: (_) => _submit(),
             onChanged: (_) => _clearStaleState(),
             decoration: InputDecoration(
-              labelText: l10n.pinLabel,
+              labelText: l10n.agentPinLabel,
+              helperText: l10n.ticketSaleAgentPinHint,
               errorText: pinError,
             ),
             obscureText: true,

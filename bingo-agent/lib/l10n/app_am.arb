@@ -18,6 +18,7 @@
   "agentBackToSignIn": "ወደ መግቢያ ይመለሱ",
   "agentApplicationSubmitted": "የኤጀንትነት ማመልከቻዎ ተልኳል።",
   "agentApplicationReviewNotice": "አስተዳዳሪ ካጸደቀው በኋላ መግባት ይችላሉ።",
+  "agentPinLabel": "የእርስዎ የኤጀንት ፒን",
   "pinLabel": "ፒን",
   "phoneLabel": "ስልክ ቁጥር",
   "signIn": "ግባ",
@@ -91,6 +92,7 @@
   "errorItemMissing": "ይህ ንጥል ከእንግዲህ አይገኝም። ያድሱና እንደገና ይሞክሩ።",
   "errorValidation": "የተጠቆሙትን መስኮች ያረጋግጡና እንደገና ይሞክሩ።",
   "errorInsufficientBalance": "ይህን ግብይት ለመፈጸም በቂ ቀሪ ሂሳብ የለዎትም።",
+  "errorInsufficientAgentFloat": "ይህን ቲኬት ለመሸጥ ያለዎት ፍሎት በቂ አይደለም። የፍሎት ጭማሪ ይጠይቁ።",
   "errorGameClosed": "ይህ ጨዋታ ተዘግቷል። ሌላ ጨዋታ ይምረጡ።",
   "errorTransactionUnknown": "የግብይቱን ሁኔታ ማረጋገጥ አልቻልንም። እንደገና ከመሞከርዎ በፊት የግብይት ታሪክዎን ይመልከቱ።",
   "errorAccountCreation": "በዚህ መረጃ መለያ መፍጠር አልተቻለም። መረጃውን ያረጋግጡ ወይም ይግቡ።",
@@ -255,6 +257,7 @@
   "ticketSaleSessionsLoadFailed": "ክፍት ጨዋታዎችን መጫን አልተቻለም።",
   "ticketSaleRefreshSessions": "ጨዋታዎችን ያድሱ",
   "ticketSaleConfirmation": "ቲኬቱን ከመሸጥዎ በፊት ጨዋታውን፣ ተጫዋቹንና ዋጋውን ያረጋግጡ።",
+  "ticketSaleAgentPinHint": "ሽያጩን ለማጽደቅ የራስዎን የኤጀንት ፒን ያስገቡ። የተጫዋቹን ፒን አይጠይቁ።",
   "ticketSaleAvailableSeats": "{count} ቦታ ቀርቷል",
   "@ticketSaleAvailableSeats": {
     "placeholders": {

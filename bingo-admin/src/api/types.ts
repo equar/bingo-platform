@@ -89,6 +89,7 @@ const SAFE_MESSAGES = {
 const CODE_MESSAGES: Record<string, string> = {
   ACCESS_DENIED: SAFE_MESSAGES.permissionDenied,
   FORBIDDEN: SAFE_MESSAGES.permissionDenied,
+  ADMIN_ROLE_REQUIRED: SAFE_MESSAGES.permissionDenied,
   DEPOSIT_VERIFICATION_REQUIRED: "This deposit must be independently verified before approval.",
   FINANCE_SEPARATION_OF_DUTIES_REQUIRED: "A different authorized finance user must review this request.",
   FINANCE_VERIFIER_NOT_AUTHORIZED: "You don’t have permission to verify this payment.",
