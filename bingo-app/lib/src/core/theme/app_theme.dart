@@ -7,12 +7,12 @@ ThemeData buildAppTheme({Brightness brightness = Brightness.light}) {
     seedColor: const Color(0xFFFF7900),
     brightness: brightness,
     primary: const Color(0xFFBA4900),
+    onPrimary: Colors.white,
     secondary: const Color(0xFF1264C8),
+    onSecondary: Colors.white,
     surface: isDark ? const Color(0xFF172033) : Colors.white,
     onSurface: isDark ? const Color(0xFFE5EAF3) : const Color(0xFF081D46),
-    outlineVariant: isDark
-        ? const Color(0xFF38445B)
-        : const Color(0xFFE2E7F0),
+    outlineVariant: isDark ? const Color(0xFF38445B) : const Color(0xFFE2E7F0),
   );
   final outline = OutlineInputBorder(borderRadius: BorderRadius.circular(14));
   return ThemeData(
@@ -84,7 +84,7 @@ ThemeData buildAppTheme({Brightness brightness = Brightness.light}) {
         fontFamily: 'Roboto',
         fontSize: 12,
         fontWeight: FontWeight.w600,
-      ),
+      ).copyWith(color: scheme.onSurface),
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
     ),
     tabBarTheme: TabBarThemeData(

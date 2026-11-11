@@ -10,39 +10,73 @@ void main() {
     expect(lightTheme.brightness, Brightness.light);
     expect(darkTheme.brightness, Brightness.dark);
     expect(darkTheme.scaffoldBackgroundColor, const Color(0xFF101725));
-    _expectTextContrast(
-      darkTheme.colorScheme.onSurface,
-      darkTheme.colorScheme.surface,
-    );
-    _expectTextContrast(
-      darkTheme.colorScheme.onSurfaceVariant,
-      darkTheme.colorScheme.surfaceContainerHigh,
-    );
-    _expectTextContrast(
-      darkTheme.colorScheme.onPrimaryContainer,
-      darkTheme.colorScheme.primaryContainer,
-    );
-    _expectTextContrast(
-      darkTheme.colorScheme.onSecondaryContainer,
-      darkTheme.colorScheme.secondaryContainer,
-    );
-    _expectTextContrast(
-      darkTheme.colorScheme.onTertiaryContainer,
-      darkTheme.colorScheme.tertiaryContainer,
-    );
+    for (final theme in [lightTheme, darkTheme]) {
+      final colors = theme.colorScheme;
+      _expectTextContrast(
+        'onSurface/surface',
+        colors.onSurface,
+        colors.surface,
+      );
+      _expectTextContrast(
+        'onSurfaceVariant/surfaceContainerHigh',
+        colors.onSurfaceVariant,
+        colors.surfaceContainerHigh,
+      );
+      _expectTextContrast(
+        'chip-label/chip-background',
+        theme.chipTheme.labelStyle!.color!,
+        theme.chipTheme.backgroundColor!,
+      );
+      _expectTextContrast(
+        'onPrimary/primary',
+        colors.onPrimary,
+        colors.primary,
+      );
+      _expectTextContrast(
+        'onSecondary/secondary',
+        colors.onSecondary,
+        colors.secondary,
+      );
+      _expectTextContrast('onError/error', colors.onError, colors.error);
+      _expectTextContrast(
+        'onPrimaryContainer/primaryContainer',
+        colors.onPrimaryContainer,
+        colors.primaryContainer,
+      );
+      _expectTextContrast(
+        'onSecondaryContainer/secondaryContainer',
+        colors.onSecondaryContainer,
+        colors.secondaryContainer,
+      );
+      _expectTextContrast(
+        'onTertiaryContainer/tertiaryContainer',
+        colors.onTertiaryContainer,
+        colors.tertiaryContainer,
+      );
+      _expectBorderContrast(colors.outline, colors.surface);
+    }
   });
 }
 
-void _expectTextContrast(Color foreground, Color background) {
+void _expectBorderContrast(Color border, Color surface) {
+  expect(_contrastRatio(border, surface), greaterThanOrEqualTo(3));
+}
+
+void _expectTextContrast(String pair, Color foreground, Color background) {
+  expect(
+    _contrastRatio(foreground, background),
+    greaterThanOrEqualTo(4.5),
+    reason: pair,
+  );
+}
+
+double _contrastRatio(Color foreground, Color background) {
   final foregroundLuminance = foreground.computeLuminance();
   final backgroundLuminance = background.computeLuminance();
-  final contrast =
-      (foregroundLuminance > backgroundLuminance
+  return (foregroundLuminance > backgroundLuminance
           ? foregroundLuminance + .05
           : backgroundLuminance + .05) /
       (foregroundLuminance > backgroundLuminance
           ? backgroundLuminance + .05
           : foregroundLuminance + .05);
-
-  expect(contrast, greaterThanOrEqualTo(4.5));
 }

@@ -386,6 +386,7 @@ class _FeatureCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final featureColor = isDark ? colors.onSurface : color;
     return Material(
       color: isDark ? colors.surfaceContainerHigh : background,
       shape: RoundedRectangleBorder(
@@ -412,10 +413,14 @@ class _FeatureCard extends StatelessWidget {
                           : Colors.white.withValues(alpha: .85),
                       borderRadius: BorderRadius.circular(14),
                     ),
-                    child: Icon(icon, size: 27, color: color),
+                    child: Icon(icon, size: 27, color: featureColor),
                   ),
                   const Spacer(),
-                  Icon(Icons.chevron_right_rounded, size: 23, color: color),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    size: 23,
+                    color: featureColor,
+                  ),
                 ],
               ),
               const SizedBox(height: 12),
