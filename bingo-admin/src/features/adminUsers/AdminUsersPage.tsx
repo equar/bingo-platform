@@ -115,13 +115,15 @@ export function AdminUsersPage() {
   const usersQuery = useQuery({
     queryKey: ["admin-users", page, pageSize, search, statusFilter],
     queryFn: () => adminUsers(page, pageSize, search, statusFilter),
-    refetchInterval: (query) => query.state.data?.content.some((user) =>
-      user.id === routeUserId && user.status === "PENDING" && (
-        user.activationEmailStatus === "SENDING"
-        || user.activationEmailStatus === "UNKNOWN"
-        || user.activationEmailStatus === undefined
-      ),
-    ) ? 1000 : false,
+    refetchInterval: (query) => query.state.data?.content.some((user) => {
+      if (user.id !== routeUserId) return false;
+      if (user.status === "PENDING") {
+        return user.activationEmailStatus === "SENDING"
+          || user.activationEmailStatus === "UNKNOWN"
+          || user.activationEmailStatus === undefined;
+      }
+      return user.status === "ACTIVE" && user.passwordResetEmailStatus === "SENDING";
+    }) ? 1000 : false,
   });
 
   const selectedUser = isEditPage
@@ -142,7 +144,8 @@ export function AdminUsersPage() {
 
   const resetPasswordMutation = useMutation({
     mutationFn: (userId: number) => resetAdminUserPassword(userId),
-    onSuccess: () => {
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["admin-users"] });
       setResetTarget(null);
       setResendSuccess("Password reset email queued. The user must reset their password before signing in.");
     },
@@ -517,36 +520,81 @@ export function AdminUsersPage() {
                 {t("Account activity")}
               </Typography>
               <Stack spacing={2}>
+                {selectedUser.status === "PENDING" ? <>
+                  <Alert
+                    severity={selectedUser.activationEmailStatus === "SENT"
+                      ? "success"
+                      : selectedUser.activationEmailStatus === "FAILED" ? "error" : "info"}
+                    role="status"
+                  >
+                    {t("Activation email status")}: {t(
+                      selectedUser.activationEmailStatus === "SENT" ? "Sent successfully"
+                        : selectedUser.activationEmailStatus === "FAILED" ? "Failed to send"
+                          : selectedUser.activationEmailStatus === "SENDING" ? "Sending"
+                            : selectedUser.activationEmailStatus === "NOT_SENT" ? "Not sent"
+                              : "Not recorded — resend the activation email to check delivery"
+                    )}
+                  </Alert>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">
+                      {t("Activation email status date")}
+                    </Typography>
+                    <Typography variant="body2">
+                      {selectedUser.activationEmailStatusUpdatedAt
+                        ? new Date(selectedUser.activationEmailStatusUpdatedAt).toLocaleString()
+                        : t("Not recorded")}
+                    </Typography>
+                  </Box>
+                  {selectedUser.activationEmailSentAt ? (
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        {t("Activation email last sent")}
+                      </Typography>
+                      <Typography variant="body2">
+                        {new Date(selectedUser.activationEmailSentAt).toLocaleString()}
+                      </Typography>
+                    </Box>
+                  ) : null}
+                </> : selectedUser.status === "ACTIVE" ? <>
+                  <Alert
+                    severity={selectedUser.passwordResetEmailStatus === "SENT"
+                      ? "success"
+                      : selectedUser.passwordResetEmailStatus === "FAILED" ? "error" : "info"}
+                    role="status"
+                  >
+                    {t("Password reset email status")}: {t(
+                      selectedUser.passwordResetEmailStatus === "SENT" ? "Sent successfully"
+                        : selectedUser.passwordResetEmailStatus === "FAILED" ? "Failed to send"
+                          : selectedUser.passwordResetEmailStatus === "SENDING" ? "Sending"
+                            : selectedUser.passwordResetEmailStatus === "NOT_REQUESTED" ? "Not requested"
+                              : "Not recorded"
+                    )}
+                  </Alert>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">
+                      {t("Password reset email status date")}
+                    </Typography>
+                    <Typography variant="body2">
+                      {selectedUser.passwordResetEmailStatusUpdatedAt
+                        ? new Date(selectedUser.passwordResetEmailStatusUpdatedAt).toLocaleString()
+                        : t("Not recorded")}
+                    </Typography>
+                  </Box>
+                </> : null}
                 {selectedUser.status === "PENDING" ? (
-                  <>
-                    <Alert
-                      severity={selectedUser.activationEmailStatus === "SENT"
-                        ? "success"
-                        : selectedUser.activationEmailStatus === "FAILED" ? "error" : "info"}
-                      role="status"
-                    >
-                      {t("Activation email status")}: {t(
-                        selectedUser.activationEmailStatus === "SENT" ? "Sent successfully"
-                          : selectedUser.activationEmailStatus === "FAILED" ? "Failed to send"
-                            : selectedUser.activationEmailStatus === "SENDING" ? "Sending"
-                              : selectedUser.activationEmailStatus === "NOT_SENT" ? "Not sent"
-                                : "Not recorded — resend the activation email to check delivery"
-                      )}
-                    </Alert>
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      disabled={isEditingOwnAccount || resendMutation.isPending || selectedUser.activationEmailStatus === "SENDING"}
-                      title={isEditingOwnAccount ? t("You cannot resend an activation email to your own account.") : undefined}
-                      onClick={() => {
-                        setResendError(null);
-                        setResendSuccess(null);
-                        setResendTarget(selectedUser);
-                      }}
-                    >{resendMutation.isPending || selectedUser.activationEmailStatus === "SENDING"
-                      ? t("Sending...")
-                      : t("Resend activation email")}</Button>
-                  </>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    disabled={isEditingOwnAccount || resendMutation.isPending || selectedUser.activationEmailStatus === "SENDING"}
+                    title={isEditingOwnAccount ? t("You cannot resend an activation email to your own account.") : undefined}
+                    onClick={() => {
+                      setResendError(null);
+                      setResendSuccess(null);
+                      setResendTarget(selectedUser);
+                    }}
+                  >{resendMutation.isPending || selectedUser.activationEmailStatus === "SENDING"
+                    ? t("Sending...")
+                    : t("Resend activation email")}</Button>
                 ) : null}
                 {resendSuccess ? <Alert severity="success" role="status">{t(resendSuccess)}</Alert> : null}
                 {resendError && !resetTarget && !resendTarget ? <Alert severity="error" role="alert">{t(resendError)}</Alert> : null}

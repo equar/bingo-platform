@@ -1,26 +1,64 @@
 package com.bakaroo.bingo.backend.feature.auth.service;
 
 import com.bakaroo.bingo.backend.feature.user.entity.AccountStatus;
+import com.bakaroo.bingo.backend.feature.user.entity.PasswordResetEmailStatus;
 import com.bakaroo.bingo.backend.feature.user.entity.User;
+import com.bakaroo.bingo.backend.feature.user.repository.UserRepository;
 import com.bakaroo.bingo.backend.feature.user.entity.UserRole;
 import java.time.Instant;
 import java.util.Set;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 import org.springframework.mail.MailSendException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 class AdminAccountNotificationServiceTest {
 
     private static final User USER = createUser();
+
+    @Test
+    void recordsSuccessfulPasswordResetEmailStatus() {
+        JavaMailSender mailSender = mock(JavaMailSender.class);
+        UserRepository userRepository = mock(UserRepository.class);
+        User user = createUser();
+        ReflectionTestUtils.setField(user, "id", 81L);
+
+        new AdminAccountNotificationService(mailSender, userRepository, "no-reply@example.invalid")
+                .sendPasswordResetLink(user, "https://admin.example.invalid/reset-password#token=single-use");
+
+        verify(userRepository).updatePasswordResetEmailStatus(
+                eq(81L), eq(PasswordResetEmailStatus.SENT), any(Instant.class));
+    }
+
+    @Test
+    void recordsFailedPasswordResetEmailStatus() {
+        JavaMailSender mailSender = mock(JavaMailSender.class);
+        UserRepository userRepository = mock(UserRepository.class);
+        User user = createUser();
+        ReflectionTestUtils.setField(user, "id", 82L);
+        doThrow(new MailSendException("SMTP unavailable"))
+                .when(mailSender).send(any(SimpleMailMessage.class));
+
+        new AdminAccountNotificationService(mailSender, userRepository, "no-reply@example.invalid")
+                .sendPasswordResetLink(user, "https://admin.example.invalid/reset-password#token=single-use");
+
+        verify(userRepository).updatePasswordResetEmailStatus(
+                eq(82L), eq(PasswordResetEmailStatus.FAILED), any(Instant.class));
+    }
 
     @Test
     void sendsSingleUseActivationLinkWithoutPassword() {
@@ -43,14 +81,33 @@ class AdminAccountNotificationServiceTest {
     }
 
     @Test
-    void logsMailDeliveryFailureWithoutFailingTheAdminRequest() {
+    @ExtendWith(OutputCaptureExtension.class)
+    void logsMailDeliveryFailureWithoutFailingTheAdminRequest(CapturedOutput output) {
         JavaMailSender mailSender = mock(JavaMailSender.class);
-        doThrow(new MailSendException("SMTP unavailable")).when(mailSender).send(any(SimpleMailMessage.class));
+        doThrow(new MailSendException(
+                "body-sentinel password-sentinel token-sentinel otp-sentinel"))
+                .when(mailSender).send(any(SimpleMailMessage.class));
 
-        assertDoesNotThrow(
-                () -> new AdminAccountNotificationService(mailSender, "no-reply@example.invalid")
-                        .sendActivationLink(USER, "https://admin.example.invalid/activate-account?token=single-use"));
-        verify(mailSender).send(any(SimpleMailMessage.class));
+        AdminAccountNotificationService service = new AdminAccountNotificationService(
+                mailSender, "no-reply@example.invalid");
+        assertDoesNotThrow(() -> service.sendActivationLink(
+                USER, "http://localhost:5173/activate-account#token=activation-sentinel&otp=activation-link-sentinel"));
+        assertDoesNotThrow(() -> service.sendPasswordResetLink(
+                USER, "http://localhost:5173/reset-password#token=reset-sentinel&password=reset-link-sentinel"));
+
+        verify(mailSender, times(2)).send(any(SimpleMailMessage.class));
+        String logs = output.getOut() + output.getErr();
+        org.junit.jupiter.api.Assertions.assertTrue(logs.contains("MailSendException"));
+        org.junit.jupiter.api.Assertions.assertFalse(logs.contains("body-sentinel"));
+        org.junit.jupiter.api.Assertions.assertFalse(logs.contains("password-sentinel"));
+        org.junit.jupiter.api.Assertions.assertFalse(logs.contains("token-sentinel"));
+        org.junit.jupiter.api.Assertions.assertFalse(logs.contains("otp-sentinel"));
+        org.junit.jupiter.api.Assertions.assertFalse(logs.contains("activation-sentinel"));
+        org.junit.jupiter.api.Assertions.assertFalse(logs.contains("activation-link-sentinel"));
+        org.junit.jupiter.api.Assertions.assertFalse(logs.contains("reset-sentinel"));
+        org.junit.jupiter.api.Assertions.assertFalse(logs.contains("reset-link-sentinel"));
+        org.junit.jupiter.api.Assertions.assertFalse(logs.contains("admin@example.invalid"));
+        org.junit.jupiter.api.Assertions.assertFalse(logs.contains("encoded-password"));
     }
 
     private static User createUser() {

@@ -38,6 +38,11 @@ export function LoginPage() {
       ? String((location.state as { from?: unknown }).from ?? "/dashboard")
       : "/dashboard";
   }, [location.state]);
+  const accountActivated =
+    typeof location.state === "object" &&
+    location.state !== null &&
+    "accountActivated" in location.state &&
+    location.state.accountActivated === true;
 
   const mutation = useMutation({
     mutationFn: () => login({ email, password }),
@@ -96,6 +101,7 @@ export function LoginPage() {
         }}
       >
         <Stack spacing={3}>
+          {accountActivated ? <Alert severity="success">{t("activation.success")}</Alert> : null}
           {sessionExpired ? <Alert severity="info">{t("login.sessionExpired")}</Alert> : null}
           <Stack spacing={2} alignItems="center" textAlign="center">
             <Box

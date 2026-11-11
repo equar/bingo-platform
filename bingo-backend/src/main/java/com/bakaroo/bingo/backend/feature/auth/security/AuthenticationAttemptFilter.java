@@ -1,6 +1,7 @@
 package com.bakaroo.bingo.backend.feature.auth.security;
 
 import com.bakaroo.bingo.backend.common.api.ApiErrorResponseWriter;
+import com.bakaroo.bingo.backend.common.api.RequestLogSupport;
 import com.bakaroo.bingo.backend.common.exception.TooManyRequestsException;
 import com.bakaroo.bingo.backend.feature.auth.service.AuthenticationAttemptAuditService;
 import com.bakaroo.bingo.backend.feature.auth.service.AuthenticationAttemptThrottleService;
@@ -12,11 +13,15 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Set;
 import org.springframework.http.HttpStatus;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 @Component
 public class AuthenticationAttemptFilter extends OncePerRequestFilter {
+
+    private static final Logger log = LoggerFactory.getLogger(AuthenticationAttemptFilter.class);
 
     private static final Set<String> LOGIN_PATHS = Set.of(
             "/api/v1/auth/login",
@@ -54,6 +59,9 @@ public class AuthenticationAttemptFilter extends OncePerRequestFilter {
             throttleService.requireNetworkAllowed(clientAddress);
         } catch (TooManyRequestsException exception) {
             auditService.auditNetworkRateLimit(request.getRequestURI());
+            request.setAttribute(RequestLogSupport.FAILURE_LOGGED_ATTRIBUTE, true);
+            RequestLogSupport.withRequestFields(log.atWarn(), request, "login_rate_limit", "rejected",
+                    HttpStatus.TOO_MANY_REQUESTS.value()).log("Login attempt rate limited");
             errorWriter.write(
                     response,
                     HttpStatus.TOO_MANY_REQUESTS.value(),

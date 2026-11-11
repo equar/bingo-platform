@@ -14,6 +14,7 @@ import com.bakaroo.bingo.backend.feature.auth.dto.AdminUserCreateRequest;
 import com.bakaroo.bingo.backend.feature.auth.dto.AdminUserUpdateRequest;
 import com.bakaroo.bingo.backend.feature.auth.service.EthiopianPhoneNormalizer;
 import com.bakaroo.bingo.backend.feature.user.entity.AccountStatus;
+import com.bakaroo.bingo.backend.feature.user.entity.PasswordResetEmailStatus;
 import com.bakaroo.bingo.backend.feature.user.entity.User;
 import com.bakaroo.bingo.backend.feature.user.entity.UserRole;
 import com.bakaroo.bingo.backend.feature.user.repository.UserRepository;
@@ -70,6 +71,7 @@ class AdminUserServiceTest {
                                 Set.of(UserRole.ADMIN), Instant.parse("2026-01-01T00:00:00Z"));
                 ReflectionTestUtils.setField(admin, "id", 11L);
                 admin.setEmail("admin@example.com");
+                admin.setPasswordResetEmailStatus(PasswordResetEmailStatus.SENT);
 
                 when(userRepository.findAdminUsers(eq(List.of(UserRole.ADMIN, UserRole.SUPPORT)), eq("support"),
                                 eq(AccountStatus.ACTIVE), eq(PageRequest.of(1, 20))))
@@ -81,8 +83,36 @@ class AdminUserServiceTest {
                 assertThat(result.getContent().get(0).id()).isEqualTo(11L);
                 assertThat(result.getContent().get(0).displayName()).isEqualTo("Admin User");
                 assertThat(result.getContent().get(0).email()).isEqualTo("admin@example.com");
+                assertThat(result.getContent().get(0).passwordResetEmailStatus())
+                                .isEqualTo(PasswordResetEmailStatus.SENT);
+                assertThat(result.getContent().get(0).passwordResetEmailStatusUpdatedAt()).isNotNull();
                 verify(userRepository).findAdminUsers(eq(List.of(UserRole.ADMIN, UserRole.SUPPORT)), eq("support"),
                                 eq(AccountStatus.ACTIVE), eq(PageRequest.of(1, 20)));
+        }
+
+        @Test
+        void resetPasswordMarksEmailSendingAndQueuesResetLink() {
+                User admin = User.create("251911000009", "Admin User", "hash", AccountStatus.ACTIVE,
+                                Set.of(UserRole.ADMIN), Instant.parse("2026-01-01T00:00:00Z"));
+                ReflectionTestUtils.setField(admin, "id", 45L);
+                admin.setEmail("admin@example.com");
+                when(userRepository.findByIdForUpdate(45L)).thenReturn(Optional.of(admin));
+
+                service.resetPassword(45L, 99L, "Operations Admin");
+
+                assertThat(admin.getPasswordResetEmailStatus()).isEqualTo(PasswordResetEmailStatus.SENDING);
+                assertThat(admin.getPasswordResetEmailStatusUpdatedAt()).isNotNull();
+                assertThat(admin.getUpdatedByDisplayName()).isEqualTo("Operations Admin");
+                assertThat(notificationService.lastUser).isSameAs(admin);
+                assertThat(notificationService.lastResetLink)
+                                .startsWith("http://localhost:5173/reset-password#token=");
+                String rawToken = org.springframework.web.util.UriComponentsBuilder
+                                .fromUriString(notificationService.lastResetLink)
+                                .build()
+                                .getFragment()
+                                .substring("token=".length());
+                assertThat(activationTokenGenerator.hashToken(rawToken))
+                                .isEqualTo(admin.getAccountActivationTokenHash());
         }
 
         @Test
@@ -216,6 +246,7 @@ class AdminUserServiceTest {
 
                 private User lastUser;
                 private String lastActivationLink;
+                private String lastResetLink;
 
                 private RecordingAdminAccountNotificationService() {
                         super(mock(JavaMailSender.class), "no-reply@example.com");
@@ -225,6 +256,12 @@ class AdminUserServiceTest {
                 public void sendActivationLink(User user, String activationLink) {
                         this.lastUser = user;
                         this.lastActivationLink = activationLink;
+                }
+
+                @Override
+                public void sendPasswordResetLink(User user, String resetLink) {
+                        this.lastUser = user;
+                        this.lastResetLink = resetLink;
                 }
         }
 }

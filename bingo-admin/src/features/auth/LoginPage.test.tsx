@@ -12,7 +12,7 @@ const writeSessionMock = vi.fn();
 const clearSessionMock = vi.fn();
 const navigateMock = vi.fn();
 const consumeSessionExpiredMock = vi.fn();
-const locationMock = { state: undefined };
+const locationMock: { state: unknown } = { state: undefined };
 
 vi.mock("../../api/admin", () => ({
   login: (...args: unknown[]) => loginMock(...args),
@@ -108,6 +108,16 @@ describe("LoginPage", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Your session has expired. Please sign in again.",
+    );
+  });
+
+  it("shows an activation success notice after redirecting to sign-in", () => {
+    locationMock.state = { accountActivated: true };
+
+    render(<LoginPage />, { wrapper: createWrapper() });
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Your account is ready. Sign in with your new password.",
     );
   });
 

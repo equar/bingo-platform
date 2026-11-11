@@ -1,16 +1,21 @@
 spring:
   mail:
-    host: ${DEV_SMTP_HOST:smtp.gmail.com}
-    port: ${DEV_SMTP_PORT:587}
-    username: ${DEV_SMTP_USERNAME:}
-    password: ${DEV_SMTP_PASSWORD:}
+    host: ${DEV_SMTP_HOST:localhost}
+    port: ${DEV_SMTP_PORT:1025}
+    username: ""
+    password: ""
     properties:
       mail:
         smtp:
-          auth: true
+          auth: false
           starttls:
-            enable: true
-            required: true
+            enable: false
+            required: false
+          ssl:
+            enable: false
+          connectiontimeout: ${DEV_SMTP_CONNECTION_TIMEOUT:5000}
+          timeout: ${DEV_SMTP_READ_TIMEOUT:5000}
+          writetimeout: ${DEV_SMTP_WRITE_TIMEOUT:5000}
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/bingo?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
     username: ${SPRING_DATASOURCE_USERNAME:root}
@@ -26,6 +31,8 @@ spring:
       enabled: true
 
 app:
+  email:
+    from: ${APP_EMAIL_FROM:no-reply@bingo.local}
   dev:
     seed-enabled: ${APP_DEV_SEED_ENABLED:false}
   cors:

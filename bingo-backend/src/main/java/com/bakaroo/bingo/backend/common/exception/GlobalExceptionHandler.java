@@ -2,6 +2,7 @@ package com.bakaroo.bingo.backend.common.exception;
 
 import com.bakaroo.bingo.backend.common.api.ApiErrorResponse;
 import com.bakaroo.bingo.backend.common.api.ValidationErrorDetail;
+import com.bakaroo.bingo.backend.common.api.RequestLogSupport;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -45,6 +46,7 @@ public class GlobalExceptionHandler {
         @ApiResponse(responseCode = "409", description = "Request conflicts with current state",
                         content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
         public ResponseEntity<ApiErrorResponse> handleApiException(ApiException exception, HttpServletRequest request) {
+                logRejection(request, "business_rejection", exception.getStatus().value(), exception.getCode());
                 return ResponseEntity.status(exception.getStatus())
                                 .body(error(exception.getStatus(), exception.getCode(), exception.getMessage(), request,
                                                 List.of()));
@@ -66,6 +68,7 @@ public class GlobalExceptionHandler {
                                                 error.getObjectName(),
                                                 Objects.requireNonNullElse(error.getDefaultMessage(), "Invalid value")))
                                 .collect(Collectors.toList()));
+                logRejection(request, "request_validation", HttpStatus.BAD_REQUEST.value(), "VALIDATION_ERROR");
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                                 .body(error(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "Request validation failed",
                                                 request, details));
@@ -81,6 +84,7 @@ public class GlobalExceptionHandler {
                                                 Objects.requireNonNullElse(fieldError.getDefaultMessage(),
                                                                 "Invalid value")))
                                 .collect(Collectors.toList());
+                logRejection(request, "request_validation", HttpStatus.BAD_REQUEST.value(), "VALIDATION_ERROR");
                 return badRequest("VALIDATION_ERROR", "Request validation failed", request, details);
         }
 
@@ -89,6 +93,7 @@ public class GlobalExceptionHandler {
                         content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
         public ResponseEntity<ApiErrorResponse> handleMethodValidation(HandlerMethodValidationException exception,
                         HttpServletRequest request) {
+                logRejection(request, "request_validation", HttpStatus.BAD_REQUEST.value(), "VALIDATION_ERROR");
                 return badRequest("VALIDATION_ERROR", "Request validation failed", request, List.of());
         }
 
@@ -97,6 +102,7 @@ public class GlobalExceptionHandler {
                         content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
         public ResponseEntity<ApiErrorResponse> handleConstraintViolation(ConstraintViolationException exception,
                         HttpServletRequest request) {
+                logRejection(request, "request_validation", HttpStatus.BAD_REQUEST.value(), "VALIDATION_ERROR");
                 List<ValidationErrorDetail> details = exception.getConstraintViolations().stream()
                                 .map(violation -> new ValidationErrorDetail(violation.getPropertyPath().toString(),
                                                 violation.getMessage()))
@@ -111,6 +117,7 @@ public class GlobalExceptionHandler {
                         content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
         public ResponseEntity<ApiErrorResponse> handleMissingRequestHeader(MissingRequestHeaderException exception,
                         HttpServletRequest request) {
+                logRejection(request, "request_validation", HttpStatus.BAD_REQUEST.value(), "MISSING_REQUIRED_HEADER");
                 return badRequest("MISSING_REQUIRED_HEADER", "A required request header is missing", request,
                                 List.of(new ValidationErrorDetail(exception.getHeaderName(), "Header is required")));
         }
@@ -120,6 +127,7 @@ public class GlobalExceptionHandler {
                         content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
         public ResponseEntity<ApiErrorResponse> handleUnreadableRequestBody(HttpMessageNotReadableException exception,
                         HttpServletRequest request) {
+                logRejection(request, "request_validation", HttpStatus.BAD_REQUEST.value(), "INVALID_REQUEST_BODY");
                 return badRequest("INVALID_REQUEST_BODY", "Request body is missing or malformed", request, List.of());
         }
 
@@ -128,6 +136,7 @@ public class GlobalExceptionHandler {
                         content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
         public ResponseEntity<ApiErrorResponse> handleMissingRequestParameter(
                         MissingServletRequestParameterException exception, HttpServletRequest request) {
+                logRejection(request, "request_validation", HttpStatus.BAD_REQUEST.value(), "MISSING_REQUIRED_PARAMETER");
                 return badRequest("MISSING_REQUIRED_PARAMETER", "A required request parameter is missing", request,
                                 List.of(new ValidationErrorDetail(exception.getParameterName(), "Parameter is required")));
         }
@@ -137,6 +146,7 @@ public class GlobalExceptionHandler {
                         content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
         public ResponseEntity<ApiErrorResponse> handleArgumentTypeMismatch(MethodArgumentTypeMismatchException exception,
                         HttpServletRequest request) {
+                logRejection(request, "request_validation", HttpStatus.BAD_REQUEST.value(), "INVALID_REQUEST_PARAMETER");
                 return badRequest("INVALID_REQUEST_PARAMETER", "A request parameter has an invalid value", request,
                                 List.of(new ValidationErrorDetail(exception.getName(), "Invalid value")));
         }
@@ -146,6 +156,7 @@ public class GlobalExceptionHandler {
                         content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
         public ResponseEntity<ApiErrorResponse> handleBadCredentials(BadCredentialsException exception,
                         HttpServletRequest request) {
+                logRejection(request, "authentication", HttpStatus.UNAUTHORIZED.value(), "AUTH_INVALID_CREDENTIALS");
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                                 .body(error(HttpStatus.UNAUTHORIZED, "AUTH_INVALID_CREDENTIALS", "Invalid credentials",
                                                 request, List.of()));
@@ -156,6 +167,7 @@ public class GlobalExceptionHandler {
                         content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
         public ResponseEntity<ApiErrorResponse> handleAuthentication(AuthenticationException exception,
                         HttpServletRequest request) {
+                logRejection(request, "authentication", HttpStatus.UNAUTHORIZED.value(), "AUTHENTICATION_DENIED");
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                                 .body(error(HttpStatus.UNAUTHORIZED, "AUTHENTICATION_DENIED",
                                                 "Authentication is not permitted", request, List.of()));
@@ -166,6 +178,7 @@ public class GlobalExceptionHandler {
                         content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
         public ResponseEntity<ApiErrorResponse> handleAccessDenied(AccessDeniedException exception,
                         HttpServletRequest request) {
+                logRejection(request, "authorization", HttpStatus.FORBIDDEN.value(), "ACCESS_DENIED");
                 return ResponseEntity.status(HttpStatus.FORBIDDEN)
                                 .body(error(HttpStatus.FORBIDDEN, "ACCESS_DENIED", "Access denied", request, List.of()));
         }
@@ -175,6 +188,7 @@ public class GlobalExceptionHandler {
         public ResponseEntity<ApiErrorResponse> handleMethodNotSupported(
                         HttpRequestMethodNotSupportedException exception,
                         HttpServletRequest request) {
+                logRejection(request, "request_routing", HttpStatus.METHOD_NOT_ALLOWED.value(), "METHOD_NOT_ALLOWED");
                 return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED)
                                 .body(error(HttpStatus.METHOD_NOT_ALLOWED, "METHOD_NOT_ALLOWED",
                                                 "Request method is not supported", request, List.of()));
@@ -186,6 +200,7 @@ public class GlobalExceptionHandler {
         public ResponseEntity<ApiErrorResponse> handleNoResourceFound(
                         NoResourceFoundException exception,
                         HttpServletRequest request) {
+                logRejection(request, "request_routing", HttpStatus.NOT_FOUND.value(), "RESOURCE_NOT_FOUND");
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
                                 .body(error(HttpStatus.NOT_FOUND, "RESOURCE_NOT_FOUND",
                                                 "Resource not found", request, List.of()));
@@ -196,6 +211,7 @@ public class GlobalExceptionHandler {
                         content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
         public ResponseEntity<ApiErrorResponse> handleOptimisticLock(OptimisticLockingFailureException exception,
                         HttpServletRequest request) {
+                logRejection(request, "concurrency_conflict", HttpStatus.CONFLICT.value(), "CONCURRENT_UPDATE_CONFLICT");
                 return ResponseEntity.status(HttpStatus.CONFLICT)
                                 .body(error(HttpStatus.CONFLICT, "CONCURRENT_UPDATE_CONFLICT",
                                                 "The resource changed during the update; reload and retry", request,
@@ -206,10 +222,14 @@ public class GlobalExceptionHandler {
         @ApiResponse(responseCode = "503", description = "Email delivery is unavailable",
                         content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
         public ResponseEntity<ApiErrorResponse> handleMailFailure(MailException exception, HttpServletRequest request) {
-                log.error("Email delivery failed for {} {} (correlationId={})", request.getMethod(),
-                                request.getRequestURI(),
-                                com.bakaroo.bingo.backend.common.api.ApiErrorResponseWriter.resolveCorrelationId(request),
-                                exception);
+                request.setAttribute(RequestLogSupport.EXCEPTION_LOGGED_ATTRIBUTE, true);
+                request.setAttribute(RequestLogSupport.FAILURE_LOGGED_ATTRIBUTE, true);
+                RequestLogSupport.withRequestFields(log.atError(), request, "email_delivery", "failed",
+                                HttpStatus.SERVICE_UNAVAILABLE.value())
+                                .addKeyValue("failureType", exception.getClass().getSimpleName())
+                                .addKeyValue("causeType", exception.getCause() == null ? "none"
+                                                : exception.getCause().getClass().getSimpleName())
+                                .log("Email delivery failed");
                 return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                                 .body(error(HttpStatus.SERVICE_UNAVAILABLE, "EMAIL_DELIVERY_UNAVAILABLE",
                                                 "The invitation email could not be sent. Configure or check the email delivery settings, then try again.",
@@ -220,10 +240,13 @@ public class GlobalExceptionHandler {
         @ApiResponse(responseCode = "500", description = "Unexpected server error",
                         content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
         public ResponseEntity<ApiErrorResponse> handleFallback(Exception exception, HttpServletRequest request) {
-                log.error("Unhandled request failure for {} {} (correlationId={})", request.getMethod(),
-                                request.getRequestURI(),
-                                com.bakaroo.bingo.backend.common.api.ApiErrorResponseWriter.resolveCorrelationId(request),
-                                exception);
+                request.setAttribute(RequestLogSupport.EXCEPTION_LOGGED_ATTRIBUTE, true);
+                request.setAttribute(RequestLogSupport.FAILURE_LOGGED_ATTRIBUTE, true);
+                RequestLogSupport.withRequestFields(log.atError(), request, "http_request", "failed",
+                                HttpStatus.INTERNAL_SERVER_ERROR.value())
+                                .addKeyValue("failureType", exception.getClass().getSimpleName())
+                                .setCause(exception)
+                                .log("Unhandled request failure");
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                                 .body(error(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_ERROR",
                                                 "An unexpected error occurred", request,
@@ -236,6 +259,17 @@ public class GlobalExceptionHandler {
                         List<ValidationErrorDetail> details) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                                 .body(error(HttpStatus.BAD_REQUEST, code, message, request, details));
+        }
+
+        private void logRejection(HttpServletRequest request, String operation, int status, String code) {
+                request.setAttribute(RequestLogSupport.FAILURE_LOGGED_ATTRIBUTE, true);
+                RequestLogSupport.withRequestFields(log.atWarn(), request, operation, "rejected", status)
+                                .addKeyValue("errorCode", safeCode(code))
+                                .log("Request rejected");
+        }
+
+        private String safeCode(String code) {
+                return code != null && code.matches("[A-Za-z0-9_-]{1,64}") ? code : "UNSPECIFIED";
         }
 
         private ApiErrorResponse error(HttpStatus status,

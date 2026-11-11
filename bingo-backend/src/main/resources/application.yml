@@ -29,6 +29,15 @@ spring:
             enable: true
             required: true
 
+logging:
+  level:
+    root: ${LOG_LEVEL_ROOT:INFO}
+    com.bakaroo.bingo.backend: ${LOG_LEVEL_APP:INFO}
+    org.hibernate.SQL: ${LOG_LEVEL_HIBERNATE_SQL:OFF}
+    org.hibernate.orm.jdbc.bind: ${LOG_LEVEL_HIBERNATE_BIND:OFF}
+  pattern:
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} level=%-5level service=${spring.application.name:bingo-backend} env=${spring.profiles.active:local} correlationId=%X{correlationId:-} %kvp [%thread] %logger{36} - %msg%n%wEx"
+
 springdoc:
   api-docs:
     path: /v3/api-docs

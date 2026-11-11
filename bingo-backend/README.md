@@ -21,6 +21,37 @@ Run the backend from this directory:
 mvn spring-boot:run -Dspring-boot.run.profiles=dev
 ```
 
+### Local email capture with Mailpit (Windows)
+
+From the repository root, install the pinned official Mailpit v1.33.1 binary
+once, then start the local SMTP sink before starting the backend:
+
+```powershell
+.\scripts\Mailpit.ps1 -Action Install
+.\scripts\Mailpit.ps1 -Action Start
+```
+
+Mailpit listens only on `127.0.0.1:1025` for SMTP and
+`127.0.0.1:8025` for its inbox. Open <http://localhost:8025> to inspect
+messages. Stop it with `.\scripts\Mailpit.ps1 -Action Stop`; check its state
+with `.\scripts\Mailpit.ps1 -Action Status`.
+
+The `dev` profile uses `DEV_SMTP_HOST=localhost`, `DEV_SMTP_PORT=1025`,
+disabled SMTP authentication, STARTTLS, and SSL, and 5000 ms connection/read/
+write timeouts. `APP_EMAIL_FROM` defaults to `no-reply@bingo.local` and can be
+overridden in the ignored `.env`. No Gmail credentials are needed. Mailpit
+stores captured messages locally under
+`%LOCALAPPDATA%\BingoPlatform\Mailpit`; it does not relay or forward them, so
+they are never delivered to real inboxes. The backend's existing local
+workflow runs on the host; a future containerized backend would need a
+network-reachable Mailpit service hostname rather than `localhost`.
+
+If Mailpit cannot start, run `.\scripts\Mailpit.ps1 -Action Status` and check
+whether another process owns ports 1025 or 8025. If the backend cannot connect,
+confirm it is running with the `dev` profile and that Mailpit is listening on
+1025. SMTP delivery failures are logged with the user ID and exception type
+only; message bodies, recipients, and activation/reset links are not logged.
+
 The local datasource defaults to `jdbc:mysql://localhost:3306/bingo` and may
 create the development database. Development account seeding is disabled by
 default; enabling it requires unique `DEV_ADMIN_*`, `DEV_AGENT_*`, and
@@ -31,11 +62,9 @@ settings for QA or production.
 
 Admin/support accounts require a valid phone number. The backend sends a
 single-use activation link that expires after 24 hours; the recipient chooses
-the password. The `dev` profile reads SMTP settings from `DEV_SMTP_HOST`,
-`DEV_SMTP_PORT`, `DEV_SMTP_USERNAME`, and `DEV_SMTP_PASSWORD` in `.env`. For
-Gmail, use an app password. Activation emails are sent asynchronously after
-account creation commits. If delivery fails, the account remains created with
-pending activation and the failure is logged by the backend.
+the password. Activation emails are sent asynchronously after account
+creation commits. If delivery fails, the account remains created with pending
+activation and the failure is logged by the backend.
 Production uses Flyway and Hibernate `validate`; it does not use development
 seeding. See the [production deployment guide](../deployment/README.md) for
 the protected runtime environment and secret setup.
@@ -91,6 +120,68 @@ the origin allowlist are enforced by the backend.
   as compromised: rotate affected passwords/PINs/secrets, invalidate sessions,
   and review access logs. Removing current-source fallbacks does not remove
   secrets from Git history.
+
+## Troubleshooting and application logs
+
+The backend writes logs to the console (`stdout`/`stderr`) and does not create
+application log files. Running `mvn spring-boot:run` prints them in that
+terminal; a local background launcher may redirect them to its own files.
+Production runs under systemd with `StandardOutput=journal` and
+`StandardError=journal`; use `journalctl -u bingo-backend` to read logs. Log
+rotation and retention are provided by journald/host operations, not the app.
+Keep deployment retention aligned with the service's operational and privacy
+requirements.
+
+Local logs use readable timestamped lines. The `prod` profile emits structured
+Logstash-compatible JSON to the console. Both formats include service,
+environment, severity, and correlation ID. Request records add operation,
+outcome, method, sanitized route, status, and duration. Successful API reads
+and writes are INFO so ordinary business requests are searchable at the
+production default level; preflight OPTIONS requests remain DEBUG. Committed
+service mutations are INFO; rejected requests and recoverable conflicts are
+WARN; unexpected failures are ERROR. Health polling and individual WebSocket
+frames are not logged. INFO request logging increases production log volume;
+route and status fields are bounded and exclude query strings and bodies.
+
+Configure levels with `LOG_LEVEL_ROOT` and `LOG_LEVEL_APP` (both default to
+`INFO`). Hibernate SQL and bind-value logging default to `OFF`; the optional
+`LOG_LEVEL_HIBERNATE_SQL` and `LOG_LEVEL_HIBERNATE_BIND` settings are intended
+for short-lived local diagnostics and must remain off in production. Do not
+enable SQL/bind logging or DEBUG/TRACE in production. Never put credentials,
+tokens, or request bodies in a log-level override or support bundle.
+
+To follow one request, send an optional `X-Correlation-Id` containing 1–64
+ASCII letters, digits, `.`, `_`, `:`, or `-`. The server replaces invalid IDs
+with a UUID and returns the accepted/generated value in the same response
+header. Search the console/journal for that exact value. Async email work
+inherits the request ID; background draw sweeps use a separate generated
+`job-…` correlation ID. Financial `Idempotency-Key` values are separate and
+are never logged.
+
+Sanitized examples:
+
+```text
+2026-11-11T14:04:12.218-05:00 level=INFO service=bingo-backend env=dev correlationId=req-91 "operation"="WalletService.transfer" "outcome"="committed" "operationId"="9b2…" "actorId"=42 "entityId"=881 "durationMs"=37 - Business operation committed
+2026-11-11T14:04:12.220-05:00 level=WARN service=bingo-backend env=dev correlationId=req-91 "operation"="authentication" "outcome"="rejected" "errorCode"="AUTH_INVALID_CREDENTIALS" - Request rejected
+2026-11-11T14:04:12.224-05:00 level=ERROR service=bingo-backend env=dev correlationId=req-92 "operation"="http_request" "outcome"="failed" "route"="/api/v1/wallet/transfers" "failureType"="DataAccessResourceFailureException" - Unhandled request failure
+2026-11-11T14:04:22.000-05:00 level=ERROR service=bingo-backend env=dev correlationId=job-31f… "operation"="game_live_draw_sweep" "outcome"="failed" "job"="scheduled" "failureType"="DataAccessException" - Scheduled draw sweep failed
+```
+
+For login problems, search the request ID for `operation=authentication` or
+`login_rate_limit`; logs intentionally omit the submitted identity. For
+database failures, start with the request's `failureType` and original stack
+trace, then check `/actuator/health` and the database/service journal without
+printing connection properties. For wallet or other financial changes, find
+the `Business operation committed` record and its internal `operationId`; it
+is emitted only after commit. Replayed idempotent requests log `outcome=replay`
+without the idempotency key. For scheduled jobs, search the generated `job-…`
+correlation ID and `operation=game_live_draw_sweep`; successful sweeps are
+logged only when they commit one or more draws.
+
+The application does not rotate files or ship logs to a central service.
+Production aggregation, access controls, retention, alerting, and clock
+synchronization remain deployment responsibilities. Durable business audit
+records remain separate from these diagnostic logs.
 
 ## Integration-test safeguards
 

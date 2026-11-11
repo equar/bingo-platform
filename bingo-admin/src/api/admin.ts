@@ -190,6 +190,10 @@ export interface UserSummaryResponse {
   createdByDisplayName?: string | null;
   updatedByDisplayName?: string | null;
   activationEmailStatus?: "NOT_SENT" | "UNKNOWN" | "SENDING" | "SENT" | "FAILED";
+  activationEmailSentAt?: string | null;
+  activationEmailStatusUpdatedAt?: string | null;
+  passwordResetEmailStatus?: "NOT_REQUESTED" | "SENDING" | "SENT" | "FAILED";
+  passwordResetEmailStatusUpdatedAt?: string | null;
 }
 
 export interface AdminUserCreateRequest {
