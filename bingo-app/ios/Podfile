@@ -1,4 +1,5 @@
-# Match Runner and the minimum supported by the installed Xcode SDK.
+# iOS 15 is the oldest target supported by the current Xcode SDK. This still
+# covers iPhone 6s and first-generation iPhone SE hardware.
 platform :ios, '15.0'
 
 # CocoaPods analytics sends network stats synchronously affecting flutter build latency.
@@ -39,7 +40,7 @@ end
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
-    # Older plugin podspecs declare iOS 9/13, rejected by current Xcode SDKs.
+    # Keep every pod aligned with the app's supported iOS baseline.
     target.build_configurations.each do |config|
       minimum = config.build_settings['IPHONEOS_DEPLOYMENT_TARGET']
       if minimum.nil? || minimum.to_f < 15.0

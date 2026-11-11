@@ -12,10 +12,12 @@ class AuthScreen extends ConsumerStatefulWidget {
     super.key,
     required this.sessionExpired,
     this.accountSuspended = false,
+    this.sessionStorageUnavailable = false,
   });
 
   final bool sessionExpired;
   final bool accountSuspended;
+  final bool sessionStorageUnavailable;
 
   @override
   ConsumerState<AuthScreen> createState() => _AuthScreenState();
@@ -220,6 +222,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   if (widget.sessionExpired) ...[
                     const SizedBox(height: 12),
                     SectionCard(child: Text(localizations.sessionExpired)),
+                  ],
+                  if (widget.sessionStorageUnavailable) ...[
+                    const SizedBox(height: 12),
+                    SectionCard(
+                      child: Text(localizations.sessionStorageUnavailable),
+                    ),
                   ],
                   const SizedBox(height: 16),
                   SectionCard(

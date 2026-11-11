@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:bingo_app/src/core/storage/session_storage.dart';
 import 'package:bingo_app/src/features/auth/data/auth_models.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class AuthSessionState {
@@ -20,15 +21,24 @@ final authSessionControllerProvider =
 });
 
 class AuthSessionController extends StateNotifier<AuthSessionState> {
-  AuthSessionController(this._storage) : super(const AuthSessionState(isLoading: true)) {
-    restore();
+  AuthSessionController(this._storage, {bool restoreOnInit = true})
+    : super(const AuthSessionState(isLoading: true)) {
+    if (restoreOnInit) restore();
   }
 
   final SessionStorage _storage;
 
   Future<void> restore() async {
+    Map<String, String?> stored;
     try {
-      final stored = await _storage.readSession();
+      stored = await _storage.readSession();
+    } catch (error, stackTrace) {
+      _reportStorageError(error, stackTrace, 'reading the saved session');
+      _setStorageUnavailable();
+      return;
+    }
+
+    try {
       if (!mounted) {
         return;
       }
@@ -50,7 +60,9 @@ class AuthSessionController extends StateNotifier<AuthSessionState> {
         user: user,
       );
       if (session.isExpired) {
-        await _storage.clear();
+        if (!await _clearStoredSession('clearing an expired session')) {
+          return;
+        }
         if (mounted) {
           state = const AuthSessionState(
             isLoading: false,
@@ -60,13 +72,17 @@ class AuthSessionController extends StateNotifier<AuthSessionState> {
         return;
       }
       state = AuthSessionState(isLoading: false, session: session);
-    } catch (_) {
-      // Invalid or partially written secure-storage data should recover to
-      // sign-in instead of leaving the app on a crashing/loading screen.
-      try {
-        await _storage.clear();
-      } catch (_) {
-        // The sign-in screen is still usable if secure-storage cleanup fails.
+    } catch (error, stackTrace) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stackTrace,
+          library: 'bingo_app',
+          context: ErrorDescription('restoring the saved session'),
+        ),
+      );
+      if (!await _clearStoredSession('clearing an invalid saved session')) {
+        return;
       }
       if (mounted) {
         state = const AuthSessionState(isLoading: false);
@@ -77,16 +93,54 @@ class AuthSessionController extends StateNotifier<AuthSessionState> {
   Future<void> setSession(AuthResponse response) async {
     final expiresAt = DateTime.now().toUtc().add(Duration(seconds: response.expiresInSeconds));
     final session = AuthSession(accessToken: response.accessToken, expiresAt: expiresAt, user: response.user);
-    await _storage.saveSession(
-      accessToken: session.accessToken,
-      expiresAtIso: session.expiresAt.toIso8601String(),
-      userJson: session.user.toPersistedJson(),
-    );
+    try {
+      await _storage.saveSession(
+        accessToken: session.accessToken,
+        expiresAtIso: session.expiresAt.toIso8601String(),
+        userJson: session.user.toPersistedJson(),
+      );
+    } catch (error, stackTrace) {
+      _reportStorageError(error, stackTrace, 'saving the authenticated session');
+      rethrow;
+    }
     state = AuthSessionState(isLoading: false, session: session);
   }
 
   Future<void> clearSession({String? reason}) async {
-    await _storage.clear();
+    if (!await _clearStoredSession('clearing the authenticated session')) {
+      return;
+    }
     state = AuthSessionState(isLoading: false, errorMessage: reason);
+  }
+
+  Future<bool> _clearStoredSession(String operation) async {
+    try {
+      await _storage.clear();
+      return true;
+    } catch (error, stackTrace) {
+      _reportStorageError(error, stackTrace, operation);
+      _setStorageUnavailable();
+      return false;
+    }
+  }
+
+  void _reportStorageError(Object error, StackTrace stackTrace, String operation) {
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: error,
+        stack: stackTrace,
+        library: 'bingo_app',
+        context: ErrorDescription(operation),
+      ),
+    );
+  }
+
+  void _setStorageUnavailable() {
+    if (mounted) {
+      state = const AuthSessionState(
+        isLoading: false,
+        errorMessage: 'SESSION_STORAGE_UNAVAILABLE',
+      );
+    }
   }
 }

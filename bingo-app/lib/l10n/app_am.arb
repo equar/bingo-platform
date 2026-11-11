@@ -213,6 +213,7 @@
   "statusResolved": "ተፈታ",
   "statusClosed": "ተዘግቷል",
   "sessionExpired": "ስርዓቱ ጊዜው አልፏል። እባክዎ እንደገና ይግቡ።",
+  "sessionStorageUnavailable": "የመሣሪያው የተጠበቀ ማከማቻ ተደራሽ አይደለም። እባክዎ እንደገና ይግቡ።",
   "contractGapTitle": "የbackend ኮንትራት ክፍት ቦታ",
   "contractGapBody": "የአሁኑ API ለUI ማሳየት የሚችለውን ሁሉ አያቀርብም። መተግበሪያው የእውነተኛ backend መረጃ ብቻ ያሳያል እና የማይሞላውን ክፍት ቦታ ይጠቁማል።",
   "ticketPreviewButton": "የቲኬት መረጃ",

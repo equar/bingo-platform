@@ -86,6 +86,9 @@ class LobbyScreen extends ConsumerWidget {
                     itemCount: rooms.length,
                     itemBuilder: (context, index) {
                       final room = rooms[index];
+                      final colors = Theme.of(context).colorScheme;
+                      final isDark =
+                          Theme.of(context).brightness == Brightness.dark;
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 12),
                         child: SectionCard(
@@ -109,8 +112,12 @@ class LobbyScreen extends ConsumerWidget {
                                     ),
                                     decoration: BoxDecoration(
                                       color: room.active
-                                          ? const Color(0xFFEAF8EE)
-                                          : const Color(0xFFF1F3F7),
+                                          ? (isDark
+                                                ? colors.secondaryContainer
+                                                : const Color(0xFFEAF8EE))
+                                          : (isDark
+                                                ? colors.surfaceContainerHigh
+                                                : const Color(0xFFF1F3F7)),
                                       borderRadius: BorderRadius.circular(20),
                                     ),
                                     child: Text(
@@ -121,8 +128,12 @@ class LobbyScreen extends ConsumerWidget {
                                         fontWeight: FontWeight.w700,
                                         fontSize: 12,
                                         color: room.active
-                                            ? const Color(0xFF167639)
-                                            : const Color(0xFF667084),
+                                            ? (isDark
+                                                  ? colors.onSecondaryContainer
+                                                  : const Color(0xFF167639))
+                                            : (isDark
+                                                  ? colors.onSurfaceVariant
+                                                  : const Color(0xFF667084)),
                                       ),
                                     ),
                                   ),
@@ -416,7 +427,7 @@ class _InfoChip extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
     decoration: BoxDecoration(
-      color: const Color(0xFFF1F5FB),
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
       borderRadius: BorderRadius.circular(12),
     ),
     child: Column(

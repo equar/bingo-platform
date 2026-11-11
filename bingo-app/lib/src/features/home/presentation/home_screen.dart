@@ -60,8 +60,9 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
+    final colors = Theme.of(context).colorScheme;
     return ColoredBox(
-      color: const Color(0xFFFAFBFD),
+      color: colors.surface,
       child: SingleChildScrollView(
         key: const ValueKey('home-scroll'),
         child: Center(
@@ -270,7 +271,9 @@ class HomeScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 14),
                       Material(
-                        color: const Color(0xFFFFF0B0),
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? colors.tertiaryContainer
+                            : const Color(0xFFFFF0B0),
                         borderRadius: BorderRadius.circular(22),
                         clipBehavior: Clip.antiAlias,
                         child: InkWell(
@@ -291,20 +294,28 @@ class HomeScreen extends StatelessWidget {
                                     children: [
                                       Text(
                                         l.homePlayAndWin,
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontSize: 26,
                                           fontWeight: FontWeight.w900,
-                                          color: bingoNavy,
+                                          color:
+                                              Theme.of(context).brightness ==
+                                                  Brightness.dark
+                                              ? colors.onTertiaryContainer
+                                              : bingoNavy,
                                           letterSpacing: -.8,
                                         ),
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
                                         l.homePlayAndWinBody,
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontSize: 14,
                                           height: 1.4,
-                                          color: Color(0xFF5E6575),
+                                          color:
+                                              Theme.of(context).brightness ==
+                                                  Brightness.dark
+                                              ? colors.onTertiaryContainer
+                                              : const Color(0xFF5E6575),
                                         ),
                                       ),
                                     ],
@@ -372,59 +383,74 @@ class _FeatureCard extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => Material(
-    color: background,
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(19),
-      side: BorderSide(color: color.withValues(alpha: .1)),
-    ),
-    clipBehavior: Clip.antiAlias,
-    child: InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: .85),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Icon(icon, size: 27, color: color),
-                ),
-                const Spacer(),
-                Icon(Icons.chevron_right_rounded, size: 23, color: color),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w800,
-                color: bingoNavy,
-                height: 1.2,
-                letterSpacing: -.4,
-              ),
-            ),
-            const SizedBox(height: 5),
-            Text(
-              subtitle,
-              style: const TextStyle(
-                fontSize: 13,
-                height: 1.25,
-                color: Color(0xFF626C7C),
-              ),
-            ),
-          ],
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final featureColor = isDark ? colors.onSurface : color;
+    return Material(
+      color: isDark ? colors.surfaceContainerHigh : background,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(19),
+        side: BorderSide(
+          color: isDark ? colors.outlineVariant : color.withValues(alpha: .1),
         ),
       ),
-    ),
-  );
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? colors.surface
+                          : Colors.white.withValues(alpha: .85),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Icon(icon, size: 27, color: featureColor),
+                  ),
+                  const Spacer(),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    size: 23,
+                    color: featureColor,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  color: isDark ? colors.onSurface : bingoNavy,
+                  height: 1.2,
+                  letterSpacing: -.4,
+                ),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  fontSize: 13,
+                  height: 1.25,
+                  color: isDark
+                      ? colors.onSurfaceVariant
+                      : const Color(0xFF626C7C),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _GiftArtwork extends StatelessWidget {

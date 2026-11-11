@@ -213,6 +213,7 @@
   "statusResolved": "Resolved",
   "statusClosed": "Closed",
   "sessionExpired": "Your session expired. Please sign in again.",
+  "sessionStorageUnavailable": "Secure device storage is unavailable. Please sign in again.",
   "contractGapTitle": "Backend contract gap",
   "contractGapBody": "The current API does not expose everything the UI can show yet. The app will surface only real backend data and clearly label missing coverage.",
   "ticketPreviewButton": "Ticket information",
