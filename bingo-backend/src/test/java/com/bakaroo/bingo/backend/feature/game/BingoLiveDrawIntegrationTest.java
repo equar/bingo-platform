@@ -283,7 +283,7 @@ class BingoLiveDrawIntegrationTest extends MySqlIntegrationTest {
                                 "Finance Approver",
                                 passwordEncoder.encode("123456"),
                                 AccountStatus.ACTIVE,
-                                Set.of(UserRole.ADMIN),
+                                Set.of(UserRole.ADMIN, UserRole.SUPPORT),
                                 now));
                 walletService.createWalletIfMissing(playerUser);
                 var adjustment = walletAdjustmentService.submit(playerUser.getId(),
