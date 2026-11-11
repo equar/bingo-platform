@@ -67,8 +67,8 @@ public class SignupRewardService {
 
         Instant registeredAt = Optional.ofNullable(player.getCreatedAt()).orElseGet(Instant::now);
         Optional<SignupRewardPolicy> policyOptional = policyRepository
-                .findAllByTriggerTypeOrderByCreatedAtDesc(SignupRewardPolicy.TriggerType.SIGNUP).stream()
-                .filter(policy -> policy.isEnabled() && isActive(policy, registeredAt)).findFirst();
+                .findFirstByTriggerTypeOrderByCreatedAtDesc(SignupRewardPolicy.TriggerType.SIGNUP)
+                .filter(policy -> policy.isEnabled() && isActive(policy, registeredAt));
         if (policyOptional.isEmpty()) {
             return;
         }
