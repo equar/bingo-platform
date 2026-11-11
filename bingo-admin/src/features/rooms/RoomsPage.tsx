@@ -364,7 +364,7 @@ export function RoomsPage() {
     return <StatusState title={t("Loading rooms")} loading message={t("Fetching room catalog")} />;
   }
 
-  if (roomsQuery.error || (isEditPage && roomDetailQuery.error)) {
+  if ((roomsQuery.error && !roomsQuery.data) || (isEditPage && roomDetailQuery.error)) {
     return (
       <StatusState
         title={t("Unable to load rooms")}
@@ -378,7 +378,7 @@ export function RoomsPage() {
   return (
     <AdminTablePage enabled={!isEditorPage}>
     <Stack spacing={3}>
-      {!isEditorPage ? <AdminPageHeader title={t("Rooms")} description={t("Create and edit bingo room configuration and activation.")} actions={
+      {!isEditorPage ? <AdminPageHeader title={t("Rooms")} description={t("Create and edit bingo room configuration and activation.")} refresh={{ isFetching: roomsQuery.isFetching, failed: roomsQuery.isRefetchError, error: roomsQuery.error, onRefresh: () => roomsQuery.refetch() }} actions={
         <Button variant="contained" onClick={() => navigate(`/rooms/new${location.search}`)}>{t("Create room")}</Button>
       } /> : null}
 
@@ -493,6 +493,7 @@ export function RoomsPage() {
         </TableContainer>
         <AdminTablePagination
           component="div"
+          dataLoaded={!!roomsQuery.data}
           count={roomsQuery.data?.totalElements ?? 0}
           page={page}
           onPageChange={(_, nextPage) => updateListState({ page: String(nextPage) })}

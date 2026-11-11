@@ -19,6 +19,7 @@ import { adminAgentDetail, adminAgentFloatBalance, adminAgentFloatHistory, appro
 import { getUserFacingErrorMessage } from "../../api/types";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { StatusState } from "../../components/StatusState";
+import { ListRefreshButton, ListRefreshError } from "../../components/ListRefreshButton";
 import { translateAdminStatus, translateAdminValue } from "../../i18n";
 
 function formatMoney(value: string | number) {
@@ -134,7 +135,7 @@ export function AgentDetailPage() {
     return <StatusState title={t("Loading agent")} loading message={t("Fetching agent profile")} />;
   }
 
-  if (agentQuery.error || !agentQuery.data) {
+  if ((agentQuery.error && !agentQuery.data) || !agentQuery.data) {
     return (
       <StatusState
         title={t("Unable to load agent")}
@@ -156,7 +157,11 @@ export function AgentDetailPage() {
             {agent.normalizedPhone} {t("·")}{" "}{agent.city ?? "n/a"} {t("·")}{" "}{agent.territory ?? "n/a"}
           </Typography>
         </div>
-        <Stack direction="row" spacing={1}>
+        <Stack direction="row" spacing={1} flexWrap="wrap" alignItems="center">
+          <ListRefreshButton
+            refreshing={agentQuery.isFetching || floatBalanceQuery.isFetching || floatHistoryQuery.isFetching}
+            onRefresh={() => Promise.all([agentQuery.refetch(), floatBalanceQuery.refetch(), floatHistoryQuery.refetch()])}
+          />
           {agent.status === "PENDING" ? (
             <Button variant="contained" onClick={() => setApproveConfirmOpen(true)}>{t("Approve application")}</Button>
           ) : null}
@@ -166,6 +171,12 @@ export function AgentDetailPage() {
           <Button component={RouterLink} to={`/agents${location.search}`} variant="outlined">{t("Back to agents")}</Button>
         </Stack>
       </Box>
+
+      {agentQuery.isRefetchError || floatBalanceQuery.isRefetchError || floatHistoryQuery.isRefetchError ? (
+        <ListRefreshError retrying={agentQuery.isFetching || floatBalanceQuery.isFetching || floatHistoryQuery.isFetching}
+          error={agentQuery.error ?? floatBalanceQuery.error ?? floatHistoryQuery.error}
+          onRetry={() => Promise.all([agentQuery.refetch(), floatBalanceQuery.refetch(), floatHistoryQuery.refetch()])} />
+      ) : null}
 
       {lifecycleError ? <Alert severity="error" role="alert">{t(lifecycleError)}</Alert> : null}
 

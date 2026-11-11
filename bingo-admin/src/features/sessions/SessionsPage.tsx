@@ -112,7 +112,7 @@ export function SessionsPage() {
     return <StatusState title={t("Loading sessions")} loading message={t("Fetching session list")} />;
   }
 
-  if (sessionsQuery.error) {
+  if (sessionsQuery.error && !sessionsQuery.data) {
     return (
       <StatusState
         title={t("Unable to load sessions")}
@@ -126,7 +126,7 @@ export function SessionsPage() {
   return (
     <AdminTablePage>
     <Stack spacing={3}>
-      <AdminPageHeader title={t("Sessions")} description={t("Create, activate, and open live draw views.")} actions={
+      <AdminPageHeader title={t("Sessions")} description={t("Create, activate, and open live draw views.")} refresh={{ isFetching: sessionsQuery.isFetching, failed: sessionsQuery.isRefetchError, error: sessionsQuery.error, onRefresh: () => sessionsQuery.refetch() }} actions={
         <Button component={RouterLink} to={`/sessions/new${location.search}`} variant="contained">
           {t("Create session")}</Button>
       } />
@@ -288,6 +288,7 @@ export function SessionsPage() {
         </TableContainer>
         <AdminTablePagination
           component="div"
+          dataLoaded={!!sessionsQuery.data}
           count={sessionsQuery.data?.totalElements ?? 0}
           page={page}
           onPageChange={(_, nextPage) => updateListState({ page: String(nextPage) })}

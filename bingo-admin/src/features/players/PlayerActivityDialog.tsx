@@ -38,6 +38,7 @@ import {
 import { getUserFacingErrorMessage, type PageResponse } from "../../api/types";
 import { StatusState } from "../../components/StatusState";
 import { AdminTablePagination } from "../../components/AdminTablePagination";
+import { ListRefreshButton, ListRefreshError } from "../../components/ListRefreshButton";
 import { translateAdminStatus, translateAdminValue } from "../../i18n";
 
 export type PlayerActivityType = "wallet" | "deposits" | "support" | "tickets" | "wins";
@@ -119,6 +120,10 @@ export function PlayerActivityDialog({ open, playerId, initialActivity, onClose 
             ))}
           </Tabs>
 
+          <Stack direction="row" justifyContent="flex-end">
+            <ListRefreshButton refreshing={activityQuery.isFetching} onRefresh={() => activityQuery.refetch()} />
+          </Stack>
+
           {activityQuery.isLoading ? (
             <StatusState
               title={t("Loading {{activity}}", { activity: label.toLowerCase() })}
@@ -126,7 +131,7 @@ export function PlayerActivityDialog({ open, playerId, initialActivity, onClose 
               message={t("Fetching player {{activity}}", { activity: label.toLowerCase() })}
             />
           ) : null}
-          {activityQuery.error ? (
+          {activityQuery.error && !activityQuery.data ? (
             <Alert
               severity="error"
               action={
@@ -137,8 +142,9 @@ export function PlayerActivityDialog({ open, playerId, initialActivity, onClose 
               {t(getUserFacingErrorMessage(activityQuery.error) ?? "Unable to load player {{activity}}.", { activity: t(label).toLowerCase() })}
             </Alert>
           ) : null}
+          {activityQuery.isRefetchError ? <ListRefreshError retrying={activityQuery.isFetching} error={activityQuery.error} onRetry={() => activityQuery.refetch()} /> : null}
 
-          {!activityQuery.isLoading && !activityQuery.error ? (
+          {!activityQuery.isLoading && activityQuery.data ? (
             <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 480 }}>
               <Table size="small" stickyHeader aria-label={t("{{activity}} for player {{playerId}}", { activity: label, playerId })}>
                 {activity === "wallet" ? (
@@ -322,9 +328,10 @@ export function PlayerActivityDialog({ open, playerId, initialActivity, onClose 
             </TableContainer>
           ) : null}
 
-          {!activityQuery.isLoading && !activityQuery.error ? (
+          {!activityQuery.isLoading && activityQuery.data ? (
             <AdminTablePagination
               component="div"
+              dataLoaded={!!activityQuery.data}
               count={totalElements}
               page={page}
               onPageChange={(_, nextPage) => setPage(nextPage)}

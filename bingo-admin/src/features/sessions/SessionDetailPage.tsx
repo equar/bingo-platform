@@ -24,6 +24,7 @@ import {
 import { getUserFacingErrorMessage } from "../../api/types";
 import { useSession } from "../../api/session";
 import { StatusState } from "../../components/StatusState";
+import { ListRefreshButton, ListRefreshError } from "../../components/ListRefreshButton";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { translateAdminStatus, translateAdminValue } from "../../i18n";
 import { connectLiveDrawStream } from "./liveDrawSocket";
@@ -139,7 +140,7 @@ export function SessionDetailPage() {
     return <StatusState title={t("Loading session")} loading message={t("Fetching live session details")} />;
   }
 
-  if (sessionQuery.error || !session) {
+  if ((sessionQuery.error && !sessionQuery.data) || !session) {
     return (
       <StatusState
         title={t("Unable to load session")}
@@ -226,7 +227,11 @@ export function SessionDetailPage() {
           <Card sx={{ border: "1px solid", borderColor: "divider" }}>
             <CardContent>
               <Stack spacing={2}>
-                <Typography variant="h6">{t("Live draw")}</Typography>
+                <Stack direction="row" justifyContent="space-between" alignItems="center" gap={1}>
+                  <Typography variant="h6">{t("Live draw")}</Typography>
+                  <ListRefreshButton refreshing={historyQuery.isFetching} onRefresh={() => historyQuery.refetch()} />
+                </Stack>
+                {historyQuery.isRefetchError ? <ListRefreshError retrying={historyQuery.isFetching} error={historyQuery.error} onRetry={() => historyQuery.refetch()} /> : null}
                 {canOperateDraws ? (
                     <Button
                       data-testid="automatic-draw-button"

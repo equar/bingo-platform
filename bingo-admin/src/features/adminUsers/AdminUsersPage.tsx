@@ -257,7 +257,7 @@ export function AdminUsersPage() {
     return <StatusState title={t("Loading admin users")} loading message={t("Fetching admin and support accounts")} />;
   }
 
-  if (!isEditorPage && usersQuery.error) {
+  if (!isEditorPage && usersQuery.error && !usersQuery.data) {
     return (
       <StatusState
         title={t("Unable to load admin users")}
@@ -272,7 +272,7 @@ export function AdminUsersPage() {
     <AdminTablePage>
     <Stack spacing={3}>
       {!isEditorPage ? <>
-      <AdminPageHeader title={t("Admin users")} description={t("Create and maintain admin and support accounts for the console.")} actions={
+      <AdminPageHeader title={t("Admin users")} description={t("Create and maintain admin and support accounts for the console.")} refresh={{ isFetching: usersQuery.isFetching, failed: usersQuery.isRefetchError, error: usersQuery.error, onRefresh: () => usersQuery.refetch() }} actions={
         <Button variant="contained" onClick={openCreate}>{t("Create admin user")}</Button>
       } />
 
@@ -353,6 +353,7 @@ export function AdminUsersPage() {
 
       <AdminTablePagination
         component="div"
+        dataLoaded={!!usersQuery.data}
         count={usersQuery.data?.totalElements ?? 0}
         page={page}
         onPageChange={(_, nextPage) => setPage(nextPage)}

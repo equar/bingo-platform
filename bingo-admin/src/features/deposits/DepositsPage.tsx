@@ -120,7 +120,7 @@ export function DepositsPage() {
     return <StatusState title={t("Loading deposits")} loading message={t("Fetching deposit queue")} />;
   }
 
-  if (depositsQuery.error) {
+  if (depositsQuery.error && !depositsQuery.data) {
     return (
       <StatusState
         title={t("Unable to load deposits")}
@@ -134,7 +134,7 @@ export function DepositsPage() {
   return (
     <AdminTablePage>
       <Stack spacing={3}>
-      <AdminPageHeader title={t("Deposits")} description={t("Review player deposit requests.")} />
+      <AdminPageHeader title={t("Deposits")} description={t("Review player deposit requests.")} refresh={{ isFetching: depositsQuery.isFetching, failed: depositsQuery.isRefetchError, error: depositsQuery.error, onRefresh: () => depositsQuery.refetch() }} />
 
       <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
         <TextField
@@ -309,6 +309,7 @@ export function DepositsPage() {
 
       <AdminTablePagination
         component="div"
+        dataLoaded={!!depositsQuery.data}
         count={depositsQuery.data?.totalElements ?? 0}
         page={page}
         onPageChange={(_, nextPage) => setPage(nextPage)}

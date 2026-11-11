@@ -111,7 +111,7 @@ export function ClaimsPage() {
     return <StatusState title={t("Loading claims")} loading message={t("Fetching win claims")} />;
   }
 
-  if (claimsQuery.error) {
+  if (claimsQuery.error && !claimsQuery.data) {
     return (
       <StatusState
         title={t("Unable to load claims")}
@@ -125,7 +125,7 @@ export function ClaimsPage() {
   return (
     <AdminTablePage>
     <Stack spacing={3}>
-      <AdminPageHeader title={t("Win claims")} description={t("Review submitted claims and record validation evidence.")} />
+      <AdminPageHeader title={t("Win claims")} description={t("Review submitted claims and record validation evidence.")} refresh={{ isFetching: claimsQuery.isFetching, failed: claimsQuery.isRefetchError, error: claimsQuery.error, onRefresh: () => claimsQuery.refetch() }} />
 
       <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
         <TextField
@@ -313,6 +313,7 @@ export function ClaimsPage() {
 
       <AdminTablePagination
         component="div"
+        dataLoaded={!!claimsQuery.data}
         count={claimsQuery.data?.totalElements ?? 0}
         page={page}
         onPageChange={(_, nextPage) => setPage(nextPage)}

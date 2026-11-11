@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import type { TFunction } from "i18next";
 import {
   Alert,
@@ -21,6 +21,7 @@ import { Link as RouterLink } from "react-router-dom";
 import { auditLogs, dashboardMetrics, dashboardTrends, liveSessions, type DailyTrendPoint } from "../../api/admin";
 import { getUserFacingErrorMessage } from "../../api/types";
 import { StatusState } from "../../components/StatusState";
+import { ListRefreshButton } from "../../components/ListRefreshButton";
 import { translateAdminStatus, translateAdminValue } from "../../i18n";
 
 const staleAfterMs = 5 * 60 * 1000;
@@ -177,7 +178,6 @@ function QueryError({
 
 export function DashboardPage() {
   const { t, i18n } = useTranslation();
-  const queryClient = useQueryClient();
   const locale = i18n.resolvedLanguage === "am" ? "am-ET" : "en-ET";
   const metricsQuery = useQuery({
     queryKey: ["dashboard", "metrics"],
@@ -230,7 +230,7 @@ export function DashboardPage() {
   const unavailable = t("Unavailable");
   const generatedAt = new Date(metrics.generatedAt).getTime();
   const metricsStale = !Number.isFinite(generatedAt) || Date.now() - generatedAt > staleAfterMs;
-  const refreshing = metricsQuery.isFetching || sessionsQuery.isFetching || logsQuery.isFetching;
+  const refreshing = metricsQuery.isFetching || sessionsQuery.isFetching || trendsQuery.isFetching || logsQuery.isFetching;
   const visibleSessions = sessionsQuery.data?.slice(0, 3) ?? [];
   const visibleActivity = logsQuery.data?.content.slice(0, 3) ?? [];
 
@@ -255,19 +255,13 @@ export function DashboardPage() {
                 time: formatTimestamp(metrics.generatedAt, locale, unavailable),
               })}
             </Typography>
-            <Button
-              size="small"
-              variant="outlined"
-              aria-label={t("Refresh dashboard")}
-              aria-busy={refreshing}
-              disabled={refreshing}
-              startIcon={refreshing ? <CircularProgress size={14} color="inherit" /> : undefined}
-              onClick={() => {
-                void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-              }}
-            >
-              {t("Refresh dashboard")}
-            </Button>
+            <ListRefreshButton
+              refreshing={refreshing}
+              label="Refresh dashboard"
+              onRefresh={() => Promise.all([
+                metricsQuery.refetch(), sessionsQuery.refetch(), trendsQuery.refetch(), logsQuery.refetch(),
+              ])}
+            />
           </Stack>
         </Stack>
       </Box>

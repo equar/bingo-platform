@@ -63,7 +63,7 @@ export function PlayersPage() {
   return (
     <AdminTablePage>
     <Stack spacing={3}>
-      <AdminPageHeader title={t("Players")} description={t("Search users and review account details.")} />
+      <AdminPageHeader title={t("Players")} description={t("Search users and review account details.")} refresh={{ isFetching: playersQuery.isFetching, failed: playersQuery.isRefetchError, error: playersQuery.error, onRefresh: () => playersQuery.refetch() }} />
 
       <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
         <TextField
@@ -94,7 +94,7 @@ export function PlayersPage() {
       </Stack>
 
       {playersQuery.isLoading ? <StatusState title={t("Loading players")} loading /> : null}
-      {playersQuery.error ? (
+      {playersQuery.error && !playersQuery.data ? (
         <StatusState
           title={t("Unable to load players")}
           message={t(getUserFacingErrorMessage(playersQuery.error) ?? "Something went wrong. Please try again.")}
@@ -155,6 +155,7 @@ export function PlayersPage() {
 
       <AdminTablePagination
         component="div"
+        dataLoaded={!!playersQuery.data}
         count={playersQuery.data?.totalElements ?? 0}
         page={page}
         onPageChange={(_, nextPage) => updateListState({ page: String(nextPage) })}
