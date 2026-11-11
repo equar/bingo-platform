@@ -103,11 +103,12 @@ class _HomeShellState extends State<HomeShell> {
       builder: (context, constraints) {
         final wide =
             constraints.maxWidth >= 840 && constraints.maxHeight >= 480;
+        final isDark = Theme.of(context).brightness == Brightness.dark;
         final page = _pages();
         return AnnotatedRegion<SystemUiOverlayStyle>(
-          value: SystemUiOverlayStyle.dark.copyWith(
-            statusBarColor: Colors.transparent,
-          ),
+          value:
+              (isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark)
+                  .copyWith(statusBarColor: Colors.transparent),
           child: Scaffold(
             body: wide
                 ? Row(
@@ -117,7 +118,9 @@ class _HomeShellState extends State<HomeShell> {
                           selectedIndex: _index,
                           onDestinationSelected: _select,
                           labelType: NavigationRailLabelType.all,
-                          backgroundColor: Theme.of(context).colorScheme.surface,
+                          backgroundColor: Theme.of(
+                            context,
+                          ).colorScheme.surface,
                           indicatorColor: Theme.of(
                             context,
                           ).colorScheme.primary.withValues(alpha: .10),
@@ -183,7 +186,9 @@ class _HomeShellState extends State<HomeShell> {
                                 : FontWeight.w600,
                             color: states.contains(WidgetState.selected)
                                 ? Theme.of(context).colorScheme.primary
-                                : Theme.of(context).colorScheme.onSurfaceVariant,
+                                : Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
                           ),
                         ),
                         iconTheme: WidgetStateProperty.resolveWith(
@@ -191,7 +196,9 @@ class _HomeShellState extends State<HomeShell> {
                             size: 27,
                             color: states.contains(WidgetState.selected)
                                 ? Theme.of(context).colorScheme.primary
-                                : Theme.of(context).colorScheme.onSurfaceVariant,
+                                : Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
                           ),
                         ),
                       ),

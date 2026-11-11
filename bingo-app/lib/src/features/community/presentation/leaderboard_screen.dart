@@ -125,7 +125,9 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                         Text(l.leaderboardRules),
                         const SizedBox(height: 12),
                         Card(
-                          color: const Color(0xFFF2ECFF),
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? Theme.of(context).colorScheme.tertiaryContainer
+                              : const Color(0xFFF2ECFF),
                           child: Padding(
                             padding: const EdgeInsets.all(18),
                             child: Column(
@@ -162,7 +164,14 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                           ),
                         for (final row in data.entries)
                           Card(
-                            color: row.me ? const Color(0xFFEBF4FF) : null,
+                            color: row.me
+                                ? (Theme.of(context).brightness ==
+                                          Brightness.dark
+                                      ? Theme.of(
+                                          context,
+                                        ).colorScheme.primaryContainer
+                                      : const Color(0xFFEBF4FF))
+                                : null,
                             child: ListTile(
                               leading: CircleAvatar(child: Text('${row.rank}')),
                               title: Text(row.alias),

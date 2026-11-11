@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:bingo_app/src/features/community/data/community_repository.dart';
 import 'package:bingo_app/src/features/community/domain/community_models.dart';
 import 'package:bingo_app/l10n/app_localizations.dart';
+import 'package:bingo_app/src/core/theme/app_theme.dart';
 import 'package:bingo_app/src/features/home/presentation/home_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -12,11 +13,13 @@ Widget _home({
   required VoidCallback onGames,
   VoidCallback? onSupport,
   double textScale = 1,
+  Brightness brightness = Brightness.light,
 }) => ProviderScope(
   overrides: [
     communityRepositoryProvider.overrideWithValue(_CommunityRepository()),
   ],
   child: MaterialApp(
+    theme: buildAppTheme(brightness: brightness),
     localizationsDelegates: const [
       AppLocalizations.delegate,
       GlobalMaterialLocalizations.delegate,
@@ -139,6 +142,14 @@ void main() {
     await tester.pumpWidget(_home(onGames: () {}, textScale: 1.5));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Play & Win'));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('home cards render with the dark color scheme', (tester) async {
+    await tester.pumpWidget(_home(onGames: () {}, brightness: Brightness.dark));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Play Bingo'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

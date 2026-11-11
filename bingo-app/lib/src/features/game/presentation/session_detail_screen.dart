@@ -13,12 +13,6 @@ import 'package:bingo_app/src/features/lobby/domain/lobby_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-const _bingoGridBlue = Color(0xFF12345A);
-const _bingoHeaderFill = Color(0xFFE8F0FA);
-const _bingoCalledFill = Color(0xFFDDF2E1);
-const _bingoLatestFill = Color(0xFFBDE4C5);
-const _bingoMarkGreen = Color(0xFF267A3E);
-
 class SessionDetailScreen extends ConsumerStatefulWidget {
   const SessionDetailScreen({super.key, required this.session});
 
@@ -424,6 +418,7 @@ class _TicketGridCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final latestCalled = calledNumbers.isEmpty ? null : calledNumbers.last;
+    final colors = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -437,8 +432,8 @@ class _TicketGridCard extends StatelessWidget {
           child: Container(
             clipBehavior: Clip.hardEdge,
             decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: _bingoGridBlue, width: 1),
+              color: colors.surface,
+              border: Border.all(color: colors.outline, width: 1),
             ),
             padding: const EdgeInsets.all(1),
             child: GridView.builder(
@@ -457,10 +452,10 @@ class _TicketGridCard extends StatelessWidget {
                 final cellBorder = Border(
                   right: column == 4
                       ? BorderSide.none
-                      : const BorderSide(color: _bingoGridBlue, width: 1),
+                      : BorderSide(color: colors.outline, width: 1),
                   bottom: row == 5
                       ? BorderSide.none
-                      : const BorderSide(color: _bingoGridBlue, width: 1),
+                      : BorderSide(color: colors.outline, width: 1),
                 );
                 if (row == 0) {
                   return _BingoHeaderCell(
@@ -780,14 +775,17 @@ class _TicketCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     final background = isLatest
-        ? _bingoLatestFill
+        ? colors.primaryContainer
         : isCalled
-        ? _bingoCalledFill
-        : Colors.white;
-    final numberColor = isCalled
-        ? _bingoGridBlue
-        : Theme.of(context).colorScheme.onSurface;
+        ? colors.secondaryContainer
+        : colors.surface;
+    final numberColor = isLatest
+        ? colors.onPrimaryContainer
+        : isCalled
+        ? colors.onSecondaryContainer
+        : colors.onSurface;
 
     return Semantics(
       label: '$columnLetter ${isFree ? localizations.freeCenterLabel : value}',
@@ -810,7 +808,7 @@ class _TicketCell extends StatelessWidget {
                       child: Text(
                         localizations.freeCenterLabel.toUpperCase(),
                         style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: _bingoGridBlue,
+                          color: colors.onSecondaryContainer,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
@@ -825,20 +823,22 @@ class _TicketCell extends StatelessWidget {
                       fit: BoxFit.scaleDown,
                       child: Text(
                         value.toString(),
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: numberColor,
-                          fontWeight:
-                              isCalled ? FontWeight.w700 : FontWeight.w500,
-                        ),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
+                              color: numberColor,
+                              fontWeight: isCalled
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                            ),
                       ),
                     ),
                   ),
                 ),
               if (isCalled && !isFree)
-                const Positioned(
+                Positioned(
                   top: 1,
                   right: 1,
-                  child: Icon(Icons.check, size: 13, color: _bingoMarkGreen),
+                  child: Icon(Icons.check, size: 13, color: colors.primary),
                 ),
             ],
           ),
@@ -857,14 +857,17 @@ class _BingoHeaderCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(color: _bingoHeaderFill, border: border),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.primaryContainer,
+        border: border,
+      ),
       alignment: Alignment.center,
       child: FittedBox(
         fit: BoxFit.scaleDown,
         child: Text(
           letter,
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            color: _bingoGridBlue,
+            color: Theme.of(context).colorScheme.onPrimaryContainer,
             fontWeight: FontWeight.w800,
           ),
         ),

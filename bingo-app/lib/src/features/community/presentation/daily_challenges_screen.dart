@@ -105,7 +105,9 @@ class _DailyChallengesScreenState extends ConsumerState<DailyChallengesScreen> {
               padding: const EdgeInsets.all(20),
               children: [
                 Card(
-                  color: const Color(0xFFEAF8EE),
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? Theme.of(context).colorScheme.secondaryContainer
+                      : const Color(0xFFEAF8EE),
                   child: Padding(
                     padding: const EdgeInsets.all(20),
                     child: Column(
