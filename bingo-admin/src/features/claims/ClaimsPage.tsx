@@ -215,6 +215,7 @@ export function ClaimsPage() {
                       data-testid={`claim-details-${claim.id}`}
                       variant="body2"
                       underline="hover"
+                      sx={{ maxWidth: 240, overflowWrap: "anywhere", textAlign: "left" }}
                       onClick={() => setReference({ kind: "claim", id: claim.id })}
                     >
                       {claim.operationId}

@@ -134,6 +134,8 @@ export const adminUiTranslations = {
   "Checking access": "መዳረሻ በማረጋገጥ ላይ",
   City: "ከተማ",
   Claim: "የሽልማት ጥያቄ",
+  "Claim number": "የጥያቄ ቁጥር",
+  "Claim evidence": "የጥያቄ ማስረጃ",
   Clear: "አጽዳ",
   "Clear filters": "ማጣሪያዎችን አጽዳ",
   Close: "ዝጋ",
