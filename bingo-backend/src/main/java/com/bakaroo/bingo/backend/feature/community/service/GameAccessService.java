@@ -36,7 +36,7 @@ public class GameAccessService {
     if (!Boolean.TRUE.equals(restricted)) return;
     if (principal != null
         && principal.isEnabled()
-        && principal.getUser().getRoles().contains(UserRole.ADMIN)) return;
+        && (principal.getUser().hasRole(UserRole.ADMIN) || principal.getUser().hasRole(UserRole.SUPPORT))) return;
     if (principal == null
         || !principal.isEnabled()
         || !principal.getUser().getRoles().contains(UserRole.PLAYER)

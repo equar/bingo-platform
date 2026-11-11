@@ -52,9 +52,7 @@ export function LoginPage() {
         tokenType: response.tokenType,
         user: response.user,
       });
-      const supportOnly = response.user.roles.includes("SUPPORT") && !response.user.roles.includes("ADMIN");
-      const destination = supportOnly && redirectTo === "/dashboard" ? "/support/tickets" : redirectTo;
-      navigate(response.user.mustChangePassword ? "/change-password" : destination, { replace: true });
+      navigate(response.user.mustChangePassword ? "/change-password" : redirectTo, { replace: true });
     },
     onError: (error) => {
       const parsed = parseApiError(error);

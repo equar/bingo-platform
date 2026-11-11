@@ -791,8 +791,8 @@ public class AgentService {
 
     private User requireAdmin(BingoUserPrincipal principal) {
         User user = principal.getUser();
-        if (!user.hasRole(UserRole.ADMIN)) {
-            throw new BadRequestException("ADMIN_ROLE_REQUIRED", "This endpoint is available to admin accounts only");
+        if (!(user.hasRole(UserRole.ADMIN) || user.hasRole(UserRole.SUPPORT))) {
+            throw new BadRequestException("ADMIN_ROLE_REQUIRED", "This endpoint is available to admin or support accounts only");
         }
         return user;
     }

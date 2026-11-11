@@ -46,7 +46,9 @@ export function SessionTicketsPage() {
   const [ticketPageSize, setTicketPageSize] = useListSessionState("session-tickets:size", 20);
   const selectedSessionId = sessionIdFromSearch(currentSessionId);
   const session = useSession();
-  const canOpenPlayer = session?.user.roles.includes("ADMIN") ?? false;
+  const canOpenPlayer = Boolean(
+    session?.user.roles.includes("ADMIN") || session?.user.roles.includes("SUPPORT"),
+  );
 
   const sessionsQuery = useQuery({
     queryKey: ["session-ticket-lookup-sessions", sessionQuery.trim(), sessionPage],

@@ -19,6 +19,7 @@ import {
 } from "@mui/material";
 import { Link as RouterLink } from "react-router-dom";
 import { auditLogs, dashboardMetrics, dashboardTrends, liveSessions, type DailyTrendPoint } from "../../api/admin";
+import { useSession } from "../../api/session";
 import { getUserFacingErrorMessage } from "../../api/types";
 import { StatusState } from "../../components/StatusState";
 import { ListRefreshButton } from "../../components/ListRefreshButton";
@@ -178,6 +179,8 @@ function QueryError({
 
 export function DashboardPage() {
   const { t, i18n } = useTranslation();
+  const session = useSession();
+  const isAdmin = session?.user.roles.includes("ADMIN") ?? false;
   const locale = i18n.resolvedLanguage === "am" ? "am-ET" : "en-ET";
   const metricsQuery = useQuery({
     queryKey: ["dashboard", "metrics"],
@@ -205,6 +208,7 @@ export function DashboardPage() {
     queryFn: () => auditLogs(0, 3),
     retry: false,
     staleTime: 30_000,
+    enabled: isAdmin,
   });
 
   if (metricsQuery.isPending && !metricsQuery.data) {
@@ -233,6 +237,9 @@ export function DashboardPage() {
   const refreshing = metricsQuery.isFetching || sessionsQuery.isFetching || trendsQuery.isFetching || logsQuery.isFetching;
   const visibleSessions = sessionsQuery.data?.slice(0, 3) ?? [];
   const visibleActivity = logsQuery.data?.content.slice(0, 3) ?? [];
+  const visibleAttentionItems = isAdmin
+    ? attentionItems
+    : attentionItems.filter((item) => item.to !== "/claims?status=PENDING_REVIEW");
 
   return (
     <Stack data-testid="dashboard-content" spacing={{ xs: 1.5, md: 2 }} sx={{ width: "100%", minWidth: 0 }}>
@@ -259,7 +266,10 @@ export function DashboardPage() {
               refreshing={refreshing}
               label="Refresh dashboard"
               onRefresh={() => Promise.all([
-                metricsQuery.refetch(), sessionsQuery.refetch(), trendsQuery.refetch(), logsQuery.refetch(),
+                metricsQuery.refetch(),
+                sessionsQuery.refetch(),
+                trendsQuery.refetch(),
+                ...(isAdmin ? [logsQuery.refetch()] : []),
               ])}
             />
           </Stack>
@@ -294,7 +304,7 @@ export function DashboardPage() {
               minWidth: 0,
             }}
           >
-            {attentionItems.map((item) => (
+            {visibleAttentionItems.map((item) => (
               <Box key={item.to} sx={{ minWidth: 0 }}>
                 <MetricCard
                   label={t(item.label)}
@@ -456,7 +466,7 @@ export function DashboardPage() {
               </Stack>
             </CardContent>
           </Card>
-          <Card
+          {isAdmin ? <Card
             component="section"
             aria-labelledby="recent-activity-title"
             elevation={0}
@@ -529,7 +539,7 @@ export function DashboardPage() {
                 ) : null}
               </Stack>
             </CardContent>
-          </Card>
+          </Card> : null}
       </Box>
     </Stack>
   );

@@ -136,7 +136,7 @@ public class DepositFinancialService {
     @Transactional
     public IdempotentResult<DepositClaimResponse> approve(Long depositId, BingoUserPrincipal principal,
             String reviewNote, String idempotencyKey) {
-        User approver = requireRole(principal.getUser(), UserRole.ADMIN);
+        User approver = requireFinanceStaff(principal.getUser());
         DepositReviewPayload payload = new DepositReviewPayload(reviewNote);
         String requestHash = requestHashService.hash("POST",
                 "/api/v1/admin/deposits/" + depositId + "/approve", payload);
@@ -173,6 +173,10 @@ public class DepositFinancialService {
                     if (!verifier.isActive() || !verifier.hasRole(UserRole.SUPPORT)) {
                         throw new ConflictException("DEPOSIT_VERIFIER_NOT_AUTHORIZED",
                                 "The verifying user is no longer authorized");
+                    }
+                    if (approver.getId().equals(verification.verifierUserId())) {
+                        throw new ConflictException("DEPOSIT_SEPARATION_OF_DUTIES_REQUIRED",
+                                "The verifier and approver must be different users");
                     }
                     if (!verification.synthetic()) {
                         throw new ConflictException("DEPOSIT_POSTING_DISABLED",
@@ -398,6 +402,15 @@ public class DepositFinancialService {
     private User requireRole(User user, UserRole role) {
         boolean staffUser = user.hasRole(UserRole.ADMIN) || user.hasRole(UserRole.SUPPORT);
         if (!user.isActive() || !staffUser || !user.hasRole(role)) {
+            throw new ConflictException("DEPOSIT_STAFF_AUTHORIZATION_REQUIRED",
+                    "An active support or administrator account is required");
+        }
+        return user;
+    }
+
+    private User requireFinanceStaff(User user) {
+        boolean staffUser = user.hasRole(UserRole.ADMIN) || user.hasRole(UserRole.SUPPORT);
+        if (!user.isActive() || !staffUser) {
             throw new ConflictException("DEPOSIT_STAFF_AUTHORIZATION_REQUIRED",
                     "An active support or administrator account is required");
         }

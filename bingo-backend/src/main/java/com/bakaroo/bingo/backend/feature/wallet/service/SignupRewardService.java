@@ -216,7 +216,7 @@ public class SignupRewardService {
     @Transactional
     public PromotionalRewardGrantResponse awardManualCampaign(BingoUserPrincipal principal,
             PromotionalRewardGrantRequest request) {
-        requireAdmin(principal);
+        requireAdminOrSupport(principal);
         SignupRewardPolicy campaign = policyRepository.findById(request.campaignId())
                 .orElseThrow(() -> new NotFoundException("PROMOTIONAL_REWARD_CAMPAIGN_NOT_FOUND", "Reward campaign not found"));
         if (campaign.getTriggerType() != SignupRewardPolicy.TriggerType.MANUAL)
@@ -259,6 +259,13 @@ public class SignupRewardService {
     private void requireAdmin(BingoUserPrincipal principal) {
         if (!principal.getUser().hasRole(UserRole.ADMIN))
             throw new BadRequestException("ADMIN_ROLE_REQUIRED", "This endpoint is available to admin accounts only");
+    }
+
+    private void requireAdminOrSupport(BingoUserPrincipal principal) {
+        if (!(principal.getUser().hasRole(UserRole.ADMIN) || principal.getUser().hasRole(UserRole.SUPPORT))) {
+            throw new BadRequestException("ADMIN_ROLE_REQUIRED",
+                    "This endpoint is available to admin or support accounts only");
+        }
     }
 
     private void validateCampaign(BigDecimal amount, String currency, Instant from, Instant until) {

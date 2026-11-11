@@ -45,7 +45,7 @@ import java.util.Locale;
 
 @RestController
 @RequestMapping("/api/v1/admin")
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasAnyRole('ADMIN','SUPPORT')")
 @Tag(name = "Game Admin")
 public class AdminGameController {
 
@@ -59,26 +59,26 @@ public class AdminGameController {
     }
 
     @GetMapping("/rooms")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SUPPORT')")
+    @PreAuthorize("hasRole('ADMIN')")
     public PageResponse<BingoRoomResponse> rooms(@RequestParam(required = false) String query,
             @RequestParam(required = false) Boolean active, @PageableDefault(size = 20) Pageable pageable) {
         return PageResponse.from(bingoGameService.listAdminRooms(query, active, pageable));
     }
 
     @GetMapping("/rooms/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SUPPORT')")
+    @PreAuthorize("hasRole('ADMIN')")
     public BingoRoomResponse room(@PathVariable Long id) {
         return bingoGameService.getRoom(id);
     }
 
     @PostMapping("/rooms")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SUPPORT')")
+    @PreAuthorize("hasRole('ADMIN')")
     public BingoRoomResponse createRoom(@Valid @RequestBody BingoRoomRequest request) {
         return bingoGameService.createRoom(request);
     }
 
     @PutMapping("/rooms/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SUPPORT')")
+    @PreAuthorize("hasRole('ADMIN')")
     public BingoRoomResponse updateRoom(@PathVariable Long id, @Valid @RequestBody BingoRoomRequest request) {
         return bingoGameService.updateRoom(id, request);
     }
@@ -105,7 +105,7 @@ public class AdminGameController {
     }
 
     @PostMapping("/sessions/{id}/draws")
-    @PreAuthorize("hasRole('ADMIN') and !hasRole('SUPPORT')")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPPORT')")
     public DrawEventResponse draw(@PathVariable Long id,
             @AuthenticationPrincipal BingoUserPrincipal principal,
             HttpServletRequest request) throws java.io.IOException {
@@ -117,6 +117,7 @@ public class AdminGameController {
     }
 
     @GetMapping("/win-claims")
+    @PreAuthorize("hasRole('ADMIN')")
     public PageResponse<WinClaimResponse> winClaims(
             @RequestParam(required = false) String query,
             @RequestParam(required = false) WinClaimStatus status,
@@ -128,11 +129,13 @@ public class AdminGameController {
     }
 
     @GetMapping("/win-claims/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public WinClaimResponse winClaim(@PathVariable Long id) {
         return bingoGameService.getAdminWinClaim(id);
     }
 
     @PostMapping("/win-claims/{id}/approve")
+    @PreAuthorize("hasRole('ADMIN')")
     public WinClaimResponse approveWinClaim(@PathVariable Long id,
             @AuthenticationPrincipal BingoUserPrincipal principal,
             @Valid @RequestBody WinClaimReviewRequest request) {
@@ -140,6 +143,7 @@ public class AdminGameController {
     }
 
     @PostMapping("/win-claims/{id}/reject")
+    @PreAuthorize("hasRole('ADMIN')")
     public WinClaimResponse rejectWinClaim(@PathVariable Long id,
             @AuthenticationPrincipal BingoUserPrincipal principal,
             @Valid @RequestBody WinClaimReviewRequest request) {
@@ -147,6 +151,7 @@ public class AdminGameController {
     }
 
     @GetMapping("/prize-entitlements")
+    @PreAuthorize("hasRole('ADMIN')")
     public PageResponse<PrizeEntitlementResponse> prizeEntitlements(@RequestParam(required = false) String query,
             @RequestParam(required = false) PrizeEntitlementStatus status,
             @PageableDefault(size = 20, sort = "createdAt", direction = org.springframework.data.domain.Sort.Direction.DESC) Pageable pageable) {
@@ -156,6 +161,7 @@ public class AdminGameController {
     }
 
     @GetMapping("/prize-entitlements/report")
+    @PreAuthorize("hasRole('ADMIN')")
     public PageResponse<PrizeEntitlementResponse> prizeEntitlementReport(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to,
@@ -169,6 +175,7 @@ public class AdminGameController {
     }
 
     @PostMapping("/prize-entitlements/{id}/settle")
+    @PreAuthorize("hasRole('ADMIN')")
     public PrizeEntitlementResponse settle(@PathVariable Long id,
             @AuthenticationPrincipal BingoUserPrincipal principal,
             @Valid @RequestBody PrizeEntitlementSettlementRequest request) {

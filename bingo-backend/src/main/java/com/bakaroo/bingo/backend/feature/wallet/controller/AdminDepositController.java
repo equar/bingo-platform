@@ -97,7 +97,7 @@ public class AdminDepositController {
     }
 
     @GetMapping("/{id}/posting")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPPORT')")
     public DepositPostingResponse posting(@PathVariable Long id) {
         return depositFinancialService.getPosting(id);
     }

@@ -87,8 +87,10 @@ public class AdminPlayerVerificationService {
                 .filter(user -> user.getRoles().equals(Set.of(UserRole.PLAYER)))
                 .orElseThrow(() -> new NotFoundException("PLAYER_NOT_FOUND", "Player account not found"));
         User reviewer = userRepository.findById(reviewerUserId)
-                .filter(user -> user.isActive() && user.hasRole(UserRole.ADMIN))
-                .orElseThrow(() -> new NotFoundException("ADMIN_REVIEWER_NOT_FOUND", "Admin reviewer not found"));
+                .filter(user -> user.isActive()
+                        && (user.hasRole(UserRole.ADMIN) || user.hasRole(UserRole.SUPPORT)))
+                .orElseThrow(() -> new NotFoundException("ADMIN_REVIEWER_NOT_FOUND",
+                        "An active admin or support reviewer is required"));
 
         PlayerVerificationStatus currentStatus = player.getPlayerVerificationStatus();
         if (!allowedNextStatuses(currentStatus).contains(request.status())) {

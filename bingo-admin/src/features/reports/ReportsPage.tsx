@@ -127,6 +127,9 @@ export function ReportsPage() {
   const { t } = useTranslation();
   const session = useSession();
   const isAdmin = Boolean(session?.user.roles.includes("ADMIN"));
+  const canAccessAdminReports = Boolean(
+    isAdmin || session?.user.roles.includes("SUPPORT"),
+  );
   const today = dateInputValue(new Date());
   const defaultFrom = dateInputValue(new Date(Date.now() - 6 * 24 * 60 * 60 * 1000));
   const [kind, setKind] = useState<ReportKind>("supportTickets");
@@ -273,8 +276,8 @@ export function ReportsPage() {
                   }}>
                   <MenuItem value="supportTickets">{t("Support tickets")}</MenuItem>
                   {isAdmin ? <MenuItem value="auditActivity">{t("Admin audit activity")}</MenuItem> : null}
-                  {isAdmin ? <MenuItem value="sessionActivity">{t("Game session activity")}</MenuItem> : null}
-                  {isAdmin ? <MenuItem value="playerVerifications">{t("Player verification activity")}</MenuItem> : null}
+                  {canAccessAdminReports ? <MenuItem value="sessionActivity">{t("Game session activity")}</MenuItem> : null}
+                  {canAccessAdminReports ? <MenuItem value="playerVerifications">{t("Player verification activity")}</MenuItem> : null}
                   {isAdmin ? <MenuItem value="prizeEntitlements">{t("Prize entitlement activity")}</MenuItem> : null}
                   {session?.user.roles.some((role) => ["ADMIN", "SUPPORT", "ADMIN"].includes(role))
                     ? <MenuItem value="depositActivity">{t("Deposit review activity")}</MenuItem>

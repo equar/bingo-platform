@@ -29,7 +29,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 
 @RestController
 @RequestMapping("/api/v1/admin/wallet/signup-rewards")
-@PreAuthorize("hasAnyRole('ADMIN', 'SUPPORT')")
+@PreAuthorize("hasAnyRole('ADMIN','SUPPORT')")
 public class AdminSignupRewardController {
 
     private final SignupRewardService signupRewardService;
@@ -39,11 +39,13 @@ public class AdminSignupRewardController {
     }
 
     @GetMapping("/settings")
+    @PreAuthorize("hasRole('ADMIN')")
     public SignupRewardSettingsResponse currentSettings() {
         return signupRewardService.currentSettings();
     }
 
     @GetMapping("/settings/history")
+    @PreAuthorize("hasRole('ADMIN')")
     public PageResponse<SignupRewardSettingsResponse> settingsHistory(
             @RequestParam(required = false) String query,
             @RequestParam(required = false) Boolean enabled,
@@ -66,6 +68,7 @@ public class AdminSignupRewardController {
     }
 
     @GetMapping("/grants")
+    @PreAuthorize("hasRole('ADMIN')")
     public PageResponse<SignupRewardGrantResponse> grants(@RequestParam(required = false) String query,
             @PageableDefault(size = 20) Pageable pageable) {
         return PageResponse.from(signupRewardService.listGrants(query, pageable));
@@ -86,7 +89,7 @@ public class AdminSignupRewardController {
     }
 
     @PostMapping("/grants")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPPORT')")
     @ResponseStatus(HttpStatus.CREATED)
     public PromotionalRewardGrantResponse awardManualCampaign(@AuthenticationPrincipal BingoUserPrincipal principal,
             @Valid @RequestBody PromotionalRewardGrantRequest request) {
@@ -94,6 +97,7 @@ public class AdminSignupRewardController {
     }
 
     @GetMapping("/promotional-grants")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPPORT')")
     public PageResponse<PromotionalRewardGrantResponse> promotionalGrants(
             @RequestParam(required = false) String query, @PageableDefault(size = 20) Pageable pageable) {
         return PageResponse.from(signupRewardService.listPromotionalGrants(query, pageable));

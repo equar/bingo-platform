@@ -283,7 +283,8 @@ public class PrivateGameService {
 
   @Transactional
   public void disable(Long id, BingoUserPrincipal principal, Moderation request) {
-    if (principal == null || !principal.getUser().getRoles().contains(UserRole.ADMIN))
+    if (principal == null
+        || !(principal.getUser().hasRole(UserRole.ADMIN) || principal.getUser().hasRole(UserRole.SUPPORT)))
       throw new AccessDeniedException("Administrator required");
     repo.privateGame(id, true).orElseThrow(PrivateGameService::missing);
     var room = rooms.findById(id).orElseThrow(PrivateGameService::missing);

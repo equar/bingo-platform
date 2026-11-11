@@ -72,7 +72,9 @@ export function DepositsPage() {
   const [verificationOpen, setVerificationOpen] = useState(false);
   const idempotency = useIdempotencyKey();
   const canVerifyDeposits = authSession?.user.roles.includes("SUPPORT") ?? false;
-  const canApproveDeposits = authSession?.user.roles.includes("ADMIN") ?? false;
+  const canApproveDeposits = Boolean(
+    authSession?.user.roles.includes("ADMIN") || authSession?.user.roles.includes("SUPPORT"),
+  );
 
   useEffect(() => {
     if (searchParams.has("status")) setStatus(statusOptions.find((option) => option === searchParams.get("status")) ?? "");

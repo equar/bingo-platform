@@ -164,6 +164,59 @@ describe("AppShell", () => {
     expect(screen.getByText("Session ticket results")).toBeInTheDocument();
   });
 
+  it("shows SUPPORT the admin navigation except for the explicitly restricted areas", () => {
+    useSessionMock.mockReturnValue({
+      accessToken: "token",
+      tokenType: "Bearer",
+      expiresInSeconds: 3600,
+      user: {
+        id: 2,
+        displayName: "Support Tester",
+        phoneNumber: "251911000002",
+        roles: ["SUPPORT"],
+        status: "ACTIVE",
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      },
+    });
+    const queryClient = new QueryClient();
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={["/dashboard"]}>
+          <Routes>
+            <Route element={<AppShell />}>
+              <Route path="dashboard" element={<div>Dashboard content</div>} />
+            </Route>
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    for (const group of ["Operations", "Reviews & Support", "Players & Agents", "Finance", "Administration"]) {
+      const toggle = screen.getAllByRole("button", { name: new RegExp(group) })[0];
+      if (toggle.getAttribute("aria-expanded") !== "true") {
+        fireEvent.click(toggle);
+      }
+    }
+
+    expect(screen.getAllByRole("link", { name: "Dashboard" })[0]).toHaveAttribute("href", "/dashboard");
+    expect(screen.getAllByRole("link", { name: "Sessions" })[0]).toHaveAttribute("href", "/sessions");
+    expect(screen.getAllByRole("link", { name: "Deposits" })[0]).toHaveAttribute("href", "/deposits");
+    expect(screen.getAllByRole("link", { name: "Players" })[0]).toHaveAttribute("href", "/players");
+    expect(screen.getAllByRole("link", { name: "Agents" })[0]).toHaveAttribute("href", "/agents");
+    expect(screen.getAllByRole("link", { name: "Transfer history" })[0]).toHaveAttribute("href", "/wallet/transfers");
+    expect(screen.queryByRole("link", { name: "Audit logs" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Rooms" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Win claims" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Prize entitlements" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Promotional rewards" })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: "Promotional reward grants" })[0])
+      .toHaveAttribute("href", "/wallet/signup-reward-grants");
+    expect(screen.queryByRole("link", { name: "Transfer policy" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Admin users" })).not.toBeInTheDocument();
+  });
+
   it("uses the parent destination, active sidebar entry, breadcrumb, and document title on a player detail link", () => {
     const queryClient = new QueryClient();
 
@@ -277,7 +330,7 @@ describe("AppShell", () => {
     expect(screen.getByRole("link", { name: "Dashboard" })).toBeInTheDocument();
   });
 
-  it("shows support navigation and room management to support-only users", () => {
+  it("shows allowed admin navigation and hides restricted areas for support-only users", () => {
     useSessionMock.mockReturnValue({
       accessToken: "support-token",
       tokenType: "Bearer",
@@ -307,14 +360,17 @@ describe("AppShell", () => {
     );
 
     expect(screen.getByRole("link", { name: "Support tickets" })).toHaveAttribute("aria-current", "page");
-    expect(screen.queryByRole("link", { name: "Dashboard" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Dashboard" })).toHaveAttribute("href", "/dashboard");
     expect(screen.queryByRole("link", { name: "Promotional rewards" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Transfer policy" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Transfer history" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Player verification" })).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Audit logs" })).toHaveAttribute("href", "/audit-logs");
+    expect(screen.queryByRole("link", { name: "Audit logs" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Operations/ }));
-    expect(screen.getByRole("link", { name: "Rooms" })).toHaveAttribute("href", "/rooms");
+    expect(screen.getByRole("link", { name: "Sessions" })).toHaveAttribute("href", "/sessions");
+    expect(screen.queryByRole("link", { name: "Rooms" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Finance/ }));
+    expect(screen.getByRole("link", { name: "Transfer history" })).toHaveAttribute("href", "/wallet/transfers");
+    fireEvent.click(screen.getByRole("button", { name: /Players & Agents/ }));
+    expect(screen.getByRole("link", { name: "Player verification" })).toHaveAttribute("href", "/player-verifications");
     expect(screen.getByText("Support content")).toBeInTheDocument();
   });
 });
