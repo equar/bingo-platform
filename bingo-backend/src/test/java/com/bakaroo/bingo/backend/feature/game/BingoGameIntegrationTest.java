@@ -250,7 +250,7 @@ class BingoGameIntegrationTest extends MySqlIntegrationTest {
                                 "Finance " + role.name(),
                                 passwordEncoder.encode("123456"),
                                 AccountStatus.ACTIVE,
-                                Set.of(UserRole.ADMIN, role),
+                                role == UserRole.ADMIN ? Set.of(UserRole.ADMIN) : Set.of(UserRole.ADMIN, role),
                                 now));
         }
 

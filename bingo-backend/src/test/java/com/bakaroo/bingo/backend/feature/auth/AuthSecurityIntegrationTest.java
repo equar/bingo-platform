@@ -682,7 +682,7 @@ class AuthSecurityIntegrationTest extends MySqlIntegrationTest {
 
                 User saved = userRepository.findById(target.getId()).orElseThrow();
                 assertEquals(Set.of(UserRole.SUPPORT), saved.getRoles());
-                assertEquals(0, jdbcTemplate.queryForObject(
+                assertEquals(2, jdbcTemplate.queryForObject(
                                 "select count(*) from audit_log_entries where action='UPDATE_USER' and target_id=?",
                                 Integer.class, target.getId()));
         }

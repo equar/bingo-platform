@@ -548,7 +548,7 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
 
         @Test
         void walletAdjustmentRequiresDistinctCheckerAndPostsAtMostOnce() {
-                User maker = financeUser("0911000103", Set.of(UserRole.SUPPORT));
+                User maker = financeUser("0911000103", Set.of(UserRole.ADMIN));
                 User checker = financeUser("0911000104", Set.of(UserRole.ADMIN));
                 var request = walletAdjustmentService.submit(playerUser.getId(), new BingoUserPrincipal(maker),
                                 new WalletAdjustmentSubmissionRequest(new BigDecimal("15.00"), "ETB",

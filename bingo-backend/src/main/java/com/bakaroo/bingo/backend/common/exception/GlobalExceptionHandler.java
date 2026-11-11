@@ -23,6 +23,7 @@ import org.springframework.validation.BindException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -177,6 +178,17 @@ public class GlobalExceptionHandler {
                 return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED)
                                 .body(error(HttpStatus.METHOD_NOT_ALLOWED, "METHOD_NOT_ALLOWED",
                                                 "Request method is not supported", request, List.of()));
+        }
+
+        @ExceptionHandler(NoResourceFoundException.class)
+        @ApiResponse(responseCode = "404", description = "Resource not found",
+                        content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
+        public ResponseEntity<ApiErrorResponse> handleNoResourceFound(
+                        NoResourceFoundException exception,
+                        HttpServletRequest request) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                                .body(error(HttpStatus.NOT_FOUND, "RESOURCE_NOT_FOUND",
+                                                "Resource not found", request, List.of()));
         }
 
         @ExceptionHandler(OptimisticLockingFailureException.class)
