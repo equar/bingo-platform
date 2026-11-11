@@ -411,7 +411,9 @@ class BingoLiveDrawIntegrationTest extends MySqlIntegrationTest {
                 mockMvc.perform(post(drawPath).header("Authorization", "Bearer " + financeVerifierToken))
                                 .andExpect(status().isForbidden());
                 mockMvc.perform(post(drawPath).header("Authorization", "Bearer " + financeApproverToken))
-                                .andExpect(status().isForbidden());
+                                .andExpect(status().isConflict())
+                                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                                                .jsonPath("$.code").value("SESSION_NOT_DRAWING"));
                 mockMvc.perform(post(drawPath).header("Authorization", "Bearer invalid-token"))
                                 .andExpect(status().isUnauthorized());
                 mockMvc.perform(post(drawPath).header("Authorization", "Bearer " + adminToken)
