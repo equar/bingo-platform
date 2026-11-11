@@ -9,6 +9,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 class GlobalExceptionHandlerTest {
 
@@ -33,5 +34,15 @@ class GlobalExceptionHandlerTest {
 
         ApiErrorResponse fallback = handler.handleFallback(new RuntimeException("boom"), request).getBody();
         assertThat(fallback.status()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR.value());
+    }
+
+    @Test
+    void handlesMissingResourcesAsNotFound() {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/missing");
+        ApiErrorResponse notFound = handler.handleNoResourceFound(
+                org.mockito.Mockito.mock(NoResourceFoundException.class), request).getBody();
+
+        assertThat(notFound.status()).isEqualTo(HttpStatus.NOT_FOUND.value());
+        assertThat(notFound.code()).isEqualTo("RESOURCE_NOT_FOUND");
     }
 }

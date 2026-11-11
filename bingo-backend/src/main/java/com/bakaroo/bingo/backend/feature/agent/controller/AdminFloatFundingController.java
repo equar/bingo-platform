@@ -30,27 +30,27 @@ public class AdminFloatFundingController {
     public AdminFloatFundingController(FloatFundingService service) { this.service = service; }
 
     @PostMapping("/float-bank-statements/synthetic")
-    @PreAuthorize("hasRole('FINANCE_VERIFIER')")
+    @PreAuthorize("hasRole('SUPPORT')")
     public FloatVerificationResponse recordSyntheticStatement(@AuthenticationPrincipal BingoUserPrincipal principal,
             @Valid @RequestBody SyntheticBankStatementRequest request) {
         return service.recordSyntheticStatement(principal, request);
     }
 
     @PostMapping("/agents/float-top-up-requests/{requestId}/verify")
-    @PreAuthorize("hasRole('FINANCE_VERIFIER')")
+    @PreAuthorize("hasRole('SUPPORT')")
     public FloatVerificationResponse verify(@AuthenticationPrincipal BingoUserPrincipal principal,
             @PathVariable Long requestId, @Valid @RequestBody FloatVerificationRequest request) {
         return service.verify(requestId, principal, request);
     }
 
     @GetMapping("/agents/float-top-up-requests/{requestId}/verifications")
-    @PreAuthorize("hasAnyRole('ADMIN','FINANCE_VERIFIER','FINANCE_APPROVER')")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPPORT')")
     public List<FloatVerificationResponse> verificationHistory(@PathVariable Long requestId) {
         return service.verificationHistory(requestId);
     }
 
     @PostMapping("/agents/float-top-up-requests/{requestId}/post")
-    @PreAuthorize("hasRole('FINANCE_APPROVER')")
+    @PreAuthorize("hasRole('ADMIN')")
     public FloatPostingResponse post(@AuthenticationPrincipal BingoUserPrincipal principal,
             @PathVariable Long requestId, @Valid @RequestBody ReviewFloatTopUpRequest request) {
         if (!request.approve()) {
@@ -61,11 +61,11 @@ public class AdminFloatFundingController {
     }
 
     @GetMapping("/float-accounting/postings")
-    @PreAuthorize("hasAnyRole('ADMIN','FINANCE_APPROVER')")
+    @PreAuthorize("hasRole('ADMIN')")
     public List<FloatPostingResponse> postings() { return service.postings(); }
 
     @GetMapping("/float-reconciliation/daily")
-    @PreAuthorize("hasAnyRole('ADMIN','FINANCE_APPROVER')")
+    @PreAuthorize("hasRole('ADMIN')")
     public FloatReconciliationResponse dailyReconciliation(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         return service.reconcile(date);

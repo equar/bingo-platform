@@ -66,7 +66,7 @@ public class FloatFundingService {
     @Transactional
     public FloatVerificationResponse recordSyntheticStatement(BingoUserPrincipal principal,
             SyntheticBankStatementRequest request) {
-        requireRole(principal.getUser(), UserRole.FINANCE_VERIFIER);
+        requireRole(principal.getUser(), UserRole.SUPPORT);
         requireSimulationEnabled();
         validateReceivingAccount(request.receivingBankAccountId());
         if (!"ETB".equals(request.currency())) throw new ConflictException("UNSUPPORTED_CURRENCY", "Only ETB is supported");
@@ -91,7 +91,7 @@ public class FloatFundingService {
     @Transactional
     public FloatVerificationResponse verify(Long requestId, BingoUserPrincipal principal,
             FloatVerificationRequest input) {
-        User reviewer = requireRole(principal.getUser(), UserRole.FINANCE_VERIFIER);
+        User reviewer = requireRole(principal.getUser(), UserRole.SUPPORT);
         requireSimulationEnabled();
         FloatTopUpRequest request = requests.findByIdForUpdate(requestId)
                 .orElseThrow(() -> new NotFoundException("TOP_UP_REQUEST_NOT_FOUND", "Float top-up request not found"));
@@ -137,7 +137,7 @@ public class FloatFundingService {
 
     @Transactional
     public FloatPostingResponse postVerifiedRequest(Long requestId, BingoUserPrincipal principal, String reviewNote) {
-        User approver = requireRole(principal.getUser(), UserRole.FINANCE_APPROVER);
+        User approver = requireRole(principal.getUser(), UserRole.ADMIN);
         requireSimulationEnabled();
         FloatTopUpRequest request = requests.findByIdForUpdate(requestId)
                 .orElseThrow(() -> new NotFoundException("TOP_UP_REQUEST_NOT_FOUND", "Float top-up request not found"));
@@ -162,7 +162,7 @@ public class FloatFundingService {
                     "The verifier and approver must be different users");
         }
         User verifier = users.findById(latest.reviewerUserId()).orElseThrow();
-        if (!verifier.isActive() || !verifier.hasRole(UserRole.FINANCE_VERIFIER)) {
+        if (!verifier.isActive() || !verifier.hasRole(UserRole.SUPPORT)) {
             throw new ConflictException("FINANCE_VERIFIER_NOT_AUTHORIZED", "The verifying user is no longer authorized");
         }
 

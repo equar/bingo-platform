@@ -235,8 +235,8 @@ class BingoGameIntegrationTest extends MySqlIntegrationTest {
                                 AccountStatus.ACTIVE,
                                 Set.of(UserRole.PLAYER),
                                 now));
-                financeMaker = financeUser("0911000204", UserRole.FINANCE_VERIFIER, now);
-                financeChecker = financeUser("0911000205", UserRole.FINANCE_APPROVER, now);
+                financeMaker = financeUser("0911000204", UserRole.SUPPORT, now);
+                financeChecker = financeUser("0911000205", UserRole.ADMIN, now);
 
                 walletService.createWalletIfMissing(playerOne);
                 walletService.createWalletIfMissing(playerTwo);
@@ -250,7 +250,7 @@ class BingoGameIntegrationTest extends MySqlIntegrationTest {
                                 "Finance " + role.name(),
                                 passwordEncoder.encode("123456"),
                                 AccountStatus.ACTIVE,
-                                Set.of(UserRole.ADMIN, role),
+                                role == UserRole.ADMIN ? Set.of(UserRole.ADMIN) : Set.of(UserRole.ADMIN, role),
                                 now));
         }
 

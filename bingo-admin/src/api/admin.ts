@@ -189,6 +189,7 @@ export interface UserSummaryResponse {
   updatedAt: string;
   createdByDisplayName?: string | null;
   updatedByDisplayName?: string | null;
+  activationEmailStatus?: "NOT_SENT" | "UNKNOWN" | "SENDING" | "SENT" | "FAILED";
 }
 
 export interface AdminUserCreateRequest {
@@ -590,6 +591,9 @@ export interface WinClaimResponse {
   ticketId: number;
   sessionId: number;
   claimantId: number;
+  claimantDisplayName?: string;
+  claimantPhoneNumber?: string;
+  publicTicketCode?: string;
   claimedPattern: string;
   status: string;
   serverValidationPassed: boolean;
@@ -618,6 +622,11 @@ export interface PrizeEntitlementResponse {
   sessionId: number;
   ticketId: number;
   claimantId: number;
+  claimantDisplayName?: string;
+  claimedPattern?: string;
+  claimStatus?: string;
+  sessionName?: string;
+  publicTicketCode?: string;
   prizeType: string;
   settlementPath: string;
   status: string;
@@ -1458,12 +1467,6 @@ export async function updateAdminUser(userId: number, request: AdminUserUpdateRe
   return data;
 }
 
-export async function revokeFinanceRole(userId: number, role: string) {
-  const { data } = await http.delete<UserSummaryResponse>(`/api/v1/admin/users/${userId}/finance-roles`, {
-    params: { role },
-  });
-  return data;
-}
 
 export async function setAgentPin(userId: number, pin: string) {
   await http.post<void>(`/api/v1/admin/users/${userId}/agent-pin`, { pin });

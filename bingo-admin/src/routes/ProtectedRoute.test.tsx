@@ -87,12 +87,12 @@ describe("ProtectedRoute", () => {
     expect(screen.getByText("change password")).toBeInTheDocument();
   });
 
-  it("reconciles cached roles with the server before showing protected routes", async () => {
+  it("denies protected routes after the server removes a cached admin role", async () => {
     refreshProfileMock.mockResolvedValue({
       id: 4,
-      displayName: "Finance Support",
+      displayName: "Former Admin",
       phoneNumber: "251911000004",
-      roles: ["SUPPORT"],
+      roles: ["PLAYER"],
       status: "ACTIVE",
       createdAt: "2026-01-01T00:00:00.000Z",
       updatedAt: "2026-01-01T00:00:00.000Z",
@@ -102,9 +102,9 @@ describe("ProtectedRoute", () => {
       tokenType: "Bearer",
       user: {
         id: 4,
-        displayName: "Finance Support",
+        displayName: "Former Admin",
         phoneNumber: "251911000004",
-        roles: ["SUPPORT", "FINANCE_VERIFIER"],
+        roles: ["ADMIN"],
         status: "ACTIVE",
         createdAt: "2026-01-01T00:00:00.000Z",
         updatedAt: "2026-01-01T00:00:00.000Z",
@@ -114,16 +114,16 @@ describe("ProtectedRoute", () => {
     render(
       <MemoryRouter initialEntries={["/deposits"]}>
         <Routes>
-          <Route element={<ProtectedRoute allowedRoles={["FINANCE_VERIFIER"]} refreshSession />}>
-            <Route path="/deposits" element={<div>finance deposits</div>} />
+          <Route element={<ProtectedRoute allowedRoles={["ADMIN"]} refreshSession />}>
+            <Route path="/deposits" element={<div>admin dashboard</div>} />
           </Route>
         </Routes>
       </MemoryRouter>,
     );
 
     expect(await screen.findByText("Access denied")).toBeInTheDocument();
-    expect(screen.queryByText("finance deposits")).not.toBeInTheDocument();
-    expect(readSession()?.user.roles).toEqual(["SUPPORT"]);
+    expect(screen.queryByText("admin dashboard")).not.toBeInTheDocument();
+    expect(readSession()?.user.roles).toEqual(["PLAYER"]);
     expect(refreshProfileMock).toHaveBeenCalledTimes(1);
   });
 });

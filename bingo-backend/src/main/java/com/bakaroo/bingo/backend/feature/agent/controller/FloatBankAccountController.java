@@ -29,7 +29,7 @@ public class FloatBankAccountController {
     public List<FloatBankAccountResponse> available() { return service.activeAccounts(); }
 
     @GetMapping("/admin/float-bank-accounts")
-    @PreAuthorize("hasAnyRole('ADMIN','FINANCE_VERIFIER','FINANCE_APPROVER')")
+@PreAuthorize("hasAnyRole('ADMIN','SUPPORT')")
     public List<FloatBankAccountResponse> all() { return service.allAccounts(); }
 
     @PostMapping("/admin/float-bank-accounts")

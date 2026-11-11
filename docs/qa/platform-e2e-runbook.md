@@ -18,7 +18,7 @@ startup because checked-out source requires Flyway V23 while local
 | `bingo` | Local development only | Not functional QA or destructive integration tests. |
 | `bingo_qa` | Persistent historical QA data | Read-only comparisons only; preserve existing records. |
 | `bingo_qa_test` | Local guarded Android/Admin functional E2E | Verify exact local host, port, schema, runtime account, grants, and Flyway version. Player ticket purchases use the normal production path. Never reset or clean it. |
-| `bingo_qa_maven_test` | Destructive Maven integration tests | Dedicated disposable schema/account only. Provisioning is not verified; do not run the suite until the guard and exact target are verified. |
+| `bingo_qa_maven_test` | Destructive Maven integration tests | Dedicated disposable schema/account only. Verify the exact target and guard before each run. Migration V27 also requires the persistent MySQL trigger setting described in the [backend safeguards](../../bingo-backend/README.md); verify the server is dedicated and nonproduction before changing that server-wide setting. |
 
 ## Ignored local runner configuration
 

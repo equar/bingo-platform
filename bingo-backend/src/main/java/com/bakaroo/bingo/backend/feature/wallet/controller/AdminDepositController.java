@@ -33,7 +33,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/admin/deposits")
-@PreAuthorize("hasAnyRole('ADMIN','FINANCE_VERIFIER','FINANCE_APPROVER')")
+@PreAuthorize("hasAnyRole('ADMIN','SUPPORT')")
 public class AdminDepositController {
 
     private final WalletService walletService;
@@ -84,7 +84,7 @@ public class AdminDepositController {
     }
 
     @PostMapping("/{id}/verify")
-    @PreAuthorize("hasRole('FINANCE_VERIFIER')")
+    @PreAuthorize("hasRole('SUPPORT')")
     public DepositVerificationResponse verify(@PathVariable Long id,
             @AuthenticationPrincipal BingoUserPrincipal principal,
             @Valid @RequestBody DepositVerificationRequest request) {
@@ -97,7 +97,7 @@ public class AdminDepositController {
     }
 
     @GetMapping("/{id}/posting")
-    @PreAuthorize("hasAnyRole('ADMIN','FINANCE_APPROVER')")
+    @PreAuthorize("hasRole('ADMIN')")
     public DepositPostingResponse posting(@PathVariable Long id) {
         return depositFinancialService.getPosting(id);
     }

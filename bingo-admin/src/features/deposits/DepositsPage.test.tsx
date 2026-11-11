@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { approveDeposit, deposits, rejectDeposit } from "../../api/admin";
+import { clearSession, writeSession } from "../../api/session";
 import i18n from "../../i18n";
 import { DepositsPage } from "./DepositsPage";
 
@@ -70,10 +71,28 @@ function createPendingDepositsWrapper({ children }: PropsWithChildren) {
 }
 
 describe("DepositsPage", () => {
-  afterEach(cleanup);
+  afterEach(() => {
+    cleanup();
+    clearSession();
+  });
 
   beforeEach(async () => {
     await i18n.changeLanguage("en");
+    clearSession();
+    writeSession({
+      accessToken: "test-token",
+      tokenType: "Bearer",
+      user: {
+        id: 5,
+        displayName: "Review Admin",
+        phoneNumber: "251911000005",
+        roles: ["ADMIN"],
+        status: "ACTIVE",
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+        preferredLanguage: "en",
+      },
+    });
     depositsMock.mockReset();
     approveDepositMock.mockReset().mockResolvedValue({} as Awaited<ReturnType<typeof approveDeposit>>);
     rejectDepositMock.mockReset().mockResolvedValue({} as Awaited<ReturnType<typeof rejectDeposit>>);

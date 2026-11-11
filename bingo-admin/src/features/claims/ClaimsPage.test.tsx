@@ -49,6 +49,7 @@ describe("ClaimsPage", () => {
         {
           id: 21,
           ticketId: 81,
+          publicTicketCode: "81",
           sessionId: 15,
           claimantId: 10,
           claimedPattern: "LINE",

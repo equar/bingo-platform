@@ -9,13 +9,11 @@ import i18n from "../../i18n";
 const adminUsersMock = vi.fn();
 const createAdminUserMock = vi.fn();
 const updateAdminUserMock = vi.fn();
-const revokeFinanceRoleMock = vi.fn();
 
 vi.mock("../../api/admin", () => ({
   adminUsers: (...args: unknown[]) => adminUsersMock(...args),
   createAdminUser: (...args: unknown[]) => createAdminUserMock(...args),
   updateAdminUser: (...args: unknown[]) => updateAdminUserMock(...args),
-  revokeFinanceRole: (...args: unknown[]) => revokeFinanceRoleMock(...args),
 }));
 
 function createWrapper() {
@@ -216,27 +214,26 @@ describe("AdminUsersPage", () => {
     expect(await screen.findByText("No admin users match the current filters.")).toBeInTheDocument();
   });
 
-  it("revokes a finance role and refreshes the admin user list", async () => {
+  it("shows current staff roles without legacy finance-role revocation", async () => {
     adminUsersMock.mockResolvedValue({
       content: [{
         id: 17,
-        displayName: "Finance QA",
-        email: "finance@example.invalid",
+        displayName: "Support QA",
+        email: "support@example.invalid",
         phoneNumber: "251911000017",
-        roles: ["ADMIN", "FINANCE_VERIFIER"],
+        roles: ["ADMIN", "SUPPORT"],
         status: "ACTIVE",
         createdAt: "2026-01-01T00:00:00.000Z",
         updatedAt: "2026-01-01T00:00:00.000Z",
       }],
       page: 0, size: 20, totalElements: 1, totalPages: 1, first: true, last: true,
     });
-    revokeFinanceRoleMock.mockResolvedValue({});
-    const user = userEvent.setup();
     render(<AdminUsersPage />, { wrapper: createWrapper() });
-    await user.click(await screen.findByRole("button", { name: "Revoke Finance verifier from Finance QA" }));
-    await waitFor(() => {
-      expect(revokeFinanceRoleMock).toHaveBeenCalledWith(17, "FINANCE_VERIFIER");
-    });
+
+    expect(await screen.findByText("Support QA")).toBeInTheDocument();
+    expect(screen.getByText("Administrator")).toBeInTheDocument();
+    expect(screen.getByText("Support staff")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /revoke finance/i })).not.toBeInTheDocument();
   });
 
   it("switches operational labels and display-only statuses without changing API values", async () => {

@@ -23,8 +23,6 @@ import com.bakaroo.bingo.backend.feature.agent.dto.FloatVerificationRequest;
 import com.bakaroo.bingo.backend.feature.agent.dto.SyntheticBankStatementRequest;
 import com.bakaroo.bingo.backend.feature.auth.service.BingoUserPrincipal;
 import com.bakaroo.bingo.backend.feature.auth.service.EthiopianPhoneNormalizer;
-import com.bakaroo.bingo.backend.feature.auth.dto.FinanceRoleAssignmentRequest;
-import com.bakaroo.bingo.backend.feature.auth.service.FinanceRoleService;
 import com.bakaroo.bingo.backend.feature.game.entity.BingoPatternType;
 import com.bakaroo.bingo.backend.feature.game.entity.BingoRoom;
 import com.bakaroo.bingo.backend.feature.game.entity.GameSession;
@@ -83,9 +81,6 @@ class AgentServiceIntegrationTest extends MySqlIntegrationTest {
 
         @Autowired
         FloatFundingService floatFundingService;
-
-        @Autowired
-        FinanceRoleService financeRoleService;
 
         @Autowired
         AgentRepository agentRepository;
@@ -409,10 +404,10 @@ class AgentServiceIntegrationTest extends MySqlIntegrationTest {
         void independentlyVerifiedQaFundingPostsBalancedJournalExactlyOnce() {
                 User verifier = userRepository.save(User.create(phoneNormalizer.normalize("0911000391"), "Finance Verifier",
                                 passwordEncoder.encode("FinancePass123!"), AccountStatus.ACTIVE,
-                                Set.of(UserRole.FINANCE_VERIFIER), Instant.now()));
+                                Set.of(UserRole.SUPPORT), Instant.now()));
                 User approver = userRepository.save(User.create(phoneNormalizer.normalize("0911000392"), "Finance Approver",
                                 passwordEncoder.encode("FinancePass123!"), AccountStatus.ACTIVE,
-                                Set.of(UserRole.FINANCE_APPROVER), Instant.now()));
+                                Set.of(UserRole.ADMIN), Instant.now()));
 
                 var submitted = agentService.submitTopUpRequest(agentPrincipal,
                                 new com.bakaroo.bingo.backend.feature.agent.dto.SubmitFloatTopUpRequest(
@@ -469,7 +464,7 @@ class AgentServiceIntegrationTest extends MySqlIntegrationTest {
         void independentVerificationExceptionsAndUnauthorizedReviewersNeverCreditFloat() {
                 User verifier = userRepository.save(User.create(phoneNormalizer.normalize("0911000381"), "Finance Verifier Two",
                                 passwordEncoder.encode("FinancePass123!"), AccountStatus.ACTIVE,
-                                Set.of(UserRole.FINANCE_VERIFIER), Instant.now()));
+                                Set.of(UserRole.SUPPORT), Instant.now()));
                 var request = agentService.submitTopUpRequest(agentPrincipal,
                                 new com.bakaroo.bingo.backend.feature.agent.dto.SubmitFloatTopUpRequest(
                                                 new BigDecimal("10.00"), "ETB", null, 1L,
@@ -497,7 +492,7 @@ class AgentServiceIntegrationTest extends MySqlIntegrationTest {
         void wrongAccountUnsettledAndDuplicateReferencesAreRejectedWithoutCredit() {
                 User verifier = userRepository.save(User.create(phoneNormalizer.normalize("0911000371"), "Finance Verifier Evidence",
                                 passwordEncoder.encode("FinancePass123!"), AccountStatus.ACTIVE,
-                                Set.of(UserRole.FINANCE_VERIFIER), Instant.now()));
+                                Set.of(UserRole.SUPPORT), Instant.now()));
 
                 var wrongAccountRequest = agentService.submitTopUpRequest(agentPrincipal,
                                 new com.bakaroo.bingo.backend.feature.agent.dto.SubmitFloatTopUpRequest(
@@ -533,10 +528,10 @@ class AgentServiceIntegrationTest extends MySqlIntegrationTest {
         void concurrentApprovalPostsOneBalancedJournalAndOneFloatCredit() throws Exception {
                 User verifier = userRepository.save(User.create(phoneNormalizer.normalize("0911000361"), "Finance Verifier Concurrent",
                                 passwordEncoder.encode("FinancePass123!"), AccountStatus.ACTIVE,
-                                Set.of(UserRole.FINANCE_VERIFIER), Instant.now()));
+                                Set.of(UserRole.SUPPORT), Instant.now()));
                 User approver = userRepository.save(User.create(phoneNormalizer.normalize("0911000362"), "Finance Approver Concurrent",
                                 passwordEncoder.encode("FinancePass123!"), AccountStatus.ACTIVE,
-                                Set.of(UserRole.FINANCE_APPROVER), Instant.now()));
+                                Set.of(UserRole.ADMIN), Instant.now()));
                 var request = agentService.submitTopUpRequest(agentPrincipal,
                                 new com.bakaroo.bingo.backend.feature.agent.dto.SubmitFloatTopUpRequest(
                                                 new BigDecimal("13.25"), "ETB", null, 1L, "M02B-CONCURRENT", null),
@@ -580,10 +575,10 @@ class AgentServiceIntegrationTest extends MySqlIntegrationTest {
         void postingFailureRollsBackJournalBalanceAndRequestTransition() {
                 User verifier = userRepository.save(User.create(phoneNormalizer.normalize("0911000351"), "Finance Verifier Rollback",
                                 passwordEncoder.encode("FinancePass123!"), AccountStatus.ACTIVE,
-                                Set.of(UserRole.FINANCE_VERIFIER), Instant.now()));
+                                Set.of(UserRole.SUPPORT), Instant.now()));
                 User approver = userRepository.save(User.create(phoneNormalizer.normalize("0911000352"), "Finance Approver Rollback",
                                 passwordEncoder.encode("FinancePass123!"), AccountStatus.ACTIVE,
-                                Set.of(UserRole.FINANCE_APPROVER), Instant.now()));
+                                Set.of(UserRole.ADMIN), Instant.now()));
                 var request = agentService.submitTopUpRequest(agentPrincipal,
                                 new com.bakaroo.bingo.backend.feature.agent.dto.SubmitFloatTopUpRequest(
                                                 new BigDecimal("17.00"), "ETB", null, 1L, "M02B-ROLLBACK", null),
@@ -617,46 +612,32 @@ class AgentServiceIntegrationTest extends MySqlIntegrationTest {
         }
 
         @Test
-        void financePermissionsAreGrantedOnlyByAnAdminToEligibleOtherAccounts() {
-                User admin = userRepository.save(User.create(phoneNormalizer.normalize("0911000341"), "Finance Role Admin",
-                                passwordEncoder.encode("AdminPass123!"), AccountStatus.ACTIVE,
-                                Set.of(UserRole.ADMIN), Instant.now()));
-                User support = userRepository.save(User.create(phoneNormalizer.normalize("0911000342"), "Finance Role Support",
-                                passwordEncoder.encode("SupportPass123!"), AccountStatus.ACTIVE,
-                                Set.of(UserRole.SUPPORT), Instant.now()));
-                assertThrows(com.bakaroo.bingo.backend.common.exception.ConflictException.class,
-                                () -> financeRoleService.assign(admin, admin.getId(),
-                                                new FinanceRoleAssignmentRequest(Set.of(UserRole.FINANCE_VERIFIER))));
-                assertThrows(com.bakaroo.bingo.backend.common.exception.ConflictException.class,
-                                () -> financeRoleService.assign(admin, agentUser.getId(),
-                                                new FinanceRoleAssignmentRequest(Set.of(UserRole.FINANCE_VERIFIER))));
-                assertThrows(com.bakaroo.bingo.backend.common.exception.ConflictException.class,
-                                () -> financeRoleService.assign(playerUser, support.getId(),
-                                                new FinanceRoleAssignmentRequest(Set.of(UserRole.FINANCE_VERIFIER))));
-                assertThrows(com.bakaroo.bingo.backend.common.exception.ConflictException.class,
-                                () -> financeRoleService.assign(admin, support.getId(),
-                                                new FinanceRoleAssignmentRequest(Set.of(UserRole.PLAYER))));
+        void fundingVerificationAndPostingRequireTheirCurrentStaffRoles() {
+                User support = User.create(phoneNormalizer.normalize("0911000341"), "Funding Support",
+                                "unused-hash", AccountStatus.ACTIVE, Set.of(UserRole.SUPPORT), Instant.now());
+                User admin = User.create(phoneNormalizer.normalize("0911000342"), "Funding Admin",
+                                "unused-hash", AccountStatus.ACTIVE, Set.of(UserRole.ADMIN), Instant.now());
 
-                var assigned = financeRoleService.assign(admin, support.getId(),
-                                new FinanceRoleAssignmentRequest(Set.of(UserRole.FINANCE_VERIFIER)));
-                assertTrue(assigned.roles().contains(UserRole.FINANCE_VERIFIER));
-                var appended = financeRoleService.assign(admin, support.getId(),
-                                new FinanceRoleAssignmentRequest(Set.of(UserRole.FINANCE_APPROVER)));
-                assertTrue(appended.roles().containsAll(Set.of(UserRole.SUPPORT, UserRole.FINANCE_VERIFIER,
-                                UserRole.FINANCE_APPROVER)));
-                var revoked = financeRoleService.revoke(admin, support.getId(), UserRole.FINANCE_VERIFIER);
-                assertTrue(revoked.roles().contains(UserRole.FINANCE_APPROVER));
-                assertTrue(!revoked.roles().contains(UserRole.FINANCE_VERIFIER));
+                var verifierFailure = assertThrows(
+                                com.bakaroo.bingo.backend.common.exception.ConflictException.class,
+                                () -> floatFundingService.verify(Long.MAX_VALUE, new BingoUserPrincipal(admin),
+                                                new FloatVerificationRequest(null, null, null)));
+                assertEquals("FINANCE_AUTHORIZATION_REQUIRED", verifierFailure.getCode());
+                var approverFailure = assertThrows(
+                                com.bakaroo.bingo.backend.common.exception.ConflictException.class,
+                                () -> floatFundingService.postVerifiedRequest(Long.MAX_VALUE,
+                                                new BingoUserPrincipal(support), "Unauthorized post"));
+                assertEquals("FINANCE_AUTHORIZATION_REQUIRED", approverFailure.getCode());
         }
 
         @Test
         void suspensionAfterVerificationBlocksPosting() {
                 User verifier = userRepository.save(User.create(phoneNormalizer.normalize("0911000331"), "Finance Verifier Suspension",
                                 passwordEncoder.encode("FinancePass123!"), AccountStatus.ACTIVE,
-                                Set.of(UserRole.FINANCE_VERIFIER), Instant.now()));
+                                Set.of(UserRole.SUPPORT), Instant.now()));
                 User approver = userRepository.save(User.create(phoneNormalizer.normalize("0911000332"), "Finance Approver Suspension",
                                 passwordEncoder.encode("FinancePass123!"), AccountStatus.ACTIVE,
-                                Set.of(UserRole.FINANCE_APPROVER), Instant.now()));
+                                Set.of(UserRole.ADMIN), Instant.now()));
                 var request = agentService.submitTopUpRequest(agentPrincipal,
                                 new com.bakaroo.bingo.backend.feature.agent.dto.SubmitFloatTopUpRequest(
                                                 new BigDecimal("7.00"), "ETB", null, 1L, "M02B-SUSPENSION", null),

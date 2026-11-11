@@ -92,7 +92,7 @@ public class DepositFinancialService {
     @Transactional
     public DepositVerificationResponse verify(Long depositId, BingoUserPrincipal principal,
             DepositVerificationRequest input) {
-        User verifier = requireRole(principal.getUser(), UserRole.FINANCE_VERIFIER);
+        User verifier = requireRole(principal.getUser(), UserRole.SUPPORT);
         DepositClaim claim = claims.findByIdForUpdate(depositId)
                 .orElseThrow(() -> new NotFoundException("DEPOSIT_NOT_FOUND", "Deposit claim not found"));
         if (verifier.getId().equals(claim.getPlayer().getId())) {
@@ -136,7 +136,7 @@ public class DepositFinancialService {
     @Transactional
     public IdempotentResult<DepositClaimResponse> approve(Long depositId, BingoUserPrincipal principal,
             String reviewNote, String idempotencyKey) {
-        User approver = requireRole(principal.getUser(), UserRole.FINANCE_APPROVER);
+        User approver = requireRole(principal.getUser(), UserRole.ADMIN);
         DepositReviewPayload payload = new DepositReviewPayload(reviewNote);
         String requestHash = requestHashService.hash("POST",
                 "/api/v1/admin/deposits/" + depositId + "/approve", payload);
@@ -167,15 +167,11 @@ public class DepositFinancialService {
                         throw new ConflictException("DEPOSIT_VERIFICATION_STALE",
                                 "The bank evidence no longer confirms this deposit");
                     }
-                    if (verification.verifierUserId().equals(approver.getId())) {
-                        throw new ConflictException("FINANCE_SEPARATION_OF_DUTIES_REQUIRED",
-                                "The verifier and approver must be different users");
-                    }
                     User verifier = users.findById(verification.verifierUserId())
-                            .orElseThrow(() -> new ConflictException("FINANCE_VERIFIER_NOT_AUTHORIZED",
+                            .orElseThrow(() -> new ConflictException("DEPOSIT_VERIFIER_NOT_AUTHORIZED",
                                     "The verifying user is no longer authorized"));
-                    if (!verifier.isActive() || !verifier.hasRole(UserRole.FINANCE_VERIFIER)) {
-                        throw new ConflictException("FINANCE_VERIFIER_NOT_AUTHORIZED",
+                    if (!verifier.isActive() || !verifier.hasRole(UserRole.SUPPORT)) {
+                        throw new ConflictException("DEPOSIT_VERIFIER_NOT_AUTHORIZED",
                                 "The verifying user is no longer authorized");
                     }
                     if (!verification.synthetic()) {
@@ -402,8 +398,8 @@ public class DepositFinancialService {
     private User requireRole(User user, UserRole role) {
         boolean staffUser = user.hasRole(UserRole.ADMIN) || user.hasRole(UserRole.SUPPORT);
         if (!user.isActive() || !staffUser || !user.hasRole(role)) {
-            throw new ConflictException("FINANCE_AUTHORIZATION_REQUIRED",
-                    "An active authorized finance user is required");
+            throw new ConflictException("DEPOSIT_STAFF_AUTHORIZATION_REQUIRED",
+                    "An active support or administrator account is required");
         }
         return user;
     }

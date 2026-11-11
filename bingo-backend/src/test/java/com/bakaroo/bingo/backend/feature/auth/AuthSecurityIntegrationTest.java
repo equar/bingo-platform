@@ -548,46 +548,47 @@ class AuthSecurityIntegrationTest extends MySqlIntegrationTest {
         }
 
         @Test
-        void financeRoleRevocationTakesEffectForExistingJwtAndIsAudited() throws Exception {
+        void supportCanVerifyDepositsButCannotApproveOrUseRemovedFinanceRoleRoute() throws Exception {
                 String suffix = Long.toString(System.nanoTime() % 100_000_000L);
-                User financeUser = userRepository.save(User.create(
+                User supportUser = userRepository.save(User.create(
                                 phoneNormalizer.normalize("09" + String.format("%08d", Long.parseLong(suffix))),
-                                "Finance Revocation Target",
+                                "Support Verification Target",
                                 passwordEncoder.encode("NotUsedByAgentApp123!"),
                                 AccountStatus.ACTIVE,
-                                Set.of(UserRole.SUPPORT, UserRole.FINANCE_VERIFIER),
+                                Set.of(UserRole.SUPPORT),
                                 Instant.now()));
-                String staleToken = jwtService.generateToken(financeUser);
+                String supportToken = jwtService.generateToken(supportUser);
                 String adminToken = issueTokenFor("0911000001");
 
-                mockMvc.perform(get("/api/v1/admin/deposits").header("Authorization", "Bearer " + staleToken))
+                mockMvc.perform(get("/api/v1/admin/deposits").header("Authorization", "Bearer " + supportToken))
                                 .andExpect(status().isOk());
                 mockMvc.perform(post("/api/v1/admin/deposits/999999/verify")
-                                .header("Authorization", "Bearer " + staleToken)
+                                .header("Authorization", "Bearer " + supportToken)
                                 .contentType(MediaType.APPLICATION_JSON).content("{\"statementEntryId\":1}"))
                                 .andExpect(status().isNotFound());
-
-                mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
-                                .delete("/api/v1/admin/users/{userId}/finance-roles", financeUser.getId())
-                                .param("role", "FINANCE_VERIFIER")
-                                .header("Authorization", "Bearer " + adminToken))
-                                .andExpect(status().isOk())
-                                .andExpect(jsonPath("$.roles").value(org.hamcrest.Matchers.not(
-                                                org.hamcrest.Matchers.hasItem("FINANCE_VERIFIER"))));
+                mockMvc.perform(get("/api/v1/admin/deposits").header("Authorization", "Bearer " + adminToken))
+                                .andExpect(status().isOk());
                 mockMvc.perform(post("/api/v1/admin/deposits/999999/verify")
-                                .header("Authorization", "Bearer " + staleToken)
+                                .header("Authorization", "Bearer " + adminToken)
                                 .contentType(MediaType.APPLICATION_JSON).content("{\"statementEntryId\":1}"))
                                 .andExpect(status().isForbidden());
-                mockMvc.perform(get("/api/v1/me").header("Authorization", "Bearer " + staleToken))
+                mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                                .post("/api/v1/admin/deposits/999999/approve")
+                                .header("Authorization", "Bearer " + supportToken)
+                                .header("Idempotency-Key", "support-approval-forbidden")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"reviewNote\":\"Support cannot approve deposits\"}"))
+                                .andExpect(status().isConflict())
+                                .andExpect(jsonPath("$.code").value("DEPOSIT_STAFF_AUTHORIZATION_REQUIRED"));
+                mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                                .delete("/api/v1/admin/users/{userId}/finance-roles", supportUser.getId())
+                                .param("role", "SUPPORT")
+                                .header("Authorization", "Bearer " + adminToken))
+                                .andExpect(status().isNotFound());
+                mockMvc.perform(get("/api/v1/me").header("Authorization", "Bearer " + supportToken))
                                 .andExpect(status().isOk())
-                                .andExpect(jsonPath("$.user.roles").value(org.hamcrest.Matchers.hasItem("SUPPORT")))
-                                .andExpect(jsonPath("$.user.roles").value(org.hamcrest.Matchers.not(
-                                                org.hamcrest.Matchers.hasItem("FINANCE_VERIFIER"))));
-                Long adminId = userRepository.findByNormalizedPhone(phoneNormalizer.normalize("0911000001"))
-                                .orElseThrow().getId();
-                assertEquals(1, jdbcTemplate.queryForObject(
-                                "select count(*) from audit_log_entries where action='REVOKE' and actor_user_id=? and target_id=?",
-                                Integer.class, adminId, financeUser.getId()));
+                                .andExpect(jsonPath("$.user.roles", hasSize(1)))
+                                .andExpect(jsonPath("$.user.roles[0]").value("SUPPORT"));
         }
 
         @Test
@@ -633,48 +634,57 @@ class AuthSecurityIntegrationTest extends MySqlIntegrationTest {
         }
 
         @Test
-        void concurrentFinanceRoleRevocationsDoNotRestoreRemovedPrivileges() throws Exception {
+        void concurrentAdminRoleEscalationsAreRejectedWithoutChangingSupportRoles() throws Exception {
                 String phone = String.format("09%08d", Math.floorMod(System.nanoTime(), 100_000_000L));
+                String email = "qa-concurrent-role-" + UUID.randomUUID() + "@example.invalid";
                 User target = userRepository.save(User.create(
-                                phoneNormalizer.normalize(phone), "Concurrent Finance Revocation Target",
+                                phoneNormalizer.normalize(phone), "Concurrent Role Target",
                                 passwordEncoder.encode("NotUsedByAgentApp123!"), AccountStatus.ACTIVE,
-                                Set.of(UserRole.SUPPORT, UserRole.FINANCE_VERIFIER, UserRole.FINANCE_APPROVER),
+                                Set.of(UserRole.SUPPORT),
                                 Instant.now()));
+                target.setEmail(email);
+                target = userRepository.save(target);
                 String adminToken = issueTokenFor("0911000001");
-                String url = "/api/v1/admin/users/" + target.getId() + "/finance-roles";
+                String url = "/api/v1/admin/users/" + target.getId();
+                String promoteToAdmin = "{\"displayName\":\"Concurrent Role Target\",\"email\":\"" + email
+                                + "\",\"phoneNumber\":\"" + phone
+                                + "\",\"status\":\"ACTIVE\",\"roles\":[\"ADMIN\"]}";
+                String addAdminRole = "{\"displayName\":\"Concurrent Role Target\",\"email\":\"" + email
+                                + "\",\"phoneNumber\":\"" + phone
+                                + "\",\"status\":\"ACTIVE\",\"roles\":[\"ADMIN\",\"SUPPORT\"]}";
                 var executor = Executors.newFixedThreadPool(2);
                 var ready = new CountDownLatch(2);
                 var start = new CountDownLatch(1);
                 try {
-                        var verifier = executor.submit(() -> {
+                        var promote = executor.submit(() -> {
                                 ready.countDown();
                                 start.await();
-                                return mockMvc.perform(delete(url).param("role", "FINANCE_VERIFIER")
+                                return mockMvc.perform(put(url).contentType(MediaType.APPLICATION_JSON)
+                                                .content(promoteToAdmin)
                                                 .header("Authorization", "Bearer " + adminToken))
                                                 .andReturn().getResponse().getStatus();
                         });
-                        var approver = executor.submit(() -> {
+                        var addRole = executor.submit(() -> {
                                 ready.countDown();
                                 start.await();
-                                return mockMvc.perform(delete(url).param("role", "FINANCE_APPROVER")
+                                return mockMvc.perform(put(url).contentType(MediaType.APPLICATION_JSON)
+                                                .content(addAdminRole)
                                                 .header("Authorization", "Bearer " + adminToken))
                                                 .andReturn().getResponse().getStatus();
                         });
                         org.junit.jupiter.api.Assertions.assertTrue(ready.await(5, TimeUnit.SECONDS));
                         start.countDown();
-                        assertEquals(200, verifier.get(20, TimeUnit.SECONDS));
-                        assertEquals(200, approver.get(20, TimeUnit.SECONDS));
+                        assertEquals(409, promote.get(20, TimeUnit.SECONDS));
+                        assertEquals(409, addRole.get(20, TimeUnit.SECONDS));
                 } finally {
                         executor.shutdownNow();
                 }
 
                 User saved = userRepository.findById(target.getId()).orElseThrow();
                 assertEquals(Set.of(UserRole.SUPPORT), saved.getRoles());
-                Long adminId = userRepository.findByNormalizedPhone(phoneNormalizer.normalize("0911000001"))
-                                .orElseThrow().getId();
                 assertEquals(2, jdbcTemplate.queryForObject(
-                                "select count(*) from audit_log_entries where action='REVOKE' and actor_user_id=? and target_id=? and json_unquote(json_extract(metadata_json,'$.outcome'))='SUCCESS'",
-                                Integer.class, adminId, target.getId()));
+                                "select count(*) from audit_log_entries where action='UPDATE_USER' and target_id=?",
+                                Integer.class, target.getId()));
         }
 
         @Test

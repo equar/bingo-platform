@@ -160,7 +160,7 @@ export function PrizeEntitlementsPage() {
                       sx={{ minWidth: 0, p: 0 }}
                       onClick={() => setReference({ kind: "player", id: entitlement.claimantId })}
                     >
-                      {t("#")}{entitlement.claimantId}
+                      {entitlement.claimantDisplayName || t("Player details unavailable")}
                     </Button>
                   </TableCell>
                   <TableCell>
@@ -170,7 +170,9 @@ export function PrizeEntitlementsPage() {
                       sx={{ minWidth: 0, p: 0 }}
                       onClick={() => setReference({ kind: "claim", id: entitlement.winClaimId })}
                     >
-                      {t("#")}{entitlement.winClaimId}
+                      {entitlement.claimedPattern
+                        ? `${translateAdminValue(entitlement.claimedPattern, t)} · ${translateAdminStatus(entitlement.claimStatus ?? "", t)}`
+                        : t("Claim details")}
                     </Button>
                   </TableCell>
                   <TableCell>
@@ -180,7 +182,7 @@ export function PrizeEntitlementsPage() {
                       sx={{ minWidth: 0, p: 0 }}
                       onClick={() => setReference({ kind: "session", id: entitlement.sessionId })}
                     >
-                      {t("#")}{entitlement.sessionId}
+                      {entitlement.sessionName || t("Session details")}
                     </Button>
                   </TableCell>
                   <TableCell>
@@ -190,7 +192,7 @@ export function PrizeEntitlementsPage() {
                       sx={{ minWidth: 0, p: 0 }}
                       onClick={() => setReference({ kind: "ticket", id: entitlement.ticketId })}
                     >
-                      {t("#")}{entitlement.ticketId}
+                      {entitlement.publicTicketCode || t("Ticket details")}
                     </Button>
                   </TableCell>
                   <TableCell>

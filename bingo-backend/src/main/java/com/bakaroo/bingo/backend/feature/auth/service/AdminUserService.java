@@ -7,6 +7,7 @@ import com.bakaroo.bingo.backend.feature.auth.dto.AdminUserCreateRequest;
 import com.bakaroo.bingo.backend.feature.auth.dto.AdminUserUpdateRequest;
 import com.bakaroo.bingo.backend.feature.auth.dto.UserSummaryResponse;
 import com.bakaroo.bingo.backend.feature.user.entity.AccountStatus;
+import com.bakaroo.bingo.backend.feature.user.entity.ActivationEmailStatus;
 import com.bakaroo.bingo.backend.feature.user.entity.User;
 import com.bakaroo.bingo.backend.feature.user.entity.UserRole;
 import com.bakaroo.bingo.backend.feature.user.repository.UserRepository;
@@ -112,6 +113,7 @@ public class AdminUserService {
         user.requireAccountActivation(
                 activationTokenGenerator.hashToken(activationToken),
                 createdAt.plus(Duration.ofHours(24)));
+        user.setActivationEmailStatus(ActivationEmailStatus.SENDING);
         User savedUser = userRepository.save(user);
         queueActivationEmailAfterCommit(savedUser, buildActivationLink(activationToken));
         return toSummary(savedUser);
@@ -147,6 +149,7 @@ public class AdminUserService {
             user.setUpdatedByDisplayName(actorDisplayName);
         }
         user.requireAccountActivation(activationTokenGenerator.hashToken(activationToken), now.plus(Duration.ofHours(24)));
+        user.setActivationEmailStatus(ActivationEmailStatus.SENDING);
         queueActivationEmailAfterCommit(user, buildActivationLink(activationToken));
     }
 
@@ -293,7 +296,8 @@ public class AdminUserService {
                 user.getCreatedAt(),
                 user.getUpdatedAt(),
                 user.getCreatedByDisplayName(),
-                user.getUpdatedByDisplayName());
+                user.getUpdatedByDisplayName(),
+                user.getActivationEmailStatus());
     }
 
     private void queueActivationEmail(User user, String activationLink) {
@@ -301,6 +305,7 @@ public class AdminUserService {
             notificationService.sendActivationLink(user, activationLink);
         } catch (RuntimeException exception) {
             log.error("Unable to queue activation email for admin user id {}", user.getId(), exception);
+            userRepository.updateActivationEmailStatus(user.getId(), ActivationEmailStatus.FAILED);
         }
     }
 

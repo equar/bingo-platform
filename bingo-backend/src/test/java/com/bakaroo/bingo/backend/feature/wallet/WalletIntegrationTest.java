@@ -256,7 +256,7 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
 
         @Test
         void playerDepositSubmissionNeverCreditsWalletWithoutIndependentVerification() throws Exception {
-                adminUser.setRoles(Set.of(UserRole.ADMIN, UserRole.FINANCE_APPROVER));
+                adminUser.setRoles(Set.of(UserRole.ADMIN));
                 userRepository.save(adminUser);
                 String playerToken = loginToken("0911000102", "123456");
                 String adminToken = adminLoginToken("admin@example.com", "AdminPass123!");
@@ -414,8 +414,8 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
 
         @Test
         void verifiedDepositPostsBalancedJournalOnceWithSeparatedFinanceUsers() {
-                User verifier = financeUser("0911000103", Set.of(UserRole.ADMIN, UserRole.FINANCE_VERIFIER));
-                User approver = financeUser("0911000104", Set.of(UserRole.ADMIN, UserRole.FINANCE_APPROVER));
+                User verifier = financeUser("0911000103", Set.of(UserRole.SUPPORT));
+                User approver = financeUser("0911000104", Set.of(UserRole.ADMIN));
                 BingoUserPrincipal playerPrincipal = new BingoUserPrincipal(playerUser);
                 IdempotentResult<DepositClaimResponse> submitted = walletService.submitDeposit(playerPrincipal,
                                 new DepositClaimRequest(new BigDecimal("60.00"), "ETB", "TBR-VERIFIED-001"),
@@ -474,8 +474,8 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
 
         @Test
         void duplicateEvidenceAndAmountMismatchNeverCreateDepositPostings() {
-                User verifier = financeUser("0911000103", Set.of(UserRole.ADMIN, UserRole.FINANCE_VERIFIER));
-                User approver = financeUser("0911000104", Set.of(UserRole.ADMIN, UserRole.FINANCE_APPROVER));
+                User verifier = financeUser("0911000103", Set.of(UserRole.SUPPORT));
+                User approver = financeUser("0911000104", Set.of(UserRole.ADMIN));
                 Long bankAccountId;
                 jdbcTemplate.update("""
                                 insert into float_receiving_bank_accounts
@@ -548,9 +548,8 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
 
         @Test
         void walletAdjustmentRequiresDistinctCheckerAndPostsAtMostOnce() {
-                User maker = financeUser("0911000103",
-                                Set.of(UserRole.ADMIN, UserRole.FINANCE_VERIFIER, UserRole.FINANCE_APPROVER));
-                User checker = financeUser("0911000104", Set.of(UserRole.ADMIN, UserRole.FINANCE_APPROVER));
+                User maker = financeUser("0911000103", Set.of(UserRole.ADMIN, UserRole.SUPPORT));
+                User checker = financeUser("0911000104", Set.of(UserRole.ADMIN));
                 var request = walletAdjustmentService.submit(playerUser.getId(), new BingoUserPrincipal(maker),
                                 new WalletAdjustmentSubmissionRequest(new BigDecimal("15.00"), "ETB",
                                                 "Approved QA adjustment", "CASE-02D-15"));
