@@ -51,6 +51,9 @@ class ApiError implements Exception {
     if (code == 'INSUFFICIENT_BALANCE' || code == 'INSUFFICIENT_FUNDS') {
       return localizations.errorInsufficientBalance;
     }
+    if (code == 'AGENT_FLOAT_OVERDRAFT') {
+      return localizations.errorInsufficientAgentFloat;
+    }
     if (code == 'GAME_CLOSED' ||
         code == 'ROOM_CLOSED' ||
         code == 'ROUND_CLOSED' ||

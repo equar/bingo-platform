@@ -92,6 +92,15 @@ void main() {
     expect(fieldErrorMessage(error, 'amount', localizations), isNull);
   });
 
+  test('maps insufficient Agent float to a ticket-sale recovery message', () {
+    final error = ApiError(code: 'AGENT_FLOAT_OVERDRAFT', statusCode: 409);
+
+    expect(
+      error.userMessage(localizations),
+      localizations.errorInsufficientAgentFloat,
+    );
+  });
+
   test(
     'maps malformed responses, safe validation details, and transport failures',
     () {

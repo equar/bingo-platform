@@ -18,6 +18,7 @@
   "agentBackToSignIn": "Back to sign in",
   "agentApplicationSubmitted": "Your agent application was submitted.",
   "agentApplicationReviewNotice": "You can sign in after an administrator approves your application.",
+  "agentPinLabel": "Your Agent PIN",
   "pinLabel": "PIN",
   "phoneLabel": "Phone number",
   "signIn": "Sign in",
@@ -90,6 +91,7 @@
   "errorItemMissing": "This item is no longer available. Refresh and try again.",
   "errorValidation": "Check the highlighted fields and try again.",
   "errorInsufficientBalance": "You don’t have enough balance to complete this transaction.",
+  "errorInsufficientAgentFloat": "Your available float is not enough to sell this ticket. Request a float top-up.",
   "errorGameClosed": "This game is closed. Please choose another game.",
   "errorTransactionUnknown": "We couldn’t confirm the transaction status. Check your transaction history before trying again.",
   "errorAccountCreation": "We couldn’t create the account with those details. Check the information or sign in.",
@@ -255,6 +257,7 @@
   "ticketSaleSessionsLoadFailed": "Open sessions could not be loaded.",
   "ticketSaleRefreshSessions": "Refresh sessions",
   "ticketSaleConfirmation": "Review the session, player and price before selling this ticket.",
+  "ticketSaleAgentPinHint": "Enter your Agent PIN to authorize this sale. Do not ask the player for their PIN.",
   "ticketSaleAvailableSeats": "{count} seats left",
   "@ticketSaleAvailableSeats": {
     "placeholders": {

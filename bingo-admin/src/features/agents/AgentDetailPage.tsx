@@ -53,12 +53,12 @@ export function AgentDetailPage() {
   const floatBalanceQuery = useQuery({
     queryKey: ["agent-float", id],
     queryFn: () => adminAgentFloatBalance(id),
-    enabled: Number.isFinite(id),
+    enabled: Number.isFinite(id) && agentQuery.data?.status === "APPROVED",
   });
   const floatHistoryQuery = useQuery({
     queryKey: ["agent-float-history", id],
     queryFn: () => adminAgentFloatHistory(id),
-    enabled: Number.isFinite(id),
+    enabled: Number.isFinite(id) && agentQuery.data?.status === "APPROVED",
   });
 
   const commissionMutation = useMutation({
@@ -99,6 +99,8 @@ export function AgentDetailPage() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["agent", id] }),
         queryClient.invalidateQueries({ queryKey: ["agents"] }),
+        queryClient.invalidateQueries({ queryKey: ["agent-float", id] }),
+        queryClient.invalidateQueries({ queryKey: ["agent-float-history", id] }),
       ]);
     },
     onError: (error) => setLifecycleError(getUserFacingErrorMessage(error) ?? "Something went wrong. Please try again."),
@@ -146,6 +148,7 @@ export function AgentDetailPage() {
   }
 
   const agent = agentQuery.data;
+  const isApproved = agent.status === "APPROVED";
 
   return (
     <Stack spacing={3}>
@@ -169,28 +172,36 @@ export function AgentDetailPage() {
 
       {lifecycleError ? <Alert severity="error" role="alert">{t(lifecycleError)}</Alert> : null}
 
-      {agent.status === "APPROVED" ? (
+      {isApproved ? (
         <Card sx={{ border: "1px solid", borderColor: "divider" }}>
           <CardContent>
             <Stack spacing={2}>
               <Typography variant="h6">{t("Agent PIN management")}</Typography>
               <Alert severity="warning">{t("Set a new PIN only through an approved support process. The PIN is sent directly to the server and is never shown in agent details.")}</Alert>
-              <TextField
-                label={t("New agent PIN")}
-                type="password"
-                value={newPin}
-                onChange={(event) => setNewPin(event.target.value.replace(/\D/g, "").slice(0, 8))}
-                inputProps={{ inputMode: "numeric", maxLength: 8, pattern: "[0-9]{4,8}", autoComplete: "new-password" }}
-                helperText={t("Enter 4 to 8 digits.")}
-              />
-              <Box>
+              <Box
+                component="form"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  pinMutation.mutate();
+                }}
+              >
+                <Stack spacing={2}>
+                  <TextField
+                    label={t("New agent PIN")}
+                    type="password"
+                    value={newPin}
+                    onChange={(event) => setNewPin(event.target.value.replace(/\D/g, "").slice(0, 8))}
+                    inputProps={{ inputMode: "numeric", maxLength: 8, pattern: "[0-9]{4,8}", autoComplete: "new-password" }}
+                    helperText={t("Enter 4 to 8 digits.")}
+                  />
                 <Button
+                  type="submit"
                   variant="outlined"
-                  onClick={() => pinMutation.mutate()}
                   disabled={pinMutation.isPending || !/^[0-9]{4,8}$/.test(newPin)}
                 >
                   {pinMutation.isPending ? t("Updating…") : t("Set agent PIN")}
                 </Button>
+                </Stack>
               </Box>
               {pinError ? <Alert severity="error" role="alert">{t(pinError)}</Alert> : null}
               {pinMessage ? <Alert severity="success" role="status">{pinMessage}</Alert> : null}
@@ -236,7 +247,7 @@ export function AgentDetailPage() {
                 <Typography variant="body2" color="text.secondary">
                   {t("Current available float:")}{" "}{floatBalanceQuery.data
                     ? `${formatMoney(floatBalanceQuery.data.availableBalance)} ${floatBalanceQuery.data.currency}`
-                    : floatBalanceQuery.isLoading ? t("Loading…") : t("Unavailable")}
+                    : isApproved && floatBalanceQuery.isLoading ? t("Loading…") : t("Available after approval")}
                 </Typography>
               </Stack>
             </CardContent>
@@ -246,26 +257,30 @@ export function AgentDetailPage() {
 
       {floatBalanceQuery.isError ? <Alert severity="error">{t("Unable to load agent float:")}{" "}{t(getUserFacingErrorMessage(floatBalanceQuery.error) ?? "Something went wrong. Please try again.")}</Alert> : null}
       {floatHistoryQuery.isError ? <Alert severity="error">{t("Unable to load agent float history:")}{" "}{t(getUserFacingErrorMessage(floatHistoryQuery.error) ?? "Something went wrong. Please try again.")}</Alert> : null}
-      <Card sx={{ border: "1px solid", borderColor: "divider" }}>
-        <CardContent>
-          <Stack spacing={1}>
-            <Typography variant="h6">{t("Float transaction history")}</Typography>
-            <Typography variant="body2" color="text.secondary">
-              {t("Available")}{" "}{floatBalanceQuery.data ? formatMoney(floatBalanceQuery.data.availableBalance) : "—"} {floatBalanceQuery.data?.currency ?? ""} {t("· Clearing {{amount}}", { amount: floatBalanceQuery.data ? formatMoney(floatBalanceQuery.data.clearingBalance) : "—" })} {floatBalanceQuery.data?.currency ?? ""}
-            </Typography>
-            {(floatHistoryQuery.data?.content ?? []).length === 0 ? (
-              <Typography color="text.secondary">{t("No float transactions recorded.")}</Typography>
-            ) : (floatHistoryQuery.data?.content ?? []).map((entry) => (
-              <Typography key={entry.id} variant="body2">
-                {translateAdminValue(entry.transactionType, t)} {t("·")}{" "}{formatMoney(entry.amount)} {t("·")}{" "}
-                {formatMoney(entry.availableBefore)} {t("→")}{" "}{formatMoney(entry.availableAfter)} {t("·")}
-                {entry.relatedEntityType ? translateAdminValue(entry.relatedEntityType, t) : t("Unknown")} {t("#")}{entry.relatedEntityId ?? "n/a"} {t("·")}{" "}
-                {new Date(entry.createdAt).toLocaleString()}
+      {isApproved ? (
+        <Card sx={{ border: "1px solid", borderColor: "divider" }}>
+          <CardContent>
+            <Stack spacing={1}>
+              <Typography variant="h6">{t("Float transaction history")}</Typography>
+              <Typography variant="body2" color="text.secondary">
+                {t("Available")}{" "}{floatBalanceQuery.data ? formatMoney(floatBalanceQuery.data.availableBalance) : "—"} {floatBalanceQuery.data?.currency ?? ""} {t("· Clearing {{amount}}", { amount: floatBalanceQuery.data ? formatMoney(floatBalanceQuery.data.clearingBalance) : "—" })} {floatBalanceQuery.data?.currency ?? ""}
               </Typography>
-            ))}
-          </Stack>
-        </CardContent>
-      </Card>
+              {(floatHistoryQuery.data?.content ?? []).length === 0 ? (
+                <Typography color="text.secondary">{t("No float transactions recorded.")}</Typography>
+              ) : (floatHistoryQuery.data?.content ?? []).map((entry) => (
+                <Typography key={entry.id} variant="body2">
+                  {translateAdminValue(entry.transactionType, t)} {t("·")}{" "}{formatMoney(entry.amount)} {t("·")}{" "}
+                  {formatMoney(entry.availableBefore)} {t("→")}{" "}{formatMoney(entry.availableAfter)} {t("·")}
+                  {entry.relatedEntityType ? translateAdminValue(entry.relatedEntityType, t) : t("Unknown")} {t("#")}{entry.relatedEntityId ?? "n/a"} {t("·")}{" "}
+                  {new Date(entry.createdAt).toLocaleString()}
+                </Typography>
+              ))}
+            </Stack>
+          </CardContent>
+        </Card>
+      ) : (
+        <Alert severity="info">{t("Float balance and history become available after the agent application is approved.")}</Alert>
+      )}
 
       <Grid container spacing={2}>
         <Grid item xs={12} lg={6}>
@@ -348,6 +363,11 @@ export function AgentDetailPage() {
                   disabled={commissionMutation.isPending}
                 >
                   {t("Publish rule")}</Button>
+                {commissionMutation.isError ? (
+                  <Alert severity="error" role="alert">
+                    {t(getUserFacingErrorMessage(commissionMutation.error) ?? "Something went wrong. Please try again.")}
+                  </Alert>
+                ) : null}
               </Stack>
             </CardContent>
           </Card>
