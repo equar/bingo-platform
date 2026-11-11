@@ -120,9 +120,10 @@ test('A01-A05: create and activate a synthetic admin, then suspend it through th
     response.url().endsWith('/api/v1/admin/activate') && response.request().method() === 'POST', { timeout: 10_000 });
   await page.getByRole('button', { name: 'Activate account' }).click();
   expect((await activationPromise).status()).toBe(200);
+  await expect(page).toHaveURL(/\/login$/);
   await expect(page.getByText('Your account is ready. Sign in with your new password.')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Set up your Sunset Bingo Admin account' })).toHaveCount(0);
   await capture(page, 'admin-activation-complete');
-  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await page.getByLabel('Email address').fill(email);
   await page.locator('input[name="password"]').fill(activationPassword);
   const loginPromise = page.waitForResponse(response =>

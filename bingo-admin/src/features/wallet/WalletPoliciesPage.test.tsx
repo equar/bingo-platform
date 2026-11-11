@@ -1,46 +1,42 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { type PropsWithChildren } from "react";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  createPromotionalRewardCampaign,
   currentSignupRewardSettings,
   currentWalletTransferSettings,
-  saveSignupRewardSettings,
-  saveWalletTransferSettings,
-  signupRewardGrants,
-  signupRewardSettingsHistory,
+  promotionalRewardCampaigns,
+  promotionalRewardGrants,
   walletTransferSettingsHistory,
 } from "../../api/admin";
 import { SignupRewardGrantsPage } from "./SignupRewardGrantsPage";
 import { WalletPoliciesPage } from "./WalletPoliciesPage";
 
 vi.mock("../../api/admin", () => ({
+  createPromotionalRewardCampaign: vi.fn(),
   currentSignupRewardSettings: vi.fn(),
   currentWalletTransferSettings: vi.fn(),
-  saveSignupRewardSettings: vi.fn(),
+  promotionalRewardCampaigns: vi.fn(),
+  promotionalRewardGrants: vi.fn(),
+  awardPromotionalReward: vi.fn(),
   saveWalletTransferSettings: vi.fn(),
-  signupRewardGrants: vi.fn(),
-  signupRewardSettingsHistory: vi.fn(),
+  setSignupRewardPolicyStatus: vi.fn(),
   walletTransferSettingsHistory: vi.fn(),
 }));
 
-const currentSignupRewardSettingsMock = vi.mocked(currentSignupRewardSettings);
-const currentWalletTransferSettingsMock = vi.mocked(currentWalletTransferSettings);
-const saveSignupRewardSettingsMock = vi.mocked(saveSignupRewardSettings);
-const saveWalletTransferSettingsMock = vi.mocked(saveWalletTransferSettings);
-const signupRewardGrantsMock = vi.mocked(signupRewardGrants);
-const signupRewardSettingsHistoryMock = vi.mocked(signupRewardSettingsHistory);
-const walletTransferSettingsHistoryMock = vi.mocked(walletTransferSettingsHistory);
+const createCampaignMock = vi.mocked(createPromotionalRewardCampaign);
+const currentSignupSettingsMock = vi.mocked(currentSignupRewardSettings);
+const currentTransferSettingsMock = vi.mocked(currentWalletTransferSettings);
+const campaignsMock = vi.mocked(promotionalRewardCampaigns);
+const grantsMock = vi.mocked(promotionalRewardGrants);
+const transferHistoryMock = vi.mocked(walletTransferSettingsHistory);
 
 function createWrapper({ children }: PropsWithChildren) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return (
-    <QueryClientProvider client={queryClient}>
-      {children}
-    </QueryClientProvider>
-  );
+  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
 }
 
 function renderAt(path: string) {
@@ -48,21 +44,7 @@ function renderAt(path: string) {
 }
 
 function MemoryRouterWithPolicyRoute({ path }: { path: string }) {
-  return (
-    <MemoryRouter initialEntries={[path]}>
-      <Routes>
-        <Route
-          path="/wallet/:tab"
-          element={
-            <>
-              <LocationDisplay />
-              <WalletPoliciesPage />
-            </>
-          }
-        />
-      </Routes>
-    </MemoryRouter>
-  );
+  return <MemoryRouter initialEntries={[path]}><Routes><Route path="/wallet/:tab" element={<><LocationDisplay /><WalletPoliciesPage /></>} /></Routes></MemoryRouter>;
 }
 
 function LocationDisplay() {
@@ -74,140 +56,90 @@ describe("WalletPoliciesPage", () => {
   afterEach(cleanup);
 
   beforeEach(() => {
-    currentSignupRewardSettingsMock.mockReset();
-    currentWalletTransferSettingsMock.mockReset();
-    saveSignupRewardSettingsMock.mockReset();
-    saveWalletTransferSettingsMock.mockReset();
-    signupRewardGrantsMock.mockReset();
-    signupRewardSettingsHistoryMock.mockReset();
-    walletTransferSettingsHistoryMock.mockReset();
-    currentSignupRewardSettingsMock.mockResolvedValue({
-      id: 1,
-      enabled: true,
-      rewardAmount: "20.00",
-      currency: "ETB",
-      effectiveFrom: new Date(Date.now() + 10 * 60_000).toISOString(),
-      effectiveUntil: new Date(Date.now() + 24 * 60 * 60_000).toISOString(),
-      changedByUserId: 2,
-      reason: null,
-      createdAt: "2026-10-01T00:00:00Z",
-      updatedAt: "2026-10-01T00:00:00Z",
-      activeNow: true,
+    vi.clearAllMocks();
+    currentSignupSettingsMock.mockResolvedValue({
+      id: 1, enabled: true, rewardAmount: "20.00", currency: "ETB",
+      effectiveFrom: new Date().toISOString(), effectiveUntil: null,
+      changedByUserId: 2, reason: null, createdAt: "2026-10-01T00:00:00Z",
+      updatedAt: "2026-10-01T00:00:00Z", activeNow: true,
     });
-    currentWalletTransferSettingsMock.mockResolvedValue({
-      id: 2,
-      enabled: true,
-      maxSingleTransferAmount: "100.00",
-      dailyOutgoingLimitAmount: "500.00",
-      currency: "ETB",
-      effectiveFrom: "2026-10-01T00:00:00Z",
-      effectiveUntil: null,
-      changedByUserId: 2,
-      reason: null,
-      createdAt: "2026-10-01T00:00:00Z",
-      updatedAt: "2026-10-01T00:00:00Z",
-      activeNow: true,
+    currentTransferSettingsMock.mockResolvedValue({
+      id: 2, enabled: true, maxSingleTransferAmount: "100.00", dailyOutgoingLimitAmount: "500.00",
+      currency: "ETB", effectiveFrom: "2026-10-01T00:00:00Z", effectiveUntil: null,
+      changedByUserId: 2, reason: null, createdAt: "2026-10-01T00:00:00Z",
+      updatedAt: "2026-10-01T00:00:00Z", activeNow: true,
     });
-    signupRewardGrantsMock.mockResolvedValue({ content: [], page: 0, size: 8, totalElements: 0, totalPages: 0, first: true, last: true });
-    signupRewardSettingsHistoryMock.mockResolvedValue({ content: [], page: 0, size: 20, totalElements: 0, totalPages: 0, first: true, last: true });
-    walletTransferSettingsHistoryMock.mockResolvedValue({ content: [], page: 0, size: 20, totalElements: 0, totalPages: 0, first: true, last: true });
+    campaignsMock.mockResolvedValue({ content: [], page: 0, size: 20, totalElements: 0, totalPages: 0, first: true, last: true });
+    grantsMock.mockResolvedValue({ content: [], page: 0, size: 20, totalElements: 0, totalPages: 0, first: true, last: true });
+    transferHistoryMock.mockResolvedValue({ content: [], page: 0, size: 20, totalElements: 0, totalPages: 0, first: true, last: true });
   });
 
-  it("loads only the policy selected by its route", async () => {
+  it("loads the campaign list for the promotional rewards route and transfer history for its route", async () => {
     const { unmount } = renderAt("/wallet/signup-reward");
-
-    expect(await screen.findByRole("heading", { name: "Signup reward" })).toBeInTheDocument();
-    expect(currentSignupRewardSettingsMock).toHaveBeenCalledOnce();
-    expect(currentWalletTransferSettingsMock).not.toHaveBeenCalled();
-    expect(signupRewardGrantsMock).not.toHaveBeenCalled();
-    expect(walletTransferSettingsHistoryMock).not.toHaveBeenCalled();
+    expect(await screen.findByRole("heading", { name: "Promotional rewards" })).toBeInTheDocument();
+    expect(currentSignupSettingsMock).toHaveBeenCalledOnce();
+    expect(campaignsMock).toHaveBeenCalledWith(0, 20, undefined, undefined);
+    expect(currentTransferSettingsMock).not.toHaveBeenCalled();
 
     unmount();
     renderAt("/wallet/transfer-policy");
-
     expect(await screen.findByRole("heading", { name: "Transfer policy" })).toBeInTheDocument();
-    await waitFor(() => expect(currentWalletTransferSettingsMock).toHaveBeenCalledOnce());
+    await waitFor(() => expect(currentTransferSettingsMock).toHaveBeenCalledOnce());
     expect(screen.getByTestId("current-location")).toHaveTextContent("/wallet/transfer-policy");
-    expect(walletTransferSettingsHistoryMock).toHaveBeenCalledOnce();
+    expect(transferHistoryMock).toHaveBeenCalledOnce();
   });
 
-  it("loads grants from the dedicated signup reward grants page", async () => {
+  it("loads grants from the promotional reward grants page", async () => {
     render(<SignupRewardGrantsPage />, { wrapper: createWrapper });
-
-    expect(
-      await screen.findByRole("heading", { name: "Signup reward grants" }),
-    ).toBeInTheDocument();
-    expect(signupRewardGrantsMock).toHaveBeenCalledWith(0, 20, undefined);
+    expect(await screen.findByRole("heading", { name: "Promotional reward grants" })).toBeInTheDocument();
+    expect(grantsMock).toHaveBeenCalledWith(0, 20, undefined);
   });
 
-  it("defaults a new reward policy to today and allows an inclusive same-day end date", async () => {
-    currentSignupRewardSettingsMock.mockResolvedValue({
-      id: null,
-      enabled: false,
-      rewardAmount: "0.00",
-      currency: "ETB",
-      effectiveFrom: "1970-01-01T00:00:00Z",
-      effectiveUntil: null,
-      changedByUserId: null,
-      reason: null,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      activeNow: false,
+  it("defaults a new campaign to today and accepts an inclusive same-day end date", async () => {
+    currentSignupSettingsMock.mockResolvedValue({
+      id: null, enabled: false, rewardAmount: "0.00", currency: "ETB", effectiveFrom: "1970-01-01T00:00:00Z",
+      effectiveUntil: null, changedByUserId: null, reason: null, createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(), activeNow: false,
     });
-
     renderAt("/wallet/signup-reward");
-
-    await screen.findByRole("heading", { name: "Signup reward" });
-    await userEvent.setup().click(screen.getByRole("button", { name: "Add signup reward" }));
-    const effectiveFrom = screen.getByLabelText("Effective from") as HTMLInputElement;
-    const effectiveUntil = screen.getByLabelText("Effective until") as HTMLInputElement;
-
-    expect(effectiveFrom.type).toBe("date");
-    expect(effectiveUntil.type).toBe("date");
-    expect(effectiveFrom.value).toBe(effectiveFrom.min);
-    expect(effectiveUntil.min).toBe(effectiveFrom.value);
-    expect(effectiveUntil).toHaveAttribute("min", effectiveUntil.min);
+    await screen.findByRole("heading", { name: "Promotional rewards" });
+    await userEvent.setup().click(screen.getByRole("button", { name: "Add promotional campaign" }));
+    const from = screen.getByLabelText("Effective from") as HTMLInputElement;
+    const until = screen.getByLabelText("Effective until") as HTMLInputElement;
+    expect(from.type).toBe("date");
+    expect(until.type).toBe("date");
+    expect(from.value).toBe(from.min);
+    expect(until.min).toBe(from.value);
+    fireEvent.change(until, { target: { value: from.value } });
+    expect(screen.getByRole("button", { name: "Create campaign" })).toBeEnabled();
   });
 
-  it("replaces past saved reward dates with current future defaults", async () => {
+  it("replaces past saved campaign dates with current future defaults", async () => {
     const yesterday = new Date(Date.now() - 24 * 60 * 60_000).toISOString();
-    currentSignupRewardSettingsMock.mockResolvedValue({
-      id: 1,
-      enabled: false,
-      rewardAmount: "25.00",
-      currency: "ETB",
-      effectiveFrom: yesterday,
-      effectiveUntil: yesterday,
-      changedByUserId: 2,
-      reason: null,
-      createdAt: yesterday,
-      updatedAt: yesterday,
-      activeNow: false,
+    currentSignupSettingsMock.mockResolvedValue({
+      id: 1, enabled: false, rewardAmount: "25.00", currency: "ETB", effectiveFrom: yesterday,
+      effectiveUntil: yesterday, changedByUserId: 2, reason: null, createdAt: yesterday, updatedAt: yesterday, activeNow: false,
     });
-
     renderAt("/wallet/signup-reward");
-
-    await screen.findByRole("heading", { name: "Signup reward" });
-    await userEvent.setup().click(screen.getByRole("button", { name: "Add signup reward" }));
-    const effectiveFrom = screen.getByLabelText("Effective from") as HTMLInputElement;
-    const effectiveUntil = screen.getByLabelText("Effective until") as HTMLInputElement;
-
-    expect(effectiveFrom.value >= effectiveFrom.min).toBe(true);
-    expect(effectiveUntil.value).toBe("");
+    await screen.findByRole("heading", { name: "Promotional rewards" });
+    await userEvent.setup().click(screen.getByRole("button", { name: "Add promotional campaign" }));
+    const from = screen.getByLabelText("Effective from") as HTMLInputElement;
+    const until = screen.getByLabelText("Effective until") as HTMLInputElement;
+    expect(from.value >= from.min).toBe(true);
+    expect(until.value).toBe("");
   });
 
-  it("shows backend validation failures for policy saves", async () => {
+  it("shows safe backend validation failures when campaign creation fails", async () => {
     const user = userEvent.setup();
-    saveSignupRewardSettingsMock.mockRejectedValue({
+    createCampaignMock.mockRejectedValue({
       response: { status: 400, data: { code: "VALIDATION_ERROR", message: "Internal validation detail" } },
     });
     renderAt("/wallet/signup-reward");
-
-    await screen.findByRole("heading", { name: "Signup reward" });
-    await user.click(screen.getByRole("button", { name: "Add signup reward" }));
-    await user.click(screen.getByRole("button", { name: "Save reward policy" }));
-
+    await screen.findByRole("heading", { name: "Promotional rewards" });
+    await user.click(screen.getByRole("button", { name: "Add promotional campaign" }));
+    await user.click(screen.getByRole("button", { name: "Create campaign" }));
     expect(await screen.findByText("Check the highlighted fields and try again.")).toBeInTheDocument();
-    expect(saveSignupRewardSettingsMock).toHaveBeenCalledOnce();
+    expect(createCampaignMock).toHaveBeenCalledOnce();
+    expect(createCampaignMock).toHaveBeenCalledWith(expect.objectContaining({ name: "Signup reward", triggerType: "SIGNUP", enabled: true }));
   });
 });

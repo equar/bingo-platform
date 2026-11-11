@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import type { TFunction } from "i18next";
 import {
   Alert,
@@ -19,8 +19,10 @@ import {
 } from "@mui/material";
 import { Link as RouterLink } from "react-router-dom";
 import { auditLogs, dashboardMetrics, dashboardTrends, liveSessions, type DailyTrendPoint } from "../../api/admin";
+import { useSession } from "../../api/session";
 import { getUserFacingErrorMessage } from "../../api/types";
 import { StatusState } from "../../components/StatusState";
+import { ListRefreshButton } from "../../components/ListRefreshButton";
 import { translateAdminStatus, translateAdminValue } from "../../i18n";
 
 const staleAfterMs = 5 * 60 * 1000;
@@ -177,7 +179,8 @@ function QueryError({
 
 export function DashboardPage() {
   const { t, i18n } = useTranslation();
-  const queryClient = useQueryClient();
+  const session = useSession();
+  const isAdmin = session?.user.roles.includes("ADMIN") ?? false;
   const locale = i18n.resolvedLanguage === "am" ? "am-ET" : "en-ET";
   const metricsQuery = useQuery({
     queryKey: ["dashboard", "metrics"],
@@ -205,6 +208,7 @@ export function DashboardPage() {
     queryFn: () => auditLogs(0, 3),
     retry: false,
     staleTime: 30_000,
+    enabled: isAdmin,
   });
 
   if (metricsQuery.isPending && !metricsQuery.data) {
@@ -230,9 +234,12 @@ export function DashboardPage() {
   const unavailable = t("Unavailable");
   const generatedAt = new Date(metrics.generatedAt).getTime();
   const metricsStale = !Number.isFinite(generatedAt) || Date.now() - generatedAt > staleAfterMs;
-  const refreshing = metricsQuery.isFetching || sessionsQuery.isFetching || logsQuery.isFetching;
+  const refreshing = metricsQuery.isFetching || sessionsQuery.isFetching || trendsQuery.isFetching || logsQuery.isFetching;
   const visibleSessions = sessionsQuery.data?.slice(0, 3) ?? [];
   const visibleActivity = logsQuery.data?.content.slice(0, 3) ?? [];
+  const visibleAttentionItems = isAdmin
+    ? attentionItems
+    : attentionItems.filter((item) => item.to !== "/claims?status=PENDING_REVIEW");
 
   return (
     <Stack data-testid="dashboard-content" spacing={{ xs: 1.5, md: 2 }} sx={{ width: "100%", minWidth: 0 }}>
@@ -255,19 +262,16 @@ export function DashboardPage() {
                 time: formatTimestamp(metrics.generatedAt, locale, unavailable),
               })}
             </Typography>
-            <Button
-              size="small"
-              variant="outlined"
-              aria-label={t("Refresh dashboard")}
-              aria-busy={refreshing}
-              disabled={refreshing}
-              startIcon={refreshing ? <CircularProgress size={14} color="inherit" /> : undefined}
-              onClick={() => {
-                void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-              }}
-            >
-              {t("Refresh dashboard")}
-            </Button>
+            <ListRefreshButton
+              refreshing={refreshing}
+              label="Refresh dashboard"
+              onRefresh={() => Promise.all([
+                metricsQuery.refetch(),
+                sessionsQuery.refetch(),
+                trendsQuery.refetch(),
+                ...(isAdmin ? [logsQuery.refetch()] : []),
+              ])}
+            />
           </Stack>
         </Stack>
       </Box>
@@ -300,7 +304,7 @@ export function DashboardPage() {
               minWidth: 0,
             }}
           >
-            {attentionItems.map((item) => (
+            {visibleAttentionItems.map((item) => (
               <Box key={item.to} sx={{ minWidth: 0 }}>
                 <MetricCard
                   label={t(item.label)}
@@ -462,7 +466,7 @@ export function DashboardPage() {
               </Stack>
             </CardContent>
           </Card>
-          <Card
+          {isAdmin ? <Card
             component="section"
             aria-labelledby="recent-activity-title"
             elevation={0}
@@ -535,7 +539,7 @@ export function DashboardPage() {
                 ) : null}
               </Stack>
             </CardContent>
-          </Card>
+          </Card> : null}
       </Box>
     </Stack>
   );

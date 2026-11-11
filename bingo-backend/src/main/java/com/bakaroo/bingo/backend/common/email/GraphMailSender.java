@@ -14,6 +14,8 @@ import java.util.Map;
 import org.springframework.mail.MailSendException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
+import org.slf4j.MDC;
+import com.bakaroo.bingo.backend.common.api.CorrelationIdFilter;
 
 /** Graph transport for the application's plain-text notifications. Never logs message bodies or tokens. */
 public class GraphMailSender extends JavaMailSenderImpl {
@@ -56,11 +58,12 @@ public class GraphMailSender extends JavaMailSenderImpl {
                         "subject", message.getSubject() == null ? "" : message.getSubject(),
                         "body", Map.of("contentType", "Text", "content", message.getText() == null ? "" : message.getText()),
                         "toRecipients", recipients), "saveToSentItems", true));
-                HttpRequest request = HttpRequest.newBuilder(URI.create(
+                HttpRequest.Builder requestBuilder = HttpRequest.newBuilder(URI.create(
                         "https://graph.microsoft.com/v1.0/users/" + encode(sender) + "/sendMail"))
                         .timeout(Duration.ofSeconds(20)).header("Authorization", "Bearer " + accessToken())
-                        .header("Content-Type", "application/json")
-                        .POST(HttpRequest.BodyPublishers.ofString(body)).build();
+                        .header("Content-Type", "application/json");
+                addCorrelationHeader(requestBuilder);
+                HttpRequest request = requestBuilder.POST(HttpRequest.BodyPublishers.ofString(body)).build();
                 HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
                 if (response.statusCode() != 202) {
                     if (response.statusCode() == 401) invalidateToken();
@@ -68,11 +71,12 @@ public class GraphMailSender extends JavaMailSenderImpl {
                 }
             } catch (InterruptedException exception) {
                 Thread.currentThread().interrupt();
-                throw new MailSendException("Graph email request interrupted.");
+                throw new MailSendException("Graph email request interrupted.", exception);
             } catch (MailSendException exception) {
                 throw exception;
             } catch (Exception exception) {
-                throw new MailSendException("Graph email request failed. Check connectivity and provider configuration.");
+                throw new MailSendException("Graph email request failed. Check connectivity and provider configuration.",
+                        exception);
             }
         }
     }
@@ -87,10 +91,11 @@ public class GraphMailSender extends JavaMailSenderImpl {
         String form = "grant_type=client_credentials&client_id=" + encode(clientId)
                 + "&client_secret=" + encode(clientSecret)
                 + "&scope=" + encode("https://graph.microsoft.com/.default");
-        HttpRequest request = HttpRequest.newBuilder(URI.create(
+        HttpRequest.Builder requestBuilder = HttpRequest.newBuilder(URI.create(
                 "https://login.microsoftonline.com/" + tenant + "/oauth2/v2.0/token"))
-                .timeout(Duration.ofSeconds(20)).header("Content-Type", "application/x-www-form-urlencoded")
-                .POST(HttpRequest.BodyPublishers.ofString(form)).build();
+                .timeout(Duration.ofSeconds(20)).header("Content-Type", "application/x-www-form-urlencoded");
+        addCorrelationHeader(requestBuilder);
+        HttpRequest request = requestBuilder.POST(HttpRequest.BodyPublishers.ofString(form)).build();
         HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
         if (response.statusCode() != 200) {
             throw new MailSendException("Graph authentication failed with HTTP " + response.statusCode() + ".");
@@ -105,5 +110,12 @@ public class GraphMailSender extends JavaMailSenderImpl {
 
     private static String encode(String value) {
         return URLEncoder.encode(value, StandardCharsets.UTF_8);
+    }
+
+    private static void addCorrelationHeader(HttpRequest.Builder requestBuilder) {
+        String correlationId = MDC.get(CorrelationIdFilter.MDC_KEY);
+        if (CorrelationIdFilter.isValidCorrelationId(correlationId)) {
+            requestBuilder.header("X-Correlation-Id", correlationId);
+        }
     }
 }

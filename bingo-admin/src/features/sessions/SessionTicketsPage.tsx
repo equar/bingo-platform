@@ -23,6 +23,7 @@ import { searchSessionTicketSessions, searchSessionTickets } from "../../api/adm
 import { useSession } from "../../api/session";
 import { getUserFacingErrorMessage } from "../../api/types";
 import { AdminTablePagination } from "../../components/AdminTablePagination";
+import { ListRefreshButton, ListRefreshError } from "../../components/ListRefreshButton";
 import { StatusState } from "../../components/StatusState";
 import { AdminPageHeader } from "../../components/AdminPageHeader";
 import { usePrivateListSearch } from "../../components/usePrivateListSearch";
@@ -45,7 +46,9 @@ export function SessionTicketsPage() {
   const [ticketPageSize, setTicketPageSize] = useListSessionState("session-tickets:size", 20);
   const selectedSessionId = sessionIdFromSearch(currentSessionId);
   const session = useSession();
-  const canOpenPlayer = session?.user.roles.includes("ADMIN") ?? false;
+  const canOpenPlayer = Boolean(
+    session?.user.roles.includes("ADMIN") || session?.user.roles.includes("SUPPORT"),
+  );
 
   const sessionsQuery = useQuery({
     queryKey: ["session-ticket-lookup-sessions", sessionQuery.trim(), sessionPage],
@@ -95,7 +98,7 @@ export function SessionTicketsPage() {
     return <StatusState title={t("Loading sessions")} loading message={t("Fetching session list")} />;
   }
 
-  if (sessionsQuery.error) {
+  if (sessionsQuery.error && !sessionsQuery.data) {
     return (
       <StatusState
         title={t("Unable to load sessions")}
@@ -108,7 +111,7 @@ export function SessionTicketsPage() {
 
   return (
     <Stack spacing={3}>
-      <AdminPageHeader title={t("Session ticket lookup")} description={t("Find a session, then review the tickets purchased for it.")} />
+      <AdminPageHeader title={t("Session ticket lookup")} description={t("Find a session, then review the tickets purchased for it.")} refresh={{ isFetching: sessionsQuery.isFetching, failed: sessionsQuery.isRefetchError, error: sessionsQuery.error, onRefresh: () => sessionsQuery.refetch() }} />
 
       <Stack spacing={1.5}>
         <TextField
@@ -173,6 +176,7 @@ export function SessionTicketsPage() {
         </TableContainer>
         <AdminTablePagination
           component="div"
+          dataLoaded={!!sessionsQuery.data}
           count={sessionsQuery.data?.totalElements ?? 0}
           page={sessionPage}
           onPageChange={(_, nextPage) => setSessionPage(nextPage)}
@@ -206,7 +210,11 @@ export function SessionTicketsPage() {
             size="small"
             fullWidth
           />
-          {ticketsQuery.error ? (
+          <Stack direction="row" justifyContent="flex-end" alignItems="center">
+            <ListRefreshButton refreshing={ticketsQuery.isFetching} onRefresh={() => ticketsQuery.refetch()} />
+          </Stack>
+          {ticketsQuery.isRefetchError ? <ListRefreshError retrying={ticketsQuery.isFetching} error={ticketsQuery.error} onRetry={() => ticketsQuery.refetch()} /> : null}
+          {ticketsQuery.error && !ticketsQuery.data ? (
             <Alert severity="error">
               {t(getUserFacingErrorMessage(ticketsQuery.error) ?? "Unable to load session tickets.")}
             </Alert>
@@ -253,6 +261,7 @@ export function SessionTicketsPage() {
           </TableContainer>
           <AdminTablePagination
             component="div"
+            dataLoaded={!!ticketsQuery.data}
             count={ticketsQuery.data?.totalElements ?? 0}
             page={ticketPage}
             onPageChange={(_, nextPage) => setTicketPage(nextPage)}

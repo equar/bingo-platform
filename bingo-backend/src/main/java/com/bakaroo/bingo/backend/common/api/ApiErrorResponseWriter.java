@@ -51,6 +51,6 @@ public class ApiErrorResponseWriter {
         }
 
         String headerCorrelationId = request.getHeader(CORRELATION_ID_HEADER);
-        return headerCorrelationId == null || headerCorrelationId.isBlank() ? null : headerCorrelationId;
+        return CorrelationIdFilter.isValidCorrelationId(headerCorrelationId) ? headerCorrelationId : null;
     }
 }

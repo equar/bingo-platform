@@ -13,6 +13,11 @@ public interface SignupRewardGrantRepository extends JpaRepository<SignupRewardG
 
     boolean existsByPlayerId(Long playerId);
 
+    boolean existsByTriggerTypeAndPlayerId(com.bakaroo.bingo.backend.feature.wallet.entity.SignupRewardPolicy.TriggerType triggerType,
+            Long playerId);
+
+    boolean existsByPolicyIdAndPlayerId(Long policyId, Long playerId);
+
     Optional<SignupRewardGrant> findByPlayerId(Long playerId);
 
     Page<SignupRewardGrant> findAllByOrderByAwardedAtDesc(Pageable pageable);
@@ -25,6 +30,7 @@ public interface SignupRewardGrantRepository extends JpaRepository<SignupRewardG
                 or lower(player.displayName) like concat('%', :search, '%')
                 or lower(coalesce(player.normalizedPhone, '')) like concat('%', :search, '%')
                 or lower(g.currency) like concat('%', :search, '%')
+                or lower(policy.name) like concat('%', :search, '%')
                 or lower(coalesce(policy.reason, '')) like concat('%', :search, '%')
                 or (:amount is not null and g.rewardAmount = :amount))
             """)

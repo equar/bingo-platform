@@ -93,6 +93,16 @@ const navGroups = [
   },
 ] as const;
 
+const supportRestrictedNavPaths = new Set([
+  "/rooms",
+  "/claims",
+  "/prize-entitlements",
+  "/wallet/signup-reward",
+  "/wallet/transfer-policy",
+  "/admin-users",
+  "/audit-logs",
+]);
+
 type NavIconName =
   | "dashboard"
   | "sessions"
@@ -223,25 +233,23 @@ export function AppShell() {
   }, [pageTrail, t]);
   const supportOnly = Boolean(session?.user.roles.includes("SUPPORT") && !session.user.roles.includes("ADMIN"));
   const visibleNavGroups = useMemo(
-    () => supportOnly
-      ? [
-          {
-            title: "nav.operations",
-            items: [
-              { to: "/rooms", label: "nav.rooms", icon: "rooms" as const },
-            ],
-          },
-          {
-            title: "nav.reviews",
-            items: [
-              { to: "/support/tickets", label: "nav.support", icon: "support" as const },
-              { to: "/session-tickets", label: "nav.sessionTickets", icon: "sessions" as const },
-              { to: "/audit-logs", label: "nav.audit", icon: "audit" as const },
-              { to: "/reports", label: "nav.reports", icon: "audit" as const },
-            ],
-          },
-        ]
-      : navGroups,
+    () => {
+      if (!supportOnly) {
+        return navGroups;
+      }
+      return navGroups
+        .map((group) => ({
+          ...group,
+          items: group.items.filter((item) => !supportRestrictedNavPaths.has(item.to)),
+        }))
+        .map((group) => group.title === "nav.reviews"
+          ? {
+              ...group,
+              items: [...group.items, { to: "/session-tickets", label: "nav.sessionTickets", icon: "sessions" as const }],
+            }
+          : group)
+        .filter((group) => group.items.length > 0);
+    },
     [supportOnly],
   );
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set(

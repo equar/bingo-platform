@@ -41,13 +41,18 @@ export function CommunityPage() {
   return (
     <AdminTablePage>
     <Stack spacing={3} sx={{ minWidth: 0 }}>
-      <AdminPageHeader title={t("Player community")} />
+      <AdminPageHeader title={t("Player community")} refresh={{
+        isFetching: summary.isFetching || games.isFetching,
+        failed: summary.isRefetchError || games.isRefetchError,
+        error: games.error ?? summary.error,
+        onRefresh: () => Promise.all([summary.refetch(), games.refetch()]),
+      }} />
 
       <Alert severity="info">
         {t("Private games follow the approved room rules. Hosts cannot change draws or prizes. Challenges award points only and never affect wallet balances. Leaderboards are optional and show public aliases.")}
       </Alert>
 
-      {(summary.isError || games.isError) && (
+      {((summary.isError && !summary.data) || (games.isError && !games.data)) && (
         <Alert severity="error" action={<Button color="inherit" onClick={() => { void summary.refetch(); void games.refetch(); }}>{t("Retry")}</Button>}>
           {t("Could not load community activity.")}
         </Alert>

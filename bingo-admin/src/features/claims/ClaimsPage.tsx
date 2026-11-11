@@ -111,7 +111,7 @@ export function ClaimsPage() {
     return <StatusState title={t("Loading claims")} loading message={t("Fetching win claims")} />;
   }
 
-  if (claimsQuery.error) {
+  if (claimsQuery.error && !claimsQuery.data) {
     return (
       <StatusState
         title={t("Unable to load claims")}
@@ -125,7 +125,7 @@ export function ClaimsPage() {
   return (
     <AdminTablePage>
     <Stack spacing={3}>
-      <AdminPageHeader title={t("Win claims")} description={t("Review submitted claims and record validation evidence.")} />
+      <AdminPageHeader title={t("Win claims")} description={t("Review submitted claims and record validation evidence.")} refresh={{ isFetching: claimsQuery.isFetching, failed: claimsQuery.isRefetchError, error: claimsQuery.error, onRefresh: () => claimsQuery.refetch() }} />
 
       <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
         <TextField
@@ -193,7 +193,7 @@ export function ClaimsPage() {
         <Table size="small" aria-label={t("win claims table")}>
           <TableHead>
             <TableRow>
-              <TableCell>{t("Claim")}</TableCell>
+              <TableCell>{t("Claim number")}</TableCell>
               <TableCell>{t("Player")}</TableCell>
               <TableCell>{t("Ticket / session")}</TableCell>
               <TableCell>{t("Pattern")}</TableCell>
@@ -209,7 +209,17 @@ export function ClaimsPage() {
               <TableRow key={claim.id} hover data-testid={`claim-row-${claim.id}`}>
                 <TableCell>
                   <Stack spacing={0.5}>
-                    <Typography fontWeight={600}>{t("#")}{claim.id}</Typography>
+                    <Link
+                      component="button"
+                      type="button"
+                      data-testid={`claim-details-${claim.id}`}
+                      variant="body2"
+                      underline="hover"
+                      sx={{ maxWidth: 240, overflowWrap: "anywhere", textAlign: "left" }}
+                      onClick={() => setReference({ kind: "claim", id: claim.id })}
+                    >
+                      {claim.operationId}
+                    </Link>
                     <Typography variant="caption" color="text.secondary">
                       {claim.serverValidationCode ?? t("No validation code")}
                     </Typography>
@@ -313,6 +323,7 @@ export function ClaimsPage() {
 
       <AdminTablePagination
         component="div"
+        dataLoaded={!!claimsQuery.data}
         count={claimsQuery.data?.totalElements ?? 0}
         page={page}
         onPageChange={(_, nextPage) => setPage(nextPage)}

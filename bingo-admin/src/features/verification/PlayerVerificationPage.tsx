@@ -35,6 +35,7 @@ import {
 } from "../../api/admin";
 import { getUserFacingErrorMessage } from "../../api/types";
 import { AdminTablePagination } from "../../components/AdminTablePagination";
+import { ListRefreshButton, ListRefreshError } from "../../components/ListRefreshButton";
 import { AdminTablePage } from "../../components/AdminTablePage";
 import { StatusState } from "../../components/StatusState";
 import { AdminPageHeader } from "../../components/AdminPageHeader";
@@ -175,7 +176,7 @@ export function PlayerVerificationPage() {
   return (
     <AdminTablePage>
     <Stack spacing={3}>
-      <AdminPageHeader title={t("Player verification")} description={t("Track player verification outcomes and review history.")} />
+      <AdminPageHeader title={t("Player verification")} description={t("Track player verification outcomes and review history.")} refresh={{ isFetching: queueQuery.isFetching, failed: queueQuery.isRefetchError, error: queueQuery.error, onRefresh: () => queueQuery.refetch() }} />
 
       <Alert severity="info">
         {t("Track checks performed using your approved process. This screen stores review outcomes only; do not enter or upload identity documents. Verification status does not automatically restrict play or withdrawals.")}
@@ -210,7 +211,7 @@ export function PlayerVerificationPage() {
       {queueQuery.isLoading ? (
         <StatusState title={t("Loading verification queue")} loading />
       ) : null}
-      {queueQuery.error ? (
+      {queueQuery.error && !queueQuery.data ? (
         <StatusState
           title={t("Unable to load verification queue")}
           message={t(getUserFacingErrorMessage(queueQuery.error) ?? "Something went wrong. Please try again.")}
@@ -222,7 +223,7 @@ export function PlayerVerificationPage() {
         <Alert severity="info">{t("Updating player results...")}</Alert>
       ) : null}
 
-      {!queueQuery.isError ? (
+      {queueQuery.data ? (
         <>
           <Box sx={{ width: "100%", minWidth: 0, overflowX: "auto" }}>
             <Table size="small" aria-label={t("Player verification queue")} sx={{ minWidth: 760 }}>
@@ -292,6 +293,7 @@ export function PlayerVerificationPage() {
           </Box>
           <AdminTablePagination
             component="div"
+            dataLoaded={!!queueQuery.data}
             count={queueQuery.data?.totalElements ?? 0}
             page={page}
             onPageChange={(_, nextPage) => updateListState({ page: String(nextPage) })}
@@ -359,11 +361,14 @@ export function PlayerVerificationPage() {
                 </Select>
               </FormControl>
 
-              <Typography variant="subtitle2">{t("Verification history")}</Typography>
+              <Stack direction="row" justifyContent="space-between" alignItems="center" gap={1}>
+                <Typography variant="subtitle2">{t("Verification history")}</Typography>
+                <ListRefreshButton refreshing={historyQuery.isFetching} onRefresh={() => historyQuery.refetch()} />
+              </Stack>
               {historyQuery.isLoading ? (
                 <Typography color="text.secondary">{t("Loading...")}</Typography>
               ) : null}
-              {historyQuery.error ? (
+              {historyQuery.error && !historyQuery.data ? (
                 <Alert
                   severity="error"
                   action={<Button color="inherit" size="small" onClick={() => historyQuery.refetch()}>{t("Retry")}</Button>}
@@ -371,6 +376,7 @@ export function PlayerVerificationPage() {
                   {t(getUserFacingErrorMessage(historyQuery.error) ?? "Unable to load review history")}
                 </Alert>
               ) : null}
+              {historyQuery.isRefetchError ? <ListRefreshError retrying={historyQuery.isFetching} error={historyQuery.error} onRetry={() => historyQuery.refetch()} /> : null}
               {historyQuery.data?.length ? historyQuery.data.map((review) => (
                 <Box key={review.id} sx={{ borderBottom: "1px solid", borderColor: "divider", pb: 1 }}>
                   <Typography>

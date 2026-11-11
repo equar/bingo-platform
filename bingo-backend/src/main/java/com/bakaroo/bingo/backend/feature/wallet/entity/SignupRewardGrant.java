@@ -12,12 +12,14 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import jakarta.persistence.UniqueConstraint;
 import java.math.BigDecimal;
 import java.time.Instant;
 
 @Entity
 @Table(name = "signup_reward_grants", uniqueConstraints = {
-        @UniqueConstraint(name = "uk_signup_reward_grants_player", columnNames = "player_id"),
+        @UniqueConstraint(name = "uk_signup_reward_grants_campaign_player", columnNames = {"policy_id", "player_id"}),
+        @UniqueConstraint(name = "uk_signup_reward_grants_signup_player", columnNames = "signup_player_id"),
         @UniqueConstraint(name = "uk_signup_reward_grants_operation", columnNames = "operation_id")
 })
 public class SignupRewardGrant {
@@ -34,6 +36,13 @@ public class SignupRewardGrant {
     @JoinColumn(name = "policy_id", nullable = false)
     private SignupRewardPolicy policy;
 
+    @jakarta.persistence.Enumerated(jakarta.persistence.EnumType.STRING)
+    @Column(name = "trigger_type", nullable = false, length = 20)
+    private SignupRewardPolicy.TriggerType triggerType;
+
+    @Column(name = "signup_player_id", insertable = false, updatable = false)
+    private Long signupPlayerId;
+
     @Column(name = "operation_id", nullable = false, length = 36)
     private String operationId;
 
@@ -45,6 +54,10 @@ public class SignupRewardGrant {
 
     @Column(name = "awarded_at", nullable = false)
     private Instant awardedAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "awarded_by_user_id")
+    private User awardedBy;
 
     protected SignupRewardGrant() {
     }
@@ -58,10 +71,18 @@ public class SignupRewardGrant {
         SignupRewardGrant grant = new SignupRewardGrant();
         grant.player = player;
         grant.policy = policy;
+        grant.triggerType = policy.getTriggerType();
         grant.operationId = operationId;
         grant.rewardAmount = rewardAmount;
         grant.currency = currency;
         grant.awardedAt = awardedAt;
+        return grant;
+    }
+
+    public static SignupRewardGrant create(User player, SignupRewardPolicy policy, String operationId,
+            BigDecimal rewardAmount, String currency, Instant awardedAt, User awardedBy) {
+        SignupRewardGrant grant = create(player, policy, operationId, rewardAmount, currency, awardedAt);
+        grant.awardedBy = awardedBy;
         return grant;
     }
 
@@ -92,4 +113,6 @@ public class SignupRewardGrant {
     public Instant getAwardedAt() {
         return awardedAt;
     }
+
+    public User getAwardedBy() { return awardedBy; }
 }

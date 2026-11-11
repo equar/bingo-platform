@@ -75,7 +75,7 @@ export function PrizeEntitlementsPage() {
     return <StatusState title={t("Loading prize entitlements")} loading message={t("Fetching settlement queue")} />;
   }
 
-  if (entitlementsQuery.error) {
+  if (entitlementsQuery.error && !entitlementsQuery.data) {
     return (
       <StatusState
         title={t("Unable to load prize entitlements")}
@@ -91,7 +91,7 @@ export function PrizeEntitlementsPage() {
   return (
     <AdminTablePage>
     <Stack spacing={3}>
-      <AdminPageHeader title={t("Prize entitlements")} description={t("Review approved claims and their prize entitlement details.")} />
+      <AdminPageHeader title={t("Prize entitlements")} description={t("Review approved claims and their prize entitlement details.")} refresh={{ isFetching: entitlementsQuery.isFetching, failed: entitlementsQuery.isRefetchError, error: entitlementsQuery.error, onRefresh: () => entitlementsQuery.refetch() }} />
 
       <Alert severity="warning">
         {t("Prize settlement is blocked until payout evidence, accounting treatment, and reconciliation controls are approved.")}</Alert>
@@ -250,6 +250,7 @@ export function PrizeEntitlementsPage() {
         </TableContainer>
         <AdminTablePagination
           component="div"
+          dataLoaded={!!entitlementsQuery.data}
           count={entitlementsQuery.data?.totalElements ?? 0}
           page={page}
           onPageChange={(_, nextPage) => setPage(nextPage)}

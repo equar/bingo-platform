@@ -58,6 +58,19 @@ public class User {
     @Column(name = "activation_email_status", nullable = false, length = 20)
     private ActivationEmailStatus activationEmailStatus = ActivationEmailStatus.NOT_SENT;
 
+    @Column(name = "activation_email_sent_at")
+    private Instant activationEmailSentAt;
+
+    @Column(name = "activation_email_status_updated_at")
+    private Instant activationEmailStatusUpdatedAt;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "password_reset_email_status", nullable = false, length = 20)
+    private PasswordResetEmailStatus passwordResetEmailStatus = PasswordResetEmailStatus.NOT_REQUESTED;
+
+    @Column(name = "password_reset_email_status_updated_at")
+    private Instant passwordResetEmailStatusUpdatedAt;
+
     @Column(name = "agent_pin_hash", length = 100)
     private String agentPinHash;
 
@@ -122,6 +135,9 @@ public class User {
         Instant now = Instant.now();
         if (createdAt == null) {
             createdAt = now;
+        }
+        if (activationEmailStatusUpdatedAt == null) {
+            activationEmailStatusUpdatedAt = now;
         }
         updatedAt = now;
     }
@@ -188,7 +204,39 @@ public class User {
     }
 
     public void setActivationEmailStatus(ActivationEmailStatus activationEmailStatus) {
-        this.activationEmailStatus = activationEmailStatus;
+        if (this.activationEmailStatus != activationEmailStatus) {
+            this.activationEmailStatus = activationEmailStatus;
+            this.activationEmailStatusUpdatedAt = Instant.now();
+        }
+    }
+
+    public Instant getActivationEmailSentAt() {
+        return activationEmailSentAt;
+    }
+
+    public void setActivationEmailSentAt(Instant activationEmailSentAt) {
+        this.activationEmailSentAt = activationEmailSentAt;
+    }
+
+    public Instant getActivationEmailStatusUpdatedAt() {
+        return activationEmailStatusUpdatedAt;
+    }
+
+    public void setActivationEmailStatusUpdatedAt(Instant activationEmailStatusUpdatedAt) {
+        this.activationEmailStatusUpdatedAt = activationEmailStatusUpdatedAt;
+    }
+
+    public PasswordResetEmailStatus getPasswordResetEmailStatus() {
+        return passwordResetEmailStatus;
+    }
+
+    public void setPasswordResetEmailStatus(PasswordResetEmailStatus passwordResetEmailStatus) {
+        this.passwordResetEmailStatus = passwordResetEmailStatus;
+        this.passwordResetEmailStatusUpdatedAt = Instant.now();
+    }
+
+    public Instant getPasswordResetEmailStatusUpdatedAt() {
+        return passwordResetEmailStatusUpdatedAt;
     }
 
     public boolean isAccountActivationExpired(Instant now) {

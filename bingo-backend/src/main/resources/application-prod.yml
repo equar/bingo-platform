@@ -21,6 +21,23 @@ spring:
     validate-on-migrate: true
     clean-disabled: true
 
+logging:
+  level:
+    root: ${LOG_LEVEL_ROOT:INFO}
+    com.bakaroo.bingo.backend: ${LOG_LEVEL_APP:INFO}
+    org.hibernate.SQL: ${LOG_LEVEL_HIBERNATE_SQL:OFF}
+    org.hibernate.orm.jdbc.bind: ${LOG_LEVEL_HIBERNATE_BIND:OFF}
+  structured:
+    format:
+      console: ${LOGGING_STRUCTURED_FORMAT_CONSOLE:logstash}
+    json:
+      add:
+        service: bingo-backend
+        environment: production
+      stacktrace:
+        max-length: 8192
+        max-throwable-depth: 12
+
 app:
   wallet:
     deposit-simulation-enabled: false

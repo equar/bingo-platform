@@ -57,6 +57,120 @@ describe("ProtectedRoute", () => {
     expect(screen.getByText("Access denied")).toBeInTheDocument();
   });
 
+  it("allows SUPPORT on shared admin pages", () => {
+    writeSession({
+      accessToken: "support-token",
+      tokenType: "Bearer",
+      user: {
+        id: 5,
+        displayName: "Support User",
+        phoneNumber: "251911000005",
+        roles: ["SUPPORT"],
+        status: "ACTIVE",
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      },
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/deposits"]}>
+        <Routes>
+          <Route element={<ProtectedRoute allowedRoles={["ADMIN", "SUPPORT"]} />}>
+            <Route path="/deposits" element={<div>deposits page</div>} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("deposits page")).toBeInTheDocument();
+  });
+
+  it("allows SUPPORT to open the promotional reward grants page", () => {
+    writeSession({
+      accessToken: "support-token",
+      tokenType: "Bearer",
+      user: {
+        id: 8,
+        displayName: "Support User",
+        phoneNumber: "251911000008",
+        roles: ["SUPPORT"],
+        status: "ACTIVE",
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      },
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/wallet/signup-reward-grants"]}>
+        <Routes>
+          <Route element={<ProtectedRoute allowedRoles={["ADMIN", "SUPPORT"]} />}>
+            <Route path="/wallet/signup-reward-grants" element={<div>promotional reward grants page</div>} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("promotional reward grants page")).toBeInTheDocument();
+  });
+
+  it("keeps the restricted admin pages inaccessible to SUPPORT", () => {
+    writeSession({
+      accessToken: "support-token",
+      tokenType: "Bearer",
+      user: {
+        id: 6,
+        displayName: "Support User",
+        phoneNumber: "251911000006",
+        roles: ["SUPPORT"],
+        status: "ACTIVE",
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      },
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/rooms"]}>
+        <Routes>
+          <Route element={<ProtectedRoute allowedRoles={["ADMIN"]} />}>
+            <Route path="/rooms" element={<div>rooms page</div>} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("Access denied")).toBeInTheDocument();
+    expect(screen.queryByText("rooms page")).not.toBeInTheDocument();
+  });
+
+  it("keeps audit logs inaccessible to SUPPORT", () => {
+    writeSession({
+      accessToken: "support-token",
+      tokenType: "Bearer",
+      user: {
+        id: 7,
+        displayName: "Support User",
+        phoneNumber: "251911000007",
+        roles: ["SUPPORT"],
+        status: "ACTIVE",
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      },
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/audit-logs"]}>
+        <Routes>
+          <Route element={<ProtectedRoute allowedRoles={["ADMIN"]} />}>
+            <Route path="/audit-logs" element={<div>audit logs page</div>} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("Access denied")).toBeInTheDocument();
+    expect(screen.queryByText("audit logs page")).not.toBeInTheDocument();
+  });
+
   it("requires temporary-password users to change their password before opening other pages", () => {
     writeSession({
       accessToken: "temporary-token",

@@ -8,6 +8,7 @@ import com.bakaroo.bingo.backend.feature.auth.dto.AdminUserUpdateRequest;
 import com.bakaroo.bingo.backend.feature.auth.dto.UserSummaryResponse;
 import com.bakaroo.bingo.backend.feature.user.entity.AccountStatus;
 import com.bakaroo.bingo.backend.feature.user.entity.ActivationEmailStatus;
+import com.bakaroo.bingo.backend.feature.user.entity.PasswordResetEmailStatus;
 import com.bakaroo.bingo.backend.feature.user.entity.User;
 import com.bakaroo.bingo.backend.feature.user.entity.UserRole;
 import com.bakaroo.bingo.backend.feature.user.repository.UserRepository;
@@ -178,6 +179,7 @@ public class AdminUserService {
             user.setUpdatedByDisplayName(actorDisplayName);
         }
         user.requirePasswordReset(activationTokenGenerator.hashToken(resetToken), now.plus(Duration.ofHours(24)));
+        user.setPasswordResetEmailStatus(PasswordResetEmailStatus.SENDING);
         queuePasswordResetEmailAfterCommit(user, buildLink(resetPasswordUrl, resetToken));
     }
 
@@ -297,15 +299,24 @@ public class AdminUserService {
                 user.getUpdatedAt(),
                 user.getCreatedByDisplayName(),
                 user.getUpdatedByDisplayName(),
-                user.getActivationEmailStatus());
+                user.getActivationEmailStatus(),
+                user.getActivationEmailSentAt(),
+                user.getActivationEmailStatusUpdatedAt(),
+                user.getPasswordResetEmailStatus(),
+                user.getPasswordResetEmailStatusUpdatedAt());
     }
 
     private void queueActivationEmail(User user, String activationLink) {
         try {
             notificationService.sendActivationLink(user, activationLink);
         } catch (RuntimeException exception) {
-            log.error("Unable to queue activation email for admin user id {}", user.getId(), exception);
-            userRepository.updateActivationEmailStatus(user.getId(), ActivationEmailStatus.FAILED);
+            log.atError()
+                    .addKeyValue("operation", "activation_email_enqueue")
+                    .addKeyValue("outcome", "failed")
+                    .addKeyValue("userId", user.getId())
+                    .addKeyValue("failureType", exception.getClass().getSimpleName())
+                    .log("Unable to queue activation email");
+            userRepository.updateActivationEmailStatus(user.getId(), ActivationEmailStatus.FAILED, Instant.now());
         }
     }
 
@@ -330,7 +341,9 @@ public class AdminUserService {
                     try {
                         notificationService.sendPasswordResetLink(user, resetLink);
                     } catch (RuntimeException exception) {
-                        log.error("Unable to queue password reset email for admin user id {}", user.getId(), exception);
+                        logEmailQueueFailure("password_reset_email_enqueue", user.getId(), exception);
+                        userRepository.updatePasswordResetEmailStatus(
+                                user.getId(), PasswordResetEmailStatus.FAILED, Instant.now());
                     }
                 }
             });
@@ -338,9 +351,20 @@ public class AdminUserService {
             try {
                 notificationService.sendPasswordResetLink(user, resetLink);
             } catch (RuntimeException exception) {
-                log.error("Unable to queue password reset email for admin user id {}", user.getId(), exception);
+                logEmailQueueFailure("password_reset_email_enqueue", user.getId(), exception);
+                userRepository.updatePasswordResetEmailStatus(
+                        user.getId(), PasswordResetEmailStatus.FAILED, Instant.now());
             }
         }
+    }
+
+    private void logEmailQueueFailure(String operation, Long userId, RuntimeException exception) {
+        log.atError()
+                .addKeyValue("operation", operation)
+                .addKeyValue("outcome", "failed")
+                .addKeyValue("userId", userId)
+                .addKeyValue("failureType", exception.getClass().getSimpleName())
+                .log("Unable to queue email notification");
     }
 
     private String buildActivationLink(String activationToken) {

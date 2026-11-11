@@ -751,9 +751,9 @@ public class BingoGameService {
     }
 
     private User requireDrawOperator(BingoUserPrincipal principal) {
-        User user = requireAdmin(principal);
-        if (user.hasRole(UserRole.SUPPORT)) {
-            throw new AccessDeniedException("Support and finance roles cannot operate game draws");
+        User user = principal.getUser();
+        if (!user.isActive() || !(user.hasRole(UserRole.ADMIN) || user.hasRole(UserRole.SUPPORT))) {
+            throw new AccessDeniedException("An active admin or support account is required to operate game draws");
         }
         return user;
     }

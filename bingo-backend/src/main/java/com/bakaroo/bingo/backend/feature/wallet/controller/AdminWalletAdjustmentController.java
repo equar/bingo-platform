@@ -59,13 +59,13 @@ public class AdminWalletAdjustmentController {
     }
 
     @GetMapping("/wallet-adjustment-requests")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPPORT')")
     public List<WalletAdjustmentRequestResponse> pending() {
         return adjustmentService.pending();
     }
 
     @PostMapping("/wallet-adjustment-requests/{requestId}/approve")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPPORT')")
     public WalletAdjustmentRequestResponse approve(@PathVariable Long requestId,
             @AuthenticationPrincipal BingoUserPrincipal principal,
             @Valid @RequestBody WalletAdjustmentReviewRequest request) {
@@ -73,7 +73,7 @@ public class AdminWalletAdjustmentController {
     }
 
     @PostMapping("/wallet-adjustment-requests/{requestId}/reject")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPPORT')")
     public WalletAdjustmentRequestResponse reject(@PathVariable Long requestId,
             @AuthenticationPrincipal BingoUserPrincipal principal,
             @Valid @RequestBody WalletAdjustmentReviewRequest request) {

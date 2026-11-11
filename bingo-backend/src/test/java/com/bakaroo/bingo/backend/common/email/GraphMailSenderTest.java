@@ -11,11 +11,18 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.mail.MailSendException;
 import org.springframework.mail.SimpleMailMessage;
+import org.junit.jupiter.api.AfterEach;
+import org.slf4j.MDC;
 
 class GraphMailSenderTest {
     private final HttpClient http = mock(HttpClient.class);
     private final GraphMailSender sender = new GraphMailSender(http, "tenant.example", "client-id",
             "sensitive-client-secret", "apps@bakaroo.com");
+
+    @AfterEach
+    void clearMdc() {
+        MDC.clear();
+    }
 
     @SuppressWarnings("unchecked")
     private HttpResponse<String> response(int status, String body) {
@@ -47,6 +54,22 @@ class GraphMailSenderTest {
         assertEquals("https://login.microsoftonline.com/tenant.example/oauth2/v2.0/token", sent.get(0).uri().toString());
         assertEquals("https://graph.microsoft.com/v1.0/users/apps%40bakaroo.com/sendMail", sent.get(1).uri().toString());
         assertEquals("Bearer access-token", sent.get(1).headers().firstValue("Authorization").orElseThrow());
+    }
+
+    @Test
+    void propagatesCorrelationIdToProviderCallsWithoutLoggingCredentials() throws Exception {
+        var auth = response(200, "{\"access_token\":\"access-token\",\"expires_in\":3600}");
+        var accepted = response(202, "");
+        when(http.send(any(HttpRequest.class), org.mockito.ArgumentMatchers.<HttpResponse.BodyHandler<String>>any()))
+                .thenReturn(auth, accepted);
+        MDC.put("correlationId", "request-safe-123");
+
+        sender.send(message());
+
+        ArgumentCaptor<HttpRequest> requests = ArgumentCaptor.forClass(HttpRequest.class);
+        verify(http, times(2)).send(requests.capture(), org.mockito.ArgumentMatchers.<HttpResponse.BodyHandler<String>>any());
+        assertTrue(requests.getAllValues().stream().allMatch(request -> request.headers()
+                .firstValue("X-Correlation-Id").orElseThrow().equals("request-safe-123")));
     }
 
     @Test

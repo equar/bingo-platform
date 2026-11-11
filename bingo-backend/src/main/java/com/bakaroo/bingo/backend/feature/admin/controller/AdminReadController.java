@@ -26,7 +26,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/admin")
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasAnyRole('ADMIN','SUPPORT')")
 public class AdminReadController {
 
     private final AdminReadService adminReadService;
@@ -116,7 +116,7 @@ public class AdminReadController {
     }
 
     @GetMapping("/audit-logs")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SUPPORT')")
+    @PreAuthorize("hasRole('ADMIN')")
     public PageResponse<AdminAuditLogSummaryResponse> auditLogs(
             @RequestParam(required = false) String query,
             @RequestParam(required = false) Long actorUserId,
@@ -136,6 +136,7 @@ public class AdminReadController {
     }
 
     @GetMapping("/reports/audit-activity")
+    @PreAuthorize("hasRole('ADMIN')")
     public PageResponse<AdminAuditLogSummaryResponse> auditActivityReport(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to,
@@ -157,7 +158,7 @@ public class AdminReadController {
     }
 
     @GetMapping("/audit-logs/{auditLogId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SUPPORT')")
+    @PreAuthorize("hasRole('ADMIN')")
     public AuditLogDetailResponse auditLog(@PathVariable Long auditLogId) {
         return adminReadService.auditLogDetail(auditLogId);
     }

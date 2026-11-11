@@ -148,6 +148,8 @@ describe("AdminUsersPage", () => {
           updatedAt: "2026-01-02T00:00:00.000Z",
           createdByDisplayName: "Platform Owner",
           updatedByDisplayName: "Operations Admin",
+          passwordResetEmailStatus: "FAILED",
+          passwordResetEmailStatusUpdatedAt: "2026-01-03T00:00:00.000Z",
         },
       ],
       page: 0,
@@ -167,6 +169,10 @@ describe("AdminUsersPage", () => {
     expect(await screen.findByRole("heading", { name: "Edit admin user" })).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: /phone number/i })).toHaveValue("0911000001");
     const accountActivity = screen.getByRole("region", { name: "Account activity" });
+    expect(within(accountActivity).getByText(/Password reset email status: Failed to send/)).toBeInTheDocument();
+    expect(within(accountActivity).getByText("Password reset email status date")).toBeInTheDocument();
+    expect(within(accountActivity).getByText(new Date("2026-01-03T00:00:00.000Z").toLocaleString())).toBeInTheDocument();
+    expect(within(accountActivity).queryByText(/Activation email status:/)).not.toBeInTheDocument();
     expect(within(accountActivity).getByText("Platform Owner")).toBeInTheDocument();
     expect(within(accountActivity).getByText("Operations Admin")).toBeInTheDocument();
     expect(within(accountActivity).getByText(new Date("2026-01-01T00:00:00.000Z").toLocaleString())).toBeInTheDocument();
@@ -194,6 +200,41 @@ describe("AdminUsersPage", () => {
         roles: ["ADMIN", "SUPPORT"],
       });
     });
+  });
+
+  it("shows activation email activity only for pending accounts", async () => {
+    adminUsersMock.mockResolvedValue({
+      content: [
+        {
+          id: 2,
+          displayName: "Pending Admin",
+          email: "pending@bingo.local",
+          phoneNumber: null,
+          roles: ["ADMIN"],
+          status: "PENDING",
+          createdAt: "2026-01-01T00:00:00.000Z",
+          updatedAt: "2026-01-02T00:00:00.000Z",
+          activationEmailStatus: "SENT",
+          activationEmailStatusUpdatedAt: "2026-01-02T00:00:00.000Z",
+          activationEmailSentAt: "2026-01-02T00:00:00.000Z",
+        },
+      ],
+      page: 0,
+      size: 20,
+      totalElements: 1,
+      totalPages: 1,
+      first: true,
+      last: true,
+    });
+
+    const user = userEvent.setup();
+    render(<AdminUsersPage />, { wrapper: createWrapper() });
+    await user.click(await screen.findByRole("button", { name: "Edit" }));
+
+    const accountActivity = await screen.findByRole("region", { name: "Account activity" });
+    expect(within(accountActivity).getByText(/Activation email status: Sent successfully/)).toBeInTheDocument();
+    expect(within(accountActivity).getByText("Activation email last sent")).toBeInTheDocument();
+    expect(within(accountActivity).queryByText(/Password reset email status:/)).not.toBeInTheDocument();
   });
 
   it("keeps unsaved create values when editing continues and returns to the list after discard", async () => {

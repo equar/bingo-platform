@@ -26,6 +26,7 @@ import {
 } from "../../api/admin";
 import { getUserFacingErrorMessage } from "../../api/types";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
+import { ListRefreshButton, ListRefreshError } from "../../components/ListRefreshButton";
 import { StatusState } from "../../components/StatusState";
 import { translateAdminStatus, translateAdminValue } from "../../i18n";
 
@@ -117,7 +118,7 @@ export function SupportTicketDetailPage() {
     return <StatusState title={t("Loading ticket")} loading message={t("Fetching ticket detail")} />;
   }
 
-  if (ticketQuery.error || !ticket) {
+  if ((ticketQuery.error && !ticketQuery.data) || !ticket) {
     return (
       <StatusState
         title={t("Unable to load ticket")}
@@ -135,9 +136,14 @@ export function SupportTicketDetailPage() {
           <Typography variant="h4">{ticket.ticketNumber}</Typography>
           <Typography color="text.secondary">{ticket.subject}</Typography>
         </div>
-        <Button component={RouterLink} to={`/support/tickets${location.search}`} variant="outlined">
-          {t("Back to queue")}</Button>
+        <Stack direction="row" spacing={1} flexWrap="wrap">
+          <ListRefreshButton refreshing={ticketQuery.isFetching} onRefresh={() => ticketQuery.refetch()} />
+          <Button component={RouterLink} to={`/support/tickets${location.search}`} variant="outlined">
+            {t("Back to queue")}</Button>
+        </Stack>
       </Box>
+
+      {ticketQuery.isRefetchError ? <ListRefreshError retrying={ticketQuery.isFetching} error={ticketQuery.error} onRetry={() => ticketQuery.refetch()} /> : null}
 
       {errorMessage ? <Alert severity="error">{t(errorMessage)}</Alert> : null}
 

@@ -14,6 +14,10 @@ public interface SignupRewardPolicyRepository extends JpaRepository<SignupReward
 
     Optional<SignupRewardPolicy> findFirstByOrderByCreatedAtDesc();
 
+    Optional<SignupRewardPolicy> findFirstByTriggerTypeOrderByCreatedAtDesc(SignupRewardPolicy.TriggerType triggerType);
+
+    List<SignupRewardPolicy> findAllByTriggerTypeOrderByCreatedAtDesc(SignupRewardPolicy.TriggerType triggerType);
+
     List<SignupRewardPolicy> findAllByEnabledTrueOrderByCreatedAtDesc();
 
     Page<SignupRewardPolicy> findAllByOrderByCreatedAtDesc(Pageable pageable);
@@ -23,6 +27,7 @@ public interface SignupRewardPolicyRepository extends JpaRepository<SignupReward
             where (:enabled is null or p.enabled = :enabled)
                 and (:search is null or :search = ''
                     or lower(p.currency) like concat('%', :search, '%')
+                    or lower(p.name) like concat('%', :search, '%')
                     or lower(coalesce(p.reason, '')) like concat('%', :search, '%')
                     or (:amount is not null and p.rewardAmount = :amount))
             """)

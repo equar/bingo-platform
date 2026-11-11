@@ -82,7 +82,7 @@ public class WalletAdjustmentService {
     @Transactional
     public WalletAdjustmentRequestResponse approve(Long requestId, BingoUserPrincipal principal,
             WalletAdjustmentReviewRequest input) {
-        User checker = requireRole(principal.getUser(), UserRole.ADMIN);
+        User checker = requireFinanceStaff(principal.getUser());
         AdjustmentRequest request = findForUpdate(requestId);
         if ("APPROVED".equals(request.status())) {
             return findRequest(requestId);
@@ -144,7 +144,7 @@ public class WalletAdjustmentService {
     @Transactional
     public WalletAdjustmentRequestResponse reject(Long requestId, BingoUserPrincipal principal,
             WalletAdjustmentReviewRequest input) {
-        User checker = requireRole(principal.getUser(), UserRole.ADMIN);
+        User checker = requireFinanceStaff(principal.getUser());
         AdjustmentRequest request = findForUpdate(requestId);
         if (!"PENDING".equals(request.status())) {
             throw new ConflictException("WALLET_ADJUSTMENT_NOT_PENDING",
@@ -221,6 +221,15 @@ public class WalletAdjustmentService {
     private User requireRole(User user, UserRole role) {
         boolean staffUser = user.hasRole(UserRole.ADMIN) || user.hasRole(UserRole.SUPPORT);
         if (!user.isActive() || !staffUser || !user.hasRole(role)) {
+            throw new ConflictException("FINANCE_AUTHORIZATION_REQUIRED",
+                    "An active authorized finance user is required");
+        }
+        return user;
+    }
+
+    private User requireFinanceStaff(User user) {
+        boolean staffUser = user.hasRole(UserRole.ADMIN) || user.hasRole(UserRole.SUPPORT);
+        if (!user.isActive() || !staffUser) {
             throw new ConflictException("FINANCE_AUTHORIZATION_REQUIRED",
                     "An active authorized finance user is required");
         }

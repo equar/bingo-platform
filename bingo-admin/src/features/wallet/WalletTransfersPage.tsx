@@ -23,6 +23,7 @@ import { StatusState } from "../../components/StatusState";
 import { AdminTablePagination } from "../../components/AdminTablePagination";
 import { AdminTablePage } from "../../components/AdminTablePage";
 import { AdminPageHeader } from "../../components/AdminPageHeader";
+import { ListRefreshButton, ListRefreshError } from "../../components/ListRefreshButton";
 import { usePrivateListSearch } from "../../components/usePrivateListSearch";
 import { useListSessionState } from "../../components/useListSessionState";
 import { translateAdminValue } from "../../i18n";
@@ -71,11 +72,23 @@ export function WalletTransfersPage() {
 
   const selectedTransfer = transferDetailQuery.data?.transfer ?? null;
 
+  const refreshTransfers = async () => {
+    const refreshed = await transfersQuery.refetch();
+    if (selectedId === null) return refreshed;
+    const stillListed = refreshed.data?.content.some((transfer) => transfer.id === selectedId) ?? false;
+    if (!stillListed) {
+      setSelectedId(null);
+      return refreshed;
+    }
+    await transferDetailQuery.refetch();
+    return refreshed;
+  };
+
   if (transfersQuery.isLoading) {
     return <StatusState title={t("Loading transfers")} loading message={t("Fetching player transfer history")} />;
   }
 
-  if (transfersQuery.error) {
+  if (transfersQuery.error && !transfersQuery.data) {
     return (
       <StatusState
         title={t("Unable to load transfers")}
@@ -89,7 +102,12 @@ export function WalletTransfersPage() {
   return (
     <AdminTablePage>
     <Stack spacing={3}>
-      <AdminPageHeader title={t("Transfer history")} description={t("Search player-to-player wallet transfers by sender, recipient, or note.")} />
+      <AdminPageHeader title={t("Transfer history")} description={t("Search player-to-player wallet transfers by sender, recipient, or note.")} refresh={{
+        isFetching: transfersQuery.isFetching || transferDetailQuery.isFetching,
+        failed: transfersQuery.isRefetchError || transferDetailQuery.isRefetchError,
+        error: transfersQuery.error ?? transferDetailQuery.error,
+        onRefresh: refreshTransfers,
+      }} />
 
       <Stack direction={{ xs: "column", lg: "row" }} spacing={2}>
         <TextField
@@ -210,6 +228,7 @@ export function WalletTransfersPage() {
           </Box>
           <AdminTablePagination
             component="div"
+            dataLoaded={!!transfersQuery.data}
             count={transfersQuery.data?.totalElements ?? 0}
             page={page}
             onPageChange={(_, nextPage) => {
@@ -230,12 +249,16 @@ export function WalletTransfersPage() {
             <CardContent>
               {selectedId !== null && transferDetailQuery.isLoading ? (
                 <StatusState title={t("Loading transfer detail")} loading message={t("Fetching transfer and ledger details")} />
-              ) : selectedId !== null && transferDetailQuery.error ? (
+              ) : selectedId !== null && transferDetailQuery.error && !transferDetailQuery.data ? (
                 <Alert severity="error" data-testid="wallet-transfer-detail-error">
                   {t("Transfer details could not be loaded. Please try again.")}</Alert>
               ) : selectedTransfer ? (
                 <Stack spacing={1.5}>
-                  <Typography variant="h6">{t("Transfer detail")}</Typography>
+                  <Stack direction="row" justifyContent="space-between" alignItems="center" gap={1}>
+                    <Typography variant="h6">{t("Transfer detail")}</Typography>
+                    <ListRefreshButton refreshing={transferDetailQuery.isFetching} onRefresh={() => transferDetailQuery.refetch()} />
+                  </Stack>
+                  {transferDetailQuery.isRefetchError ? <ListRefreshError retrying={transferDetailQuery.isFetching} error={transferDetailQuery.error} onRetry={() => transferDetailQuery.refetch()} /> : null}
                   <Typography>{t("Operation: {{operationId}}", { operationId: selectedTransfer.operationId })}</Typography>
                   <Typography>
                     {t("Sender:")}{" "}{selectedTransfer.senderPhoneNumber} {t("(")}{selectedTransfer.senderId}{t(")")}</Typography>
