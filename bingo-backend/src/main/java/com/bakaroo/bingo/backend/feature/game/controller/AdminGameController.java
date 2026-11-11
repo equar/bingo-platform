@@ -94,18 +94,20 @@ public class AdminGameController {
     }
 
     @PostMapping("/rooms/{id}/sessions")
+    @PreAuthorize("hasRole('ADMIN')")
     public GameSessionResponse createSession(@PathVariable Long id, @Valid @RequestBody GameSessionRequest request) {
         return bingoGameService.createSession(id, request);
     }
 
     @PutMapping("/sessions/{id}/state")
+    @PreAuthorize("hasRole('ADMIN')")
     public GameSessionResponse updateState(@PathVariable Long id,
             @Valid @RequestBody GameSessionStateUpdateRequest request) {
         return bingoGameService.updateSessionState(id, request);
     }
 
     @PostMapping("/sessions/{id}/draws")
-    @PreAuthorize("hasAnyRole('ADMIN','SUPPORT')")
+    @PreAuthorize("hasRole('ADMIN')")
     public DrawEventResponse draw(@PathVariable Long id,
             @AuthenticationPrincipal BingoUserPrincipal principal,
             HttpServletRequest request) throws java.io.IOException {

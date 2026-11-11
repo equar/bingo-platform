@@ -193,7 +193,7 @@ export function ClaimsPage() {
         <Table size="small" aria-label={t("win claims table")}>
           <TableHead>
             <TableRow>
-              <TableCell>{t("Claim")}</TableCell>
+              <TableCell>{t("Claim number")}</TableCell>
               <TableCell>{t("Player")}</TableCell>
               <TableCell>{t("Ticket / session")}</TableCell>
               <TableCell>{t("Pattern")}</TableCell>
@@ -209,7 +209,16 @@ export function ClaimsPage() {
               <TableRow key={claim.id} hover data-testid={`claim-row-${claim.id}`}>
                 <TableCell>
                   <Stack spacing={0.5}>
-                    <Typography fontWeight={600}>{t("#")}{claim.id}</Typography>
+                    <Link
+                      component="button"
+                      type="button"
+                      data-testid={`claim-details-${claim.id}`}
+                      variant="body2"
+                      underline="hover"
+                      onClick={() => setReference({ kind: "claim", id: claim.id })}
+                    >
+                      {claim.operationId}
+                    </Link>
                     <Typography variant="caption" color="text.secondary">
                       {claim.serverValidationCode ?? t("No validation code")}
                     </Typography>

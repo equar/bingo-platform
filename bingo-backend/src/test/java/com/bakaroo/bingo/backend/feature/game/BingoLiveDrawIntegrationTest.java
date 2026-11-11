@@ -391,6 +391,12 @@ class BingoLiveDrawIntegrationTest extends MySqlIntegrationTest {
                                 .content(objectMapper.writeValueAsString(
                                                 new GameSessionStateUpdateRequest(GameSessionState.OPEN))))
                                 .andExpect(status().isForbidden());
+                mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put(updatePath)
+                                .header("Authorization", "Bearer " + supportToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(
+                                                new GameSessionStateUpdateRequest(GameSessionState.OPEN))))
+                                .andExpect(status().isForbidden());
                 mockMvc.perform(post(drawPath).contentType(MediaType.APPLICATION_JSON)
                                 .content("{\"numberDrawn\":42}"))
                                 .andExpect(status().isUnauthorized());
