@@ -141,6 +141,10 @@ public class DepositFinancialService {
                     verificationId = existingVerification;
                     reusedMatchedEvidence = true;
                 } else {
+                    if (hasMatchedVerification(statement.id())) {
+                        throw new ConflictException("BANK_STATEMENT_ALREADY_USED",
+                                "This bank transaction evidence has already been applied");
+                    }
                     verificationId = insertVerification(depositId, statement, verifier.getId(), outcome);
                 }
             } else {
@@ -365,6 +369,15 @@ public class DepositFinancialService {
                 where deposit_claim_id=? and statement_entry_id=? and outcome='MATCHED'
                 order by id desc limit 1
                 """, rs -> rs.next() ? rs.getLong(1) : null, depositId, statementEntryId);
+    }
+
+    private boolean hasMatchedVerification(Long statementEntryId) {
+        return Boolean.TRUE.equals(jdbc.queryForObject("""
+                select exists(
+                    select 1 from float_top_up_verification_attempts
+                    where statement_entry_id=? and outcome='MATCHED'
+                )
+                """, Boolean.class, statementEntryId));
     }
 
     private BankStatement findStatement(Long id) {
