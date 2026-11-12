@@ -75,6 +75,9 @@ public interface PrizeEntitlementRepository extends JpaRepository<PrizeEntitleme
 
     List<PrizeEntitlement> findByClaimantIdOrderByCreatedAtDesc(Long claimantId);
 
+    @Query("select p.session.id from PrizeEntitlement p where p.id = :id")
+    Optional<Long> findSessionIdById(@Param("id") Long id);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select p from PrizeEntitlement p where p.id = :id")
     Optional<PrizeEntitlement> findByIdForUpdate(@Param("id") Long id);

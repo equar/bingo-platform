@@ -15,10 +15,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.*;
+import java.util.concurrent.*;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -114,6 +116,54 @@ class GameOperationalReadinessIntegrationTest extends MySqlIntegrationTest {
         games.settleEntitlement(ea.getId(), new BingoUserPrincipal(admin), request);
         assertEquals(new BigDecimal("905.01"), wallets.findByOwnerId(one.getId()).orElseThrow().getAvailableBalance());
         assertEquals(1, transactions.findByReferenceTypeAndReferenceIdOrderByCreatedAtAscIdAsc("BINGO_PRIZE", ea.getId()).size());
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    void concurrentSameReferenceSettlementsCreditTheWalletOnce() throws Exception {
+        Long ticket = buy(one);
+        state(GameSessionState.STARTED);
+        calls(75);
+        approve(claim(ticket, one).id());
+        var entitlement = prizes.findAll().getFirst();
+        BigDecimal balanceBeforeSettlement = wallets.findByOwnerId(one.getId()).orElseThrow().getAvailableBalance();
+        var request = new PrizeEntitlementSettlementRequest("CONCURRENT-" + entitlement.getId(), "Concurrent payout");
+        var principal = new BingoUserPrincipal(admin);
+
+        ExecutorService workers = Executors.newFixedThreadPool(2);
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+        try {
+            Future<PrizeEntitlementResponse> first = workers.submit(() -> settleAttempt(
+                    entitlement.getId(), principal, request, ready, start));
+            Future<PrizeEntitlementResponse> second = workers.submit(() -> settleAttempt(
+                    entitlement.getId(), principal, request, ready, start));
+            assertTrue(ready.await(5, TimeUnit.SECONDS));
+            start.countDown();
+
+            var firstResult = first.get(15, TimeUnit.SECONDS);
+            var secondResult = second.get(15, TimeUnit.SECONDS);
+            assertEquals("SETTLED", firstResult.status().name());
+            assertEquals("SETTLED", secondResult.status().name());
+            assertEquals(request.settlementReference(), firstResult.settlementReference());
+            assertEquals(request.settlementReference(), secondResult.settlementReference());
+        } finally {
+            workers.shutdownNow();
+        }
+
+        assertEquals(balanceBeforeSettlement.add(entitlement.getPrizeAmount()),
+                wallets.findByOwnerId(one.getId()).orElseThrow().getAvailableBalance());
+        assertEquals(1, transactions.findByReferenceTypeAndReferenceIdOrderByCreatedAtAscIdAsc(
+                "BINGO_PRIZE", entitlement.getId()).size());
+    }
+
+    private PrizeEntitlementResponse settleAttempt(Long entitlementId, BingoUserPrincipal principal,
+            PrizeEntitlementSettlementRequest request, CountDownLatch ready, CountDownLatch start) throws Exception {
+        ready.countDown();
+        if (!start.await(5, TimeUnit.SECONDS)) {
+            throw new IllegalStateException("Timed out waiting to start concurrent prize settlements");
+        }
+        return games.settleEntitlement(entitlementId, principal, request);
     }
 
     @Test void settledSessionsCannotAcceptClaimsAndEndTimeIsPreserved() {

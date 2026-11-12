@@ -740,9 +740,9 @@ public class BingoGameService {
         User admin = requireAdmin(principal);
         requirePayoutsEnabled();
         // Match the session -> entitlement -> wallet lock order used by review and finalization.
-        PrizeEntitlement reference = prizeEntitlementRepository.findById(entitlementId)
+        Long sessionId = prizeEntitlementRepository.findSessionIdById(entitlementId)
                 .orElseThrow(() -> new NotFoundException("ENTITLEMENT_NOT_FOUND", "Prize entitlement not found"));
-        GameSession session = gameSessionRepository.findByIdForUpdate(reference.getSession().getId())
+        GameSession session = gameSessionRepository.findByIdForUpdate(sessionId)
                 .orElseThrow(() -> new NotFoundException("SESSION_NOT_FOUND", "Game session not found"));
         PrizeEntitlement entitlement = prizeEntitlementRepository.findByIdForUpdate(entitlementId).orElseThrow();
         if (entitlement.getStatus() == PrizeEntitlementStatus.SETTLED) {
