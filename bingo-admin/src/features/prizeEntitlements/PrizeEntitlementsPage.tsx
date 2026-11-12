@@ -94,7 +94,7 @@ export function PrizeEntitlementsPage() {
       <AdminPageHeader title={t("Prize entitlements")} description={t("Review approved claims and their prize entitlement details.")} />
 
       <Alert severity="warning">
-        {t("Prize settlement is blocked until payout evidence, accounting treatment, and reconciliation controls are approved.")}</Alert>
+        {t("Wallet prizes are credited once when payouts are enabled. Cash prizes must be disbursed through an approved agent. Payout availability follows the operating configuration.")}</Alert>
 
       {entitlementsQuery.isFetching ? <Alert severity="info">{t("Updating entitlement results...")}</Alert> : null}
 
@@ -134,7 +134,7 @@ export function PrizeEntitlementsPage() {
         </Stack>
 
         <TableContainer>
-          <Table size="small" aria-label={t("prize entitlements table")}>
+          <Table size="small" aria-label={t("prize entitlements table")} sx={{ minWidth: 1100 }}>
             <TableHead>
               <TableRow>
                 <TableCell>{t("Entitlement")}</TableCell>
@@ -197,7 +197,7 @@ export function PrizeEntitlementsPage() {
                   </TableCell>
                   <TableCell>
                     <Stack spacing={0.25}>
-                      <Typography variant="body2" fontWeight={600}>
+                      <Typography variant="body2" fontWeight={600} sx={{ whiteSpace: "nowrap" }}>
                         {entitlement.prizeAmount} {entitlement.currency}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
@@ -226,8 +226,9 @@ export function PrizeEntitlementsPage() {
                       data-testid={`entitlement-settle-${entitlement.id}`}
                       variant="outlined"
                       size="small"
-                      disabled
+                      disabled={!entitlement.payoutsEnabled || entitlement.status !== "PENDING" || entitlement.settlementPath !== "PLAYER_WALLET" || settleMutation.isPending}
                       onClick={() => {
+                        settleMutation.reset();
                         setSelectedId(entitlement.id);
                         setSettlementReference("");
                         setSettlementNote("");
@@ -264,7 +265,7 @@ export function PrizeEntitlementsPage() {
 
       <EntitlementReferenceDialog reference={reference} onClose={() => setReference(null)} />
 
-      <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)} fullWidth maxWidth="sm">
+      <Dialog open={confirmOpen} onClose={() => !settleMutation.isPending && setConfirmOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>{t("Settle entitlement")}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
@@ -281,6 +282,7 @@ export function PrizeEntitlementsPage() {
             ) : null}
             <TextField
               label={t("Settlement reference")}
+              inputProps={{ maxLength: 120 }}
               value={settlementReference}
               onChange={(event) => setSettlementReference(event.target.value)}
               fullWidth
@@ -288,6 +290,7 @@ export function PrizeEntitlementsPage() {
             />
             <TextField
               label={t("Settlement note")}
+              inputProps={{ maxLength: 500 }}
               value={settlementNote}
               onChange={(event) => setSettlementNote(event.target.value)}
               fullWidth

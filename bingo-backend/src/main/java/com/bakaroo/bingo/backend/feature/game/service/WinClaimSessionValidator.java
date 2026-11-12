@@ -13,5 +13,9 @@ public class WinClaimSessionValidator {
         if (state == GameSessionState.CANCELLED) {
             throw new ConflictException("SESSION_CANCELLED", "Claims are not accepted for cancelled sessions");
         }
+        if (state != GameSessionState.STARTED && state != GameSessionState.DRAWING
+                && state != GameSessionState.CLOSED) {
+            throw new ConflictException("SESSION_NOT_CLAIMABLE", "Claims require a started game that has not been settled");
+        }
     }
 }

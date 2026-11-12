@@ -93,7 +93,7 @@
   "claimHistoryTitle": "Claim history",
   "claimPatternLabel": "Claim pattern",
   "claimSettlementLabel": "Prize settlement",
-  "claimSettlementUnavailableBody": "Prize settlement status is handled on the server. The player contract only exposes claim outcomes and entitlement IDs.",
+  "claimSettlementUnavailableBody": "Approved prizes are paid through the configured wallet or agent cash route when payouts are enabled. Contact support about a pending payment.",
   "claimSubmitted": "Claim submitted.",
   "submitClaim": "Submit claim",
   "previous": "Previous",
@@ -308,5 +308,21 @@
   "leaderboardOptIn": "Show me on the leaderboard",
   "showPin": "Show PIN",
   "hidePin": "Hide PIN",
-  "errorAccountSuspended": "Your account has been suspended, please reach out to Sunset Bingo support team at 0956047345"
+  "errorAccountSuspended": "Your account has been suspended, please reach out to Sunset Bingo support team at 0956047345",
+  "earliestSplitRule": "The first tickets to complete each pattern share its fixed prize pool. Same-call ties split the pool; any leftover cents go in ticket purchase order. One award per ticket and pattern. Sales close when the game starts.",
+  "gameClaimWindow": "Submit claims within {hours} hours after the game ends.",
+  "@gameClaimWindow": {
+    "placeholders": {
+      "hours": {
+        "type": "String"
+      }
+    }
+  },
+  "errorClaimWindowExpired": "The claim window for this game has ended.",
+  "errorNotEarliestWinner": "This ticket did not complete the pattern on its earliest call.",
+  "errorTicketPrizeAwarded": "This ticket has already received an award for this pattern.",
+  "errorGameFunding": "This game needs more funded ticket sales before it can start.",
+  "prizePaid": "Paid",
+  "prizeAwaitingPayment": "Awaiting payment",
+  "prizeCashCode": "Agent cash payout code"
 }

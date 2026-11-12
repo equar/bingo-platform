@@ -103,10 +103,16 @@ class GameSession {
     this.maxTicketsPerPlayer,
     this.ticketSalesCloseOnSessionStart,
     this.allowMultipleWinnersPerPrize,
+    this.rulesVersion,
+    this.claimWindowSeconds,
+    this.payoutsEnabled = false,
     this.configuredPatterns = const [],
     this.configuredPrizes = const [],
   });
 
+  final String? rulesVersion;
+  final int? claimWindowSeconds;
+  final bool payoutsEnabled;
   final int id;
   final int roomId;
   final String roomName;
@@ -132,6 +138,9 @@ class GameSession {
 
   factory GameSession.fromJson(Map<String, dynamic> json) {
     return GameSession(
+      rulesVersion: json['rulesVersion']?.toString(),
+      claimWindowSeconds: (json['claimWindowSeconds'] as num?)?.toInt(),
+      payoutsEnabled: json['payoutsEnabled'] == true,
       id: (json['id'] as num?)?.toInt() ?? 0,
       roomId: (json['roomId'] as num?)?.toInt() ?? 0,
       roomName: json['roomName']?.toString() ?? '',

@@ -49,11 +49,14 @@ import java.util.Locale;
 @Tag(name = "Game Admin")
 public class AdminGameController {
 
+    private final com.bakaroo.bingo.backend.feature.game.config.GamePolicyProperties policy;
     private final BingoGameService bingoGameService;
     private final PrizeEntitlementRepository prizeEntitlementRepository;
 
     public AdminGameController(BingoGameService bingoGameService,
-            PrizeEntitlementRepository prizeEntitlementRepository) {
+            PrizeEntitlementRepository prizeEntitlementRepository,
+            com.bakaroo.bingo.backend.feature.game.config.GamePolicyProperties policy) {
+        this.policy = policy;
         this.bingoGameService = bingoGameService;
         this.prizeEntitlementRepository = prizeEntitlementRepository;
     }
@@ -197,7 +200,7 @@ public class AdminGameController {
                 entitlement.getSettledAt(),
                 entitlement.getSettledBy() == null ? null : entitlement.getSettledBy().getId(),
                 entitlement.getSettlementReference(),
-                entitlement.getSettlementNote());
+                entitlement.getSettlementNote(), policy.payoutsEnabled());
     }
 
     private String normalizeQuery(String query) {

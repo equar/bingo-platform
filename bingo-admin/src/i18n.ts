@@ -286,6 +286,7 @@ void i18n.use(initReactI18next).init({
   lng: getInitialLanguage(),
   supportedLngs: ["en", "am"],
   keySeparator: false,
+  nsSeparator: false,
   interpolation: { escapeValue: false },
 });
 

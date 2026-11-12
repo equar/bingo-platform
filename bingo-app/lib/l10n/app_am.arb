@@ -93,7 +93,7 @@
   "claimHistoryTitle": "የጥያቄ ታሪክ",
   "claimPatternLabel": "የጥያቄ አይነት",
   "claimSettlementLabel": "የሽልማት ክፍያ",
-  "claimSettlementUnavailableBody": "የሽልማት ክፍያ ሁኔታ በbackend ይተካል። የplayer ኮንትራቱ የጥያቄ ውጤትና entitlement ID ብቻ ያሳያል።",
+  "claimSettlementUnavailableBody": "ክፍያ ሲፈቀድ የጸደቁ ሽልማቶች በተዋቀረው የኪስ ቦርሳ ወይም የወኪል ጥሬ ገንዘብ መንገድ ይከፈላሉ። ስለሚጠበቅ ክፍያ ድጋፍን ያነጋግሩ።",
   "claimSubmitted": "ጥያቄ ተልኳል።",
   "submitClaim": "ጥያቄ ላክ",
   "previous": "ቀዳሚ",
@@ -308,5 +308,21 @@
   "leaderboardOptIn": "በደረጃ ሰንጠረዥ ላይ አሳየኝ",
   "showPin": "ፒን አሳይ",
   "hidePin": "ፒን ደብቅ",
-  "errorAccountSuspended": "መለያዎ ታግዷል። እባክዎ የSunset Bingo ድጋፍ ቡድንን በ0956047345 ያነጋግሩ።"
+  "errorAccountSuspended": "መለያዎ ታግዷል። እባክዎ የSunset Bingo ድጋፍ ቡድንን በ0956047345 ያነጋግሩ።",
+  "earliestSplitRule": "እያንዳንዱን ቅርጽ ቀድመው ያሟሉ ቲኬቶች የተወሰነውን ሽልማት ይካፈላሉ። በአንድ ጥሪ እኩል ካሸነፉ ሽልማቱ ይከፈላል፤ የቀሩ ሳንቲሞች በቲኬት ግዢ ቅደም ተከተል ይሰጣሉ። ለእያንዳንዱ ቲኬትና ቅርጽ አንድ ሽልማት ብቻ ነው። ጨዋታው ሲጀምር ሽያጭ ይዘጋል።",
+  "gameClaimWindow": "ጨዋታው ካለቀ በኋላ በ{hours} ሰዓታት ውስጥ የማሸነፍ ጥያቄ ያቅርቡ።",
+  "@gameClaimWindow": {
+    "placeholders": {
+      "hours": {
+        "type": "String"
+      }
+    }
+  },
+  "errorClaimWindowExpired": "የዚህ ጨዋታ ጥያቄ ማቅረቢያ ጊዜ አልፏል።",
+  "errorNotEarliestWinner": "ይህ ቲኬት ቅርጹን በመጀመሪያው ጥሪ አላሟላም።",
+  "errorTicketPrizeAwarded": "ይህ ቲኬት ለዚህ ቅርጽ ሽልማት ተቀብሏል።",
+  "errorGameFunding": "ይህ ጨዋታ ከመጀመሩ በፊት ተጨማሪ በገንዘብ የተደገፈ የቲኬት ሽያጭ ያስፈልገዋል።",
+  "prizePaid": "ተከፍሏል",
+  "prizeAwaitingPayment": "ክፍያ በመጠባበቅ ላይ",
+  "prizeCashCode": "የወኪል ጥሬ ገንዘብ ክፍያ ኮድ"
 }

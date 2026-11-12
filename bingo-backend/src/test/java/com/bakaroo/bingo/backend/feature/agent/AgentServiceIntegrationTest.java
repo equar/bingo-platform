@@ -239,36 +239,16 @@ class AgentServiceIntegrationTest extends MySqlIntegrationTest {
         }
 
         @Test
-        void payoutVerificationMovesBalanceToClearingExactlyOnce() {
+        void disabledPayoutPolicyBlocksAgentCashWithoutChangingFloat() {
                 PrizeEntitlement entitlement = createAgentCashEntitlement();
-
-                var first = agentService.verifyAndDisbursePayout(agentPrincipal,
-                                new AgentPayoutVerificationRequest(entitlement.getPayoutCode(), "2468", "CLR-1"),
-                                "payout-key");
-                assertEquals(PayoutVerificationStatus.DISBURSED, first.body().status());
-                assertEquals(new BigDecimal("12.34"), first.body().disbursedAmount());
-
-                AgentFloat floatState = agentFloatRepository.findByAgentId(
-                                agentRepository.findByUserId(agentUser.getId()).orElseThrow().getId()).orElseThrow();
-                assertEquals(new BigDecimal("87.66"), floatState.getAvailableBalance());
-                assertEquals(new BigDecimal("12.34"), floatState.getClearingBalance());
-                assertEquals(1L, payoutVerificationRecordRepository.count());
-                assertEquals(1L, agentFloatTransactionRepository.count());
-                assertEquals(1L, idempotencyRecordRepository.count());
-
-                var replay = agentService.verifyAndDisbursePayout(agentPrincipal,
-                                new AgentPayoutVerificationRequest(entitlement.getPayoutCode(), "2468", "CLR-1"),
-                                "payout-key");
-                assertEquals(first.body().recordId(), replay.body().recordId());
-                assertEquals(new BigDecimal("87.66"), agentFloatRepository.findByAgentId(
-                                agentRepository.findByUserId(agentUser.getId()).orElseThrow().getId()).orElseThrow()
-                                .getAvailableBalance());
-                assertEquals(new BigDecimal("12.34"), agentFloatRepository.findByAgentId(
-                                agentRepository.findByUserId(agentUser.getId()).orElseThrow().getId()).orElseThrow()
-                                .getClearingBalance());
-                assertEquals(1L, payoutVerificationRecordRepository.count());
-                assertEquals(1L, agentFloatTransactionRepository.count());
-                assertEquals(1L, idempotencyRecordRepository.count());
+                var failure = assertThrows(com.bakaroo.bingo.backend.common.exception.ConflictException.class,
+                        () -> agentService.verifyAndDisbursePayout(agentPrincipal,
+                                new AgentPayoutVerificationRequest(entitlement.getPayoutCode(), "2468", "CLR-1"), "payout-key"));
+                assertEquals("PRIZE_SETTLEMENT_BLOCKED", failure.getCode());
+                assertEquals(new BigDecimal("100.00"), agentFloatRepository.findByAgentId(
+                        agentRepository.findByUserId(agentUser.getId()).orElseThrow().getId()).orElseThrow().getAvailableBalance());
+                assertEquals(0L, payoutVerificationRecordRepository.count());
+                assertEquals(0L, agentFloatTransactionRepository.count());
         }
 
         @Test
@@ -749,6 +729,10 @@ class AgentServiceIntegrationTest extends MySqlIntegrationTest {
                 room = bingoRoomRepository.save(room);
 
                 GameSession session = new GameSession();
+                session.setRulesVersion("EARLIEST_SPLIT_V1");
+                session.setMinimumHouseMarginBps(1000);
+                session.setSessionCostReserve(BigDecimal.ZERO);
+                session.setClaimWindowSeconds(86400L);
                 session.setRoom(room);
                 session.setSessionName("Cash Session");
                 session.setState(GameSessionState.OPEN);

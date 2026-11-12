@@ -286,7 +286,7 @@ class BingoGameIntegrationTest extends MySqlIntegrationTest {
                                 .andExpect(status().isOk())
                                 .andExpect(jsonPath("$[0].id").value(session.id()))
                                 .andExpect(jsonPath("$[0].scheduledStartAt").isNotEmpty())
-                                .andExpect(jsonPath("$[0].configuredPrizes").doesNotExist())
+                                .andExpect(jsonPath("$[0].configuredPrizes").isArray())
                                 .andExpect(jsonPath("$[0].ticketSalesCloseOnSessionStart").doesNotExist());
 
                 mockMvc.perform(get("/api/v1/sessions/" + session.id())
@@ -298,7 +298,7 @@ class BingoGameIntegrationTest extends MySqlIntegrationTest {
                                 .andExpect(jsonPath("$.sessionCapacity").value(1))
                                 .andExpect(jsonPath("$.ticketCount").value(0))
                                 .andExpect(jsonPath("$.configuredPatterns[0]").value("LINE"))
-                                .andExpect(jsonPath("$.configuredPrizes").doesNotExist())
+                                .andExpect(jsonPath("$.configuredPrizes").isArray())
                                 .andExpect(jsonPath("$.maxTicketsPerPlayer").doesNotExist());
         }
 
@@ -526,7 +526,7 @@ class BingoGameIntegrationTest extends MySqlIntegrationTest {
                 String adminToken = loginToken("0911000201", "123456");
 
                 Wallet ticketWalletBefore = walletRepository.findByOwnerId(playerOne.getId()).orElseThrow();
-                ticketWalletBefore.setPromotionalBalance(new BigDecimal("5.00"));
+                ticketWalletBefore.setPromotionalBalance(new BigDecimal("1.00"));
                 walletRepository.save(ticketWalletBefore);
                 BigDecimal transferableBeforeTicket = ticketWalletBefore.getAvailableBalance();
                 BigDecimal promotionalBeforeTicket = ticketWalletBefore.getPromotionalBalance();
@@ -779,10 +779,11 @@ class BingoGameIntegrationTest extends MySqlIntegrationTest {
                                 new GameSessionStateUpdateRequest(GameSessionState.CANCELLED));
                 bingoGameService.updateSessionState(completed.id(),
                                 new GameSessionStateUpdateRequest(GameSessionState.OPEN));
-                bingoGameService.updateSessionState(completed.id(),
-                                new GameSessionStateUpdateRequest(GameSessionState.STARTED));
-                bingoGameService.updateSessionState(completed.id(),
-                                new GameSessionStateUpdateRequest(GameSessionState.CLOSED));
+                // Direct terminal-state fixture: closing eligibility is exercised by readiness tests.
+                var completedFixture = gameSessionRepository.findById(completed.id()).orElseThrow();
+                completedFixture.setState(GameSessionState.CLOSED);
+                completedFixture.setEndedAt(Instant.now());
+                gameSessionRepository.saveAndFlush(completedFixture);
                 var player = new BingoUserPrincipal(userRepository.findById(playerOne.getId()).orElseThrow());
                 long ticketsBefore = ticketRepository.count();
                 long transactionsBefore = walletTransactionRepository.count();
@@ -833,6 +834,7 @@ class BingoGameIntegrationTest extends MySqlIntegrationTest {
 
                 bingoGameService.updateSessionState(transitionSession.id(),
                                 new GameSessionStateUpdateRequest(GameSessionState.OPEN));
+                bingoGameService.purchaseTicket(transitionSession.id(), playerPrincipal, "fund-transition");
                 bingoGameService.updateSessionState(transitionSession.id(),
                                 new GameSessionStateUpdateRequest(GameSessionState.STARTED));
 
@@ -1070,6 +1072,7 @@ class BingoGameIntegrationTest extends MySqlIntegrationTest {
                 var player = new BingoUserPrincipal(userRepository.findById(playerOne.getId()).orElseThrow());
                 var admin = new BingoUserPrincipal(userRepository.findById(adminUser.getId()).orElseThrow());
                 var purchased = bingoGameService.purchaseTicket(session.id(), player, "unverified-claim-ticket");
+                bingoGameService.updateSessionState(session.id(), new GameSessionStateUpdateRequest(GameSessionState.STARTED));
                 var claimResult = bingoGameService.submitWinClaim(purchased.body().ticket().id(), player,
                                 new WinClaimRequest(BingoPatternType.LINE), "unverified-claim-key");
                 var claim = winClaimRepository.findById(claimResult.body().id()).orElseThrow();
@@ -1146,6 +1149,38 @@ class BingoGameIntegrationTest extends MySqlIntegrationTest {
                 return objectMapper.readTree(response).get("accessToken").asText();
         }
 
+        @Test
+        void concurrentApprovalCannotDuplicateAnAward() throws Exception {
+                var room = bingoGameService.createRoom(roomRequest("Concurrent review", 2, 2, true));
+                var session = bingoGameService.createSession(room.id(), sessionRequest(GameSessionState.OPEN));
+                var player = new BingoUserPrincipal(playerOne);
+                var admin = new BingoUserPrincipal(adminUser);
+                var purchase = bingoGameService.purchaseTicket(session.id(), player, "review-fixture");
+                Ticket ticket = ticketRepository.findById(purchase.body().ticket().id()).orElseThrow();
+                bingoGameService.updateSessionState(session.id(), new GameSessionStateUpdateRequest(GameSessionState.STARTED));
+                int sequence = 0;
+                for (Integer number : winningLineNumbers(ticket.getGridJson())) {
+                        DrawEvent draw = new DrawEvent(); draw.setSession(gameSessionRepository.findById(session.id()).orElseThrow());
+                        draw.setSequenceNo(++sequence); draw.setNumberDrawn(number); draw.setDrawnAt(Instant.now());
+                        draw.setOperationId(java.util.UUID.randomUUID().toString()); drawEventRepository.save(draw);
+                }
+                var claim = bingoGameService.submitWinClaim(ticket.getId(), player, new WinClaimRequest(BingoPatternType.LINE), "review-claim").body();
+                ExecutorService workers = Executors.newFixedThreadPool(2);
+                CountDownLatch ready = new CountDownLatch(2), go = new CountDownLatch(1);
+                java.util.concurrent.Callable<String> decision = () -> {
+                        ready.countDown(); go.await(5, TimeUnit.SECONDS);
+                        try { bingoGameService.reviewWinClaim(claim.id(), admin, new WinClaimReviewRequest("Verified"), true); return "APPROVED"; }
+                        catch (ConflictException failure) { return failure.getCode(); }
+                };
+                try {
+                        Future<String> first = workers.submit(decision), second = workers.submit(decision);
+                        assertTrue(ready.await(5, TimeUnit.SECONDS)); go.countDown();
+                        var results = List.of(first.get(15, TimeUnit.SECONDS), second.get(15, TimeUnit.SECONDS));
+                        assertTrue(results.contains("APPROVED")); assertTrue(results.contains("WIN_CLAIM_ALREADY_REVIEWED"));
+                        assertEquals(1, prizeEntitlementRepository.count());
+                } finally { workers.shutdownNow(); }
+        }
+
         private BingoRoomRequest roomRequest(String name, int sessionCapacity, int maxTicketsPerPlayer,
                         boolean active) {
                 return new BingoRoomRequest(
@@ -1188,13 +1223,13 @@ class BingoGameIntegrationTest extends MySqlIntegrationTest {
                                 List.of(BingoPatternType.LINE, BingoPatternType.TWO_LINES, BingoPatternType.FULL_HOUSE),
                                 List.of(
                                                 new BingoPrizeConfigRequest(BingoPatternType.LINE,
-                                                                new BigDecimal("10.00"),
+                                                                new BigDecimal("0.10"),
                                                                 PrizeSettlementPath.PLAYER_WALLET, 1),
                                                 new BingoPrizeConfigRequest(BingoPatternType.TWO_LINES,
-                                                                new BigDecimal("20.00"),
+                                                                new BigDecimal("0.20"),
                                                                 PrizeSettlementPath.PLAYER_WALLET, 1),
                                                 new BingoPrizeConfigRequest(BingoPatternType.FULL_HOUSE,
-                                                                new BigDecimal("50.00"),
+                                                                new BigDecimal("0.50"),
                                                                 PrizeSettlementPath.PLAYER_WALLET, 1)));
         }
 

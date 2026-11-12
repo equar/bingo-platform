@@ -15,6 +15,12 @@ describe("Admin translations", () => {
     expect(amharicKeys).toEqual(englishKeys);
   });
 
+  it("preserves labels containing colons in both languages", () => {
+    expect(i18n.getFixedT("en")("Started:")).toBe("Started:");
+    expect(i18n.getFixedT("en")("Capacity:")).toBe("Capacity:");
+    expect(i18n.getFixedT("am")("Started:")).toBe("የተጀመረው፦");
+  });
+
   it("translates representative operational labels", () => {
     expect(i18n.getFixedT("en")("Dashboard")).toBe("Dashboard");
     expect(i18n.getFixedT("am")("Dashboard")).toBe("ዳሽቦርድ");

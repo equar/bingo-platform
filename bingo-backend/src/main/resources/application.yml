@@ -83,6 +83,11 @@ app:
     business-account: ${APP_PAYMENT_BUSINESS_ACCOUNT:}
     payment-instructions: ${APP_PAYMENT_INSTRUCTIONS:Submit the telebirr reference after payment for manual verification.}
   game:
+    policy:
+      minimum-house-margin-bps: ${APP_GAME_MINIMUM_HOUSE_MARGIN_BPS:1000}
+      session-cost-reserve: ${APP_GAME_SESSION_COST_RESERVE:0.00}
+      claim-window: ${APP_GAME_CLAIM_WINDOW:PT24H}
+      payouts-enabled: ${APP_GAME_PAYOUTS_ENABLED:false}
     max-tickets-per-player: ${APP_GAME_MAX_TICKETS_PER_PLAYER:10}
     session-capacity: ${APP_GAME_SESSION_CAPACITY:1000}
     ticket-sales-close-on-session-start: ${APP_GAME_TICKET_SALES_CLOSE_ON_SESSION_START:true}

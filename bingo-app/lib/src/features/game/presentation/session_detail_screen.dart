@@ -513,6 +513,12 @@ class _ClaimCard extends StatelessWidget {
             localizations.claimSettlementLabel,
             style: Theme.of(context).textTheme.titleMedium,
           ),
+          if (session?.rulesVersion == 'EARLIEST_SPLIT_V1') ...[
+            const SizedBox(height: 12),
+            Text(localizations.earliestSplitRule),
+            if (session?.claimWindowSeconds != null)
+              Text(localizations.gameClaimWindow((session!.claimWindowSeconds! / 3600).toStringAsFixed(1))),
+          ],
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
             key: const ValueKey('claim-pattern-field'),
@@ -537,7 +543,7 @@ class _ClaimCard extends StatelessWidget {
                 state.isSubmittingClaim ||
                     ticket == null ||
                     state.selectedClaimPattern == null ||
-                    state.isTerminalSession
+                    !state.canSubmitClaim
                 ? null
                 : controller.submitClaim,
             child: state.isSubmittingClaim
@@ -643,6 +649,10 @@ class _ClaimHistoryCard extends StatelessWidget {
                             Text(
                               '${localizations.reviewNoteLabel}: ${claim.reviewNote}',
                             ),
+                          if (claim.prizeAmount != null)
+                            Text('${claim.prizeAmount} ${claim.prizeCurrency ?? ""} · ${claim.prizeStatus == "SETTLED" ? localizations.prizePaid : localizations.prizeAwaitingPayment}'),
+                          if (claim.payoutCode != null)
+                            SelectableText('${localizations.prizeCashCode}: ${claim.payoutCode}'),
                           if (claim.entitlementId != null)
                             Text(
                               '${localizations.claimSettlementLabel}: #${claim.entitlementId}',

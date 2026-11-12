@@ -31,14 +31,14 @@ import { connectLiveDrawStream } from "./liveDrawSocket";
 const allowedStates: Record<string, string[]> = {
   DRAFT: ["OPEN", "CANCELLED"],
   OPEN: ["STARTED", "CANCELLED"],
-  STARTED: ["DRAWING", "CLOSED"],
+  STARTED: ["DRAWING", "CLOSED", "CANCELLED"],
   DRAWING: ["CLOSED"],
   CLOSED: ["SETTLED"],
 };
 
 function availableTransitions(session: GameSessionResponse) {
   const transitions = allowedStates[session.state] ?? [];
-  return session.ticketCount > 0 ? transitions.filter((state) => state !== "CANCELLED") : transitions;
+  return transitions.filter((state) => state !== "CANCELLED" || (session.drawCount === 0 && (session.ticketCount === 0 || session.payoutsEnabled === true)));
 }
 
 function mergeDraws(existing: DrawEventResponse[], incoming: DrawEventResponse[]) {
@@ -65,6 +65,7 @@ export function SessionDetailPage() {
     queryKey: ["session", id],
     queryFn: () => sessionDetail(id),
     enabled: Number.isFinite(id),
+    refetchInterval: 5000,
   });
   const historyQuery = useQuery({
     queryKey: ["session-draws", id],
@@ -73,8 +74,17 @@ export function SessionDetailPage() {
   });
 
   useEffect(() => {
+    setDraws([]);
+    setLastTriggeredDraw(null);
+    setDrawError(null);
+    setStateError(null);
+    setPendingState(null);
+    liveSequenceRef.current = 0;
+  }, [id]);
+
+  useEffect(() => {
     if (historyQuery.data) {
-      setDraws(historyQuery.data);
+      setDraws((current) => mergeDraws(current, historyQuery.data));
       liveSequenceRef.current = historyQuery.data.reduce(
         (maxSequence: number, draw: DrawEventResponse) => Math.max(maxSequence, draw.sequenceNo),
         0,
@@ -86,13 +96,24 @@ export function SessionDetailPage() {
     if (!authSession?.accessToken || !Number.isFinite(id)) {
       return;
     }
+    let active = true;
     const stream = connectLiveDrawStream({
       accessToken: authSession.accessToken,
       sessionId: id,
-      onDraw: (event: DrawEventResponse) => setDraws((current: DrawEventResponse[]) => mergeDraws(current, [event])),
-      onError: (message) => setDrawError(message),
+      onDraw: (event: DrawEventResponse) => {
+        if (!active || event.sessionId !== id) return;
+        setDraws((current: DrawEventResponse[]) => mergeDraws(current, [event]));
+        void queryClient.invalidateQueries({ queryKey: ["session", id] });
+      },
+      onConnected: () => {
+        if (!active) return;
+        setDrawError(null);
+        void queryClient.invalidateQueries({ queryKey: ["session", id] });
+      },
+      onError: (message) => active && setDrawError(message),
       onGap: async (fromSequence) => {
         const missing = await sessionDraws(id, fromSequence);
+        if (!active) return;
         setDraws((current: DrawEventResponse[]) => mergeDraws(current, missing));
         liveSequenceRef.current = Math.max(
           liveSequenceRef.current,
@@ -101,8 +122,8 @@ export function SessionDetailPage() {
         );
       },
     });
-    return () => stream.close();
-  }, [authSession?.accessToken, id]);
+    return () => { active = false; stream.close(); };
+  }, [authSession?.accessToken, id, queryClient]);
 
   const drawMutation = useMutation({
     mutationFn: () => postDraw(id),
@@ -132,7 +153,7 @@ export function SessionDetailPage() {
   const session: GameSessionResponse | undefined = sessionQuery.data;
   const sessionTransitions = useMemo(() => (session ? availableTransitions(session) : []), [session]);
   const roles = authSession?.user.roles ?? [];
-  const canOperateDraws = roles.includes("ADMIN");
+  const canOperateDraws = roles.includes("ADMIN") && !roles.includes("SUPPORT");
   const sessionCanDraw = session?.state === "STARTED" || session?.state === "DRAWING";
 
   if (sessionQuery.isLoading) {
@@ -170,6 +191,7 @@ export function SessionDetailPage() {
       </Box>
 
       {drawError ? <Alert severity="warning">{t(drawError)}</Alert> : null}
+      {historyQuery.isError ? <Alert severity="warning" action={<Button onClick={() => historyQuery.refetch()}>{t("Retry")}</Button>}>{t("Unable to load draw history. Refresh before making game decisions.")}</Alert> : null}
 
       <Grid container spacing={2}>
         <Grid item xs={12} lg={5}>
@@ -183,19 +205,33 @@ export function SessionDetailPage() {
                 </Typography>
                 <Typography>{t("Ended:")}{" "}{session.endedAt ? new Date(session.endedAt).toLocaleString() : "n/a"}</Typography>
                 <Typography>{t("Ticket count:")}{" "}{session.ticketCount}</Typography>
-                <Typography>{t("Draw count:")}{" "}{session.drawCount}</Typography>
+                <Typography>{t("Draw count:")}{" "}{Math.max(session.drawCount, draws.length)}</Typography>
                 <Typography>{t("Capacity:")}{" "}{session.sessionCapacity}</Typography>
                 <Typography>{t("Max tickets/player:")}{" "}{session.maxTicketsPerPlayer}</Typography>
                 <Typography>
                   {t("Ticket sales close on start:")}{" "}{session.ticketSalesCloseOnSessionStart ? "Yes" : "No"}
                 </Typography>
                 <Typography>
-                  {t("Multiple winners per prize:")}{" "}{session.allowMultipleWinnersPerPrize ? "Yes" : "No"}
+                  {t("Winner rule:")}{" "}{session.rulesVersion === "EARLIEST_SPLIT_V1" ? t("Earliest completion; split ties") : t("Legacy rules require review")}
                 </Typography>
                 <Typography>
                   {t("Patterns:")}{" "}{session.configuredPatterns.map((pattern) => translateAdminValue(pattern, t)).join(", ")}
                 </Typography>
-                <Typography>{t("Prizes:")}{" "}{session.configuredPrizes.length}</Typography>
+                <Typography>{t("Ticket price:")} {session.ticketPrice} {session.currency}</Typography>
+                {session.rulesVersion === "EARLIEST_SPLIT_V1" ? <Alert severity="info">{t("The earliest tickets to complete each pattern share its fixed prize pool. Tied shares are determined by the server, regardless of review order.")}</Alert> : <Alert severity="warning">{t("Legacy game terms require reconciliation before further sales or payments.")}</Alert>}
+                {session.configuredPrizes.map((prize) => (
+                  <Typography key={prize.prizeType}>
+                    {translateAdminValue(prize.prizeType, t)}: {prize.amount} {session.currency} · {translateAdminValue(prize.settlementPath, t)}
+                  </Typography>
+                ))}
+                {session.minimumHouseMarginBps != null ? <Typography>{t("Minimum house margin:")} {session.minimumHouseMarginBps / 100}%</Typography> : null}
+                {session.funding ? <Alert severity={session.funding.funded ? "success" : "warning"}>
+                  {t("Cash-backed sales:")} {session.funding.cashBackedRevenue} {session.currency}<br />
+                  {t("Prize pools:")} {session.funding.prizeLiability} · {t("Commissions:")} {session.funding.commissionLiability}<br />
+                  {t("Cost reserve:")} {session.funding.costReserve} · {t("Required house retention:")} {session.funding.requiredHouseRetention}<br />
+                  {t("Total required:")} {session.funding.totalRequired} {session.currency}
+                </Alert> : null}
+                {session.endedAt && session.claimWindowSeconds ? <Typography>{t("Claims close:")} {new Date(new Date(session.endedAt).getTime() + session.claimWindowSeconds * 1000).toLocaleString()}</Typography> : null}
                 <Stack direction="row" spacing={1} flexWrap="wrap">
                   {sessionTransitions.map((nextState: string) => (
                     <Button
@@ -203,7 +239,7 @@ export function SessionDetailPage() {
                       data-testid={`session-transition-${nextState.toLowerCase()}`}
                       size="small"
                       variant="outlined"
-                      disabled={stateMutation.isPending}
+                      disabled={stateMutation.isPending || (nextState === "STARTED" && session.funding?.funded === false)}
                       onClick={() => {
                         setStateError(null);
                         setPendingState(nextState);
@@ -212,9 +248,9 @@ export function SessionDetailPage() {
                       {translateAdminStatus(nextState, t)}
                     </Button>
                   ))}
-                {session.ticketCount > 0 && (allowedStates[session.state] ?? []).includes("CANCELLED") ? (
+                {!sessionTransitions.includes("CANCELLED") && (allowedStates[session.state] ?? []).includes("CANCELLED") ? (
                   <Typography variant="caption" color="text.secondary">
-                    {t("Cancellation unavailable after tickets have been sold.")}
+                    {t("Cancellation requires an undrawn game and enabled refunds when tickets have been sold.")}
                   </Typography>
                 ) : null}
                 </Stack>
@@ -238,7 +274,7 @@ export function SessionDetailPage() {
                     </Button>
                 ) : null}
                 {!sessionCanDraw ? (
-                  <Typography color="text.secondary">{t("Start the session before drawing numbers.")}</Typography>
+                  <Typography color="text.secondary">{t(["CLOSED", "SETTLED", "CANCELLED"].includes(session.state) ? "This game has ended. Drawing is closed." : "Start the session before drawing numbers.")}</Typography>
                 ) : null}
                 {lastTriggeredDraw ? (
                   <Alert severity="success" data-testid="automatic-draw-result">
@@ -274,9 +310,9 @@ export function SessionDetailPage() {
       <ConfirmDialog
         open={Boolean(pendingState)}
         title={t("Change session state")}
-        description={t("Transition the session to {{status}}?", {
-          status: translateAdminStatus(pendingState ?? "", t),
-        })}
+        description={pendingState === "CANCELLED" && session.ticketCount > 0
+          ? t("Cancel this undrawn game and refund all sold tickets to players’ wallets? Original promotional funding returns to the promotional balance. Agent ticket refunds go to the player’s wallet.")
+          : t("Transition the session to {{status}}?", { status: translateAdminStatus(pendingState ?? "", t) })}
         confirmLabel={t("Confirm")}
         cancelLabel={t("Back")}
         confirming={stateMutation.isPending}

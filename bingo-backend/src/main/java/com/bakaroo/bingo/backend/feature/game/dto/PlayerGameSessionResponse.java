@@ -22,5 +22,9 @@ public record PlayerGameSessionResponse(
         long ticketCount,
         long drawCount,
         Instant createdAt,
-        Instant updatedAt) {
+        Instant updatedAt,
+        String rulesVersion,
+        Long claimWindowSeconds,
+        List<com.bakaroo.bingo.backend.feature.game.model.BingoPrizeConfig> configuredPrizes,
+        boolean payoutsEnabled) {
 }

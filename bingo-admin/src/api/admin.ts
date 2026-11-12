@@ -544,7 +544,22 @@ export interface BingoRoomResponse {
   updatedByDisplayName?: string | null;
 }
 
+export interface GameFundingSummary {
+  cashBackedRevenue: string;
+  commissionLiability: string;
+  prizeLiability: string;
+  costReserve: string;
+  requiredHouseRetention: string;
+  totalRequired: string;
+  funded: boolean;
+}
+
 export interface GameSessionResponse {
+  rulesVersion?: string;
+  minimumHouseMarginBps?: number;
+  claimWindowSeconds?: number;
+  payoutsEnabled?: boolean;
+  funding?: GameFundingSummary;
   id: number;
   roomId: number;
   roomName: string;
@@ -587,6 +602,10 @@ export interface TicketResponse {
 }
 
 export interface WinClaimResponse {
+  prizeAmount?: string | null;
+  prizeCurrency?: string | null;
+  prizeStatus?: string | null;
+  payoutCode?: string | null;
   id: number;
   ticketId: number;
   sessionId: number;
@@ -617,6 +636,7 @@ export interface WinClaimReviewRequest {
 }
 
 export interface PrizeEntitlementResponse {
+  payoutsEnabled?: boolean;
   id: number;
   winClaimId: number;
   sessionId: number;

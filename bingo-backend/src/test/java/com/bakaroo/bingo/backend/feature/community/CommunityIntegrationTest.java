@@ -247,11 +247,12 @@ class CommunityIntegrationTest extends MySqlIntegrationTest {
         new JoinPrivateGame(code.code()),
         UUID.randomUUID().toString());
     ticket(session, member);
-    postJson("/api/v1/private-games/" + room + "/start", host, Map.of(), 200);
+    // Ticket-only fixtures carry no cash ledger; the funding guard must reject them.
+    postJson("/api/v1/private-games/" + room + "/start", host, Map.of(), 409);
     assertThat(
             jdbc.queryForObject(
                 "select state from bingo_sessions where id=?", String.class, session))
-        .isEqualTo("STARTED");
+        .isEqualTo("OPEN");
     assertThat(
             jdbc.queryForObject(
                 "select ticket_price_snapshot from bingo_sessions where id=?",

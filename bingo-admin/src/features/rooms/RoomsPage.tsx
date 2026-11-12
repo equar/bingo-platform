@@ -255,8 +255,8 @@ export function RoomsPage() {
         scheduleRule: body.scheduleRule,
         sessionCapacity: Number(body.sessionCapacity),
         maxTicketsPerPlayer: Number(body.maxTicketsPerPlayer),
-        ticketSalesCloseOnSessionStart: body.ticketSalesCloseOnSessionStart,
-        allowMultipleWinnersPerPrize: body.allowMultipleWinnersPerPrize,
+        ticketSalesCloseOnSessionStart: true,
+        allowMultipleWinnersPerPrize: true,
         active: body.active,
         configuredPatterns: body.configuredPrizes.map((prize) => prize.prizeType),
         configuredPrizes: body.configuredPrizes.map((prize) => ({
@@ -290,8 +290,8 @@ export function RoomsPage() {
         scheduleRule: body.scheduleRule,
         sessionCapacity: Number(body.sessionCapacity),
         maxTicketsPerPlayer: Number(body.maxTicketsPerPlayer),
-        ticketSalesCloseOnSessionStart: body.ticketSalesCloseOnSessionStart,
-        allowMultipleWinnersPerPrize: body.allowMultipleWinnersPerPrize,
+        ticketSalesCloseOnSessionStart: true,
+        allowMultipleWinnersPerPrize: true,
         active: body.active,
         configuredPatterns: body.configuredPrizes.map((prize) => prize.prizeType),
         configuredPrizes: body.configuredPrizes.map((prize) => ({
@@ -653,9 +653,9 @@ export function RoomsPage() {
                               </TextField>
                             </Grid>
                             <Grid item xs={12} sm={6}>
-                              <TextField size="small" label={t("Max winners")} type="number" value={prize.maxWinners}
+                              <TextField size="small" label={t("Legacy winner cap")} type="number" value={prize.maxWinners}
                                 onChange={(event) => updatePrize(index, { maxWinners: event.target.value })}
-                                inputProps={{ min: 1, step: 1 }} disabled={!draft?.allowMultipleWinnersPerPrize} fullWidth />
+                                inputProps={{ min: 1, step: 1 }} disabled helperText={t("All earliest same-call winners share the fixed pool; this legacy cap does not limit ties.")} fullWidth />
                             </Grid>
                           </Grid>
                         </Stack>
@@ -670,8 +670,7 @@ export function RoomsPage() {
               <FormControlLabel
                 control={
                   <Checkbox
-                    checked={draft?.ticketSalesCloseOnSessionStart ?? false}
-                    onChange={(e) => draft && setDraft({ ...draft, ticketSalesCloseOnSessionStart: e.target.checked })}
+                    checked disabled
                   />
                 }
                 label={t("Close ticket sales when the session starts")}
@@ -679,11 +678,10 @@ export function RoomsPage() {
               <FormControlLabel
                 control={
                   <Checkbox
-                    checked={draft?.allowMultipleWinnersPerPrize ?? false}
-                    onChange={(e) => draft && setDraft({ ...draft, allowMultipleWinnersPerPrize: e.target.checked })}
+                    checked disabled
                   />
                 }
-                label={t("Allow multiple winners per prize")}
+                label={t("Earliest completion; split ties")}
               />
               <FormControlLabel
                 control={

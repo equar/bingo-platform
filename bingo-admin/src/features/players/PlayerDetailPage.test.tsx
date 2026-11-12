@@ -258,7 +258,7 @@ describe("PlayerDetailPage", () => {
     >);
     render(<PlayerDetailPage />, { wrapper: createWrapper });
 
-    expect(await screen.findByText("Correction")).toBeInTheDocument();
+    expect(await screen.findByText("Reason: Correction")).toBeInTheDocument();
     expect(screen.getByText("Supporting reference: CASE-71")).toBeInTheDocument();
     await user.click(await screen.findByRole("button", { name: "Approve request" }));
     await user.type(screen.getByRole("textbox", { name: "Checker review note" }), "Evidence reviewed");

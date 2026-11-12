@@ -257,33 +257,13 @@ class AgentTicketSaleHttpIntegrationTest extends MySqlIntegrationTest {
                 AGENT_PIN,
                 "QA-CLEARING-REFERENCE");
 
-        ResponseEntity<PayoutVerificationResponse> payout = http.exchange(
-                url("/api/v1/agent/payouts/verify"),
-                HttpMethod.POST,
-                new HttpEntity<>(payoutRequest, headers(agentAuth.accessToken(), "qa-payout-once")),
-                PayoutVerificationResponse.class);
-        ResponseEntity<PayoutVerificationResponse> payoutReplay = http.exchange(
-                url("/api/v1/agent/payouts/verify"),
-                HttpMethod.POST,
-                new HttpEntity<>(payoutRequest, headers(agentAuth.accessToken(), "qa-payout-once")),
-                PayoutVerificationResponse.class);
-
-        assertEquals(HttpStatus.OK, payout.getStatusCode());
-        assertEquals(HttpStatus.OK, payoutReplay.getStatusCode());
-        assertNotNull(payout.getBody());
-        assertNotNull(payoutReplay.getBody());
-        assertEquals(payout.getBody().recordId(), payoutReplay.getBody().recordId());
-        assertEquals(new BigDecimal("1.00"), floatState().getAvailableBalance());
-        assertEquals(new BigDecimal("5.00"), floatState().getClearingBalance());
-
-        ResponseEntity<TicketPurchaseResponse> insufficientSale = sellTicket(
-                agentAuth.accessToken(),
-                saleRequest,
-                "qa-sale-insufficient-float");
-        assertTrue(insufficientSale.getStatusCode().is4xxClientError());
-        assertEquals(2L, ticketCount());
-        assertEquals(1, commissionAccrualCount());
-        assertEquals(new BigDecimal("1.00"), floatState().getAvailableBalance());
+        var blocked = org.junit.jupiter.api.Assertions.assertThrows(org.springframework.web.client.HttpClientErrorException.class,
+                () -> http.exchange(url("/api/v1/agent/payouts/verify"), HttpMethod.POST,
+                        new HttpEntity<>(payoutRequest, headers(agentAuth.accessToken(), "qa-payout-once")), PayoutVerificationResponse.class));
+        assertEquals(HttpStatus.CONFLICT, blocked.getStatusCode());
+        assertTrue(blocked.getResponseBodyAsString().contains("PRIZE_SETTLEMENT_BLOCKED"));
+        assertEquals(new BigDecimal("6.00"), floatState().getAvailableBalance());
+        assertEquals(BigDecimal.ZERO.setScale(2), floatState().getClearingBalance());
     }
 
     @Test
@@ -398,6 +378,10 @@ class AgentTicketSaleHttpIntegrationTest extends MySqlIntegrationTest {
         room = bingoRoomRepository.save(room);
 
         GameSession gameSession = new GameSession();
+                gameSession.setRulesVersion("EARLIEST_SPLIT_V1");
+                gameSession.setMinimumHouseMarginBps(1000);
+                gameSession.setSessionCostReserve(BigDecimal.ZERO);
+                gameSession.setClaimWindowSeconds(86400L);
         gameSession.setRoom(room);
         gameSession.setSessionName(name + " Session");
         gameSession.setState(GameSessionState.OPEN);

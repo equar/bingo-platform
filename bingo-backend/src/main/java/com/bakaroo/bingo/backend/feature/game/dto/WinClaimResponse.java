@@ -27,5 +27,9 @@ public record WinClaimResponse(
         Instant reviewedAt,
         Long entitlementId,
         Instant createdAt,
-        Instant updatedAt) {
+        Instant updatedAt,
+        java.math.BigDecimal prizeAmount,
+        String prizeCurrency,
+        com.bakaroo.bingo.backend.feature.game.entity.PrizeEntitlementStatus prizeStatus,
+        String payoutCode) {
 }

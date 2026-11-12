@@ -50,6 +50,7 @@ export function connectLiveDrawStream(params: {
   onDraw: (event: DrawEventResponse) => void;
   onError: (message: string) => void;
   onGap: (fromSequence: number) => Promise<void> | void;
+  onConnected?: () => void;
 }) {
   let socket: WebSocket | null = null;
   let buffer = '';
@@ -64,6 +65,7 @@ export function connectLiveDrawStream(params: {
       return;
     }
     socket = new WebSocket(toWebSocketUrl(apiBaseUrl));
+    buffer = '';
     socket.onopen = () => {
       socket?.send(`CONNECT\naccept-version:1.2\nheart-beat:0,0\nAuthorization:Bearer ${params.accessToken}\n\n\u0000`);
       reconnectDelay = 1000;
@@ -76,6 +78,13 @@ export function connectLiveDrawStream(params: {
         const frame = parseFrame(rawFrame);
         if (frame.command === 'CONNECTED') {
           socket?.send(`SUBSCRIBE\nid:session-${params.sessionId}\ndestination:/topic/session/${params.sessionId}/draws\nack:auto\n\n\u0000`);
+          // Replay after every subscription, even when the missed message was the final draw.
+          try {
+            await params.onGap(lastSeenSequence);
+            params.onConnected?.();
+          } catch {
+            params.onError('Unable to replay live draw history. Refresh to reconnect.');
+          }
           continue;
         }
         if (frame.command === 'MESSAGE') {

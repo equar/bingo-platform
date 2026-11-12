@@ -88,6 +88,14 @@ class LiveGameState {
     return state == 'CLOSED' || state == 'SETTLED' || state == 'CANCELLED';
   }
 
+  bool get canSubmitClaim {
+    final game = session;
+    if (game == null) return false;
+    if (game.state == 'STARTED' || game.state == 'DRAWING') return true;
+    if (game.state != 'CLOSED' || game.endedAt == null || game.claimWindowSeconds == null) return false;
+    return DateTime.now().isBefore(game.endedAt!.add(Duration(seconds: game.claimWindowSeconds!)));
+  }
+
   bool get canPageBackTickets => ticketPageIndex > 0;
 
   bool get canPageForwardTickets => ticketPage?.last == false;
@@ -326,7 +334,7 @@ class LiveGameController extends StateNotifier<LiveGameState> {
   Future<void> submitClaim() async {
     final selectedTicket = state.selectedTicket;
     final selectedPattern = state.selectedClaimPattern;
-    if (selectedTicket == null || selectedPattern == null) {
+    if (selectedTicket == null || selectedPattern == null || !state.canSubmitClaim || state.isSubmittingClaim) {
       return;
     }
 

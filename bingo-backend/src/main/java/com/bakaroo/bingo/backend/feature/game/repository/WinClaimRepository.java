@@ -21,6 +21,8 @@ public interface WinClaimRepository extends JpaRepository<WinClaim, Long> {
 
     long countBySessionId(Long sessionId);
 
+    long countBySessionIdAndStatus(Long sessionId, WinClaimStatus status);
+
     long countBySessionIdAndClaimedPatternAndStatus(Long sessionId, BingoPatternType claimedPattern,
             WinClaimStatus status);
 
