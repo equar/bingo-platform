@@ -51,6 +51,11 @@ public class AdminDepositController {
         return PageResponse.from(walletService.getAdminDeposits(status, query, pageable));
     }
 
+    @GetMapping("/{id}")
+    public DepositClaimResponse get(@PathVariable Long id) {
+        return walletService.getAdminDeposit(id);
+    }
+
     @GetMapping("/report")
     public PageResponse<DepositReportResponse> depositReport(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
@@ -74,6 +79,7 @@ public class AdminDepositController {
     }
 
     @PostMapping("/{id}/reject")
+    @PreAuthorize("hasRole('SUPPORT')")
     public ResponseEntity<DepositClaimResponse> reject(@PathVariable Long id,
             @AuthenticationPrincipal BingoUserPrincipal principal,
             @Valid @RequestBody DepositReviewRequest request,
@@ -84,7 +90,7 @@ public class AdminDepositController {
     }
 
     @PostMapping("/{id}/verify")
-    @PreAuthorize("hasRole('SUPPORT')")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPPORT')")
     public DepositVerificationResponse verify(@PathVariable Long id,
             @AuthenticationPrincipal BingoUserPrincipal principal,
             @Valid @RequestBody DepositVerificationRequest request) {

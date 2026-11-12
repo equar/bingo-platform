@@ -56,6 +56,9 @@ const PrizeEntitlementsPage = lazy(() =>
 const DepositsPage = lazy(() =>
   import("../features/deposits/DepositsPage").then((module) => ({ default: module.DepositsPage })),
 );
+const DepositDetailPage = lazy(() =>
+  import("../features/deposits/DepositDetailPage").then((module) => ({ default: module.DepositDetailPage })),
+);
 const AuditLogsPage = lazy(() =>
   import("../features/audit/AuditLogsPage").then((module) => ({ default: module.AuditLogsPage })),
 );
@@ -120,6 +123,7 @@ export function AppRouter() {
             <Route path="support/tickets/:ticketId" element={<SupportTicketDetailPage />} />
             <Route path="session-tickets" element={<SessionTicketsPage />} />
             <Route path="reports" element={<ReportsPage />} />
+            <Route path="deposits/:depositId" element={<DepositDetailPage />} />
             <Route element={<ProtectedRoute allowedRoles={["ADMIN", "SUPPORT"]} />}>
               <Route path="management" element={<Navigate to="/dashboard" replace />} />
               <Route path="dashboard" element={<DashboardPage />} />

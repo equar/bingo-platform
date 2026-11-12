@@ -1,4 +1,5 @@
 import 'package:bingo_app/src/core/localization/ethiopian_date_time.dart';
+import 'package:bingo_app/src/core/storage/player_preferences.dart';
 import 'package:bingo_app/src/features/support/presentation/support_shortcut.dart';
 import 'package:bingo_app/src/core/widgets/responsive_content.dart';
 import 'package:bingo_app/l10n/app_localizations.dart';
@@ -58,6 +59,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context)!;
+    final preferences = ref.watch(playerPreferencesProvider);
     final session = ref.watch(authSessionControllerProvider).session;
     if (session == null) {
       return Scaffold(
@@ -144,6 +146,56 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       children: profile.roles
                           .map((role) => Chip(label: Text(role)))
                           .toList(),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              SectionCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Settings',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'Theme',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    SegmentedButton<ThemeMode>(
+                      segments: const [
+                        ButtonSegment(
+                          value: ThemeMode.light,
+                          icon: Icon(Icons.light_mode_outlined),
+                          label: Text('Light'),
+                        ),
+                        ButtonSegment(
+                          value: ThemeMode.dark,
+                          icon: Icon(Icons.dark_mode_outlined),
+                          label: Text('Dark'),
+                        ),
+                        ButtonSegment(
+                          value: ThemeMode.system,
+                          icon: Icon(Icons.brightness_auto_outlined),
+                          label: Text('System'),
+                        ),
+                      ],
+                      selected: {preferences.themeMode},
+                      onSelectionChanged: (value) =>
+                          preferences.setTheme(value.first),
+                    ),
+                    const SizedBox(height: 8),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Sound'),
+                      subtitle: const Text(
+                        'Play a short sound when a number is called.',
+                      ),
+                      value: preferences.soundEnabled,
+                      onChanged: preferences.setSound,
                     ),
                   ],
                 ),

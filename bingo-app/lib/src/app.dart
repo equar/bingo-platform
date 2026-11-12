@@ -3,6 +3,7 @@ import 'package:bingo_app/src/core/widgets/responsive_content.dart';
 import 'package:bingo_app/src/core/config/app_config.dart';
 import 'package:bingo_app/src/core/localization/app_locale_controller.dart';
 import 'package:bingo_app/src/core/storage/session_storage.dart';
+import 'package:bingo_app/src/core/storage/player_preferences.dart';
 import 'package:bingo_app/src/features/auth/presentation/auth_gate.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -32,6 +33,7 @@ class _BingoAppView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final appConfig = ref.watch(appConfigProvider);
     final locale = ref.watch(appLocaleControllerProvider);
+    final preferences = ref.watch(playerPreferencesProvider);
     ref.watch(sessionStorageProvider);
 
     return MaterialApp(
@@ -40,7 +42,7 @@ class _BingoAppView extends ConsumerWidget {
       onGenerateTitle: (context) => AppLocalizations.of(context)!.appTitle,
       theme: buildAppTheme(),
       darkTheme: buildAppTheme(brightness: Brightness.dark),
-      themeMode: ThemeMode.system,
+      themeMode: preferences.themeMode,
       builder: (context, child) => ColoredBox(
         color: Theme.of(context).scaffoldBackgroundColor,
         child: SafeArea(

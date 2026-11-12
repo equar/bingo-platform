@@ -336,7 +336,7 @@ const displayStatusLabels: Record<string, string> = {
   UNSETTLED: "Unsettled",
   UPDATE_SESSION_STATE: "Update session state",
   VERIFIED: "Verified",
-  VERIFICATION_EXCEPTION: "Verification exception",
+  VERIFICATION_EXCEPTION: "Verification awaiting",
   WAITING_FOR_CUSTOMER: "Waiting for customer",
   WAITING_FOR_PLAYER: "Waiting for player",
   VOID: "Voided",

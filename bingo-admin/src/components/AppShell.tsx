@@ -189,6 +189,7 @@ const routeTitles: Array<{ match: RegExp; title: string; parent?: string; parent
   { match: /^\/profile$/, title: "Profile" },
   { match: /^\/community$/, title: "nav.community" },
   { match: /^\/deposits$/, title: "nav.deposits" },
+  { match: /^\/deposits\/[^/]+$/, title: "Deposit details", parent: "nav.deposits", parentTo: "/deposits" },
   { match: /^\/claims$/, title: "nav.claims" },
   { match: /^\/prize-entitlements$/, title: "nav.entitlements" },
   { match: /^\/player-verifications$/, title: "nav.verification" },

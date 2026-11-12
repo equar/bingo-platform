@@ -1248,6 +1248,11 @@ export async function deposits(page = 0, size = 20, query?: string, status?: str
   return data;
 }
 
+export async function deposit(depositId: number) {
+  const { data } = await http.get<DepositClaimResponse>(`/api/v1/admin/deposits/${depositId}`);
+  return data;
+}
+
 export async function approveDeposit(depositId: number, body: DepositReviewRequest) {
   const { data } = await http.post<DepositClaimResponse>(
     `/api/v1/admin/deposits/${depositId}/approve`,
@@ -1266,10 +1271,10 @@ export async function rejectDeposit(depositId: number, body: DepositReviewReques
   return data;
 }
 
-export async function verifyDeposit(depositId: number, statementEntryId: number) {
+export async function verifyDeposit(depositId: number, paymentReference: string) {
   const { data } = await http.post<DepositVerificationResponse>(
     `/api/v1/admin/deposits/${depositId}/verify`,
-    { statementEntryId },
+    { paymentReference },
   );
   return data;
 }

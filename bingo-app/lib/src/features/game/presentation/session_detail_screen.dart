@@ -8,6 +8,7 @@ import 'package:bingo_app/src/core/widgets/responsive_content.dart';
 
 import 'package:bingo_app/l10n/app_localizations.dart';
 import 'package:bingo_app/src/core/config/app_config.dart';
+import 'package:bingo_app/src/core/storage/player_preferences.dart';
 import 'package:bingo_app/src/core/widgets/app_status_view.dart';
 import 'package:bingo_app/src/core/widgets/section_card.dart';
 import 'package:bingo_app/src/features/game/application/live_game_controller.dart';
@@ -15,6 +16,7 @@ import 'package:bingo_app/src/features/game/domain/live_game_models.dart';
 import 'package:bingo_app/src/features/game/domain/ticket_models.dart';
 import 'package:bingo_app/src/features/lobby/domain/lobby_models.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class SessionDetailScreen extends ConsumerStatefulWidget {
@@ -99,6 +101,13 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen>
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context)!;
     final state = ref.watch(liveGameControllerProvider(widget.session.id));
+    ref.listen(liveGameControllerProvider(widget.session.id), (previous, next) {
+      if (ref.read(playerPreferencesProvider).soundEnabled &&
+          previous != null &&
+          next.draws.length > previous.draws.length) {
+        SystemSound.play(SystemSoundType.click);
+      }
+    });
     _maybeCelebrate(state);
     final controller = ref.read(
       liveGameControllerProvider(widget.session.id).notifier,
@@ -106,6 +115,7 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen>
     final purchasesEnabled = ref
         .watch(appConfigProvider)
         .playerTicketPurchasesEnabled;
+    final playerPreferences = ref.watch(playerPreferencesProvider);
     final session = state.session ?? widget.session;
     final isPreGame = session.state == 'DRAFT' || session.state == 'OPEN';
 
@@ -113,6 +123,29 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen>
       appBar: AppBar(
         title: Text(localizations.liveGameTitle),
         actions: [
+          IconButton(
+            tooltip: 'Game settings',
+            icon: const Icon(Icons.tune_rounded),
+            onPressed: () => showModalBottomSheet<void>(
+              context: context,
+              isScrollControlled: true,
+              useSafeArea: true,
+              showDragHandle: true,
+              builder: (_) =>
+                  _GameSettingsSheet(preferences: playerPreferences),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Sort cards',
+            icon: const Icon(Icons.sort_rounded),
+            onPressed: () => showModalBottomSheet<void>(
+              context: context,
+              isScrollControlled: true,
+              useSafeArea: true,
+              showDragHandle: true,
+              builder: (_) => _SortCardsSheet(preferences: playerPreferences),
+            ),
+          ),
           if (!isPreGame)
             IconButton(
               key: const ValueKey('live-game-details'),
@@ -166,6 +199,7 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen>
                 state: state,
                 controller: controller,
                 localizations: localizations,
+                preferences: playerPreferences,
               )
             : RefreshIndicator(
                 onRefresh: controller.refresh,
@@ -215,6 +249,7 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen>
                         state: state,
                         controller: controller,
                         localizations: localizations,
+                        preferences: playerPreferences,
                       ),
                       const SizedBox(height: 16),
                       if (!isPreGame)
@@ -257,10 +292,12 @@ class _LivePlayView extends StatelessWidget {
     required this.state,
     required this.controller,
     required this.localizations,
+    required this.preferences,
   });
   final LiveGameState state;
   final LiveGameController controller;
   final AppLocalizations localizations;
+  final PlayerPreferences preferences;
 
   @override
   Widget build(BuildContext context) => SafeArea(
@@ -304,6 +341,7 @@ class _LivePlayView extends StatelessWidget {
                         controller: controller,
                         localizations: localizations,
                         fillAvailableSpace: true,
+                        preferences: preferences,
                       ),
                     ),
                     _ClaimCard(
@@ -465,6 +503,7 @@ class _TicketsCard extends StatelessWidget {
     required this.state,
     required this.controller,
     required this.localizations,
+    required this.preferences,
     this.fillAvailableSpace = false,
   });
 
@@ -472,12 +511,25 @@ class _TicketsCard extends StatelessWidget {
   final LiveGameState state;
   final LiveGameController controller;
   final AppLocalizations localizations;
+  final PlayerPreferences preferences;
 
   @override
   Widget build(BuildContext context) {
     final ticketPage = state.ticketPage;
     final tickets = ticketPage?.content ?? const [];
     final selectedTicket = state.selectedTicket;
+    final orderedTickets = [...tickets]
+      ..sort((a, b) {
+        for (final priority in preferences.sortPriorities) {
+          final score = _ticketPatternScore(
+            b,
+            state.calledNumbers,
+            priority,
+          ).compareTo(_ticketPatternScore(a, state.calledNumbers, priority));
+          if (score != 0) return score;
+        }
+        return 0;
+      });
 
     return SectionCard(
       key: const ValueKey('live-tickets'),
@@ -518,11 +570,13 @@ class _TicketsCard extends StatelessWidget {
                 child: Row(
                   spacing: 8,
                   children: [
-                    for (var index = 0; index < tickets.length; index += 1)
+                    for (final ticket in orderedTickets)
                       ChoiceChip(
-                        selected: index == state.selectedTicketIndex,
-                        label: Text(tickets[index].publicTicketCode),
-                        onSelected: (_) => controller.selectTicketIndex(index),
+                        selected: ticket.id == selectedTicket?.id,
+                        label: Text(ticket.publicTicketCode),
+                        onSelected: (_) => controller.selectTicketIndex(
+                          tickets.indexOf(ticket),
+                        ),
                       ),
                   ],
                 ),
@@ -532,18 +586,25 @@ class _TicketsCard extends StatelessWidget {
             if (selectedTicket != null) ...[
               if (fillAvailableSpace)
                 Expanded(
-                  child: _TicketGridCard(
-                    ticket: selectedTicket,
-                    calledNumbers: state.calledNumbers,
-                    localizations: localizations,
-                    fillAvailableSpace: true,
+                  child: _buildTicketBoard(
+                    orderedTickets,
+                    tickets,
+                    state,
+                    controller,
+                    localizations,
+                    preferences,
+                    true,
                   ),
                 )
               else
-                _TicketGridCard(
-                  ticket: selectedTicket,
-                  calledNumbers: state.calledNumbers,
-                  localizations: localizations,
+                _buildTicketBoard(
+                  orderedTickets,
+                  tickets,
+                  state,
+                  controller,
+                  localizations,
+                  preferences,
+                  false,
                 ),
               const SizedBox(height: 12),
             ],
@@ -574,6 +635,51 @@ class _TicketsCard extends StatelessWidget {
       ),
     );
   }
+
+  Widget _buildTicketBoard(
+    List<TicketResponse> ordered,
+    List<TicketResponse> source,
+    LiveGameState state,
+    LiveGameController controller,
+    AppLocalizations localizations,
+    PlayerPreferences preferences,
+    bool fill,
+  ) {
+    final visible = ordered.take(preferences.cardsOnBoard).toList();
+    final selected = state.selectedTicket;
+    if (selected != null &&
+        !visible.any((ticket) => ticket.id == selected.id) &&
+        visible.isNotEmpty) {
+      visible[visible.length - 1] = selected;
+    }
+    return GridView.builder(
+      shrinkWrap: !fill,
+      physics: fill
+          ? const AlwaysScrollableScrollPhysics()
+          : const NeverScrollableScrollPhysics(),
+      padding: EdgeInsets.zero,
+      itemCount: visible.length,
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: preferences.cardsOnBoard == 3 ? 3 : 2,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
+        childAspectRatio: .72,
+      ),
+      itemBuilder: (context, index) {
+        final ticket = visible[index];
+        return _TicketGridCard(
+          ticket: ticket,
+          calledNumbers: state.calledNumbers,
+          localizations: localizations,
+          autoMark: preferences.autoMark,
+          selectionColor: PlayerPreferences
+              .selectionColors[preferences.selectionColorIndex],
+          selected: ticket.id == state.selectedTicket?.id,
+          onTap: () => controller.selectTicketIndex(source.indexOf(ticket)),
+        );
+      },
+    );
+  }
 }
 
 class _TicketGridCard extends StatelessWidget {
@@ -581,13 +687,19 @@ class _TicketGridCard extends StatelessWidget {
     required this.ticket,
     required this.calledNumbers,
     required this.localizations,
-    this.fillAvailableSpace = false,
+    this.autoMark = true,
+    this.selectionColor = const Color(0xFF245AD8),
+    this.selected = false,
+    this.onTap,
   });
 
-  final bool fillAvailableSpace;
   final TicketResponse ticket;
   final List<int> calledNumbers;
   final AppLocalizations localizations;
+  final bool autoMark;
+  final Color selectionColor;
+  final bool selected;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -633,7 +745,8 @@ class _TicketGridCard extends StatelessWidget {
             final ticketRow = row - 1;
             final value = ticket.grid[ticketRow][column];
             final isFree = value == 0;
-            final isCalled = isFree || calledNumbers.contains(value);
+            final isCalled =
+                isFree || (autoMark && calledNumbers.contains(value));
             final isLatest = value == latestCalled;
             return _TicketCell(
               key: ValueKey('ticket-cell-$ticketRow-$column'),
@@ -644,33 +757,35 @@ class _TicketGridCard extends StatelessWidget {
               isLatest: isLatest,
               border: cellBorder,
               localizations: localizations,
+              selectionColor: selectionColor,
             );
           },
         ),
       ),
     );
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          ticket.publicTicketCode,
-          style: Theme.of(context).textTheme.titleMedium,
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        decoration: BoxDecoration(
+          border: selected ? Border.all(color: selectionColor, width: 2) : null,
+          borderRadius: BorderRadius.circular(8),
         ),
-        const SizedBox(height: 12),
-        if (fillAvailableSpace)
-          Expanded(
-            child: SizedBox(
-              key: const ValueKey('live-ticket-grid'),
-              child: grid,
+        padding: const EdgeInsets.all(3),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              ticket.publicTicketCode,
+              style: Theme.of(
+                context,
+              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
             ),
-          )
-        else
-          AspectRatio(
-            key: const ValueKey('live-ticket-grid'),
-            aspectRatio: 5 / 6,
-            child: grid,
-          ),
-      ],
+            const SizedBox(height: 4),
+            Expanded(key: const ValueKey('live-ticket-grid'), child: grid),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -1002,6 +1117,7 @@ class _TicketCell extends StatelessWidget {
     required this.isLatest,
     required this.border,
     required this.localizations,
+    required this.selectionColor,
   });
 
   final int value;
@@ -1011,19 +1127,20 @@ class _TicketCell extends StatelessWidget {
   final bool isLatest;
   final Border border;
   final AppLocalizations localizations;
+  final Color selectionColor;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final background = isLatest
-        ? colors.primaryContainer
+        ? selectionColor.withValues(alpha: .34)
         : isCalled
-        ? colors.secondaryContainer
+        ? selectionColor.withValues(alpha: .2)
         : colors.surface;
     final numberColor = isLatest
-        ? colors.onPrimaryContainer
+        ? selectionColor
         : isCalled
-        ? colors.onSecondaryContainer
+        ? selectionColor
         : colors.onSurface;
 
     return Semantics(
@@ -1077,7 +1194,7 @@ class _TicketCell extends StatelessWidget {
                 Positioned(
                   top: 1,
                   right: 1,
-                  child: Icon(Icons.check, size: 13, color: colors.primary),
+                  child: Icon(Icons.check, size: 13, color: selectionColor),
                 ),
             ],
           ),
@@ -1123,4 +1240,397 @@ class _ClaimStatusChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Chip(label: Text(_claimStatusLabel(localizations, status)));
   }
+}
+
+double _ticketPatternScore(
+  TicketResponse ticket,
+  List<int> called,
+  String pattern,
+) {
+  final calledSet = {...called, 0};
+  final masks = _sortMasks(pattern);
+  if (pattern == 'Most called') {
+    return ticket.grid.expand((row) => row).where(calledSet.contains).length /
+        25;
+  }
+  if (masks.isEmpty) return 0;
+  return masks
+      .map(
+        (mask) =>
+            mask
+                .where(
+                  (cell) =>
+                      calledSet.contains(ticket.grid[cell ~/ 5][cell % 5]),
+                )
+                .length /
+            mask.length,
+      )
+      .reduce(math.max);
+}
+
+List<List<int>> _sortMasks(String name) {
+  List<int> row(int r) => List.generate(5, (c) => r * 5 + c);
+  List<int> column(int c) => List.generate(5, (r) => r * 5 + c);
+  final rows = List.generate(5, row);
+  final columns = List.generate(5, column);
+  final diagonals = [
+    List.generate(5, (i) => i * 6),
+    List.generate(5, (i) => i * 5 + 4),
+  ];
+  if (name.startsWith('Lines')) {
+    var masks = [...rows, ...columns, ...diagonals];
+    if (name == 'Lines touching free') {
+      masks = masks.where((mask) => mask.contains(12)).toList();
+    }
+    if (name == 'Lines not touching free') {
+      masks = masks.where((mask) => !mask.contains(12)).toList();
+    }
+    if (name == 'Non-crossing lines') {
+      masks = masks.where((mask) => !diagonals.contains(mask)).toList();
+    }
+    return masks;
+  }
+  if (name == 'Horizontal lines') {
+    return rows;
+  }
+  if (name == 'Vertical lines') {
+    return columns;
+  }
+  if (name == 'Diagonal lines') {
+    return diagonals;
+  }
+  if (name == 'Corner balls') {
+    return [
+      [0, 4, 20, 24],
+    ];
+  }
+  if (name == 'Big O (border)') {
+    return [
+      [
+        ...rows.first,
+        ...rows.last,
+        ...List.generate(3, (i) => (i + 1) * 5),
+        ...List.generate(3, (i) => (i + 1) * 5 + 4),
+      ],
+    ];
+  }
+  if (name == 'Big T') {
+    return [
+      [...rows.first, 6, 11, 16, 21],
+    ];
+  }
+  if (name == 'Big Z') {
+    return [
+      [...rows.first, ...rows.last, 4, 8, 12, 16],
+    ];
+  }
+  if (name == 'Big H') {
+    return [
+      [...column(0), ...column(4), ...rows[2]],
+    ];
+  }
+  if (name == 'Big L') {
+    return [
+      [...column(0), ...rows.last],
+    ];
+  }
+  if (name == 'Big U') {
+    return [
+      [...column(0), ...column(4), ...rows.last],
+    ];
+  }
+  if (name == 'Small X') {
+    return [
+      [0, 6, 12, 18, 24, 4, 8, 16, 20],
+    ];
+  }
+  if (name == 'Small T') {
+    return [
+      [0, 1, 2, 6, 11, 16, 21],
+    ];
+  }
+  if (name == 'Small cross (+)') {
+    return [
+      [2, 7, 10, 11, 12, 13, 14, 17, 22],
+    ];
+  }
+  if (name == 'Half house') {
+    return [
+      [...rows[0], ...rows[1], ...rows[2]],
+    ];
+  }
+  if (name == 'Squares' || name == 'Rectangles') {
+    final masks = <List<int>>[];
+    for (var height = 2; height <= 4; height++) {
+      for (var width = 2; width <= 4; width++) {
+        if ((height == width) != (name == 'Squares')) continue;
+        for (var r = 0; r + height <= 5; r++) {
+          for (var c = 0; c + width <= 5; c++) {
+            masks.add([
+              for (var y = r; y < r + height; y++)
+                for (var x = c; x < c + width; x++) y * 5 + x,
+            ]);
+          }
+        }
+      }
+    }
+    return masks;
+  }
+  return [];
+}
+
+class _GameSettingsSheet extends StatelessWidget {
+  const _GameSettingsSheet({required this.preferences});
+  final PlayerPreferences preferences;
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: preferences,
+    builder: (context, _) => SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Game Settings',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+            const SizedBox(height: 16),
+            Text('Board', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
+            SegmentedButton<int>(
+              segments: const [
+                ButtonSegment(value: 2, label: Text('2')),
+                ButtonSegment(value: 3, label: Text('3')),
+                ButtonSegment(value: 4, label: Text('4')),
+              ],
+              selected: {preferences.cardsOnBoard},
+              onSelectionChanged: (value) =>
+                  preferences.setBoardSize(value.first),
+            ),
+            ListTile(
+              leading: const Icon(Icons.sort_rounded),
+              title: const Text('Sort Cards'),
+              subtitle: Text(
+                preferences.sortPriorities.isEmpty
+                    ? 'Choose up to 3 card patterns'
+                    : preferences.sortPriorities.join(' · '),
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => showModalBottomSheet<void>(
+                context: context,
+                isScrollControlled: true,
+                useSafeArea: true,
+                showDragHandle: true,
+                builder: (_) => _SortCardsSheet(preferences: preferences),
+              ),
+            ),
+            const Divider(),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Auto-mark called numbers'),
+              subtitle: const Text('Mark each called number on your cards.'),
+              value: preferences.autoMark,
+              onChanged: preferences.setAutoMark,
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Hide unregistered cards'),
+              subtitle: const Text('Show only cards registered for this game.'),
+              value: preferences.hideUnregisteredCards,
+              onChanged: preferences.setHideUnregistered,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Selection Color',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                for (
+                  var i = 0;
+                  i < PlayerPreferences.selectionColors.length;
+                  i++
+                )
+                  InkWell(
+                    onTap: () => preferences.setSelectionColor(i),
+                    customBorder: const CircleBorder(),
+                    child: Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: PlayerPreferences.selectionColors[i],
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: preferences.selectionColorIndex == i
+                              ? Theme.of(context).colorScheme.onSurface
+                              : Colors.transparent,
+                          width: 3,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Close'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+class _SortCardsSheet extends StatelessWidget {
+  const _SortCardsSheet({required this.preferences});
+  final PlayerPreferences preferences;
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: preferences,
+    builder: (context, _) {
+      const groups = <String, List<String>>{
+        'Lines': [
+          'Lines (anywhere)',
+          'Lines touching free',
+          'Lines not touching free',
+          'Non-crossing lines',
+        ],
+        'Squares': ['Squares'],
+        'Rectangles': ['Rectangles'],
+        'Horizontal lines': ['Horizontal lines'],
+        'Vertical lines': ['Vertical lines'],
+        'Big T': ['Big T'],
+        'Big Z': ['Big Z'],
+        'Big H': ['Big H'],
+        'Big L': ['Big L'],
+        'Big U': ['Big U'],
+        'Other patterns': [
+          'Diagonal lines',
+          'Most called',
+          'Small X',
+          'Small T',
+          'Small cross (+)',
+          'Corner balls',
+          'Half house',
+          'Big O (border)',
+        ],
+      };
+      return SafeArea(
+        child: SizedBox(
+          height: MediaQuery.sizeOf(context).height * .82,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+                child: Row(
+                  children: [
+                    const Icon(Icons.sort_rounded),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Sort by',
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
+                  ],
+                ),
+              ),
+              if (preferences.sortPriorities.isNotEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 20),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'The order you tick them sets the priority. Up to 3.',
+                    ),
+                  ),
+                ),
+              if (preferences.sortPriorities.isNotEmpty)
+                Wrap(
+                  spacing: 6,
+                  children: [
+                    for (var i = 0; i < preferences.sortPriorities.length; i++)
+                      InputChip(
+                        label: Text(
+                          '${i + 1}. ${preferences.sortPriorities[i]}',
+                        ),
+                        onDeleted: () => preferences.toggleSortPriority(
+                          preferences.sortPriorities[i],
+                        ),
+                      ),
+                  ],
+                ),
+              Expanded(
+                child: ListView(
+                  children: [
+                    for (final group in groups.entries)
+                      ExpansionTile(
+                        title: Text(
+                          '${group.key}${group.key == 'Lines' ? '  ${preferences.sortPriorities.where(group.value.contains).length}' : ''}',
+                        ),
+                        initiallyExpanded:
+                            group.key == 'Lines' &&
+                            preferences.sortPriorities.isNotEmpty,
+                        children: [
+                          for (final option in group.value)
+                            CheckboxListTile(
+                              value: preferences.sortPriorities.contains(
+                                option,
+                              ),
+                              title: Text(option),
+                              secondary: Text(
+                                option
+                                    .split(' ')
+                                    .map((word) => word.isEmpty ? '' : word[0])
+                                    .take(2)
+                                    .join()
+                                    .toUpperCase(),
+                              ),
+                              onChanged: (_) {
+                                if (!preferences.sortPriorities.contains(
+                                      option,
+                                    ) &&
+                                    preferences.sortPriorities.length >= 3) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Choose up to 3 priorities.',
+                                      ),
+                                    ),
+                                  );
+                                  return;
+                                }
+                                preferences.toggleSortPriority(option);
+                              },
+                            ),
+                        ],
+                      ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Done'),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
 }

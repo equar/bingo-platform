@@ -134,7 +134,7 @@ describe("admin API client", () => {
   });
 
   it("uses independent bank evidence and maker-checker wallet adjustment routes", async () => {
-    await verifyDeposit(41, 81);
+    await verifyDeposit(41, "TEL-REF-81");
     await submitWalletAdjustmentRequest(6, {
       amount: -12.5,
       currency: "ETB",
@@ -148,7 +148,7 @@ describe("admin API client", () => {
     expect(httpMock.post).toHaveBeenNthCalledWith(
       1,
       "/api/v1/admin/deposits/41/verify",
-      { statementEntryId: 81 },
+      { paymentReference: "TEL-REF-81" },
     );
     expect(httpMock.post).toHaveBeenNthCalledWith(
       2,
