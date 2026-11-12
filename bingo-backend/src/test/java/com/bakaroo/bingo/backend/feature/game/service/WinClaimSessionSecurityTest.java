@@ -88,12 +88,15 @@ class WinClaimSessionSecurityTest {
                 drawEventRepository, winClaimRepository, prizeEntitlementRepository, userRepository,
                 walletRepository, walletTransactionRepository, gameProperties, snapshotMapper,
                 idempotencyService, requestHashService, objectMapper, gameLiveDrawService,
-                org.mockito.Mockito.mock(com.bakaroo.bingo.backend.feature.community.service.GameAccessService.class));
+                org.mockito.Mockito.mock(com.bakaroo.bingo.backend.feature.community.service.GameAccessService.class),
+                mock(GameFundingService.class), mock(GameWinnerService.class), mock(GameRefundService.class),
+                new com.bakaroo.bingo.backend.feature.game.config.GamePolicyProperties(1000, java.math.BigDecimal.ZERO,
+                        java.time.Duration.ofHours(24), false));
 
     }
 
     @Test
-    void cancelledAuthoritativeSessionRejectsBeforeClaimCreationOrAwardSideEffects() {
+    void cancelledAuthoritativeSessionRejectsBeforeClaimCreationOrAwardSideEffects() throws Exception {
         arrangeClaim(GameSessionState.CANCELLED);
 
         ConflictException failure = assertThrows(ConflictException.class,
@@ -107,7 +110,7 @@ class WinClaimSessionSecurityTest {
     }
 
     @Test
-    void activeSessionPassesSessionGuardAndContinuesToExistingDuplicateValidation() {
+    void activeSessionPassesSessionGuardAndContinuesToExistingDuplicateValidation() throws Exception {
         arrangeClaim(GameSessionState.STARTED);
         when(winClaimRepository.existsByTicketIdAndClaimedPatternAndDrawSequenceSnapshot(
                 TICKET_ID, BingoPatternType.LINE, 0)).thenThrow(new ValidationReached());
@@ -119,7 +122,7 @@ class WinClaimSessionSecurityTest {
     }
 
     @Test
-    void closedSessionKeepsExistingBehaviorPendingProductEligibilityDecision() {
+    void closedSessionAcceptsClaimsWithinConfiguredWindow() throws Exception {
         arrangeClaim(GameSessionState.CLOSED);
         when(winClaimRepository.existsByTicketIdAndClaimedPatternAndDrawSequenceSnapshot(
                 TICKET_ID, BingoPatternType.LINE, 0)).thenThrow(new ValidationReached());
@@ -163,7 +166,7 @@ class WinClaimSessionSecurityTest {
         service.submitWinClaim(TICKET_ID, principal, new WinClaimRequest(BingoPatternType.LINE), "unit-key");
     }
 
-    private void arrangeClaim(GameSessionState authoritativeState) {
+    private void arrangeClaim(GameSessionState authoritativeState) throws Exception {
         player = mock(User.class);
         when(player.getId()).thenReturn(PLAYER_ID);
         when(player.hasRole(UserRole.PLAYER)).thenReturn(true);
@@ -176,6 +179,15 @@ class WinClaimSessionSecurityTest {
         when(ticketRepository.findByIdAndOwnerId(TICKET_ID, PLAYER_ID)).thenReturn(Optional.of(ticket));
         when(gameSessionRepository.findByIdForUpdate(SESSION_ID)).thenReturn(Optional.of(lockedSession));
         when(lockedSession.getState()).thenReturn(authoritativeState);
+        if (authoritativeState != GameSessionState.CANCELLED) {
+            when(lockedSession.getPatternsSnapshotJson()).thenReturn("[\"LINE\"]");
+            when(objectMapper.readValue(eq("[\"LINE\"]"), any(com.fasterxml.jackson.core.type.TypeReference.class)))
+                    .thenReturn(java.util.List.of(BingoPatternType.LINE));
+        }
+        if (authoritativeState == GameSessionState.CLOSED) {
+            when(lockedSession.getEndedAt()).thenReturn(java.time.Instant.now());
+            when(lockedSession.getClaimWindowSeconds()).thenReturn(86400L);
+        }
         when(requestHashService.hash(anyString(), anyString(), any())).thenReturn("request-hash");
         doAnswer(invocation -> {
             Supplier<?> supplier = invocation.getArgument(6);

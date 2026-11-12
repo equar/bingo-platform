@@ -104,6 +104,10 @@ public class BingoGameService {
     private final ObjectMapper objectMapper;
     private final GameLiveDrawService gameLiveDrawService;
     private final WinClaimSessionValidator winClaimSessionValidator;
+    private final GameRefundService refunds;
+    private final GameFundingService funding;
+    private final GameWinnerService winners;
+    private final com.bakaroo.bingo.backend.feature.game.config.GamePolicyProperties policy;
 
     public BingoGameService(BingoRoomRepository bingoRoomRepository,
             GameSessionRepository gameSessionRepository,
@@ -120,7 +124,13 @@ public class BingoGameService {
             RequestHashService requestHashService,
             ObjectMapper objectMapper,
             GameLiveDrawService gameLiveDrawService,
-            com.bakaroo.bingo.backend.feature.community.service.GameAccessService gameAccess) {
+            com.bakaroo.bingo.backend.feature.community.service.GameAccessService gameAccess,
+            GameFundingService funding, GameWinnerService winners, GameRefundService refunds,
+            com.bakaroo.bingo.backend.feature.game.config.GamePolicyProperties policy) {
+        this.funding = funding;
+        this.refunds = refunds;
+        this.winners = winners;
+        this.policy = policy;
         this.gameAccess = gameAccess;
         this.bingoRoomRepository = bingoRoomRepository;
         this.gameSessionRepository = gameSessionRepository;
@@ -372,6 +382,10 @@ public class BingoGameService {
         }
 
         GameSession session = new GameSession();
+        session.setRulesVersion("EARLIEST_SPLIT_V1");
+        session.setMinimumHouseMarginBps(policy.minimumHouseMarginBps());
+        session.setSessionCostReserve(MoneyValues.money(policy.sessionCostReserve()));
+        session.setClaimWindowSeconds(policy.claimWindow().toSeconds());
         session.setRoom(room);
         session.setSessionName(request.sessionName().trim());
         session.setState(request.state() == null ? GameSessionState.DRAFT : request.state());
@@ -386,10 +400,10 @@ public class BingoGameService {
                 request.maxTicketsPerPlayer() != null ? request.maxTicketsPerPlayer() : room.getMaxTicketsPerPlayer());
         session.setTicketSalesCloseOnSessionStart(
                 request.ticketSalesCloseOnSessionStart() != null ? request.ticketSalesCloseOnSessionStart()
-                        : room.isTicketSalesCloseOnSessionStart());
+                        : true);
         session.setAllowMultipleWinnersPerPrize(
                 request.allowMultipleWinnersPerPrize() != null ? request.allowMultipleWinnersPerPrize()
-                        : room.isAllowMultipleWinnersPerPrize());
+                        : true);
         session.setPatternsSnapshotJson(writePatterns(
                 request.configuredPatterns() != null ? request.configuredPatterns() : roomPatterns(room)));
         if (request.configuredPrizes() != null) {
@@ -397,6 +411,7 @@ public class BingoGameService {
         } else {
             session.setPrizesSnapshotJson(writePrizeConfigs(roomPrizes(room)));
         }
+        validateSessionPrizeConfiguration(session);
         try {
             return toSessionResponse(gameSessionRepository.saveAndFlush(session));
         } catch (DataIntegrityViolationException exception) {
@@ -418,15 +433,45 @@ public class BingoGameService {
             throw new ConflictException("INVALID_SESSION_STATE_TRANSITION",
                     "Cannot transition session from " + current + " to " + next);
         }
-        if (next == GameSessionState.CANCELLED && ticketRepository.countBySessionId(sessionId) > 0) {
-            throw new ConflictException("SESSION_HAS_TICKETS_CANNOT_CANCEL",
-                    "A session with sold tickets cannot be cancelled");
+        if (next == GameSessionState.CANCELLED) {
+            if (drawEventRepository.countBySessionId(sessionId) > 0) {
+                throw new ConflictException("SESSION_ALREADY_DRAWN", "A game cannot be cancelled after the first draw");
+            }
+            if (ticketRepository.countBySessionId(sessionId) > 0) {
+                requirePayoutsEnabled();
+                if (!"EARLIEST_SPLIT_V1".equals(session.getRulesVersion())) {
+                    throw new ConflictException("LEGACY_SESSION_REQUIRES_REVIEW", "Legacy ticket refunds require reconciliation");
+                }
+                refunds.refund(session);
+            }
+        }
+        if (next == GameSessionState.STARTED) {
+            validateSessionPrizeConfiguration(session);
+            funding.requireFunded(session);
+        }
+        if (next == GameSessionState.CLOSED) {
+            for (BingoPatternType pattern : readPatterns(session.getPatternsSnapshotJson())) {
+                if (winners.winners(sessionId, pattern).ticketIds().isEmpty()) {
+                    throw new ConflictException("SESSION_PRIZES_INCOMPLETE", "Continue drawing until all configured patterns have winners");
+                }
+            }
+        }
+        if (next == GameSessionState.SETTLED) {
+            if (session.getClaimWindowSeconds() == null || session.getEndedAt() == null
+                    || Instant.now().isBefore(session.getEndedAt().plusSeconds(session.getClaimWindowSeconds()))) {
+                throw new ConflictException("CLAIM_WINDOW_OPEN", "The claim window must expire before final settlement");
+            }
+            if (winClaimRepository.countBySessionIdAndStatus(sessionId, WinClaimStatus.PENDING_REVIEW) > 0
+                    || prizeEntitlementRepository.countBySessionIdAndStatus(sessionId, PrizeEntitlementStatus.PENDING) > 0) {
+                throw new ConflictException("SESSION_HAS_UNRESOLVED_OBLIGATIONS",
+                        "Resolve all pending claims and prizes before settling the session");
+            }
         }
         session.setState(next);
         if (next == GameSessionState.STARTED) {
             session.setStartedAt(Instant.now());
         }
-        if (next == GameSessionState.CLOSED || next == GameSessionState.SETTLED || next == GameSessionState.CANCELLED) {
+        if (session.getEndedAt() == null && (next == GameSessionState.CLOSED || next == GameSessionState.CANCELLED)) {
             session.setEndedAt(Instant.now());
         }
         return toSessionResponse(session);
@@ -457,6 +502,9 @@ public class BingoGameService {
                     ensureWallet(player);
                     Wallet wallet = walletRepository.findByOwnerIdForUpdate(player.getId())
                             .orElseThrow(() -> new NotFoundException("WALLET_NOT_FOUND", "Player wallet not found"));
+                    if (!wallet.getCurrency().equals(session.getCurrencySnapshot())) {
+                        throw new ConflictException("CURRENCY_MISMATCH", "Ticket currency must match the funding wallet");
+                    }
                     BigDecimal price = MoneyValues.money(session.getTicketPriceSnapshot());
                     BigDecimal transferableBefore = wallet.getAvailableBalance();
                     BigDecimal promotionalBefore = wallet.getPromotionalBalance();
@@ -566,6 +614,17 @@ public class BingoGameService {
                     GameSession session = gameSessionRepository.findByIdForUpdate(sessionId)
                             .orElseThrow(() -> new NotFoundException("SESSION_NOT_FOUND", "Game session not found"));
                     winClaimSessionValidator.validate(session.getState());
+                    if (session.getState() == GameSessionState.CLOSED && (session.getClaimWindowSeconds() == null
+                            || session.getEndedAt() == null
+                            || !Instant.now().isBefore(session.getEndedAt().plusSeconds(session.getClaimWindowSeconds())))) {
+                        throw new ConflictException("CLAIM_WINDOW_EXPIRED", "The claim window for this game has ended");
+                    }
+                    if (!readPatterns(session.getPatternsSnapshotJson()).contains(request.claimedPattern())) {
+                        throw new BadRequestException("PRIZE_NOT_CONFIGURED", "Pattern is not configured for this session");
+                    }
+                    if (prizeEntitlementRepository.existsByTicketIdAndPrizeType(ticketId, request.claimedPattern())) {
+                        throw new ConflictException("TICKET_PRIZE_ALREADY_AWARDED", "This ticket has already received this prize");
+                    }
 
                     if (winClaimRepository.existsByTicketIdAndClaimedPatternAndDrawSequenceSnapshot(ticketId,
                             request.claimedPattern(), currentDrawSequence(sessionId))) {
@@ -587,14 +646,24 @@ public class BingoGameService {
                     claim.setCalledNumbersSnapshotJson(writeIntegerList(calledNumbers));
                     claim.setEvidenceJson(writeEvidence(ticketCard, calledNumbers, request.claimedPattern()));
                     claim.setOperationId(operationId);
+                    if (matches) {
+                        try { winners.share(claim); }
+                        catch (ConflictException failure) {
+                            if (!"NOT_EARLIEST_WINNER".equals(failure.getCode())) throw failure;
+                            matches = false;
+                            claim.setServerValidationCode("NOT_EARLIEST_WINNER");
+                            claim.setServerValidationMessage("This ticket did not complete the pattern on its earliest call");
+                        }
+                    }
                     claim.setServerValidationPassed(matches);
                     if (matches) {
                         claim.setStatus(WinClaimStatus.PENDING_REVIEW);
                     } else {
                         claim.setStatus(WinClaimStatus.FAILED_SERVER_VALIDATION);
-                        claim.setServerValidationCode("CLAIM_DOES_NOT_MATCH_DRAWN_NUMBERS");
-                        claim.setServerValidationMessage(
-                                "The ticket does not satisfy the claimed pattern at the recorded draw sequence");
+                        if (claim.getServerValidationCode() == null) {
+                            claim.setServerValidationCode("CLAIM_DOES_NOT_MATCH_DRAWN_NUMBERS");
+                            claim.setServerValidationMessage("The ticket does not satisfy the claimed pattern at the recorded draw sequence");
+                        }
                     }
                     claim = winClaimRepository.save(claim);
                     return toWinClaimResponse(claim);
@@ -605,7 +674,7 @@ public class BingoGameService {
     public Page<WinClaimResponse> getMyWinClaims(BingoUserPrincipal principal, Pageable pageable) {
         User player = requirePlayer(principal);
         return winClaimRepository.findByClaimantIdOrderByCreatedAtDesc(player.getId(), pageable)
-                .map(this::toWinClaimResponse);
+                .map(claim -> toWinClaimResponse(claim, claim.getEntitlement(), true));
     }
 
     @Transactional(readOnly = true)
@@ -631,6 +700,9 @@ public class BingoGameService {
         WinClaim claim = winClaimRepository.findByIdForUpdate(claimId)
                 .orElseThrow(() -> new NotFoundException("WIN_CLAIM_NOT_FOUND", "Win claim not found"));
 
+        GameSession lockedSession = gameSessionRepository.findByIdForUpdate(claim.getSession().getId())
+                .orElseThrow(() -> new NotFoundException("SESSION_NOT_FOUND", "Game session not found"));
+        winClaimSessionValidator.validate(lockedSession.getState());
         if (!claim.isServerValidationPassed()) {
             throw new ConflictException("SERVER_VALIDATION_FAILED",
                     "Server validation failed for this claim and cannot be overridden");
@@ -647,8 +719,13 @@ public class BingoGameService {
             return toWinClaimResponse(claim);
         }
 
-        enforcePrizeWinnerLimit(claim);
+        if (prizeEntitlementRepository.existsByTicketIdAndPrizeType(claim.getTicket().getId(), claim.getClaimedPattern())) {
+            throw new ConflictException("TICKET_PRIZE_ALREADY_AWARDED", "This ticket has already received this prize");
+        }
+        funding.requireFunded(lockedSession);
+        winners.share(claim);
         PrizeEntitlement entitlement = createEntitlementForClaim(claim, admin, request.reviewNote());
+        claim.setEntitlement(entitlement);
         claim.setStatus(WinClaimStatus.APPROVED);
         claim.setReviewedBy(admin);
         claim.setReviewedAt(Instant.now());
@@ -660,10 +737,73 @@ public class BingoGameService {
     @Transactional
     public PrizeEntitlementResponse settleEntitlement(Long entitlementId, BingoUserPrincipal principal,
             PrizeEntitlementSettlementRequest request) {
-        requireAdmin(principal);
-        throw new ConflictException("PRIZE_SETTLEMENT_BLOCKED",
-                "Prize settlement is disabled pending approved payout and accounting controls");
+        User admin = requireAdmin(principal);
+        requirePayoutsEnabled();
+        // Match the session -> entitlement -> wallet lock order used by review and finalization.
+        PrizeEntitlement reference = prizeEntitlementRepository.findById(entitlementId)
+                .orElseThrow(() -> new NotFoundException("ENTITLEMENT_NOT_FOUND", "Prize entitlement not found"));
+        GameSession session = gameSessionRepository.findByIdForUpdate(reference.getSession().getId())
+                .orElseThrow(() -> new NotFoundException("SESSION_NOT_FOUND", "Game session not found"));
+        PrizeEntitlement entitlement = prizeEntitlementRepository.findByIdForUpdate(entitlementId).orElseThrow();
+        if (entitlement.getStatus() == PrizeEntitlementStatus.SETTLED) {
+            if (request.settlementReference().trim().equals(entitlement.getSettlementReference())) {
+                return toPrizeEntitlementResponse(entitlement);
+            }
+            throw new ConflictException("PAYOUT_ALREADY_SETTLED", "Prize has already been settled");
+        }
+        if (entitlement.getStatus() != PrizeEntitlementStatus.PENDING
+                || entitlement.getWinClaim().getStatus() != WinClaimStatus.APPROVED) {
+            throw new ConflictException("PRIZE_NOT_PAYABLE", "Only pending approved prizes can be paid");
+        }
+        if (entitlement.getSettlementPath() != PrizeSettlementPath.PLAYER_WALLET) {
+            throw new ConflictException("AGENT_PAYOUT_REQUIRED", "Cash prizes must be disbursed through the agent payout workflow");
+        }
+        winClaimSessionValidator.validate(session.getState());
+        funding.requireFunded(session);
+        if (entitlement.getPrizeAmount().compareTo(winners.share(entitlement.getWinClaim())) != 0) {
+            throw new ConflictException("PRIZE_SHARE_MISMATCH", "The entitlement differs from the authoritative prize share");
+        }
+        ensureWallet(entitlement.getClaimant());
+        Wallet wallet = walletRepository.findByOwnerIdForUpdate(entitlement.getClaimant().getId()).orElseThrow();
+        if (!wallet.getCurrency().equals(entitlement.getCurrency())) {
+            throw new ConflictException("CURRENCY_MISMATCH", "Prize currency must match the destination wallet");
+        }
+        BigDecimal before = wallet.getAvailableBalance();
+        BigDecimal after = MoneyValues.money(before.add(entitlement.getPrizeAmount()));
+        wallet.setAvailableBalance(after);
+        walletRepository.save(wallet);
+        walletTransactionRepository.save(WalletTransaction.create(wallet, entitlement.getOperationId(),
+                WalletTransactionType.PRIZE_CREDIT, entitlement.getPrizeAmount(), before, after,
+                wallet.getPromotionalBalance(), wallet.getPromotionalBalance(), wallet.getCurrency(),
+                "BINGO_PRIZE", entitlementId, "Bingo prize credit", null, Instant.now()));
+        entitlement.setStatus(PrizeEntitlementStatus.SETTLED);
+        entitlement.setSettledAt(Instant.now());
+        entitlement.setSettledBy(admin);
+        entitlement.setSettlementReference(request.settlementReference().trim());
+        entitlement.setSettlementNote(request.settlementNote());
+        return toPrizeEntitlementResponse(prizeEntitlementRepository.save(entitlement));
     }
+
+    public void validatePrizeForPayment(Long entitlementId) {
+        requirePayoutsEnabled();
+        PrizeEntitlement reference = prizeEntitlementRepository.findById(entitlementId)
+                .orElseThrow(() -> new NotFoundException("ENTITLEMENT_NOT_FOUND", "Prize entitlement not found"));
+        GameSession session = gameSessionRepository.findByIdForUpdate(reference.getSession().getId()).orElseThrow();
+        PrizeEntitlement entitlement = prizeEntitlementRepository.findByIdForUpdate(entitlementId).orElseThrow();
+        winClaimSessionValidator.validate(session.getState());
+        funding.requireFunded(session);
+        if (entitlement.getWinClaim().getStatus() != WinClaimStatus.APPROVED
+                || entitlement.getPrizeAmount().compareTo(winners.share(entitlement.getWinClaim())) != 0) {
+            throw new ConflictException("PRIZE_NOT_PAYABLE", "Prize must match an approved authoritative winner share");
+        }
+    }
+
+    public void requirePayoutsEnabled() {
+        if (!policy.payoutsEnabled()) {
+            throw new ConflictException("PRIZE_SETTLEMENT_BLOCKED", "Prize payouts are disabled by the operating configuration");
+        }
+    }
+
 
     private BingoRoom requireRoom(Long roomId) {
         return bingoRoomRepository.findById(roomId)
@@ -691,14 +831,16 @@ public class BingoGameService {
     }
 
     private void validateTicketSaleOpen(GameSession session) {
+        if (!"EARLIEST_SPLIT_V1".equals(session.getRulesVersion())) {
+            throw new ConflictException("LEGACY_SESSION_REQUIRES_REVIEW", "Legacy games require review before accepting further sales");
+        }
         if (session.getState() == GameSessionState.DRAFT
                 || session.getState() == GameSessionState.CLOSED
                 || session.getState() == GameSessionState.SETTLED
                 || session.getState() == GameSessionState.CANCELLED) {
             throw new ConflictException("SESSION_NOT_OPEN", "Ticket sales are closed for this session");
         }
-        if ((gameProperties.ticketSalesCloseOnSessionStart() || session.isTicketSalesCloseOnSessionStart())
-                && session.getStartedAt() != null) {
+        if (session.getState() != GameSessionState.OPEN || session.getStartedAt() != null) {
             throw new ConflictException("SESSION_ALREADY_STARTED", "Ticket sales close when the session starts");
         }
     }
@@ -789,7 +931,7 @@ public class BingoGameService {
         entitlement.setPrizeType(config.prizeType());
         entitlement.setSettlementPath(config.settlementPath());
         entitlement.setStatus(PrizeEntitlementStatus.PENDING);
-        entitlement.setPrizeAmount(MoneyValues.money(config.amount()));
+        entitlement.setPrizeAmount(winners.share(claim));
         entitlement.setCurrency(claim.getSession().getCurrencySnapshot());
         entitlement.setOperationId(UUID.randomUUID().toString());
         if (config.settlementPath() == PrizeSettlementPath.AGENT_CASH) {
@@ -797,6 +939,33 @@ public class BingoGameService {
         }
         entitlement.setSettlementNote(reviewNote);
         return prizeEntitlementRepository.save(entitlement);
+    }
+
+    private void validateSessionPrizeConfiguration(GameSession session) {
+        List<BingoPatternType> patterns = readPatterns(session.getPatternsSnapshotJson());
+        List<BingoPrizeConfig> prizes = readPrizes(session.getPrizesSnapshotJson());
+        Set<BingoPatternType> selected = new HashSet<>(patterns);
+        Set<BingoPatternType> configured = new HashSet<>();
+        if (patterns.isEmpty() || prizes.isEmpty() || selected.size() != patterns.size()) {
+            throw new BadRequestException("INVALID_SESSION_PRIZE_CONFIGURATION", "Configure unique patterns and prizes");
+        }
+        for (BingoPrizeConfig prize : prizes) {
+            if (!configured.add(prize.prizeType()) || prize.amount() == null
+                    || prize.amount().signum() <= 0 || prize.maxWinners() < 1 || prize.settlementPath() == null) {
+                throw new BadRequestException("INVALID_SESSION_PRIZE_CONFIGURATION", "Each pattern requires one valid prize");
+            }
+        }
+        if (!selected.equals(configured)) {
+            throw new BadRequestException("INVALID_SESSION_PRIZE_CONFIGURATION", "Prizes must match the selected patterns");
+        }
+        BigDecimal minimumPool = BigDecimal.valueOf(session.getSessionCapacitySnapshot(), 2);
+        if (prizes.stream().anyMatch(prize -> prize.amount().compareTo(minimumPool) < 0)) {
+            throw new BadRequestException("PRIZE_POOL_TOO_SMALL", "Prize pools must allow at least one cent per possible tied ticket");
+        }
+        // Late sales expose already-called numbers and invalidate earliest-completion eligibility.
+        if (!session.isTicketSalesCloseOnSessionStart()) {
+            throw new BadRequestException("LATE_TICKET_SALES_NOT_ALLOWED", "Ticket sales must close when the game starts");
+        }
     }
 
     private void validateRoomPrizeConfiguration(BingoRoomRequest request) {
@@ -820,23 +989,6 @@ public class BingoGameService {
         if (!selectedPatterns.equals(prizePatterns)) {
             throw new BadRequestException("ROOM_PRIZES_MUST_MATCH_PATTERNS",
                     "Configure exactly one prize for each selected pattern");
-        }
-    }
-
-    private void enforcePrizeWinnerLimit(WinClaim claim) {
-        GameSession session = gameSessionRepository.findByIdForUpdate(claim.getSession().getId())
-                .orElseThrow(() -> new NotFoundException("SESSION_NOT_FOUND", "Game session not found"));
-        BingoPrizeConfig prize = readPrizes(session.getPrizesSnapshotJson()).stream()
-                .filter(config -> config.prizeType() == claim.getClaimedPattern())
-                .findFirst()
-                .orElseThrow(() -> new ConflictException("PRIZE_NOT_CONFIGURED",
-                        "Prize type is not configured for this session"));
-        long approvedWinners = winClaimRepository.countBySessionIdAndClaimedPatternAndStatus(
-                session.getId(), claim.getClaimedPattern(), WinClaimStatus.APPROVED);
-        int maximumWinners = session.isAllowMultipleWinnersPerPrize() ? prize.maxWinners() : 1;
-        if (approvedWinners >= maximumWinners) {
-            throw new ConflictException("PRIZE_WINNER_LIMIT_REACHED",
-                    "The maximum number of winners for this prize has already been reached");
         }
     }
 
@@ -874,6 +1026,10 @@ public class BingoGameService {
     }
 
     private WinClaimResponse toWinClaimResponse(WinClaim claim, PrizeEntitlement entitlement) {
+        return toWinClaimResponse(claim, entitlement, false);
+    }
+
+    private WinClaimResponse toWinClaimResponse(WinClaim claim, PrizeEntitlement entitlement, boolean ownerView) {
         return new WinClaimResponse(
                 claim.getId(),
                 claim.getTicket().getId(),
@@ -896,7 +1052,14 @@ public class BingoGameService {
                 claim.getReviewedAt(),
                 entitlement == null ? null : entitlement.getId(),
                 claim.getCreatedAt(),
-                claim.getUpdatedAt());
+                claim.getUpdatedAt(),
+                entitlement == null ? null : entitlement.getPrizeAmount(),
+                entitlement == null ? null : entitlement.getCurrency(),
+                entitlement == null ? null : entitlement.getStatus(),
+                ownerView && policy.payoutsEnabled() && entitlement != null
+                        && entitlement.getStatus() == PrizeEntitlementStatus.PENDING
+                        && entitlement.getSettlementPath() == PrizeSettlementPath.AGENT_CASH
+                        ? entitlement.getPayoutCode() : null);
     }
 
     private PrizeEntitlementResponse toPrizeEntitlementResponse(PrizeEntitlement entitlement) {
@@ -921,7 +1084,7 @@ public class BingoGameService {
                 entitlement.getSettledAt(),
                 entitlement.getSettledBy() == null ? null : entitlement.getSettledBy().getId(),
                 entitlement.getSettlementReference(),
-                entitlement.getSettlementNote());
+                entitlement.getSettlementNote(), policy.payoutsEnabled());
     }
 
     private BingoRoomResponse toRoomResponse(BingoRoom room) {
@@ -993,7 +1156,8 @@ public class BingoGameService {
                 ticketRepository.countBySessionId(session.getId()),
                 drawEventRepository.countBySessionId(session.getId()),
                 session.getCreatedAt(),
-                session.getUpdatedAt());
+                session.getUpdatedAt(), session.getRulesVersion(), session.getMinimumHouseMarginBps(),
+                session.getClaimWindowSeconds(), policy.payoutsEnabled(), funding.summarize(session));
     }
 
     private PlayerGameSessionResponse toPlayerSessionResponse(GameSession session) {
@@ -1013,7 +1177,8 @@ public class BingoGameService {
                 ticketRepository.countBySessionId(session.getId()),
                 drawEventRepository.countBySessionId(session.getId()),
                 session.getCreatedAt(),
-                session.getUpdatedAt());
+                session.getUpdatedAt(), session.getRulesVersion(), session.getClaimWindowSeconds(),
+                readPrizes(session.getPrizesSnapshotJson()), policy.payoutsEnabled());
     }
 
     private String writePatterns(List<BingoPatternType> patterns) {

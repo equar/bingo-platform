@@ -87,5 +87,10 @@ public interface PrizeEntitlementRepository extends JpaRepository<PrizeEntitleme
 
     boolean existsByWinClaimId(Long winClaimId);
 
+    boolean existsByTicketIdAndPrizeType(Long ticketId,
+            com.bakaroo.bingo.backend.feature.game.entity.BingoPatternType prizeType);
+
+    long countBySessionIdAndStatus(Long sessionId, PrizeEntitlementStatus status);
+
     List<PrizeEntitlement> findByStatus(PrizeEntitlementStatus status);
 }

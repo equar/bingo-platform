@@ -48,6 +48,10 @@ class WinClaimRecord {
     this.reviewedBy,
     this.reviewedAt,
     this.entitlementId,
+    this.prizeAmount,
+    this.prizeCurrency,
+    this.prizeStatus,
+    this.payoutCode,
   });
 
   final int id;
@@ -67,6 +71,10 @@ class WinClaimRecord {
   final int? reviewedBy;
   final DateTime? reviewedAt;
   final int? entitlementId;
+  final num? prizeAmount;
+  final String? prizeCurrency;
+  final String? prizeStatus;
+  final String? payoutCode;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -91,6 +99,10 @@ class WinClaimRecord {
       reviewedBy: (json['reviewedBy'] as num?)?.toInt(),
       reviewedAt: DateTime.tryParse(json['reviewedAt']?.toString() ?? ''),
       entitlementId: (json['entitlementId'] as num?)?.toInt(),
+      prizeAmount: json['prizeAmount'] as num?,
+      prizeCurrency: json['prizeCurrency']?.toString(),
+      prizeStatus: json['prizeStatus']?.toString(),
+      payoutCode: json['payoutCode']?.toString(),
       createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0),
       updatedAt: DateTime.tryParse(json['updatedAt']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0),
     );

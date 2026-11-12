@@ -230,6 +230,10 @@ public class WinClaim {
         return entitlement;
     }
 
+    public void setEntitlement(PrizeEntitlement entitlement) {
+        this.entitlement = entitlement;
+    }
+
     public Instant getCreatedAt() {
         return createdAt;
     }

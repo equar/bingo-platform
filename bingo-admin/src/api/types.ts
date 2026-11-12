@@ -87,6 +87,27 @@ const SAFE_MESSAGES = {
 } as const;
 
 const CODE_MESSAGES: Record<string, string> = {
+  SESSION_UNDERFUNDED: "This game needs more cash-backed ticket sales to cover its prize pools, costs, and house margin.",
+  SESSION_HAS_UNRESOLVED_OBLIGATIONS: "Resolve pending claims and prize payments before settling this game.",
+  CLAIM_WINDOW_OPEN: "Wait until the claim window closes before settling this game.",
+  CLAIM_WINDOW_EXPIRED: "The claim window for this game has ended.",
+  SESSION_NOT_CLAIMABLE: "Claims require a started game that has not been settled.",
+  TICKET_PRIZE_ALREADY_AWARDED: "This ticket has already received an award for this pattern.",
+  NOT_EARLIEST_WINNER: "This ticket did not complete the pattern on its earliest call.",
+  PRIZE_SETTLEMENT_BLOCKED: "Prize payouts and refunds are disabled in the operating configuration.",
+  SESSION_PRIZES_INCOMPLETE: "Continue drawing until all configured patterns have winners.",
+  SESSION_ALREADY_DRAWN: "A game cannot be cancelled after its first draw.",
+  LEGACY_SESSION_REQUIRES_REVIEW: "Reconcile this legacy game under its original terms before further operation.",
+  PRIZE_POOL_TOO_SMALL: "Each prize pool must provide at least one cent for every possible tied ticket.",
+  INVALID_SESSION_PRIZE_CONFIGURATION: "Configure unique patterns and exactly one valid prize pool per pattern.",
+  LATE_TICKET_SALES_NOT_ALLOWED: "Ticket sales must close when the game starts.",
+  AGENT_PAYOUT_REQUIRED: "This cash prize must be paid through the agent payout workflow.",
+  COMMISSION_REVERSAL_UNFUNDED: "The agent float must cover reversal of the paid commission before cancellation.",
+  PRIZE_SHARE_MISMATCH: "The recorded prize differs from the authoritative share. Reconcile it before payment.",
+  CURRENCY_MISMATCH: "The payment and destination currencies must match.",
+  TICKET_REFUND_EVIDENCE_MISSING: "Original ticket funding evidence is required before refunding this game.",
+  TICKET_REFUND_EVIDENCE_INVALID: "Reconcile the original ticket funding before refunding this game.",
+
   ACCESS_DENIED: SAFE_MESSAGES.permissionDenied,
   FORBIDDEN: SAFE_MESSAGES.permissionDenied,
   ADMIN_ROLE_REQUIRED: SAFE_MESSAGES.permissionDenied,

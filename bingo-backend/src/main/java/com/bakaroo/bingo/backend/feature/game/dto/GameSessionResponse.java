@@ -27,5 +27,10 @@ public record GameSessionResponse(
         long ticketCount,
         long drawCount,
         Instant createdAt,
-        Instant updatedAt) {
+        Instant updatedAt,
+        String rulesVersion,
+        Integer minimumHouseMarginBps,
+        Long claimWindowSeconds,
+        boolean payoutsEnabled,
+        com.bakaroo.bingo.backend.feature.game.service.GameFundingService.FundingSummary funding) {
 }

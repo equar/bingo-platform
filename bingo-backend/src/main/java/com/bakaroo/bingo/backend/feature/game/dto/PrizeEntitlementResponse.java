@@ -28,5 +28,6 @@ public record PrizeEntitlementResponse(
         Instant settledAt,
         Long settledBy,
         String settlementReference,
-        String settlementNote) {
+        String settlementNote,
+        boolean payoutsEnabled) {
 }

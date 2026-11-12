@@ -103,6 +103,17 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles("test")
 @Import(BingoLiveDrawIntegrationTest.TestMessagingConfig.class)
 class BingoLiveDrawIntegrationTest extends MySqlIntegrationTest {
+    // Funding and eligibility have database-backed coverage in GameOperationalReadinessIntegrationTest.
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    com.bakaroo.bingo.backend.feature.game.service.GameFundingService funding;
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    com.bakaroo.bingo.backend.feature.game.service.GameWinnerService winners;
+    @org.junit.jupiter.api.BeforeEach
+    void arrangePrizeEligibility() {
+        org.mockito.Mockito.when(winners.winners(org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(new com.bakaroo.bingo.backend.feature.game.service.GameWinnerService.Winners(1, java.util.List.of(1L)));
+    }
+
 
         @LocalServerPort
         int port;

@@ -77,6 +77,27 @@ public class GameSession {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    @Column(name = "rules_version", nullable = false, length = 30)
+    private String rulesVersion = "LEGACY";
+
+    @Column(name = "minimum_house_margin_bps")
+    private Integer minimumHouseMarginBps;
+
+    @Column(name = "session_cost_reserve", precision = 19, scale = 2)
+    private BigDecimal sessionCostReserve;
+
+    @Column(name = "claim_window_seconds")
+    private Long claimWindowSeconds;
+
+    public String getRulesVersion() { return rulesVersion; }
+    public void setRulesVersion(String value) { rulesVersion = value; }
+    public Integer getMinimumHouseMarginBps() { return minimumHouseMarginBps; }
+    public void setMinimumHouseMarginBps(Integer value) { minimumHouseMarginBps = value; }
+    public BigDecimal getSessionCostReserve() { return sessionCostReserve; }
+    public void setSessionCostReserve(BigDecimal value) { sessionCostReserve = value; }
+    public Long getClaimWindowSeconds() { return claimWindowSeconds; }
+    public void setClaimWindowSeconds(Long value) { claimWindowSeconds = value; }
+
     @Version
     @Column(name = "version", nullable = false)
     private long version;

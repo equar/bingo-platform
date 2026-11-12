@@ -20,7 +20,7 @@ public enum GameSessionState {
         return switch (this) {
             case DRAFT -> EnumSet.of(OPEN, CANCELLED);
             case OPEN -> EnumSet.of(STARTED, CANCELLED);
-            case STARTED -> EnumSet.of(DRAWING, CLOSED);
+            case STARTED -> EnumSet.of(DRAWING, CLOSED, CANCELLED);
             case DRAWING -> EnumSet.of(CLOSED);
             case CLOSED -> EnumSet.of(SETTLED);
             case SETTLED, CANCELLED -> EnumSet.noneOf(GameSessionState.class);

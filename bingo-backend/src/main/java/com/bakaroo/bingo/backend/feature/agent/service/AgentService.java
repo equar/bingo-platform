@@ -243,12 +243,16 @@ public class AgentService {
 
         return idempotencyService.execute(principal.getUser().getId(), idempotencyKey, requestHash, operationId,
                 HttpStatus.CREATED.value(), TicketPurchaseResponse.class, () -> {
-                    AgentFloat agentFloat = requireAgentFloatForUpdate(agent.getId());
-                    BigDecimal ticketPrice = bingoGameService.getSession(request.sessionId()).ticketPrice();
-                    debitAgentFloat(agentFloat, ticketPrice, AgentFloatTransactionType.TICKET_SALE_DEBIT,
-                            "BINGO_TICKET", null, operationId, "Agent ticket sale");
                     TicketPurchaseResponse response = bingoGameService.createAgentTicket(request.sessionId(), player,
                             operationId);
+                    AgentFloat agentFloat = requireAgentFloatForUpdate(agent.getId());
+                    var session = bingoGameService.getSession(request.sessionId());
+                    if (!agentFloat.getCurrency().equals(session.currency())) {
+                        throw new ConflictException("CURRENCY_MISMATCH", "Ticket currency must match agent float currency");
+                    }
+                    BigDecimal ticketPrice = session.ticketPrice();
+                    debitAgentFloat(agentFloat, ticketPrice, AgentFloatTransactionType.TICKET_SALE_DEBIT,
+                            "BINGO_TICKET", response.ticket().id(), operationId, "Agent ticket sale");
                     Ticket ticket = ticketRepository.findById(response.ticket().id())
                             .orElseThrow(() -> new NotFoundException("TICKET_NOT_FOUND", "Ticket not found"));
                     createCommissionAccrual(agent, ticket, ticketPrice, operationId);
@@ -324,6 +328,7 @@ public class AgentService {
     public IdempotentResult<PayoutVerificationResponse> verifyAndDisbursePayout(BingoUserPrincipal principal,
             AgentPayoutVerificationRequest request,
             String idempotencyKey) {
+        bingoGameService.requirePayoutsEnabled();
         Agent agent = requireApprovedAgent(principal.getUser().getId());
         throttleService.requireAllowed(
                 "agent-payout-code:" + request.payoutCode(),
@@ -337,6 +342,9 @@ public class AgentService {
 
         return idempotencyService.execute(principal.getUser().getId(), idempotencyKey, requestHash, operationId,
                 HttpStatus.OK.value(), PayoutVerificationResponse.class, () -> {
+                    PrizeEntitlement reference = prizeEntitlementRepository.findByPayoutCode(request.payoutCode())
+                            .orElseThrow(() -> new NotFoundException("PAYOUT_CODE_NOT_FOUND", "Payout code not found"));
+                    bingoGameService.validatePrizeForPayment(reference.getId());
                     PrizeEntitlement entitlement = prizeEntitlementRepository
                             .findByPayoutCodeForUpdate(request.payoutCode())
                             .orElseThrow(() -> new NotFoundException("PAYOUT_CODE_NOT_FOUND", "Payout code not found"));
@@ -348,6 +356,9 @@ public class AgentService {
                     }
 
                     AgentFloat agentFloat = requireAgentFloatForUpdate(agent.getId());
+                    if (!agentFloat.getCurrency().equals(entitlement.getCurrency())) {
+                        throw new ConflictException("CURRENCY_MISMATCH", "Prize currency must match agent float currency");
+                    }
                     BigDecimal amount = requirePositiveAmount(entitlement.getPrizeAmount(), "INVALID_PAYOUT_AMOUNT",
                             "Payout amount must be greater than zero");
                     AgentFloatTransaction payoutTransaction = debitAgentFloat(agentFloat, amount,
@@ -356,6 +367,7 @@ public class AgentService {
 
                     entitlement.setStatus(PrizeEntitlementStatus.SETTLED);
                     entitlement.setSettledAt(Instant.now());
+                    entitlement.setSettledBy(principal.getUser());
                     entitlement.setSettlementReference(request.clearingReference());
                     prizeEntitlementRepository.save(entitlement);
 
@@ -587,6 +599,7 @@ public class AgentService {
                     case PLAYER_WALLET_TRANSFER_DEBIT -> "playerWalletTopUp";
                     case PAYOUT_DISBURSEMENT_DEBIT -> "payoutDisbursement";
                     case PAYOUT_CLEARING_CREDIT -> "payoutClearing";
+                    case COMMISSION_REVERSAL_DEBIT -> "commissionReversal";
                     case COMMISSION_CREDIT -> "commissionCredit";
                     case MANUAL_ADJUSTMENT -> "manualAdjustment";
                 },

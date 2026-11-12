@@ -23,6 +23,11 @@ describe('api types helpers', () => {
     expect(error.message).not.toContain('SQL');
   });
 
+  it('explains game funding and claim-window blockers using safe messages', () => {
+    expect(parseApiError({ response: { status: 409, data: { code: 'SESSION_UNDERFUNDED' } } }).message).toContain('house margin');
+    expect(parseApiError({ response: { status: 409, data: { code: 'CLAIM_WINDOW_OPEN' } } }).message).toContain('claim window closes');
+  });
+
   it('uses status fallbacks for legacy and malformed responses', () => {
     const forbidden = parseApiError({ response: { status: 403, data: 'not-json' } });
     const missing = parseApiError({ response: { status: 404, data: { message: 'internal details' } } });

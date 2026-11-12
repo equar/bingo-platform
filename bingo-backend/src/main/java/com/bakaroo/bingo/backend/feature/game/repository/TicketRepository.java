@@ -55,6 +55,8 @@ public interface TicketRepository extends JpaRepository<Ticket, Long> {
 
     Optional<Ticket> findByIdAndOwnerId(Long id, Long ownerId);
 
+    List<Ticket> findBySessionIdOrderByIdAsc(Long sessionId);
+
     long countBySessionId(Long sessionId);
 
     long countBySessionIdAndOwnerId(Long sessionId, Long ownerId);

@@ -25,6 +25,6 @@ public record GameSessionRequest(
         @Min(1) Integer maxTicketsPerPlayer,
         Boolean ticketSalesCloseOnSessionStart,
         Boolean allowMultipleWinnersPerPrize,
-        @Valid List<@NotNull BingoPatternType> configuredPatterns,
-        @Valid List<@NotNull BingoPrizeConfigRequest> configuredPrizes) {
+        List<@NotNull BingoPatternType> configuredPatterns,
+        List<@NotNull @Valid BingoPrizeConfigRequest> configuredPrizes) {
 }
