@@ -3,6 +3,8 @@ import 'package:bingo_app/l10n/app_localizations.dart';
 import 'package:bingo_app/src/features/home/presentation/home_screen.dart';
 import 'package:bingo_app/src/features/lobby/presentation/lobby_screen.dart';
 import 'package:bingo_app/src/features/profile/presentation/profile_screen.dart';
+import 'package:bingo_app/src/features/player_content/presentation/messages_screen.dart';
+import 'package:bingo_app/src/features/player_content/presentation/game_history_screen.dart';
 import 'package:bingo_app/src/features/support/presentation/support_screen.dart';
 import 'package:bingo_app/src/features/wallet/presentation/wallet_screen.dart';
 import 'package:flutter/material.dart';
@@ -53,6 +55,8 @@ class _HomeShellState extends State<HomeShell> {
       onGames: () => _select(1),
       onWallet: () => _select(2),
       onSupport: _support,
+      onMessages: _messages,
+      onGameHistory: _gameHistory,
     ),
   };
 
@@ -94,6 +98,14 @@ class _HomeShellState extends State<HomeShell> {
 
   void _support() => _navigatorKeys[_index].currentState!.push<void>(
     MaterialPageRoute(builder: (_) => const SupportScreen()),
+  );
+
+  void _messages() => _navigatorKeys[_index].currentState!.push<void>(
+    MaterialPageRoute(builder: (_) => const MessagesScreen()),
+  );
+
+  void _gameHistory() => _navigatorKeys[_index].currentState!.push<void>(
+    MaterialPageRoute(builder: (_) => const GameHistoryScreen()),
   );
 
   @override

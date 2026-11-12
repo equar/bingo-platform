@@ -131,8 +131,10 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen>
               isScrollControlled: true,
               useSafeArea: true,
               showDragHandle: true,
-              builder: (_) =>
-                  _GameSettingsSheet(preferences: playerPreferences),
+              builder: (_) => _GameSettingsSheet(
+                preferences: playerPreferences,
+                activeTicketId: state.selectedTicket?.id,
+              ),
             ),
           ),
           IconButton(
@@ -572,11 +574,16 @@ class _TicketsCard extends StatelessWidget {
                   children: [
                     for (final ticket in orderedTickets)
                       ChoiceChip(
-                        selected: ticket.id == selectedTicket?.id,
+                        selected: preferences.multipleCardSelection
+                            ? preferences.selectedTicketIds.contains(ticket.id)
+                            : ticket.id == selectedTicket?.id,
                         label: Text(ticket.publicTicketCode),
-                        onSelected: (_) => controller.selectTicketIndex(
-                          tickets.indexOf(ticket),
-                        ),
+                        onSelected: (_) {
+                          controller.selectTicketIndex(tickets.indexOf(ticket));
+                          if (preferences.multipleCardSelection) {
+                            preferences.toggleSelectedTicket(ticket.id);
+                          }
+                        },
                       ),
                   ],
                 ),
@@ -645,7 +652,12 @@ class _TicketsCard extends StatelessWidget {
     PlayerPreferences preferences,
     bool fill,
   ) {
-    final visible = ordered.take(preferences.cardsOnBoard).toList();
+    final boardCapacity = preferences.cardsOnBoard * 2;
+    // Keep unselected tickets visible in selection mode so the player can add
+    // or remove any ticket without it disappearing from the grid.
+    final visible = preferences.multipleCardSelection
+        ? ordered
+        : ordered.take(boardCapacity).toList();
     final selected = state.selectedTicket;
     if (selected != null &&
         !visible.any((ticket) => ticket.id == selected.id) &&
@@ -658,24 +670,40 @@ class _TicketsCard extends StatelessWidget {
           ? const AlwaysScrollableScrollPhysics()
           : const NeverScrollableScrollPhysics(),
       padding: EdgeInsets.zero,
-      itemCount: visible.length,
+      itemCount: preferences.multipleCardSelection
+          ? visible.length
+          : preferences.hideUnregisteredCards
+          ? visible.length
+          : boardCapacity,
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: preferences.cardsOnBoard == 3 ? 3 : 2,
+        crossAxisCount: preferences.cardsOnBoard,
         crossAxisSpacing: 8,
         mainAxisSpacing: 8,
         childAspectRatio: .72,
       ),
       itemBuilder: (context, index) {
+        if (index >= visible.length) {
+          return _UnregisteredTicketCard(localizations: localizations);
+        }
         final ticket = visible[index];
         return _TicketGridCard(
           ticket: ticket,
           calledNumbers: state.calledNumbers,
           localizations: localizations,
           autoMark: preferences.autoMark,
+          manualMarks: preferences.manualMarksForTicket(ticket.id),
+          onToggleManualMark: (number) =>
+              preferences.toggleManualMark(ticket.id, number),
           selectionColor: PlayerPreferences
               .selectionColors[preferences.selectionColorIndex],
           selected: ticket.id == state.selectedTicket?.id,
-          onTap: () => controller.selectTicketIndex(source.indexOf(ticket)),
+          multiSelected: preferences.selectedTicketIds.contains(ticket.id),
+          onTap: () {
+            controller.selectTicketIndex(source.indexOf(ticket));
+            if (preferences.multipleCardSelection) {
+              preferences.toggleSelectedTicket(ticket.id);
+            }
+          },
         );
       },
     );
@@ -688,8 +716,11 @@ class _TicketGridCard extends StatelessWidget {
     required this.calledNumbers,
     required this.localizations,
     this.autoMark = true,
+    this.manualMarks = const {},
+    this.onToggleManualMark,
     this.selectionColor = const Color(0xFF245AD8),
     this.selected = false,
+    this.multiSelected = false,
     this.onTap,
   });
 
@@ -697,8 +728,11 @@ class _TicketGridCard extends StatelessWidget {
   final List<int> calledNumbers;
   final AppLocalizations localizations;
   final bool autoMark;
+  final Set<int> manualMarks;
+  final ValueChanged<int>? onToggleManualMark;
   final Color selectionColor;
   final bool selected;
+  final bool multiSelected;
   final VoidCallback? onTap;
 
   @override
@@ -746,7 +780,9 @@ class _TicketGridCard extends StatelessWidget {
             final value = ticket.grid[ticketRow][column];
             final isFree = value == 0;
             final isCalled =
-                isFree || (autoMark && calledNumbers.contains(value));
+                isFree ||
+                manualMarks.contains(value) ||
+                (autoMark && calledNumbers.contains(value));
             final isLatest = value == latestCalled;
             return _TicketCell(
               key: ValueKey('ticket-cell-$ticketRow-$column'),
@@ -758,6 +794,8 @@ class _TicketGridCard extends StatelessWidget {
               border: cellBorder,
               localizations: localizations,
               selectionColor: selectionColor,
+              isManuallyMarked: manualMarks.contains(value),
+              onTap: isFree ? null : () => onToggleManualMark?.call(value),
             );
           },
         ),
@@ -768,7 +806,9 @@ class _TicketGridCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(8),
       child: Container(
         decoration: BoxDecoration(
-          border: selected ? Border.all(color: selectionColor, width: 2) : null,
+          border: selected || multiSelected
+              ? Border.all(color: selectionColor, width: 2)
+              : null,
           borderRadius: BorderRadius.circular(8),
         ),
         padding: const EdgeInsets.all(3),
@@ -1118,6 +1158,8 @@ class _TicketCell extends StatelessWidget {
     required this.border,
     required this.localizations,
     required this.selectionColor,
+    required this.isManuallyMarked,
+    this.onTap,
   });
 
   final int value;
@@ -1128,6 +1170,8 @@ class _TicketCell extends StatelessWidget {
   final Border border;
   final AppLocalizations localizations;
   final Color selectionColor;
+  final bool isManuallyMarked;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -1135,7 +1179,7 @@ class _TicketCell extends StatelessWidget {
     final background = isLatest
         ? selectionColor.withValues(alpha: .34)
         : isCalled
-        ? selectionColor.withValues(alpha: .2)
+        ? selectionColor.withValues(alpha: isManuallyMarked ? .32 : .2)
         : colors.surface;
     final numberColor = isLatest
         ? selectionColor
@@ -1146,62 +1190,95 @@ class _TicketCell extends StatelessWidget {
     return Semantics(
       label: '$columnLetter ${isFree ? localizations.freeCenterLabel : value}',
       selected: isCalled && !isFree,
+      button: onTap != null,
       child: ExcludeSemantics(
-        child: AnimatedContainer(
-          duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 180),
-          decoration: BoxDecoration(color: background, border: border),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              if (isFree)
-                Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(2),
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        localizations.freeCenterLabel.toUpperCase(),
-                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: colors.onSecondaryContainer,
-                          fontWeight: FontWeight.w800,
+        child: InkWell(
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: MediaQuery.disableAnimationsOf(context)
+                ? Duration.zero
+                : const Duration(milliseconds: 180),
+            decoration: BoxDecoration(color: background, border: border),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (isFree)
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(2),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          localizations.freeCenterLabel.toUpperCase(),
+                          style: Theme.of(context).textTheme.labelLarge
+                              ?.copyWith(
+                                color: colors.onSecondaryContainer,
+                                fontWeight: FontWeight.w800,
+                              ),
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(2),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          value.toString(),
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(
+                                color: numberColor,
+                                fontWeight: isCalled
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
+                              ),
                         ),
                       ),
                     ),
                   ),
-                )
-              else
-                Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(2),
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        value.toString(),
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(
-                              color: numberColor,
-                              fontWeight: isCalled
-                                  ? FontWeight.w700
-                                  : FontWeight.w500,
-                            ),
-                      ),
-                    ),
+                if (isCalled && !isFree)
+                  Positioned(
+                    top: 1,
+                    right: 1,
+                    child: Icon(Icons.check, size: 13, color: selectionColor),
                   ),
-                ),
-              if (isCalled && !isFree)
-                Positioned(
-                  top: 1,
-                  right: 1,
-                  child: Icon(Icons.check, size: 13, color: selectionColor),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
     );
   }
+}
+
+class _UnregisteredTicketCard extends StatelessWidget {
+  const _UnregisteredTicketCard({required this.localizations});
+  final AppLocalizations localizations;
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: BoxDecoration(
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+    ),
+    child: Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.add_card_outlined, color: Colors.grey, size: 32),
+          const SizedBox(height: 4),
+          Text(
+            localizations.unregisteredCard,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.labelSmall,
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 class _BingoHeaderCell extends StatelessWidget {
@@ -1380,114 +1457,140 @@ List<List<int>> _sortMasks(String name) {
 }
 
 class _GameSettingsSheet extends StatelessWidget {
-  const _GameSettingsSheet({required this.preferences});
+  const _GameSettingsSheet({required this.preferences, this.activeTicketId});
   final PlayerPreferences preferences;
+  final int? activeTicketId;
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: preferences,
-    builder: (context, _) => SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Game Settings',
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 16),
-            Text('Board', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            SegmentedButton<int>(
-              segments: const [
-                ButtonSegment(value: 2, label: Text('2')),
-                ButtonSegment(value: 3, label: Text('3')),
-                ButtonSegment(value: 4, label: Text('4')),
-              ],
-              selected: {preferences.cardsOnBoard},
-              onSelectionChanged: (value) =>
-                  preferences.setBoardSize(value.first),
-            ),
-            ListTile(
-              leading: const Icon(Icons.sort_rounded),
-              title: const Text('Sort Cards'),
-              subtitle: Text(
-                preferences.sortPriorities.isEmpty
-                    ? 'Choose up to 3 card patterns'
-                    : preferences.sortPriorities.join(' · '),
+    builder: (context, _) {
+      final localizations = AppLocalizations.of(context)!;
+      return SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                localizations.gameSettingsTitle,
+                style: Theme.of(context).textTheme.headlineSmall,
               ),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => showModalBottomSheet<void>(
-                context: context,
-                isScrollControlled: true,
-                useSafeArea: true,
-                showDragHandle: true,
-                builder: (_) => _SortCardsSheet(preferences: preferences),
+              const SizedBox(height: 16),
+              Text('Board', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 8),
+              SegmentedButton<int>(
+                segments: const [
+                  ButtonSegment(value: 2, label: Text('2')),
+                  ButtonSegment(value: 3, label: Text('3')),
+                  ButtonSegment(value: 4, label: Text('4')),
+                ],
+                selected: {preferences.cardsOnBoard},
+                onSelectionChanged: (value) =>
+                    preferences.setBoardSize(value.first),
               ),
-            ),
-            const Divider(),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Auto-mark called numbers'),
-              subtitle: const Text('Mark each called number on your cards.'),
-              value: preferences.autoMark,
-              onChanged: preferences.setAutoMark,
-            ),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Hide unregistered cards'),
-              subtitle: const Text('Show only cards registered for this game.'),
-              value: preferences.hideUnregisteredCards,
-              onChanged: preferences.setHideUnregistered,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Selection Color',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                for (
-                  var i = 0;
-                  i < PlayerPreferences.selectionColors.length;
-                  i++
-                )
-                  InkWell(
-                    onTap: () => preferences.setSelectionColor(i),
-                    customBorder: const CircleBorder(),
-                    child: Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        color: PlayerPreferences.selectionColors[i],
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: preferences.selectionColorIndex == i
-                              ? Theme.of(context).colorScheme.onSurface
-                              : Colors.transparent,
-                          width: 3,
+              ListTile(
+                leading: const Icon(Icons.library_add_check_outlined),
+                title: Text(localizations.selectMultipleCards),
+                subtitle: Text(localizations.selectMultipleCardsDescription),
+                trailing: Switch(
+                  value: preferences.multipleCardSelection,
+                  onChanged: (value) => preferences.setMultipleCardSelection(
+                    value,
+                    initialTicketId: activeTicketId,
+                  ),
+                ),
+                onTap: () => preferences.setMultipleCardSelection(
+                  !preferences.multipleCardSelection,
+                  initialTicketId: activeTicketId,
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.sort_rounded),
+                title: Text(localizations.sortCards),
+                subtitle: Text(
+                  preferences.sortPriorities.isEmpty
+                      ? localizations.sortCardsChooseThree
+                      : preferences.sortPriorities.join(' · '),
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => showModalBottomSheet<void>(
+                  context: context,
+                  isScrollControlled: true,
+                  useSafeArea: true,
+                  showDragHandle: true,
+                  builder: (_) => _SortCardsSheet(preferences: preferences),
+                ),
+              ),
+              const Divider(),
+              ListTile(
+                leading: const Icon(Icons.restart_alt_rounded),
+                title: Text(localizations.resetMarkedNumbers),
+                subtitle: Text(localizations.clearManualMarksDescription),
+                onTap: preferences.clearManualMarks,
+              ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(localizations.autoMarkNumbers),
+                subtitle: Text(localizations.autoMarkNumbersDescription),
+                value: preferences.autoMark,
+                onChanged: preferences.setAutoMark,
+              ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(localizations.hideUnregisteredCards),
+                subtitle: Text(localizations.hideUnregisteredCardsDescription),
+                value: preferences.hideUnregisteredCards,
+                onChanged: preferences.setHideUnregistered,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                localizations.selectionColor,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  for (
+                    var i = 0;
+                    i < PlayerPreferences.selectionColors.length;
+                    i++
+                  )
+                    InkWell(
+                      onTap: () => preferences.setSelectionColor(i),
+                      customBorder: const CircleBorder(),
+                      child: Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          color: PlayerPreferences.selectionColors[i],
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: preferences.selectionColorIndex == i
+                                ? Theme.of(context).colorScheme.onSurface
+                                : Colors.transparent,
+                            width: 3,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 18),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Close'),
+                ],
               ),
-            ),
-          ],
+              const SizedBox(height: 18),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Close'),
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
-    ),
+      );
+    },
   );
 }
 

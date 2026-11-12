@@ -25,6 +25,64 @@ export interface MeResponse {
   user: AdminUserProfile;
 }
 
+export interface PlayerAppSettingsResponse {
+  bannerTitleEn: string | null;
+  bannerTitleAm: string | null;
+  bannerBodyEn: string | null;
+  bannerBodyAm: string | null;
+  bannerImageUrl: string | null;
+  termsUrl: string | null;
+  telegramUrl: string | null;
+  tiktokUrl: string | null;
+  supportPhoneNumbers: string | null;
+  updatedAt: string;
+}
+
+export interface PlayerAnnouncementResponse {
+  id: number;
+  titleEn: string;
+  titleAm: string | null;
+  bodyEn: string;
+  bodyAm: string | null;
+  published: boolean;
+  read: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type PlayerAppSettingsRequest = Omit<PlayerAppSettingsResponse, "updatedAt">;
+export type PlayerAnnouncementRequest = Pick<PlayerAnnouncementResponse,
+  "titleEn" | "titleAm" | "bodyEn" | "bodyAm" | "published">;
+
+export async function playerAppSettings() {
+  const { data } = await http.get<PlayerAppSettingsResponse>("/api/v1/admin/player-app/content");
+  return data;
+}
+
+export async function savePlayerAppSettings(body: PlayerAppSettingsRequest) {
+  const { data } = await http.put<PlayerAppSettingsResponse>("/api/v1/admin/player-app/content", body);
+  return data;
+}
+
+export async function playerAnnouncements() {
+  const { data } = await http.get<PlayerAnnouncementResponse[]>("/api/v1/admin/player-app/messages");
+  return data;
+}
+
+export async function createPlayerAnnouncement(body: PlayerAnnouncementRequest) {
+  const { data } = await http.post<PlayerAnnouncementResponse>("/api/v1/admin/player-app/messages", body);
+  return data;
+}
+
+export async function updatePlayerAnnouncement(id: number, body: PlayerAnnouncementRequest) {
+  const { data } = await http.put<PlayerAnnouncementResponse>(`/api/v1/admin/player-app/messages/${id}`, body);
+  return data;
+}
+
+export async function deletePlayerAnnouncement(id: number) {
+  await http.delete(`/api/v1/admin/player-app/messages/${id}`);
+}
+
 export interface AdminDashboardMetricsResponse {
   generatedAt: string;
   businessTimezone: string;

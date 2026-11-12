@@ -15,6 +15,9 @@ class PlayerPreferences extends ChangeNotifier {
   static const _soundKey = 'player.sound';
   static const _notificationsKey = 'player.notifications';
   static const _sortKey = 'player.ticketSortPriorities';
+  static const _multipleCardsKey = 'player.multipleCards';
+  static const _selectedTicketsKey = 'player.selectedTicketIds';
+  static const _manualMarkPrefix = 'player.manualMarks.';
 
   ThemeMode themeMode = ThemeMode.system;
   bool autoMark = true;
@@ -25,6 +28,8 @@ class PlayerPreferences extends ChangeNotifier {
   int selectionColorIndex = 0;
   List<String> sortPriorities = [];
   bool loaded = false;
+  bool multipleCardSelection = false;
+  Set<int> selectedTicketIds = {};
 
   static const selectionColors = <Color>[
     Color(0xFF245AD8),
@@ -80,6 +85,21 @@ class PlayerPreferences extends ChangeNotifier {
       selectionColors.length - 1,
     );
     sortPriorities = prefs.getStringList(_sortKey) ?? [];
+    multipleCardSelection = prefs.getBool(_multipleCardsKey) ?? false;
+    selectedTicketIds = (prefs.getStringList(_selectedTicketsKey) ?? [])
+        .map(int.tryParse)
+        .whereType<int>()
+        .toSet();
+    for (final key in prefs.getKeys().where(
+      (key) => key.startsWith(_manualMarkPrefix),
+    )) {
+      final ticketId = int.tryParse(key.substring(_manualMarkPrefix.length));
+      if (ticketId == null) continue;
+      _manualMarks[ticketId] = (prefs.getStringList(key) ?? [])
+          .map(int.tryParse)
+          .whereType<int>()
+          .toSet();
+    }
     loaded = true;
     notifyListeners();
   }
@@ -121,6 +141,62 @@ class PlayerPreferences extends ChangeNotifier {
   Future<void> setBoardSize(int value) async {
     cardsOnBoard = value;
     await _save(_boardSizeKey, value);
+  }
+
+  Future<void> setMultipleCardSelection(
+    bool value, {
+    int? initialTicketId,
+  }) async {
+    multipleCardSelection = value;
+    if (value && initialTicketId != null && selectedTicketIds.isEmpty) {
+      selectedTicketIds = {initialTicketId};
+    } else if (!value) {
+      selectedTicketIds = {};
+    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_multipleCardsKey, value);
+    await prefs.setStringList(
+      _selectedTicketsKey,
+      selectedTicketIds.map((id) => id.toString()).toList(),
+    );
+    notifyListeners();
+  }
+
+  Future<void> toggleSelectedTicket(int ticketId) async {
+    final next = {...selectedTicketIds};
+    if (!next.add(ticketId)) next.remove(ticketId);
+    selectedTicketIds = next;
+    await _save(_selectedTicketsKey, next.map((id) => id.toString()).toList());
+  }
+
+  Set<int> manualMarksForTicket(int ticketId) {
+    // Marks are loaded lazily from SharedPreferences by the async preload.
+    return _manualMarks[ticketId] ?? const {};
+  }
+
+  final Map<int, Set<int>> _manualMarks = {};
+
+  Future<void> toggleManualMark(int ticketId, int number) async {
+    final marks = {...?_manualMarks[ticketId]};
+    if (!marks.add(number)) marks.remove(number);
+    _manualMarks[ticketId] = marks;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(
+      '$_manualMarkPrefix$ticketId',
+      marks.map((value) => value.toString()).toList(),
+    );
+    notifyListeners();
+  }
+
+  Future<void> clearManualMarks() async {
+    final prefs = await SharedPreferences.getInstance();
+    for (final key in prefs.getKeys().where(
+      (key) => key.startsWith(_manualMarkPrefix),
+    )) {
+      await prefs.remove(key);
+    }
+    _manualMarks.clear();
+    notifyListeners();
   }
 
   Future<void> setSelectionColor(int value) async {

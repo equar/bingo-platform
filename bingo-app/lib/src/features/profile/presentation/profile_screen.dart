@@ -1,4 +1,6 @@
 import 'package:bingo_app/src/core/localization/ethiopian_date_time.dart';
+import 'package:bingo_app/src/core/network/api_provider.dart';
+import 'package:bingo_app/src/core/platform/external_link.dart';
 import 'package:bingo_app/src/core/storage/player_preferences.dart';
 import 'package:bingo_app/src/features/support/presentation/support_shortcut.dart';
 import 'package:bingo_app/src/core/widgets/responsive_content.dart';
@@ -8,15 +10,27 @@ import 'package:bingo_app/src/core/localization/language_selector.dart';
 import 'package:bingo_app/src/features/auth/data/auth_repository.dart';
 import 'package:bingo_app/src/features/auth/data/auth_session_controller.dart';
 import 'package:bingo_app/src/features/auth/data/auth_models.dart';
+import 'package:bingo_app/src/features/player_content/domain/player_content_models.dart';
+import 'package:bingo_app/src/features/wallet/data/wallet_repository.dart';
+import 'package:bingo_app/src/features/wallet/domain/wallet_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
-  const ProfileScreen({super.key, this.onGames, this.onWallet, this.onSupport});
+  const ProfileScreen({
+    super.key,
+    this.onGames,
+    this.onWallet,
+    this.onSupport,
+    this.onMessages,
+    this.onGameHistory,
+  });
 
   final VoidCallback? onGames;
   final VoidCallback? onWallet;
   final VoidCallback? onSupport;
+  final VoidCallback? onMessages;
+  final VoidCallback? onGameHistory;
 
   @override
   ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
@@ -26,6 +40,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   UserProfile? _serverProfile;
   bool _isRefreshing = true;
   bool _hasRefreshError = false;
+  Future<PlayerAppContent>? _contentFuture;
+  Future<WalletBalance>? _walletFuture;
 
   @override
   void initState() {
@@ -39,6 +55,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     setState(() {
       _isRefreshing = true;
       _hasRefreshError = false;
+      _contentFuture = ref.read(playerContentApiProvider).getContent();
+      _walletFuture = ref.read(walletRepositoryProvider).getBalance();
     });
     try {
       final profile = await ref.read(authRepositoryProvider).me();
@@ -96,6 +114,179 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(16),
             children: [
+              if (_walletFuture != null)
+                FutureBuilder<WalletBalance>(
+                  future: _walletFuture,
+                  builder: (context, snapshot) {
+                    final balance = snapshot.data;
+                    if (balance == null) return const SizedBox.shrink();
+                    return SectionCard(
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  localizations.accountBalance(
+                                    profile.phoneNumber,
+                                  ),
+                                  style: Theme.of(context).textTheme.titleSmall,
+                                ),
+                                const SizedBox(height: 10),
+                                Text(
+                                  '${balance.totalBalance.toStringAsFixed(2)} ${balance.currency}',
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.headlineMedium,
+                                ),
+                                Text(localizations.totalBalance),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.primaryContainer,
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Column(
+                              children: [
+                                Text(
+                                  balance.availableBalance.toStringAsFixed(2),
+                                  style: TextStyle(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primary,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                Text(localizations.withdrawableBalance),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: _refreshProfile,
+                            icon: const Icon(Icons.refresh),
+                            tooltip: localizations.profileRefresh,
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              if (_contentFuture != null)
+                FutureBuilder<PlayerAppContent>(
+                  future: _contentFuture,
+                  builder: (context, snapshot) {
+                    final content = snapshot.data;
+                    if (content == null) return const SizedBox.shrink();
+                    final isAmharic =
+                        Localizations.localeOf(context).languageCode == 'am';
+                    final title =
+                        isAmharic &&
+                            (content.bannerTitleAm?.isNotEmpty ?? false)
+                        ? content.bannerTitleAm!
+                        : content.bannerTitleEn;
+                    final body =
+                        isAmharic && (content.bannerBodyAm?.isNotEmpty ?? false)
+                        ? content.bannerBodyAm!
+                        : content.bannerBodyEn;
+                    final phoneNumbers = (content.supportPhoneNumbers ?? '')
+                        .split(',')
+                        .map((value) => value.trim())
+                        .where((value) => value.isNotEmpty)
+                        .toList();
+                    if ([
+                      title,
+                      body,
+                      content.bannerImageUrl,
+                      content.telegramUrl,
+                      content.tiktokUrl,
+                      content.termsUrl,
+                      content.supportPhoneNumbers,
+                    ].every((value) => value == null || value.isEmpty)) {
+                      return const SizedBox.shrink();
+                    }
+                    return Column(
+                      children: [
+                        SectionCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (content.bannerImageUrl?.isNotEmpty ?? false)
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(16),
+                                  child: Image.network(
+                                    content.bannerImageUrl!,
+                                    width: double.infinity,
+                                    height: 150,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, _, _) =>
+                                        const SizedBox.shrink(),
+                                  ),
+                                ),
+                              if (title?.isNotEmpty ?? false)
+                                Text(
+                                  title!,
+                                  style: Theme.of(context).textTheme.titleLarge,
+                                ),
+                              if (body?.isNotEmpty ?? false)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 6),
+                                  child: Text(body!),
+                                ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        SectionCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                localizations.contactUs,
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                              if (content.telegramUrl?.isNotEmpty ?? false)
+                                _externalLink(
+                                  context,
+                                  Icons.send_rounded,
+                                  'Telegram',
+                                  content.telegramUrl!,
+                                ),
+                              if (content.tiktokUrl?.isNotEmpty ?? false)
+                                _externalLink(
+                                  context,
+                                  Icons.music_video_rounded,
+                                  'TikTok',
+                                  content.tiktokUrl!,
+                                ),
+                              if (content.termsUrl?.isNotEmpty ?? false)
+                                _externalLink(
+                                  context,
+                                  Icons.description_outlined,
+                                  localizations.termsAndConditions,
+                                  content.termsUrl!,
+                                ),
+                              if (phoneNumbers.isNotEmpty)
+                                ListTile(
+                                  leading: const Icon(Icons.phone_outlined),
+                                  title: Text(
+                                    localizations.phoneLabelWithNumbers(
+                                      phoneNumbers.join(', '),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
               if (_hasRefreshError)
                 SectionCard(
                   child: Column(
@@ -156,31 +347,31 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Settings',
+                      localizations.settingsTitle,
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      'Theme',
+                      localizations.themeTitle,
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                     const SizedBox(height: 8),
                     SegmentedButton<ThemeMode>(
-                      segments: const [
+                      segments: [
                         ButtonSegment(
                           value: ThemeMode.light,
                           icon: Icon(Icons.light_mode_outlined),
-                          label: Text('Light'),
+                          label: Text(localizations.themeLight),
                         ),
                         ButtonSegment(
                           value: ThemeMode.dark,
                           icon: Icon(Icons.dark_mode_outlined),
-                          label: Text('Dark'),
+                          label: Text(localizations.themeDark),
                         ),
                         ButtonSegment(
                           value: ThemeMode.system,
                           icon: Icon(Icons.brightness_auto_outlined),
-                          label: Text('System'),
+                          label: Text(localizations.themeSystem),
                         ),
                       ],
                       selected: {preferences.themeMode},
@@ -190,12 +381,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     const SizedBox(height: 8),
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
-                      title: const Text('Sound'),
-                      subtitle: const Text(
-                        'Play a short sound when a number is called.',
-                      ),
+                      title: Text(localizations.soundTitle),
+                      subtitle: Text(localizations.soundDescription),
                       value: preferences.soundEnabled,
                       onChanged: preferences.setSound,
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(localizations.notificationsTitle),
+                      subtitle: Text(localizations.notificationsDescription),
+                      value: preferences.notificationsEnabled,
+                      onChanged: preferences.setNotifications,
                     ),
                   ],
                 ),
@@ -222,7 +418,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               const SizedBox(height: 16),
               if (widget.onGames != null ||
                   widget.onWallet != null ||
-                  widget.onSupport != null) ...[
+                  widget.onSupport != null ||
+                  widget.onMessages != null ||
+                  widget.onGameHistory != null) ...[
                 SectionCard(
                   padding: const EdgeInsets.symmetric(vertical: 6),
                   child: Column(
@@ -244,6 +442,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           Icons.support_agent_rounded,
                           localizations.homeSupport,
                           widget.onSupport!,
+                        ),
+                      if (widget.onMessages != null)
+                        _shortcut(
+                          Icons.mail_outline_rounded,
+                          localizations.messagesTitle,
+                          widget.onMessages!,
+                        ),
+                      if (widget.onGameHistory != null)
+                        _shortcut(
+                          Icons.sports_esports_outlined,
+                          localizations.gameHistoryTitle,
+                          widget.onGameHistory!,
                         ),
                     ],
                   ),
@@ -269,5 +479,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     title: Text(label),
     trailing: const Icon(Icons.chevron_right_rounded),
     onTap: onTap,
+  );
+
+  Widget _externalLink(
+    BuildContext context,
+    IconData icon,
+    String label,
+    String url,
+  ) => ListTile(
+    leading: Icon(icon, color: Theme.of(context).colorScheme.primary),
+    title: Text(label),
+    subtitle: Text(url, maxLines: 1, overflow: TextOverflow.ellipsis),
+    trailing: const Icon(Icons.chevron_right_rounded),
+    onTap: () => ExternalLink.open(url),
   );
 }

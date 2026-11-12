@@ -91,6 +91,7 @@ const SignupRewardGrantsPage = lazy(() =>
 );
 
 const CommunityPage = lazy(() => import("../features/community/CommunityPage").then(module => ({ default: module.CommunityPage })));
+const PlayerAppPage = lazy(() => import("../features/playerApp/PlayerAppPage").then(module => ({ default: module.PlayerAppPage })));
 
 export function AppRouter() {
   const { t } = useTranslation();
@@ -142,6 +143,7 @@ export function AppRouter() {
               <Route path="wallet/signup-reward-grants" element={<SignupRewardGrantsPage />} />
             </Route>
             <Route element={<ProtectedRoute allowedRoles={["ADMIN"]} />}>
+              <Route path="player-app" element={<PlayerAppPage />} />
               <Route path="audit-logs" element={<AuditLogsPage />} />
               <Route path="admin-users" element={<AdminUsersPage />} />
               <Route path="admin-users/new" element={<AdminUsersPage />} />

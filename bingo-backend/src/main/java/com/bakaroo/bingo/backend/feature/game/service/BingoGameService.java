@@ -22,6 +22,7 @@ import com.bakaroo.bingo.backend.feature.game.dto.PrizeEntitlementResponse;
 import com.bakaroo.bingo.backend.feature.game.dto.PrizeEntitlementSettlementRequest;
 import com.bakaroo.bingo.backend.feature.game.dto.TicketPurchaseResponse;
 import com.bakaroo.bingo.backend.feature.game.dto.TicketResponse;
+import com.bakaroo.bingo.backend.feature.game.dto.PlayerGameHistoryResponse;
 import com.bakaroo.bingo.backend.feature.game.dto.SessionTicketLookupResponse;
 import com.bakaroo.bingo.backend.feature.game.dto.WinClaimRequest;
 import com.bakaroo.bingo.backend.feature.game.dto.WinClaimResponse;
@@ -248,6 +249,13 @@ public class BingoGameService {
         var eligibility = winningTicketsByPattern(session);
         return ticketRepository.findBySessionIdAndOwnerId(sessionId, player.getId(), pageable)
                 .map(ticket -> toTicketResponse(ticket, eligibility));
+    }
+
+    @Transactional(readOnly = true)
+    public Page<PlayerGameHistoryResponse> getPlayerGameHistory(BingoUserPrincipal principal, Pageable pageable) {
+        User player = requirePlayer(principal);
+        return ticketRepository.findPlayerGameHistory(player.getId(),
+                List.of(GameSessionState.CLOSED, GameSessionState.SETTLED, GameSessionState.CANCELLED), pageable);
     }
 
     @Transactional(readOnly = true)
