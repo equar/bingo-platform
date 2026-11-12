@@ -10,5 +10,8 @@ public record TicketResponse(
         String publicTicketCode,
         String operationId,
         List<List<Integer>> grid,
-        Instant purchasedAt) {
+        Instant purchasedAt,
+        List<com.bakaroo.bingo.backend.feature.game.entity.BingoPatternType> eligibleClaimPatterns,
+        java.util.Map<com.bakaroo.bingo.backend.feature.game.entity.BingoPatternType, java.math.BigDecimal> winningPrizeAmounts,
+        String prizeCurrency) {
 }

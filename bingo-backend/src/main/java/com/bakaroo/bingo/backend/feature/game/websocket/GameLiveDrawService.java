@@ -4,6 +4,8 @@ import com.bakaroo.bingo.backend.common.exception.ConflictException;
 import com.bakaroo.bingo.backend.common.exception.NotFoundException;
 import com.bakaroo.bingo.backend.feature.audit.service.AuditLogService;
 import com.bakaroo.bingo.backend.feature.game.config.GameProperties;
+import com.bakaroo.bingo.backend.feature.game.service.GameWinnerService;
+import com.bakaroo.bingo.backend.feature.game.service.GameSnapshotMapper;
 import com.bakaroo.bingo.backend.feature.game.dto.DrawEventResponse;
 import com.bakaroo.bingo.backend.feature.game.entity.DrawEvent;
 import com.bakaroo.bingo.backend.feature.game.entity.GameSession;
@@ -36,6 +38,8 @@ public class GameLiveDrawService {
     private final ApplicationEventPublisher applicationEventPublisher;
     private final AuditLogService auditLogService;
     private final TransactionTemplate transactionTemplate;
+    private final GameWinnerService winners;
+    private final GameSnapshotMapper snapshots;
     private final SecureRandom secureRandom = new SecureRandom();
 
     public GameLiveDrawService(GameSessionRepository gameSessionRepository,
@@ -43,7 +47,9 @@ public class GameLiveDrawService {
             GameProperties gameProperties,
             ApplicationEventPublisher applicationEventPublisher,
             AuditLogService auditLogService,
-            PlatformTransactionManager transactionManager) {
+            PlatformTransactionManager transactionManager, GameWinnerService winners, GameSnapshotMapper snapshots) {
+        this.winners = winners;
+        this.snapshots = snapshots;
         this.gameSessionRepository = gameSessionRepository;
         this.drawEventRepository = drawEventRepository;
         this.gameProperties = gameProperties;
@@ -108,6 +114,13 @@ public class GameLiveDrawService {
             return Optional.empty();
         }
 
+        // The session lock serializes completion with claims and further draws.
+        // Also catches a previously completed game after a scheduler restart.
+        if (configuredPatternsComplete(session)) {
+            closeFinishedSession(session, now);
+            return Optional.empty();
+        }
+
         Instant anchor = drawEventRepository.findTopBySessionIdOrderBySequenceNoDesc(sessionId)
                 .map(DrawEvent::getDrawnAt)
                 .orElse(session.getStartedAt());
@@ -134,7 +147,7 @@ public class GameLiveDrawService {
         draw.setDrawnAt(now.truncatedTo(ChronoUnit.MICROS));
         draw = drawEventRepository.save(draw);
 
-        if (remainingNumbers.size() == 1) {
+        if (remainingNumbers.size() == 1 || configuredPatternsComplete(session)) {
             closeFinishedSession(session, now);
         }
 
@@ -147,6 +160,13 @@ public class GameLiveDrawService {
                         "numberDrawn", draw.getNumberDrawn()));
         applicationEventPublisher.publishEvent(new GameDrawRecordedEvent(response));
         return Optional.of(response);
+    }
+
+    private boolean configuredPatternsComplete(GameSession session) {
+        if (!"EARLIEST_SPLIT_V1".equals(session.getRulesVersion())) return false;
+        var patterns = snapshots.readPatterns(session.getPatternsSnapshotJson());
+        return !patterns.isEmpty() && patterns.stream()
+                .allMatch(pattern -> !winners.winners(session.getId(), pattern).ticketIds().isEmpty());
     }
 
     private List<Integer> remainingNumbers(Long sessionId) {

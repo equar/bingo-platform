@@ -27,6 +27,8 @@ import static org.junit.jupiter.api.Assertions.*;
 @Transactional
 class GameOperationalReadinessIntegrationTest extends MySqlIntegrationTest {
     @Autowired BingoGameService games;
+    @Autowired com.bakaroo.bingo.backend.feature.game.websocket.GameLiveDrawService liveDraws;
+    @Autowired GameWinnerService winners;
     @Autowired UserRepository users;
     @Autowired WalletRepository wallets;
     @Autowired WalletTransactionRepository transactions;
@@ -87,6 +89,47 @@ class GameOperationalReadinessIntegrationTest extends MySqlIntegrationTest {
     }
     private void approve(Long claim) { games.reviewWinClaim(claim, new BingoUserPrincipal(admin), new WinClaimReviewRequest("Verified"), true); }
 
+    @Test void automaticLineOnlyGameStopsAtFirstWinningCallAndAllowsClosedClaim() throws Exception {
+        Long first = buy(one), second = buy(two);
+        Ticket a = tickets.findById(first).orElseThrow(), b = tickets.findById(second).orElseThrow();
+        a.setGridJson(grid(1)); b.setGridJson(grid(6)); tickets.saveAndFlush(a); tickets.saveAndFlush(b);
+        state(GameSessionState.STARTED);
+        Instant anchor = Instant.now();
+        for (int n = 1; n <= 75; n++) {
+            liveDraws.advanceSessionDrawIfDue(session, anchor.plusSeconds(n * 11L));
+            if (sessions.findById(session).orElseThrow().getState() == GameSessionState.CLOSED) break;
+        }
+        GameSession game = sessions.findById(session).orElseThrow();
+        assertEquals(GameSessionState.CLOSED, game.getState());
+        long count = draws.countBySessionId(session);
+        assertTrue(count < 75);
+        assertEquals(winners.winners(session,BingoPatternType.LINE).sequence(),count);
+        assertTrue(liveDraws.advanceSessionDrawIfDue(session,anchor.plusSeconds(1000)).isEmpty());
+        assertEquals(count,draws.countBySessionId(session));
+        Long winner = winners.winners(session,BingoPatternType.LINE).ticketIds().getFirst();
+        assertTrue(claim(winner,winner.equals(first) ? one : two).serverValidationPassed());
+        assertNotNull(game.getEndedAt());
+    }
+
+    @Test void claimEligibilityIsEmptyUntilAnEarliestWinAndLosingClaimsAreRejected() throws Exception {
+        long before = claims.count();
+        Long first = buy(one), later = buy(two);
+        Ticket a = tickets.findById(first).orElseThrow(), b = tickets.findById(later).orElseThrow();
+        a.setGridJson(grid(1)); b.setGridJson(grid(6)); tickets.saveAndFlush(a); tickets.saveAndFlush(b);
+        var page = org.springframework.data.domain.PageRequest.of(0, 10);
+        assertTrue(games.getMyTickets(session, new BingoUserPrincipal(one), page).getContent().getFirst().eligibleClaimPatterns().isEmpty());
+        state(GameSessionState.STARTED);
+        assertTrue(games.getMyTickets(session, new BingoUserPrincipal(one), page).getContent().getFirst().eligibleClaimPatterns().isEmpty());
+        assertEquals("CLAIM_DOES_NOT_MATCH_DRAWN_NUMBERS", assertThrows(ConflictException.class, () -> claim(first,one)).getCode());
+        assertEquals(before,claims.count());
+        calls(5);
+        assertEquals(List.of(BingoPatternType.LINE), games.getMyTickets(session, new BingoUserPrincipal(one), page).getContent().getFirst().eligibleClaimPatterns());
+        assertTrue(games.getMyTickets(session, new BingoUserPrincipal(two), page).getContent().getFirst().eligibleClaimPatterns().isEmpty());
+        assertEquals("CLAIM_DOES_NOT_MATCH_DRAWN_NUMBERS", assertThrows(ConflictException.class, () -> claim(later,two)).getCode());
+        assertEquals(before,claims.count());
+        assertTrue(claim(first,one).serverValidationPassed());
+    }
+
     @Test void unfundedAndPromotionalOnlyGamesCannotStart() {
         assertEquals("SESSION_UNDERFUNDED", assertThrows(ConflictException.class, () -> state(GameSessionState.STARTED)).getCode());
         Wallet wallet = wallets.findByOwnerId(one.getId()).orElseThrow();
@@ -101,6 +144,12 @@ class GameOperationalReadinessIntegrationTest extends MySqlIntegrationTest {
         Ticket a = tickets.findById(first).orElseThrow(), b = tickets.findById(second).orElseThrow();
         b.setGridJson(a.getGridJson()); tickets.saveAndFlush(b);
         state(GameSessionState.STARTED); calls(75);
+        var page = org.springframework.data.domain.PageRequest.of(0,10);
+        var displayA = games.getMyTickets(session,new BingoUserPrincipal(one),page).getContent().getFirst();
+        var displayB = games.getMyTickets(session,new BingoUserPrincipal(two),page).getContent().getFirst();
+        assertEquals(new BigDecimal("5.01"),displayA.winningPrizeAmounts().get(BingoPatternType.LINE));
+        assertEquals(new BigDecimal("5.00"),displayB.winningPrizeAmounts().get(BingoPatternType.LINE));
+        assertEquals("ETB",displayA.prizeCurrency());
         WinClaimResponse ca = claim(first, one), cb = claim(second, two);
         assertTrue(ca.serverValidationPassed()); assertTrue(cb.serverValidationPassed());
         // Review the higher ID first. It must receive the same deterministic share.
@@ -163,9 +212,9 @@ class GameOperationalReadinessIntegrationTest extends MySqlIntegrationTest {
         a.setGridJson(grid(1)); b.setGridJson(grid(6)); tickets.saveAndFlush(a); tickets.saveAndFlush(b);
         state(GameSessionState.STARTED); calls(75);
         assertTrue(claim(first, one).serverValidationPassed());
-        WinClaimResponse rejected = claim(later, two);
-        assertFalse(rejected.serverValidationPassed()); assertEquals("NOT_EARLIEST_WINNER", rejected.serverValidationCode());
-        assertThrows(ConflictException.class, () -> approve(rejected.id()));
+        long before = claims.count();
+        assertEquals("NOT_EARLIEST_WINNER", assertThrows(ConflictException.class, () -> claim(later, two)).getCode());
+        assertEquals(before, claims.count());
     }
 
     @Test void aNewDrawDoesNotPermitASecondAwardForTheSameTicketAndPattern() throws Exception {

@@ -1,4 +1,5 @@
 import 'package:bingo_app/src/core/config/app_config.dart';
+import 'package:bingo_app/src/core/network/api_error.dart';
 import 'package:bingo_app/src/core/models/page_result.dart';
 import 'package:bingo_app/src/features/auth/data/auth_models.dart';
 import 'package:bingo_app/src/features/auth/data/auth_session_controller.dart';
@@ -41,6 +42,7 @@ TicketResponse _ticket() {
     sessionId: 42,
     ownerId: 7,
     publicTicketCode: 'TICKET-101',
+    eligibleClaimPatterns: const ['LINE', 'FULL_HOUSE'],
     operationId: 'ticket-op-101',
     grid: const [
       [1, 16, 31, 46, 61],
@@ -54,6 +56,47 @@ TicketResponse _ticket() {
 }
 
 void main() {
+  for (final code in ['DUPLICATE_WIN_CLAIM', 'TICKET_PRIZE_ALREADY_AWARDED']) {
+    test('server $code becomes an already-submitted result', () async {
+      final repo = _FakeRepo()
+        ..forcedError = ApiError(code: code, statusCode: 409);
+      final controller = LiveGameController(
+        sessionId: 42,
+        repository: repo,
+        readAuthSession: () => const AuthSessionState(isLoading: false),
+        clearAuthSession: ({String? reason}) async {},
+        appConfig: const AppConfig(
+          apiBaseUrl: 'https://example.com',
+          apiBaseUrlLabel: 'API_BASE_URL',
+        ),
+        transport: _NoopTransport(),
+      );
+      addTearDown(controller.dispose);
+      controller.state = LiveGameState(
+        isLoading: false,
+        connectionState: LiveGameConnectionState.connected,
+        session: _session(),
+        ticketPageIndex: 0,
+        selectedTicketIndex: 0,
+        selectedClaimPattern: 'LINE',
+        ticketPage: PageResult(
+          content: [_ticket()],
+          page: 0,
+          size: 10,
+          totalElements: 1,
+          totalPages: 1,
+          first: true,
+          last: true,
+        ),
+      );
+      final outcome = await controller.submitClaim();
+      expect(outcome, ClaimSubmissionOutcome.alreadySubmitted);
+      expect(controller.state.infoMessage, 'CLAIM_ALREADY_SUBMITTED');
+      expect(controller.state.apiError, isNull);
+      expect(controller.state.isSubmittingClaim, false);
+    });
+  }
+
   test(
     'retains the pending claim idempotency key after a failed submit and reuses it on retry',
     () async {
@@ -117,6 +160,10 @@ void main() {
       expect(repo.submittedKeys[1], firstKey);
       expect(controller.state.pendingClaimIdempotencyKey, isNull);
       expect(controller.state.infoMessage, 'CLAIM_SUBMITTED');
+      await controller.submitClaim();
+      expect(repo.submittedKeys, hasLength(2));
+      expect(controller.state.infoMessage, 'CLAIM_ALREADY_SUBMITTED');
+      expect(controller.state.apiError, isNull);
     },
   );
 }
@@ -124,6 +171,7 @@ void main() {
 class _FakeRepo implements LiveGameRepository {
   final List<String> submittedKeys = <String>[];
   var _failNext = true;
+  ApiError? forcedError;
 
   @override
   Future<GameSession> getSession(int sessionId) async =>
@@ -175,6 +223,7 @@ class _FakeRepo implements LiveGameRepository {
     String idempotencyKey,
   ) async {
     submittedKeys.add(idempotencyKey);
+    if (forcedError != null) throw forcedError!;
     if (_failNext) {
       _failNext = false;
       throw StateError('temporary failure');
