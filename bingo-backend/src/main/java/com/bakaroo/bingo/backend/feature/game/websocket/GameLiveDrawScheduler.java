@@ -24,7 +24,7 @@ public class GameLiveDrawScheduler {
         this.liveDrawService = liveDrawService;
     }
 
-    @Scheduled(fixedDelayString = "#{T(java.time.Duration).parse('${app.game.draw-interval:PT10S}').toMillis()}")
+    @Scheduled(fixedDelayString = "#{T(java.time.Duration).parse('${app.game.draw-interval:PT5S}').toMillis()}")
     public void runScheduledDraws() {
         runSweep("scheduled");
     }
