@@ -67,7 +67,7 @@ class AuthenticatedStompIntegrationTest extends MySqlIntegrationTest {
     @org.junit.jupiter.api.BeforeEach
     void arrangePrizeEligibility() {
         org.mockito.Mockito.when(winners.winners(org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.any()))
-                .thenReturn(new com.bakaroo.bingo.backend.feature.game.service.GameWinnerService.Winners(1, java.util.List.of(1L)));
+                .thenReturn(new com.bakaroo.bingo.backend.feature.game.service.GameWinnerService.Winners(0, java.util.List.of()));
     }
 
 

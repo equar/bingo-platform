@@ -35,6 +35,8 @@ final liveGameControllerProvider = StateNotifierProvider.autoDispose
       return controller;
     });
 
+enum ClaimSubmissionOutcome { submitted, alreadySubmitted, notSubmitted }
+
 enum LiveGameConnectionState {
   idle,
   connecting,
@@ -54,6 +56,7 @@ class LiveGameState {
     required this.selectedTicketIndex,
     this.session,
     this.ticketPage,
+    this.winningTickets = const [],
     this.claimPage,
     this.draws = const [],
     this.isPurchasingTicket = false,
@@ -70,6 +73,7 @@ class LiveGameState {
   final LiveGameConnectionState connectionState;
   final GameSession? session;
   final PageResult<TicketResponse>? ticketPage;
+  final List<TicketResponse> winningTickets;
   final int ticketPageIndex;
   final int selectedTicketIndex;
   final PageResult<WinClaimRecord>? claimPage;
@@ -88,12 +92,25 @@ class LiveGameState {
     return state == 'CLOSED' || state == 'SETTLED' || state == 'CANCELLED';
   }
 
-  bool get canSubmitClaim {
+  bool get selectedTicketIsWinner =>
+      selectedClaimPattern != null &&
+      selectedTicket?.eligibleClaimPatterns.contains(selectedClaimPattern) ==
+          true;
+
+  bool get canSubmitClaim => isClaimWindowOpen && selectedTicketIsWinner;
+
+  bool get isClaimWindowOpen {
     final game = session;
     if (game == null) return false;
     if (game.state == 'STARTED' || game.state == 'DRAWING') return true;
-    if (game.state != 'CLOSED' || game.endedAt == null || game.claimWindowSeconds == null) return false;
-    return DateTime.now().isBefore(game.endedAt!.add(Duration(seconds: game.claimWindowSeconds!)));
+    if (game.state != 'CLOSED' ||
+        game.endedAt == null ||
+        game.claimWindowSeconds == null) {
+      return false;
+    }
+    return DateTime.now().isBefore(
+      game.endedAt!.add(Duration(seconds: game.claimWindowSeconds!)),
+    );
   }
 
   bool get canPageBackTickets => ticketPageIndex > 0;
@@ -118,6 +135,7 @@ class LiveGameState {
     LiveGameConnectionState? connectionState,
     GameSession? session,
     Object? ticketPage = _stateUnset,
+    List<TicketResponse>? winningTickets,
     int? ticketPageIndex,
     int? selectedTicketIndex,
     Object? claimPage = _stateUnset,
@@ -138,6 +156,7 @@ class LiveGameState {
       ticketPage: ticketPage == _stateUnset
           ? this.ticketPage
           : ticketPage as PageResult<TicketResponse>?,
+      winningTickets: winningTickets ?? this.winningTickets,
       ticketPageIndex: ticketPageIndex ?? this.ticketPageIndex,
       selectedTicketIndex: selectedTicketIndex ?? this.selectedTicketIndex,
       claimPage: claimPage == _stateUnset
@@ -207,6 +226,7 @@ class LiveGameController extends StateNotifier<LiveGameState> {
   final Duration reconnectMaxDelay;
   final Map<int, LiveDrawEvent> _bufferedDraws = <int, LiveDrawEvent>{};
   final Uuid _uuid = const Uuid();
+  final Map<String, WinClaimRecord> _submittedClaims = {};
 
   bool _disposed = false;
   bool _pauseRequested = false;
@@ -215,6 +235,8 @@ class LiveGameController extends StateNotifier<LiveGameState> {
   bool _connecting = false;
   int _reconnectAttempt = 0;
   Timer? _reconnectTimer;
+  Timer? _snapshotTimer;
+  bool _syncingSnapshot = false;
 
   Future<void> start() async {
     if (_disposed || _connecting) {
@@ -236,6 +258,8 @@ class LiveGameController extends StateNotifier<LiveGameState> {
   }
 
   Future<void> pause() async {
+    _snapshotTimer?.cancel();
+    _snapshotTimer = null;
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
     _pauseRequested = true;
@@ -331,47 +355,102 @@ class LiveGameController extends StateNotifier<LiveGameState> {
     );
   }
 
-  Future<void> submitClaim() async {
+  Future<ClaimSubmissionOutcome> submitClaim() async {
     final selectedTicket = state.selectedTicket;
     final selectedPattern = state.selectedClaimPattern;
-    if (selectedTicket == null || selectedPattern == null || !state.canSubmitClaim || state.isSubmittingClaim) {
-      return;
+    if (selectedTicket == null ||
+        selectedPattern == null ||
+        !state.canSubmitClaim ||
+        state.isSubmittingClaim) {
+      return ClaimSubmissionOutcome.notSubmitted;
     }
 
+    final claimKey = '${selectedTicket.id}:$selectedPattern';
+    final currentDrawSequence = state.draws.isEmpty
+        ? 0
+        : state.draws.last.sequenceNo;
+    final knownClaims = [
+      ...?state.claimPage?.content,
+      ..._submittedClaims.values,
+    ];
+    if (knownClaims.any(
+      (claim) =>
+          claim.ticketId == selectedTicket.id &&
+          claim.claimedPattern == selectedPattern &&
+          (claim.serverValidationPassed ||
+              claim.drawSequenceSnapshot >= currentDrawSequence),
+    )) {
+      state = state.copyWith(
+        infoMessage: 'CLAIM_ALREADY_SUBMITTED',
+        apiError: null,
+        errorMessage: null,
+      );
+      return ClaimSubmissionOutcome.alreadySubmitted;
+    }
     final idempotencyKey = state.pendingClaimIdempotencyKey ?? _uuid.v4();
     state = state.copyWith(
       isSubmittingClaim: true,
       pendingClaimIdempotencyKey: idempotencyKey,
       infoMessage: null,
       errorMessage: null,
+      apiError: null,
     );
 
     try {
-      await _repository.submitWinClaim(
+      final claim = await _repository.submitWinClaim(
         selectedTicket.id,
         selectedPattern,
         idempotencyKey,
       );
-      await _refreshClaims();
+      if (!claim.serverValidationPassed) {
+        state = state.copyWith(
+          isSubmittingClaim: false,
+          pendingClaimIdempotencyKey: null,
+          apiError: ApiError(
+            code:
+                claim.serverValidationCode ??
+                'CLAIM_DOES_NOT_MATCH_DRAWN_NUMBERS',
+          ),
+        );
+        return ClaimSubmissionOutcome.notSubmitted;
+      }
+      _submittedClaims[claimKey] = claim;
+      // A history refresh failure must not turn an accepted submission into
+      // a failed request or lose protection against a second tap.
+      try {
+        await _refreshClaims();
+      } catch (_) {}
+      if (_disposed) return ClaimSubmissionOutcome.notSubmitted;
       state = state.copyWith(
         isSubmittingClaim: false,
         pendingClaimIdempotencyKey: null,
         infoMessage: 'CLAIM_SUBMITTED',
       );
+      return ClaimSubmissionOutcome.submitted;
     } catch (error) {
       if (_isAuthError(error)) {
         await _expireSession();
-        return;
+        return ClaimSubmissionOutcome.notSubmitted;
       }
+      final apiError = normalizeApiError(error);
+      final alreadySubmitted =
+          apiError.code == 'DUPLICATE_WIN_CLAIM' ||
+          apiError.code == 'TICKET_PRIZE_ALREADY_AWARDED';
       state = state.copyWith(
         isSubmittingClaim: false,
-        apiError: normalizeApiError(error),
+        pendingClaimIdempotencyKey: alreadySubmitted ? null : idempotencyKey,
+        infoMessage: alreadySubmitted ? 'CLAIM_ALREADY_SUBMITTED' : null,
+        apiError: alreadySubmitted ? null : apiError,
       );
+      return alreadySubmitted
+          ? ClaimSubmissionOutcome.alreadySubmitted
+          : ClaimSubmissionOutcome.notSubmitted;
     }
   }
 
   @override
   void dispose() {
+    _snapshotTimer?.cancel();
     if (_disposed) {
       return;
     }
@@ -414,6 +493,24 @@ class LiveGameController extends StateNotifier<LiveGameState> {
     );
 
     try {
+      // REST history and claim eligibility must remain available when the live
+      // socket cannot connect, including for games that have already ended.
+      await _loadSnapshotAndHistory();
+      await _drainBufferedDraws();
+      if (_disposed || _pauseRequested) return;
+      state = state.copyWith(isLoading: false);
+      if (state.isTerminalSession) {
+        _snapshotTimer?.cancel();
+        _snapshotTimer = null;
+        state = state.copyWith(
+          connectionState: LiveGameConnectionState.finished,
+        );
+        await _transport.disconnect();
+        return;
+      }
+      _snapshotTimer ??= Timer.periodic(const Duration(seconds: 5), (_) {
+        unawaited(_syncSnapshot());
+      });
       await _transport.connect(
         uri: wsUri,
         accessToken: authSession.accessToken,
@@ -422,7 +519,6 @@ class LiveGameController extends StateNotifier<LiveGameState> {
         onError: _handleTransportError,
         onDisconnected: _handleTransportDisconnected,
       );
-      await _loadSnapshotAndHistory();
       await _drainBufferedDraws();
       if (_disposed) {
         return;
@@ -466,6 +562,28 @@ class LiveGameController extends StateNotifier<LiveGameState> {
     }
   }
 
+  Future<void> _syncSnapshot() async {
+    if (_disposed || _pauseRequested || _connecting || _syncingSnapshot) return;
+    _syncingSnapshot = true;
+    try {
+      await _loadSnapshotAndHistory();
+      await _drainBufferedDraws();
+      if (!_disposed && state.isTerminalSession) {
+        _snapshotTimer?.cancel();
+        _snapshotTimer = null;
+        state = state.copyWith(
+          connectionState: LiveGameConnectionState.finished,
+        );
+        await _transport.disconnect();
+      }
+    } catch (error) {
+      if (_isAuthError(error)) await _expireSession();
+      // Socket updates and the next poll can recover transient REST failures.
+    } finally {
+      _syncingSnapshot = false;
+    }
+  }
+
   Future<void> _loadSnapshotAndHistory({int? selectedTicketId}) async {
     final session = await _repository.getSession(sessionId);
     if (_disposed) {
@@ -478,6 +596,22 @@ class LiveGameController extends StateNotifier<LiveGameState> {
     );
     if (_disposed) {
       return;
+    }
+    final allTickets = <TicketResponse>[...ticketPage.content];
+    if (session.state != 'OPEN' &&
+        session.state != 'DRAFT' &&
+        ticketPage.totalPages > 1) {
+      allTickets.clear();
+      // Aggregate the player's entire session, not just the selected page.
+      for (var page = 0; page * 100 < ticketPage.totalElements; page++) {
+        final batch = await _repository.getMyTickets(
+          sessionId,
+          page: page,
+          size: 100,
+        );
+        if (_disposed) return;
+        allTickets.addAll(batch.content);
+      }
     }
     final claimPage = await _repository.getMyWinClaims(
       page: 0,
@@ -501,6 +635,14 @@ class LiveGameController extends StateNotifier<LiveGameState> {
     state = state.copyWith(
       session: session,
       ticketPage: ticketPage,
+      winningTickets: {for (final ticket in allTickets) ticket.id: ticket}
+          .values
+          .where(
+            (ticket) =>
+                ticket.confirmedPrizes.isNotEmpty &&
+                ticket.prizeCurrency.isNotEmpty,
+          )
+          .toList(),
       selectedTicketIndex: selectedTicketIndex,
       claimPage: claimPage,
       selectedClaimPattern:
@@ -609,6 +751,10 @@ class LiveGameController extends StateNotifier<LiveGameState> {
         infoMessage: null,
         errorMessage: null,
       );
+      // Ask the server for winner eligibility as soon as a call arrives.
+      if (!_connecting && !_syncingSnapshot && !state.isTerminalSession) {
+        unawaited(_syncSnapshot());
+      }
     }
   }
 
@@ -686,6 +832,8 @@ class LiveGameController extends StateNotifier<LiveGameState> {
   }
 
   Future<void> _expireSession() async {
+    _snapshotTimer?.cancel();
+    _snapshotTimer = null;
     _pauseRequested = true;
     await _transport.disconnect();
     await _clearAuthSession(reason: 'SESSION_EXPIRED');

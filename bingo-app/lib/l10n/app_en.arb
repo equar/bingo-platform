@@ -324,5 +324,81 @@
   "errorGameFunding": "This game needs more funded ticket sales before it can start.",
   "prizePaid": "Paid",
   "prizeAwaitingPayment": "Awaiting payment",
-  "prizeCashCode": "Agent cash payout code"
+  "prizeCashCode": "Agent cash payout code",
+  "currentNumber": "Current number",
+  "recentCalls": "Recent calls",
+  "viewAllCalls": "View all {count}",
+  "closeCallHistory": "Close call history",
+  "waitingForFirstCall": "Waiting for the first call",
+  "waitingForNextCall": "Waiting for the next call",
+  "nextCallEstimate": "Next call in about {seconds}s",
+  "ticketPosition": "{current} of {total}",
+  "@viewAllCalls": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@nextCallEstimate": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "@ticketPosition": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "claimAlreadySubmitted": "Your claim has already been submitted.",
+  "liveGameDetails": "Game details",
+  "claimDialogDismiss": "OK",
+  "winningTicketReady": "You won {pattern}! Claim your prize.",
+  "claimWaitingForWin": "Complete the winning pattern to enable Claim.",
+  "errorClaimPatternIncomplete": "This ticket has not completed the winning pattern.",
+  "@winningTicketReady": {
+    "placeholders": {
+      "pattern": {
+        "type": "String"
+      }
+    }
+  },
+  "ticketDidNotWin": "This ticket did not win this game.",
+  "celebrationBingo": "BINGO!",
+  "celebrationWinningTickets": "{count, plural, one {1 Winning Ticket!} other {{count} Winning Tickets!}}",
+  "celebrationCongratulations": "Congratulations! You won",
+  "celebrationTotal": "Total winnings",
+  "celebrationTicket": "Ticket #{id}",
+  "celebrationTicketsWon": "{won} of {total} tickets won",
+  "@celebrationWinningTickets": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@celebrationTicket": {
+    "placeholders": {
+      "id": {
+        "type": "int"
+      }
+    }
+  },
+  "@celebrationTicketsWon": {
+    "placeholders": {
+      "won": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  }
 }

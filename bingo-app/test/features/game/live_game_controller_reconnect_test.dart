@@ -29,6 +29,7 @@ PageResult<TicketResponse> _ticketPage() {
         sessionId: 42,
         ownerId: 7,
         publicTicketCode: 'TICKET-101',
+        eligibleClaimPatterns: const ['LINE', 'FULL_HOUSE'],
         operationId: 'ticket-op-101',
         grid: const [
           [1, 16, 31, 46, 61],
@@ -70,7 +71,8 @@ GameSession _session({required String state}) {
     state: state,
     scheduledStartAt: DateTime.utc(2026, 1, 1, 12),
     startedAt: DateTime.utc(2026, 1, 1, 12),
-    endedAt: null,
+    endedAt: state == 'CLOSED' ? DateTime.now().toUtc() : null,
+    claimWindowSeconds: 86400,
     ticketPrice: 100,
     currency: 'ETB',
     sessionCapacity: 20,
@@ -86,9 +88,7 @@ GameSession _session({required String state}) {
   );
 }
 
-AuthSessionState _authenticatedState({
-  DateTime? expiresAt,
-}) {
+AuthSessionState _authenticatedState({DateTime? expiresAt}) {
   return AuthSessionState(
     isLoading: false,
     session: AuthSession(
@@ -108,6 +108,140 @@ AuthSessionState _authenticatedState({
 }
 
 void main() {
+  test(
+    'celebration aggregates winning tickets beyond the selected page',
+    () async {
+      final repo = _PagedWinningRepository();
+      final controller = LiveGameController(
+        sessionId: 42,
+        repository: repo,
+        readAuthSession: () => _authenticatedState(),
+        clearAuthSession: ({String? reason}) async {},
+        appConfig: const AppConfig(
+          apiBaseUrl: 'https://example.com',
+          apiBaseUrlLabel: 'API_BASE_URL',
+        ),
+        transport: FakeLiveGameTransport(),
+      );
+      addTearDown(controller.dispose);
+      await controller.start();
+      expect(controller.state.ticketPage?.content, hasLength(10));
+      expect(controller.state.ticketPage?.totalElements, 11);
+      expect(controller.state.winningTickets.map((ticket) => ticket.id), [111]);
+      expect(controller.state.winningTickets.single.totalWinningMinor, 501);
+    },
+  );
+
+  testWidgets(
+    'session polling updates OPEN to DRAWING and preserves the closed claim window',
+    (tester) async {
+      final repo = FakeLiveGameRepository(
+        session: _session(state: 'OPEN'),
+        ticketPage: _ticketPage(),
+        claimPage: _claimPage(),
+        drawResponses: {
+          0: [_draw(sequenceNo: 1, numberDrawn: 7)],
+        },
+      );
+      final controller = LiveGameController(
+        sessionId: 42,
+        repository: repo,
+        readAuthSession: () => _authenticatedState(),
+        clearAuthSession: ({String? reason}) async {},
+        appConfig: const AppConfig(
+          apiBaseUrl: 'https://example.com',
+          apiBaseUrlLabel: 'API_BASE_URL',
+        ),
+        transport: FakeLiveGameTransport(),
+      );
+      addTearDown(controller.dispose);
+      await controller.start();
+      expect(controller.state.canSubmitClaim, false);
+      repo.session = _session(state: 'DRAWING');
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pump();
+      expect(controller.state.session?.state, 'DRAWING');
+      expect(controller.state.canSubmitClaim, true);
+      repo.session = _session(state: 'CLOSED');
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pump();
+      expect(
+        controller.state.connectionState,
+        LiveGameConnectionState.finished,
+      );
+      expect(controller.state.canSubmitClaim, true);
+    },
+  );
+
+  test(
+    'closed game loads history and claim eligibility without a live socket',
+    () async {
+      final repo = FakeLiveGameRepository(
+        session: _session(state: 'CLOSED'),
+        ticketPage: _ticketPage(),
+        claimPage: _claimPage(),
+        drawResponses: {
+          0: [_draw(sequenceNo: 1, numberDrawn: 7)],
+        },
+      );
+      final transport = FakeLiveGameTransport();
+      final controller = LiveGameController(
+        sessionId: 42,
+        repository: repo,
+        readAuthSession: () => _authenticatedState(),
+        clearAuthSession: ({String? reason}) async {},
+        appConfig: const AppConfig(
+          apiBaseUrl: 'https://example.com',
+          apiBaseUrlLabel: 'API_BASE_URL',
+        ),
+        transport: transport,
+      );
+      addTearDown(controller.dispose);
+      await controller.start();
+      expect(transport.connectCount, 0);
+      expect(controller.state.isLoading, false);
+      expect(controller.state.calledNumbers, [7]);
+      expect(controller.state.selectedTicket?.id, 101);
+      expect(controller.state.selectedClaimPattern, 'LINE');
+      expect(controller.state.canSubmitClaim, true);
+      expect(
+        controller.state.connectionState,
+        LiveGameConnectionState.finished,
+      );
+    },
+  );
+
+  test(
+    'socket failure still leaves calls, tickets and claims available',
+    () async {
+      final repo = FakeLiveGameRepository(
+        session: _session(state: 'DRAWING'),
+        ticketPage: _ticketPage(),
+        claimPage: _claimPage(),
+        drawResponses: {
+          0: [_draw(sequenceNo: 1, numberDrawn: 7)],
+        },
+      );
+      final controller = LiveGameController(
+        sessionId: 42,
+        repository: repo,
+        readAuthSession: () => _authenticatedState(),
+        clearAuthSession: ({String? reason}) async {},
+        appConfig: const AppConfig(
+          apiBaseUrl: 'https://example.com',
+          apiBaseUrlLabel: 'API_BASE_URL',
+        ),
+        transport: _FailingTransport(),
+      );
+      addTearDown(controller.dispose);
+      await controller.start();
+      expect(controller.state.isLoading, false);
+      expect(controller.state.calledNumbers, [7]);
+      expect(controller.state.selectedTicket?.id, 101);
+      expect(controller.state.canSubmitClaim, true);
+    },
+  );
+
   test(
     'replays missing draws after a sequence gap and ignores duplicates',
     () async {
@@ -147,12 +281,12 @@ void main() {
         2,
         3,
       ]);
-      expect(repo.drawRequests, [0, 1]);
+      expect(repo.drawRequests.take(2), [0, 1]);
     },
   );
 
   test(
-    'reconnects after transport disconnect and preserves server claim outcomes',
+    'reconnects and never announces a server-rejected claim as submitted',
     () async {
       final submittedClaims = <WinClaimRecord>[];
       final repo = FakeLiveGameRepository(
@@ -189,7 +323,14 @@ void main() {
       expect(transport.connectCount, 2);
 
       controller.selectClaimPattern('FULL_HOUSE');
-      await controller.submitClaim();
+      final outcome = await controller.submitClaim();
+      expect(outcome, ClaimSubmissionOutcome.notSubmitted);
+      expect(
+        controller.state.apiError?.code,
+        'CLAIM_DOES_NOT_MATCH_DRAWN_NUMBERS',
+      );
+      expect(controller.state.infoMessage, isNot('CLAIM_SUBMITTED'));
+      await controller.refresh();
 
       expect(submittedClaims, hasLength(1));
       expect(submittedClaims.first.status, 'REJECTED');
@@ -198,76 +339,85 @@ void main() {
     },
   );
 
-  test('pauses the live connection in background and resyncs on resume', () async {
-    final repo = FakeLiveGameRepository(
-      session: _session(state: 'STARTED'),
-      ticketPage: _ticketPage(),
-      claimPage: _claimPage(),
-      drawResponses: {0: const []},
-    );
-    final transport = FakeLiveGameTransport();
-    final controller = LiveGameController(
-      sessionId: 42,
-      repository: repo,
-      readAuthSession: _authenticatedState,
-      clearAuthSession: ({String? reason}) async {},
-      appConfig: const AppConfig(
-        apiBaseUrl: 'https://example.com',
-        apiBaseUrlLabel: 'API_BASE_URL',
-      ),
-      transport: transport,
-    );
-    addTearDown(controller.dispose);
+  test(
+    'pauses the live connection in background and resyncs on resume',
+    () async {
+      final repo = FakeLiveGameRepository(
+        session: _session(state: 'STARTED'),
+        ticketPage: _ticketPage(),
+        claimPage: _claimPage(),
+        drawResponses: {0: const []},
+      );
+      final transport = FakeLiveGameTransport();
+      final controller = LiveGameController(
+        sessionId: 42,
+        repository: repo,
+        readAuthSession: _authenticatedState,
+        clearAuthSession: ({String? reason}) async {},
+        appConfig: const AppConfig(
+          apiBaseUrl: 'https://example.com',
+          apiBaseUrlLabel: 'API_BASE_URL',
+        ),
+        transport: transport,
+      );
+      addTearDown(controller.dispose);
 
-    await controller.start();
-    expect(transport.connectCount, 1);
-    expect(transport.isConnected, isTrue);
+      await controller.start();
+      expect(transport.connectCount, 1);
+      expect(transport.isConnected, isTrue);
 
-    await controller.pause();
-    expect(controller.state.connectionState, LiveGameConnectionState.paused);
-    expect(transport.isConnected, isFalse);
+      await controller.pause();
+      expect(controller.state.connectionState, LiveGameConnectionState.paused);
+      expect(transport.isConnected, isFalse);
 
-    await controller.resume();
-    expect(transport.connectCount, 2);
-    expect(controller.state.connectionState, LiveGameConnectionState.connected);
-  });
+      await controller.resume();
+      expect(transport.connectCount, 2);
+      expect(
+        controller.state.connectionState,
+        LiveGameConnectionState.connected,
+      );
+    },
+  );
 
-  test('expires the session instead of reconnecting with an expired token', () async {
-    final repo = FakeLiveGameRepository(
-      session: _session(state: 'STARTED'),
-      ticketPage: _ticketPage(),
-      claimPage: _claimPage(),
-      drawResponses: {0: const []},
-    );
-    final transport = FakeLiveGameTransport();
-    final clearedSessionReasons = <String?>[];
-    var authState = _authenticatedState();
-    final controller = LiveGameController(
-      sessionId: 42,
-      repository: repo,
-      readAuthSession: () => authState,
-      clearAuthSession: ({String? reason}) async {
-        clearedSessionReasons.add(reason);
-      },
-      appConfig: const AppConfig(
-        apiBaseUrl: 'https://example.com',
-        apiBaseUrlLabel: 'API_BASE_URL',
-      ),
-      transport: transport,
-    );
-    addTearDown(controller.dispose);
+  test(
+    'expires the session instead of reconnecting with an expired token',
+    () async {
+      final repo = FakeLiveGameRepository(
+        session: _session(state: 'STARTED'),
+        ticketPage: _ticketPage(),
+        claimPage: _claimPage(),
+        drawResponses: {0: const []},
+      );
+      final transport = FakeLiveGameTransport();
+      final clearedSessionReasons = <String?>[];
+      var authState = _authenticatedState();
+      final controller = LiveGameController(
+        sessionId: 42,
+        repository: repo,
+        readAuthSession: () => authState,
+        clearAuthSession: ({String? reason}) async {
+          clearedSessionReasons.add(reason);
+        },
+        appConfig: const AppConfig(
+          apiBaseUrl: 'https://example.com',
+          apiBaseUrlLabel: 'API_BASE_URL',
+        ),
+        transport: transport,
+      );
+      addTearDown(controller.dispose);
 
-    await controller.start();
-    authState = _authenticatedState(expiresAt: DateTime.utc(2020));
+      await controller.start();
+      authState = _authenticatedState(expiresAt: DateTime.utc(2020));
 
-    await controller.pause();
-    await controller.resume();
+      await controller.pause();
+      await controller.resume();
 
-    expect(controller.state.connectionState, LiveGameConnectionState.expired);
-    expect(clearedSessionReasons, ['SESSION_EXPIRED']);
-    expect(transport.connectCount, 1);
-    expect(transport.isConnected, isFalse);
-  });
+      expect(controller.state.connectionState, LiveGameConnectionState.expired);
+      expect(clearedSessionReasons, ['SESSION_EXPIRED']);
+      expect(transport.connectCount, 1);
+      expect(transport.isConnected, isFalse);
+    },
+  );
 }
 
 class FakeLiveGameRepository implements LiveGameRepository {
@@ -279,7 +429,7 @@ class FakeLiveGameRepository implements LiveGameRepository {
     this.onSubmitClaim,
   }) : _claims = List<WinClaimRecord>.from(claimPage.content);
 
-  final GameSession session;
+  GameSession session;
   final PageResult<TicketResponse> ticketPage;
   final PageResult<WinClaimRecord> claimPage;
   final Map<int?, List<LiveDrawEvent>> drawResponses;
@@ -408,5 +558,57 @@ class FakeLiveGameTransport implements LiveGameTransport {
 
   void triggerError(Object error) {
     _onError?.call(error);
+  }
+}
+
+class _FailingTransport extends FakeLiveGameTransport {
+  @override
+  Future<void> connect({
+    required Uri uri,
+    required String accessToken,
+    required int sessionId,
+    required void Function(LiveDrawEvent event) onDraw,
+    required void Function(Object error) onError,
+    required void Function() onDisconnected,
+  }) async {
+    throw StateError('socket unavailable');
+  }
+}
+
+class _PagedWinningRepository extends FakeLiveGameRepository {
+  _PagedWinningRepository()
+    : super(
+        session: _session(state: 'DRAWING'),
+        ticketPage: _ticketPage(),
+        claimPage: _claimPage(),
+        drawResponses: {0: []},
+      );
+
+  @override
+  Future<PageResult<TicketResponse>> getMyTickets(
+    int sessionId, {
+    required int page,
+    required int size,
+  }) async {
+    final all = List.generate(
+      11,
+      (index) => TicketResponse.fromJson({
+        'id': 101 + index,
+        'sessionId': 42,
+        'grid': _ticketPage().content.first.grid,
+        'eligibleClaimPatterns': index == 10 ? ['LINE'] : [],
+        'winningPrizeAmounts': index == 10 ? {'LINE': 5.01} : {},
+        'prizeCurrency': 'ETB',
+      }),
+    );
+    return PageResult(
+      content: all.skip(page * size).take(size).toList(),
+      page: page,
+      size: size,
+      totalElements: 11,
+      totalPages: (11 / size).ceil(),
+      first: page == 0,
+      last: (page + 1) * size >= 11,
+    );
   }
 }

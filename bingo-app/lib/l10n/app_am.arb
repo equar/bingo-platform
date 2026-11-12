@@ -324,5 +324,81 @@
   "errorGameFunding": "ይህ ጨዋታ ከመጀመሩ በፊት ተጨማሪ በገንዘብ የተደገፈ የቲኬት ሽያጭ ያስፈልገዋል።",
   "prizePaid": "ተከፍሏል",
   "prizeAwaitingPayment": "ክፍያ በመጠባበቅ ላይ",
-  "prizeCashCode": "የወኪል ጥሬ ገንዘብ ክፍያ ኮድ"
+  "prizeCashCode": "የወኪል ጥሬ ገንዘብ ክፍያ ኮድ",
+  "currentNumber": "የአሁኑ ቁጥር",
+  "recentCalls": "የቅርብ ጥሪዎች",
+  "viewAllCalls": "ሁሉንም {count} አሳይ",
+  "closeCallHistory": "የጥሪ ታሪክን ዝጋ",
+  "waitingForFirstCall": "የመጀመሪያውን ጥሪ በመጠባበቅ ላይ",
+  "waitingForNextCall": "ቀጣዩን ጥሪ በመጠባበቅ ላይ",
+  "nextCallEstimate": "ቀጣዩ ጥሪ በግምት በ{seconds} ሰከንድ",
+  "ticketPosition": "{current} ከ {total}",
+  "@viewAllCalls": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@nextCallEstimate": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "@ticketPosition": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "claimAlreadySubmitted": "ጥያቄዎ አስቀድሞ ተልኳል።",
+  "liveGameDetails": "የጨዋታ ዝርዝሮች",
+  "claimDialogDismiss": "እሺ",
+  "winningTicketReady": "{pattern} አሸንፈዋል! ሽልማትዎን ይጠይቁ።",
+  "claimWaitingForWin": "ጥያቄ ለማቅረብ የማሸነፊያውን ቅርጽ ያሟሉ።",
+  "errorClaimPatternIncomplete": "ይህ ቲኬት የማሸነፊያውን ቅርጽ አላሟላም።",
+  "@winningTicketReady": {
+    "placeholders": {
+      "pattern": {
+        "type": "String"
+      }
+    }
+  },
+  "ticketDidNotWin": "ይህ ቲኬት በዚህ ጨዋታ አላሸነፈም።",
+  "celebrationBingo": "ቢንጎ!",
+  "celebrationWinningTickets": "{count} አሸናፊ ቲኬቶች!",
+  "celebrationCongratulations": "እንኳን ደስ አለዎት! አሸንፈዋል",
+  "celebrationTotal": "ጠቅላላ ሽልማት",
+  "celebrationTicket": "ቲኬት #{id}",
+  "celebrationTicketsWon": "ከ{total} ቲኬቶች {won} አሸንፈዋል",
+  "@celebrationWinningTickets": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@celebrationTicket": {
+    "placeholders": {
+      "id": {
+        "type": "int"
+      }
+    }
+  },
+  "@celebrationTicketsWon": {
+    "placeholders": {
+      "won": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  }
 }

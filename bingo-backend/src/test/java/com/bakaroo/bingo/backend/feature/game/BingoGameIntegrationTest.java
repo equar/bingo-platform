@@ -1065,17 +1065,11 @@ class BingoGameIntegrationTest extends MySqlIntegrationTest {
                 var admin = new BingoUserPrincipal(userRepository.findById(adminUser.getId()).orElseThrow());
                 var purchased = bingoGameService.purchaseTicket(session.id(), player, "unverified-claim-ticket");
                 bingoGameService.updateSessionState(session.id(), new GameSessionStateUpdateRequest(GameSessionState.STARTED));
-                var claimResult = bingoGameService.submitWinClaim(purchased.body().ticket().id(), player,
-                                new WinClaimRequest(BingoPatternType.LINE), "unverified-claim-key");
-                var claim = winClaimRepository.findById(claimResult.body().id()).orElseThrow();
-                assertEquals(WinClaimStatus.FAILED_SERVER_VALIDATION, claim.getStatus());
-                assertTrue(!claim.isServerValidationPassed());
-
                 var failure = assertThrows(ConflictException.class,
-                                () -> bingoGameService.reviewWinClaim(claim.getId(), admin,
-                                                new WinClaimReviewRequest("do not override"), true));
-
-                assertEquals("SERVER_VALIDATION_FAILED", failure.getCode());
+                                () -> bingoGameService.submitWinClaim(purchased.body().ticket().id(), player,
+                                                new WinClaimRequest(BingoPatternType.LINE), "unverified-claim-key"));
+                assertEquals("CLAIM_DOES_NOT_MATCH_DRAWN_NUMBERS", failure.getCode());
+                assertTrue(winClaimRepository.findAll().isEmpty());
                 assertTrue(prizeEntitlementRepository.findAll().isEmpty());
                 assertTrue(walletTransactionRepository.findAll().stream().noneMatch(transaction ->
                                 transaction.getTransactionType() == WalletTransactionType.PRIZE_CREDIT));

@@ -243,9 +243,11 @@ public class BingoGameService {
     @Transactional(readOnly = true)
     public Page<TicketResponse> getMyTickets(Long sessionId, BingoUserPrincipal principal, Pageable pageable) {
         User player = requirePlayer(principal);
-        gameAccess.requireRoomAccess(requireSession(sessionId).getRoom().getId(), principal);
+        GameSession session = requireSession(sessionId);
+        gameAccess.requireRoomAccess(session.getRoom().getId(), principal);
+        var eligibility = winningTicketsByPattern(session);
         return ticketRepository.findBySessionIdAndOwnerId(sessionId, player.getId(), pageable)
-                .map(this::toTicketResponse);
+                .map(ticket -> toTicketResponse(ticket, eligibility));
     }
 
     @Transactional(readOnly = true)
@@ -646,25 +648,14 @@ public class BingoGameService {
                     claim.setCalledNumbersSnapshotJson(writeIntegerList(calledNumbers));
                     claim.setEvidenceJson(writeEvidence(ticketCard, calledNumbers, request.claimedPattern()));
                     claim.setOperationId(operationId);
-                    if (matches) {
-                        try { winners.share(claim); }
-                        catch (ConflictException failure) {
-                            if (!"NOT_EARLIEST_WINNER".equals(failure.getCode())) throw failure;
-                            matches = false;
-                            claim.setServerValidationCode("NOT_EARLIEST_WINNER");
-                            claim.setServerValidationMessage("This ticket did not complete the pattern on its earliest call");
-                        }
+                    if (!matches) {
+                        throw new ConflictException("CLAIM_DOES_NOT_MATCH_DRAWN_NUMBERS",
+                                "This ticket has not completed the claimed pattern");
                     }
-                    claim.setServerValidationPassed(matches);
-                    if (matches) {
-                        claim.setStatus(WinClaimStatus.PENDING_REVIEW);
-                    } else {
-                        claim.setStatus(WinClaimStatus.FAILED_SERVER_VALIDATION);
-                        if (claim.getServerValidationCode() == null) {
-                            claim.setServerValidationCode("CLAIM_DOES_NOT_MATCH_DRAWN_NUMBERS");
-                            claim.setServerValidationMessage("The ticket does not satisfy the claimed pattern at the recorded draw sequence");
-                        }
-                    }
+                    // Reject late-completing tickets as well as unmatched cards.
+                    winners.share(claim);
+                    claim.setServerValidationPassed(true);
+                    claim.setStatus(WinClaimStatus.PENDING_REVIEW);
                     claim = winClaimRepository.save(claim);
                     return toWinClaimResponse(claim);
                 });
@@ -1005,15 +996,34 @@ public class BingoGameService {
                 .map(DrawEvent::getNumberDrawn).toList();
     }
 
+    private java.util.Map<BingoPatternType, List<Long>> winningTicketsByPattern(GameSession session) {
+        var result = new java.util.EnumMap<BingoPatternType, List<Long>>(BingoPatternType.class);
+        if (!"EARLIEST_SPLIT_V1".equals(session.getRulesVersion()) ||
+                (session.getState() != GameSessionState.STARTED && session.getState() != GameSessionState.DRAWING
+                        && session.getState() != GameSessionState.CLOSED)) return result;
+        for (var pattern : readPatterns(session.getPatternsSnapshotJson())) {
+            result.put(pattern, winners.winners(session.getId(), pattern).ticketIds());
+        }
+        return result;
+    }
+
     private TicketResponse toTicketResponse(Ticket ticket) {
+        return toTicketResponse(ticket, winningTicketsByPattern(ticket.getSession()));
+    }
+
+    private TicketResponse toTicketResponse(Ticket ticket, java.util.Map<BingoPatternType, List<Long>> eligibility) {
+        var amounts = new java.util.EnumMap<BingoPatternType, BigDecimal>(BingoPatternType.class);
+        for (var prize : readPrizes(ticket.getSession().getPrizesSnapshotJson())) {
+            var winningIds = eligibility.getOrDefault(prize.prizeType(), List.of());
+            int index = winningIds.indexOf(ticket.getId());
+            if (index >= 0) amounts.put(prize.prizeType(), GameWinnerService.split(prize.amount(), winningIds.size(), index));
+        }
         return new TicketResponse(
-                ticket.getId(),
-                ticket.getSession().getId(),
-                ticket.getOwner().getId(),
-                ticket.getPublicTicketCode(),
-                ticket.getOperationId(),
-                readGrid(ticket.getGridJson()),
-                ticket.getPurchasedAt());
+                ticket.getId(), ticket.getSession().getId(), ticket.getOwner().getId(),
+                ticket.getPublicTicketCode(), ticket.getOperationId(), readGrid(ticket.getGridJson()),
+                ticket.getPurchasedAt(), eligibility.entrySet().stream()
+                        .filter(entry -> entry.getValue().contains(ticket.getId()))
+                        .map(java.util.Map.Entry::getKey).toList(), amounts, ticket.getSession().getCurrencySnapshot());
     }
 
     private DrawEventResponse toDrawResponse(DrawEvent draw) {

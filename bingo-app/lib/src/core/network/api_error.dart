@@ -58,11 +58,25 @@ class ApiError implements Exception {
         code == 'SESSION_CLOSED') {
       return localizations.errorGameClosed;
     }
-    if (code == 'CLAIM_WINDOW_EXPIRED') return localizations.errorClaimWindowExpired;
-    if (code == 'NOT_EARLIEST_WINNER') return localizations.errorNotEarliestWinner;
-    if (code == 'TICKET_PRIZE_ALREADY_AWARDED') return localizations.errorTicketPrizeAwarded;
+    if (code == 'CLAIM_DOES_NOT_MATCH_DRAWN_NUMBERS') {
+      return localizations.errorClaimPatternIncomplete;
+    }
+    if (code == 'DUPLICATE_WIN_CLAIM') {
+      return localizations.claimAlreadySubmitted;
+    }
+    if (code == 'CLAIM_WINDOW_EXPIRED') {
+      return localizations.errorClaimWindowExpired;
+    }
+    if (code == 'NOT_EARLIEST_WINNER') {
+      return localizations.errorNotEarliestWinner;
+    }
+    if (code == 'TICKET_PRIZE_ALREADY_AWARDED') {
+      return localizations.errorTicketPrizeAwarded;
+    }
     if (code == 'SESSION_UNDERFUNDED') return localizations.errorGameFunding;
-    if (code == 'SESSION_NOT_CLAIMABLE' || code == 'SESSION_ALREADY_STARTED') return localizations.errorGameClosed;
+    if (code == 'SESSION_NOT_CLAIMABLE' || code == 'SESSION_ALREADY_STARTED') {
+      return localizations.errorGameClosed;
+    }
     if (code == 'SESSION_NOT_DRAWING') return localizations.errorGameNotOpen;
     if (code == 'SESSION_CAPACITY_REACHED') return localizations.errorGameFull;
     if (code == 'ACCESS_DENIED' || code == 'FORBIDDEN') {
