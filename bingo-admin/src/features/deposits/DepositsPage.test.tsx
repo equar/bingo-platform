@@ -1,23 +1,19 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { type PropsWithChildren } from "react";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { approveDeposit, deposits, rejectDeposit } from "../../api/admin";
+import { deposits } from "../../api/admin";
 import { clearSession, writeSession } from "../../api/session";
 import i18n from "../../i18n";
 import { DepositsPage } from "./DepositsPage";
 
 vi.mock("../../api/admin", () => ({
-  approveDeposit: vi.fn(),
   deposits: vi.fn(),
-  rejectDeposit: vi.fn(),
 }));
 
-const approveDepositMock = vi.mocked(approveDeposit);
 const depositsMock = vi.mocked(deposits);
-const rejectDepositMock = vi.mocked(rejectDeposit);
 
 function depositResponse(status = "PENDING") {
   return {
@@ -52,6 +48,23 @@ function depositResponse(status = "PENDING") {
   };
 }
 
+function writeSessionWithRoles(roles: string[]) {
+  writeSession({
+    accessToken: "test-token",
+    tokenType: "Bearer",
+    user: {
+      id: 5,
+      displayName: "Review Admin",
+      phoneNumber: "251911000005",
+      roles,
+      status: "ACTIVE",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+      preferredLanguage: "en",
+    },
+  });
+}
+
 function createWrapper({ children }: PropsWithChildren) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return (
@@ -79,37 +92,43 @@ describe("DepositsPage", () => {
   beforeEach(async () => {
     await i18n.changeLanguage("en");
     clearSession();
-    writeSession({
-      accessToken: "test-token",
-      tokenType: "Bearer",
-      user: {
-        id: 5,
-        displayName: "Review Admin",
-        phoneNumber: "251911000005",
-        roles: ["ADMIN"],
-        status: "ACTIVE",
-        createdAt: "2026-01-01T00:00:00.000Z",
-        updatedAt: "2026-01-01T00:00:00.000Z",
-        preferredLanguage: "en",
-      },
-    });
+    writeSessionWithRoles(["ADMIN"]);
     depositsMock.mockReset();
-    approveDepositMock.mockReset().mockResolvedValue({} as Awaited<ReturnType<typeof approveDeposit>>);
-    rejectDepositMock.mockReset().mockResolvedValue({} as Awaited<ReturnType<typeof rejectDeposit>>);
     depositsMock.mockResolvedValue(depositResponse());
   });
 
-  it("shows player details and only approve and reject actions", async () => {
+  it("shows deposit and player details and links to the detail page", async () => {
     render(<DepositsPage />, { wrapper: createWrapper });
 
     expect(await screen.findByTestId("deposit-row-32")).toBeInTheDocument();
     expect(screen.getByText("TXN-8842")).toBeInTheDocument();
     expect(screen.getByText("Player Name")).toBeInTheDocument();
     expect(screen.getByText("+251911000014")).toBeInTheDocument();
+    expect(screen.getByTestId("deposit-details-32")).toBeInTheDocument();
     expect(screen.queryByTestId("deposit-verify-32")).not.toBeInTheDocument();
-    expect(screen.getByTestId("deposit-approve-32")).toBeDisabled();
-    expect(screen.getByTestId("deposit-reject-32")).toBeEnabled();
+    expect(screen.queryByTestId("deposit-review-32")).not.toBeInTheDocument();
     expect(depositsMock).toHaveBeenCalledWith(0, 20, undefined, undefined);
+  });
+
+  it("shows masked references and verification navigation to support", async () => {
+    writeSessionWithRoles(["SUPPORT"]);
+    render(<DepositsPage />, { wrapper: createWrapper });
+
+    await screen.findByTestId("deposit-row-32");
+
+    expect(screen.getByText("****8842")).toBeInTheDocument();
+    expect(screen.getByTestId("deposit-verify-32")).toBeInTheDocument();
+    expect(screen.queryByTestId("deposit-review-32")).not.toBeInTheDocument();
+  });
+
+  it("lets administrators open rejected deposits for review", async () => {
+    depositsMock.mockResolvedValue(depositResponse("REJECTED"));
+    render(<DepositsPage />, { wrapper: createWrapper });
+
+    await screen.findByTestId("deposit-row-32");
+
+    expect(screen.getByTestId("deposit-review-32")).toBeInTheDocument();
+    expect(screen.queryByTestId("deposit-verify-32")).not.toBeInTheDocument();
   });
 
   it("uses the pending status when opened from the dashboard review metric", async () => {
@@ -143,74 +162,5 @@ describe("DepositsPage", () => {
     await user.click(screen.getByRole("button", { name: "Go to next page" }));
 
     await waitFor(() => expect(depositsMock).toHaveBeenLastCalledWith(1, 20, undefined, undefined));
-  });
-
-  it("approves a verified deposit with a review note", async () => {
-    const user = userEvent.setup();
-    depositsMock.mockResolvedValue(depositResponse("VERIFIED"));
-    render(<DepositsPage />, { wrapper: createWrapper });
-    await screen.findByTestId("deposit-row-32");
-
-    await user.click(screen.getByTestId("deposit-approve-32"));
-    await user.type(screen.getByRole("textbox", { name: "Review note" }), "Payment verified");
-    await user.click(screen.getByRole("button", { name: "Approve" }));
-    await waitFor(() =>
-      expect(approveDepositMock).toHaveBeenCalledWith(32, {
-        reviewNote: "Payment verified",
-        idempotencyKey: expect.any(String),
-      }),
-    );
-
-  });
-
-  it("allows rejection of pending deposits with a reason", async () => {
-    const user = userEvent.setup();
-    render(<DepositsPage />, { wrapper: createWrapper });
-    await screen.findByTestId("deposit-row-32");
-
-    await user.click(screen.getByTestId("deposit-reject-32"));
-    await user.type(screen.getByRole("textbox", { name: "Review note" }), "Reference not found");
-    await user.click(screen.getByRole("button", { name: "Reject" }));
-    await waitFor(() =>
-      expect(rejectDepositMock).toHaveBeenCalledWith(32, {
-        reviewNote: "Reference not found",
-        idempotencyKey: expect.any(String),
-      }),
-    );
-  });
-
-  it("prevents duplicate review requests while the deposit action is pending", async () => {
-    const user = userEvent.setup();
-    approveDepositMock.mockReturnValue(new Promise(() => {}));
-    depositsMock.mockResolvedValue(depositResponse("VERIFIED"));
-    render(<DepositsPage />, { wrapper: createWrapper });
-    await screen.findByTestId("deposit-row-32");
-
-    await user.click(screen.getByTestId("deposit-approve-32"));
-    await user.type(screen.getByRole("textbox", { name: "Review note" }), "Payment verified");
-    const confirmButton = screen.getByRole("button", { name: "Approve" });
-    await user.click(confirmButton);
-    await waitFor(() => expect(confirmButton).toBeDisabled());
-    fireEvent.click(confirmButton);
-
-    expect(approveDepositMock).toHaveBeenCalledTimes(1);
-  });
-
-  it("shows a deposit review API failure", async () => {
-    const user = userEvent.setup();
-    approveDepositMock.mockRejectedValue({
-      response: { status: 403, data: { code: "ACCESS_DENIED", message: "Internal authorization detail" } },
-    });
-    depositsMock.mockResolvedValue(depositResponse("VERIFIED"));
-    render(<DepositsPage />, { wrapper: createWrapper });
-    await screen.findByTestId("deposit-row-32");
-
-    await user.click(screen.getByTestId("deposit-approve-32"));
-    await user.type(screen.getByRole("textbox", { name: "Review note" }), "Payment verified");
-    await user.click(screen.getByRole("button", { name: "Approve" }));
-
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "You don’t have permission to perform this action.",
-    );
   });
 });
