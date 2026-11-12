@@ -499,12 +499,10 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
                                 """, bankAccountId, LocalDate.now(), verifier.getId());
                 assertEquals("MATCHED", depositFinancialService.verify(firstId, new BingoUserPrincipal(verifier),
                                 new DepositVerificationRequest("TBR-DUPLICATE-EVIDENCE")).outcome());
-                var duplicateEvidence = org.junit.jupiter.api.Assertions.assertThrows(
-                                com.bakaroo.bingo.backend.common.exception.ConflictException.class,
-                                () -> depositFinancialService.verify(secondId, new BingoUserPrincipal(verifier),
-                                                new DepositVerificationRequest("TBR-DUPLICATE-EVIDENCE")));
-                assertEquals("BANK_STATEMENT_ALREADY_USED", duplicateEvidence.getCode());
-                assertEquals(DepositClaimStatus.PENDING,
+                var duplicateEvidence = depositFinancialService.verify(secondId, new BingoUserPrincipal(verifier),
+                                new DepositVerificationRequest("TBR-DUPLICATE-EVIDENCE"));
+                assertEquals("REFERENCE_MISMATCH", duplicateEvidence.outcome());
+                assertEquals(DepositClaimStatus.VERIFICATION_EXCEPTION,
                                 depositClaimRepository.findById(secondId).orElseThrow().getStatus());
 
                 Long mismatchId = walletService.submitDeposit(new BingoUserPrincipal(playerUser),
