@@ -2,7 +2,9 @@ package com.bakaroo.bingo.backend.feature.auth.service;
 
 import com.bakaroo.bingo.backend.feature.user.entity.User;
 import com.bakaroo.bingo.backend.feature.user.entity.ActivationEmailStatus;
+import com.bakaroo.bingo.backend.feature.user.entity.PasswordResetEmailStatus;
 import com.bakaroo.bingo.backend.feature.user.repository.UserRepository;
+import java.time.Instant;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
@@ -43,16 +45,43 @@ public class AdminAccountNotificationService {
             message.setSubject("Complete your Bingo Admin account setup");
             message.setText(buildMessage(user, activationLink));
             mailSender.send(message);
-            updateActivationStatus(user, ActivationEmailStatus.SENT);
         } catch (RuntimeException exception) {
-            log.error("Unable to send admin account activation email for user id {}", user.getId(), exception);
-            updateActivationStatus(user, ActivationEmailStatus.FAILED);
+            log.atError()
+                    .addKeyValue("operation", "admin_activation_email")
+                    .addKeyValue("outcome", "failed")
+                    .addKeyValue("userId", user.getId())
+                    .addKeyValue("failureType", exception.getClass().getSimpleName())
+                    .addKeyValue("causeType", causeType(exception))
+                    .log("Admin activation email delivery failed");
+            persistActivationStatus(user, ActivationEmailStatus.FAILED);
+            return;
         }
+        log.atInfo()
+                .addKeyValue("operation", "admin_activation_email")
+                .addKeyValue("outcome", "sent")
+                .addKeyValue("userId", user.getId())
+                .log("Admin activation email sent");
+        persistActivationStatus(user, ActivationEmailStatus.SENT);
     }
 
-    private void updateActivationStatus(User user, ActivationEmailStatus status) {
+    private void persistActivationStatus(User user, ActivationEmailStatus status) {
         if (users != null) {
-            users.updateActivationEmailStatus(user.getId(), status);
+            try {
+                if (status == ActivationEmailStatus.SENT) {
+                    users.recordActivationEmailSent(user.getId(), status, Instant.now());
+                } else {
+                    users.updateActivationEmailStatus(user.getId(), status, Instant.now());
+                }
+            } catch (RuntimeException exception) {
+                log.atError()
+                        .addKeyValue("operation", "activation_email_status_update")
+                        .addKeyValue("outcome", "failed")
+                        .addKeyValue("userId", user.getId())
+                        .addKeyValue("requestedStatus", status.name())
+                        .addKeyValue("failureType", exception.getClass().getSimpleName())
+                        .setCause(exception)
+                        .log("Activation email status update failed");
+            }
         }
     }
 
@@ -72,9 +101,43 @@ public class AdminAccountNotificationService {
                     "",
                     "This link expires in 24 hours. If you did not expect this email, contact your administrator."));
             mailSender.send(message);
+            log.atInfo()
+                    .addKeyValue("operation", "admin_password_reset_email")
+                    .addKeyValue("outcome", "sent")
+                    .addKeyValue("userId", user.getId())
+                    .log("Admin password reset email sent");
+            persistPasswordResetStatus(user, PasswordResetEmailStatus.SENT);
         } catch (RuntimeException exception) {
-            log.error("Unable to send admin password reset email for user id {}", user.getId(), exception);
+            log.atError()
+                    .addKeyValue("operation", "admin_password_reset_email")
+                    .addKeyValue("outcome", "failed")
+                    .addKeyValue("userId", user.getId())
+                    .addKeyValue("failureType", exception.getClass().getSimpleName())
+                    .addKeyValue("causeType", causeType(exception))
+                    .log("Admin password reset email delivery failed");
+            persistPasswordResetStatus(user, PasswordResetEmailStatus.FAILED);
         }
+    }
+
+    private void persistPasswordResetStatus(User user, PasswordResetEmailStatus status) {
+        if (users != null) {
+            try {
+                users.updatePasswordResetEmailStatus(user.getId(), status, Instant.now());
+            } catch (RuntimeException exception) {
+                log.atError()
+                        .addKeyValue("operation", "password_reset_email_status_update")
+                        .addKeyValue("outcome", "failed")
+                        .addKeyValue("userId", user.getId())
+                        .addKeyValue("requestedStatus", status.name())
+                        .addKeyValue("failureType", exception.getClass().getSimpleName())
+                        .log("Password reset email status update failed");
+            }
+        }
+    }
+
+    private static String causeType(Throwable exception) {
+        Throwable cause = exception.getCause();
+        return cause == null ? "none" : cause.getClass().getSimpleName();
     }
 
     private String buildMessage(User user, String activationLink) {

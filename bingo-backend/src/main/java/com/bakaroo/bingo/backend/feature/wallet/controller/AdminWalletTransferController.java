@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/admin/wallet/transfers")
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasAnyRole('ADMIN','SUPPORT')")
 public class AdminWalletTransferController {
 
     private final WalletTransferService walletTransferService;
@@ -33,11 +33,13 @@ public class AdminWalletTransferController {
     }
 
     @GetMapping("/settings")
+    @PreAuthorize("hasRole('ADMIN')")
     public WalletTransferSettingsResponse currentSettings() {
         return walletTransferService.currentSettings();
     }
 
     @GetMapping("/settings/history")
+    @PreAuthorize("hasRole('ADMIN')")
     public PageResponse<WalletTransferSettingsResponse> settingsHistory(
             @RequestParam(required = false) String query,
             @RequestParam(required = false) Boolean enabled,
@@ -46,6 +48,7 @@ public class AdminWalletTransferController {
     }
 
     @PostMapping("/settings")
+    @PreAuthorize("hasRole('ADMIN')")
     public WalletTransferSettingsResponse updateSettings(@AuthenticationPrincipal BingoUserPrincipal principal,
             @Valid @RequestBody WalletTransferSettingsRequest request) {
         return walletTransferService.saveSettings(principal, request);

@@ -145,7 +145,7 @@ export function AgentsPage() {
     return <StatusState title={t("Loading agents")} loading message={t("Fetching agent roster")} />;
   }
 
-  if (agentsQuery.error) {
+  if (agentsQuery.error && !agentsQuery.data) {
     return (
       <StatusState
         title={t("Unable to load agents")}
@@ -158,7 +158,7 @@ export function AgentsPage() {
 
   return (
     <Stack spacing={3}>
-      <AdminPageHeader title={t("Agents")} description={t("Review agent profiles, queue float top-up requests, and publish commission rules.")} />
+      <AdminPageHeader title={t("Agents")} description={t("Review agent profiles, queue float top-up requests, and publish commission rules.")} refresh={{ isFetching: agentsQuery.isFetching, failed: agentsQuery.isRefetchError, error: agentsQuery.error, onRefresh: () => agentsQuery.refetch() }} />
 
       <Grid container spacing={2}>
         <Grid item xs={12} md={6}>
@@ -323,6 +323,7 @@ export function AgentsPage() {
       {agentsQuery.data ? (
         <AdminTablePagination
           component="div"
+          dataLoaded={!!agentsQuery.data}
           count={agentsQuery.data.totalElements}
           page={page}
           onPageChange={(_, nextPage) => updateListState({ page: String(nextPage) })}

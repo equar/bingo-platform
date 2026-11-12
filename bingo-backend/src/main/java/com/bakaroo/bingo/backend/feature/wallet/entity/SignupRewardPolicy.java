@@ -3,6 +3,8 @@ package com.bakaroo.bingo.backend.feature.wallet.entity;
 import com.bakaroo.bingo.backend.feature.user.entity.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -19,9 +21,18 @@ import java.time.Instant;
 @Table(name = "signup_reward_policies")
 public class SignupRewardPolicy {
 
+    public enum TriggerType { SIGNUP, MANUAL }
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(name = "name", nullable = false, length = 120)
+    private String name;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "trigger_type", nullable = false, length = 20)
+    private TriggerType triggerType;
 
     @Column(name = "enabled", nullable = false)
     private boolean enabled;
@@ -62,7 +73,16 @@ public class SignupRewardPolicy {
             User changedBy,
             String reason,
             Instant now) {
+        return create("Signup reward", TriggerType.SIGNUP, enabled, rewardAmount, currency, effectiveFrom,
+                effectiveUntil, changedBy, reason, now);
+    }
+
+    public static SignupRewardPolicy create(String name, TriggerType triggerType, boolean enabled,
+            BigDecimal rewardAmount, String currency, Instant effectiveFrom, Instant effectiveUntil,
+            User changedBy, String reason, Instant now) {
         SignupRewardPolicy policy = new SignupRewardPolicy();
+        policy.name = name;
+        policy.triggerType = triggerType;
         policy.enabled = enabled;
         policy.rewardAmount = rewardAmount;
         policy.currency = currency;
@@ -92,6 +112,9 @@ public class SignupRewardPolicy {
     public Long getId() {
         return id;
     }
+
+    public String getName() { return name; }
+    public TriggerType getTriggerType() { return triggerType; }
 
     public boolean isEnabled() {
         return enabled;

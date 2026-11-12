@@ -15,12 +15,18 @@ import com.bakaroo.bingo.backend.feature.user.repository.UserRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.lang.reflect.Method;
 import java.util.Map;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.reflect.MethodSignature;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 class AuditLogAspectTest {
 
@@ -75,6 +81,39 @@ class AuditLogAspectTest {
 
         verify(auditLogService).record(isNull(), eq("ADJUST_PLAYER_WALLET"), eq("ChangeResult"), eq(91L), isNull(),
                 any(), any());
+    }
+
+    @Test
+    void doesNotLogCommittedSuccessWhenTransactionRollsBack() throws Throwable {
+        Logger logger = (Logger) LoggerFactory.getLogger(AuditLogAspect.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        ProceedingJoinPoint joinPoint = mock(ProceedingJoinPoint.class);
+        MethodSignature signature = mock(MethodSignature.class);
+        Method method = MutationService.class.getMethod("adjustPlayerWallet", Long.class);
+        when(joinPoint.getSignature()).thenReturn(signature);
+        when(joinPoint.getTarget()).thenReturn(new MutationService());
+        when(joinPoint.getArgs()).thenReturn(new Object[] { 91L });
+        when(signature.getMethod()).thenReturn(method);
+        when(signature.getParameterNames()).thenReturn(new String[] { "playerId" });
+        when(joinPoint.proceed()).thenReturn(new ChangeResult(91L, "1.25"));
+
+        TransactionSynchronizationManager.initSynchronization();
+        TransactionSynchronizationManager.setActualTransactionActive(true);
+        try {
+            aspect.recordMutations(joinPoint);
+            assertThat(appender.list).noneMatch(event -> "Business operation committed".equals(event.getMessage()));
+            for (TransactionSynchronization synchronization : TransactionSynchronizationManager.getSynchronizations()) {
+                synchronization.afterCompletion(TransactionSynchronization.STATUS_ROLLED_BACK);
+            }
+            assertThat(appender.list).noneMatch(event -> "Business operation committed".equals(event.getMessage()));
+        } finally {
+            TransactionSynchronizationManager.setActualTransactionActive(false);
+            TransactionSynchronizationManager.clearSynchronization();
+            logger.detachAppender(appender);
+            appender.stop();
+        }
     }
 
     @Test

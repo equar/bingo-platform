@@ -22,6 +22,7 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
+import type { DepositClaimResponse } from "../../api/admin";
 import {
   approveDeposit,
   deposits,
@@ -47,6 +48,12 @@ const statusOptions = [
   "APPROVED",
   "REJECTED",
 ] as const;
+const finalDepositStatuses = new Set(["APPROVED", "REJECTED"]);
+
+function maskPaymentReference(reference: string): string {
+  const visibleSuffix = reference.slice(-4);
+  return `${"*".repeat(Math.max(0, reference.length - 4))}${visibleSuffix}`;
+}
 
 export function DepositsPage() {
   const { t } = useTranslation();
@@ -64,6 +71,7 @@ export function DepositsPage() {
     placeholderData: keepPreviousData,
   });
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [detailsDeposit, setDetailsDeposit] = useState<DepositClaimResponse | null>(null);
   const [comment, setComment] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [mode, setMode] = useState<"APPROVE" | "REJECT">("APPROVE");
@@ -71,8 +79,12 @@ export function DepositsPage() {
   const [statementEntryId, setStatementEntryId] = useState("");
   const [verificationOpen, setVerificationOpen] = useState(false);
   const idempotency = useIdempotencyKey();
-  const canVerifyDeposits = authSession?.user.roles.includes("SUPPORT") ?? false;
-  const canApproveDeposits = authSession?.user.roles.includes("ADMIN") ?? false;
+  const isAdmin = authSession?.user.roles.includes("ADMIN") ?? false;
+  const canApproveDeposits = isAdmin;
+  const canVerifyDeposits = !isAdmin && (authSession?.user.roles.includes("SUPPORT") ?? false);
+  const canRejectDeposits = canApproveDeposits || canVerifyDeposits;
+  const displayPaymentReference = (reference: string) =>
+    canVerifyDeposits ? maskPaymentReference(reference) : reference;
 
   useEffect(() => {
     if (searchParams.has("status")) setStatus(statusOptions.find((option) => option === searchParams.get("status")) ?? "");
@@ -120,7 +132,7 @@ export function DepositsPage() {
     return <StatusState title={t("Loading deposits")} loading message={t("Fetching deposit queue")} />;
   }
 
-  if (depositsQuery.error) {
+  if (depositsQuery.error && !depositsQuery.data) {
     return (
       <StatusState
         title={t("Unable to load deposits")}
@@ -134,7 +146,7 @@ export function DepositsPage() {
   return (
     <AdminTablePage>
       <Stack spacing={3}>
-      <AdminPageHeader title={t("Deposits")} description={t("Review player deposit requests.")} />
+      <AdminPageHeader title={t("Deposits")} description={t("Review player deposit requests.")} refresh={{ isFetching: depositsQuery.isFetching, failed: depositsQuery.isRefetchError, error: depositsQuery.error, onRefresh: () => depositsQuery.refetch() }} />
 
       <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
         <TextField
@@ -189,7 +201,14 @@ export function DepositsPage() {
               <TableRow key={deposit.id} hover data-testid={`deposit-row-${deposit.id}`}>
                 <TableCell>
                   <Stack spacing={0.25}>
-                    <Typography fontWeight={600}>{t("Deposit #")}{deposit.id}</Typography>
+                    <Button
+                      data-testid={`deposit-details-${deposit.id}`}
+                      aria-label={`${t("View details for deposit")} #${deposit.id}`}
+                      onClick={() => setDetailsDeposit(deposit)}
+                      sx={{ alignSelf: "flex-start", minWidth: 0, p: 0, fontWeight: 600, textTransform: "none" }}
+                    >
+                      {t("Deposit #")}{deposit.id}
+                    </Button>
                     <Typography variant="caption" color="text.secondary">
                       {deposit.operationId}
                     </Typography>
@@ -202,7 +221,7 @@ export function DepositsPage() {
                   </Stack>
                 </TableCell>
                 <TableCell>{deposit.playerPhoneNumber ?? t("n/a")}</TableCell>
-                <TableCell>{deposit.normalizedTelebirrReference}</TableCell>
+                <TableCell>{displayPaymentReference(deposit.normalizedTelebirrReference)}</TableCell>
                 <TableCell align="right">
                   {deposit.submittedCashAmount} {deposit.currency}
                 </TableCell>
@@ -230,6 +249,10 @@ export function DepositsPage() {
                 <TableCell>{deposit.reviewNote ?? t("n/a")}</TableCell>
                 <TableCell align="right">
                   <Stack direction="row" spacing={1} justifyContent="flex-end">
+                    {finalDepositStatuses.has(deposit.status) ? (
+                      <Button size="small" disabled>{translateAdminStatus(deposit.status, t)}</Button>
+                    ) : null}
+                    {canApproveDeposits && !finalDepositStatuses.has(deposit.status) ? (
                     <Tooltip
                       title={deposit.status !== "VERIFIED"
                         ? t("A matched bank verification is required before approval.")
@@ -262,6 +285,7 @@ export function DepositsPage() {
                         </Button>
                       </span>
                     </Tooltip>
+                    ) : null}
                     {canVerifyDeposits && ["PENDING", "AWAITING_VERIFICATION", "VERIFIED", "VERIFICATION_EXCEPTION"].includes(deposit.status) ? (
                       <Button
                         data-testid={`deposit-verify-${deposit.id}`}
@@ -281,6 +305,7 @@ export function DepositsPage() {
                       data-testid={`deposit-reject-${deposit.id}`}
                       size="small"
                       variant="outlined"
+                      sx={{ display: finalDepositStatuses.has(deposit.status) || !canRejectDeposits ? "none" : undefined }}
                       disabled={!["PENDING", "AWAITING_VERIFICATION", "VERIFIED", "VERIFICATION_EXCEPTION"].includes(deposit.status)}
                       onClick={() => {
                         idempotency.resetKey();
@@ -309,6 +334,7 @@ export function DepositsPage() {
 
       <AdminTablePagination
         component="div"
+        dataLoaded={!!depositsQuery.data}
         count={depositsQuery.data?.totalElements ?? 0}
         page={page}
         onPageChange={(_, nextPage) => setPage(nextPage)}
@@ -319,6 +345,110 @@ export function DepositsPage() {
         }}
         rowsPerPageOptions={[10, 20, 50]}
       />
+
+      <Dialog open={detailsDeposit != null} onClose={() => setDetailsDeposit(null)} fullWidth maxWidth="sm">
+        <DialogTitle>{detailsDeposit ? `${t("Deposit details")} #${detailsDeposit.id}` : t("Deposit details")}</DialogTitle>
+        <DialogContent>
+          {detailsDeposit ? (
+            <Stack spacing={1.5} sx={{ pt: 1 }}>
+              {[
+                [t("Status"), translateAdminStatus(detailsDeposit.status, t)],
+                [t("Operation ID"), detailsDeposit.operationId],
+                [t("Player"), `${detailsDeposit.playerDisplayName || `${t("Player")} #${detailsDeposit.playerId}`} (#${detailsDeposit.playerId})`],
+                [t("Phone number"), detailsDeposit.playerPhoneNumber ?? t("n/a")],
+                [t("Payment reference"), displayPaymentReference(detailsDeposit.normalizedTelebirrReference)],
+                [t("Submitted cash"), `${detailsDeposit.submittedCashAmount} ${detailsDeposit.currency}`],
+                [t("Conversion rate"), detailsDeposit.conversionRateSnapshot],
+                [t("Credit"), `${detailsDeposit.calculatedCreditAmount} ${detailsDeposit.currency}`],
+                [t("Submitted"), new Date(detailsDeposit.submittedAt).toLocaleString()],
+                [t("Verified by user #"), detailsDeposit.verifiedBy == null ? t("n/a") : String(detailsDeposit.verifiedBy)],
+                [t("Verified at"), detailsDeposit.verifiedAt ? new Date(detailsDeposit.verifiedAt).toLocaleString() : t("n/a")],
+                [t("Reviewed by"), detailsDeposit.reviewedBy == null ? t("n/a") : String(detailsDeposit.reviewedBy)],
+                [t("Reviewed at"), detailsDeposit.reviewedAt ? new Date(detailsDeposit.reviewedAt).toLocaleString() : t("n/a")],
+                [t("Review note"), detailsDeposit.reviewNote ?? t("n/a")],
+                [t("Payment instructions"), detailsDeposit.paymentInstructions?.paymentInstructions ?? t("n/a")],
+              ].map(([label, value]) => (
+                <Box key={label}>
+                  <Typography variant="caption" color="text.secondary">{label}</Typography>
+                  <Typography sx={{ overflowWrap: "anywhere" }}>{value}</Typography>
+                </Box>
+              ))}
+            </Stack>
+          ) : null}
+        </DialogContent>
+        <DialogActions>
+          {detailsDeposit && finalDepositStatuses.has(detailsDeposit.status) ? (
+            <Button disabled>{translateAdminStatus(detailsDeposit.status, t)}</Button>
+          ) : null}
+          {detailsDeposit && canApproveDeposits && !finalDepositStatuses.has(detailsDeposit.status) ? (
+            <>
+              <Button
+                variant="contained"
+                disabled={detailsDeposit.status !== "VERIFIED" || detailsDeposit.verifiedBy === authSession?.user.id}
+                onClick={() => {
+                  idempotency.resetKey();
+                  actionMutation.reset();
+                  setComment("");
+                  setMode("APPROVE");
+                  setSelectedId(detailsDeposit.id);
+                  setDetailsDeposit(null);
+                  setConfirmOpen(true);
+                }}
+              >
+                {t("Approve")}
+              </Button>
+              <Button
+                color="error"
+                disabled={!(["PENDING", "AWAITING_VERIFICATION", "VERIFIED", "VERIFICATION_EXCEPTION"].includes(detailsDeposit.status))}
+                onClick={() => {
+                  idempotency.resetKey();
+                  actionMutation.reset();
+                  setComment("");
+                  setMode("REJECT");
+                  setSelectedId(detailsDeposit.id);
+                  setDetailsDeposit(null);
+                  setConfirmOpen(true);
+                }}
+              >
+                {t("Reject")}
+              </Button>
+            </>
+          ) : null}
+          {detailsDeposit && !canApproveDeposits && canVerifyDeposits && !finalDepositStatuses.has(detailsDeposit.status) ? (
+            <>
+              <Button
+                variant="contained"
+                disabled={!(["PENDING", "AWAITING_VERIFICATION", "VERIFIED", "VERIFICATION_EXCEPTION"].includes(detailsDeposit.status))}
+                onClick={() => {
+                  verificationMutation.reset();
+                  setVerificationDepositId(detailsDeposit.id);
+                  setStatementEntryId("");
+                  setDetailsDeposit(null);
+                  setVerificationOpen(true);
+                }}
+              >
+                {t("Verify")}
+              </Button>
+              <Button
+                color="error"
+                disabled={!(["PENDING", "AWAITING_VERIFICATION", "VERIFIED", "VERIFICATION_EXCEPTION"].includes(detailsDeposit.status))}
+                onClick={() => {
+                  idempotency.resetKey();
+                  actionMutation.reset();
+                  setComment("");
+                  setMode("REJECT");
+                  setSelectedId(detailsDeposit.id);
+                  setDetailsDeposit(null);
+                  setConfirmOpen(true);
+                }}
+              >
+                {t("Reject")}
+              </Button>
+            </>
+          ) : null}
+          <Button onClick={() => setDetailsDeposit(null)}>{t("Close")}</Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={confirmOpen} onClose={() => !actionOutcomeUnknown && !actionMutation.isPending && setConfirmOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>{mode === "APPROVE" ? t("Approve deposit") : t("Reject deposit")}</DialogTitle>

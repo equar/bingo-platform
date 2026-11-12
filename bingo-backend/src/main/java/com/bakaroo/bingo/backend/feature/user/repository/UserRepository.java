@@ -4,6 +4,7 @@ import com.bakaroo.bingo.backend.feature.user.entity.User;
 import com.bakaroo.bingo.backend.feature.user.entity.AccountStatus;
 import com.bakaroo.bingo.backend.feature.user.entity.UserRole;
 import com.bakaroo.bingo.backend.feature.user.entity.PlayerVerificationStatus;
+import com.bakaroo.bingo.backend.feature.user.entity.PasswordResetEmailStatus;
 import jakarta.persistence.LockModeType;
 import java.util.Collection;
 import java.time.Instant;
@@ -21,9 +22,28 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     @Modifying
     @Transactional
-    @Query("update User u set u.activationEmailStatus = :status where u.id = :id")
+    @Query("update User u set u.activationEmailStatus = :status, "
+            + "u.activationEmailStatusUpdatedAt = :statusUpdatedAt where u.id = :id")
     int updateActivationEmailStatus(@Param("id") Long id,
-            @Param("status") com.bakaroo.bingo.backend.feature.user.entity.ActivationEmailStatus status);
+            @Param("status") com.bakaroo.bingo.backend.feature.user.entity.ActivationEmailStatus status,
+            @Param("statusUpdatedAt") Instant statusUpdatedAt);
+
+    @Modifying
+    @Transactional
+    @Query("update User u set u.activationEmailStatus = :status, "
+            + "u.activationEmailSentAt = :sentAt, "
+            + "u.activationEmailStatusUpdatedAt = :sentAt where u.id = :id")
+    int recordActivationEmailSent(@Param("id") Long id,
+            @Param("status") com.bakaroo.bingo.backend.feature.user.entity.ActivationEmailStatus status,
+            @Param("sentAt") Instant sentAt);
+
+    @Modifying
+    @Transactional
+    @Query("update User u set u.passwordResetEmailStatus = :status, "
+            + "u.passwordResetEmailStatusUpdatedAt = :statusUpdatedAt where u.id = :id")
+    int updatePasswordResetEmailStatus(@Param("id") Long id,
+            @Param("status") PasswordResetEmailStatus status,
+            @Param("statusUpdatedAt") Instant statusUpdatedAt);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select u from User u where u.id = :id")

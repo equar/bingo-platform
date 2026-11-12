@@ -73,9 +73,11 @@ function detailFields(reference: EntitlementReference, record: ReferenceRecord, 
   if (reference.kind === "claim") {
     const claim = record as WinClaimResponse;
     return [
-      { label: t("Claim ID"), value: String(claim.id) },
-      { label: t("Player ID"), value: String(claim.claimantId) },
-      { label: t("Ticket / session"), value: `${claim.ticketId} / ${claim.sessionId}` },
+      { label: t("Claim number"), value: claim.operationId },
+      { label: t("Player"), value: `${claim.claimantDisplayName ?? t("Not available")} (#${claim.claimantId})` },
+      { label: t("Phone"), value: claim.claimantPhoneNumber ?? t("Not available") },
+      { label: t("Ticket"), value: `${claim.publicTicketCode ?? t("Not available")} (#${claim.ticketId})` },
+      { label: t("Session ID"), value: String(claim.sessionId) },
       { label: t("Pattern"), value: translateAdminValue(claim.claimedPattern, t) },
       { label: t("Status"), value: translateAdminStatus(claim.status, t) },
       { label: t("Server validation"), value: claim.serverValidationPassed ? t("Passed") : t("Failed") },
@@ -83,10 +85,11 @@ function detailFields(reference: EntitlementReference, record: ReferenceRecord, 
       { label: t("Validation message"), value: claim.serverValidationMessage ?? t("Not available") },
       { label: t("Draw sequence"), value: String(claim.drawSequenceSnapshot) },
       { label: t("Called numbers"), value: claim.calledNumbersSnapshot.join(", ") || t("None") },
+      { label: t("Claim evidence"), value: claim.evidenceJson ?? t("Not available") },
       { label: t("Review note"), value: claim.reviewNote ?? t("No review note") },
+      { label: t("Reviewed by"), value: claim.reviewedBy == null ? t("Not available") : String(claim.reviewedBy) },
       { label: t("Reviewed at"), value: formatDate(claim.reviewedAt, t) },
       { label: t("Entitlement ID"), value: claim.entitlementId == null ? t("Not available") : String(claim.entitlementId) },
-      { label: t("Operation ID"), value: claim.operationId },
       { label: t("Created"), value: formatDate(claim.createdAt, t) },
       { label: t("Last updated"), value: formatDate(claim.updatedAt, t) },
     ];
@@ -153,7 +156,13 @@ export function EntitlementReferenceDialog({ reference, onClose }: EntitlementRe
   const referenceType = reference
     ? t(reference.kind === "claim" ? "Claim" : reference.kind === "player" ? "Player" : reference.kind === "session" ? "Session" : "Ticket")
     : "";
-  const title = reference ? t("{{kind}} #{{id}}", { kind: referenceType, id: reference.id }) : t("Record details");
+  const title = !reference
+    ? t("Record details")
+    : reference.kind === "claim"
+      ? detailQuery.data
+        ? `${t("Claim number")} ${(detailQuery.data as WinClaimResponse).operationId}`
+        : t("Claim details")
+      : t("{{kind}} #{{id}}", { kind: referenceType, id: reference.id });
   const fields = reference && detailQuery.data ? detailFields(reference, detailQuery.data, t) : [];
 
   return (

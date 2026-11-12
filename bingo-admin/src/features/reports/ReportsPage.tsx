@@ -38,6 +38,7 @@ import { useSession } from "../../api/session";
 import { getUserFacingErrorMessage, type PageResponse } from "../../api/types";
 import { AdminTablePage } from "../../components/AdminTablePage";
 import { AdminPageHeader } from "../../components/AdminPageHeader";
+import { ListRefreshButton } from "../../components/ListRefreshButton";
 
 type ReportKind =
   | "supportTickets"
@@ -55,6 +56,7 @@ type ReportResult = {
   headers: string[];
   rows: string[][];
 };
+type ReportFilters = Pick<ReportResult, "kind" | "from" | "to" | "query" | "status">;
 
 const reportTitles: Record<ReportKind, string> = {
   supportTickets: "Support tickets",
@@ -125,6 +127,9 @@ export function ReportsPage() {
   const { t } = useTranslation();
   const session = useSession();
   const isAdmin = Boolean(session?.user.roles.includes("ADMIN"));
+  const canAccessAdminReports = Boolean(
+    isAdmin || session?.user.roles.includes("SUPPORT"),
+  );
   const today = dateInputValue(new Date());
   const defaultFrom = dateInputValue(new Date(Date.now() - 6 * 24 * 60 * 60 * 1000));
   const [kind, setKind] = useState<ReportKind>("supportTickets");
@@ -132,10 +137,12 @@ export function ReportsPage() {
   const [to, setTo] = useState(today);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("");
+  const [result, setResult] = useState<ReportResult | null>(null);
   const activeStatuses = reportStatuses[kind];
 
   const reportMutation = useMutation({
-    mutationFn: async (): Promise<ReportResult> => {
+    mutationFn: async (filters: ReportFilters): Promise<ReportResult> => {
+      const { kind, from, to, query, status } = filters;
       const fromDate = new Date(`${from}T00:00:00`);
       const throughDate = new Date(`${to}T00:00:00`);
       if (!Number.isFinite(fromDate.getTime()) || !Number.isFinite(throughDate.getTime()) || fromDate > throughDate) {
@@ -233,9 +240,9 @@ export function ReportsPage() {
           row.settlementReference ?? "", row.settlementNote ?? ""]),
       };
     },
+    onSuccess: (nextResult) => setResult(nextResult),
   });
 
-  const result = reportMutation.data;
   const previewRows = result?.rows.slice(0, 15) ?? [];
 
   return (
@@ -269,8 +276,8 @@ export function ReportsPage() {
                   }}>
                   <MenuItem value="supportTickets">{t("Support tickets")}</MenuItem>
                   {isAdmin ? <MenuItem value="auditActivity">{t("Admin audit activity")}</MenuItem> : null}
-                  {isAdmin ? <MenuItem value="sessionActivity">{t("Game session activity")}</MenuItem> : null}
-                  {isAdmin ? <MenuItem value="playerVerifications">{t("Player verification activity")}</MenuItem> : null}
+                  {canAccessAdminReports ? <MenuItem value="sessionActivity">{t("Game session activity")}</MenuItem> : null}
+                  {canAccessAdminReports ? <MenuItem value="playerVerifications">{t("Player verification activity")}</MenuItem> : null}
                   {isAdmin ? <MenuItem value="prizeEntitlements">{t("Prize entitlement activity")}</MenuItem> : null}
                   {session?.user.roles.some((role) => ["ADMIN", "SUPPORT", "ADMIN"].includes(role))
                     ? <MenuItem value="depositActivity">{t("Deposit review activity")}</MenuItem>
@@ -304,7 +311,7 @@ export function ReportsPage() {
               ) : null}
               <Button
                 variant="contained"
-                onClick={() => reportMutation.mutate()}
+                onClick={() => reportMutation.mutate({ kind, from, to, query, status })}
                 disabled={reportMutation.isPending}
                 sx={{ justifySelf: "stretch", whiteSpace: "nowrap" }}
               >
@@ -332,7 +339,16 @@ export function ReportsPage() {
                     </Typography>
                   ) : null}
                 </Box>
-                <Button variant="outlined" onClick={() => downloadCsv(result)} disabled={!result.rows.length}>{t("Download CSV")}</Button>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <ListRefreshButton
+                    refreshing={reportMutation.isPending}
+                    label="Refresh results"
+                    onRefresh={() => reportMutation.mutate({
+                      kind: result.kind, from: result.from, to: result.to, query: result.query, status: result.status,
+                    })}
+                  />
+                  <Button variant="outlined" onClick={() => downloadCsv(result)} disabled={!result.rows.length}>{t("Download CSV")}</Button>
+                </Stack>
               </Stack>
               {result.rows.length ? (
                 <Box sx={{ overflowX: "auto", maxWidth: "100%" }}>

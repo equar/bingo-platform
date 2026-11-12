@@ -30,11 +30,15 @@ export function AdminAccountActivationPage({ resetPassword = false }: { resetPas
       newPassword: newPasswordInput.current?.value ?? "",
     }),
     onSuccess: () => {
-      setSuccessMessage(resetPassword ? "Password reset. You can now sign in with your new password." : "activation.success");
       setErrorMessage(null);
       if (newPasswordInput.current) newPasswordInput.current.value = "";
       if (confirmPasswordInput.current) confirmPasswordInput.current.value = "";
-      navigate(resetPassword ? "/reset-password" : "/activate-account", { replace: true });
+      if (resetPassword) {
+        setSuccessMessage("Password reset. You can now sign in with your new password.");
+        navigate("/reset-password", { replace: true });
+        return;
+      }
+      navigate("/login", { replace: true, state: { accountActivated: true } });
     },
     onError: (error) => {
       const parsed = parseApiError(error);

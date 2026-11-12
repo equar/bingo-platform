@@ -19,9 +19,15 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import io.jsonwebtoken.JwtException;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
+
+    private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
 
     private final JwtService jwtService;
     private final BingoUserDetailsService userDetailsService;
@@ -53,7 +59,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         && principal.isAccountNonLocked()) {
                     authenticatedPrincipal = principal;
                 }
-            } catch (Exception ignored) {
+            } catch (JwtException | UsernameNotFoundException | IllegalArgumentException expectedFailure) {
+                log.debug("JWT authentication rejected failureType={}",
+                        expectedFailure.getClass().getSimpleName());
+                SecurityContextHolder.clearContext();
+            } catch (Exception failure) {
+                log.error("JWT authentication lookup failed failureType={}",
+                        failure.getClass().getSimpleName(), failure);
                 SecurityContextHolder.clearContext();
             }
 

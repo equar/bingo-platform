@@ -157,7 +157,7 @@ export function AuditLogsPage() {
     return <StatusState title={t("Loading audit logs")} loading message={t("Fetching audit history")} />;
   }
 
-  if (auditQuery.error) {
+  if (auditQuery.error && !auditQuery.data) {
     return (
       <StatusState
         title={t("Unable to load audit logs")}
@@ -216,7 +216,7 @@ export function AuditLogsPage() {
   return (
     <AdminTablePage>
     <Stack spacing={2.5}>
-      <AdminPageHeader title={t("Audit logs")} description={t("Search and trace activity across the full audit history. Newest activity is shown first.")} />
+      <AdminPageHeader title={t("Audit logs")} description={t("Search and trace activity across the full audit history. Newest activity is shown first.")} refresh={{ isFetching: auditQuery.isFetching, failed: auditQuery.isRefetchError, error: auditQuery.error, onRefresh: () => auditQuery.refetch() }} />
 
       <Stack
         component="form"
@@ -392,6 +392,7 @@ export function AuditLogsPage() {
       </TableContainer>
       <AdminTablePagination
         component="div"
+        dataLoaded={!!auditQuery.data}
         count={totalEntries}
         page={page}
         onPageChange={(_, nextPage) => setPage(nextPage)}

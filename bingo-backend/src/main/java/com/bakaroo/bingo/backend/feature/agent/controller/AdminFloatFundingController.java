@@ -50,7 +50,7 @@ public class AdminFloatFundingController {
     }
 
     @PostMapping("/agents/float-top-up-requests/{requestId}/post")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPPORT')")
     public FloatPostingResponse post(@AuthenticationPrincipal BingoUserPrincipal principal,
             @PathVariable Long requestId, @Valid @RequestBody ReviewFloatTopUpRequest request) {
         if (!request.approve()) {
@@ -61,11 +61,11 @@ public class AdminFloatFundingController {
     }
 
     @GetMapping("/float-accounting/postings")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPPORT')")
     public List<FloatPostingResponse> postings() { return service.postings(); }
 
     @GetMapping("/float-reconciliation/daily")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPPORT')")
     public FloatReconciliationResponse dailyReconciliation(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         return service.reconcile(date);

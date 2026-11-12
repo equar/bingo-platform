@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import type { PropsWithChildren } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { auditLogs, dashboardMetrics, liveSessions } from "../../api/admin";
+import { clearSession, writeSession } from "../../api/session";
 import i18n from "../../i18n";
 import { MemoryRouter } from "react-router-dom";
 import { DashboardPage } from "./DashboardPage";
@@ -58,10 +59,26 @@ function createWrapper({ children }: PropsWithChildren) {
 }
 
 describe("DashboardPage", () => {
-  afterEach(cleanup);
+  afterEach(() => {
+    cleanup();
+    clearSession();
+  });
 
   beforeEach(async () => {
     await i18n.changeLanguage("en");
+    writeSession({
+      accessToken: "admin-token",
+      tokenType: "Bearer",
+      user: {
+        id: 1,
+        displayName: "Admin",
+        phoneNumber: "251911000001",
+        roles: ["ADMIN"],
+        status: "ACTIVE",
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      },
+    });
     dashboardMetricsMock.mockReset().mockResolvedValue(metricsResponse());
     liveSessionsMock.mockReset().mockResolvedValue([]);
     auditLogsMock.mockReset().mockResolvedValue(auditResponse());
@@ -104,6 +121,30 @@ describe("DashboardPage", () => {
     resolveSessions([]);
 
     expect(await screen.findByText("No active sessions right now.")).toBeInTheDocument();
+  });
+
+  it("hides win-claim shortcuts from SUPPORT", async () => {
+    writeSession({
+      accessToken: "support-token",
+      tokenType: "Bearer",
+      user: {
+        id: 2,
+        displayName: "Support",
+        phoneNumber: "251911000002",
+        roles: ["SUPPORT"],
+        status: "ACTIVE",
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      },
+    });
+
+    render(<DashboardPage />, { wrapper: createWrapper });
+
+    expect(await screen.findByRole("link", { name: /Open deposit reviews/ })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Open win claims/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Open support tickets/ })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Recent activity" })).not.toBeInTheDocument();
+    expect(auditLogsMock).not.toHaveBeenCalled();
   });
 
   it("keeps the dashboard available with a retry action when metrics fail", async () => {

@@ -1,6 +1,7 @@
 package com.bakaroo.bingo.backend.config;
 
 import com.bakaroo.bingo.backend.common.api.ApiErrorResponseWriter;
+import com.bakaroo.bingo.backend.common.api.RequestLogSupport;
 import com.bakaroo.bingo.backend.feature.auth.security.JwtAuthenticationFilter;
 import com.bakaroo.bingo.backend.feature.auth.service.BingoUserDetailsService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -8,6 +9,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -22,6 +24,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
 import java.util.List;
@@ -31,6 +35,8 @@ import java.util.stream.Collectors;
 @EnableWebSecurity
 @EnableMethodSecurity
 public class SecurityConfig {
+
+        private static final Logger log = LoggerFactory.getLogger(SecurityConfig.class);
 
         private final List<String> allowedOrigins;
 
@@ -87,8 +93,6 @@ public class SecurityConfig {
                                                 .requestMatchers("/api/v1/admin/me/password").hasAnyRole("ADMIN", "SUPPORT")
                                                 .requestMatchers("/api/v1/admin/support/**")
                                                 .hasAnyRole("ADMIN", "SUPPORT")
-                                                .requestMatchers("/api/v1/admin/audit-logs", "/api/v1/admin/audit-logs/**")
-                                                .hasAnyRole("ADMIN", "SUPPORT")
                                                 .requestMatchers(
                                                                 "/api/v1/admin/deposits/**",
                                                                 "/api/v1/admin/players/*/wallet-adjustments/requests",
@@ -99,14 +103,37 @@ public class SecurityConfig {
                                                                 "/api/v1/admin/float-bank-accounts/**",
                                                                 "/api/v1/admin/wallet-adjustment-requests/**")
                                                 .hasAnyRole("ADMIN", "SUPPORT")
-                                                .requestMatchers("/api/v1/admin/rooms", "/api/v1/admin/rooms/**")
-                                                .hasAnyRole("ADMIN", "SUPPORT")
-                                                .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+                                                .requestMatchers(
+                                                                "/api/v1/admin/rooms", "/api/v1/admin/rooms/**",
+                                                                "/api/v1/admin/audit-logs", "/api/v1/admin/audit-logs/**",
+                                                                "/api/v1/admin/reports/audit-activity",
+                                                                "/api/v1/admin/win-claims", "/api/v1/admin/win-claims/**",
+                                                                "/api/v1/admin/players/*/win-claims",
+                                                                "/api/v1/admin/prize-entitlements",
+                                                                "/api/v1/admin/prize-entitlements/**",
+                                                                "/api/v1/admin/wallet/transfers/settings",
+                                                                "/api/v1/admin/wallet/transfers/settings/**",
+                                                                "/api/v1/admin/users", "/api/v1/admin/users/**")
+                                                .hasRole("ADMIN")
+                                                .requestMatchers("/api/v1/admin/wallet/signup-rewards/settings",
+                                                                "/api/v1/admin/wallet/signup-rewards/settings/**")
+                                                .hasRole("ADMIN")
+                                                .requestMatchers(HttpMethod.GET,
+                                                                "/api/v1/admin/wallet/signup-rewards/grants")
+                                                .hasRole("ADMIN")
+                                                .requestMatchers(HttpMethod.POST,
+                                                                "/api/v1/admin/wallet/signup-rewards/campaigns")
+                                                .hasRole("ADMIN")
+                                                .requestMatchers("/api/v1/admin/**").hasAnyRole("ADMIN", "SUPPORT")
                                                 .requestMatchers("/api/v1/agent/**").hasRole("AGENT")
                                                 .anyRequest().authenticated())
-                                .exceptionHandling(exception -> exception
-                                                .authenticationEntryPoint(
-                                                                (request, response, authException) -> errorWriter.write(
+                                .exceptionHandling(exception -> {
+                                        exception.authenticationEntryPoint(
+                                                                (request, response, authException) -> {
+                                                                        logSecurityRejection(request,
+                                                                                        HttpStatus.UNAUTHORIZED.value(),
+                                                                                        "authentication_required");
+                                                                        errorWriter.write(
                                                                                 response,
                                                                                 HttpStatus.UNAUTHORIZED.value(),
                                                                                 "UNAUTHORIZED",
@@ -114,9 +141,14 @@ public class SecurityConfig {
                                                                                 request.getRequestURI(),
                                                                                 ApiErrorResponseWriter
                                                                                                 .resolveCorrelationId(
-                                                                                                                request)))
-                                                .accessDeniedHandler((request, response,
-                                                                accessDeniedException) -> errorWriter.write(
+                                                                                                                request));
+                                                                });
+                                        exception.accessDeniedHandler((request, response,
+                                                                accessDeniedException) -> {
+                                                                        logSecurityRejection(request,
+                                                                                        HttpStatus.FORBIDDEN.value(),
+                                                                                        "authorization_denied");
+                                                                        errorWriter.write(
                                                                                 response,
                                                                                 HttpStatus.FORBIDDEN.value(),
                                                                                 "FORBIDDEN",
@@ -124,7 +156,9 @@ public class SecurityConfig {
                                                                                 request.getRequestURI(),
                                                                                 ApiErrorResponseWriter
                                                                                                 .resolveCorrelationId(
-                                                                                                                request))))
+                                                                                                                request));
+                                                                });
+                                })
                                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
                 return http.build();
@@ -136,6 +170,13 @@ public class SecurityConfig {
                                 .filter(origin -> !origin.isEmpty())
                                 .distinct()
                                 .collect(Collectors.toList());
+        }
+
+        private static void logSecurityRejection(jakarta.servlet.http.HttpServletRequest request, int status,
+                        String operation) {
+                request.setAttribute(RequestLogSupport.FAILURE_LOGGED_ATTRIBUTE, true);
+                RequestLogSupport.withRequestFields(log.atWarn(), request, operation, "rejected", status)
+                                .log("Security request rejected");
         }
 
         @Bean

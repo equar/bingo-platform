@@ -12,9 +12,13 @@ import java.util.UUID;
 import java.util.function.Supplier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 public class IdempotencyService {
+
+    private static final Logger log = LoggerFactory.getLogger(IdempotencyService.class);
 
     private final IdempotencyRecordRepository idempotencyRecordRepository;
     private final UserRepository userRepository;
@@ -46,10 +50,21 @@ public class IdempotencyService {
                 .orElse(null);
         if (existing != null) {
             if (!existing.getRequestHash().equals(requestHash)) {
+                log.atWarn()
+                        .addKeyValue("operation", "idempotency_check")
+                        .addKeyValue("outcome", "key_reused_with_different_request")
+                        .addKeyValue("actorId", actorId)
+                        .log("Idempotency key rejected for a different request");
                 throw new ConflictException("IDEMPOTENCY_KEY_REUSED",
                         "That Idempotency-Key was already used for a different request");
             }
 
+            log.atInfo()
+                    .addKeyValue("operation", "idempotency_check")
+                    .addKeyValue("outcome", "replay")
+                    .addKeyValue("actorId", actorId)
+                    .addKeyValue("status", existing.getResponseStatus())
+                    .log("Idempotent request replayed");
             return new IdempotentResult<>(existing.getResponseStatus(),
                     readValue(existing.getResponseBody(), responseType));
         }

@@ -50,7 +50,7 @@ describe("AdminAccountActivationPage", () => {
     window.history.replaceState(null, "", "/");
   });
 
-  it("activates with the link token and matching new password", async () => {
+  it("redirects to sign-in after activating with the link token and matching password", async () => {
     const user = userEvent.setup();
     renderPage();
 
@@ -62,9 +62,10 @@ describe("AdminAccountActivationPage", () => {
       token: "single-use-token",
       newPassword: "new-password-123",
     }));
-    expect(await screen.findByText(/account is ready/i)).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Sign in" }));
-    expect(screen.getByText("Sign in page")).toBeInTheDocument();
+    expect(await screen.findByText("Sign in page")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Set up your Sunset Bingo Admin account" }))
+      .not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/New password/)).not.toBeInTheDocument();
   });
 
   it("rejects mismatched passwords without calling the API", async () => {

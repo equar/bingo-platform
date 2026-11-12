@@ -190,6 +190,10 @@ export interface UserSummaryResponse {
   createdByDisplayName?: string | null;
   updatedByDisplayName?: string | null;
   activationEmailStatus?: "NOT_SENT" | "UNKNOWN" | "SENDING" | "SENT" | "FAILED";
+  activationEmailSentAt?: string | null;
+  activationEmailStatusUpdatedAt?: string | null;
+  passwordResetEmailStatus?: "NOT_REQUESTED" | "SENDING" | "SENT" | "FAILED";
+  passwordResetEmailStatusUpdatedAt?: string | null;
 }
 
 export interface AdminUserCreateRequest {
@@ -776,6 +780,24 @@ export interface SignupRewardGrantResponse {
   awardedAt: string;
 }
 
+export type PromotionalRewardTrigger = 'SIGNUP' | 'MANUAL';
+
+export interface PromotionalRewardCampaignResponse extends SignupRewardSettingsResponse {
+  name: string;
+  triggerType: PromotionalRewardTrigger;
+}
+
+export interface PromotionalRewardCampaignRequest extends SignupRewardSettingsRequest {
+  name: string;
+  triggerType: PromotionalRewardTrigger;
+}
+
+export interface PromotionalRewardGrantResponse extends SignupRewardGrantResponse {
+  campaignName: string;
+  triggerType: PromotionalRewardTrigger;
+  awardedByUserId: number | null;
+}
+
 export interface WalletTransferSettingsResponse {
   id: number;
   enabled: boolean;
@@ -1332,6 +1354,34 @@ export async function signupRewardGrants(page = 0, size = 20, query?: string) {
   const { data } = await http.get<PageResponse<SignupRewardGrantResponse>>('/api/v1/admin/wallet/signup-rewards/grants', {
     params: { page, size, query },
   });
+  return data;
+}
+
+export async function promotionalRewardCampaigns(page = 0, size = 100, query?: string, enabled?: boolean) {
+  const { data } = await http.get<PageResponse<PromotionalRewardCampaignResponse>>(
+    '/api/v1/admin/wallet/signup-rewards/campaigns', { params: { page, size, query, enabled, sort: 'createdAt,desc' } },
+  );
+  return data;
+}
+
+export async function createPromotionalRewardCampaign(request: PromotionalRewardCampaignRequest) {
+  const { data } = await http.post<PromotionalRewardCampaignResponse>(
+    '/api/v1/admin/wallet/signup-rewards/campaigns', request,
+  );
+  return data;
+}
+
+export async function awardPromotionalReward(campaignId: number, playerId: number) {
+  const { data } = await http.post<PromotionalRewardGrantResponse>(
+    '/api/v1/admin/wallet/signup-rewards/grants', { campaignId, playerId },
+  );
+  return data;
+}
+
+export async function promotionalRewardGrants(page = 0, size = 20, query?: string) {
+  const { data } = await http.get<PageResponse<PromotionalRewardGrantResponse>>(
+    '/api/v1/admin/wallet/signup-rewards/promotional-grants', { params: { page, size, query } },
+  );
   return data;
 }
 

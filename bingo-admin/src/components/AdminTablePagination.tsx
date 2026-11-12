@@ -1,5 +1,6 @@
 import { TablePagination, type TablePaginationProps } from "@mui/material";
 import { useTranslation } from "react-i18next";
+import { useEffect } from "react";
 
 const pageButtonLabels = {
   first: "Go to first page",
@@ -8,13 +9,27 @@ const pageButtonLabels = {
   previous: "Go to previous page",
 } as const;
 
-export function AdminTablePagination(props: TablePaginationProps) {
+type AdminTablePaginationProps = TablePaginationProps & { dataLoaded?: boolean };
+
+export function AdminTablePagination(props: AdminTablePaginationProps) {
   const { t } = useTranslation();
+  const { dataLoaded = false, page, count, rowsPerPage, onPageChange, ...tableProps } = props;
+  const paginationProps = tableProps as TablePaginationProps;
+  const lastPage = rowsPerPage > 0 && count >= 0
+    ? Math.max(0, Math.ceil(count / rowsPerPage) - 1)
+    : page;
+  useEffect(() => {
+    if (dataLoaded && page > lastPage) onPageChange?.(null, lastPage);
+  }, [dataLoaded, lastPage, onPageChange, page]);
   const sx = Array.isArray(props.sx) ? props.sx : props.sx ? [props.sx] : [];
 
   return (
     <TablePagination
-      {...props}
+      {...paginationProps}
+      count={count}
+      page={dataLoaded ? page : Math.min(page, lastPage)}
+      onPageChange={onPageChange}
+      rowsPerPage={rowsPerPage}
       aria-label={t("Pagination")}
       getItemAriaLabel={(type) => t(pageButtonLabels[type])}
       labelRowsPerPage={t("Rows per page:")}

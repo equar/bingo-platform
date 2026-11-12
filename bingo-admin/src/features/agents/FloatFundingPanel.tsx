@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Alert, Box, Button, Card, CardContent, Chip, Grid, MenuItem, Stack, Table, TableBody,
@@ -13,6 +13,7 @@ import {
 } from "../../api/admin";
 import { getUserFacingErrorMessage, parseApiError } from "../../api/types";
 import { translateAdminStatus } from "../../i18n";
+import { ListRefreshButton, ListRefreshError } from "../../components/ListRefreshButton";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -43,6 +44,11 @@ export function FloatFundingPanel() {
     queryKey: ["admin-float-top-ups", page, status, search],
     queryFn: () => adminFloatTopUpRequests(page, 10, status, search),
   });
+  useEffect(() => {
+    if (!requests.data || requests.isPlaceholderData) return;
+    const lastPage = Math.max(0, requests.data.totalPages - 1);
+    if (page > lastPage) setPage(lastPage);
+  }, [page, requests.data, requests.isPlaceholderData]);
   const selectedId = Number(requestId);
   const selectedRequest = (requests.data?.content ?? []).find((request) => request.id === selectedId);
   const verifications = useQuery({
@@ -129,16 +135,18 @@ export function FloatFundingPanel() {
     <Stack spacing={3}>
       <Alert severity="warning">
         {t("Funding controls are in SIMULATED QA mode. Agent receipts are claims only. The synthetic statement form represents a test fixture and never contacts a bank. Production credit remains disabled pending finance approvals.")}</Alert>
-      {accounts.isError ? (
+      {accounts.isError && !accounts.data ? (
         <Alert severity="error" action={<Button color="inherit" size="small" onClick={() => accounts.refetch()}>{t("Retry")}</Button>}>
           {t(getUserFacingErrorMessage(accounts.error) ?? "Something went wrong. Please try again.")}
         </Alert>
       ) : null}
-      {requests.isError ? (
+      {requests.isError && !requests.data ? (
         <Alert severity="error" action={<Button color="inherit" size="small" onClick={() => requests.refetch()}>{t("Retry")}</Button>}>
           {t(getUserFacingErrorMessage(requests.error) ?? "Something went wrong. Please try again.")}
         </Alert>
       ) : null}
+      {accounts.isRefetchError ? <ListRefreshError retrying={accounts.isFetching} error={accounts.error} onRetry={() => accounts.refetch()} /> : null}
+      {requests.isRefetchError ? <ListRefreshError retrying={requests.isFetching} error={requests.error} onRetry={() => requests.refetch()} /> : null}
       {error?.isError ? (
         <Alert
           severity="error"
@@ -155,7 +163,10 @@ export function FloatFundingPanel() {
         <Grid item xs={12} lg={6}>
           <Card><CardContent>
             <Stack spacing={2}>
-              <Typography variant="h6">{t("Receiving bank accounts")}</Typography>
+              <Stack direction="row" justifyContent="space-between" alignItems="center" gap={1}>
+                <Typography variant="h6">{t("Receiving bank accounts")}</Typography>
+                <ListRefreshButton refreshing={accounts.isFetching} onRefresh={() => accounts.refetch()} />
+              </Stack>
               <Typography variant="body2" color="text.secondary">{t("Full account numbers are encrypted at rest. Agent and admin views show masked numbers only. Deactivation keeps historical request snapshots.")}</Typography>
               <Grid container spacing={1}>
                 <Grid item xs={12} sm={4}><TextField label={t("Bank name")} value={accountName} onChange={(e) => setAccountName(e.target.value)} fullWidth /></Grid>
@@ -202,6 +213,9 @@ export function FloatFundingPanel() {
           </TextField></Grid>
           <Grid item xs={12} md={3}><TextField label={t("Page")} type="number" value={page + 1} inputProps={{ min: 1 }} onChange={(e) => setPage(Math.max(0, Number(e.target.value) - 1))} fullWidth /></Grid>
         </Grid>
+        <Stack direction="row" justifyContent="flex-end">
+          <ListRefreshButton refreshing={requests.isFetching} onRefresh={() => requests.refetch()} />
+        </Stack>
         <Table size="small" aria-label={t("float top-up requests")}><TableHead><TableRow><TableCell>{t("Request")}</TableCell><TableCell>{t("Agent")}</TableCell><TableCell>{t("Amount")}</TableCell><TableCell>{t("Status")}</TableCell><TableCell>{t("Receiving account")}</TableCell><TableCell>{t("Transfer reference")}</TableCell><TableCell>{t("Action")}</TableCell></TableRow></TableHead>
           <TableBody>{(requests.data?.content ?? []).map((request) => <TableRow key={request.id} hover>
             <TableCell>{t("#")}{request.id}</TableCell><TableCell>{request.agentDisplayName}<br />{request.agentPhoneNumber}</TableCell><TableCell>{request.amount} {request.currency}</TableCell><TableCell>{translateAdminStatus(request.status, t)}</TableCell>
@@ -226,8 +240,12 @@ export function FloatFundingPanel() {
         <TextField label={t("Exception reason")} value={exceptionReason} onChange={(e) => setExceptionReason(e.target.value)} inputProps={{ maxLength: 500 }} fullWidth />
         <Button variant="outlined" onClick={() => addException.mutate()} disabled={addException.isPending || !selectedId || !exceptionReason.trim()}>{t("Record verification exception")}</Button>
         <Typography variant="subtitle2">{t("Verification history")}</Typography>
+        <Stack direction="row" justifyContent="flex-end">
+          <ListRefreshButton refreshing={verifications.isFetching} onRefresh={() => verifications.refetch()} />
+        </Stack>
         {(verifications.data ?? []).map((item) => <Chip key={item.id ?? `${item.outcome}-${item.verifiedAt}`} label={`${item.outcome} · ${item.evidenceSource} · ${t("Reviewer")} ${item.reviewerUserId}${item.exceptionReason ? ` · ${item.exceptionReason}` : ""}`} />)}
-        {verifications.isError ? <Alert severity="error">{t(getUserFacingErrorMessage(verifications.error) ?? "Something went wrong. Please try again.")}</Alert> : null}
+        {verifications.isError && !verifications.data ? <Alert severity="error">{t(getUserFacingErrorMessage(verifications.error) ?? "Something went wrong. Please try again.")}</Alert> : null}
+        {verifications.isRefetchError ? <ListRefreshError retrying={verifications.isFetching} error={verifications.error} onRetry={() => verifications.refetch()} /> : null}
         <TextField label={t("Review note")} value={reviewNote} onChange={(e) => setReviewNote(e.target.value)} inputProps={{ maxLength: 500 }} multiline minRows={2} fullWidth />
         <Stack direction="row" spacing={2}>
           <Button variant="outlined" onClick={() => reject.mutate()} disabled={reject.isPending || actionOutcomeUnknown || !selectedId || !reviewNote.trim() || selectedRequest?.status !== "PENDING"}>{t("Review request (reject, no credit)")}</Button>

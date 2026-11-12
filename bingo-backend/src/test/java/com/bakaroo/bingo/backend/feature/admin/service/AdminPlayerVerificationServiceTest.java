@@ -128,20 +128,27 @@ class AdminPlayerVerificationServiceTest {
     }
 
     @Test
-    void rejectsReviewersWithoutAnActiveAdminRole() {
+    void allowsActiveSupportReviewers() {
         User support = User.create("251911000002", "Support User", "hash", AccountStatus.ACTIVE,
                 Set.of(UserRole.SUPPORT), Instant.parse("2026-01-01T00:00:00Z"));
         ReflectionTestUtils.setField(support, "id", 2L);
         when(userRepository.findByIdForUpdate(25L)).thenReturn(Optional.of(player));
         when(userRepository.findById(2L)).thenReturn(Optional.of(support));
+        when(userRepository.save(player)).thenReturn(player);
+        when(reviewRepository.save(any(PlayerVerificationReview.class))).thenAnswer(invocation -> {
+            PlayerVerificationReview review = invocation.getArgument(0);
+            ReflectionTestUtils.setField(review, "id", 8L);
+            return review;
+        });
 
-        assertThatThrownBy(() -> service.recordPlayerVerification(
+        var response = service.recordPlayerVerification(
                 25L,
                 2L,
                 new PlayerVerificationUpdateRequest(
                         PlayerVerificationStatus.IN_REVIEW,
-                        PlayerVerificationReason.REVIEW_STARTED)))
-                .isInstanceOf(NotFoundException.class)
-                .hasMessageContaining("Admin reviewer not found");
+                        PlayerVerificationReason.REVIEW_STARTED));
+
+        assertThat(response.reviewerUserId()).isEqualTo(2L);
+        assertThat(player.getPlayerVerificationReviewedBy()).isSameAs(support);
     }
 }

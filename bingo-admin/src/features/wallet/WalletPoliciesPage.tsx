@@ -28,10 +28,10 @@ import { useLocation } from "react-router-dom";
 import {
   currentSignupRewardSettings,
   currentWalletTransferSettings,
-  saveSignupRewardSettings,
+  promotionalRewardCampaigns,
+  createPromotionalRewardCampaign,
   setSignupRewardPolicyStatus,
   saveWalletTransferSettings,
-  signupRewardSettingsHistory,
   walletTransferSettingsHistory,
 } from "../../api/admin";
 import { getUserFacingErrorMessage } from "../../api/types";
@@ -159,8 +159,9 @@ export function WalletPoliciesPage() {
     enabled: isTransferPolicy,
   });
   const rewardHistoryQuery = useQuery({
-    queryKey: ["wallet-policies", "signup-reward-history", historyPage, rewardSearch.trim(), rewardStatus],
-    queryFn: () => signupRewardSettingsHistory(historyPage, 20, rewardSearch.trim() || undefined, rewardStatus === "" ? undefined : rewardStatus === "active"),
+    queryKey: ["wallet-policies", "promotional-campaigns", historyPage],
+    queryFn: () => promotionalRewardCampaigns(historyPage, 20, rewardSearch.trim() || undefined,
+      rewardStatus === "" ? undefined : rewardStatus === "active"),
     enabled: !isTransferPolicy,
   });
   const transferHistoryQuery = useQuery({
@@ -170,6 +171,8 @@ export function WalletPoliciesPage() {
   });
 
   const [rewardDraft, setRewardDraft] = useState({
+    name: "Signup reward",
+    triggerType: "SIGNUP" as "SIGNUP" | "MANUAL",
     enabled: false,
     rewardAmount: "0",
     currency: "ETB",
@@ -194,6 +197,8 @@ export function WalletPoliciesPage() {
       const effectiveFrom = savedEffectiveFrom >= defaultEffectiveFrom ? savedEffectiveFrom : defaultEffectiveFrom;
       const savedEffectiveUntil = toLocalDateValue(rewardQuery.data.effectiveUntil, true);
       setRewardDraft({
+        name: "Signup reward",
+        triggerType: "SIGNUP",
         enabled: rewardQuery.data.enabled,
         rewardAmount: rewardQuery.data.rewardAmount,
         currency: rewardQuery.data.currency,
@@ -228,7 +233,9 @@ export function WalletPoliciesPage() {
 
   const saveRewardMutation = useMutation({
     mutationFn: async () =>
-      saveSignupRewardSettings({
+      createPromotionalRewardCampaign({
+        name: rewardDraft.name,
+        triggerType: rewardDraft.triggerType,
         enabled: rewardDraft.enabled,
         rewardAmount: Number(rewardDraft.rewardAmount),
         currency: rewardDraft.currency,
@@ -282,7 +289,7 @@ export function WalletPoliciesPage() {
       );
   }
 
-  if (activePolicyQuery.error) {
+  if (activePolicyQuery.error && !activePolicyQuery.data) {
     return (
       <StatusState
         title={isTransferPolicy ? t("Unable to load transfer policy") : t("Unable to load signup reward")}
@@ -296,10 +303,19 @@ export function WalletPoliciesPage() {
   return (
     <Stack spacing={3}>
       <AdminPageHeader
-        title={isTransferPolicy ? t("Transfer policy") : t("Signup reward")}
+        title={isTransferPolicy ? t("Transfer policy") : t("Promotional rewards")}
+        refresh={isTransferPolicy
+          ? { isFetching: transferHistoryQuery.isFetching || transferQuery.isFetching,
+            failed: transferHistoryQuery.isRefetchError || transferQuery.isRefetchError,
+            error: transferHistoryQuery.error ?? transferQuery.error,
+            onRefresh: () => Promise.all([transferHistoryQuery.refetch(), transferQuery.refetch()]) }
+          : { isFetching: rewardHistoryQuery.isFetching || rewardQuery.isFetching,
+            failed: rewardHistoryQuery.isRefetchError || rewardQuery.isRefetchError,
+            error: rewardHistoryQuery.error ?? rewardQuery.error,
+            onRefresh: () => Promise.all([rewardHistoryQuery.refetch(), rewardQuery.refetch()]) }}
         description={isTransferPolicy
           ? t("Controls the player-to-player transfer limit and daily outgoing cap.")
-          : t("Grants promotional balance to new players once.")}
+          : t("Create signup and manual wallet bonus campaigns. Awards are credited to promotional balance.")}
         actions={(
           <Button
             variant="contained"
@@ -309,7 +325,7 @@ export function WalletPoliciesPage() {
               setFormOpen(true);
             }}
           >
-            {isTransferPolicy ? t("Add transfer policy") : t("Add signup reward")}
+            {isTransferPolicy ? t("Add transfer policy") : t("Add promotional campaign")}
           </Button>
         )}
       />
@@ -320,6 +336,18 @@ export function WalletPoliciesPage() {
             <CardContent>
               <Stack spacing={2}>
                 <Grid container spacing={2}>
+                  <Grid item xs={12}>
+                    <TextField label={t("Campaign name")} value={rewardDraft.name}
+                      onChange={(event) => setRewardDraft({ ...rewardDraft, name: event.target.value })}
+                      inputProps={{ maxLength: 120 }} fullWidth />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField select label={t("Award trigger")} value={rewardDraft.triggerType}
+                      onChange={(event) => setRewardDraft({ ...rewardDraft, triggerType: event.target.value as "SIGNUP" | "MANUAL" })} fullWidth>
+                      <MenuItem value="SIGNUP">{t("At player signup")}</MenuItem>
+                      <MenuItem value="MANUAL">{t("Admin manual award")}</MenuItem>
+                    </TextField>
+                  </Grid>
                   <Grid item xs={12} sm={6}>
                     <FormControl fullWidth>
                       <InputLabel id="signup-reward-status-label">{t("Status")}</InputLabel>
@@ -396,18 +424,14 @@ export function WalletPoliciesPage() {
                       || !isValidRewardDateRange(rewardDraft.effectiveFrom, rewardDraft.effectiveUntil)
                     }
                   >
-                    {t("Save reward policy")}
+                    {t("Create campaign")}
                   </Button>
                   <Button onClick={() => setFormOpen(false)} disabled={saveRewardMutation.isPending}>{t("Cancel")}</Button>
                 </Stack>
                 {saveRewardMutation.isError ? (
                   <Alert severity="error" role="alert">{t(getUserFacingErrorMessage(saveRewardMutation.error) ?? "Something went wrong. Please try again.")}</Alert>
                 ) : null}
-                <Alert severity={rewardQuery.data?.activeNow ? "success" : "info"}>
-                  {rewardQuery.data?.activeNow
-                    ? t("A reward policy is active now.")
-                    : t("No active reward policy is currently in effect.")}
-                </Alert>
+                <Alert severity="info">{t("Signup campaigns are applied automatically at registration. Manual campaigns are awarded by an admin from the grants page.")}</Alert>
               </Stack>
             </CardContent>
           </Card>
@@ -542,7 +566,7 @@ export function WalletPoliciesPage() {
                     <MenuItem value="inactive">{t("Inactive")}</MenuItem>
                   </TextField>
                 </Stack>
-                {transferHistoryQuery.error ? (
+                {transferHistoryQuery.error && !transferHistoryQuery.data ? (
                   <Alert severity="error">{t(getUserFacingErrorMessage(transferHistoryQuery.error) ?? "Something went wrong. Please try again.")}</Alert>
                 ) : null}
                 <Box sx={{ overflowX: "auto" }}>
@@ -580,6 +604,7 @@ export function WalletPoliciesPage() {
                 </Box>
                 <AdminTablePagination
                   component="div"
+                  dataLoaded={!!transferHistoryQuery.data}
                   count={transferHistoryQuery.data?.totalElements ?? 0}
                   page={historyPage}
                   onPageChange={(_, nextPage) => setHistoryPage(nextPage)}
@@ -596,7 +621,7 @@ export function WalletPoliciesPage() {
           <Grid item xs={12}>
             <Card elevation={0} sx={{ border: "1px solid", borderColor: "divider" }}>
               <CardContent>
-                <Typography variant="h6" gutterBottom>{t("Reward history")}</Typography>
+                <Typography variant="h6" gutterBottom>{t("Promotional campaigns")}</Typography>
                 <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ mb: 2 }}>
                   <TextField
                     label={t("Search amount, currency, or reason")}
@@ -616,7 +641,7 @@ export function WalletPoliciesPage() {
                     <MenuItem value="inactive">{t("Inactive")}</MenuItem>
                   </TextField>
                 </Stack>
-                {rewardHistoryQuery.error ? (
+                {rewardHistoryQuery.error && !rewardHistoryQuery.data ? (
                   <Alert severity="error">{t(getUserFacingErrorMessage(rewardHistoryQuery.error) ?? "Something went wrong. Please try again.")}</Alert>
                 ) : null}
                 {rewardStatusMutation.error ? (
@@ -626,6 +651,8 @@ export function WalletPoliciesPage() {
                   <Table size="small" aria-label={t("Reward history")}>
                     <TableHead>
                       <TableRow>
+                        <TableCell>{t("Campaign")}</TableCell>
+                        <TableCell>{t("Trigger")}</TableCell>
                         <TableCell>{t("Status")}</TableCell>
                         <TableCell align="right">{t("Reward amount")}</TableCell>
                         <TableCell>{t("Currency")}</TableCell>
@@ -638,6 +665,8 @@ export function WalletPoliciesPage() {
                     <TableBody>
                       {rewardHistory.map((entry) => (
                         <TableRow key={entry.id} hover>
+                          <TableCell>{entry.name}</TableCell>
+                          <TableCell>{entry.triggerType === "SIGNUP" ? t("Signup") : t("Manual")}</TableCell>
                           <TableCell><Chip
                             label={entry.enabled ? t("Active") : t("Inactive")}
                             size="small"
@@ -659,12 +688,13 @@ export function WalletPoliciesPage() {
                           </TableCell>
                         </TableRow>
                       ))}
-                      {!rewardHistoryQuery.isLoading && !rewardHistoryQuery.error && rewardHistory.length === 0 ? <TableRow><TableCell colSpan={7}>{t("No signup reward history yet.")}</TableCell></TableRow> : null}
+                      {!rewardHistoryQuery.isLoading && !rewardHistoryQuery.error && rewardHistory.length === 0 ? <TableRow><TableCell colSpan={9}>{t("No promotional campaigns yet.")}</TableCell></TableRow> : null}
                     </TableBody>
                   </Table>
                 </Box>
                 <AdminTablePagination
                   component="div"
+                  dataLoaded={!!rewardHistoryQuery.data}
                   count={rewardHistoryQuery.data?.totalElements ?? 0}
                   page={historyPage}
                   onPageChange={(_, nextPage) => setHistoryPage(nextPage)}

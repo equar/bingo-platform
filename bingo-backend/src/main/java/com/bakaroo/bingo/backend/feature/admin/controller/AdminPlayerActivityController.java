@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/admin/players/{playerId}")
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasAnyRole('ADMIN','SUPPORT')")
 public class AdminPlayerActivityController {
 
     private final WalletService walletService;
@@ -63,6 +63,7 @@ public class AdminPlayerActivityController {
     }
 
     @GetMapping("/win-claims")
+    @PreAuthorize("hasRole('ADMIN')")
     public PageResponse<WinClaimResponse> winClaims(@PathVariable Long playerId,
             @PageableDefault(size = 20, sort = { "createdAt",
                     "id" }, direction = Sort.Direction.DESC) Pageable pageable) {

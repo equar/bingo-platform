@@ -21,7 +21,7 @@ class AdminReadControllerPaginationTest {
     private final AdminReadController controller = new AdminReadController(service);
 
     @Test
-    void appliesDefaultPageSettingsAndKeepsAdminAuthorization() {
+    void appliesDefaultPageSettingsAndKeepsAdminAndSupportAuthorization() {
         var expected = PageRequest.of(0, 20,
                 Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id")));
         when(service.agents(null, null, expected)).thenReturn(Page.empty(expected));
@@ -31,7 +31,7 @@ class AdminReadControllerPaginationTest {
         verify(service).agents(null, null, expected);
         var authorization = AdminReadController.class.getAnnotation(PreAuthorize.class);
         assertThat(authorization).isNotNull();
-        assertThat(authorization.value()).isEqualTo("hasRole('ADMIN')");
+        assertThat(authorization.value()).isEqualTo("hasAnyRole('ADMIN','SUPPORT')");
     }
 
     @Test

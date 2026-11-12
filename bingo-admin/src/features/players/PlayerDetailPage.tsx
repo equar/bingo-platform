@@ -31,6 +31,7 @@ import {
 import { getUserFacingErrorMessage, parseApiError } from "../../api/types";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { StatusState } from "../../components/StatusState";
+import { ListRefreshButton, ListRefreshError } from "../../components/ListRefreshButton";
 import { translateAdminRole, translateAdminStatus } from "../../i18n";
 import { PlayerActivityDialog, type PlayerActivityType } from "./PlayerActivityDialog";
 
@@ -192,7 +193,7 @@ export function PlayerDetailPage() {
     );
   }
 
-  if (playerQuery.error || !player) {
+  if ((playerQuery.error && !playerQuery.data) || !player) {
     return (
       <Stack spacing={2} alignItems="flex-start">
         {backButton}
@@ -350,8 +351,11 @@ export function PlayerDetailPage() {
       <Card sx={{ border: "1px solid", borderColor: "divider" }}>
         <CardContent>
           <Stack spacing={1}>
-            <Typography variant="h6">{t("Wallet adjustment requests")}</Typography>
-            {adjustmentHistoryQuery.isError ? (
+            <Stack direction="row" justifyContent="space-between" alignItems="center" gap={1}>
+              <Typography variant="h6">{t("Wallet adjustment requests")}</Typography>
+              <ListRefreshButton refreshing={adjustmentHistoryQuery.isFetching} onRefresh={() => adjustmentHistoryQuery.refetch()} />
+            </Stack>
+            {adjustmentHistoryQuery.isError && !adjustmentHistoryQuery.data ? (
               <Alert severity="error">{t("Unable to load adjustment history:")}{" "}{t(getUserFacingErrorMessage(adjustmentHistoryQuery.error) ?? "Something went wrong. Please try again.")}</Alert>
             ) : adjustmentHistoryQuery.isLoading ? (
               <Typography color="text.secondary">{t("Loading adjustment history...")}</Typography>
@@ -409,6 +413,9 @@ export function PlayerDetailPage() {
             ) : (
               <Typography color="text.secondary">{t("No wallet adjustment requests.")}</Typography>
             )}
+            {adjustmentHistoryQuery.isRefetchError ? (
+              <ListRefreshError retrying={adjustmentHistoryQuery.isFetching} error={adjustmentHistoryQuery.error} onRetry={() => adjustmentHistoryQuery.refetch()} />
+            ) : null}
           </Stack>
         </CardContent>
       </Card>

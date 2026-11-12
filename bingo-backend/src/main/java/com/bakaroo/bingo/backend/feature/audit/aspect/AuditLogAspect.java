@@ -73,6 +73,7 @@ public class AuditLogAspect {
         }
 
         Object[] arguments = joinPoint.getArgs();
+        long startedAt = System.nanoTime();
         String operationId = UUID.randomUUID().toString();
         User actor = currentUser();
         Object result;
@@ -117,6 +118,29 @@ public class AuditLogAspect {
         Map<String, Object> metadata = buildMetadata(joinPoint, signature, "SUCCESS", actor, result, null);
         auditLogService.record(actor, actionName(methodName), targetType(joinPoint, methodName, result),
                 extractTargetId(arguments, result, signature), extractReason(arguments, signature), operationId, metadata);
+        Long targetId = extractTargetId(arguments, result, signature);
+        Long actorId = actor == null ? null : actor.getId();
+        String operation = joinPoint.getTarget().getClass().getSimpleName() + "." + methodName;
+        long durationMillis = Math.max(0, (System.nanoTime() - startedAt) / 1_000_000L);
+        Runnable logCommittedOperation = () -> log.atInfo()
+                .addKeyValue("operation", operation)
+                .addKeyValue("outcome", "committed")
+                .addKeyValue("operationId", operationId)
+                .addKeyValue("actorId", actorId)
+                .addKeyValue("entityId", targetId)
+                .addKeyValue("durationMs", durationMillis)
+                .log("Business operation committed");
+        if (TransactionSynchronizationManager.isActualTransactionActive()
+                && TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    logCommittedOperation.run();
+                }
+            });
+        } else if (!TransactionSynchronizationManager.isActualTransactionActive()) {
+            logCommittedOperation.run();
+        }
         return result;
     }
 

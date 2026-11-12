@@ -76,7 +76,7 @@ export function SupportTicketsPage() {
     return <StatusState title={t("Loading support tickets")} loading message={t("Fetching call-center queue")} />;
   }
 
-  if (ticketsQuery.error) {
+  if (ticketsQuery.error && !ticketsQuery.data) {
     return (
       <StatusState
         title={t("Unable to load support tickets")}
@@ -90,7 +90,7 @@ export function SupportTicketsPage() {
   return (
     <AdminTablePage>
     <Stack spacing={3}>
-      <AdminPageHeader title={t("Support tickets")} description={t("Queue, filter, and review call-center tickets with public and internal notes kept separate.")} />
+      <AdminPageHeader title={t("Support tickets")} description={t("Queue, filter, and review call-center tickets with public and internal notes kept separate.")} refresh={{ isFetching: ticketsQuery.isFetching, failed: ticketsQuery.isRefetchError, error: ticketsQuery.error, onRefresh: () => ticketsQuery.refetch() }} />
 
       <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
         <TextField
@@ -226,6 +226,7 @@ export function SupportTicketsPage() {
 
       <AdminTablePagination
         component="div"
+        dataLoaded={!!ticketsQuery.data}
         count={ticketsQuery.data?.totalElements ?? 0}
         page={page}
         onPageChange={(_, nextPage) => updateListState({ page: String(nextPage) })}

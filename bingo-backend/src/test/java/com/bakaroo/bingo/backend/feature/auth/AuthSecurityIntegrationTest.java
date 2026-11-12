@@ -548,7 +548,7 @@ class AuthSecurityIntegrationTest extends MySqlIntegrationTest {
         }
 
         @Test
-        void supportCanVerifyDepositsButCannotApproveOrUseRemovedFinanceRoleRoute() throws Exception {
+        void supportCanAccessAllowedAdminAreasButNotExcludedAreasOrRemovedFinanceRoleRoute() throws Exception {
                 String suffix = Long.toString(System.nanoTime() % 100_000_000L);
                 User supportUser = userRepository.save(User.create(
                                 phoneNormalizer.normalize("09" + String.format("%08d", Long.parseLong(suffix))),
@@ -560,8 +560,47 @@ class AuthSecurityIntegrationTest extends MySqlIntegrationTest {
                 String supportToken = jwtService.generateToken(supportUser);
                 String adminToken = issueTokenFor("0911000001");
 
+                mockMvc.perform(get("/api/v1/admin/dashboard/metrics")
+                                .header("Authorization", "Bearer " + supportToken))
+                                .andExpect(status().isOk());
                 mockMvc.perform(get("/api/v1/admin/deposits").header("Authorization", "Bearer " + supportToken))
                                 .andExpect(status().isOk());
+                mockMvc.perform(get("/api/v1/admin/rooms").header("Authorization", "Bearer " + supportToken))
+                                .andExpect(status().isForbidden());
+                mockMvc.perform(get("/api/v1/admin/win-claims").header("Authorization", "Bearer " + supportToken))
+                                .andExpect(status().isForbidden());
+                mockMvc.perform(get("/api/v1/admin/prize-entitlements")
+                                .header("Authorization", "Bearer " + supportToken))
+                                .andExpect(status().isForbidden());
+                mockMvc.perform(get("/api/v1/admin/wallet/signup-rewards/settings")
+                                .header("Authorization", "Bearer " + supportToken))
+                                .andExpect(status().isForbidden());
+                mockMvc.perform(get("/api/v1/admin/wallet/signup-rewards/campaigns")
+                                .header("Authorization", "Bearer " + supportToken))
+                                .andExpect(status().isOk());
+                mockMvc.perform(get("/api/v1/admin/wallet/signup-rewards/promotional-grants")
+                                .header("Authorization", "Bearer " + supportToken))
+                                .andExpect(status().isOk());
+                mockMvc.perform(get("/api/v1/admin/wallet/signup-rewards/grants")
+                                .header("Authorization", "Bearer " + supportToken))
+                                .andExpect(status().isForbidden());
+                mockMvc.perform(post("/api/v1/admin/wallet/signup-rewards/grants")
+                                .header("Authorization", "Bearer " + supportToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"campaignId\":999999,\"playerId\":999999}"))
+                                .andExpect(status().isNotFound())
+                                .andExpect(jsonPath("$.code").value("PROMOTIONAL_REWARD_CAMPAIGN_NOT_FOUND"));
+                mockMvc.perform(get("/api/v1/admin/wallet/transfers/settings")
+                                .header("Authorization", "Bearer " + supportToken))
+                                .andExpect(status().isForbidden());
+                mockMvc.perform(get("/api/v1/admin/users").header("Authorization", "Bearer " + supportToken))
+                                .andExpect(status().isForbidden());
+                mockMvc.perform(get("/api/v1/admin/audit-logs")
+                                .header("Authorization", "Bearer " + supportToken))
+                                .andExpect(status().isForbidden());
+                mockMvc.perform(get("/api/v1/admin/reports/audit-activity")
+                                .header("Authorization", "Bearer " + supportToken))
+                                .andExpect(status().isForbidden());
                 mockMvc.perform(post("/api/v1/admin/deposits/999999/verify")
                                 .header("Authorization", "Bearer " + supportToken)
                                 .contentType(MediaType.APPLICATION_JSON).content("{\"statementEntryId\":1}"))
@@ -577,9 +616,9 @@ class AuthSecurityIntegrationTest extends MySqlIntegrationTest {
                                 .header("Authorization", "Bearer " + supportToken)
                                 .header("Idempotency-Key", "support-approval-forbidden")
                                 .contentType(MediaType.APPLICATION_JSON)
-                                .content("{\"reviewNote\":\"Support cannot approve deposits\"}"))
-                                .andExpect(status().isConflict())
-                                .andExpect(jsonPath("$.code").value("DEPOSIT_STAFF_AUTHORIZATION_REQUIRED"));
+                                .content("{\"reviewNote\":\"Synthetic access check\"}"))
+                                .andExpect(status().isNotFound())
+                                .andExpect(jsonPath("$.code").value("DEPOSIT_NOT_FOUND"));
                 mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
                                 .delete("/api/v1/admin/users/{userId}/finance-roles", supportUser.getId())
                                 .param("role", "SUPPORT")
