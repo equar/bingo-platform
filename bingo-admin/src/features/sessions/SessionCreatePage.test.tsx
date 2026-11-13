@@ -133,6 +133,21 @@ describe("SessionCreatePage", () => {
     expect(screen.getByRole("button", { name: "Create session" })).toBeDisabled();
   });
 
+  it("uses an Ethiopian calendar picker for the scheduled date", async () => {
+    const user = userEvent.setup();
+    render(<SessionCreatePage />, { wrapper: createWrapper });
+
+    await user.click(await screen.findByRole("combobox", { name: "Room" }));
+    await user.click(await screen.findByRole("option", { name: "Evening Room" }));
+
+    const dateField = screen.getByRole("textbox", { name: "Ethiopian calendar date" });
+    expect(dateField).toHaveAttribute("readonly");
+
+    await user.click(screen.getByRole("button", { name: "Open Ethiopian calendar date calendar" }));
+    expect(screen.getByRole("button", { name: "Previous Ethiopian month" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /^Select / }).length).toBeGreaterThan(0);
+  });
+
   it("asks before discarding edited fields and returns focus when editing continues", async () => {
     const user = userEvent.setup();
     render(<SessionCreatePage />, { wrapper: createWrapper });
