@@ -11,7 +11,7 @@ import zipfile
 
 p = argparse.ArgumentParser()
 p.add_argument('apk', type=Path)
-p.add_argument('app', choices=['bingo-app', 'bingo-agent'])
+p.add_argument('app', choices=['bingo-player', 'bingo-agent'])
 p.add_argument('--previous', type=Path)
 p.add_argument('--report', type=Path)
 a = p.parse_args()
@@ -36,7 +36,7 @@ def inspect(apk):
     return dict(package=package, version_code=int(code), version=version, min_sdk=minimum, target_sdk=target, signer_sha256=signer)
 
 report = inspect(a.apk)
-expected = {'bingo-app': 'com.bakaroo.bingo_app', 'bingo-agent': 'com.equar.bingo.bingo_agent'}[a.app]
+expected = {'bingo-player': 'com.bakaroo.bingo_app', 'bingo-agent': 'com.equar.bingo.bingo_agent'}[a.app]
 if report['package'] != expected or report['min_sdk'] != 24:
     raise SystemExit('Unexpected package ID or Android minimum; review compatibility policy')
 # Pin the identities already used for shared releases. Key changes require a deliberate migration.

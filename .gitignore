@@ -5,7 +5,7 @@ target/
 **/.dart_tool/
 **/.flutter-plugins
 **/.flutter-plugins-dependencies
-/bingo-app/lib/l10n/app_localizations*.dart
+/bingo-player/lib/l10n/app_localizations*.dart
 /bingo-agent/lib/src/l10n/generated/
 /.idea/
 !.vscode/
@@ -20,7 +20,7 @@ target/
 /bingo-admin/vite.config.d.ts
 /bingo-admin/vite.config.js
 /bingo-admin/coverage/
-/bingo-app/build/
+/bingo-player/build/
 /bingo-admin/tsconfig.app.tsbuildinfo
 /bingo-admin/tsconfig.node.tsbuildinfo
 .env.local
@@ -32,7 +32,7 @@ target/
 **/e2e-secrets.json
 /test-results/
 /bingo-admin/test-results/
-/bingo-app/test-results/
+/bingo-player/test-results/
 /.playwright-mcp/
 /support-tickets-verification.png
 .tmp/
@@ -71,8 +71,8 @@ Pods/
 .symlinks/
 xcuserdata/
 *.xcuserstate
-/bingo-app/windows/flutter/generated_plugin_registrant.*
-/bingo-app/windows/flutter/generated_plugins.cmake
+/bingo-player/windows/flutter/generated_plugin_registrant.*
+/bingo-player/windows/flutter/generated_plugins.cmake
 /bingo-agent/windows/flutter/generated_plugin_registrant.*
 /bingo-agent/windows/flutter/generated_plugins.cmake
 

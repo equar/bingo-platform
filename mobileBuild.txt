@@ -2,7 +2,7 @@ BINGO ANDROID BUILD GUIDE
 ========================
 
 Run these commands from the repository root. These steps build the Player app
-in bingo-app. The Agent app is in bingo-agent and is not the Play Store app
+in bingo-player. The Agent app is in bingo-agent and is not the Play Store app
 configured by the current Android publishing workflows.
 
 Prerequisites
@@ -35,15 +35,15 @@ Wait until this succeeds in another terminal:
 Build the Player debug APK from the repository root. The local API URL is
 compiled into the APK; Android emulators reach the host computer at 10.0.2.2:
 
-    cd bingo-app
+    cd bingo-player
     flutter pub get
     flutter gen-l10n
     flutter build apk --debug --build-number=5 --target-platform=android-arm,android-arm64,android-x64 --target=lib/main.dart --dart-define=API_BASE_URL=http://10.0.2.2:8080 --dart-define=BINGO_PLAYER_PURCHASES_ENABLED=true
     mkdir -p ../deployment/mobile/artifacts
-    cp build/app/outputs/flutter-apk/app-debug.apk ../deployment/mobile/artifacts/bingo-app-local-debug.apk
+    cp build/app/outputs/flutter-apk/app-debug.apk ../deployment/mobile/artifacts/bingo-player-local-debug.apk
     cd ..
 
-The output is deployment/mobile/artifacts/bingo-app-local-debug.apk. For a
+The output is deployment/mobile/artifacts/bingo-player-local-debug.apk. For a
 physical Android phone, replace 10.0.2.2 with the computer's LAN IP and make
 sure the backend listens on the LAN interface and the firewall permits port
 8080. Local HTTP is for debug builds only.
@@ -61,7 +61,7 @@ latest versionCode in Google Play Console. Example below uses 6; increase it
 for every new Play upload. The Android package ID in the current source is
 com.bakaroo.bingo_app and must exactly match the Play Console app's package ID.
 
-For release signing, bingo-app/android/key.properties must refer to the
+For release signing, bingo-player/android/key.properties must refer to the
 upload keystore registered with Play App Signing. The repository's local APK
 signing key is not automatically the Play upload key. Check the key
 certificate against the upload certificate in Play Console before uploading.
@@ -73,17 +73,17 @@ repeatable script (replace 6 with the next unused Play version code):
 
 The script hardcodes and validates the AWS API URL, enables ticket purchasing,
 requires the Player app's upload signing configuration, builds the release bundle, and writes
-deployment/mobile/artifacts/bingo-app-playstore-6.aab plus its SHA-256 file.
-For sideload/QA only, build a production APK separately from bingo-app using
+deployment/mobile/artifacts/bingo-player-playstore-6.aab plus its SHA-256 file.
+For sideload/QA only, build a production APK separately from bingo-player using
 the same release API URL and registered upload key; do not upload that APK to
 Google Play. Google Play uses Android App Bundles
 to generate device-specific APKs; new Play apps are required to publish using
 the bundle format. See https://developer.android.com/studio/publish/upload-bundle.
 
 For the configured CI release path, upload to the internal testing track first
-with .github/workflows/bingo-app-android-internal-testing.yml, verify it in
+with .github/workflows/bingo-player-android-internal-testing.yml, verify it in
 Play Console, then promote that tested version with
-.github/workflows/bingo-app-android-production.yml. Promotion does not rebuild
+.github/workflows/bingo-player-android-production.yml. Promotion does not rebuild
 the app. Both workflows require the configured Play service account, upload
 keystore secrets, package name, and production API URL.
 

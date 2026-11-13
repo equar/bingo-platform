@@ -24,7 +24,7 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$projectDirectory = Join-Path $repoRoot $(if ($App -eq 'player') { 'bingo-app' } else { 'bingo-agent' })
+$projectDirectory = Join-Path $repoRoot $(if ($App -eq 'player') { 'bingo-player' } else { 'bingo-agent' })
 $entryPoint = Join-Path $projectDirectory 'lib\main.dart'
 $apiHost = if ($Platform -eq 'android') { '10.0.2.2' } else { 'localhost' }
 $apiBaseUrl = "http://${apiHost}:8080"

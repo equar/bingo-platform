@@ -33,6 +33,7 @@ import com.bakaroo.bingo.backend.feature.wallet.repository.WalletTransactionRepo
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
@@ -43,6 +44,15 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class WalletService {
+
+    private static final Set<String> DEPOSIT_REJECTION_REASONS = Set.of(
+            "PAYMENT_REFERENCE_NOT_FOUND",
+            "PAYMENT_REFERENCE_MISMATCH",
+            "SENDER_PHONE_MISMATCH",
+            "AMOUNT_MISMATCH",
+            "PAYMENT_NOT_SETTLED",
+            "DUPLICATE_OR_ALREADY_USED",
+            "OTHER");
 
     private final WalletRepository walletRepository;
     private final WalletTransactionRepository walletTransactionRepository;
@@ -122,6 +132,13 @@ public class WalletService {
     }
 
     @Transactional(readOnly = true)
+    public DepositClaimResponse getAdminDeposit(Long depositId) {
+        DepositClaim claim = depositClaimRepository.findById(depositId)
+                .orElseThrow(() -> new NotFoundException("DEPOSIT_NOT_FOUND", "Deposit not found"));
+        return toDepositResponse(claim);
+    }
+
+    @Transactional(readOnly = true)
     public Page<DepositReportResponse> depositReport(
             Instant from, Instant to, String query, DepositClaimStatus status, Pageable pageable) {
         String normalizedQuery = query == null || query.isBlank() ? null : query.trim().toLowerCase(Locale.ROOT);
@@ -193,7 +210,14 @@ public class WalletService {
             BingoUserPrincipal principal,
             DepositReviewRequest request,
             String idempotencyKey) {
-        User reviewer = requireFinanceApprover(principal);
+        User reviewer = principal.getUser();
+        if (!reviewer.isActive() || !reviewer.hasRole(UserRole.SUPPORT)) {
+            throw new ConflictException("SUPPORT_ROLE_REQUIRED", "An active support account is required");
+        }
+        if (!DEPOSIT_REJECTION_REASONS.contains(request.reviewNote())) {
+            throw new BadRequestException("INVALID_DEPOSIT_REJECTION_REASON",
+                    "Choose a supported reason for rejecting the deposit");
+        }
         String requestHash = requestHashService.hash("POST", "/api/v1/admin/deposits/" + depositId + "/reject",
                 request);
         String operationId = UUID.randomUUID().toString();
@@ -252,16 +276,6 @@ public class WalletService {
         User user = principal.getUser();
         if (!(user.hasRole(UserRole.ADMIN) || user.hasRole(UserRole.SUPPORT))) {
             throw new BadRequestException("ADMIN_ROLE_REQUIRED", "This endpoint is available to admin or support accounts only");
-        }
-        return user;
-    }
-
-    private User requireFinanceApprover(BingoUserPrincipal principal) {
-        User user = principal.getUser();
-        boolean staffUser = user.hasRole(UserRole.ADMIN) || user.hasRole(UserRole.SUPPORT);
-        if (!user.isActive() || !staffUser) {
-            throw new ConflictException("FINANCE_APPROVER_REQUIRED",
-                    "An active finance approver is required");
         }
         return user;
     }

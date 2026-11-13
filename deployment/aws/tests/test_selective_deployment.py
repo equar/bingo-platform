@@ -24,7 +24,7 @@ class ChangeSelectionTest(unittest.TestCase):
         self.assertEqual(changes.affected(['.github/workflows/deploy.yml']), {'backend', 'admin', 'website'})
 
     def test_docs_and_mobile_do_not_deploy(self):
-        self.assertEqual(changes.affected(['docs/setup.md', 'bingo-admin/README.md', 'bingo-app/lib/main.dart']), set())
+        self.assertEqual(changes.affected(['docs/setup.md', 'bingo-admin/README.md', 'bingo-player/lib/main.dart']), set())
 
     def test_git_diff_includes_deleted_and_renamed_application_files(self):
         with tempfile.TemporaryDirectory() as directory:

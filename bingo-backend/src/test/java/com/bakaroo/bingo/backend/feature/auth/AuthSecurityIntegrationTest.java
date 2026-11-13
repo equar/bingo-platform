@@ -603,14 +603,16 @@ class AuthSecurityIntegrationTest extends MySqlIntegrationTest {
                                 .andExpect(status().isForbidden());
                 mockMvc.perform(post("/api/v1/admin/deposits/999999/verify")
                                 .header("Authorization", "Bearer " + supportToken)
-                                .contentType(MediaType.APPLICATION_JSON).content("{\"statementEntryId\":1}"))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"paymentReference\":\"TBR-NOT-FOUND\"}"))
                                 .andExpect(status().isNotFound());
                 mockMvc.perform(get("/api/v1/admin/deposits").header("Authorization", "Bearer " + adminToken))
                                 .andExpect(status().isOk());
                 mockMvc.perform(post("/api/v1/admin/deposits/999999/verify")
                                 .header("Authorization", "Bearer " + adminToken)
-                                .contentType(MediaType.APPLICATION_JSON).content("{\"statementEntryId\":1}"))
-                                .andExpect(status().isForbidden());
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"paymentReference\":\"TBR-NOT-FOUND\"}"))
+                                .andExpect(status().isNotFound());
                 mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
                                 .post("/api/v1/admin/deposits/999999/approve")
                                 .header("Authorization", "Bearer " + supportToken)

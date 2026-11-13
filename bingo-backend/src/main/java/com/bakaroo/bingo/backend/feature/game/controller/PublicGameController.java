@@ -10,6 +10,7 @@ import com.bakaroo.bingo.backend.feature.game.dto.TicketPurchaseResponse;
 import com.bakaroo.bingo.backend.feature.game.dto.TicketResponse;
 import com.bakaroo.bingo.backend.feature.game.dto.WinClaimRequest;
 import com.bakaroo.bingo.backend.feature.game.dto.WinClaimResponse;
+import com.bakaroo.bingo.backend.feature.game.dto.PlayerGameHistoryResponse;
 import com.bakaroo.bingo.backend.feature.game.service.BingoGameService;
 import jakarta.validation.Valid;
 import io.swagger.v3.oas.annotations.Operation;
@@ -108,5 +109,13 @@ public class PublicGameController {
     public PageResponse<WinClaimResponse> myWinClaims(@AuthenticationPrincipal BingoUserPrincipal principal,
             @PageableDefault(size = 20) Pageable pageable) {
         return PageResponse.from(bingoGameService.getMyWinClaims(principal, pageable));
+    }
+
+    @GetMapping("/me/game-history")
+    @PreAuthorize("hasRole('PLAYER')")
+    public PageResponse<PlayerGameHistoryResponse> myGameHistory(
+            @AuthenticationPrincipal BingoUserPrincipal principal,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return PageResponse.from(bingoGameService.getPlayerGameHistory(principal, pageable));
     }
 }

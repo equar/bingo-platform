@@ -3,7 +3,7 @@ import json, os, secrets, shutil, subprocess, sys
 from pathlib import Path
 root=Path(__file__).resolve().parents[2]
 app=sys.argv[1]
-if app not in ('bingo-app','bingo-agent'): raise SystemExit('Unknown app')
+if app not in ('bingo-player','bingo-agent'): raise SystemExit('Unknown app')
 properties=root/app/'android/key.properties'
 if properties.exists():
     print('Using existing signing configuration for '+app)

@@ -9,7 +9,7 @@ $ErrorActionPreference = 'Stop'
 
 $workspaceRoot = Resolve-Path (Join-Path $PSScriptRoot '..')
 $adminRoot = Join-Path $workspaceRoot 'bingo-admin'
-$playerRoot = Join-Path $workspaceRoot 'bingo-app'
+$playerRoot = Join-Path $workspaceRoot 'bingo-player'
 $runDir = Join-Path $ResultsRoot $RunId
 $manifestPath = Join-Path $runDir 'manifest.json'
 

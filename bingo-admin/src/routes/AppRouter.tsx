@@ -77,6 +77,9 @@ const PrizeEntitlementsPage = lazyWithStaleChunkRecovery(() =>
 const DepositsPage = lazy(() =>
   import("../features/deposits/DepositsPage").then((module) => ({ default: module.DepositsPage })),
 );
+const DepositDetailPage = lazy(() =>
+  import("../features/deposits/DepositDetailPage").then((module) => ({ default: module.DepositDetailPage })),
+);
 const AuditLogsPage = lazy(() =>
   import("../features/audit/AuditLogsPage").then((module) => ({ default: module.AuditLogsPage })),
 );
@@ -109,6 +112,7 @@ const SignupRewardGrantsPage = lazy(() =>
 );
 
 const CommunityPage = lazy(() => import("../features/community/CommunityPage").then(module => ({ default: module.CommunityPage })));
+const PlayerAppPage = lazy(() => import("../features/playerApp/PlayerAppPage").then(module => ({ default: module.PlayerAppPage })));
 
 export function AppRouter() {
   const { t } = useTranslation();
@@ -141,6 +145,7 @@ export function AppRouter() {
             <Route path="support/tickets/:ticketId" element={<SupportTicketDetailPage />} />
             <Route path="session-tickets" element={<SessionTicketsPage />} />
             <Route path="reports" element={<ReportsPage />} />
+            <Route path="deposits/:depositId" element={<DepositDetailPage />} />
             <Route element={<ProtectedRoute allowedRoles={["ADMIN", "SUPPORT"]} />}>
               <Route path="management" element={<Navigate to="/dashboard" replace />} />
               <Route path="dashboard" element={<DashboardPage />} />
@@ -159,6 +164,7 @@ export function AppRouter() {
               <Route path="wallet/signup-reward-grants" element={<SignupRewardGrantsPage />} />
             </Route>
             <Route element={<ProtectedRoute allowedRoles={["ADMIN"]} />}>
+              <Route path="player-app" element={<PlayerAppPage />} />
               <Route path="audit-logs" element={<AuditLogsPage />} />
               <Route path="admin-users" element={<AdminUsersPage />} />
               <Route path="admin-users/new" element={<AdminUsersPage />} />
