@@ -140,7 +140,7 @@ if [[ "$install_android" == true ]]; then
       continue
     fi
     if ! adb -s "$serial" shell dumpsys package "$ANDROID_PACKAGE" |
-      grep -Eq 'versionCode=[0-9]+'; then
+      grep -E 'versionCode=[0-9]+' >/dev/null; then
       failures+=("Android $serial: installed package verification failed")
       continue
     fi

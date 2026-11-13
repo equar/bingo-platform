@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bingo_player/src/core/config/app_config.dart';
 import 'package:bingo_player/src/core/models/page_result.dart';
 import 'package:bingo_player/src/features/auth/data/auth_models.dart';
@@ -21,7 +23,9 @@ LiveDrawEvent _draw({required int sequenceNo, required int numberDrawn}) {
   );
 }
 
-PageResult<TicketResponse> _ticketPage() {
+PageResult<TicketResponse> _ticketPage({
+  List<String> eligibleClaimPatterns = const ['LINE', 'FULL_HOUSE'],
+}) {
   return PageResult<TicketResponse>(
     content: [
       TicketResponse(
@@ -29,7 +33,7 @@ PageResult<TicketResponse> _ticketPage() {
         sessionId: 42,
         ownerId: 7,
         publicTicketCode: 'TICKET-101',
-        eligibleClaimPatterns: const ['LINE', 'FULL_HOUSE'],
+        eligibleClaimPatterns: eligibleClaimPatterns,
         operationId: 'ticket-op-101',
         grid: const [
           [1, 16, 31, 46, 61],
@@ -159,6 +163,65 @@ void main() {
       expect(controller.state.canSubmitClaim, isTrue);
     },
   );
+
+  test(
+    'does not restore a stale snapshot over a newly selected ticket page',
+    () async {
+      final repo = _DelayedAggregateRepository();
+      final controller = LiveGameController(
+        sessionId: 42,
+        repository: repo,
+        readAuthSession: () => _authenticatedState(),
+        clearAuthSession: ({String? reason}) async {},
+        appConfig: const AppConfig(
+          apiBaseUrl: 'https://example.com',
+          apiBaseUrlLabel: 'API_BASE_URL',
+        ),
+        transport: FakeLiveGameTransport(),
+      );
+      addTearDown(controller.dispose);
+
+      final start = controller.start();
+      await repo.aggregateRequested.future;
+      await controller.selectTicketPage(1);
+      repo.releaseAggregate.complete();
+      await start;
+
+      expect(controller.state.ticketPageIndex, 1);
+      expect(controller.state.ticketPage?.page, 1);
+      expect(controller.state.selectedTicket?.id, 111);
+    },
+  );
+
+  testWidgets('polling preserves the player-selected claim pattern', (
+    tester,
+  ) async {
+    final repo = FakeLiveGameRepository(
+      session: _session(state: 'DRAWING'),
+      ticketPage: _ticketPage(eligibleClaimPatterns: const ['LINE']),
+      claimPage: _claimPage(),
+      drawResponses: {0: []},
+    );
+    final controller = LiveGameController(
+      sessionId: 42,
+      repository: repo,
+      readAuthSession: () => _authenticatedState(),
+      clearAuthSession: ({String? reason}) async {},
+      appConfig: const AppConfig(
+        apiBaseUrl: 'https://example.com',
+        apiBaseUrlLabel: 'API_BASE_URL',
+      ),
+      transport: FakeLiveGameTransport(),
+    );
+    addTearDown(controller.dispose);
+
+    await controller.start();
+    controller.selectClaimPattern('FULL_HOUSE');
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pump();
+
+    expect(controller.state.selectedClaimPattern, 'FULL_HOUSE');
+  });
 
   testWidgets(
     'session polling updates OPEN to DRAWING and preserves the closed claim window',
@@ -665,6 +728,49 @@ class _ClaimablePagedRepository extends _PagedWinningRepository {
       totalPages: (11 / size).ceil(),
       first: page == 0,
       last: (page + 1) * size >= 11,
+    );
+  }
+}
+
+class _DelayedAggregateRepository extends FakeLiveGameRepository {
+  _DelayedAggregateRepository()
+    : super(
+        session: _session(state: 'CLOSED'),
+        ticketPage: _ticketPage(),
+        claimPage: _claimPage(),
+        drawResponses: {0: []},
+      );
+
+  final Completer<void> aggregateRequested = Completer<void>();
+  final Completer<void> releaseAggregate = Completer<void>();
+
+  @override
+  Future<PageResult<TicketResponse>> getMyTickets(
+    int sessionId, {
+    required int page,
+    required int size,
+  }) async {
+    final tickets = List.generate(
+      11,
+      (index) => TicketResponse.fromJson({
+        'id': 101 + index,
+        'sessionId': 42,
+        'grid': _ticketPage().content.first.grid,
+        'eligibleClaimPatterns': index == 10 ? ['LINE'] : [],
+      }),
+    );
+    if (size == 100) {
+      aggregateRequested.complete();
+      await releaseAggregate.future;
+    }
+    return PageResult(
+      content: tickets.skip(page * size).take(size).toList(),
+      page: page,
+      size: size,
+      totalElements: tickets.length,
+      totalPages: (tickets.length / size).ceil(),
+      first: page == 0,
+      last: (page + 1) * size >= tickets.length,
     );
   }
 }

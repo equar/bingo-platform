@@ -234,6 +234,8 @@ class LiveGameController extends StateNotifier<LiveGameState> {
   bool _reconnectInFlight = false;
   bool _connecting = false;
   int _reconnectAttempt = 0;
+  int _ticketNavigationGeneration = 0;
+  int _ticketPageRequestGeneration = 0;
   Timer? _reconnectTimer;
   Timer? _snapshotTimer;
   bool _syncingSnapshot = false;
@@ -326,13 +328,15 @@ class LiveGameController extends StateNotifier<LiveGameState> {
     if (_disposed || pageIndex < 0 || pageIndex == state.ticketPageIndex) {
       return;
     }
+    _ticketNavigationGeneration += 1;
+    final requestGeneration = ++_ticketPageRequestGeneration;
     state = state.copyWith(
       ticketPageIndex: pageIndex,
       selectedTicketIndex: 0,
       pendingClaimIdempotencyKey: null,
       errorMessage: null,
     );
-    await _loadTicketPage(pageIndex);
+    await _loadTicketPage(pageIndex, requestGeneration);
   }
 
   void selectTicketIndex(int index) {
@@ -340,6 +344,7 @@ class LiveGameController extends StateNotifier<LiveGameState> {
     if (index < 0 || index >= tickets.length) {
       return;
     }
+    _ticketNavigationGeneration += 1;
     state = state.copyWith(
       selectedTicketIndex: index,
       pendingClaimIdempotencyKey: null,
@@ -585,20 +590,22 @@ class LiveGameController extends StateNotifier<LiveGameState> {
   }
 
   Future<void> _loadSnapshotAndHistory({int? selectedTicketId}) async {
+    final navigationGeneration = _ticketNavigationGeneration;
+    final requestedTicketPageIndex = state.ticketPageIndex;
     final session = await _repository.getSession(sessionId);
     if (_disposed) {
       return;
     }
     final ticketPage = await _repository.getMyTickets(
       sessionId,
-      page: state.ticketPageIndex,
+      page: requestedTicketPageIndex,
       size: _ticketPageSize,
     );
     if (_disposed) {
       return;
     }
     var displayedTicketPage = ticketPage;
-    var displayedTicketPageIndex = state.ticketPageIndex;
+    var displayedTicketPageIndex = requestedTicketPageIndex;
     final allTickets = <TicketResponse>[...ticketPage.content];
     if (session.state != 'OPEN' &&
         session.state != 'DRAFT' &&
@@ -616,7 +623,9 @@ class LiveGameController extends StateNotifier<LiveGameState> {
       }
     }
     final shouldFocusClaimableTicket =
-        selectedTicketId == null && state.session == null;
+        navigationGeneration == _ticketNavigationGeneration &&
+        selectedTicketId == null &&
+        state.session == null;
     final claimableTicketIndex = shouldFocusClaimableTicket
         ? allTickets.indexWhere(
             (ticket) => ticket.eligibleClaimPatterns.isNotEmpty,
@@ -624,7 +633,7 @@ class LiveGameController extends StateNotifier<LiveGameState> {
         : -1;
     if (claimableTicketIndex >= 0) {
       final claimableTicketPageIndex = claimableTicketIndex ~/ _ticketPageSize;
-      if (claimableTicketPageIndex != state.ticketPageIndex) {
+      if (claimableTicketPageIndex != requestedTicketPageIndex) {
         displayedTicketPage = await _repository.getMyTickets(
           sessionId,
           page: claimableTicketPageIndex,
@@ -652,25 +661,30 @@ class LiveGameController extends StateNotifier<LiveGameState> {
       return;
     }
 
-    final selectedTicketIndex = selectedTicketId == null
-        ? _clampSelectedTicketIndex(displayedTicketPage)
-        : _ticketIndexForId(displayedTicketPage, selectedTicketId);
-    final selectedTicket = displayedTicketPage.content.elementAtOrNull(
+    final canApplyTicketNavigation =
+        navigationGeneration == _ticketNavigationGeneration;
+    final ticketPageToApply = canApplyTicketNavigation
+        ? displayedTicketPage
+        : state.ticketPage;
+    final ticketPageIndexToApply = canApplyTicketNavigation
+        ? displayedTicketPageIndex
+        : state.ticketPageIndex;
+    final selectedTicketIndex = canApplyTicketNavigation
+        ? selectedTicketId == null
+              ? _clampSelectedTicketIndex(displayedTicketPage)
+              : _ticketIndexForId(displayedTicketPage, selectedTicketId)
+        : state.selectedTicketIndex;
+    final selectedTicket = ticketPageToApply?.content.elementAtOrNull(
       selectedTicketIndex,
     );
     final selectedClaimPattern =
-        selectedTicket?.eligibleClaimPatterns.contains(
-              state.selectedClaimPattern,
-            ) ==
-            true
-        ? state.selectedClaimPattern
-        : selectedTicket?.eligibleClaimPatterns.firstOrNull ??
-              state.selectedClaimPattern ??
-              _defaultClaimPattern(session);
+        state.selectedClaimPattern ??
+        selectedTicket?.eligibleClaimPatterns.firstOrNull ??
+        _defaultClaimPattern(session);
 
     state = state.copyWith(
       session: session,
-      ticketPage: displayedTicketPage,
+      ticketPage: ticketPageToApply,
       winningTickets: {for (final ticket in allTickets) ticket.id: ticket}
           .values
           .where(
@@ -679,7 +693,7 @@ class LiveGameController extends StateNotifier<LiveGameState> {
                 ticket.prizeCurrency.isNotEmpty,
           )
           .toList(),
-      ticketPageIndex: displayedTicketPageIndex,
+      ticketPageIndex: ticketPageIndexToApply,
       selectedTicketIndex: selectedTicketIndex,
       claimPage: claimPage,
       selectedClaimPattern: selectedClaimPattern,
@@ -692,14 +706,16 @@ class LiveGameController extends StateNotifier<LiveGameState> {
     }
   }
 
-  Future<void> _loadTicketPage(int pageIndex) async {
+  Future<void> _loadTicketPage(int pageIndex, int requestGeneration) async {
     try {
       final ticketPage = await _repository.getMyTickets(
         sessionId,
         page: pageIndex,
         size: _ticketPageSize,
       );
-      if (_disposed) {
+      if (_disposed ||
+          requestGeneration != _ticketPageRequestGeneration ||
+          pageIndex != state.ticketPageIndex) {
         return;
       }
       state = state.copyWith(
