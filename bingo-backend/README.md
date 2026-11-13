@@ -15,11 +15,19 @@ $bytes = New-Object byte[] 32
 [Convert]::ToBase64String($bytes)
 ```
 
-Run the backend from this directory:
+Run the normal local backend from the repository root:
 
-```bash
-mvn spring-boot:run -Dspring-boot.run.profiles=dev
+```powershell
+.\scripts\Start-BingoBackendLocal.ps1
 ```
+
+The launcher pins the local `dev` profile to `localhost:3306/bingo` even when
+`SPRING_DATASOURCE_URL` is set in the shell or imported `.env` file. QA and test
+databases remain available only through their explicit profiles and guarded
+launchers. To inspect the launcher's resolved target without starting Spring
+or connecting to MySQL, run
+`.\scripts\Start-BingoBackendLocal.ps1 -ShowEffectiveConfig` from the
+repository root.
 
 ### Local email capture with Mailpit (Windows)
 

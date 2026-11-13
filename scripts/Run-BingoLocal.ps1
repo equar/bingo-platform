@@ -251,7 +251,7 @@ if (Test-LocalBackend) {
     Write-Host 'Backend health: UP'
 }
 else {
-    Write-Warning "Backend health check failed. Start MySQL and run 'mvn spring-boot:run -Dspring-boot.run.profiles=dev' from bingo-backend."
+    Write-Warning "Backend health check failed. Start MySQL and run '.\scripts\Start-BingoBackendLocal.ps1' from the repository root."
 }
 
 $arguments = @(
