@@ -1,4 +1,4 @@
-name: bingo_app
+name: bingo_player
 description: Bingo player app scaffold
 publish_to: none
 version: 0.1.2+10
