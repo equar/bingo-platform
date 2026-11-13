@@ -76,6 +76,7 @@ jobs:
       APP_PAYMENT_PROVIDER_NAME: ${{ vars.APP_PAYMENT_PROVIDER_NAME }}
       APP_PAYMENT_BUSINESS_ACCOUNT: ${{ vars.APP_PAYMENT_BUSINESS_ACCOUNT }}
       APP_PAYMENT_INSTRUCTIONS: ${{ vars.APP_PAYMENT_INSTRUCTIONS }}
+      APP_GAME_PAYOUTS_ENABLED: ${{ vars.APP_GAME_PAYOUTS_ENABLED || 'false' }}
     steps:
       - name: Checkout merged release
         uses: actions/checkout@v5
