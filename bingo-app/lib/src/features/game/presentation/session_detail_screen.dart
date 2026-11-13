@@ -8,6 +8,7 @@ import 'package:bingo_app/src/core/widgets/responsive_content.dart';
 
 import 'package:bingo_app/l10n/app_localizations.dart';
 import 'package:bingo_app/src/core/config/app_config.dart';
+import 'package:bingo_app/src/core/device/screen_awake.dart';
 import 'package:bingo_app/src/core/widgets/app_status_view.dart';
 import 'package:bingo_app/src/core/widgets/section_card.dart';
 import 'package:bingo_app/src/features/game/application/live_game_controller.dart';
@@ -31,6 +32,7 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen>
     with WidgetsBindingObserver {
   final Set<String> _celebratedWins = {};
   bool _celebrationQueued = false;
+  late final ScreenAwakeController _screenAwakeController;
 
   Set<String> _winKeys(List<TicketResponse> tickets) => {
     for (final ticket in tickets)
@@ -74,10 +76,14 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _screenAwakeController = ScreenAwakeController(
+      ref.read(screenAwakeProvider),
+    );
   }
 
   @override
   void dispose() {
+    unawaited(_syncScreenAwake(false));
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -89,9 +95,28 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen>
     );
     if (state == AppLifecycleState.resumed) {
       unawaited(controller.resume());
+      final session =
+          ref.read(liveGameControllerProvider(widget.session.id)).session ??
+          widget.session;
+      unawaited(_syncScreenAwake(_isLiveGame(session)));
     } else if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive) {
       unawaited(controller.pause());
+      unawaited(_syncScreenAwake(false));
+    }
+  }
+
+  bool _isLiveGame(GameSession session) =>
+      session.state == 'STARTED' || session.state == 'DRAWING';
+
+  Future<void> _syncScreenAwake(bool active) async {
+    try {
+      await _screenAwakeController.setActiveGame(active);
+    } catch (error, stackTrace) {
+      debugPrint(
+        'Unable to ${active ? 'enable' : 'disable'} screen wake lock: $error',
+      );
+      debugPrintStack(stackTrace: stackTrace);
     }
   }
 
@@ -108,6 +133,7 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen>
         .playerTicketPurchasesEnabled;
     final session = state.session ?? widget.session;
     final isPreGame = session.state == 'DRAFT' || session.state == 'OPEN';
+    unawaited(_syncScreenAwake(_isLiveGame(session)));
 
     return Scaffold(
       appBar: AppBar(

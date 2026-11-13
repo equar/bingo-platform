@@ -318,7 +318,11 @@ export function ClaimsPage() {
                         variant="body2"
                         underline="hover"
                         onClick={() =>
-                          setReference({ kind: "ticket", id: claim.ticketId })
+                          setReference({
+                            kind: "ticket",
+                            id: claim.ticketId,
+                            winningClaimId: claim.id,
+                          })
                         }
                       >
                         {t("Ticket")}{" "}
