@@ -187,7 +187,11 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen>
                 ),
               ),
             ),
-          _ConnectionChip(state: state, localizations: localizations),
+          _ConnectionChip(
+            state: state,
+            localizations: localizations,
+            compact: true,
+          ),
           IconButton(
             tooltip: localizations.refresh,
             onPressed: controller.refresh,
@@ -1098,16 +1102,36 @@ String _claimStatusLabel(AppLocalizations localizations, String status) {
 }
 
 class _ConnectionChip extends StatelessWidget {
-  const _ConnectionChip({required this.state, required this.localizations});
+  const _ConnectionChip({
+    required this.state,
+    required this.localizations,
+    this.compact = false,
+  });
 
   final LiveGameState state;
   final AppLocalizations localizations;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
-    return Chip(
-      label: Text(_connectionLabel(state.connectionState, localizations)),
-    );
+    final label = _connectionLabel(state.connectionState, localizations);
+    if (compact && MediaQuery.sizeOf(context).width < 480) {
+      final icon = switch (state.connectionState) {
+        LiveGameConnectionState.idle ||
+        LiveGameConnectionState.disconnected => Icons.wifi_off_rounded,
+        LiveGameConnectionState.connecting ||
+        LiveGameConnectionState.reconnecting => Icons.sync_rounded,
+        LiveGameConnectionState.connected => Icons.wifi_rounded,
+        LiveGameConnectionState.paused => Icons.pause_rounded,
+        LiveGameConnectionState.finished => Icons.check_circle_outline_rounded,
+        LiveGameConnectionState.expired => Icons.error_outline_rounded,
+      };
+      return Tooltip(
+        message: label,
+        child: Chip(label: Icon(icon, size: 18)),
+      );
+    }
+    return Chip(label: Text(label));
   }
 }
 

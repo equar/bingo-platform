@@ -273,6 +273,7 @@ void main() {
         21,
       ).copyWith(connectionState: LiveGameConnectionState.reconnecting);
       await tester.pump();
+      expect(tester.takeException(), isNull);
       expect(find.textContaining('Next call in about'), findsNothing);
       expect(
         tester
