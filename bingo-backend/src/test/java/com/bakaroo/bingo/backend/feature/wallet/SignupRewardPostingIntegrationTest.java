@@ -386,7 +386,8 @@ class SignupRewardPostingIntegrationTest extends MySqlIntegrationTest {
                 player.getReferralCode());
         mockMvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(self)))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("PHONE_ALREADY_REGISTERED"));
         assertEquals(userCount, userRepository.count());
         assertEquals(grantCount, grantRepository.count());
     }

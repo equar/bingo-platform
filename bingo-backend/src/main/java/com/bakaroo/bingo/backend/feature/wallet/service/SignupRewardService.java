@@ -88,6 +88,10 @@ public class SignupRewardService {
             Wallet created = Wallet.create(player, policy.getCurrency());
             return walletRepository.save(created);
         });
+        if (grantRepository.findByPolicyIdAndTriggerReferenceKeyForUpdate(
+                policy.getId(), "PLAYER-" + player.getId()).isPresent()) {
+            return;
+        }
         if (!policy.getCurrency().equalsIgnoreCase(wallet.getCurrency())) {
             throw new ConflictException("SIGNUP_REWARD_CURRENCY_MISMATCH",
                     "Signup reward currency must match the player's wallet currency");
@@ -149,7 +153,8 @@ public class SignupRewardService {
         if (campaign.getRewardAmount().signum() <= 0) return;
         Wallet wallet = walletRepository.findByOwnerIdForUpdate(player.getId()).orElseGet(() ->
                 walletRepository.save(Wallet.create(player, campaign.getCurrency())));
-        if (grantRepository.existsByPolicyIdAndTriggerReferenceKey(campaign.getId(), triggerReference)) return;
+        if (grantRepository.findByPolicyIdAndTriggerReferenceKeyForUpdate(campaign.getId(), triggerReference)
+                .isPresent()) return;
         if (!campaign.getCurrency().equalsIgnoreCase(wallet.getCurrency())) return;
         BigDecimal amount = MoneyValues.money(campaign.getRewardAmount());
         BigDecimal before = wallet.getPromotionalBalance();
