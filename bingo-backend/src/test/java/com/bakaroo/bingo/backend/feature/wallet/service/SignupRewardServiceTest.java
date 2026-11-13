@@ -75,7 +75,8 @@ class SignupRewardServiceTest {
         Wallet wallet = Wallet.create(referrer, "ETB");
         wallet.setAvailableBalance(BigDecimal.ZERO.setScale(2));
         wallet.setPromotionalBalance(BigDecimal.ZERO.setScale(2));
-        when(grants.existsByPolicyIdAndTriggerReferenceKey(25L, "REFERRAL-2")).thenReturn(false);
+        when(grants.findByPolicyIdAndTriggerReferenceKeyForUpdate(25L, "REFERRAL-2"))
+                .thenReturn(Optional.empty());
         when(wallets.findByOwnerIdForUpdate(1L)).thenReturn(Optional.of(wallet));
         when(wallets.save(wallet)).thenReturn(wallet);
         when(grants.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
@@ -84,7 +85,7 @@ class SignupRewardServiceTest {
 
         service.grantReferralReward(referrer, referred);
 
-        verify(grants).existsByPolicyIdAndTriggerReferenceKey(25L, "REFERRAL-2");
+        verify(grants).findByPolicyIdAndTriggerReferenceKeyForUpdate(25L, "REFERRAL-2");
         ArgumentCaptor<WalletTransaction> entry = ArgumentCaptor.forClass(WalletTransaction.class);
         verify(transactions).save(entry.capture());
         org.junit.jupiter.api.Assertions.assertEquals(WalletTransactionType.PROMOTIONAL_REWARD_CREDIT,
@@ -187,7 +188,8 @@ class SignupRewardServiceTest {
         ReflectionTestUtils.setField(player, "id", 3L);
         when(transactions.sumEtbDepositCreditsPostedInCampaignWindow(3L, campaign.getEffectiveFrom(),
                 campaign.getEffectiveUntil())).thenReturn(new BigDecimal("100.00"));
-        when(grants.existsByPolicyIdAndTriggerReferenceKey(26L, "WALLET-CREDIT-3")).thenReturn(false);
+        when(grants.findByPolicyIdAndTriggerReferenceKeyForUpdate(26L, "WALLET-CREDIT-3"))
+                .thenReturn(Optional.empty());
         Wallet wallet = Wallet.create(player, "ETB");
         wallet.setAvailableBalance(BigDecimal.ZERO.setScale(2));
         wallet.setPromotionalBalance(BigDecimal.ZERO.setScale(2));
@@ -201,7 +203,7 @@ class SignupRewardServiceTest {
 
         verify(transactions).sumEtbDepositCreditsPostedInCampaignWindow(3L, campaign.getEffectiveFrom(),
                 campaign.getEffectiveUntil());
-        verify(grants).existsByPolicyIdAndTriggerReferenceKey(26L, "WALLET-CREDIT-3");
+        verify(grants).findByPolicyIdAndTriggerReferenceKeyForUpdate(26L, "WALLET-CREDIT-3");
         ArgumentCaptor<WalletTransaction> entry = ArgumentCaptor.forClass(WalletTransaction.class);
         verify(transactions).save(entry.capture());
         org.junit.jupiter.api.Assertions.assertEquals(WalletTransactionType.PROMOTIONAL_REWARD_CREDIT,

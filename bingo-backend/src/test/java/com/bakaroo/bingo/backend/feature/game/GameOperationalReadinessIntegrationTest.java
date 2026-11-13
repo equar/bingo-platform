@@ -135,10 +135,11 @@ class GameOperationalReadinessIntegrationTest extends MySqlIntegrationTest {
     @Test void unfundedAndPromotionalOnlyGamesCannotStart() {
         assertEquals("SESSION_UNDERFUNDED", assertThrows(ConflictException.class, () -> state(GameSessionState.STARTED)).getCode());
         Wallet wallet = wallets.findByOwnerId(one.getId()).orElseThrow();
-        wallet.setAvailableBalance(new BigDecimal("100.00"));
+        wallet.setAvailableBalance(BigDecimal.ZERO);
         wallet.setPromotionalBalance(new BigDecimal("1000.00"));
         wallets.save(wallet);
-        buy(one);
+        assertEquals("INSUFFICIENT_BALANCE",
+                assertThrows(ConflictException.class, () -> buy(one)).getCode());
         assertEquals("SESSION_UNDERFUNDED", assertThrows(ConflictException.class, () -> state(GameSessionState.STARTED)).getCode());
     }
 
