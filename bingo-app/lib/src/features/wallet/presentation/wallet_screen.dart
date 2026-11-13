@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:bingo_app/src/features/support/presentation/support_shortcut.dart';
 import 'package:bingo_app/src/core/widgets/responsive_content.dart';
 import 'dart:math';
@@ -41,9 +42,14 @@ class WalletScreen extends ConsumerStatefulWidget {
 }
 
 class _WalletScreenState extends ConsumerState<WalletScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+  static const _walletRefreshInterval = Duration(seconds: 15);
+
   int _transactionPage = 0;
   int _depositPage = 0;
+  Timer? _walletRefreshTimer;
+  bool _isWalletVisible = false;
+  bool _isAppActive = true;
   PaymentInstructions? _instructions;
   bool _submittingDeposit = false;
   bool _showDepositForm = false;
@@ -61,7 +67,40 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
   );
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _walletRefreshTimer = Timer.periodic(_walletRefreshInterval, (_) {
+      if (_isWalletVisible && _isAppActive) {
+        _refreshWalletData();
+      }
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final isVisible = TickerMode.valuesOf(context).enabled;
+    if (isVisible && !_isWalletVisible) {
+      _isWalletVisible = true;
+      _refreshWalletData();
+    } else if (!isVisible) {
+      _isWalletVisible = false;
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _isAppActive = state == AppLifecycleState.resumed;
+    if (_isAppActive && _isWalletVisible) {
+      _refreshWalletData();
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _walletRefreshTimer?.cancel();
     _tabController.dispose();
     _depositAmountController.dispose();
     _depositReferenceController.dispose();

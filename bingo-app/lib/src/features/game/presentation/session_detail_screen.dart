@@ -386,7 +386,39 @@ class _SessionSummaryCard extends StatelessWidget {
       ),
     );
     if (confirmed == true && context.mounted) {
-      await controller.purchaseTicket();
+      final purchaseError = await controller.purchaseTicket();
+      if (!context.mounted) {
+        return;
+      }
+      final (title, body) = switch (purchaseError?.code) {
+        'PLAYER_TICKET_LIMIT_REACHED' => (
+          localizations.ticketLimitReachedTitle,
+          session.maxTicketsPerPlayer == null
+              ? localizations.errorPlayerTicketLimitReached
+              : localizations.ticketLimitReachedBody(
+                  session.maxTicketsPerPlayer!,
+                ),
+        ),
+        'SESSION_CAPACITY_REACHED' => (
+          localizations.ticketsSoldOutTitle,
+          localizations.ticketsSoldOutBody,
+        ),
+        _ => (null, null),
+      };
+      if (title == null || body == null) return;
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text(title),
+          content: Text(body),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text(localizations.claimDialogDismiss),
+            ),
+          ],
+        ),
+      );
     }
   }
 
@@ -510,28 +542,6 @@ class _TicketsCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  localizations.myTicketsTitle,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-              ),
-              if (ticketPage != null)
-                Text(
-                  localizations.ticketPosition(
-                    ticketPage.totalElements == 0
-                        ? 0
-                        : ticketPage.page * ticketPage.size +
-                              state.selectedTicketIndex +
-                              1,
-                    ticketPage.totalElements,
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 12),
           if (tickets.isEmpty)
             AppStatusView(
               title: localizations.emptyState,
@@ -678,11 +688,6 @@ class _TicketGridCard extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          ticket.publicTicketCode,
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
-        const SizedBox(height: 12),
         if (fillAvailableSpace)
           Expanded(
             child: SizedBox(

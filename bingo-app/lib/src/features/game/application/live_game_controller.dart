@@ -277,15 +277,15 @@ class LiveGameController extends StateNotifier<LiveGameState> {
     await _connectAndSync(isResume: true);
   }
 
-  Future<void> purchaseTicket() async {
+  Future<ApiError?> purchaseTicket() async {
     if (_disposed || state.isTerminalSession) {
-      return;
+      return null;
     }
 
     final authSession = _readAuthSession().session;
     if (authSession == null || authSession.isExpired) {
       await _expireSession();
-      return;
+      return null;
     }
 
     final idempotencyKey = state.pendingPurchaseIdempotencyKey ?? _uuid.v4();
@@ -303,22 +303,22 @@ class LiveGameController extends StateNotifier<LiveGameState> {
       );
       await _loadSnapshotAndHistory(selectedTicketId: purchase.ticket.id);
       if (_disposed) {
-        return;
+        return null;
       }
       state = state.copyWith(
         isPurchasingTicket: false,
         pendingPurchaseIdempotencyKey: null,
         infoMessage: 'TICKET_PURCHASED',
       );
+      return null;
     } catch (error) {
       if (_isAuthError(error)) {
         await _expireSession();
-        return;
+        return null;
       }
-      state = state.copyWith(
-        isPurchasingTicket: false,
-        apiError: normalizeApiError(error),
-      );
+      final apiError = normalizeApiError(error);
+      state = state.copyWith(isPurchasingTicket: false, apiError: apiError);
+      return apiError;
     }
   }
 

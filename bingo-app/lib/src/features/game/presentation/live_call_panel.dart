@@ -184,85 +184,81 @@ class _LiveCallPanelState extends State<LiveCallPanel> {
       children: [
         SizedBox(
           key: const ValueKey('current-call-area'),
-          height: 148 + (scale - 1) * 88,
+          height: 76 + (scale - 1) * 48,
           child: SectionCard(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
               children: [
-                Text(
-                  l.currentNumber,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: colors.onSurfaceVariant,
-                  ),
-                ),
-                Center(
-                  child: Semantics(
-                    liveRegion: true,
-                    label: latest == null
-                        ? l.waitingForFirstCall
-                        : '${l.currentNumber}: ${bingoLetter(latest.numberDrawn)} ${latest.numberDrawn}',
-                    child: ExcludeSemantics(
-                      child: CircleAvatar(
-                        radius: 32,
-                        backgroundColor: colors.primaryContainer,
-                        foregroundColor: colors.onPrimaryContainer,
-                        child: Padding(
-                          padding: const EdgeInsets.all(6),
-                          child: FittedBox(
-                            child: latest == null
-                                ? const Text(
-                                    '—',
-                                    style: TextStyle(fontSize: 32),
-                                  )
-                                : Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        bingoLetter(latest.numberDrawn),
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .labelMedium
-                                            ?.copyWith(
-                                              color: colors.onPrimaryContainer,
-                                            ),
-                                      ),
-                                      Text(
-                                        '${latest.numberDrawn}',
-                                        key: const ValueKey(
-                                          'current-call-number',
+                Semantics(
+                  liveRegion: true,
+                  label: latest == null
+                      ? l.waitingForFirstCall
+                      : '${l.currentNumber}: ${bingoLetter(latest.numberDrawn)} ${latest.numberDrawn}',
+                  child: ExcludeSemantics(
+                    child: CircleAvatar(
+                      radius: 24,
+                      backgroundColor: colors.primaryContainer,
+                      foregroundColor: colors.onPrimaryContainer,
+                      child: FittedBox(
+                        child: latest == null
+                            ? const Text('—', style: TextStyle(fontSize: 28))
+                            : Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    bingoLetter(latest.numberDrawn),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelSmall
+                                        ?.copyWith(
+                                          color: colors.onPrimaryContainer,
                                         ),
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .headlineMedium
-                                            ?.copyWith(
-                                              color: colors.onPrimaryContainer,
-                                              fontWeight: FontWeight.w800,
-                                            ),
-                                      ),
-                                    ],
                                   ),
-                          ),
-                        ),
+                                  Text(
+                                    '${latest.numberDrawn}',
+                                    key: const ValueKey('current-call-number'),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleLarge
+                                        ?.copyWith(
+                                          color: colors.onPrimaryContainer,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                  ),
+                                ],
+                              ),
                       ),
                     ),
                   ),
                 ),
-                Text(
-                  timing,
-                  key: const ValueKey('call-timing'),
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.labelSmall,
-                ),
-                LinearProgressIndicator(
-                  key: const ValueKey('call-progress'),
-                  value: progress,
-                  minHeight: 3,
-                  borderRadius: BorderRadius.circular(4),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        l.currentNumber,
+                        style: Theme.of(context).textTheme.labelMedium
+                            ?.copyWith(color: colors.onSurfaceVariant),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        timing,
+                        key: const ValueKey('call-timing'),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.labelSmall,
+                      ),
+                      const SizedBox(height: 6),
+                      LinearProgressIndicator(
+                        key: const ValueKey('call-progress'),
+                        value: progress,
+                        minHeight: 3,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
