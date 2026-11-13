@@ -8,6 +8,11 @@ ANDROID_APK="$APP_DIR/build/app/outputs/flutter-apk/app-release.apk"
 IOS_APP="$APP_DIR/build/ios/iphonesimulator/Runner.app"
 ANDROID_PACKAGE="com.bakaroo.bingo_app"
 IOS_BUNDLE_ID="com.bakaroo.bingo.bingoApp"
+TARGET_PLATFORM="${1:-both}"
+
+usage() {
+  echo "Usage: $(basename "$0") {android|ios|both}" >&2
+}
 
 require_command() {
   if ! command -v "$1" >/dev/null 2>&1; then
@@ -16,8 +21,37 @@ require_command() {
   fi
 }
 
+if (( $# > 1 )); then
+  usage
+  exit 64
+fi
+
+case "$TARGET_PLATFORM" in
+  android)
+    install_android=true
+    install_ios=false
+    ;;
+  ios)
+    install_android=false
+    install_ios=true
+    ;;
+  both)
+    install_android=true
+    install_ios=true
+    ;;
+  *)
+    usage
+    exit 64
+    ;;
+esac
+
 require_command flutter
-require_command adb
+if [[ "$install_android" == true ]]; then
+  require_command adb
+fi
+if [[ "$install_ios" == true ]]; then
+  require_command xcrun
+fi
 
 if [[ ! -f "$PRODUCTION_CONFIG" ]]; then
   echo "ERROR: Production mobile configuration is missing: $PRODUCTION_CONFIG" >&2
@@ -30,41 +64,55 @@ if ! grep -Fq '"API_BASE_URL": "https://api.bingo.bakaroo.com"' "$PRODUCTION_CON
 fi
 
 android_devices=()
-while IFS= read -r serial; do
-  if [[ "$(adb -s "$serial" shell getprop ro.kernel.qemu </dev/null 2>/dev/null | tr -d '\r')" == "1" ]]; then
-    android_devices+=("$serial")
-  fi
-done < <(adb devices | awk '$2 == "device" { print $1 }')
+android_device_count=0
+if [[ "$install_android" == true ]]; then
+  while IFS= read -r serial; do
+    if [[ "$(adb -s "$serial" shell getprop ro.kernel.qemu </dev/null 2>/dev/null | tr -d '\r')" == "1" ]]; then
+      android_devices+=("$serial")
+      ((android_device_count += 1))
+    fi
+  done < <(adb devices | awk '$2 == "device" { print $1 }')
+fi
 
 ios_devices=()
-if command -v xcrun >/dev/null 2>&1; then
+ios_device_count=0
+if [[ "$install_ios" == true ]]; then
   while IFS= read -r identifier; do
     ios_devices+=("$identifier")
+    ((ios_device_count += 1))
   done < <(
     xcrun simctl list devices booted |
       sed -nE 's/.*\(([0-9A-Fa-f-]{36})\) \(Booted\).*/\1/p'
   )
 fi
 
-if (( ${#android_devices[@]} == 0 && ${#ios_devices[@]} == 0 )); then
-  echo "ERROR: No booted Android emulators or iOS simulators were found." >&2
+if [[ "$install_android" == true && $android_device_count == 0 ]]; then
+  echo "ERROR: No booted Android emulators were found." >&2
+  exit 1
+fi
+if [[ "$install_ios" == true && $ios_device_count == 0 ]]; then
+  echo "ERROR: No booted iOS simulators were found." >&2
   exit 1
 fi
 
-echo "Discovered ${#android_devices[@]} booted Android emulator(s) and ${#ios_devices[@]} booted iOS simulator(s)."
-for serial in "${android_devices[@]}"; do
-  echo "  Android: $serial"
-done
-for identifier in "${ios_devices[@]}"; do
-  echo "  iOS: $identifier"
-done
+echo "Installing for $TARGET_PLATFORM: discovered $android_device_count booted Android emulator(s) and $ios_device_count booted iOS simulator(s)."
+if [[ "$install_android" == true ]]; then
+  for serial in "${android_devices[@]}"; do
+    echo "  Android: $serial"
+  done
+fi
+if [[ "$install_ios" == true ]]; then
+  for identifier in "${ios_devices[@]}"; do
+    echo "  iOS: $identifier"
+  done
+fi
 
 cd "$APP_DIR"
 failures=()
 installed_android=0
 installed_ios=0
 
-if (( ${#android_devices[@]} > 0 )); then
+if [[ "$install_android" == true ]]; then
   echo "Building Android release APK with https://api.bingo.bakaroo.com..."
   flutter build apk --release \
     --dart-define-from-file="$PRODUCTION_CONFIG" \
@@ -103,7 +151,7 @@ if (( ${#android_devices[@]} > 0 )); then
   done
 fi
 
-if (( ${#ios_devices[@]} > 0 )); then
+if [[ "$install_ios" == true ]]; then
   echo "Building iOS simulator app with https://api.bingo.bakaroo.com..."
   flutter build ios --simulator --debug \
     --dart-define-from-file="$PRODUCTION_CONFIG" \
