@@ -96,7 +96,7 @@ export function DepositsPage() {
   const [verificationDepositId, setVerificationDepositId] = useState<
     number | null
   >(null);
-  const [statementEntryId, setStatementEntryId] = useState("");
+  const [paymentReference, setPaymentReference] = useState("");
   const [verificationOpen, setVerificationOpen] = useState(false);
   const idempotency = useIdempotencyKey();
   const isAdmin = authSession?.user.roles.includes("ADMIN") ?? false;
@@ -148,21 +148,22 @@ export function DepositsPage() {
     parseApiError(actionMutation.error).outcomeUnknown;
   const verificationMutation = useMutation({
     mutationFn: () => {
+      const reference = paymentReference.trim();
       if (
         verificationDepositId == null ||
-        !Number.isSafeInteger(Number(statementEntryId)) ||
-        Number(statementEntryId) <= 0
+        reference.length === 0 ||
+        reference.length > 120
       ) {
-        throw new Error("A valid bank statement entry ID is required");
+        throw new Error("A valid bank statement payment reference is required");
       }
-      return verifyDeposit(verificationDepositId, Number(statementEntryId));
+      return verifyDeposit(verificationDepositId, reference);
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["deposits"] });
       await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       setVerificationOpen(false);
       setVerificationDepositId(null);
-      setStatementEntryId("");
+      setPaymentReference("");
     },
   });
   if (depositsQuery.isLoading) {
@@ -413,7 +414,7 @@ export function DepositsPage() {
                           onClick={() => {
                             verificationMutation.reset();
                             setVerificationDepositId(deposit.id);
-                            setStatementEntryId("");
+                            setPaymentReference("");
                             setVerificationOpen(true);
                           }}
                         >
@@ -639,7 +640,7 @@ export function DepositsPage() {
                   onClick={() => {
                     verificationMutation.reset();
                     setVerificationDepositId(detailsDeposit.id);
-                    setStatementEntryId("");
+                    setPaymentReference("");
                     setDetailsDeposit(null);
                     setVerificationOpen(true);
                   }}
@@ -752,15 +753,14 @@ export function DepositsPage() {
               ) : null}
               <Typography variant="body2" color="text.secondary">
                 {t(
-                  "Match this deposit against an independent bank statement entry.",
+                  "Match this deposit against an independent bank statement entry using its transaction reference.",
                 )}
               </Typography>
               <TextField
-                label={t("Bank statement entry ID")}
-                type="number"
-                value={statementEntryId}
-                onChange={(event) => setStatementEntryId(event.target.value)}
-                inputProps={{ min: 1, step: 1 }}
+                label={t("Bank statement payment reference")}
+                value={paymentReference}
+                onChange={(event) => setPaymentReference(event.target.value)}
+                inputProps={{ maxLength: 120 }}
                 fullWidth
                 required
               />
@@ -778,8 +778,8 @@ export function DepositsPage() {
               onClick={() => verificationMutation.mutate()}
               disabled={
                 verificationMutation.isPending ||
-                !Number.isSafeInteger(Number(statementEntryId)) ||
-                Number(statementEntryId) <= 0
+                paymentReference.trim().length === 0 ||
+                paymentReference.trim().length > 120
               }
             >
               {t("Verify")}
