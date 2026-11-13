@@ -44,7 +44,7 @@ function renderAt(path: string) {
 }
 
 function MemoryRouterWithPolicyRoute({ path }: { path: string }) {
-  return <MemoryRouter initialEntries={[path]}><Routes><Route path="/wallet/:tab" element={<><LocationDisplay /><WalletPoliciesPage /></>} /></Routes></MemoryRouter>;
+  return <MemoryRouter initialEntries={[path]}><Routes><Route path="/wallet/:tab" element={<><LocationDisplay /><WalletPoliciesPage /></>} /><Route path="/wallet/:tab/new" element={<><LocationDisplay /><WalletPoliciesPage /></>} /></Routes></MemoryRouter>;
 }
 
 function LocationDisplay() {
