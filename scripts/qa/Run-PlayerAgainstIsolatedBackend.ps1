@@ -42,7 +42,7 @@ if ($LASTEXITCODE -ne 0 -or ($flutterDevices -join "`n") -notmatch 'emulator-555
 }
 
 Write-Host "Launching the real player app against $BackendUrl. No ticket purchase or fixture is initiated by this command."
-Push-Location (Join-Path $repoRoot 'bingo-app')
+Push-Location (Join-Path $repoRoot 'bingo-player')
 try {
     & $flutter run -d emulator-5554 --dart-define="API_BASE_URL=$BackendUrl" --dart-define=BINGO_PLAYER_PURCHASES_ENABLED=false
     if ($LASTEXITCODE -ne 0) { throw 'Flutter app launch failed.' }

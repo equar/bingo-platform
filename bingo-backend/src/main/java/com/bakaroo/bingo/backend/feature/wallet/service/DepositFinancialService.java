@@ -7,6 +7,7 @@ import com.bakaroo.bingo.backend.common.idempotency.IdempotentResult;
 import com.bakaroo.bingo.backend.common.idempotency.IdempotencyService;
 import com.bakaroo.bingo.backend.common.money.MoneyValues;
 import com.bakaroo.bingo.backend.common.request.RequestHashService;
+import com.bakaroo.bingo.backend.feature.audit.service.AuditLogService;
 import com.bakaroo.bingo.backend.feature.auth.service.BingoUserPrincipal;
 import com.bakaroo.bingo.backend.feature.user.entity.User;
 import com.bakaroo.bingo.backend.feature.user.entity.UserRole;
@@ -35,6 +36,7 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DuplicateKeyException;
@@ -46,7 +48,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class DepositFinancialService {
     private static final String SYNTHETIC_SOURCE = "SYNTHETIC_QA_BANK_STATEMENT";
-    private static final String DEBIT_ACCOUNT = "QA_BANK_CLEARING_ASSET";
     private static final String CREDIT_ACCOUNT = "PLAYER_WALLET_LIABILITY";
 
     private final JdbcTemplate jdbc;
@@ -61,6 +62,7 @@ public class DepositFinancialService {
     private final TelebirrReferenceNormalizer referenceNormalizer;
     private final LocalFinancialSimulationGuard simulationGuard;
     private final boolean simulationEnabled;
+    private final AuditLogService auditLogService;
 
     public DepositFinancialService(JdbcTemplate jdbc,
             DepositClaimRepository claims,
@@ -73,6 +75,7 @@ public class DepositFinancialService {
             RequestHashService requestHashService,
             TelebirrReferenceNormalizer referenceNormalizer,
             LocalFinancialSimulationGuard simulationGuard,
+            AuditLogService auditLogService,
             @Value("${app.wallet.deposit-simulation-enabled:false}") boolean simulationEnabled) {
         this.jdbc = jdbc;
         this.claims = claims;
@@ -85,6 +88,7 @@ public class DepositFinancialService {
         this.requestHashService = requestHashService;
         this.referenceNormalizer = referenceNormalizer;
         this.simulationGuard = simulationGuard;
+        this.auditLogService = auditLogService;
         this.simulationEnabled = simulationEnabled;
         simulationGuard.validateConfiguration(simulationEnabled, "Player deposit");
     }
@@ -92,28 +96,60 @@ public class DepositFinancialService {
     @Transactional
     public DepositVerificationResponse verify(Long depositId, BingoUserPrincipal principal,
             DepositVerificationRequest input) {
-        User verifier = requireRole(principal.getUser(), UserRole.SUPPORT);
+        User verifier = requireFinanceStaff(principal.getUser());
         DepositClaim claim = claims.findByIdForUpdate(depositId)
                 .orElseThrow(() -> new NotFoundException("DEPOSIT_NOT_FOUND", "Deposit claim not found"));
+        if (claim.getStatus() == DepositClaimStatus.APPROVED) {
+            String retryReference = referenceNormalizer.normalize(input.paymentReference());
+            BankStatement retryStatement = findStatementByReference(retryReference);
+            Long existingVerification = retryStatement == null ? null
+                    : findMatchedVerificationId(depositId, retryStatement.id());
+            if (existingVerification != null && "MATCHED".equals(matchOutcome(claim, retryStatement))) {
+                return toVerification(existingVerification);
+            }
+            throw new ConflictException("DEPOSIT_ALREADY_REVIEWED", "This deposit has already been posted");
+        }
+        boolean adminReview = verifier.hasRole(UserRole.ADMIN)
+                && claim.getStatus() == DepositClaimStatus.REJECTED;
+        if (verifier.hasRole(UserRole.ADMIN) && !adminReview) {
+            throw new ConflictException("DEPOSIT_ADMIN_REVIEW_REQUIRED",
+                    "Administrators can only review deposits rejected by support");
+        }
         if (verifier.getId().equals(claim.getPlayer().getId())) {
             throw new ConflictException("DEPOSIT_SELF_VERIFICATION_DENIED",
                     "A player cannot verify their own deposit");
         }
-        if (claim.getStatus() != DepositClaimStatus.PENDING
+        if (!adminReview && claim.getStatus() != DepositClaimStatus.PENDING
                 && claim.getStatus() != DepositClaimStatus.AWAITING_VERIFICATION
                 && claim.getStatus() != DepositClaimStatus.VERIFIED
                 && claim.getStatus() != DepositClaimStatus.VERIFICATION_EXCEPTION) {
             throw new ConflictException("DEPOSIT_NOT_VERIFIABLE", "Only unposted deposit claims can be verified");
         }
 
-        BankStatement statement = findStatement(input.statementEntryId());
-        if (statement.synthetic()) {
+        String paymentReference = referenceNormalizer.normalize(input.paymentReference());
+        BankStatement statement = findStatementByReference(paymentReference);
+        if (statement != null && statement.synthetic()) {
             simulationGuard.requireEnabled(simulationEnabled, "Player deposit");
         }
-        String outcome = matchOutcome(claim, statement);
+        String outcome = statement == null ? "PAYMENT_REFERENCE_NOT_FOUND" : matchOutcome(claim, statement);
         long verificationId;
+        boolean reusedMatchedEvidence = false;
         try {
-            verificationId = insertVerification(depositId, statement, verifier.getId(), outcome);
+            if ("MATCHED".equals(outcome)) {
+                Long existingVerification = findMatchedVerificationId(depositId, statement.id());
+                if (existingVerification != null) {
+                    verificationId = existingVerification;
+                    reusedMatchedEvidence = true;
+                } else {
+                    if (hasMatchedVerification(statement.id())) {
+                        throw new ConflictException("BANK_STATEMENT_ALREADY_USED",
+                                "This bank transaction evidence has already been applied");
+                    }
+                    verificationId = insertVerification(depositId, statement, verifier.getId(), outcome);
+                }
+            } else {
+                verificationId = insertVerification(depositId, statement, verifier.getId(), outcome);
+            }
         } catch (DuplicateKeyException exception) {
             throw new ConflictException("BANK_STATEMENT_ALREADY_USED",
                     "This bank transaction evidence has already been applied");
@@ -122,14 +158,27 @@ public class DepositFinancialService {
         Instant now = Instant.now();
         if ("MATCHED".equals(outcome)) {
             claim.setStatus(DepositClaimStatus.VERIFIED);
-            claim.setVerifiedBy(verifier);
-            claim.setVerifiedAt(now);
-        } else {
+            if (reusedMatchedEvidence) {
+                DepositVerificationResponse existing = toVerification(verificationId);
+                User originalVerifier = users.findById(existing.verifierUserId())
+                        .orElseThrow(() -> new ConflictException("DEPOSIT_VERIFIER_NOT_AUTHORIZED",
+                                "The verifying user is no longer authorized"));
+                claim.setVerifiedBy(originalVerifier);
+                claim.setVerifiedAt(existing.verifiedAt());
+            } else {
+                claim.setVerifiedBy(verifier);
+                claim.setVerifiedAt(now);
+            }
+        } else if (!adminReview) {
             claim.setStatus(DepositClaimStatus.VERIFICATION_EXCEPTION);
             claim.setVerifiedBy(null);
             claim.setVerifiedAt(null);
         }
         claims.save(claim);
+        if (adminReview) {
+            auditLogService.record(verifier, "PLAYER_DEPOSIT_REJECTION_REVIEWED", "DEPOSIT_CLAIM", depositId,
+                    claim.getReviewNote(), null, Map.of("verificationOutcome", outcome));
+        }
         return toVerification(verificationId);
     }
 
@@ -140,7 +189,7 @@ public class DepositFinancialService {
         DepositReviewPayload payload = new DepositReviewPayload(reviewNote);
         String requestHash = requestHashService.hash("POST",
                 "/api/v1/admin/deposits/" + depositId + "/approve", payload);
-        String operationId = UUID.nameUUIDFromBytes(("QA-PLAYER-DEPOSIT-" + depositId)
+        String operationId = UUID.nameUUIDFromBytes(("PLAYER-DEPOSIT-" + depositId)
                 .getBytes(StandardCharsets.UTF_8)).toString();
 
         return idempotencyService.execute(approver.getId(), idempotencyKey, requestHash, operationId,
@@ -170,19 +219,25 @@ public class DepositFinancialService {
                     User verifier = users.findById(verification.verifierUserId())
                             .orElseThrow(() -> new ConflictException("DEPOSIT_VERIFIER_NOT_AUTHORIZED",
                                     "The verifying user is no longer authorized"));
-                    if (!verifier.isActive() || !verifier.hasRole(UserRole.SUPPORT)) {
+                    if (!verifier.isActive() || !(verifier.hasRole(UserRole.SUPPORT) || verifier.hasRole(UserRole.ADMIN))) {
                         throw new ConflictException("DEPOSIT_VERIFIER_NOT_AUTHORIZED",
-                                "The verifying user is no longer authorized");
+                                "The verifying user is no longer an authorized staff member");
                     }
-                    if (approver.getId().equals(verification.verifierUserId())) {
-                        throw new ConflictException("DEPOSIT_SEPARATION_OF_DUTIES_REQUIRED",
-                                "The verifier and approver must be different users");
+                    boolean supportPosting = approver.hasRole(UserRole.SUPPORT)
+                            && verifier.hasRole(UserRole.SUPPORT);
+                    boolean adminCorrection = approver.hasRole(UserRole.ADMIN)
+                            && (verifier.hasRole(UserRole.ADMIN) || verifier.hasRole(UserRole.SUPPORT))
+                            && claim.getReviewNote() != null && !claim.getReviewNote().isBlank();
+                    if (!supportPosting && !adminCorrection) {
+                        throw new ConflictException("DEPOSIT_REVIEW_NOT_AUTHORIZED",
+                                "Support can post matched deposits; administrators can only approve their own matched review of a support rejection");
                     }
-                    if (!verification.synthetic()) {
-                        throw new ConflictException("DEPOSIT_POSTING_DISABLED",
-                                "Production deposit posting remains disabled pending approved accounting and settlement policies");
+                    if (verification.synthetic()) {
+                        simulationGuard.requireEnabled(simulationEnabled, "Player deposit");
+                    } else if (!"BANK_STATEMENT_IMPORT".equals(verification.evidenceSource())) {
+                        throw new ConflictException("DEPOSIT_EVIDENCE_NOT_AUTHORIZED",
+                                "Only an imported bank statement can fund a production deposit");
                     }
-                    simulationGuard.requireEnabled(simulationEnabled, "Player deposit");
                     if (!"ETB".equals(claim.getCurrency())
                             || claim.getSubmittedCashAmount().compareTo(claim.getCalculatedCreditAmount()) != 0) {
                         throw new ConflictException("DEPOSIT_ACCOUNTING_REVIEW_REQUIRED",
@@ -203,19 +258,21 @@ public class DepositFinancialService {
                     BigDecimal before = MoneyValues.money(wallet.getAvailableBalance());
                     BigDecimal after = MoneyValues.money(before.add(amount));
                     Instant now = Instant.now();
-                    String postingReference = "QA-PLAYER-DEPOSIT-" + depositId;
+                    boolean simulated = verification.synthetic();
+                    String postingReference = (simulated ? "QA-PLAYER-DEPOSIT-" : "PLAYER-DEPOSIT-") + depositId;
+                    String debitAccount = simulated ? "QA_BANK_CLEARING_ASSET" : "BANK_CASH_ASSET";
                     jdbc.update("""
                             insert into deposit_accounting_journals
                             (deposit_claim_id, posting_reference, currency, simulated, verifier_user_id,
                              approver_user_id, created_at)
-                            values (?, ?, 'ETB', true, ?, ?, ?)
-                            """, depositId, postingReference, verifier.getId(), approver.getId(), Timestamp.from(now));
+                            values (?, ?, 'ETB', ?, ?, ?, ?)
+                            """, depositId, postingReference, simulated, verifier.getId(), approver.getId(), Timestamp.from(now));
                     Long journalId = jdbc.queryForObject("select last_insert_id()", Long.class);
                     jdbc.update("""
                             insert into deposit_accounting_journal_lines
                             (journal_id, line_number, account_code, debit_amount, credit_amount, currency)
                             values (?, 1, ?, ?, 0.00, 'ETB'), (?, 2, ?, 0.00, ?, 'ETB')
-                            """, journalId, DEBIT_ACCOUNT, amount, journalId, CREDIT_ACCOUNT, amount);
+                            """, journalId, debitAccount, amount, journalId, CREDIT_ACCOUNT, amount);
                     assertBalancedJournal(journalId, amount);
 
                     wallet.setAvailableBalance(after);
@@ -223,8 +280,13 @@ public class DepositFinancialService {
                     transactions.save(WalletTransaction.create(wallet, operationId,
                             WalletTransactionType.DEPOSIT_CREDIT, amount, before, after,
                             wallet.getPromotionalBalance(), wallet.getPromotionalBalance(), wallet.getCurrency(),
-                            "DEPOSIT_CLAIM", claim.getId(), "Simulated QA posting " + postingReference,
-                            "{\"journalId\":" + journalId + ",\"simulated\":true}", now));
+                            "DEPOSIT_CLAIM", claim.getId(), (simulated ? "Simulated QA posting " : "Bank verified deposit ") + postingReference,
+                            "{\"journalId\":" + journalId + ",\"simulated\":" + simulated + "}", now));
+                    if (adminCorrection) {
+                        auditLogService.record(approver, "PLAYER_DEPOSIT_REJECTION_OVERRIDDEN", "DEPOSIT_CLAIM",
+                                depositId, claim.getReviewNote(), operationId,
+                                Map.of("verificationId", verification.verificationId(), "postingReference", postingReference));
+                    }
                     claim.setStatus(DepositClaimStatus.APPROVED);
                     claim.setReviewedBy(approver);
                     claim.setReviewedAt(now);
@@ -293,10 +355,29 @@ public class DepositFinancialService {
                 (request_id, deposit_claim_id, statement_entry_id, reviewer_user_id, outcome, exception_reason,
                  evidence_source, created_at)
                 values (null, ?, ?, ?, ?, ?, ?, ?)
-                """, depositId, statement.id(), verifierId, outcome,
+                """, depositId,
+                statement == null || !"MATCHED".equals(outcome) ? null : statement.id(), verifierId, outcome,
                 "MATCHED".equals(outcome) ? null : outcome,
-                statement.synthetic() ? SYNTHETIC_SOURCE : statement.source(), Timestamp.from(Instant.now()));
+                statement == null ? "MANUAL_REFERENCE"
+                        : statement.synthetic() ? SYNTHETIC_SOURCE : statement.source(), Timestamp.from(Instant.now()));
         return jdbc.queryForObject("select last_insert_id()", Long.class);
+    }
+
+    private Long findMatchedVerificationId(Long depositId, Long statementEntryId) {
+        return jdbc.query("""
+                select id from float_top_up_verification_attempts
+                where deposit_claim_id=? and statement_entry_id=? and outcome='MATCHED'
+                order by id desc limit 1
+                """, rs -> rs.next() ? rs.getLong(1) : null, depositId, statementEntryId);
+    }
+
+    private boolean hasMatchedVerification(Long statementEntryId) {
+        return Boolean.TRUE.equals(jdbc.queryForObject("""
+                select exists(
+                    select 1 from float_top_up_verification_attempts
+                    where statement_entry_id=? and outcome='MATCHED'
+                )
+                """, Boolean.class, statementEntryId));
     }
 
     private BankStatement findStatement(Long id) {
@@ -314,6 +395,22 @@ public class DepositFinancialService {
                     rs.getBoolean("active"), rs.getBoolean("player_deposits_enabled")), id).stream().findFirst()
                 .orElseThrow(() -> new NotFoundException("BANK_STATEMENT_ENTRY_NOT_FOUND",
                         "Bank statement entry not found"));
+    }
+
+    private BankStatement findStatementByReference(String normalizedReference) {
+        List<Long> ids = jdbc.query("""
+                select id from float_bank_statement_entries
+                where upper(regexp_replace(transaction_reference, '[^A-Za-z0-9]', ''))=?
+                order by id limit 2
+                """, (rs, row) -> rs.getLong(1), normalizedReference);
+        if (ids.isEmpty()) {
+            return null;
+        }
+        if (ids.size() > 1) {
+            throw new ConflictException("BANK_STATEMENT_REFERENCE_AMBIGUOUS",
+                    "More than one bank statement entry uses this payment reference");
+        }
+        return findStatement(ids.getFirst());
     }
 
     private DepositVerificationResponse latestVerification(Long depositId) {
@@ -397,15 +494,6 @@ public class DepositFinancialService {
                 claim.getVerifiedBy() == null ? null : claim.getVerifiedBy().getId(), claim.getVerifiedAt(),
                 new PaymentInstructionsResponse(instructions.providerName(), instructions.businessAccount(),
                         instructions.paymentInstructions(), instructions.currency()));
-    }
-
-    private User requireRole(User user, UserRole role) {
-        boolean staffUser = user.hasRole(UserRole.ADMIN) || user.hasRole(UserRole.SUPPORT);
-        if (!user.isActive() || !staffUser || !user.hasRole(role)) {
-            throw new ConflictException("DEPOSIT_STAFF_AUTHORIZATION_REQUIRED",
-                    "An active support or administrator account is required");
-        }
-        return user;
     }
 
     private User requireFinanceStaff(User user) {

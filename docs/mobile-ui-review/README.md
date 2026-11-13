@@ -1,7 +1,7 @@
 # Player app responsive UI review
 
 The changes preserve the existing home artwork, blue/orange palette, feature cards,
-labels, navigation destinations, APIs, and game/payment rules. Scope is `bingo-app`;
+labels, navigation destinations, APIs, and game/payment rules. Scope is `bingo-player`;
 the separate agent app is unchanged.
 
 ## Layout and accessibility
@@ -52,7 +52,7 @@ pagination/transfers. Existing authentication, community, localization, wallet,
 and live-game tests are included in the full suite.
 
 ```sh
-cd bingo-app
+cd bingo-player
 flutter pub get
 flutter gen-l10n
 flutter analyze

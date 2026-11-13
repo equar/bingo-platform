@@ -27,7 +27,7 @@ import { useTranslation } from "react-i18next";
 import { resolvePreferredLanguage, type SupportedLanguage } from "../../i18n";
 
 export function ProfilePage() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const session = useSession();
   const [selectedLanguage, setSelectedLanguage] = useState<SupportedLanguage>(
     () => resolvePreferredLanguage(session?.user.preferredLanguage),
@@ -102,7 +102,6 @@ export function ProfilePage() {
     UNKNOWN: "status.unknown",
   };
   const statusLabel = t(statusKey[status] ?? "status.unknown");
-  const dateLocale = i18n.language.startsWith("am") ? "am-ET" : "en-US";
   const initials = useMemo(
     () => session?.user.displayName?.slice(0, 1)?.toUpperCase() ?? "A",
     [session],

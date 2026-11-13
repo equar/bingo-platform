@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-APP_DIR="$SCRIPT_DIR/bingo-app"
+APP_DIR="$SCRIPT_DIR/bingo-player"
 API_BASE_URL='https://api.bingo.bakaroo.com'
 BUILD_NUMBER="${1:-}"
 
@@ -13,7 +13,7 @@ if [[ ! "$BUILD_NUMBER" =~ ^[1-9][0-9]*$ ]]; then
 fi
 
 if [[ ! -f "$APP_DIR/android/key.properties" ]]; then
-  echo 'ERROR: bingo-app/android/key.properties is missing.' >&2
+  echo 'ERROR: bingo-player/android/key.properties is missing.' >&2
   echo 'Configure it with the upload keystore registered for this Play Console app.' >&2
   exit 1
 fi
@@ -38,7 +38,7 @@ flutter build appbundle \
 
 ARTIFACT_DIR="$SCRIPT_DIR/deployment/mobile/artifacts"
 mkdir -p "$ARTIFACT_DIR"
-ARTIFACT="$ARTIFACT_DIR/bingo-app-playstore-${BUILD_NUMBER}.aab"
+ARTIFACT="$ARTIFACT_DIR/bingo-player-playstore-${BUILD_NUMBER}.aab"
 cp build/app/outputs/bundle/release/app-release.aab "$ARTIFACT"
 (cd "$ARTIFACT_DIR" && shasum -a 256 "$(basename "$ARTIFACT")" > "$(basename "$ARTIFACT").sha256")
 

@@ -2,6 +2,8 @@ package com.bakaroo.bingo.backend.feature.game.repository;
 
 import com.bakaroo.bingo.backend.feature.game.entity.Ticket;
 import com.bakaroo.bingo.backend.feature.game.dto.SessionTicketLookupResponse;
+import com.bakaroo.bingo.backend.feature.game.dto.PlayerGameHistoryResponse;
+import com.bakaroo.bingo.backend.feature.game.entity.GameSessionState;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -50,6 +52,22 @@ public interface TicketRepository extends JpaRepository<Ticket, Long> {
     Page<Ticket> findBySessionIdAndOwnerId(Long sessionId, Long ownerId, Pageable pageable);
 
     Page<Ticket> findByOwnerIdOrderByPurchasedAtDesc(Long ownerId, Pageable pageable);
+
+    @Query(value = """
+            select new com.bakaroo.bingo.backend.feature.game.dto.PlayerGameHistoryResponse(
+                t.id, t.session.id, t.session.room.name, t.session.sessionName, t.session.state,
+                t.publicTicketCode, t.purchasedAt)
+            from Ticket t
+            where t.owner.id = :ownerId and t.session.state in :states
+            order by t.purchasedAt desc, t.id desc
+            """, countQuery = """
+            select count(t) from Ticket t
+            where t.owner.id = :ownerId and t.session.state in :states
+            """)
+    Page<PlayerGameHistoryResponse> findPlayerGameHistory(
+            @Param("ownerId") Long ownerId,
+            @Param("states") List<GameSessionState> states,
+            Pageable pageable);
 
     List<Ticket> findBySessionIdAndOwnerIdOrderByPurchasedAtDesc(Long sessionId, Long ownerId);
 

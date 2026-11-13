@@ -6,6 +6,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createSession, listRooms } from "../../api/admin";
 import i18n from "../../i18n";
+import { resolveEthiopianRoomScheduleTime } from "./sessionScheduleTime";
 import { SessionCreatePage } from "./SessionCreatePage";
 
 vi.mock("../../api/admin", () => ({
@@ -107,19 +108,21 @@ describe("SessionCreatePage", () => {
     expect(await screen.findByText("Created session details")).toBeInTheDocument();
   });
 
-  it("translates invalid Ethiopian calendar date guidance to Amharic", async () => {
+  it("rejects invalid Ethiopian calendar dates and translates the guidance to Amharic", async () => {
     await i18n.changeLanguage("am");
-    const user = userEvent.setup();
-    render(<SessionCreatePage />, { wrapper: createWrapper });
-
-    await user.click(await screen.findByRole("combobox", { name: "ክፍል" }));
-    await user.click(await screen.findByRole("option", { name: "Evening Room" }));
-    await user.type(
-      screen.getByRole("textbox", { name: "የኢትዮጵያ ዘመን መቁጠሪያ ቀን" }),
+    const result = resolveEthiopianRoomScheduleTime(
       "2018-13-30",
+      "12:00",
+      "Africa/Addis_Ababa",
     );
 
-    expect(await screen.findByText("ትክክለኛ የኢትዮጵያ ዘመን መቁጠሪያ ቀን ያስገቡ።")).toBeInTheDocument();
+    expect(result).toEqual({
+      instant: null,
+      error: "Enter a valid Ethiopian calendar date.",
+    });
+    expect(i18n.t(result.error!)).toBe(
+      "ትክክለኛ የኢትዮጵያ ዘመን መቁጠሪያ ቀን ያስገቡ።",
+    );
   });
 
   it("offers room creation when no rooms are available", async () => {

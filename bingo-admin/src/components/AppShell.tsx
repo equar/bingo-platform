@@ -87,6 +87,7 @@ const navGroups = [
     title: "nav.administration",
     items: [
       { to: "/admin-users", label: "nav.adminUsers", icon: "adminUsers" },
+      { to: "/player-app", label: "nav.playerApp", icon: "adminUsers" },
       { to: "/audit-logs", label: "nav.audit", icon: "audit" },
       { to: "/reports", label: "nav.reports", icon: "audit" },
     ],
@@ -100,6 +101,7 @@ const supportRestrictedNavPaths = new Set([
   "/wallet/signup-reward",
   "/wallet/transfer-policy",
   "/admin-users",
+  "/player-app",
   "/audit-logs",
 ]);
 
@@ -172,6 +174,7 @@ function isNavItemActive(pathname: string, itemPath: string) {
 
 const routeTitles: Array<{ match: RegExp; title: string; parent?: string; parentTo?: string }> = [
   { match: /^\/dashboard$/, title: "nav.dashboard" },
+  { match: /^\/player-app$/, title: "nav.playerApp", parent: "nav.administration" },
   { match: /^\/sessions\/new$/, title: "Create session", parent: "nav.sessions", parentTo: "/sessions" },
   { match: /^\/sessions\/[^/]+$/, title: "Session details", parent: "nav.sessions", parentTo: "/sessions" },
   { match: /^\/session-tickets$/, title: "Session ticket lookup", parent: "nav.sessions", parentTo: "/sessions" },
@@ -189,6 +192,7 @@ const routeTitles: Array<{ match: RegExp; title: string; parent?: string; parent
   { match: /^\/profile$/, title: "Profile" },
   { match: /^\/community$/, title: "nav.community" },
   { match: /^\/deposits$/, title: "nav.deposits" },
+  { match: /^\/deposits\/[^/]+$/, title: "Deposit details", parent: "nav.deposits", parentTo: "/deposits" },
   { match: /^\/claims$/, title: "nav.claims" },
   { match: /^\/prize-entitlements$/, title: "nav.entitlements" },
   { match: /^\/player-verifications$/, title: "nav.verification" },

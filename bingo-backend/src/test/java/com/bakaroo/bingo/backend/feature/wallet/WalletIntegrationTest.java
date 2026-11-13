@@ -413,9 +413,8 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
         }
 
         @Test
-        void verifiedDepositPostsBalancedJournalOnceWithSeparatedFinanceUsers() {
+        void verifiedDepositPostsBalancedJournalOnceWithSupportVerification() {
                 User verifier = financeUser("0911000103", Set.of(UserRole.SUPPORT));
-                User approver = financeUser("0911000104", Set.of(UserRole.ADMIN));
                 BingoUserPrincipal playerPrincipal = new BingoUserPrincipal(playerUser);
                 IdempotentResult<DepositClaimResponse> submitted = walletService.submitDeposit(playerPrincipal,
                                 new DepositClaimRequest(new BigDecimal("60.00"), "ETB", "TBR-VERIFIED-001"),
@@ -440,15 +439,11 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
                                 values (?, 'TBR-VERIFIED-001', 60.00, 'ETB', ?, 'SETTLED',
                                  'SYNTHETIC_QA_BANK_STATEMENT', true, ?, current_timestamp(6))
                                 """, bankAccountId, LocalDate.now(), verifier.getId());
-                Long statementEntryId = jdbcTemplate.queryForObject(
-                                "select id from float_bank_statement_entries where transaction_reference='TBR-VERIFIED-001'",
-                                Long.class);
-
                 var verification = depositFinancialService.verify(depositId, new BingoUserPrincipal(verifier),
-                                new DepositVerificationRequest(statementEntryId));
+                                new DepositVerificationRequest("TBR-VERIFIED-001"));
                 assertEquals("MATCHED", verification.outcome());
                 IdempotentResult<DepositClaimResponse> approved = depositFinancialService.approve(depositId,
-                                new BingoUserPrincipal(approver), "QA synthetic approval", "approve-verified-1");
+                                new BingoUserPrincipal(verifier), "QA synthetic approval", "approve-verified-1");
                 assertEquals("APPROVED", approved.body().status());
                 assertEquals(verifier.getId(), approved.body().verifiedBy());
 
@@ -465,7 +460,7 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
                                 """, BigDecimal.class, depositId);
                 assertEquals(0, new BigDecimal("60.00").compareTo(debitTotal));
                 IdempotentResult<DepositClaimResponse> retry = depositFinancialService.approve(depositId,
-                                new BingoUserPrincipal(approver), "QA synthetic approval", "approve-verified-1");
+                                new BingoUserPrincipal(verifier), "QA synthetic approval", "approve-verified-1");
                 assertEquals(approved.body().operationId(), retry.body().operationId());
                 assertEquals(new BigDecimal("60.00"),
                                 walletRepository.findByOwnerId(playerUser.getId()).orElseThrow().getAvailableBalance());
@@ -502,17 +497,12 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
                                 values (?, 'TBR-DUPLICATE-EVIDENCE', 2.50, 'ETB', ?, 'SETTLED',
                                  'SYNTHETIC_QA_BANK_STATEMENT', true, ?, current_timestamp(6))
                                 """, bankAccountId, LocalDate.now(), verifier.getId());
-                Long duplicateStatementId = jdbcTemplate.queryForObject(
-                                "select id from float_bank_statement_entries where transaction_reference='TBR-DUPLICATE-EVIDENCE'",
-                                Long.class);
                 assertEquals("MATCHED", depositFinancialService.verify(firstId, new BingoUserPrincipal(verifier),
-                                new DepositVerificationRequest(duplicateStatementId)).outcome());
-                var duplicateEvidence = org.junit.jupiter.api.Assertions.assertThrows(
-                                com.bakaroo.bingo.backend.common.exception.ConflictException.class,
-                                () -> depositFinancialService.verify(secondId, new BingoUserPrincipal(verifier),
-                                                new DepositVerificationRequest(duplicateStatementId)));
-                assertEquals("BANK_STATEMENT_ALREADY_USED", duplicateEvidence.getCode());
-                assertEquals(DepositClaimStatus.PENDING,
+                                new DepositVerificationRequest("TBR-DUPLICATE-EVIDENCE")).outcome());
+                var duplicateEvidence = depositFinancialService.verify(secondId, new BingoUserPrincipal(verifier),
+                                new DepositVerificationRequest("TBR-DUPLICATE-EVIDENCE"));
+                assertEquals("REFERENCE_MISMATCH", duplicateEvidence.outcome());
+                assertEquals(DepositClaimStatus.VERIFICATION_EXCEPTION,
                                 depositClaimRepository.findById(secondId).orElseThrow().getStatus());
 
                 Long mismatchId = walletService.submitDeposit(new BingoUserPrincipal(playerUser),
@@ -525,11 +515,8 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
                                 values (?, 'TBR-AMOUNT-MISMATCH', 2.99, 'ETB', ?, 'SETTLED',
                                  'SYNTHETIC_QA_BANK_STATEMENT', true, ?, current_timestamp(6))
                                 """, bankAccountId, LocalDate.now(), verifier.getId());
-                Long mismatchStatementId = jdbcTemplate.queryForObject(
-                                "select id from float_bank_statement_entries where transaction_reference='TBR-AMOUNT-MISMATCH'",
-                                Long.class);
                 assertEquals("AMOUNT_MISMATCH", depositFinancialService.verify(mismatchId,
-                                new BingoUserPrincipal(verifier), new DepositVerificationRequest(mismatchStatementId))
+                                new BingoUserPrincipal(verifier), new DepositVerificationRequest("TBR-AMOUNT-MISMATCH"))
                                 .outcome());
                 assertEquals(DepositClaimStatus.VERIFICATION_EXCEPTION,
                                 depositClaimRepository.findById(mismatchId).orElseThrow().getStatus());

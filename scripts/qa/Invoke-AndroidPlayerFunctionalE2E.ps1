@@ -15,7 +15,7 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $statusPath = Join-Path $repoRoot 'docs\qa\evidence\module-06a5\backend-identity-preflight.json'
 $envPath = Join-Path $repoRoot 'bingo-backend\.env.test'
 $evidenceDir = Join-Path $repoRoot 'docs\qa\evidence\module-06a9'
-$appRoot = Join-Path $repoRoot 'bingo-app'
+$appRoot = Join-Path $repoRoot 'bingo-player'
 $policyModule = Join-Path $PSScriptRoot 'AndroidTestBackendPolicy.psm1'
 $sdk = Join-Path $env:USERPROFILE 'AppData\Local\Android\Sdk'
 $adb = Join-Path $sdk 'platform-tools\adb.exe'
@@ -220,7 +220,7 @@ try {
     $dbIdentity = @($mysqlIdentity.Database, $mysqlIdentity.CurrentUser, [string]$mysqlIdentity.Port)
 
     if ($UseLocalSyntheticFixtures) {
-        $playerSecretsPath = Join-Path $repoRoot 'bingo-app\e2e-secrets.json'
+        $playerSecretsPath = Join-Path $repoRoot 'bingo-player\e2e-secrets.json'
         $adminSecretsPath = Join-Path $repoRoot 'bingo-admin\.env.qa'
         foreach ($path in @($playerSecretsPath, $adminSecretsPath)) {
             if (-not (Test-Path -LiteralPath $path)) { throw 'BLOCKED: ignored local Player or Admin configuration is missing.' }
