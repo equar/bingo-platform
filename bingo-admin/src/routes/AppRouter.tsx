@@ -175,7 +175,9 @@ export function AppRouter() {
               <Route path="claims" element={<ClaimsPage />} />
               <Route path="prize-entitlements" element={<PrizeEntitlementsPage />} />
               <Route path="wallet/signup-reward" element={<WalletPoliciesPage />} />
+              <Route path="wallet/signup-reward/new" element={<WalletPoliciesPage />} />
               <Route path="wallet/transfer-policy" element={<WalletPoliciesPage />} />
+              <Route path="wallet/transfer-policy/new" element={<WalletPoliciesPage />} />
             </Route>
           </Route>
         </Route>

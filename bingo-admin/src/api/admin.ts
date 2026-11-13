@@ -804,7 +804,7 @@ export interface WalletTransferDetailResponse {
 export interface SignupRewardSettingsResponse {
   id: number | null;
   enabled: boolean;
-  rewardAmount: string;
+  rewardAmount: number | string;
   currency: string;
   effectiveFrom: string;
   effectiveUntil: string | null;
@@ -841,7 +841,7 @@ export type PromotionalRewardTrigger = 'SIGNUP' | 'REFERRAL' | 'WALLET_CREDIT' |
 export interface PromotionalRewardCampaignResponse extends SignupRewardSettingsResponse {
   name: string;
   triggerType: PromotionalRewardTrigger;
-  thresholdAmount?: string | null;
+  thresholdAmount?: number | string | null;
 }
 
 export interface PromotionalRewardCampaignRequest extends SignupRewardSettingsRequest {
