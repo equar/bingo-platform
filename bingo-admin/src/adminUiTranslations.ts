@@ -121,6 +121,7 @@ export const adminUiTranslations = {
   "Change session state": "የክፍለ ጊዜ ሁኔታን ቀይር",
   "Cancellation unavailable after tickets have been sold.": "ቲኬቶች ከተሸጡ በኋላ ክፍለ ጊዜውን መሰረዝ አይቻልም።",
   "Cancellation is unavailable after tickets have been sold.": "ቲኬቶች ከተሸጡ በኋላ ክፍለ ጊዜውን መሰረዝ አይቻልም።",
+  "Enter a valid Ethiopian calendar date.": "ትክክለኛ የኢትዮጵያ ዘመን መቁጠሪያ ቀን ያስገቡ።",
   "Enter a valid scheduled start time.": "ትክክለኛ የታቀደ መጀመሪያ ሰዓት ያስገቡ።",
   "Choose an active room before creating a session.": "ክፍለ ጊዜ ለመፍጠር ንቁ ክፍል ይምረጡ።",
   "Scheduled start must be in the future.": "የታቀደው መጀመሪያ ጊዜ ወደፊት መሆን አለበት።",
