@@ -121,13 +121,18 @@ describe("DepositsPage", () => {
     expect(screen.queryByTestId("deposit-review-32")).not.toBeInTheDocument();
   });
 
-  it("lets administrators open rejected deposits for review", async () => {
+  it("lets administrators inspect rejected deposits as read-only records", async () => {
     depositsMock.mockResolvedValue(depositResponse("REJECTED"));
+    const user = userEvent.setup();
     render(<DepositsPage />, { wrapper: createWrapper });
 
     await screen.findByTestId("deposit-row-32");
 
-    expect(screen.getByTestId("deposit-review-32")).toBeInTheDocument();
+    await user.click(screen.getByTestId("deposit-details-32"));
+
+    expect(
+      await screen.findByRole("heading", { name: "Deposit details #32" }),
+    ).toBeInTheDocument();
     expect(screen.queryByTestId("deposit-verify-32")).not.toBeInTheDocument();
   });
 
