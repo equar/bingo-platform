@@ -18,7 +18,7 @@ Start with the root [README](../README.md) for prerequisites and local quick sta
 - [Production deployment](../deployment/README.md)
 - [One-time Admin bootstrap](../deployment/aws/ADMIN_BOOTSTRAP.md)
 - [Mobile package and store release](../deployment/mobile/README.md)
-- [V23 local QA backup, restore, and migration runbook](qa/local-bingo-qa-test-v23-runbook.md)
+- [Local QA V22→V39 schema upgrade and recovery runbook](qa/local-bingo-qa-schema-upgrade-runbook.md)
 
 ## Testing and release controls
 

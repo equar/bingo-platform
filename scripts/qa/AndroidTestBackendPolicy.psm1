@@ -211,9 +211,9 @@ function Assert-AgentAndroidE2EEnvironment {
     if ($EnvironmentName -cne 'android-test') {
         throw 'Agent Android E2E environment must be explicitly set to android-test.'
     }
-    if ($BackendUrl -cne 'http://127.0.0.1:8082' -or
-        $EmulatorBackendUrl -cne 'http://10.0.2.2:8082') {
-        throw 'Agent Android E2E must target the approved local backend on port 8082.'
+    if ($BackendUrl -cne 'http://127.0.0.1:8080' -or
+        $EmulatorBackendUrl -cne 'http://10.0.2.2:8080') {
+        throw 'Agent Android E2E must target the approved local backend on port 8080.'
     }
     if ([string]::IsNullOrWhiteSpace($MysqlUsername) -or
         $MysqlUsername -notmatch '^[A-Za-z0-9_]+$' -or
@@ -264,14 +264,14 @@ function Assert-AndroidTestBackendRuntimeIdentity {
         [int]$BackendIdentity.jdbcPort -ne 3306 -or
         $BackendIdentity.drawScheduler -ne 'disabled' -or
         $BackendIdentity.financialPostingAndSimulation -ne 'disabled' -or
-        $BackendIdentity.backendUrl -ne 'http://127.0.0.1:8082' -or
-        $BackendIdentity.emulatorBackendUrl -ne 'http://10.0.2.2:8082' -or
+        $BackendIdentity.backendUrl -ne 'http://127.0.0.1:8080' -or
+        $BackendIdentity.emulatorBackendUrl -ne 'http://10.0.2.2:8080' -or
         $BackendIdentity.adminOrigin -ne 'http://127.0.0.1:5174') {
         throw 'Running backend identity is not the approved isolated, no-financial Android test target.'
     }
     if ([int]$BackendIdentity.processId -le 0 -or
         $ListenerProcessId -ne [int]$BackendIdentity.processId) {
-        throw 'Port 8082 listener does not match the saved backend process identity.'
+        throw 'Port 8080 listener does not match the saved backend process identity.'
     }
     if ($BackendHealth -ne 'UP' -or $DatabaseHealth -ne 'UP') {
         throw 'Running backend or its database health is not UP.'

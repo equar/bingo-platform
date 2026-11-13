@@ -163,7 +163,6 @@ public class GameLiveDrawService {
     }
 
     private boolean configuredPatternsComplete(GameSession session) {
-        if (!"EARLIEST_SPLIT_V1".equals(session.getRulesVersion())) return false;
         var patterns = snapshots.readPatterns(session.getPatternsSnapshotJson());
         return !patterns.isEmpty() && patterns.stream()
                 .allMatch(pattern -> !winners.winners(session.getId(), pattern).ticketIds().isEmpty());

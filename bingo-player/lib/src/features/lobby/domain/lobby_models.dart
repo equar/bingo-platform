@@ -3,20 +3,17 @@ class BingoPrizeConfig {
     required this.prizeType,
     required this.amount,
     required this.settlementPath,
-    this.maxWinners,
   });
 
   final String prizeType;
   final num amount;
   final String settlementPath;
-  final int? maxWinners;
 
   factory BingoPrizeConfig.fromJson(Map<String, dynamic> json) {
     return BingoPrizeConfig(
       prizeType: json['prizeType']?.toString() ?? '',
       amount: json['amount'] as num? ?? 0,
       settlementPath: json['settlementPath']?.toString() ?? '',
-      maxWinners: (json['maxWinners'] as num?)?.toInt(),
     );
   }
 }
@@ -103,14 +100,12 @@ class GameSession {
     this.maxTicketsPerPlayer,
     this.ticketSalesCloseOnSessionStart,
     this.allowMultipleWinnersPerPrize,
-    this.rulesVersion,
     this.claimWindowSeconds,
     this.payoutsEnabled = false,
     this.configuredPatterns = const [],
     this.configuredPrizes = const [],
   });
 
-  final String? rulesVersion;
   final int? claimWindowSeconds;
   final bool payoutsEnabled;
   final int id;
@@ -138,7 +133,6 @@ class GameSession {
 
   factory GameSession.fromJson(Map<String, dynamic> json) {
     return GameSession(
-      rulesVersion: json['rulesVersion']?.toString(),
       claimWindowSeconds: (json['claimWindowSeconds'] as num?)?.toInt(),
       payoutsEnabled: json['payoutsEnabled'] == true,
       id: (json['id'] as num?)?.toInt() ?? 0,

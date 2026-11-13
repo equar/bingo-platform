@@ -15,5 +15,6 @@ public record UserProfileResponse(
         Instant createdAt,
         Instant updatedAt,
         boolean mustChangePassword,
-        String preferredLanguage) {
+        String preferredLanguage,
+        String referralCode) {
 }

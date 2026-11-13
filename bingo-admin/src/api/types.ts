@@ -97,7 +97,6 @@ const CODE_MESSAGES: Record<string, string> = {
   PRIZE_SETTLEMENT_BLOCKED: "Prize payouts and refunds are disabled in the operating configuration.",
   SESSION_PRIZES_INCOMPLETE: "Continue drawing until all configured patterns have winners.",
   SESSION_ALREADY_DRAWN: "A game cannot be cancelled after its first draw.",
-  LEGACY_SESSION_REQUIRES_REVIEW: "Reconcile this legacy game under its original terms before further operation.",
   PRIZE_POOL_TOO_SMALL: "Each prize pool must provide at least one cent for every possible tied ticket.",
   INVALID_SESSION_PRIZE_CONFIGURATION: "Configure unique patterns and exactly one valid prize pool per pattern.",
   LATE_TICKET_SALES_NOT_ALLOWED: "Ticket sales must close when the game starts.",

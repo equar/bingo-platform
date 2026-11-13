@@ -3,8 +3,10 @@ package com.bakaroo.bingo.backend.feature.wallet.repository;
 import com.bakaroo.bingo.backend.feature.wallet.entity.SignupRewardGrant;
 import java.math.BigDecimal;
 import java.util.Optional;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -13,10 +15,18 @@ public interface SignupRewardGrantRepository extends JpaRepository<SignupRewardG
 
     boolean existsByPlayerId(Long playerId);
 
-    boolean existsByTriggerTypeAndPlayerId(com.bakaroo.bingo.backend.feature.wallet.entity.SignupRewardPolicy.TriggerType triggerType,
-            Long playerId);
-
     boolean existsByPolicyIdAndPlayerId(Long policyId, Long playerId);
+
+    boolean existsByPolicyIdAndTriggerReferenceKey(Long policyId, String triggerReferenceKey);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            select g from SignupRewardGrant g
+            where g.policy.id = :policyId and g.triggerReferenceKey = :triggerReferenceKey
+            """)
+    Optional<SignupRewardGrant> findByPolicyIdAndTriggerReferenceKeyForUpdate(
+            @Param("policyId") Long policyId,
+            @Param("triggerReferenceKey") String triggerReferenceKey);
 
     Optional<SignupRewardGrant> findByPlayerId(Long playerId);
 

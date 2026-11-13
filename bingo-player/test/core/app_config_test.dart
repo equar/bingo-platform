@@ -4,11 +4,11 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   test('ticket purchase stays disabled unless explicitly enabled', () {
     const safeDefault = AppConfig(
-      apiBaseUrl: 'http://10.0.2.2:8082',
+      apiBaseUrl: 'http://10.0.2.2:8080',
       apiBaseUrlLabel: 'API_BASE_URL',
     );
     const enabledForAnApprovedRuntime = AppConfig(
-      apiBaseUrl: 'http://10.0.2.2:8082',
+      apiBaseUrl: 'http://10.0.2.2:8080',
       apiBaseUrlLabel: 'API_BASE_URL',
       playerTicketPurchasesEnabled: true,
     );

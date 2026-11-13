@@ -581,7 +581,7 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
         }
 
         @Test
-        void legacyConcurrentApprovalAttemptsNeverCreditUnverifiedDeposits() throws Exception {
+        void concurrentApprovalAttemptsNeverCreditUnverifiedDeposits() throws Exception {
                 User admin = userRepository.findById(adminUser.getId()).orElseThrow();
                 User player = userRepository.findById(playerUser.getId()).orElseThrow();
                 BingoUserPrincipal adminPrincipal = new BingoUserPrincipal(admin);
@@ -647,6 +647,7 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
 
         @Test
         void disabledAndZeroSignupPoliciesLeaveNewWalletsAtZero() throws Exception {
+                disableSignupRewardCampaigns();
                 Instant now = Instant.now();
                 signupRewardPolicyRepository.save(SignupRewardPolicy.create(false, new BigDecimal("25.00"), "ETB",
                                 now.minusSeconds(60), now.plusSeconds(3600), adminUser, "disabled policy", now));
@@ -662,6 +663,7 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
 
         @Test
         void expiredAndFutureSignupPoliciesDoNotGrant() throws Exception {
+                disableSignupRewardCampaigns();
                 Instant now = Instant.now();
                 signupRewardPolicyRepository.save(SignupRewardPolicy.create(true, new BigDecimal("25.00"), "ETB",
                                 now.minusSeconds(7200), now.minusSeconds(3600), adminUser, "expired policy", now));
@@ -771,6 +773,13 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
                 assertEquals(new BigDecimal("0.00"), wallet.getPromotionalBalance());
                 assertTrue(!signupRewardGrantRepository.existsByPlayerId(player.getId()));
                 assertEquals(0L, walletTransactionRepository.countByOwnerId(player.getId()));
+        }
+
+        private void disableSignupRewardCampaigns() {
+                var campaigns = signupRewardPolicyRepository.findAllByTriggerTypeOrderByCreatedAtDescIdDesc(
+                                SignupRewardPolicy.TriggerType.SIGNUP);
+                campaigns.forEach(campaign -> campaign.setEnabled(false));
+                signupRewardPolicyRepository.saveAll(campaigns);
         }
 
         @Test

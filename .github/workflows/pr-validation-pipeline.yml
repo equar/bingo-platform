@@ -3,6 +3,7 @@ name: PR Validation Pipeline
 on:
   pull_request:
     branches:
+      - develop
       - main
       - public-landing-website
   workflow_dispatch:

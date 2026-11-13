@@ -3,9 +3,11 @@
 Production application deployment uses GitHub Actions to build Bingo and
 upload it over SSH to an existing Ubuntu Lightsail/EC2 host. The sole
 production application deployment workflow is `.github/workflows/deploy.yml`;
-it runs after an in-repository feature-branch pull request is merged into
-`main`. Changed application files select what is built and deployed from the
-merge commit. Manual dispatch on `main` can redeploy selected applications.
+it runs after an in-repository pull request is merged into `develop`. Changed
+application files select what is built and deployed from the merge commit.
+Manual dispatch on `develop` can redeploy selected applications. This changes
+the deployment trigger, not its target: a merge to `develop` deploys to the
+existing production Lightsail host with the production configuration.
 There is no OIDC deployment role or required source-branch naming convention.
 
 ## Runtime layout and deployment behavior
@@ -128,13 +130,13 @@ Secrets Manager ARNs.
 
 ## Release and verification
 
-1. Protect `main` with required PR validation and workflow-file review rules.
+1. Protect `develop` with the required branch-policy and PR validation checks.
 2. For a host using the retired OIDC deployment, stop its workflow and back
    up the database, runtime configuration, and artifacts. The current service
    uses `/opt/bingo`, not the old `/opt/bingo/backend/current` layout. Plan the
    JAR/service and static-root cutover together with Nginx; back up existing
    files first.
-3. Merge a reviewed feature-branch PR into `main`. The deployment workflow
+3. Merge an in-repository PR into `develop`. The deployment workflow
    checks out the merge commit and serializes production runs without
    cancelling a previous merge's deployment.
 4. Verify website, Admin login, `/actuator/health`, CORS, authenticated
@@ -180,15 +182,15 @@ working HTTPS and a healthy API for verification.
 
 To deploy after changing repository secrets/variables, or to redeploy without a
 source change, use **Actions → Build and Deploy Bingo to Lightsail → Run workflow**,
-select branch **main**, and choose `all`, `backend`, `frontend`, `admin`, or `website`.
+select branch **develop**, and choose `all`, `backend`, `frontend`, `admin`, or `website`.
 `frontend` selects both frontends. Other branches cannot use manual production
 deployment. Existing concurrency protection serializes these deployments.
 
 The diff selects changes from the current merge, not from the last successful
 deployment. Resolve and rerun failed deployments before subsequent releases;
-if releases were skipped or a previous deployment partly failed, manually deploy
-`all` from the latest `main` to reconcile all application artifacts. Manually
-redeploying an older workflow run can deploy older code, so prefer this latest-main
+if deployments were skipped or a previous deployment partly failed, manually deploy
+`all` from the latest `develop` to reconcile all application artifacts. Manually
+redeploying an older workflow run can deploy older code, so prefer this latest-develop
 manual action for recovery. Nginx and certificate setup remain separate one-time
 host operations.
 

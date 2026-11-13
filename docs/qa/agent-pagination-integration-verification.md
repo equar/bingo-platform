@@ -59,7 +59,7 @@ foreach ($line in Get-Content .\bingo-backend\.env.maven-agent-pagination) {
     }
 }
 Push-Location .\bingo-backend
-mvn "-Dmaven.repo.local=$((Resolve-Path ..\.tmp\maven-repository).Path)" -Dtest=AgentRosterPaginationIntegrationTest test
+mvn --settings "$env:USERPROFILE\.m2\settings.xml" -Dtest=AgentRosterPaginationIntegrationTest test
 Pop-Location
 ```
 

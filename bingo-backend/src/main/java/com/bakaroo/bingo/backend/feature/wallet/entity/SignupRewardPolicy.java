@@ -21,7 +21,7 @@ import java.time.Instant;
 @Table(name = "signup_reward_policies")
 public class SignupRewardPolicy {
 
-    public enum TriggerType { SIGNUP, MANUAL }
+    public enum TriggerType { SIGNUP, REFERRAL, WALLET_CREDIT, MANUAL }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -39,6 +39,9 @@ public class SignupRewardPolicy {
 
     @Column(name = "reward_amount", nullable = false, precision = 19, scale = 2)
     private BigDecimal rewardAmount;
+
+    @Column(name = "threshold_amount", precision = 19, scale = 2)
+    private BigDecimal thresholdAmount;
 
     @Column(name = "currency", nullable = false, length = 3)
     private String currency;
@@ -80,11 +83,19 @@ public class SignupRewardPolicy {
     public static SignupRewardPolicy create(String name, TriggerType triggerType, boolean enabled,
             BigDecimal rewardAmount, String currency, Instant effectiveFrom, Instant effectiveUntil,
             User changedBy, String reason, Instant now) {
+        return create(name, triggerType, enabled, rewardAmount, null, currency, effectiveFrom, effectiveUntil,
+                changedBy, reason, now);
+    }
+
+    public static SignupRewardPolicy create(String name, TriggerType triggerType, boolean enabled,
+            BigDecimal rewardAmount, BigDecimal thresholdAmount, String currency, Instant effectiveFrom,
+            Instant effectiveUntil, User changedBy, String reason, Instant now) {
         SignupRewardPolicy policy = new SignupRewardPolicy();
         policy.name = name;
         policy.triggerType = triggerType;
         policy.enabled = enabled;
         policy.rewardAmount = rewardAmount;
+        policy.thresholdAmount = thresholdAmount;
         policy.currency = currency;
         policy.effectiveFrom = effectiveFrom;
         policy.effectiveUntil = effectiveUntil;
@@ -115,6 +126,7 @@ public class SignupRewardPolicy {
 
     public String getName() { return name; }
     public TriggerType getTriggerType() { return triggerType; }
+    public BigDecimal getThresholdAmount() { return thresholdAmount; }
 
     public boolean isEnabled() {
         return enabled;

@@ -1,6 +1,7 @@
 import 'package:bingo_player/src/core/localization/ethiopian_date_time.dart';
 import 'package:bingo_player/src/core/network/api_provider.dart';
 import 'package:bingo_player/src/core/platform/external_link.dart';
+import 'package:bingo_player/src/core/platform/player_notifications.dart';
 import 'package:bingo_player/src/core/storage/player_preferences.dart';
 import 'package:bingo_player/src/features/support/presentation/support_shortcut.dart';
 import 'package:bingo_player/src/core/widgets/responsive_content.dart';
@@ -391,7 +392,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       title: Text(localizations.notificationsTitle),
                       subtitle: Text(localizations.notificationsDescription),
                       value: preferences.notificationsEnabled,
-                      onChanged: preferences.setNotifications,
+                      onChanged: (enabled) async {
+                        if (enabled) {
+                          final granted =
+                              await PlayerNotifications.requestPermission();
+                          await preferences.setNotifications(granted);
+                        } else {
+                          await preferences.setNotifications(false);
+                        }
+                      },
                     ),
                   ],
                 ),

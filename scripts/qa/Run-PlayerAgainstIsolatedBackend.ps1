@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$BackendUrl = 'http://10.0.2.2:8082'
+    [string]$BackendUrl = 'http://10.0.2.2:8080'
 )
 
 $ErrorActionPreference = 'Stop'

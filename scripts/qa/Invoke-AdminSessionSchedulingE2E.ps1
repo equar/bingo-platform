@@ -23,7 +23,7 @@ $tempLogDir = Join-Path $env:TEMP 'bingo-platform-module-06a5'
 if (-not (Test-Path -LiteralPath $statusPath)) { throw 'Start and verify the isolated android-test backend first.' }
 $backendStatus = Get-Content -LiteralPath $statusPath -Raw | ConvertFrom-Json
 if ($backendStatus.profile -ne 'android-test' -or $backendStatus.database -ne 'bingo_qa_test' -or
-    $backendStatus.backendUrl -ne 'http://127.0.0.1:8082' -or $backendStatus.drawScheduler -ne 'disabled' -or
+    $backendStatus.backendUrl -ne 'http://127.0.0.1:8080' -or $backendStatus.drawScheduler -ne 'disabled' -or
     $backendStatus.financialPostingAndSimulation -ne 'disabled') {
     throw 'Refusing E2E: the verified backend must be local android-test on bingo_qa_test with scheduler and financial paths disabled.'
 }

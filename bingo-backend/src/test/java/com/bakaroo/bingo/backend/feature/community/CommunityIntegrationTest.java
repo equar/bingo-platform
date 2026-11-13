@@ -73,8 +73,7 @@ class CommunityIntegrationTest extends MySqlIntegrationTest {
                         new BingoPrizeConfigRequest(
                             BingoPatternType.LINE,
                             new BigDecimal("20.00"),
-                            PrizeSettlementPath.PLAYER_WALLET,
-                            1)),
+                            PrizeSettlementPath.PLAYER_WALLET)),
                     null))
             .id();
   }

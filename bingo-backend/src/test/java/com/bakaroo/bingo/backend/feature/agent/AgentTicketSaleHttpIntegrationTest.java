@@ -378,7 +378,6 @@ class AgentTicketSaleHttpIntegrationTest extends MySqlIntegrationTest {
         room = bingoRoomRepository.save(room);
 
         GameSession gameSession = new GameSession();
-                gameSession.setRulesVersion("EARLIEST_SPLIT_V1");
                 gameSession.setMinimumHouseMarginBps(1000);
                 gameSession.setSessionCostReserve(BigDecimal.ZERO);
                 gameSession.setClaimWindowSeconds(86400L);

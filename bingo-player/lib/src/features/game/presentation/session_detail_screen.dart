@@ -9,12 +9,15 @@ import 'package:bingo_player/src/core/widgets/responsive_content.dart';
 import 'package:bingo_player/l10n/app_localizations.dart';
 import 'package:bingo_player/src/core/config/app_config.dart';
 import 'package:bingo_player/src/core/device/screen_awake.dart';
+import 'package:bingo_player/src/core/storage/player_preferences.dart';
 import 'package:bingo_player/src/core/widgets/app_status_view.dart';
 import 'package:bingo_player/src/core/widgets/section_card.dart';
 import 'package:bingo_player/src/features/game/application/live_game_controller.dart';
 import 'package:bingo_player/src/features/game/domain/live_game_models.dart';
 import 'package:bingo_player/src/features/game/domain/ticket_models.dart';
+import 'package:bingo_player/src/features/game/domain/ticket_ranking.dart';
 import 'package:bingo_player/src/features/lobby/domain/lobby_models.dart';
+import 'package:bingo_player/src/features/wallet/data/wallet_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -141,6 +144,20 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen>
         actions: [
           if (!isPreGame)
             IconButton(
+              key: const ValueKey('live-game-settings'),
+              tooltip: localizations.gameSettingsTitle,
+              icon: const Icon(Icons.tune),
+              onPressed: () => showModalBottomSheet<void>(
+                context: context,
+                isScrollControlled: true,
+                useSafeArea: true,
+                showDragHandle: true,
+                builder: (context) =>
+                    _GameSettingsSheet(sessionId: widget.session.id),
+              ),
+            ),
+          if (!isPreGame)
+            IconButton(
               key: const ValueKey('live-game-details'),
               tooltip: localizations.liveGameDetails,
               icon: const Icon(Icons.info_outline),
@@ -228,6 +245,9 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen>
                       if (!isPreGame)
                         LiveCallPanel(
                           draws: state.draws,
+                          soundEnabled: ref
+                              .watch(playerPreferencesProvider)
+                              .soundEnabled,
                           isLive:
                               session.state == 'STARTED' ||
                               session.state == 'DRAWING',
@@ -278,7 +298,7 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen>
   }
 }
 
-class _LivePlayView extends StatelessWidget {
+class _LivePlayView extends ConsumerWidget {
   const _LivePlayView({
     required this.state,
     required this.controller,
@@ -289,67 +309,342 @@ class _LivePlayView extends StatelessWidget {
   final AppLocalizations localizations;
 
   @override
-  Widget build(BuildContext context) => SafeArea(
-    child: LayoutBuilder(
-      builder: (context, constraints) {
-        final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
-        // Only short viewports or large accessibility text need scrolling.
-        final controlsHeight =
-            ((state.ticketPage?.content.length ?? 0) > 1 ? 48.0 : 0.0) +
-            (state.canPageBackTickets || state.canPageForwardTickets
-                ? 48.0
-                : 0.0) +
-            ((state.session?.configuredPatterns.length ?? 0) > 1 ? 72.0 : 0.0);
-        final height = math.max(
-          constraints.maxHeight,
-          580.0 + controlsHeight + math.max(0.0, scale - 1) * 540,
-        );
-        return RefreshIndicator(
-          onRefresh: controller.refresh,
-          child: SingleChildScrollView(
-            key: const ValueKey('live-play-screen'),
-            physics: const AlwaysScrollableScrollPhysics(),
-            child: SizedBox(
-              height: height,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    LiveCallPanel(
-                      draws: state.draws,
-                      isLive: !state.isTerminalSession,
-                      connected:
-                          state.connectionState ==
-                          LiveGameConnectionState.connected,
-                      finished: state.isTerminalSession,
-                    ),
-                    Expanded(
-                      child: _TicketsCard(
+  Widget build(BuildContext context, WidgetRef ref) {
+    final preferences = ref.watch(playerPreferencesProvider);
+    final ticketList = state.allTickets.isNotEmpty
+        ? state.allTickets
+        : state.ticketPage?.content ?? const <TicketResponse>[];
+    final accountId =
+        state.selectedTicket?.ownerId ??
+        (ticketList.isEmpty ? 0 : ticketList.first.ownerId);
+    final preferenceScope =
+        'account-$accountId-session-${state.session?.id ?? 0}';
+    if (preferences.loaded && ticketList.isNotEmpty) {
+      final availableTicketIds = ticketList.map((ticket) => ticket.id).toList();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!context.mounted) return;
+        unawaited(() async {
+          await preferences.setScope(preferenceScope);
+          if (context.mounted) {
+            await preferences.ensureBoardSelection(
+              availableTicketIds,
+              expectedScope: preferenceScope,
+            );
+          }
+        }());
+      });
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) unawaited(preferences.setScope(preferenceScope));
+      });
+    }
+    final onBoard = preferences.cardsOnBoard > 1
+        ? _visibleTickets(ticketList, preferences, state)
+        : state.selectedTicket == null
+        ? const <TicketResponse>[]
+        : <TicketResponse>[state.selectedTicket!];
+    final visibleCardCount = onBoard.length;
+    final missedCalls = preferences.autoMark
+        ? 0
+        : _countMissedCalls(onBoard, state.calledNumbers, preferences);
+    return SafeArea(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
+          // Only short viewports or large accessibility text need scrolling.
+          final controlsHeight =
+              ((state.ticketPage?.content.length ?? 0) > 1 ? 48.0 : 0.0) +
+              (state.canPageBackTickets || state.canPageForwardTickets
+                  ? 48.0
+                  : 0.0) +
+              ((state.session?.configuredPatterns.length ?? 0) > 1
+                  ? 72.0
+                  : 0.0);
+          final height = math.max(
+            constraints.maxHeight,
+            (visibleCardCount == 1
+                    ? 820.0
+                    : visibleCardCount > 2
+                    ? 800.0
+                    : 580.0) +
+                controlsHeight +
+                math.max(0.0, scale - 1) * 1100,
+          );
+          return RefreshIndicator(
+            onRefresh: controller.refresh,
+            child: SingleChildScrollView(
+              key: const ValueKey('live-play-screen'),
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: SizedBox(
+                height: height,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      LiveCallPanel(
+                        draws: state.draws,
+                        eligibleWinCount: state.allTickets
+                            .where(
+                              (ticket) =>
+                                  ticket.eligibleClaimPatterns.isNotEmpty,
+                            )
+                            .length,
+                        soundEnabled: ref
+                            .watch(playerPreferencesProvider)
+                            .soundEnabled,
+                        notificationsEnabled: preferences.notificationsEnabled,
+                        missedCallCount: missedCalls,
+                        onMarkMissedCalls: missedCalls == 0
+                            ? null
+                            : () async {
+                                for (final ticket in onBoard) {
+                                  final calledOnTicket = ticket.grid
+                                      .expand((row) => row)
+                                      .where(
+                                        (number) =>
+                                            number != 0 &&
+                                            state.calledNumbers.contains(
+                                              number,
+                                            ),
+                                      );
+                                  await ref
+                                      .read(playerPreferencesProvider)
+                                      .markNumbers(ticket.id, calledOnTicket);
+                                }
+                              },
+                        isLive: !state.isTerminalSession,
+                        connected:
+                            state.connectionState ==
+                            LiveGameConnectionState.connected,
+                        finished: state.isTerminalSession,
+                      ),
+                      Expanded(
+                        child: _TicketsCard(
+                          state: state,
+                          controller: controller,
+                          localizations: localizations,
+                          fillAvailableSpace: true,
+                        ),
+                      ),
+                      _ClaimReviewCard(state: state, controller: controller),
+                      _ClaimCard(
                         state: state,
                         controller: controller,
                         localizations: localizations,
-                        fillAvailableSpace: true,
+                        compact: true,
                       ),
-                    ),
-                    _ClaimCard(
-                      state: state,
-                      controller: controller,
-                      localizations: localizations,
-                      compact: true,
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-        );
-      },
-    ),
-  );
+          );
+        },
+      ),
+    );
+  }
 }
 
-class _SessionSummaryCard extends StatelessWidget {
+class _ClaimReviewCard extends ConsumerWidget {
+  const _ClaimReviewCard({required this.state, required this.controller});
+  final LiveGameState state;
+  final LiveGameController controller;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context)!;
+    final candidates = state.allTickets
+        .where((ticket) => ticket.eligibleClaimPatterns.isNotEmpty)
+        .toList();
+    if (candidates.isEmpty) return const SizedBox.shrink();
+    return Card(
+      child: ExpansionTile(
+        key: const ValueKey('eligible-claim-review'),
+        title: Text(l.claimReviewTitle(candidates.length)),
+        subtitle: Text(l.claimReviewHint),
+        children: [
+          for (final ticket in candidates)
+            ListTile(
+              title: Text(ticket.publicTicketCode),
+              subtitle: Text(
+                ticket.eligibleClaimPatterns
+                    .map(
+                      (pattern) => _claimReviewPatternStatus(
+                        l,
+                        ticket,
+                        pattern,
+                        state.claimPage?.content ?? const [],
+                      ),
+                    )
+                    .join(' · '),
+              ),
+              trailing: const Icon(Icons.open_in_new),
+              onTap: () async {
+                await ref
+                    .read(playerPreferencesProvider)
+                    .selectTicketForBoard(ticket.id);
+                await controller.selectTicketById(ticket.id);
+              },
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+String _claimReviewPatternStatus(
+  AppLocalizations l,
+  TicketResponse ticket,
+  String pattern,
+  List<WinClaimRecord> claims,
+) {
+  WinClaimRecord? claim;
+  for (final item in claims) {
+    if (item.ticketId == ticket.id && item.claimedPattern == pattern) {
+      claim = item;
+    }
+  }
+  final status = claim == null
+      ? l.winningTicketReady(_patternLabel(l, pattern))
+      : _claimStatusLabel(l, claim.status);
+  return '${_patternLabel(l, pattern)} · $status';
+}
+
+class _GameSettingsSheet extends ConsumerWidget {
+  const _GameSettingsSheet({required this.sessionId});
+  final int sessionId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final strings = AppLocalizations.of(context)!;
+    final preferences = ref.watch(playerPreferencesProvider);
+    final settings = ref.read(playerPreferencesProvider);
+    return FractionallySizedBox(
+      heightFactor: .9,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.tune),
+              const SizedBox(width: 12),
+              Text(
+                strings.gameSettingsTitle,
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const Text('Board'),
+          SegmentedButton<int>(
+            segments: const [
+              ButtonSegment(value: 1, label: Text('1')),
+              ButtonSegment(value: 2, label: Text('2')),
+              ButtonSegment(value: 3, label: Text('3')),
+              ButtonSegment(value: 4, label: Text('4')),
+            ],
+            selected: {preferences.cardsOnBoard},
+            onSelectionChanged: (values) => settings.setBoardSize(values.first),
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(strings.autoMarkNumbers),
+            subtitle: Text(strings.autoMarkNumbersDescription),
+            value: preferences.autoMark,
+            onChanged: settings.setAutoMark,
+          ),
+          ExpansionTile(
+            tilePadding: EdgeInsets.zero,
+            title: Text(strings.sortCards),
+            subtitle: Text(strings.sortCardsChooseThree),
+            children: [
+              if (preferences.sortPriorities.isNotEmpty)
+                Wrap(
+                  spacing: 6,
+                  children: [
+                    for (var i = 0; i < preferences.sortPriorities.length; i++)
+                      Chip(
+                        avatar: CircleAvatar(child: Text('${i + 1}')),
+                        label: Text(
+                          _patternLabel(strings, preferences.sortPriorities[i]),
+                        ),
+                        onDeleted: () => settings.toggleSortPriority(
+                          preferences.sortPriorities[i],
+                        ),
+                      ),
+                  ],
+                ),
+              for (final option in PlayerPreferences.sortOptions)
+                CheckboxListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(_patternLabel(strings, option)),
+                  value: preferences.sortPriorities.contains(option),
+                  onChanged: (_) => settings.toggleSortPriority(option),
+                ),
+            ],
+          ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(strings.selectionColor),
+            trailing: Wrap(
+              spacing: 0,
+              children: [
+                for (
+                  var i = 0;
+                  i < PlayerPreferences.selectionColors.length;
+                  i++
+                )
+                  IconButton(
+                    tooltip: strings.selectionColorOption(i + 1),
+                    onPressed: () => settings.setSelectionColor(i),
+                    icon: Icon(
+                      preferences.selectionColorIndex == i
+                          ? Icons.radio_button_checked
+                          : Icons.circle,
+                      color: PlayerPreferences.selectionColors[i],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          OutlinedButton.icon(
+            onPressed: () async {
+              final confirmed = await showDialog<bool>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: Text(strings.resetMarkedNumbers),
+                  content: Text(strings.clearManualMarksConfirm),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: Text(strings.cancel),
+                    ),
+                    FilledButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      child: Text(strings.resetMarkedNumbers),
+                    ),
+                  ],
+                ),
+              );
+              if (confirmed == true) await settings.clearManualMarks();
+            },
+            icon: const Icon(Icons.restart_alt),
+            label: Text(strings.resetMarkedNumbers),
+          ),
+          const SizedBox(height: 12),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(strings.claimDialogDismiss),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SessionSummaryCard extends ConsumerWidget {
   const _SessionSummaryCard({
     required this.session,
     required this.state,
@@ -364,29 +659,76 @@ class _SessionSummaryCard extends StatelessWidget {
   final AppLocalizations localizations;
   final bool purchasesEnabled;
 
-  Future<void> _confirmPurchase(BuildContext context) async {
-    final confirmed = await showDialog<bool>(
+  Future<void> _confirmPurchase(BuildContext context, WidgetRef ref) async {
+    final owned = state.ticketPage?.totalElements ?? 0;
+    final playerRemaining = session.maxTicketsPerPlayer == null
+        ? 10
+        : (session.maxTicketsPerPlayer! - owned).clamp(0, 10);
+    final maxQuantity = [
+      10,
+      session.availableSeats,
+      playerRemaining,
+    ].reduce((a, b) => a < b ? a : b);
+    if (maxQuantity < 1) return;
+    var quantity = 1;
+    final selectedQuantity = await showDialog<int>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(localizations.purchaseTicketTitle),
-        content: Text(
-          '${session.ticketPrice} ${session.currency}\n\n${localizations.purchaseTicketBody}',
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(localizations.purchaseTicketTitle),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              DropdownButton<int>(
+                key: const ValueKey('purchase-quantity'),
+                value: quantity,
+                items: [
+                  for (var i = 1; i <= maxQuantity; i++)
+                    DropdownMenuItem(
+                      value: i,
+                      child: Text(localizations.purchaseQuantityLabel(i)),
+                    ),
+                ],
+                onChanged: (value) {
+                  if (value != null) setDialogState(() => quantity = value);
+                },
+              ),
+              Text(
+                localizations.purchaseTotalLabel(
+                  (session.ticketPrice * quantity).toStringAsFixed(2),
+                  session.currency,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(localizations.purchaseTicketBody),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text(localizations.cancel),
+            ),
+            FilledButton(
+              key: const ValueKey('confirm-ticket-purchase'),
+              onPressed: () => Navigator.of(dialogContext).pop(quantity),
+              child: Text(localizations.purchaseTicket),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text(localizations.cancel),
-          ),
-          FilledButton(
-            key: const ValueKey('confirm-ticket-purchase'),
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(localizations.purchaseTicket),
-          ),
-        ],
       ),
     );
-    if (confirmed == true && context.mounted) {
-      final purchaseError = await controller.purchaseTicket();
+    if (selectedQuantity != null && context.mounted) {
+      final result = await controller.purchaseTickets(selectedQuantity);
+      final purchased = result.purchasedCount;
+      final purchaseError = result.error;
+      if (purchased > 0 || purchaseError?.outcomeUnknown == true) {
+        try {
+          await ref.read(walletRepositoryProvider).getBalance();
+        } catch (_) {
+          // Wallet screens fetch a fresh balance when opened.
+        }
+      }
       if (!context.mounted) {
         return;
       }
@@ -405,12 +747,22 @@ class _SessionSummaryCard extends StatelessWidget {
         ),
         _ => (null, null),
       };
-      if (title == null || body == null) return;
+      if (purchaseError == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(localizations.ticketsPurchasedCount(purchased)),
+          ),
+        );
+        return;
+      }
       await showDialog<void>(
         context: context,
         builder: (dialogContext) => AlertDialog(
-          title: Text(title),
-          content: Text(body),
+          title: Text(title ?? localizations.errorGeneric),
+          content: Text(
+            '${purchased > 0 ? '${localizations.ticketsPurchasedCount(purchased)}\n\n' : ''}'
+            '${body ?? purchaseError.userMessage(localizations)}',
+          ),
           actions: [
             FilledButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
@@ -423,7 +775,7 @@ class _SessionSummaryCard extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return SectionCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -477,9 +829,12 @@ class _SessionSummaryCard extends StatelessWidget {
           if (session.state == 'OPEN')
             FilledButton.icon(
               key: const ValueKey('buy-ticket-button'),
-              onPressed: !purchasesEnabled || state.isPurchasingTicket
+              onPressed:
+                  !purchasesEnabled ||
+                      state.isPurchasingTicket ||
+                      state.purchaseOutcomeUncertain
                   ? null
-                  : () => _confirmPurchase(context),
+                  : () => _confirmPurchase(context, ref),
               icon: state.isPurchasingTicket
                   ? const SizedBox(
                       width: 16,
@@ -494,6 +849,49 @@ class _SessionSummaryCard extends StatelessWidget {
               localizations.purchaseTicketBody,
               style: Theme.of(context).textTheme.bodyMedium,
             ),
+          if (state.purchaseOutcomeUncertain) ...[
+            const SizedBox(height: 8),
+            Text(
+              state.apiError?.userMessage(localizations) ??
+                  localizations.errorTransactionUnknown,
+            ),
+            OutlinedButton(
+              key: const ValueKey('resolve-purchase-button'),
+              onPressed:
+                  state.isPurchasingTicket || state.purchaseRecoveryBlocked
+                  ? null
+                  : () async {
+                      try {
+                        await ref.read(walletRepositoryProvider).getBalance();
+                      } catch (_) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                localizations.errorTransactionUnknown,
+                              ),
+                            ),
+                          );
+                        }
+                        return;
+                      }
+                      final error = await controller.resolvePendingPurchase();
+                      if (error == null && context.mounted) {
+                        try {
+                          await ref.read(walletRepositoryProvider).getBalance();
+                        } catch (_) {}
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(localizations.purchaseSuccess),
+                            ),
+                          );
+                        }
+                      }
+                    },
+              child: Text(localizations.resolvePurchase),
+            ),
+          ],
           if (state.infoMessage == 'TICKET_PURCHASED') ...[
             const SizedBox(height: 8),
             Text(
@@ -518,7 +916,7 @@ class _SessionSummaryCard extends StatelessWidget {
   }
 }
 
-class _TicketsCard extends StatelessWidget {
+class _TicketsCard extends ConsumerWidget {
   const _TicketsCard({
     required this.state,
     required this.controller,
@@ -532,9 +930,12 @@ class _TicketsCard extends StatelessWidget {
   final AppLocalizations localizations;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final preferences = ref.watch(playerPreferencesProvider);
     final ticketPage = state.ticketPage;
     final tickets = ticketPage?.content ?? const [];
+    final allTickets = state.allTickets.isNotEmpty ? state.allTickets : tickets;
+    final boardTickets = _visibleTickets(allTickets, preferences, state);
     final selectedTicket = state.selectedTicket;
 
     return SectionCard(
@@ -548,19 +949,28 @@ class _TicketsCard extends StatelessWidget {
               message: localizations.contractGapBody,
             )
           else ...[
-            if (tickets.length > 1) ...[
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  spacing: 8,
-                  children: [
-                    for (var index = 0; index < tickets.length; index += 1)
-                      ChoiceChip(
-                        selected: index == state.selectedTicketIndex,
-                        label: Text(tickets[index].publicTicketCode),
-                        onSelected: (_) => controller.selectTicketIndex(index),
-                      ),
-                  ],
+            if (allTickets.length > 1) ...[
+              SizedBox(
+                height: 44,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: allTickets.length,
+                  separatorBuilder: (_, _) => const SizedBox(width: 8),
+                  itemBuilder: (context, index) {
+                    final item = allTickets[index];
+                    return ChoiceChip(
+                      selected: preferences.selectedTicketIds.isEmpty
+                          ? boardTickets.any((ticket) => ticket.id == item.id)
+                          : preferences.selectedTicketIds.contains(item.id),
+                      label: Text(item.publicTicketCode),
+                      onSelected: (_) {
+                        ref
+                            .read(playerPreferencesProvider)
+                            .toggleSelectedTicket(item.id);
+                        controller.selectTicketById(item.id);
+                      },
+                    );
+                  },
                 ),
               ),
               const SizedBox(height: 12),
@@ -568,21 +978,39 @@ class _TicketsCard extends StatelessWidget {
             if (selectedTicket != null) ...[
               if (fillAvailableSpace)
                 Expanded(
-                  child: _TicketGridCard(
-                    ticket: selectedTicket,
-                    calledNumbers: state.calledNumbers,
-                    localizations: localizations,
-                    fillAvailableSpace: true,
+                  child: GridView.builder(
+                    key: const ValueKey('multi-ticket-board'),
+                    itemCount: boardTickets.length,
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: boardTickets.length == 1 ? 1 : 2,
+                      crossAxisSpacing: 8,
+                      mainAxisSpacing: 8,
+                      childAspectRatio: 5 / 7,
+                    ),
+                    itemBuilder: (context, index) => _TicketGridCard(
+                      ticket: boardTickets[index],
+                      calledNumbers: state.calledNumbers,
+                      state: state,
+                      localizations: localizations,
+                    ),
                   ),
                 )
               else
                 _TicketGridCard(
                   ticket: selectedTicket,
                   calledNumbers: state.calledNumbers,
+                  state: state,
                   localizations: localizations,
                 ),
-              const SizedBox(height: 12),
             ],
+            if (allTickets.length > 1)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  '${boardTickets.length} / ${preferences.cardsOnBoard} cards on board',
+                  style: Theme.of(context).textTheme.labelMedium,
+                ),
+              ),
             if (state.canPageBackTickets || state.canPageForwardTickets)
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -612,21 +1040,120 @@ class _TicketsCard extends StatelessWidget {
   }
 }
 
-class _TicketGridCard extends StatelessWidget {
+int _countMissedCalls(
+  List<TicketResponse> tickets,
+  List<int> calledNumbers,
+  PlayerPreferences preferences,
+) {
+  var count = 0;
+  for (final ticket in tickets) {
+    final manual = preferences.manualMarksForTicket(ticket.id);
+    for (final number in ticket.grid.expand((row) => row)) {
+      if (number != 0 &&
+          calledNumbers.contains(number) &&
+          !manual.contains(number)) {
+        count++;
+      }
+    }
+  }
+  return count;
+}
+
+List<TicketResponse> _visibleTickets(
+  List<TicketResponse> tickets,
+  PlayerPreferences preferences,
+  LiveGameState state,
+) {
+  final selected = tickets
+      .where((ticket) => preferences.selectedTicketIds.contains(ticket.id))
+      .toList();
+  final candidates = selected.isEmpty
+      ? (List<TicketResponse>.of(tickets)..sort((a, b) => a.id.compareTo(b.id)))
+      : selected;
+  final ranked = TicketRanking.rank(
+    tickets: candidates,
+    called: state.calledNumbers.toSet(),
+    configuredPatterns: state.session?.configuredPatterns ?? const [],
+    configuredPrizePatterns: _activePrizePatterns(state),
+    priorities: preferences.sortPriorities,
+    claimStatuses: _ticketClaimStatuses(state),
+    claimWindowOpen: state.isClaimWindowOpen,
+  );
+  final ordered = ranked.isEmpty
+      ? List<TicketResponse>.of(candidates)
+      : ranked.map((rank) => rank.ticket).toList();
+  if (ranked.isEmpty) ordered.sort((a, b) => a.id.compareTo(b.id));
+  return ordered.take(preferences.cardsOnBoard).toList();
+}
+
+List<String> _activePrizePatterns(LiveGameState state) =>
+    (state.session?.configuredPrizes ?? const [])
+        .where(
+          (prize) =>
+              prize.prizeType.isNotEmpty &&
+              prize.amount.isFinite &&
+              prize.amount > 0 &&
+              prize.settlementPath.isNotEmpty,
+        )
+        .map((prize) => prize.prizeType.toUpperCase())
+        .toSet()
+        .toList();
+
+Map<String, String> _ticketClaimStatuses(LiveGameState state) {
+  final statuses = <String, String>{};
+  final claims =
+      (state.claimPage?.content ?? const <WinClaimRecord>[])
+          .where((claim) => claim.sessionId == state.session?.id)
+          .toList()
+        ..sort((a, b) {
+          final sequenceOrder = a.drawSequenceSnapshot.compareTo(
+            b.drawSequenceSnapshot,
+          );
+          return sequenceOrder != 0
+              ? sequenceOrder
+              : a.updatedAt.compareTo(b.updatedAt);
+        });
+  for (final claim in claims) {
+    statuses['${claim.ticketId}:${claim.claimedPattern}'] = claim.status;
+  }
+  return statuses;
+}
+
+String _patternLabel(AppLocalizations l, String pattern) => switch (pattern) {
+  'LINE' => l.patternLine,
+  'TWO_LINES' => l.patternTwoLines,
+  'FULL_HOUSE' => l.patternFullHouse,
+  'FOUR_CORNERS' => l.patternFourCorners,
+  'POSTAGE_STAMP' => l.patternPostageStamp,
+  'X_SHAPE' => l.patternXShape,
+  'T_SHAPE' => l.patternTShape,
+  'L_SHAPE' => l.patternLShape,
+  'OUTER_FRAME' => l.patternOuterFrame,
+  _ => pattern,
+};
+
+class _TicketGridCard extends ConsumerWidget {
   const _TicketGridCard({
     required this.ticket,
     required this.calledNumbers,
+    required this.state,
     required this.localizations,
-    this.fillAvailableSpace = false,
   });
 
-  final bool fillAvailableSpace;
   final TicketResponse ticket;
   final List<int> calledNumbers;
+  final LiveGameState state;
   final AppLocalizations localizations;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final preferences = ref.watch(playerPreferencesProvider);
+    final rank = _ticketRank(ticket, state, preferences);
+    final calledSet = calledNumbers.toSet();
+    final calledOnTicket = ticket.grid
+        .expand((row) => row)
+        .where((number) => number != 0 && calledSet.contains(number))
+        .length;
     final latestCalled = calledNumbers.isEmpty ? null : calledNumbers.last;
     final colors = Theme.of(context).colorScheme;
     final grid = LayoutBuilder(
@@ -669,7 +1196,13 @@ class _TicketGridCard extends StatelessWidget {
             final ticketRow = row - 1;
             final value = ticket.grid[ticketRow][column];
             final isFree = value == 0;
-            final isCalled = isFree || calledNumbers.contains(value);
+            final isCalled =
+                isFree ||
+                (preferences.autoMark
+                    ? calledNumbers.contains(value)
+                    : preferences
+                          .manualMarksForTicket(ticket.id)
+                          .contains(value));
             final isLatest = value == latestCalled;
             return _TicketCell(
               key: ValueKey('ticket-cell-$ticketRow-$column'),
@@ -680,33 +1213,99 @@ class _TicketGridCard extends StatelessWidget {
               isLatest: isLatest,
               border: cellBorder,
               localizations: localizations,
+              markColor: PlayerPreferences
+                  .selectionColors[preferences.selectionColorIndex],
+              onTap:
+                  !preferences.autoMark &&
+                      !isFree &&
+                      calledNumbers.contains(value)
+                  ? () => ref
+                        .read(playerPreferencesProvider)
+                        .toggleManualMark(ticket.id, value)
+                  : null,
             );
           },
         ),
       ),
     );
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (fillAvailableSpace)
-          Expanded(
-            child: SizedBox(
-              key: const ValueKey('live-ticket-grid'),
-              child: grid,
+    return AspectRatio(
+      key: ValueKey('live-ticket-grid-${ticket.id}'),
+      aspectRatio: 5 / 7,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    ticket.publicTicketCode,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.labelMedium,
+                  ),
+                ),
+                if (rank != null)
+                  Expanded(
+                    child: Text(
+                      _ticketRankLabel(localizations, rank),
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelSmall,
+                    ),
+                  ),
+                Text('$calledOnTicket/24'),
+                if (ticket.eligibleClaimPatterns.isNotEmpty) ...[
+                  const SizedBox(width: 4),
+                  Icon(Icons.emoji_events, size: 16, color: colors.primary),
+                ],
+              ],
             ),
-          )
-        else
-          AspectRatio(
-            key: const ValueKey('live-ticket-grid'),
-            aspectRatio: 5 / 6,
-            child: grid,
           ),
-      ],
+          Expanded(child: grid),
+        ],
+      ),
     );
   }
 }
 
-class _ClaimCard extends StatelessWidget {
+String _ticketRankLabel(AppLocalizations l, TicketRank rank) =>
+    switch (rank.claimState) {
+      TicketClaimState.claimable => l.winningTicketReady(
+        _patternLabel(l, rank.pattern),
+      ),
+      TicketClaimState.submitted => l.claimSubmitted,
+      TicketClaimState.rejected => l.claimPatternRejected,
+      TicketClaimState.awarded => l.errorTicketPrizeAwarded,
+      TicketClaimState.closed => l.prizeClosed,
+      TicketClaimState.approaching =>
+        rank.remainingCells == 0
+            ? l.patternWaitingForServer
+            : l.patternToGo(
+                _patternLabel(l, rank.pattern),
+                rank.remainingCells,
+              ),
+    };
+
+TicketRank? _ticketRank(
+  TicketResponse ticket,
+  LiveGameState state,
+  PlayerPreferences preferences,
+) {
+  final result = TicketRanking.rank(
+    tickets: [ticket],
+    called: state.calledNumbers.toSet(),
+    configuredPatterns: state.session?.configuredPatterns ?? const [],
+    configuredPrizePatterns: _activePrizePatterns(state),
+    priorities: preferences.sortPriorities,
+    claimStatuses: _ticketClaimStatuses(state),
+    claimWindowOpen: state.isClaimWindowOpen,
+  );
+  return result.isEmpty ? null : result.first;
+}
+
+class _ClaimCard extends ConsumerWidget {
   const _ClaimCard({
     required this.state,
     required this.controller,
@@ -720,7 +1319,7 @@ class _ClaimCard extends StatelessWidget {
   final AppLocalizations localizations;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final session = state.session;
     final ticket = state.selectedTicket;
     final patterns = session?.configuredPatterns ?? const [];
@@ -763,7 +1362,7 @@ class _ClaimCard extends StatelessWidget {
               localizations.claimSettlementLabel,
               style: Theme.of(context).textTheme.titleMedium,
             ),
-          if (!compact && session?.rulesVersion == 'EARLIEST_SPLIT_V1') ...[
+          if (!compact) ...[
             const SizedBox(height: 12),
             Text(localizations.earliestSplitRule),
             if (session?.claimWindowSeconds != null)
@@ -1033,6 +1632,8 @@ class _TicketCell extends StatelessWidget {
     required this.isLatest,
     required this.border,
     required this.localizations,
+    required this.markColor,
+    this.onTap,
   });
 
   final int value;
@@ -1042,17 +1643,21 @@ class _TicketCell extends StatelessWidget {
   final bool isLatest;
   final Border border;
   final AppLocalizations localizations;
+  final Color markColor;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final background = isLatest
+    final background = isCalled
+        ? markColor.withValues(alpha: isLatest ? 0.95 : 0.72)
+        : isLatest
         ? colors.primaryContainer
         : isCalled
         ? colors.secondaryContainer
         : colors.surface;
     final numberColor = isLatest
-        ? colors.onPrimaryContainer
+        ? Colors.white
         : isCalled
         ? colors.onSecondaryContainer
         : colors.onSurface;
@@ -1066,51 +1671,55 @@ class _TicketCell extends StatelessWidget {
               ? Duration.zero
               : const Duration(milliseconds: 180),
           decoration: BoxDecoration(color: background, border: border),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              if (isFree)
-                Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(2),
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        localizations.freeCenterLabel.toUpperCase(),
-                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: colors.onSecondaryContainer,
-                          fontWeight: FontWeight.w800,
+          child: InkWell(
+            onTap: onTap,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (isFree)
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(2),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          localizations.freeCenterLabel.toUpperCase(),
+                          style: Theme.of(context).textTheme.labelLarge
+                              ?.copyWith(
+                                color: numberColor,
+                                fontWeight: FontWeight.w800,
+                              ),
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(2),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          value.toString(),
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(
+                                color: numberColor,
+                                fontWeight: isCalled
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
+                              ),
                         ),
                       ),
                     ),
                   ),
-                )
-              else
-                Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(2),
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        value.toString(),
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(
-                              color: numberColor,
-                              fontWeight: isCalled
-                                  ? FontWeight.w700
-                                  : FontWeight.w500,
-                            ),
-                      ),
-                    ),
+                if (isCalled && !isFree)
+                  Positioned(
+                    top: 1,
+                    right: 1,
+                    child: Icon(Icons.check, size: 13, color: colors.primary),
                   ),
-                ),
-              if (isCalled && !isFree)
-                Positioned(
-                  top: 1,
-                  right: 1,
-                  child: Icon(Icons.check, size: 13, color: colors.primary),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

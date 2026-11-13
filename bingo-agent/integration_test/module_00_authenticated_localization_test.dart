@@ -48,7 +48,7 @@ void main() {
       await tester.pumpWidget(
         const BingoAgentApp(
           config: AppConfig(
-            apiBaseUrl: 'http://10.0.2.2:8082',
+            apiBaseUrl: 'http://10.0.2.2:8080',
             apiBaseUrlLabel: 'API_BASE_URL',
           ),
         ),
@@ -81,7 +81,7 @@ void main() {
       await tester.pumpWidget(
         const BingoAgentApp(
           config: AppConfig(
-            apiBaseUrl: 'http://10.0.2.2:8082',
+            apiBaseUrl: 'http://10.0.2.2:8080',
             apiBaseUrlLabel: 'API_BASE_URL',
           ),
         ),

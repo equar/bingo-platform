@@ -38,9 +38,6 @@ public class GameWinnerService {
     }
 
     public BigDecimal share(WinClaim claim) {
-        if (!"EARLIEST_SPLIT_V1".equals(claim.getSession().getRulesVersion())) {
-            throw new ConflictException("LEGACY_SESSION_REQUIRES_REVIEW", "Legacy awards require review under their original terms");
-        }
         Winners result = winners(claim.getSession().getId(), claim.getClaimedPattern());
         int index = result.ticketIds().indexOf(claim.getTicket().getId());
         if (index < 0 || claim.getDrawSequenceSnapshot() < result.sequence()) {

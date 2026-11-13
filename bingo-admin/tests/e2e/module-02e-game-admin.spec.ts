@@ -105,7 +105,7 @@ test('S01-S04, S08, S11: admin creates and refreshes a DRAFT session with rule s
       timezone: 'Africa/Addis_Ababa', scheduleRule: 'DAILY', sessionCapacity: 10, maxTicketsPerPlayer: 2,
       ticketSalesCloseOnSessionStart: true, allowMultipleWinnersPerPrize: false, active: true,
       configuredPatterns: ['LINE'],
-      configuredPrizes: [{ prizeType: 'LINE', amount: '5.00', settlementPath: 'PLAYER_WALLET', maxWinners: 1 }],
+      configuredPrizes: [{ prizeType: 'LINE', amount: '5.00', settlementPath: 'PLAYER_WALLET' }],
     },
   });
   expect(roomResponse.status()).toBe(200);
@@ -148,7 +148,7 @@ test('G09: backend rejects session creation for a disabled room without creating
       scheduleRule: 'DAILY', sessionCapacity: 1, maxTicketsPerPlayer: 1,
       ticketSalesCloseOnSessionStart: true, allowMultipleWinnersPerPrize: false, active: false,
       configuredPatterns: ['LINE'],
-      configuredPrizes: [{ prizeType: 'LINE', amount: '1.00', settlementPath: 'PLAYER_WALLET', maxWinners: 1 }],
+      configuredPrizes: [{ prizeType: 'LINE', amount: '1.00', settlementPath: 'PLAYER_WALLET' }],
     },
   });
   expect(createdRoom.status()).toBe(200);
@@ -178,7 +178,7 @@ test('S09-S11: admin cancels a synthetic ticket-free DRAFT session and the state
       scheduleRule: 'DAILY', sessionCapacity: 1, maxTicketsPerPlayer: 1,
       ticketSalesCloseOnSessionStart: true, allowMultipleWinnersPerPrize: false, active: true,
       configuredPatterns: ['LINE'],
-      configuredPrizes: [{ prizeType: 'LINE', amount: '1.00', settlementPath: 'PLAYER_WALLET', maxWinners: 1 }],
+      configuredPrizes: [{ prizeType: 'LINE', amount: '1.00', settlementPath: 'PLAYER_WALLET' }],
     },
   });
   expect(roomResponse.status()).toBe(200);

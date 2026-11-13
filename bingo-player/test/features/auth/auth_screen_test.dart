@@ -231,8 +231,13 @@ void main() {
         find.byKey(const ValueKey('auth-display-name-field')),
         'Bingo player',
       );
+      await t.enterText(
+        find.byKey(const ValueKey('auth-referral-code-field')),
+        'B123456789ABC',
+      );
       await tapKey(t, 'auth-submit-button');
       expect(repo.registrations.single.displayName, 'Bingo player');
+      expect(repo.registrations.single.referralCode, 'B123456789ABC');
       expect(repo.logins, isEmpty);
     },
   );

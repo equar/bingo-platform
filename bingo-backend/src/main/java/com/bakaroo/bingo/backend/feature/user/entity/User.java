@@ -18,6 +18,7 @@ import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import java.time.Instant;
 import java.util.LinkedHashSet;
+import java.util.Locale;
 import java.util.Set;
 
 @Entity
@@ -32,6 +33,13 @@ public class User {
 
     @Column(name = "normalized_phone", length = 32)
     private String normalizedPhone;
+
+    @Column(name = "referral_code", nullable = false, length = 24, unique = true)
+    private String referralCode;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "referred_by_user_id")
+    private User referredBy;
 
     @Column(name = "email", length = 255)
     private String email;
@@ -133,6 +141,9 @@ public class User {
     @PrePersist
     void prePersist() {
         Instant now = Instant.now();
+        if (referralCode == null) {
+            referralCode = newReferralCode();
+        }
         if (createdAt == null) {
             createdAt = now;
         }
@@ -142,6 +153,11 @@ public class User {
         updatedAt = now;
     }
 
+    public static String newReferralCode() {
+        return "B" + java.util.UUID.randomUUID().toString().replace("-", "")
+                .substring(0, 20).toUpperCase(Locale.ROOT);
+    }
+
     @PreUpdate
     void preUpdate() {
         updatedAt = Instant.now();
@@ -149,6 +165,13 @@ public class User {
 
     public Long getId() {
         return id;
+    }
+
+    public String getReferralCode() { return referralCode; }
+    public User getReferredBy() { return referredBy; }
+    public void setReferralDetails(String referralCode, User referredBy) {
+        this.referralCode = referralCode;
+        this.referredBy = referredBy;
     }
 
     public String getNormalizedPhone() {

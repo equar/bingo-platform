@@ -48,6 +48,8 @@
 			"type": "shell",
 			"command": "mvn",
 			"args": [
+				"--settings",
+				"${env:USERPROFILE}\\.m2\\settings.xml",
 				"spring-boot:run",
 				"--define=spring-boot.run.profiles=dev"
 			],
