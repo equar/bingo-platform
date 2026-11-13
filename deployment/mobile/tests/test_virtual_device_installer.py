@@ -20,14 +20,14 @@ class InstallerTest(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
         self.root = Path(self.temporary.name)
-        self.args = argparse.Namespace(platform='android', app='bingo-app', list=False,
+        self.args = argparse.Namespace(platform='android', app='bingo-player', list=False,
                                       no_launch=False, api_url='https://example.invalid')
         self.commands = []
         self.install_fails = False
         tool = self.root / 'sdk/build-tools/36.0.0/aapt'
         tool.parent.mkdir(parents=True)
         tool.touch()
-        app = self.root / 'bingo-app/build/ios/iphonesimulator/Runner.app'
+        app = self.root / 'bingo-player/build/ios/iphonesimulator/Runner.app'
         app.mkdir(parents=True)
         with (app / 'Info.plist').open('wb') as file:
             plistlib.dump({'CFBundleIdentifier': 'com.example.actualSimulatorApp'}, file)

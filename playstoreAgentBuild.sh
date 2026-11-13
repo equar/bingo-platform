@@ -24,7 +24,7 @@ if [[ -n "$SOURCE_BUILD_NUMBER" ]] && (( BUILD_NUMBER <= SOURCE_BUILD_NUMBER ));
   exit 1
 fi
 
-bash "$SCRIPT_DIR/bingo-app/tooling/validate_release_api_base_url.sh" "$API_BASE_URL" >/dev/null
+bash "$SCRIPT_DIR/bingo-player/tooling/validate_release_api_base_url.sh" "$API_BASE_URL" >/dev/null
 
 cd "$APP_DIR"
 flutter pub get

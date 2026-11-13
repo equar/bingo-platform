@@ -609,9 +609,9 @@ If MySQL reports an error, the Flyway row is absent/unsuccessful, or application
 
 ## Player restart test prepared, not run
 
-[`module_00_authenticated_localization_restart_test.dart`](../../bingo-app/integration_test/module_00_authenticated_localization_restart_test.dart) checks a clean existing session state before it changes anything, selects Amharic, signs in with the already-approved Player account, verifies the persisted locale and authenticated session, and leaves both intact only when `PRESERVE_PLAYER_SESSION=true`. It does not create a business record or clear app data.
+[`module_00_authenticated_localization_restart_test.dart`](../../bingo-player/integration_test/module_00_authenticated_localization_restart_test.dart) checks a clean existing session state before it changes anything, selects Amharic, signs in with the already-approved Player account, verifies the persisted locale and authenticated session, and leaves both intact only when `PRESERVE_PLAYER_SESSION=true`. It does not create a business record or clear app data.
 
-[`module_01_session_restore_test.dart`](../../bingo-app/integration_test/module_01_session_restore_test.dart) now verifies Amharic preference, translated UI, valid persisted token/expiry, and active Player role after the test runner has force-stopped the app. It logs out only after those assertions pass. The force-stop/relaunch step must not use `adb uninstall`, `pm clear`, or any app-data wipe.
+[`module_01_session_restore_test.dart`](../../bingo-player/integration_test/module_01_session_restore_test.dart) now verifies Amharic preference, translated UI, valid persisted token/expiry, and active Player role after the test runner has force-stopped the app. It logs out only after those assertions pass. The force-stop/relaunch step must not use `adb uninstall`, `pm clear`, or any app-data wipe.
 
 Do not run these commands until the source DB is V23, the existing guarded launcher verifies its identity and disabled financial controls, and the backend is healthy:
 
@@ -619,7 +619,7 @@ Do not run these commands until the source DB is V23, the existing guarded launc
 $repoRoot = (Resolve-Path '.').Path
 $flutter = 'C:\src\flutter\bin\flutter.bat'
 $adb = Join-Path $env:LOCALAPPDATA 'Android\Sdk\platform-tools\adb.exe'
-$appRoot = Join-Path $repoRoot 'bingo-app'
+$appRoot = Join-Path $repoRoot 'bingo-player'
 $secretFile = Join-Path $appRoot 'e2e-secrets.json'
 $runId = (Get-Date).ToUniversalTime().ToString('yyyyMMddTHHmmssZ') + '_' + [guid]::NewGuid().ToString('N').Substring(0, 8)
 $evidenceDir = Join-Path $repoRoot 'docs\qa\evidence\user-facing-localization'

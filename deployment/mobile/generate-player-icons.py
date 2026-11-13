@@ -5,7 +5,7 @@ import shutil
 import subprocess
 
 root = Path(__file__).resolve().parents[2]
-app = root / 'bingo-app'
+app = root / 'bingo-player'
 source = app / 'assets/branding/app-icon.png'
 if not source.exists():
     raise SystemExit('Missing player icon source')

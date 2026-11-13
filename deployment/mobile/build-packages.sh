@@ -3,8 +3,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 PLATFORM="${1:-android}"
 APP="${2:-all}"
-case "$PLATFORM" in android|ios) ;; *) echo 'Usage: build-packages.sh android|ios [all|bingo-app|bingo-agent]' >&2; exit 1;; esac
-case "$APP" in all) apps=(bingo-app bingo-agent);; bingo-app|bingo-agent) apps=("$APP");; *) echo 'Unknown app' >&2; exit 1;; esac
+case "$PLATFORM" in android|ios) ;; *) echo 'Usage: build-packages.sh android|ios [all|bingo-player|bingo-agent]' >&2; exit 1;; esac
+case "$APP" in all) apps=(bingo-player bingo-agent);; bingo-player|bingo-agent) apps=("$APP");; *) echo 'Unknown app' >&2; exit 1;; esac
 output="$ROOT/deployment/mobile/artifacts"
 mkdir -p "$output"
 for app in "${apps[@]}"; do
@@ -16,7 +16,7 @@ for app in "${apps[@]}"; do
   if [[ "$PLATFORM" == android ]]; then
     python3 "$ROOT/deployment/mobile/prepare-android-signing.py" "$app"
     purchase_defines=()
-    if [[ "$app" == bingo-app ]]; then
+    if [[ "$app" == bingo-player ]]; then
       purchase_defines+=(--dart-define=BINGO_PLAYER_PURCHASES_ENABLED=true)
     fi
     flutter build apk --release --build-number="$build_number" --target-platform=android-arm,android-arm64,android-x64 --target=lib/main.dart "${purchase_defines[@]}" --dart-define-from-file="$ROOT/deployment/mobile/production.json"

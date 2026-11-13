@@ -105,7 +105,7 @@ if ([string]::IsNullOrWhiteSpace($mysqlPassword)) {
 $fixtureSettings = @{}
 $git = Get-Command git.exe -ErrorAction Stop
 if ($ProvisionAndroidTestFixtures) {
-    $appSecretsPath = Join-Path $repoRoot 'bingo-app\e2e-secrets.json'
+    $appSecretsPath = Join-Path $repoRoot 'bingo-player\e2e-secrets.json'
     $agentSecretsPath = Join-Path $repoRoot 'bingo-agent\e2e-secrets.json'
     $adminSecretsPath = Join-Path $repoRoot 'bingo-admin\.env.qa'
     foreach ($path in @($appSecretsPath, $agentSecretsPath, $adminSecretsPath)) {

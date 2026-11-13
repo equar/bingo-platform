@@ -70,7 +70,7 @@ def avd_name(adb, serial):
 
 
 def android_device(args):
-    adb, emulator, sdk = android_tools(args.app if args.app != 'all' else 'bingo-app')
+    adb, emulator, sdk = android_tools(args.app if args.app != 'all' else 'bingo-player')
     avds = run([emulator, '-list-avds'], capture=True).stdout.splitlines()
     booted = emulators(adb)
     if args.list:
@@ -195,7 +195,7 @@ def install(args):
     selected = android_device(args) if args.platform == 'android' else ios_device(args)
     if args.list:
         return
-    apps = ['bingo-app', 'bingo-agent'] if args.app == 'all' else [args.app]
+    apps = ['bingo-player', 'bingo-agent'] if args.app == 'all' else [args.app]
     for app in apps:
         directory = ROOT / app
         tool = flutter(app)
@@ -244,7 +244,7 @@ def install(args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('platform', choices=['android', 'ios'])
-    parser.add_argument('--app', choices=['bingo-app', 'bingo-agent', 'all'], default='bingo-app')
+    parser.add_argument('--app', choices=['bingo-player', 'bingo-agent', 'all'], default='bingo-player')
     parser.add_argument('--device', help='Android AVD name/emulator serial, or iOS simulator name/UDID')
     parser.add_argument('--list', action='store_true', help='List virtual devices without building or booting')
     parser.add_argument('--no-launch', action='store_true', help='Install without launching the app')

@@ -92,5 +92,5 @@ database.
 - [Guarded E2E procedures and database isolation](docs/qa/platform-e2e-runbook.md)
 - [Deployment and release](deployment/README.md)
 - Component setup: [backend](bingo-backend/README.md), [Admin](bingo-admin/README.md),
-  [Player](bingo-app/README.md), [Agent](bingo-agent/README.md), and
+  [Player](bingo-player/README.md), [Agent](bingo-agent/README.md), and
   [website](bingo-website/README.md)

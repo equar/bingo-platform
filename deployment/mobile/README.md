@@ -13,7 +13,7 @@ From the repository root:
 bash deployment/mobile/build-packages.sh android
 ```
 
-Outputs are `artifacts/bingo-app-android.apk` and
+Outputs are `artifacts/bingo-player-android.apk` and
 `artifacts/bingo-agent-android.apk`, with SHA-256 checksum files. These are
 universal release APKs suitable for file sharing, not Play Store AABs.
 Recipients permit installation from the app they use to open the APK.
@@ -38,7 +38,7 @@ an alternative when enrolling recipients individually is impractical.
 Both iOS projects are included. Configure each Runner target's bundle ID,
 team, certificate, and Ad Hoc provisioning profile in Xcode. Use the checked-in `*-ExportOptions.plist.example` files as a starting point,
 with your Apple team ID and profile names. Export an Ad Hoc
-ExportOptions.plist for each app into `signing/bingo-app-ExportOptions.plist`
+ExportOptions.plist for each app into `signing/bingo-player-ExportOptions.plist`
 and `signing/bingo-agent-ExportOptions.plist`. Then run:
 
 ```bash
@@ -118,7 +118,7 @@ as an update. ADB can identify the exact cause without guessing:
 ```bash
 adb shell getprop ro.build.version.sdk
 adb shell getprop ro.product.cpu.abilist
-adb install -r deployment/mobile/artifacts/bingo-app-android.apk
+adb install -r deployment/mobile/artifacts/bingo-player-android.apk
 ```
 
 Common ADB errors: `INSTALL_FAILED_OLDER_SDK` means unsupported Android version;
@@ -174,15 +174,15 @@ wallet, prize, and bingo policies before public release.
 
 ### Store workflow map
 
-- `bingo-app-mobile-ci.yml` validates Flutter, runs tests, and builds a release
+- `bingo-player-mobile-ci.yml` validates Flutter, runs tests, and builds a release
   bundle without publishing.
-- `bingo-app-android-internal-testing.yml` builds/signs an Android App Bundle
+- `bingo-player-android-internal-testing.yml` builds/signs an Android App Bundle
   and uploads it to the Play internal-testing track.
-- `bingo-app-android-production.yml` promotes the previously tested version
+- `bingo-player-android-production.yml` promotes the previously tested version
   code without rebuilding.
-- `bingo-app-ios-testflight.yml` builds/signs an IPA and uploads it to
+- `bingo-player-ios-testflight.yml` builds/signs an IPA and uploads it to
   TestFlight.
-- `bingo-app-ios-app-store.yml` submits a processed build for App Review after
+- `bingo-player-ios-app-store.yml` submits a processed build for App Review after
   manual approval.
 
 Repository variables:

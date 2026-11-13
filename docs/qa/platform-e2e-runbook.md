@@ -25,7 +25,7 @@ startup because checked-out source requires Flyway V23 while local
 Keep test credentials only in Git-ignored local files:
 
 - Backend connection: `bingo-backend/.env.test`.
-- Player runner: `bingo-app/e2e-secrets.json`, with
+- Player runner: `bingo-player/e2e-secrets.json`, with
   `BINGO_QA_PLAYER_001_PHONE` and `BINGO_QA_PLAYER_001_PIN`.
 - Agent runner: `bingo-agent/e2e-secrets.json`, with
   `BINGO_QA_APPROVED_AGENT_PHONE`, `BINGO_QA_APPROVED_AGENT_PIN`,
@@ -44,7 +44,7 @@ foreach ($line in Get-Content .\bingo-admin\.env.qa) {
 }
 ```
 
-The tracked `bingo-app/e2e-secrets.example.json` uses legacy
+The tracked `bingo-player/e2e-secrets.example.json` uses legacy
 `BINGO_E2E_PRIMARY_*` names and does not satisfy the guarded Player runner's
 current `BINGO_QA_PLAYER_001_*` configuration; do not copy it unchanged.
 `bingo-admin/.env.example` contains placeholders only. Never put credential
@@ -175,7 +175,7 @@ Safe database-free checks may be run independently:
 ```powershell
 Push-Location bingo-admin; npm test; npm run lint; npm run build; Pop-Location
 Push-Location bingo-agent; flutter test; flutter analyze; Pop-Location
-Push-Location bingo-app; flutter test; flutter analyze; Pop-Location
+Push-Location bingo-player; flutter test; flutter analyze; Pop-Location
 ```
 
 Report mocked/unit/widget/analyzer results as supplemental. A real E2E **PASS**
