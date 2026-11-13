@@ -107,6 +107,21 @@ describe("SessionCreatePage", () => {
     expect(await screen.findByText("Created session details")).toBeInTheDocument();
   });
 
+  it("translates invalid Ethiopian calendar date guidance to Amharic", async () => {
+    await i18n.changeLanguage("am");
+    const user = userEvent.setup();
+    render(<SessionCreatePage />, { wrapper: createWrapper });
+
+    await user.click(await screen.findByRole("combobox", { name: "ክፍል" }));
+    await user.click(await screen.findByRole("option", { name: "Evening Room" }));
+    await user.type(
+      screen.getByRole("textbox", { name: "የኢትዮጵያ ዘመን መቁጠሪያ ቀን" }),
+      "2018-13-30",
+    );
+
+    expect(await screen.findByText("ትክክለኛ የኢትዮጵያ ዘመን መቁጠሪያ ቀን ያስገቡ።")).toBeInTheDocument();
+  });
+
   it("offers room creation when no rooms are available", async () => {
     listRoomsMock.mockResolvedValue([]);
     render(<SessionCreatePage />, { wrapper: createWrapper });
