@@ -11,9 +11,6 @@ class WinnerCelebrationDialog extends StatelessWidget {
   });
   final List<TicketResponse> tickets;
   final int totalTickets;
-  static const navy = Color(0xFF142E46);
-  static const gold = Color(0xFFFFD174);
-  static const rowColor = Color(0xFF27465E);
 
   static String money(int minor, String currency) =>
       '${(minor / 100).toStringAsFixed(minor % 100 == 0 ? 0 : 2)} $currency';
@@ -21,6 +18,7 @@ class WinnerCelebrationDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
+    final colors = Theme.of(context).colorScheme;
     final totals = <String, int>{};
     for (final ticket in tickets) {
       totals.update(
@@ -32,17 +30,13 @@ class WinnerCelebrationDialog extends StatelessWidget {
     final total = totals.entries.map((e) => money(e.value, e.key)).join('\n');
     final action = FilledButton(
       key: const ValueKey('winner-celebration-ok'),
-      style: FilledButton.styleFrom(
-        backgroundColor: gold,
-        foregroundColor: navy,
-        minimumSize: const Size.fromHeight(48),
-      ),
+      style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
       onPressed: () => Navigator.pop(context),
       child: Text(l.claimDialogDismiss),
     );
     return Dialog(
       key: const ValueKey('winner-celebration-dialog'),
-      backgroundColor: navy,
+      backgroundColor: colors.surfaceContainerHigh,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       child: ConstrainedBox(
         constraints: BoxConstraints(
@@ -62,29 +56,37 @@ class WinnerCelebrationDialog extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.emoji_events, color: gold, size: 30),
+                        Icon(
+                          Icons.emoji_events,
+                          color: colors.primary,
+                          size: 30,
+                        ),
                         const SizedBox(width: 10),
                         Flexible(
                           child: Text(
                             l.celebrationBingo,
                             textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              color: gold,
+                            style: TextStyle(
+                              color: colors.primary,
                               fontSize: 30,
                               fontWeight: FontWeight.w800,
                             ),
                           ),
                         ),
                         const SizedBox(width: 10),
-                        const Icon(Icons.emoji_events, color: gold, size: 30),
+                        Icon(
+                          Icons.emoji_events,
+                          color: colors.primary,
+                          size: 30,
+                        ),
                       ],
                     ),
                     const SizedBox(height: 20),
                     Text(
                       l.celebrationWinningTickets(tickets.length),
                       textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: colors.onSurface,
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
                       ),
@@ -93,8 +95,8 @@ class WinnerCelebrationDialog extends StatelessWidget {
                     Text(
                       l.celebrationCongratulations,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Color(0xFFCDDAE8),
+                      style: TextStyle(
+                        color: colors.onSurfaceVariant,
                         fontSize: 16,
                       ),
                     ),
@@ -103,8 +105,8 @@ class WinnerCelebrationDialog extends StatelessWidget {
                       total,
                       key: const ValueKey('celebration-grand-total'),
                       textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: gold,
+                      style: TextStyle(
+                        color: colors.primary,
                         fontSize: 38,
                         fontWeight: FontWeight.w800,
                       ),
@@ -112,7 +114,7 @@ class WinnerCelebrationDialog extends StatelessWidget {
                     const SizedBox(height: 20),
                     Container(
                       decoration: BoxDecoration(
-                        color: rowColor,
+                        color: colors.surfaceContainerHighest,
                         borderRadius: BorderRadius.circular(16),
                       ),
                       padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -124,25 +126,22 @@ class WinnerCelebrationDialog extends StatelessWidget {
                             index++
                           ) ...[
                             if (index > 0)
-                              const Divider(
-                                color: Color(0xFF456077),
-                                height: 1,
-                              ),
+                              Divider(color: colors.outlineVariant, height: 1),
                             Padding(
                               padding: const EdgeInsets.symmetric(vertical: 16),
                               child: Row(
                                 children: [
-                                  const Icon(
+                                  Icon(
                                     Icons.emoji_events_outlined,
-                                    color: gold,
+                                    color: colors.primary,
                                     size: 22,
                                   ),
                                   const SizedBox(width: 10),
                                   Expanded(
                                     child: Text(
                                       l.celebrationTicket(tickets[index].id),
-                                      style: const TextStyle(
-                                        color: Colors.white,
+                                      style: TextStyle(
+                                        color: colors.onSurface,
                                         fontSize: 16,
                                       ),
                                     ),
@@ -155,8 +154,8 @@ class WinnerCelebrationDialog extends StatelessWidget {
                                         tickets[index].prizeCurrency,
                                       ),
                                       textAlign: TextAlign.end,
-                                      style: const TextStyle(
-                                        color: gold,
+                                      style: TextStyle(
+                                        color: colors.primary,
                                         fontSize: 17,
                                         fontWeight: FontWeight.bold,
                                       ),
@@ -177,15 +176,15 @@ class WinnerCelebrationDialog extends StatelessWidget {
                       children: [
                         Text(
                           l.celebrationTotal,
-                          style: const TextStyle(
-                            color: Color(0xFFCDDAE8),
+                          style: TextStyle(
+                            color: colors.onSurfaceVariant,
                             fontSize: 16,
                           ),
                         ),
                         Text(
                           total,
-                          style: const TextStyle(
-                            color: gold,
+                          style: TextStyle(
+                            color: colors.primary,
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
                           ),
@@ -200,13 +199,13 @@ class WinnerCelebrationDialog extends StatelessWidget {
                           vertical: 6,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF16483F),
+                          color: colors.tertiaryContainer,
                           borderRadius: BorderRadius.circular(24),
                         ),
                         child: Text(
                           l.celebrationTicketsWon(tickets.length, totalTickets),
-                          style: const TextStyle(
-                            color: Color(0xFF53E2A2),
+                          style: TextStyle(
+                            color: colors.onTertiaryContainer,
                             fontSize: 14,
                           ),
                         ),
