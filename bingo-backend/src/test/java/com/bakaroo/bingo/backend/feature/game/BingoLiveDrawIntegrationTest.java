@@ -654,13 +654,13 @@ class BingoLiveDrawIntegrationTest extends MySqlIntegrationTest {
                                 List.of(
                                                 new BingoPrizeConfigRequest(BingoPatternType.LINE,
                                                                 new BigDecimal("10.00"),
-                                                                PrizeSettlementPath.PLAYER_WALLET, 1),
+                                                                PrizeSettlementPath.PLAYER_WALLET),
                                                 new BingoPrizeConfigRequest(BingoPatternType.TWO_LINES,
                                                                 new BigDecimal("20.00"),
-                                                                PrizeSettlementPath.PLAYER_WALLET, 1),
+                                                                PrizeSettlementPath.PLAYER_WALLET),
                                                 new BingoPrizeConfigRequest(BingoPatternType.FULL_HOUSE,
                                                                 new BigDecimal("50.00"),
-                                                                PrizeSettlementPath.PLAYER_WALLET, 1)),
+                                                                PrizeSettlementPath.PLAYER_WALLET)),
                                 null);
         }
 
@@ -679,13 +679,13 @@ class BingoLiveDrawIntegrationTest extends MySqlIntegrationTest {
                                 List.of(
                                                 new BingoPrizeConfigRequest(BingoPatternType.LINE,
                                                                 new BigDecimal("10.00"),
-                                                                PrizeSettlementPath.PLAYER_WALLET, 1),
+                                                                PrizeSettlementPath.PLAYER_WALLET),
                                                 new BingoPrizeConfigRequest(BingoPatternType.TWO_LINES,
                                                                 new BigDecimal("20.00"),
-                                                                PrizeSettlementPath.PLAYER_WALLET, 1),
+                                                                PrizeSettlementPath.PLAYER_WALLET),
                                                 new BingoPrizeConfigRequest(BingoPatternType.FULL_HOUSE,
                                                                 new BigDecimal("50.00"),
-                                                                PrizeSettlementPath.PLAYER_WALLET, 1)));
+                                                                PrizeSettlementPath.PLAYER_WALLET)));
         }
 
         @org.springframework.boot.test.context.TestConfiguration

@@ -309,10 +309,7 @@ export function SessionDetailPage() {
                   {session.ticketSalesCloseOnSessionStart ? "Yes" : "No"}
                 </Typography>
                 <Typography>
-                  {t("Winner rule:")}{" "}
-                  {session.rulesVersion === "EARLIEST_SPLIT_V1"
-                    ? t("Earliest completion; split ties")
-                    : t("Legacy rules require review")}
+                  {t("Winner rule:")} {t("Earliest completion; split ties")}
                 </Typography>
                 <Typography>
                   {t("Patterns:")}{" "}
@@ -323,19 +320,11 @@ export function SessionDetailPage() {
                 <Typography>
                   {t("Ticket price:")} {session.ticketPrice} {session.currency}
                 </Typography>
-                {session.rulesVersion === "EARLIEST_SPLIT_V1" ? (
-                  <Alert severity="info">
-                    {t(
-                      "The earliest tickets to complete each pattern share its fixed prize pool. Tied shares are determined by the server, regardless of review order.",
-                    )}
-                  </Alert>
-                ) : (
-                  <Alert severity="warning">
-                    {t(
-                      "Legacy game terms require reconciliation before further sales or payments.",
-                    )}
-                  </Alert>
-                )}
+                <Alert severity="info">
+                  {t(
+                    "The earliest tickets to complete each pattern share its fixed prize pool. Tied shares are determined by the server, regardless of review order.",
+                  )}
+                </Alert>
                 {session.configuredPrizes.map((prize) => (
                   <Typography key={prize.prizeType}>
                     {translateAdminValue(prize.prizeType, t)}: {prize.amount}{" "}

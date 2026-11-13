@@ -77,9 +77,6 @@ public class GameSession {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
-    @Column(name = "rules_version", nullable = false, length = 30)
-    private String rulesVersion = "LEGACY";
-
     @Column(name = "minimum_house_margin_bps")
     private Integer minimumHouseMarginBps;
 
@@ -89,8 +86,6 @@ public class GameSession {
     @Column(name = "claim_window_seconds")
     private Long claimWindowSeconds;
 
-    public String getRulesVersion() { return rulesVersion; }
-    public void setRulesVersion(String value) { rulesVersion = value; }
     public Integer getMinimumHouseMarginBps() { return minimumHouseMarginBps; }
     public void setMinimumHouseMarginBps(Integer value) { minimumHouseMarginBps = value; }
     public BigDecimal getSessionCostReserve() { return sessionCostReserve; }

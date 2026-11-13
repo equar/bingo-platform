@@ -16,13 +16,4 @@ public record AdminUserUpdateRequest(
                 @Pattern(regexp = "^$|^\\d{10}$", message = "Phone number must be 10 digits") String phoneNumber,
                 @NotNull AccountStatus status,
                 @NotEmpty Set<UserRole> roles) {
-
-        /**
-         * Retained for source compatibility with older callers. Password changes are no longer
-         * accepted by the admin-user update contract.
-         */
-        public AdminUserUpdateRequest(String displayName, String email, String phoneNumber, String ignoredPassword,
-                        AccountStatus status, Set<UserRole> roles) {
-                this(displayName, email, phoneNumber, status, roles);
-        }
 }

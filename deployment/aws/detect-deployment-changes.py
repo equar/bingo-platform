@@ -30,7 +30,7 @@ def main():
     parser.add_argument('--target', default='auto', choices=['auto', 'all', 'backend', 'frontend', 'admin', 'website'])
     args = parser.parse_args()
     if args.target == 'auto':
-        # First-parent diff captures exactly what this merge introduced to main, including deletions.
+        # First-parent diff captures exactly what this merge introduced, including deletions.
         paths = subprocess.check_output(['git', 'diff', '--name-only', '--no-renames', '-z', 'HEAD^1', 'HEAD']).decode().split('\0')
         selected = affected(paths)
     elif args.target == 'all':

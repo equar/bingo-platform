@@ -194,10 +194,25 @@ New-Item -ItemType Directory -Path $evidenceDir -Force | Out-Null
 New-Item -ItemType Directory -Path $logDir -Force | Out-Null
 $buildDirectory = Join-Path $logDir ("backend-build-" + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $buildDirectory -Force | Out-Null
+$mavenSettingsFile = Join-Path $env:USERPROFILE '.m2\settings.xml'
+$activeSid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+$profileOwner = [Security.Principal.NTAccount]::new((Get-Acl -LiteralPath $env:USERPROFILE).Owner)
+$profileOwnerSid = $profileOwner.Translate([Security.Principal.SecurityIdentifier]).Value
+if ($activeSid -eq $profileOwnerSid) {
+    $mavenSettingsFile = Join-Path $env:USERPROFILE '.m2\settings.xml'
+} else {
+    # The agent/sandbox token cannot write to the normal user's Maven cache.
+    # Give this invocation its own repository through supported Maven settings.
+    $mavenSettingsFile = Join-Path $buildDirectory 'maven-settings.xml'
+    $sandboxRepository = Join-Path $repoRoot '.tmp\maven-repository'
+    $settingsXml = [xml]'<settings xmlns="http://maven.apache.org/SETTINGS/1.2.0"><localRepository></localRepository></settings>'
+    $settingsXml.settings.localRepository = $sandboxRepository
+    $settingsXml.Save($mavenSettingsFile)
+}
 $sourceShaBeforeBuild = Get-AndroidTestBackendSourceFingerprint -RepositoryRoot $repoRoot
 Push-Location $backendRoot
 try {
-    & mvn "-Dbingo.build.directory=$buildDirectory" -DskipTests package
+    & mvn --settings $mavenSettingsFile "-Dbingo.build.directory=$buildDirectory" -DskipTests package
     if ($LASTEXITCODE -ne 0) { throw 'Backend package build failed. No tests were run.' }
 } finally {
     Pop-Location

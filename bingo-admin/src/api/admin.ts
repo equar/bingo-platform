@@ -581,7 +581,6 @@ export interface BingoPatternConfig {
   prizeType: string;
   amount: number;
   settlementPath: string;
-  maxWinners?: number | null;
 }
 
 export interface BingoRoomResponse {
@@ -617,7 +616,6 @@ export interface GameFundingSummary {
 }
 
 export interface GameSessionResponse {
-  rulesVersion?: string;
   minimumHouseMarginBps?: number;
   claimWindowSeconds?: number;
   payoutsEnabled?: boolean;
@@ -838,16 +836,18 @@ export interface SignupRewardGrantResponse {
   awardedAt: string;
 }
 
-export type PromotionalRewardTrigger = 'SIGNUP' | 'MANUAL';
+export type PromotionalRewardTrigger = 'SIGNUP' | 'REFERRAL' | 'WALLET_CREDIT' | 'MANUAL';
 
 export interface PromotionalRewardCampaignResponse extends SignupRewardSettingsResponse {
   name: string;
   triggerType: PromotionalRewardTrigger;
+  thresholdAmount?: string | null;
 }
 
 export interface PromotionalRewardCampaignRequest extends SignupRewardSettingsRequest {
   name: string;
   triggerType: PromotionalRewardTrigger;
+  thresholdAmount?: number | null;
 }
 
 export interface PromotionalRewardGrantResponse extends SignupRewardGrantResponse {

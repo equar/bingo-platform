@@ -13,10 +13,9 @@ public interface SignupRewardGrantRepository extends JpaRepository<SignupRewardG
 
     boolean existsByPlayerId(Long playerId);
 
-    boolean existsByTriggerTypeAndPlayerId(com.bakaroo.bingo.backend.feature.wallet.entity.SignupRewardPolicy.TriggerType triggerType,
-            Long playerId);
-
     boolean existsByPolicyIdAndPlayerId(Long policyId, Long playerId);
+
+    boolean existsByPolicyIdAndTriggerReferenceKey(Long policyId, String triggerReferenceKey);
 
     Optional<SignupRewardGrant> findByPlayerId(Long playerId);
 

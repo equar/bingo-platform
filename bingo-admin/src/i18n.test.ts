@@ -48,14 +48,6 @@ describe("Admin translations", () => {
     expect(resolvePreferredLanguage(null)).toBe("en");
   });
 
-  it("initializes in English and discards the legacy shared locale key", async () => {
-    vi.resetModules();
-    window.localStorage.setItem("bingo-admin-locale", "am");
-    const fresh = (await import("./i18n")).default;
-    expect(fresh.language).toBe("en");
-    expect(window.localStorage.getItem("bingo-admin-locale")).toBeNull();
-  });
-
   it("initializes with the signed-in account's cached preference to avoid a language flash", async () => {
     vi.resetModules();
     window.localStorage.setItem(

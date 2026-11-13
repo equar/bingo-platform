@@ -71,7 +71,7 @@ function roomDraft(runName: string) {
     allowMultipleWinnersPerPrize: true,
     active: true,
     configuredPatterns: ['LINE', 'TWO_LINES', 'FULL_HOUSE'],
-    configuredPrizes: [{ prizeType: 'LINE', amount: 100, settlementPath: 'PLAYER_WALLET', maxWinners: 1 }],
+    configuredPrizes: [{ prizeType: 'LINE', amount: 100, settlementPath: 'PLAYER_WALLET' }],
   };
 }
 

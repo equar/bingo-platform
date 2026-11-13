@@ -392,7 +392,6 @@ public class BingoGameService {
         }
 
         GameSession session = new GameSession();
-        session.setRulesVersion("EARLIEST_SPLIT_V1");
         session.setMinimumHouseMarginBps(policy.minimumHouseMarginBps());
         session.setSessionCostReserve(MoneyValues.money(policy.sessionCostReserve()));
         session.setClaimWindowSeconds(policy.claimWindow().toSeconds());
@@ -449,9 +448,6 @@ public class BingoGameService {
             }
             if (ticketRepository.countBySessionId(sessionId) > 0) {
                 requirePayoutsEnabled();
-                if (!"EARLIEST_SPLIT_V1".equals(session.getRulesVersion())) {
-                    throw new ConflictException("LEGACY_SESSION_REQUIRES_REVIEW", "Legacy ticket refunds require reconciliation");
-                }
                 refunds.refund(session);
             }
         }
@@ -518,15 +514,14 @@ public class BingoGameService {
                     BigDecimal price = MoneyValues.money(session.getTicketPriceSnapshot());
                     BigDecimal transferableBefore = wallet.getAvailableBalance();
                     BigDecimal promotionalBefore = wallet.getPromotionalBalance();
-                    BigDecimal balanceBefore = wallet.getTotalBalance();
-                    if (balanceBefore.compareTo(price) < 0) {
-                        throw new ConflictException("INSUFFICIENT_BALANCE", "Wallet balance cannot go below zero");
+                    if (transferableBefore.compareTo(price) < 0) {
+                        throw new ConflictException("INSUFFICIENT_BALANCE", "Available cash balance cannot go below zero");
                     }
 
-                    BigDecimal promotionalUsed = promotionalBefore.min(price);
-                    BigDecimal transferableUsed = MoneyValues.money(price.subtract(promotionalUsed));
-                    BigDecimal transferableAfter = MoneyValues.money(transferableBefore.subtract(transferableUsed));
-                    BigDecimal promotionalAfter = MoneyValues.money(promotionalBefore.subtract(promotionalUsed));
+                    BigDecimal promotionalUsed = BigDecimal.ZERO.setScale(2);
+                    BigDecimal transferableUsed = price;
+                    BigDecimal transferableAfter = MoneyValues.money(transferableBefore.subtract(price));
+                    BigDecimal promotionalAfter = promotionalBefore;
 
                     wallet.setAvailableBalance(transferableAfter);
                     wallet.setPromotionalBalance(promotionalAfter);
@@ -830,9 +825,6 @@ public class BingoGameService {
     }
 
     private void validateTicketSaleOpen(GameSession session) {
-        if (!"EARLIEST_SPLIT_V1".equals(session.getRulesVersion())) {
-            throw new ConflictException("LEGACY_SESSION_REQUIRES_REVIEW", "Legacy games require review before accepting further sales");
-        }
         if (session.getState() == GameSessionState.DRAFT
                 || session.getState() == GameSessionState.CLOSED
                 || session.getState() == GameSessionState.SETTLED
@@ -950,7 +942,7 @@ public class BingoGameService {
         }
         for (BingoPrizeConfig prize : prizes) {
             if (!configured.add(prize.prizeType()) || prize.amount() == null
-                    || prize.amount().signum() <= 0 || prize.maxWinners() < 1 || prize.settlementPath() == null) {
+                    || prize.amount().signum() <= 0 || prize.settlementPath() == null) {
                 throw new BadRequestException("INVALID_SESSION_PRIZE_CONFIGURATION", "Each pattern requires one valid prize");
             }
         }
@@ -1006,9 +998,8 @@ public class BingoGameService {
 
     private java.util.Map<BingoPatternType, List<Long>> winningTicketsByPattern(GameSession session) {
         var result = new java.util.EnumMap<BingoPatternType, List<Long>>(BingoPatternType.class);
-        if (!"EARLIEST_SPLIT_V1".equals(session.getRulesVersion()) ||
-                (session.getState() != GameSessionState.STARTED && session.getState() != GameSessionState.DRAWING
-                        && session.getState() != GameSessionState.CLOSED)) return result;
+        if (session.getState() != GameSessionState.STARTED && session.getState() != GameSessionState.DRAWING
+                && session.getState() != GameSessionState.CLOSED) return result;
         for (var pattern : readPatterns(session.getPatternsSnapshotJson())) {
             result.put(pattern, winners.winners(session.getId(), pattern).ticketIds());
         }
@@ -1174,7 +1165,7 @@ public class BingoGameService {
                 ticketRepository.countBySessionId(session.getId()),
                 drawEventRepository.countBySessionId(session.getId()),
                 session.getCreatedAt(),
-                session.getUpdatedAt(), session.getRulesVersion(), session.getMinimumHouseMarginBps(),
+                session.getUpdatedAt(), session.getMinimumHouseMarginBps(),
                 session.getClaimWindowSeconds(), policy.payoutsEnabled(), funding.summarize(session));
     }
 
@@ -1195,7 +1186,7 @@ public class BingoGameService {
                 ticketRepository.countBySessionId(session.getId()),
                 drawEventRepository.countBySessionId(session.getId()),
                 session.getCreatedAt(),
-                session.getUpdatedAt(), session.getRulesVersion(), session.getClaimWindowSeconds(),
+                session.getUpdatedAt(), session.getClaimWindowSeconds(),
                 readPrizes(session.getPrizesSnapshotJson()), policy.payoutsEnabled());
     }
 
@@ -1214,7 +1205,7 @@ public class BingoGameService {
         if (requests != null) {
             for (BingoPrizeConfigRequest request : requests) {
                 configs.add(new BingoPrizeConfig(request.prizeType(), MoneyValues.money(request.amount()),
-                        request.settlementPath(), request.maxWinners()));
+                        request.settlementPath()));
             }
         }
         return writePrizeConfigs(configs);

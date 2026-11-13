@@ -7,6 +7,5 @@ import java.math.BigDecimal;
 public record BingoPrizeConfig(
         BingoPatternType prizeType,
         BigDecimal amount,
-        PrizeSettlementPath settlementPath,
-        int maxWinners) {
+        PrizeSettlementPath settlementPath) {
 }

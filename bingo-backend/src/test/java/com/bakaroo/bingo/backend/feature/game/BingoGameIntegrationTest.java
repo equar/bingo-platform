@@ -546,6 +546,9 @@ class BingoGameIntegrationTest extends MySqlIntegrationTest {
                 assertEquals(promotionalBeforeTicket, ticketTransaction.getPromotionalBalanceBefore());
                 assertEquals(ticketWalletAfter.getPromotionalBalance(),
                                 ticketTransaction.getPromotionalBalanceAfter());
+                assertEquals(promotionalBeforeTicket, ticketWalletAfter.getPromotionalBalance());
+                assertEquals(transferableBeforeTicket.subtract(new BigDecimal("4.00")),
+                                ticketWalletAfter.getAvailableBalance());
                 assertEquals(totalBeforeTicket, ticketTransaction.getBalanceBefore());
                 assertEquals(ticketWalletAfter.getTotalBalance(), ticketTransaction.getBalanceAfter());
 
@@ -912,7 +915,7 @@ class BingoGameIntegrationTest extends MySqlIntegrationTest {
                                 room.maxTicketsPerPlayer(), room.ticketSalesCloseOnSessionStart(),
                                 room.allowMultipleWinnersPerPrize(), room.active(), room.configuredPatterns(),
                                 room.configuredPrizes().stream().map(prize -> new BingoPrizeConfigRequest(
-                                                prize.prizeType(), prize.amount(), prize.settlementPath(), prize.maxWinners()))
+                                                prize.prizeType(), prize.amount(), prize.settlementPath()))
                                                 .toList(),
                                 room.version());
                 var updated = bingoGameService.updateRoom(room.id(), firstUpdate);
@@ -993,7 +996,7 @@ class BingoGameIntegrationTest extends MySqlIntegrationTest {
                                 room.ticketSalesCloseOnSessionStart(), room.allowMultipleWinnersPerPrize(), room.active(),
                                 room.configuredPatterns(), room.configuredPrizes().stream().map(prize ->
                                                 new BingoPrizeConfigRequest(prize.prizeType(), prize.amount(),
-                                                                prize.settlementPath(), prize.maxWinners())).toList(),
+                                                                prize.settlementPath())).toList(),
                                 room.version());
         }
 
@@ -1185,13 +1188,13 @@ class BingoGameIntegrationTest extends MySqlIntegrationTest {
                                 List.of(
                                                 new BingoPrizeConfigRequest(BingoPatternType.LINE,
                                                                 new BigDecimal("10.00"),
-                                                                PrizeSettlementPath.PLAYER_WALLET, 1),
+                                                                PrizeSettlementPath.PLAYER_WALLET),
                                                 new BingoPrizeConfigRequest(BingoPatternType.TWO_LINES,
                                                                 new BigDecimal("20.00"),
-                                                                PrizeSettlementPath.PLAYER_WALLET, 1),
+                                                                PrizeSettlementPath.PLAYER_WALLET),
                                                 new BingoPrizeConfigRequest(BingoPatternType.FULL_HOUSE,
                                                                 new BigDecimal("50.00"),
-                                                                PrizeSettlementPath.PLAYER_WALLET, 1)),
+                                                                PrizeSettlementPath.PLAYER_WALLET)),
                                 null);
         }
 
@@ -1210,13 +1213,13 @@ class BingoGameIntegrationTest extends MySqlIntegrationTest {
                                 List.of(
                                                 new BingoPrizeConfigRequest(BingoPatternType.LINE,
                                                                 new BigDecimal("0.10"),
-                                                                PrizeSettlementPath.PLAYER_WALLET, 1),
+                                                                PrizeSettlementPath.PLAYER_WALLET),
                                                 new BingoPrizeConfigRequest(BingoPatternType.TWO_LINES,
                                                                 new BigDecimal("0.20"),
-                                                                PrizeSettlementPath.PLAYER_WALLET, 1),
+                                                                PrizeSettlementPath.PLAYER_WALLET),
                                                 new BingoPrizeConfigRequest(BingoPatternType.FULL_HOUSE,
                                                                 new BigDecimal("0.50"),
-                                                                PrizeSettlementPath.PLAYER_WALLET, 1)));
+                                                                PrizeSettlementPath.PLAYER_WALLET)));
         }
 
         private List<Integer> winningLineNumbers(String gridJson) throws Exception {

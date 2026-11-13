@@ -896,7 +896,7 @@ public class AgentService {
     private UserProfileResponse toProfile(User user) {
         return new UserProfileResponse(user.getId(), user.getDisplayName(), user.getEmail(), user.getNormalizedPhone(), user.getRoles(),
                 user.getStatus(), user.getCreatedAt(), user.getUpdatedAt(), user.isMustChangePassword(),
-                UserLanguages.resolve(user.getPreferredLanguage()));
+                UserLanguages.resolve(user.getPreferredLanguage()), user.getReferralCode());
     }
 
     private AgentProfileResponse toAgentProfileResponse(Agent agent) {

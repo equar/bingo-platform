@@ -219,7 +219,7 @@ export function FloatFundingPanel() {
         <Table size="small" aria-label={t("float top-up requests")}><TableHead><TableRow><TableCell>{t("Request")}</TableCell><TableCell>{t("Agent")}</TableCell><TableCell>{t("Amount")}</TableCell><TableCell>{t("Status")}</TableCell><TableCell>{t("Receiving account")}</TableCell><TableCell>{t("Transfer reference")}</TableCell><TableCell>{t("Action")}</TableCell></TableRow></TableHead>
           <TableBody>{(requests.data?.content ?? []).map((request) => <TableRow key={request.id} hover>
             <TableCell>{t("#")}{request.id}</TableCell><TableCell>{request.agentDisplayName}<br />{request.agentPhoneNumber}</TableCell><TableCell>{request.amount} {request.currency}</TableCell><TableCell>{translateAdminStatus(request.status, t)}</TableCell>
-            <TableCell>{request.bankNameSnapshot ?? t("legacy request")}<br />{request.maskedAccountSnapshot ?? ""}</TableCell><TableCell>{request.transferReference ?? t("n/a")}<br /><Typography variant="caption">{request.supportingEvidenceNote ? t("Agent supplied claim; not bank evidence") : ""}</Typography></TableCell>
+            <TableCell>{request.bankNameSnapshot ?? t("n/a")}<br />{request.maskedAccountSnapshot ?? ""}</TableCell><TableCell>{request.transferReference ?? t("n/a")}<br /><Typography variant="caption">{request.supportingEvidenceNote ? t("Agent supplied claim; not bank evidence") : ""}</Typography></TableCell>
             <TableCell><Button size="small" onClick={() => setRequestId(String(request.id))}>{t("Details")}</Button></TableCell>
           </TableRow>)}
             {(requests.data?.content ?? []).length === 0 ? <TableRow><TableCell colSpan={7}>{t("No requests found.")}</TableCell></TableRow> : null}

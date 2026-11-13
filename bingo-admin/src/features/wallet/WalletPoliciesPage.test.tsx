@@ -110,7 +110,42 @@ describe("WalletPoliciesPage", () => {
     expect(until.type).toBe("date");
     expect(from.value).toBe(from.min);
     expect(until.min).toBe(from.value);
+    fireEvent.change(screen.getByLabelText("Reward amount"), { target: { value: "25.00" } });
     fireEvent.change(until, { target: { value: from.value } });
+    expect(screen.getByRole("button", { name: "Create campaign" })).toBeEnabled();
+  });
+
+  it("matches backend money precision and keeps the supported campaign currency fixed", async () => {
+    const user = userEvent.setup();
+    renderAt("/wallet/signup-reward");
+    await screen.findByRole("heading", { name: "Promotional rewards" });
+    await user.click(screen.getByRole("button", { name: "Add promotional campaign" }));
+    const amount = screen.getByLabelText("Reward amount");
+    const currency = screen.getByLabelText("Currency");
+    expect(currency).toBeDisabled();
+    fireEvent.change(amount, { target: { value: "" } });
+    expect(screen.getByRole("button", { name: "Create campaign" })).toBeDisabled();
+    fireEvent.change(amount, { target: { value: "0.001" } });
+    expect(screen.getByRole("button", { name: "Create campaign" })).toBeDisabled();
+    fireEvent.change(amount, { target: { value: "0.01" } });
+    expect(screen.getByRole("button", { name: "Create campaign" })).toBeEnabled();
+  });
+
+  it("offers the three supported reward types and requires a threshold for wallet credit rewards", async () => {
+    const user = userEvent.setup();
+    renderAt("/wallet/signup-reward");
+    await screen.findByRole("heading", { name: "Promotional rewards" });
+    await user.click(screen.getByRole("button", { name: "Add promotional campaign" }));
+    await user.click(screen.getByLabelText("Campaign name"));
+    expect(await screen.findByRole("option", { name: "Signup reward" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Referral reward" })).toBeInTheDocument();
+    await user.click(screen.getByRole("option", { name: "Wallet credit reward" }));
+    const threshold = screen.getByLabelText("Qualifying wallet credits");
+    expect(threshold).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Create campaign" })).toBeDisabled();
+    fireEvent.change(threshold, { target: { value: "10.001" } });
+    expect(screen.getByRole("button", { name: "Create campaign" })).toBeDisabled();
+    fireEvent.change(threshold, { target: { value: "10.00" } });
     expect(screen.getByRole("button", { name: "Create campaign" })).toBeEnabled();
   });
 
@@ -137,6 +172,7 @@ describe("WalletPoliciesPage", () => {
     renderAt("/wallet/signup-reward");
     await screen.findByRole("heading", { name: "Promotional rewards" });
     await user.click(screen.getByRole("button", { name: "Add promotional campaign" }));
+    fireEvent.change(screen.getByLabelText("Reward amount"), { target: { value: "25.00" } });
     await user.click(screen.getByRole("button", { name: "Create campaign" }));
     expect(await screen.findByText("Check the highlighted fields and try again.")).toBeInTheDocument();
     expect(createCampaignMock).toHaveBeenCalledOnce();

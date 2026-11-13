@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:bingo_player/l10n/app_localizations.dart';
 import 'package:bingo_player/src/core/widgets/section_card.dart';
 import 'package:bingo_player/src/features/game/domain/live_game_models.dart';
+import 'package:bingo_player/src/core/platform/player_notifications.dart';
 import 'package:flutter/material.dart';
 
 /// Keeps the ticket's position independent of the number of calls received.
@@ -14,12 +15,22 @@ class LiveCallPanel extends StatefulWidget {
     required this.isLive,
     required this.connected,
     required this.finished,
+    this.soundEnabled = false,
+    this.notificationsEnabled = false,
+    this.missedCallCount = 0,
+    this.eligibleWinCount = 0,
+    this.onMarkMissedCalls,
   });
 
   final List<LiveDrawEvent> draws;
   final bool isLive;
   final bool connected;
   final bool finished;
+  final bool soundEnabled;
+  final bool notificationsEnabled;
+  final int missedCallCount;
+  final int eligibleWinCount;
+  final VoidCallback? onMarkMissedCalls;
 
   @override
   State<LiveCallPanel> createState() => _LiveCallPanelState();
@@ -39,6 +50,39 @@ class _LiveCallPanelState extends State<LiveCallPanel> {
   @override
   void didUpdateWidget(covariant LiveCallPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
+    final oldSequence = oldWidget.draws.isEmpty
+        ? 0
+        : oldWidget.draws.last.sequenceNo;
+    final newSequence = widget.draws.isEmpty ? 0 : widget.draws.last.sequenceNo;
+    final isNewLiveCall =
+        newSequence > oldSequence &&
+        oldWidget.isLive &&
+        oldWidget.connected &&
+        widget.isLive &&
+        widget.connected;
+    final isNewEligibleWin =
+        widget.eligibleWinCount > oldWidget.eligibleWinCount &&
+        oldWidget.isLive &&
+        oldWidget.connected &&
+        widget.isLive &&
+        widget.connected;
+    if (widget.soundEnabled && (isNewLiveCall || isNewEligibleWin)) {
+      unawaited(PlayerNotifications.playSound(win: isNewEligibleWin));
+    }
+    if (widget.notificationsEnabled &&
+        widget.isLive &&
+        widget.connected &&
+        isNewLiveCall) {
+      unawaited(
+        PlayerNotifications.show(
+          title: AppLocalizations.of(context)!.liveGameTitle,
+          body: AppLocalizations.of(
+            context,
+          )!.newCalledNumberAlert(widget.draws.last.numberDrawn),
+          id: widget.draws.isEmpty ? 7003 : widget.draws.last.sequenceNo,
+        ),
+      );
+    }
     if (!identical(oldWidget.draws, widget.draws)) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _history.value = widget.draws;
@@ -264,6 +308,23 @@ class _LiveCallPanelState extends State<LiveCallPanel> {
             ),
           ),
         ),
+        if (widget.missedCallCount > 0)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Row(
+              children: [
+                const Icon(Icons.notification_important_outlined, size: 18),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(l.missedCallCount(widget.missedCallCount)),
+                ),
+                TextButton(
+                  onPressed: widget.onMarkMissedCalls,
+                  child: Text(l.markCalledNumbers),
+                ),
+              ],
+            ),
+          ),
         const SizedBox(height: 8),
         SectionCard(
           padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),

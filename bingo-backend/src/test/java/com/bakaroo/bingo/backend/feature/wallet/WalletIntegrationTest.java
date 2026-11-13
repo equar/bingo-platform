@@ -581,7 +581,7 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
         }
 
         @Test
-        void legacyConcurrentApprovalAttemptsNeverCreditUnverifiedDeposits() throws Exception {
+        void concurrentApprovalAttemptsNeverCreditUnverifiedDeposits() throws Exception {
                 User admin = userRepository.findById(adminUser.getId()).orElseThrow();
                 User player = userRepository.findById(playerUser.getId()).orElseThrow();
                 BingoUserPrincipal adminPrincipal = new BingoUserPrincipal(admin);

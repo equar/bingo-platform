@@ -54,6 +54,8 @@ const scheduleOptions = [
   { value: "HOURLY", label: "Hourly" },
   { value: "DAILY", label: "Daily" },
   { value: "WEEKLY", label: "Weekly" },
+  { value: "BIWEEKLY", label: "Biweekly" },
+  { value: "MONTHLY", label: "Monthly" },
 ] as const;
 
 const patternOptions = [
@@ -75,7 +77,6 @@ interface PrizeDraft {
   prizeType: PatternValue;
   amount: string;
   settlementPath: SettlementPath;
-  maxWinners: string;
 }
 
 interface RoomDraft {
@@ -112,7 +113,6 @@ const emptyDraft: RoomDraft = {
       prizeType: "LINE",
       amount: "100",
       settlementPath: "PLAYER_WALLET",
-      maxWinners: "1",
     },
   ],
 };
@@ -145,7 +145,6 @@ function roomToDraft(room: BingoRoomResponse): RoomDraft {
           prize.settlementPath === "AGENT_CASH"
             ? "AGENT_CASH"
             : "PLAYER_WALLET",
-        maxWinners: String(prize.maxWinners ?? 1),
       })),
   };
 }
@@ -192,12 +191,10 @@ function validateRoomDraft(draft: RoomDraft): string | null {
       (prize) =>
         !/^\d+(\.\d{1,2})?$/.test(prize.amount) ||
         !Number.isFinite(Number(prize.amount)) ||
-        Number(prize.amount) < 0.01 ||
-        !/^\d+$/.test(prize.maxWinners) ||
-        Number(prize.maxWinners) < 1,
+        Number(prize.amount) < 0.01,
     )
   ) {
-    return "Each prize needs an amount of at least 0.01 and at least one winner.";
+    return "Each prize needs an amount of at least 0.01.";
   }
   return null;
 }
@@ -335,7 +332,6 @@ export function RoomsPage() {
           prizeType: prize.prizeType,
           amount: Number(prize.amount),
           settlementPath: prize.settlementPath,
-          maxWinners: Number(prize.maxWinners),
         })),
       }),
     onSuccess: async () => {
@@ -376,7 +372,6 @@ export function RoomsPage() {
           prizeType: prize.prizeType,
           amount: Number(prize.amount),
           settlementPath: prize.settlementPath,
-          maxWinners: Number(prize.maxWinners),
         })),
       }),
     onSuccess: async () => {
@@ -448,7 +443,6 @@ export function RoomsPage() {
             prizeType: nextPattern.value,
             amount: "100",
             settlementPath: "PLAYER_WALLET",
-            maxWinners: "1",
           },
         ],
       };
@@ -964,25 +958,6 @@ export function RoomsPage() {
                                               {t("Agent cash")}
                                             </MenuItem>
                                           </TextField>
-                                        </Grid>
-                                        <Grid item xs={12} sm={6}>
-                                          <TextField
-                                            size="small"
-                                            label={t("Legacy winner cap")}
-                                            type="number"
-                                            value={prize.maxWinners}
-                                            onChange={(event) =>
-                                              updatePrize(index, {
-                                                maxWinners: event.target.value,
-                                              })
-                                            }
-                                            inputProps={{ min: 1, step: 1 }}
-                                            disabled
-                                            helperText={t(
-                                              "All earliest same-call winners share the fixed pool; this legacy cap does not limit ties.",
-                                            )}
-                                            fullWidth
-                                          />
                                         </Grid>
                                       </Grid>
                                     </Stack>

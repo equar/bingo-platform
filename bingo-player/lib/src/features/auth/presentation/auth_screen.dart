@@ -28,6 +28,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   final TextEditingController _displayNameController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _pinController = TextEditingController();
+  final TextEditingController _referralCodeController = TextEditingController();
   bool _registerMode = false;
   bool _showPin = false;
   bool _busy = false;
@@ -88,6 +89,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     _displayNameController.dispose();
     _phoneController.dispose();
     _pinController.dispose();
+    _referralCodeController.dispose();
     super.dispose();
   }
 
@@ -117,6 +119,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                 displayName: _displayNameController.text.trim(),
                 phoneNumber: requestPhone,
                 password: pin,
+                referralCode: _referralCodeController.text,
               ),
             )
           : await repository.login(
@@ -257,6 +260,15 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                                   value == null || value.trim().isEmpty
                                   ? localizations.displayNameRequired
                                   : null,
+                            ),
+                            const SizedBox(height: 12),
+                            TextFormField(
+                              key: const ValueKey('auth-referral-code-field'),
+                              controller: _referralCodeController,
+                              enabled: !_busy,
+                              textCapitalization: TextCapitalization.characters,
+                              maxLength: 24,
+                              decoration: InputDecoration(labelText: localizations.referralCodeOptional),
                             ),
                             const SizedBox(height: 12),
                           ],

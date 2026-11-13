@@ -92,7 +92,7 @@ test('sessions page supports creation, search, filters, details, state changes, 
         allowMultipleWinnersPerPrize: true,
         active: true,
         configuredPatterns: ['LINE', 'TWO_LINES', 'FULL_HOUSE'],
-        configuredPrizes: [{ prizeType: 'LINE', amount: 100, settlementPath: 'PLAYER_WALLET', maxWinners: 1 }],
+        configuredPrizes: [{ prizeType: 'LINE', amount: 100, settlementPath: 'PLAYER_WALLET' }],
       },
     });
     if (!response.ok()) throw new Error(`Room creation failed: ${response.status()} ${await response.text()}`);
