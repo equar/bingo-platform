@@ -18,12 +18,22 @@ import {
   Typography,
 } from "@mui/material";
 import { Link as RouterLink } from "react-router-dom";
-import { auditLogs, dashboardMetrics, dashboardTrends, liveSessions, type DailyTrendPoint } from "../../api/admin";
+import {
+  auditLogs,
+  dashboardMetrics,
+  dashboardTrends,
+  liveSessions,
+  type DailyTrendPoint,
+} from "../../api/admin";
 import { useSession } from "../../api/session";
 import { getUserFacingErrorMessage } from "../../api/types";
 import { StatusState } from "../../components/StatusState";
 import { ListRefreshButton } from "../../components/ListRefreshButton";
 import { translateAdminStatus, translateAdminValue } from "../../i18n";
+import {
+  formatEthiopianDate,
+  formatEthiopianDateTime,
+} from "../../utils/ethiopianDateTime";
 
 const staleAfterMs = 5 * 60 * 1000;
 
@@ -31,38 +41,59 @@ const attentionItems = [
   {
     label: "Open deposit reviews",
     to: "/deposits?status=PENDING",
-    value: (metrics: Awaited<ReturnType<typeof dashboardMetrics>>) => metrics.openDepositReviews,
+    value: (metrics: Awaited<ReturnType<typeof dashboardMetrics>>) =>
+      metrics.openDepositReviews,
   },
   {
     label: "Open win claims",
     to: "/claims?status=PENDING_REVIEW",
-    value: (metrics: Awaited<ReturnType<typeof dashboardMetrics>>) => metrics.openWinClaims,
+    value: (metrics: Awaited<ReturnType<typeof dashboardMetrics>>) =>
+      metrics.openWinClaims,
   },
   {
     label: "Open support tickets",
     to: "/support/tickets",
-    value: (metrics: Awaited<ReturnType<typeof dashboardMetrics>>) => metrics.openSupportTickets,
+    value: (metrics: Awaited<ReturnType<typeof dashboardMetrics>>) =>
+      metrics.openSupportTickets,
   },
 ] as const;
 
-function formatAmount(amount: string | null | undefined, locale: string, unavailable: string) {
-  if (amount == null || String(amount).trim() === "" || !Number.isFinite(Number(amount))) {
+function formatAmount(
+  amount: string | null | undefined,
+  locale: string,
+  unavailable: string,
+) {
+  if (
+    amount == null ||
+    String(amount).trim() === "" ||
+    !Number.isFinite(Number(amount))
+  ) {
     return unavailable;
   }
-  const formatted = new Intl.NumberFormat(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-    .format(Number(amount));
+  const formatted = new Intl.NumberFormat(locale, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Number(amount));
   return `ETB ${formatted}`;
 }
 
-function formatCount(value: number | null | undefined, locale: string, unavailable: string) {
-  return typeof value === "number" && Number.isFinite(value) ? new Intl.NumberFormat(locale).format(value) : unavailable;
+function formatCount(
+  value: number | null | undefined,
+  locale: string,
+  unavailable: string,
+) {
+  return typeof value === "number" && Number.isFinite(value)
+    ? new Intl.NumberFormat(locale).format(value)
+    : unavailable;
 }
 
-function formatTimestamp(value: string | number | null | undefined, locale: string, unavailable: string) {
-  if (value == null || !Number.isFinite(new Date(value).getTime())) {
-    return unavailable;
-  }
-  return new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
+function formatTimestamp(
+  value: string | number | null | undefined,
+  unavailable: string,
+) {
+  return value == null
+    ? unavailable
+    : formatEthiopianDateTime(value, unavailable);
 }
 
 function MetricCard({
@@ -75,14 +106,36 @@ function MetricCard({
   to: string;
 }) {
   return (
-    <Card elevation={0} sx={{ height: "100%", minWidth: 0, border: "1px solid", borderColor: "divider", borderRadius: "12px" }}>
-      <CardActionArea component={RouterLink} to={to} sx={{ height: "100%", minWidth: 0 }}>
+    <Card
+      elevation={0}
+      sx={{
+        height: "100%",
+        minWidth: 0,
+        border: "1px solid",
+        borderColor: "divider",
+        borderRadius: "12px",
+      }}
+    >
+      <CardActionArea
+        component={RouterLink}
+        to={to}
+        sx={{ height: "100%", minWidth: 0 }}
+      >
         <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
           <Stack spacing={0.5} sx={{ minWidth: 0 }}>
-            <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: "anywhere" }}>
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ overflowWrap: "anywhere" }}
+            >
               {label}
             </Typography>
-            <Typography variant="h6" fontWeight={700} lineHeight={1.15} sx={{ overflowWrap: "anywhere" }}>
+            <Typography
+              variant="h6"
+              fontWeight={700}
+              lineHeight={1.15}
+              sx={{ overflowWrap: "anywhere" }}
+            >
               {value}
             </Typography>
           </Stack>
@@ -92,7 +145,17 @@ function MetricCard({
   );
 }
 
-function TrendCard({ title, points, locale, t }: { title: string; points: DailyTrendPoint[]; locale: string; t: TFunction }) {
+function TrendCard({
+  title,
+  points,
+  locale,
+  t,
+}: {
+  title: string;
+  points: DailyTrendPoint[];
+  locale: string;
+  t: TFunction;
+}) {
   const width = 640;
   const height = 190;
   const padX = 24;
@@ -100,49 +163,108 @@ function TrendCard({ title, points, locale, t }: { title: string; points: DailyT
   const max = Math.max(1, ...points.map((point) => point.count));
   const plotted = points.map((point, index) => ({
     ...point,
-    x: padX + (points.length < 2 ? 0 : (index * (width - padX * 2)) / (points.length - 1)),
+    x:
+      padX +
+      (points.length < 2
+        ? 0
+        : (index * (width - padX * 2)) / (points.length - 1)),
     y: height - padY - (point.count / max) * (height - padY * 2),
   }));
   const line = plotted.map((point) => `${point.x},${point.y}`).join(" ");
   const area = plotted.length
     ? `${padX},${height - padY} ${line} ${plotted[plotted.length - 1].x},${height - padY}`
     : "";
-  const labelIndexes = [...new Set([0, Math.floor((points.length - 1) / 2), points.length - 1])];
+  const labelIndexes = [
+    ...new Set([0, Math.floor((points.length - 1) / 2), points.length - 1]),
+  ];
 
   return (
-    <Card elevation={0} sx={{ minWidth: 0, border: "1px solid", borderColor: "divider", borderRadius: "12px" }}>
+    <Card
+      elevation={0}
+      sx={{
+        minWidth: 0,
+        border: "1px solid",
+        borderColor: "divider",
+        borderRadius: "12px",
+      }}
+    >
       <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
         <Stack spacing={1}>
-          <Typography variant="subtitle1" fontWeight={700}>{title}</Typography>
+          <Typography variant="subtitle1" fontWeight={700}>
+            {title}
+          </Typography>
           {points.length ? (
             <Box sx={{ minWidth: 0 }}>
-              <Box component="svg" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={title}
-                sx={{ width: "100%", height: 180, overflow: "visible", color: "primary.main" }}>
+              <Box
+                component="svg"
+                viewBox={`0 0 ${width} ${height}`}
+                role="img"
+                aria-label={title}
+                sx={{
+                  width: "100%",
+                  height: 180,
+                  overflow: "visible",
+                  color: "primary.main",
+                }}
+              >
                 <title>{title}</title>
                 {[0, 1, 2].map((lineIndex) => {
                   const y = padY + lineIndex * ((height - padY * 2) / 2);
-                  return <line key={lineIndex} x1={padX} x2={width - padX} y1={y} y2={y} stroke="currentColor" opacity="0.12" />;
+                  return (
+                    <line
+                      key={lineIndex}
+                      x1={padX}
+                      x2={width - padX}
+                      y1={y}
+                      y2={y}
+                      stroke="currentColor"
+                      opacity="0.12"
+                    />
+                  );
                 })}
                 <polygon points={area} fill="currentColor" opacity="0.08" />
-                <polyline points={line} fill="none" stroke="currentColor" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
+                <polyline
+                  points={line}
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                  strokeLinejoin="round"
+                  strokeLinecap="round"
+                />
                 {plotted.map((point) => (
-                  <circle key={point.date} cx={point.x} cy={point.y} r="3.5" fill="currentColor">
+                  <circle
+                    key={point.date}
+                    cx={point.x}
+                    cy={point.y}
+                    r="3.5"
+                    fill="currentColor"
+                  >
                     <title>{`${point.date}: ${point.count}`}</title>
                   </circle>
                 ))}
               </Box>
-              <Stack direction="row" justifyContent="space-between" color="text.secondary">
+              <Stack
+                direction="row"
+                justifyContent="space-between"
+                color="text.secondary"
+              >
                 {labelIndexes.map((index) => (
                   <Typography key={index} variant="caption">
-                    {new Date(`${points[index].date}T12:00:00`).toLocaleDateString(locale, { month: "short", day: "numeric" })}
+                    {formatEthiopianDate(`${points[index].date}T12:00:00Z`)}
                   </Typography>
                 ))}
               </Stack>
             </Box>
-          ) : <Typography color="text.secondary" variant="body2">{t("No activity in this period.")}</Typography>}
+          ) : (
+            <Typography color="text.secondary" variant="body2">
+              {t("No activity in this period.")}
+            </Typography>
+          )}
           <Typography variant="caption" color="text.secondary">
             {t("{{count}} total over the last 14 days", {
-              count: points.reduce((total, point) => total + point.count, 0).toLocaleString(locale),
+              count: points
+                .reduce((total, point) => total + point.count, 0)
+                .toLocaleString(locale),
             })}
           </Typography>
         </Stack>
@@ -162,7 +284,9 @@ function QueryError({
   retry: () => void;
   t: TFunction;
 }) {
-  const message = getUserFacingErrorMessage(error) ?? "Something went wrong. Please try again.";
+  const message =
+    getUserFacingErrorMessage(error) ??
+    "Something went wrong. Please try again.";
   return (
     <Alert
       severity="error"
@@ -212,14 +336,23 @@ export function DashboardPage() {
   });
 
   if (metricsQuery.isPending && !metricsQuery.data) {
-    return <StatusState title={t("Loading dashboard")} loading message={t("Fetching current operations")} />;
+    return (
+      <StatusState
+        title={t("Loading dashboard")}
+        loading
+        message={t("Fetching current operations")}
+      />
+    );
   }
 
   if (metricsQuery.isError && !metricsQuery.data) {
     return (
       <StatusState
         title={t("Unable to load dashboard")}
-        message={t(getUserFacingErrorMessage(metricsQuery.error) ?? "Something went wrong. Please try again.")}
+        message={t(
+          getUserFacingErrorMessage(metricsQuery.error) ??
+            "Something went wrong. Please try again.",
+        )}
         actionLabel={t("Retry")}
         onAction={() => metricsQuery.refetch()}
       />
@@ -227,22 +360,38 @@ export function DashboardPage() {
   }
 
   if (!metricsQuery.data) {
-    return <StatusState title={t("Unable to load dashboard")} message={t("Dashboard data is unavailable.")} />;
+    return (
+      <StatusState
+        title={t("Unable to load dashboard")}
+        message={t("Dashboard data is unavailable.")}
+      />
+    );
   }
 
   const metrics = metricsQuery.data;
   const unavailable = t("Unavailable");
   const generatedAt = new Date(metrics.generatedAt).getTime();
-  const metricsStale = !Number.isFinite(generatedAt) || Date.now() - generatedAt > staleAfterMs;
-  const refreshing = metricsQuery.isFetching || sessionsQuery.isFetching || trendsQuery.isFetching || logsQuery.isFetching;
+  const metricsStale =
+    !Number.isFinite(generatedAt) || Date.now() - generatedAt > staleAfterMs;
+  const refreshing =
+    metricsQuery.isFetching ||
+    sessionsQuery.isFetching ||
+    trendsQuery.isFetching ||
+    logsQuery.isFetching;
   const visibleSessions = sessionsQuery.data?.slice(0, 3) ?? [];
   const visibleActivity = logsQuery.data?.content.slice(0, 3) ?? [];
   const visibleAttentionItems = isAdmin
     ? attentionItems
-    : attentionItems.filter((item) => item.to !== "/claims?status=PENDING_REVIEW");
+    : attentionItems.filter(
+        (item) => item.to !== "/claims?status=PENDING_REVIEW",
+      );
 
   return (
-    <Stack data-testid="dashboard-content" spacing={{ xs: 1.5, md: 2 }} sx={{ width: "100%", minWidth: 0 }}>
+    <Stack
+      data-testid="dashboard-content"
+      spacing={{ xs: 1.5, md: 2 }}
+      sx={{ width: "100%", minWidth: 0 }}
+    >
       <Box component="header">
         <Stack
           direction={{ xs: "column", sm: "row" }}
@@ -254,23 +403,31 @@ export function DashboardPage() {
             <Typography variant="h4" fontWeight={700} lineHeight={1.15}>
               {t("Dashboard")}
             </Typography>
-            <Typography color="text.secondary">{t("A clear view of today’s operations.")}</Typography>
+            <Typography color="text.secondary">
+              {t("A clear view of today’s operations.")}
+            </Typography>
           </Stack>
-          <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems={{ xs: "flex-start", sm: "center" }}>
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            spacing={1}
+            alignItems={{ xs: "flex-start", sm: "center" }}
+          >
             <Typography variant="caption" color="text.secondary">
               {t("Data as of {{time}}", {
-                time: formatTimestamp(metrics.generatedAt, locale, unavailable),
+                time: formatTimestamp(metrics.generatedAt, unavailable),
               })}
             </Typography>
             <ListRefreshButton
               refreshing={refreshing}
               label="Refresh dashboard"
-              onRefresh={() => Promise.all([
-                metricsQuery.refetch(),
-                sessionsQuery.refetch(),
-                trendsQuery.refetch(),
-                ...(isAdmin ? [logsQuery.refetch()] : []),
-              ])}
+              onRefresh={() =>
+                Promise.all([
+                  metricsQuery.refetch(),
+                  sessionsQuery.refetch(),
+                  trendsQuery.refetch(),
+                  ...(isAdmin ? [logsQuery.refetch()] : []),
+                ])
+              }
             />
           </Stack>
         </Stack>
@@ -284,7 +441,9 @@ export function DashboardPage() {
           t={t}
         />
       ) : metricsStale ? (
-        <Alert severity="warning">{t("Dashboard data may be out of date.")}</Alert>
+        <Alert severity="warning">
+          {t("Dashboard data may be out of date.")}
+        </Alert>
       ) : null}
 
       <Box component="section" aria-labelledby="needs-attention-title">
@@ -335,22 +494,46 @@ export function DashboardPage() {
               minWidth: 0,
             }}
           >
-            <MetricCard label={t("Active players")} value={formatCount(metrics.activePlayers, locale, unavailable)} to="/players" />
-            <MetricCard label={t("Active agents")} value={formatCount(metrics.activeAgents, locale, unavailable)} to="/agents" />
-            <MetricCard label={t("Active sessions")} value={formatCount(metrics.activeSessions, locale, unavailable)} to="/sessions" />
+            <MetricCard
+              label={t("Active players")}
+              value={formatCount(metrics.activePlayers, locale, unavailable)}
+              to="/players"
+            />
+            <MetricCard
+              label={t("Active agents")}
+              value={formatCount(metrics.activeAgents, locale, unavailable)}
+              to="/agents"
+            />
+            <MetricCard
+              label={t("Active sessions")}
+              value={formatCount(metrics.activeSessions, locale, unavailable)}
+              to="/sessions"
+            />
             <MetricCard
               label={t("Player wallet total")}
-              value={formatAmount(metrics.playerWalletBalanceTotal, locale, unavailable)}
+              value={formatAmount(
+                metrics.playerWalletBalanceTotal,
+                locale,
+                unavailable,
+              )}
               to="/players"
             />
             <MetricCard
               label={t("Agent float available")}
-              value={formatAmount(metrics.agentFloatAvailableTotal, locale, unavailable)}
+              value={formatAmount(
+                metrics.agentFloatAvailableTotal,
+                locale,
+                unavailable,
+              )}
               to="/agents"
             />
             <MetricCard
               label={t("Agent float clearing")}
-              value={formatAmount(metrics.agentFloatClearingTotal, locale, unavailable)}
+              value={formatAmount(
+                metrics.agentFloatClearingTotal,
+                locale,
+                unavailable,
+              )}
               to="/agents"
             />
           </Box>
@@ -358,13 +541,44 @@ export function DashboardPage() {
       </Box>
 
       {trendsQuery.data ? (
-        <Box component="section" aria-label={t("Recent trends")}
-          sx={{ display: "grid", gridTemplateColumns: { xs: "minmax(0, 1fr)", lg: "repeat(2, minmax(0, 1fr))" }, gap: 1.5 }}>
-          <TrendCard title={t("New player registrations")} points={trendsQuery.data.playerRegistrations} locale={locale} t={t} />
-          <TrendCard title={t("Support tickets created")} points={trendsQuery.data.supportTicketsCreated} locale={locale} t={t} />
+        <Box
+          component="section"
+          aria-label={t("Recent trends")}
+          sx={{
+            display: "grid",
+            gridTemplateColumns: {
+              xs: "minmax(0, 1fr)",
+              lg: "repeat(2, minmax(0, 1fr))",
+            },
+            gap: 1.5,
+          }}
+        >
+          <TrendCard
+            title={t("New player registrations")}
+            points={trendsQuery.data.playerRegistrations}
+            locale={locale}
+            t={t}
+          />
+          <TrendCard
+            title={t("Support tickets created")}
+            points={trendsQuery.data.supportTicketsCreated}
+            locale={locale}
+            t={t}
+          />
         </Box>
       ) : trendsQuery.isError ? (
-        <Alert severity="warning" action={<Button size="small" color="inherit" onClick={() => trendsQuery.refetch()}>{t("Retry")}</Button>}>
+        <Alert
+          severity="warning"
+          action={
+            <Button
+              size="small"
+              color="inherit"
+              onClick={() => trendsQuery.refetch()}
+            >
+              {t("Retry")}
+            </Button>
+          }
+        >
           {t("Dashboard trends are unavailable right now.")}
         </Alert>
       ) : null}
@@ -372,118 +586,195 @@ export function DashboardPage() {
       <Box
         sx={{
           display: "grid",
-          gridTemplateColumns: { xs: "minmax(0, 1fr)", lg: "repeat(2, minmax(0, 1fr))" },
+          gridTemplateColumns: {
+            xs: "minmax(0, 1fr)",
+            lg: "repeat(2, minmax(0, 1fr))",
+          },
           gap: 1.5,
           minWidth: 0,
           alignItems: "start",
         }}
       >
-          <Card
-            component="section"
-            aria-labelledby="live-sessions-title"
-            elevation={0}
-            sx={{ minWidth: 0, border: "1px solid", borderColor: "divider", borderRadius: "12px" }}
-          >
-            <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
-              <Stack spacing={1}>
-                <Stack direction="row" justifyContent="space-between" alignItems="flex-start" gap={1}>
-                  <Box>
-                    <Typography id="live-sessions-title" variant="h6" fontWeight={700}>
-                      {t("Live sessions")}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {t("Current games")}
-                    </Typography>
-                  </Box>
-                  <Link component={RouterLink} to="/sessions" underline="hover" variant="body2">
-                    {t("View sessions")}
-                  </Link>
+        <Card
+          component="section"
+          aria-labelledby="live-sessions-title"
+          elevation={0}
+          sx={{
+            minWidth: 0,
+            border: "1px solid",
+            borderColor: "divider",
+            borderRadius: "12px",
+          }}
+        >
+          <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
+            <Stack spacing={1}>
+              <Stack
+                direction="row"
+                justifyContent="space-between"
+                alignItems="flex-start"
+                gap={1}
+              >
+                <Box>
+                  <Typography
+                    id="live-sessions-title"
+                    variant="h6"
+                    fontWeight={700}
+                  >
+                    {t("Live sessions")}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {t("Current games")}
+                  </Typography>
+                </Box>
+                <Link
+                  component={RouterLink}
+                  to="/sessions"
+                  underline="hover"
+                  variant="body2"
+                >
+                  {t("View sessions")}
+                </Link>
+              </Stack>
+              {sessionsQuery.isError && !sessionsQuery.data ? (
+                <QueryError
+                  title="Unable to load live sessions"
+                  error={sessionsQuery.error}
+                  retry={() => sessionsQuery.refetch()}
+                  t={t}
+                />
+              ) : null}
+              {sessionsQuery.isPending ? (
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  alignItems="center"
+                  role="status"
+                  aria-live="polite"
+                >
+                  <CircularProgress size={18} />
+                  <Typography variant="body2">
+                    {t("Loading live sessions")}
+                  </Typography>
                 </Stack>
-                {sessionsQuery.isError && !sessionsQuery.data ? (
-                  <QueryError
-                    title="Unable to load live sessions"
-                    error={sessionsQuery.error}
-                    retry={() => sessionsQuery.refetch()}
-                    t={t}
-                  />
-                ) : null}
-                {sessionsQuery.isPending ? (
-                  <Stack direction="row" spacing={1} alignItems="center" role="status" aria-live="polite">
-                    <CircularProgress size={18} />
-                    <Typography variant="body2">{t("Loading live sessions")}</Typography>
-                  </Stack>
-                ) : null}
-                {sessionsQuery.data && sessionsQuery.data.length === 0 ? (
-                  <Alert severity="info" sx={{ py: 0.25, "& .MuiAlert-message": { py: 0.25 } }}>
-                    {t("No active sessions right now.")}
-                  </Alert>
-                ) : null}
-                {sessionsQuery.data && sessionsQuery.data.length > 0 ? (
-                  <>
-                    {sessionsQuery.data.length > visibleSessions.length ? (
-                      <Typography variant="caption" color="text.secondary">
-                        {t("Showing {{shown}} of {{total}} listed sessions", {
-                          shown: visibleSessions.length,
-                          total: sessionsQuery.data.length,
-                        })}
-                      </Typography>
-                    ) : null}
-                    <List dense disablePadding>
+              ) : null}
+              {sessionsQuery.data && sessionsQuery.data.length === 0 ? (
+                <Alert
+                  severity="info"
+                  sx={{ py: 0.25, "& .MuiAlert-message": { py: 0.25 } }}
+                >
+                  {t("No active sessions right now.")}
+                </Alert>
+              ) : null}
+              {sessionsQuery.data && sessionsQuery.data.length > 0 ? (
+                <>
+                  {sessionsQuery.data.length > visibleSessions.length ? (
+                    <Typography variant="caption" color="text.secondary">
+                      {t("Showing {{shown}} of {{total}} listed sessions", {
+                        shown: visibleSessions.length,
+                        total: sessionsQuery.data.length,
+                      })}
+                    </Typography>
+                  ) : null}
+                  <List dense disablePadding>
                     {visibleSessions.map((session) => (
                       <ListItem
                         key={session.id}
                         divider
                         disableGutters
-                        secondaryAction={<Chip label={session.state ? translateAdminStatus(session.state, t) : unavailable} size="small" />}
+                        secondaryAction={
+                          <Chip
+                            label={
+                              session.state
+                                ? translateAdminStatus(session.state, t)
+                                : unavailable
+                            }
+                            size="small"
+                          />
+                        }
                         sx={{ pr: 11, minWidth: 0 }}
                       >
                         <ListItemText
                           primary={
-                            <Link component={RouterLink} to={`/sessions/${session.id}`} underline="hover">
+                            <Link
+                              component={RouterLink}
+                              to={`/sessions/${session.id}`}
+                              underline="hover"
+                            >
                               {session.sessionName || unavailable}
                             </Link>
                           }
-                          secondary={t("{{room}} · {{tickets}} tickets · {{draws}} draws", {
-                            room: session.roomName || unavailable,
-                            tickets: session.ticketCount ?? unavailable,
-                            draws: session.drawCount ?? unavailable,
-                          })}
+                          secondary={t(
+                            "{{room}} · {{tickets}} tickets · {{draws}} draws",
+                            {
+                              room: session.roomName || unavailable,
+                              tickets: session.ticketCount ?? unavailable,
+                              draws: session.drawCount ?? unavailable,
+                            },
+                          )}
                           slotProps={{
-                            primary: { component: "div", variant: "body2", fontWeight: 600, sx: { overflowWrap: "anywhere" } },
+                            primary: {
+                              component: "div",
+                              variant: "body2",
+                              fontWeight: 600,
+                              sx: { overflowWrap: "anywhere" },
+                            },
                             secondary: { component: "div", variant: "caption" },
                           }}
                         />
                       </ListItem>
                     ))}
                   </List>
-                  </>
-                ) : null}
-                {sessionsQuery.isError && sessionsQuery.data ? (
-                  <Alert severity="warning" sx={{ py: 0.25, "& .MuiAlert-message": { py: 0.25 } }}>
-                    {t("Showing the last available data. Could not refresh.")}
-                  </Alert>
-                ) : null}
-              </Stack>
-            </CardContent>
-          </Card>
-          {isAdmin ? <Card
+                </>
+              ) : null}
+              {sessionsQuery.isError && sessionsQuery.data ? (
+                <Alert
+                  severity="warning"
+                  sx={{ py: 0.25, "& .MuiAlert-message": { py: 0.25 } }}
+                >
+                  {t("Showing the last available data. Could not refresh.")}
+                </Alert>
+              ) : null}
+            </Stack>
+          </CardContent>
+        </Card>
+        {isAdmin ? (
+          <Card
             component="section"
             aria-labelledby="recent-activity-title"
             elevation={0}
-            sx={{ minWidth: 0, border: "1px solid", borderColor: "divider", borderRadius: "12px" }}
+            sx={{
+              minWidth: 0,
+              border: "1px solid",
+              borderColor: "divider",
+              borderRadius: "12px",
+            }}
           >
             <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
               <Stack spacing={1}>
-                <Stack direction="row" justifyContent="space-between" alignItems="flex-start" gap={1}>
+                <Stack
+                  direction="row"
+                  justifyContent="space-between"
+                  alignItems="flex-start"
+                  gap={1}
+                >
                   <Box>
-                    <Typography id="recent-activity-title" variant="h6" fontWeight={700}>
+                    <Typography
+                      id="recent-activity-title"
+                      variant="h6"
+                      fontWeight={700}
+                    >
                       {t("Recent activity")}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
                       {t("Latest audit entries")}
                     </Typography>
                   </Box>
-                  <Link component={RouterLink} to="/audit-logs" underline="hover" variant="body2">
+                  <Link
+                    component={RouterLink}
+                    to="/audit-logs"
+                    underline="hover"
+                    variant="body2"
+                  >
                     {t("View audit logs")}
                   </Link>
                 </Stack>
@@ -496,13 +787,24 @@ export function DashboardPage() {
                   />
                 ) : null}
                 {logsQuery.isPending ? (
-                  <Stack direction="row" spacing={1} alignItems="center" role="status" aria-live="polite">
+                  <Stack
+                    direction="row"
+                    spacing={1}
+                    alignItems="center"
+                    role="status"
+                    aria-live="polite"
+                  >
                     <CircularProgress size={18} />
-                    <Typography variant="body2">{t("Loading recent activity")}</Typography>
+                    <Typography variant="body2">
+                      {t("Loading recent activity")}
+                    </Typography>
                   </Stack>
                 ) : null}
                 {logsQuery.data && logsQuery.data.content.length === 0 ? (
-                  <Alert severity="info" sx={{ py: 0.25, "& .MuiAlert-message": { py: 0.25 } }}>
+                  <Alert
+                    severity="info"
+                    sx={{ py: 0.25, "& .MuiAlert-message": { py: 0.25 } }}
+                  >
                     {t("No audit history.")}
                   </Alert>
                 ) : null}
@@ -510,21 +812,40 @@ export function DashboardPage() {
                   <>
                     {logsQuery.data.totalElements > visibleActivity.length ? (
                       <Typography variant="caption" color="text.secondary">
-                      {t("Showing {{shown}} of {{total}} entries", {
-                        shown: visibleActivity.length,
-                        total: logsQuery.data.totalElements,
-                      })}
+                        {t("Showing {{shown}} of {{total}} entries", {
+                          shown: visibleActivity.length,
+                          total: logsQuery.data.totalElements,
+                        })}
                       </Typography>
                     ) : null}
                     <List dense disablePadding>
                       {visibleActivity.map((entry) => (
-                        <ListItem key={entry.id} divider disableGutters alignItems="flex-start">
+                        <ListItem
+                          key={entry.id}
+                          divider
+                          disableGutters
+                          alignItems="flex-start"
+                        >
                           <ListItemText
-                            primary={entry.action ? translateAdminValue(entry.action, t) : unavailable}
-                            secondary={formatTimestamp(entry.createdAt, locale, unavailable)}
+                            primary={
+                              entry.action
+                                ? translateAdminValue(entry.action, t)
+                                : unavailable
+                            }
+                            secondary={formatTimestamp(
+                              entry.createdAt,
+                              unavailable,
+                            )}
                             slotProps={{
-                              primary: { component: "div", variant: "body2", fontWeight: 600 },
-                              secondary: { component: "div", variant: "caption" },
+                              primary: {
+                                component: "div",
+                                variant: "body2",
+                                fontWeight: 600,
+                              },
+                              secondary: {
+                                component: "div",
+                                variant: "caption",
+                              },
                             }}
                           />
                         </ListItem>
@@ -533,13 +854,17 @@ export function DashboardPage() {
                   </>
                 ) : null}
                 {logsQuery.isError && logsQuery.data ? (
-                  <Alert severity="warning" sx={{ py: 0.25, "& .MuiAlert-message": { py: 0.25 } }}>
+                  <Alert
+                    severity="warning"
+                    sx={{ py: 0.25, "& .MuiAlert-message": { py: 0.25 } }}
+                  >
                     {t("Showing the last available data. Could not refresh.")}
                   </Alert>
                 ) : null}
               </Stack>
             </CardContent>
-          </Card> : null}
+          </Card>
+        ) : null}
       </Box>
     </Stack>
   );

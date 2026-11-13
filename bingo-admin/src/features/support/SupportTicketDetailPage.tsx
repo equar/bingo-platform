@@ -1,3 +1,4 @@
+import { formatEthiopianDateTime } from "../../utils/ethiopianDateTime";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
@@ -26,11 +27,20 @@ import {
 } from "../../api/admin";
 import { getUserFacingErrorMessage } from "../../api/types";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
-import { ListRefreshButton, ListRefreshError } from "../../components/ListRefreshButton";
+import {
+  ListRefreshButton,
+  ListRefreshError,
+} from "../../components/ListRefreshButton";
 import { StatusState } from "../../components/StatusState";
 import { translateAdminStatus, translateAdminValue } from "../../i18n";
 
-const statusOptions = ["OPEN", "IN_PROGRESS", "WAITING_FOR_CUSTOMER", "RESOLVED", "CLOSED"] as const;
+const statusOptions = [
+  "OPEN",
+  "IN_PROGRESS",
+  "WAITING_FOR_CUSTOMER",
+  "RESOLVED",
+  "CLOSED",
+] as const;
 
 export function SupportTicketDetailPage() {
   const location = useLocation();
@@ -43,7 +53,10 @@ export function SupportTicketDetailPage() {
     queryFn: () => supportTicketDetail(id),
     enabled: Number.isFinite(id),
   });
-  const usersQuery = useQuery({ queryKey: ["support-assignees"], queryFn: supportAssignees });
+  const usersQuery = useQuery({
+    queryKey: ["support-assignees"],
+    queryFn: supportAssignees,
+  });
   const [replyBody, setReplyBody] = useState("");
   const [noteBody, setNoteBody] = useState("");
   const [assignedToUserId, setAssignedToUserId] = useState("");
@@ -54,7 +67,11 @@ export function SupportTicketDetailPage() {
 
   useEffect(() => {
     if (ticketQuery.data) {
-      setAssignedToUserId(ticketQuery.data.assignedToUserId ? String(ticketQuery.data.assignedToUserId) : "");
+      setAssignedToUserId(
+        ticketQuery.data.assignedToUserId
+          ? String(ticketQuery.data.assignedToUserId)
+          : "",
+      );
       setStatus(ticketQuery.data.status as (typeof statusOptions)[number]);
       setResolutionSummary(ticketQuery.data.resolutionSummary ?? "");
     }
@@ -67,14 +84,20 @@ export function SupportTicketDetailPage() {
       if (!assignedToUserId) {
         throw new Error("Choose an assignee");
       }
-      return assignSupportTicket(id, { assignedToUserId: Number(assignedToUserId) });
+      return assignSupportTicket(id, {
+        assignedToUserId: Number(assignedToUserId),
+      });
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["support-ticket", id] });
       await queryClient.invalidateQueries({ queryKey: ["support-tickets"] });
       setErrorMessage(null);
     },
-    onError: (error) => setErrorMessage(getUserFacingErrorMessage(error) ?? "Something went wrong. Please try again."),
+    onError: (error) =>
+      setErrorMessage(
+        getUserFacingErrorMessage(error) ??
+          "Something went wrong. Please try again.",
+      ),
   });
 
   const replyMutation = useMutation({
@@ -84,7 +107,11 @@ export function SupportTicketDetailPage() {
       setReplyBody("");
       setErrorMessage(null);
     },
-    onError: (error) => setErrorMessage(getUserFacingErrorMessage(error) ?? "Something went wrong. Please try again."),
+    onError: (error) =>
+      setErrorMessage(
+        getUserFacingErrorMessage(error) ??
+          "Something went wrong. Please try again.",
+      ),
   });
 
   const noteMutation = useMutation({
@@ -94,14 +121,20 @@ export function SupportTicketDetailPage() {
       setNoteBody("");
       setErrorMessage(null);
     },
-    onError: (error) => setErrorMessage(getUserFacingErrorMessage(error) ?? "Something went wrong. Please try again."),
+    onError: (error) =>
+      setErrorMessage(
+        getUserFacingErrorMessage(error) ??
+          "Something went wrong. Please try again.",
+      ),
   });
 
   const statusMutation = useMutation({
     mutationFn: () =>
       updateSupportTicketStatus(id, {
         status,
-        resolutionSummary: ["RESOLVED", "CLOSED"].includes(status) ? resolutionSummary : null,
+        resolutionSummary: ["RESOLVED", "CLOSED"].includes(status)
+          ? resolutionSummary
+          : null,
       }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["support-ticket", id] });
@@ -109,20 +142,36 @@ export function SupportTicketDetailPage() {
       setStatusConfirmOpen(false);
       setErrorMessage(null);
     },
-    onError: (error) => setErrorMessage(getUserFacingErrorMessage(error) ?? "Something went wrong. Please try again."),
+    onError: (error) =>
+      setErrorMessage(
+        getUserFacingErrorMessage(error) ??
+          "Something went wrong. Please try again.",
+      ),
   });
 
-  const requiresResolutionSummary = useMemo(() => ["RESOLVED", "CLOSED"].includes(status), [status]);
+  const requiresResolutionSummary = useMemo(
+    () => ["RESOLVED", "CLOSED"].includes(status),
+    [status],
+  );
 
   if (ticketQuery.isLoading || usersQuery.isLoading) {
-    return <StatusState title={t("Loading ticket")} loading message={t("Fetching ticket detail")} />;
+    return (
+      <StatusState
+        title={t("Loading ticket")}
+        loading
+        message={t("Fetching ticket detail")}
+      />
+    );
   }
 
   if ((ticketQuery.error && !ticketQuery.data) || !ticket) {
     return (
       <StatusState
         title={t("Unable to load ticket")}
-        message={t(getUserFacingErrorMessage(ticketQuery.error) ?? "This item is no longer available. Refresh and try again.")}
+        message={t(
+          getUserFacingErrorMessage(ticketQuery.error) ??
+            "This item is no longer available. Refresh and try again.",
+        )}
         actionLabel={t("Retry")}
         onAction={() => ticketQuery.refetch()}
       />
@@ -131,39 +180,77 @@ export function SupportTicketDetailPage() {
 
   return (
     <Stack spacing={3}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" gap={2} flexWrap="wrap">
+      <Box
+        display="flex"
+        justifyContent="space-between"
+        alignItems="center"
+        gap={2}
+        flexWrap="wrap"
+      >
         <div>
           <Typography variant="h4">{ticket.ticketNumber}</Typography>
           <Typography color="text.secondary">{ticket.subject}</Typography>
         </div>
         <Stack direction="row" spacing={1} flexWrap="wrap">
-          <ListRefreshButton refreshing={ticketQuery.isFetching} onRefresh={() => ticketQuery.refetch()} />
-          <Button component={RouterLink} to={`/support/tickets${location.search}`} variant="outlined">
-            {t("Back to queue")}</Button>
+          <ListRefreshButton
+            refreshing={ticketQuery.isFetching}
+            onRefresh={() => ticketQuery.refetch()}
+          />
+          <Button
+            component={RouterLink}
+            to={`/support/tickets${location.search}`}
+            variant="outlined"
+          >
+            {t("Back to queue")}
+          </Button>
         </Stack>
       </Box>
 
-      {ticketQuery.isRefetchError ? <ListRefreshError retrying={ticketQuery.isFetching} error={ticketQuery.error} onRetry={() => ticketQuery.refetch()} /> : null}
+      {ticketQuery.isRefetchError ? (
+        <ListRefreshError
+          retrying={ticketQuery.isFetching}
+          error={ticketQuery.error}
+          onRetry={() => ticketQuery.refetch()}
+        />
+      ) : null}
 
       {errorMessage ? <Alert severity="error">{t(errorMessage)}</Alert> : null}
 
       <Grid container spacing={2}>
         <Grid item xs={12} lg={5}>
-          <Card sx={{ border: "1px solid", borderColor: "divider", height: "100%" }}>
+          <Card
+            sx={{ border: "1px solid", borderColor: "divider", height: "100%" }}
+          >
             <CardContent>
               <Stack spacing={1.5}>
                 <Typography variant="h6">{t("Ticket summary")}</Typography>
-                <Typography>{t("Requester:")}{" "}{ticket.requesterDisplayName}</Typography>
-                <Typography>{t("Category:")}{" "}{translateAdminValue(ticket.category, t)}</Typography>
-                <Typography>{t("Priority:")}{" "}{t(ticket.priority)}</Typography>
-                <Typography>{t("Status:")}{" "}{translateAdminStatus(ticket.status, t)}</Typography>
                 <Typography>
-                  {t("Linked record:")}{" "}{ticket.linkedEntityType ?? "n/a"}{" "}
-                  {ticket.linkedEntityReference ?? ticket.linkedEntityId ?? "n/a"}
+                  {t("Requester:")} {ticket.requesterDisplayName}
                 </Typography>
-                <Typography>{t("Assigned to:")}{" "}{ticket.assignedToUserId ?? "Unassigned"}</Typography>
-                <Typography>{t("Created:")}{" "}{new Date(ticket.createdAt).toLocaleString()}</Typography>
-                <Typography>{t("Updated:")}{" "}{new Date(ticket.updatedAt).toLocaleString()}</Typography>
+                <Typography>
+                  {t("Category:")} {translateAdminValue(ticket.category, t)}
+                </Typography>
+                <Typography>
+                  {t("Priority:")} {t(ticket.priority)}
+                </Typography>
+                <Typography>
+                  {t("Status:")} {translateAdminStatus(ticket.status, t)}
+                </Typography>
+                <Typography>
+                  {t("Linked record:")} {ticket.linkedEntityType ?? "n/a"}{" "}
+                  {ticket.linkedEntityReference ??
+                    ticket.linkedEntityId ??
+                    "n/a"}
+                </Typography>
+                <Typography>
+                  {t("Assigned to:")} {ticket.assignedToUserId ?? "Unassigned"}
+                </Typography>
+                <Typography>
+                  {t("Created:")} {formatEthiopianDateTime(ticket.createdAt)}
+                </Typography>
+                <Typography>
+                  {t("Updated:")} {formatEthiopianDateTime(ticket.updatedAt)}
+                </Typography>
                 <Divider />
                 <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
                   {ticket.description}
@@ -183,7 +270,9 @@ export function SupportTicketDetailPage() {
                     select
                     label={t("Assignee")}
                     value={assignedToUserId}
-                    onChange={(event) => setAssignedToUserId(event.target.value)}
+                    onChange={(event) =>
+                      setAssignedToUserId(event.target.value)
+                    }
                     fullWidth
                   >
                     <MenuItem value="">{t("Unassigned")}</MenuItem>
@@ -198,7 +287,8 @@ export function SupportTicketDetailPage() {
                     onClick={() => assignMutation.mutate()}
                     disabled={!assignedToUserId || assignMutation.isPending}
                   >
-                    {t("Save assignment")}</Button>
+                    {t("Save assignment")}
+                  </Button>
                 </Stack>
               </CardContent>
             </Card>
@@ -211,7 +301,11 @@ export function SupportTicketDetailPage() {
                     select
                     label={t("New status")}
                     value={status}
-                    onChange={(event) => setStatus(event.target.value as (typeof statusOptions)[number])}
+                    onChange={(event) =>
+                      setStatus(
+                        event.target.value as (typeof statusOptions)[number],
+                      )
+                    }
                     fullWidth
                   >
                     {statusOptions.map((option) => (
@@ -223,7 +317,9 @@ export function SupportTicketDetailPage() {
                   <TextField
                     label={t("Resolution summary")}
                     value={resolutionSummary}
-                    onChange={(event) => setResolutionSummary(event.target.value)}
+                    onChange={(event) =>
+                      setResolutionSummary(event.target.value)
+                    }
                     fullWidth
                     multiline
                     minRows={3}
@@ -237,9 +333,13 @@ export function SupportTicketDetailPage() {
                   <Button
                     variant="contained"
                     onClick={() => setStatusConfirmOpen(true)}
-                    disabled={statusMutation.isPending || (requiresResolutionSummary && !resolutionSummary.trim())}
+                    disabled={
+                      statusMutation.isPending ||
+                      (requiresResolutionSummary && !resolutionSummary.trim())
+                    }
                   >
-                    {t("Review status change")}</Button>
+                    {t("Review status change")}
+                  </Button>
                 </Stack>
               </CardContent>
             </Card>
@@ -261,7 +361,8 @@ export function SupportTicketDetailPage() {
                     onClick={() => replyMutation.mutate()}
                     disabled={!replyBody.trim() || replyMutation.isPending}
                   >
-                    {t("Send public reply")}</Button>
+                    {t("Send public reply")}
+                  </Button>
                 </Stack>
               </CardContent>
             </Card>
@@ -283,7 +384,8 @@ export function SupportTicketDetailPage() {
                     onClick={() => noteMutation.mutate()}
                     disabled={!noteBody.trim() || noteMutation.isPending}
                   >
-                    {t("Add internal note")}</Button>
+                    {t("Add internal note")}
+                  </Button>
                 </Stack>
               </CardContent>
             </Card>
@@ -298,18 +400,29 @@ export function SupportTicketDetailPage() {
               <Stack spacing={1.5}>
                 <Typography variant="h6">{t("Public replies")}</Typography>
                 {ticket.messages.length === 0 ? (
-                  <Typography color="text.secondary">{t("No public replies yet.")}</Typography>
+                  <Typography color="text.secondary">
+                    {t("No public replies yet.")}
+                  </Typography>
                 ) : null}
                 {ticket.messages.map((message) => (
                   <Card key={message.id} variant="outlined">
                     <CardContent>
                       <Stack spacing={0.75}>
-                        <Chip label={t("Public · {{id}}", { id: message.authorUserId })} size="small" color="primary" />
-                        <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
+                        <Chip
+                          label={t("Public · {{id}}", {
+                            id: message.authorUserId,
+                          })}
+                          size="small"
+                          color="primary"
+                        />
+                        <Typography
+                          variant="body2"
+                          sx={{ whiteSpace: "pre-wrap" }}
+                        >
                           {message.body}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                          {new Date(message.createdAt).toLocaleString()}
+                          {formatEthiopianDateTime(message.createdAt)}
                         </Typography>
                       </Stack>
                     </CardContent>
@@ -325,18 +438,29 @@ export function SupportTicketDetailPage() {
               <Stack spacing={1.5}>
                 <Typography variant="h6">{t("Internal notes")}</Typography>
                 {ticket.internalNotes.length === 0 ? (
-                  <Typography color="text.secondary">{t("No internal notes yet.")}</Typography>
+                  <Typography color="text.secondary">
+                    {t("No internal notes yet.")}
+                  </Typography>
                 ) : null}
                 {ticket.internalNotes.map((note) => (
                   <Card key={note.id} variant="outlined">
                     <CardContent>
                       <Stack spacing={0.75}>
-                        <Chip label={t("Internal · {{id}}", { id: note.authorUserId })} size="small" color="warning" />
-                        <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
+                        <Chip
+                          label={t("Internal · {{id}}", {
+                            id: note.authorUserId,
+                          })}
+                          size="small"
+                          color="warning"
+                        />
+                        <Typography
+                          variant="body2"
+                          sx={{ whiteSpace: "pre-wrap" }}
+                        >
                           {note.body}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                          {new Date(note.createdAt).toLocaleString()}
+                          {formatEthiopianDateTime(note.createdAt)}
                         </Typography>
                       </Stack>
                     </CardContent>
@@ -353,7 +477,9 @@ export function SupportTicketDetailPage() {
         title={t("Update ticket status")}
         description={
           requiresResolutionSummary
-            ? t("This status change requires a resolution summary and will not be submitted until the backend accepts it.")
+            ? t(
+                "This status change requires a resolution summary and will not be submitted until the backend accepts it.",
+              )
             : t("Submit the status change to the backend.")
         }
         confirmLabel={t("Confirm")}
