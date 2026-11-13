@@ -109,7 +109,7 @@ AuthSessionState _authenticatedState({DateTime? expiresAt}) {
 
 void main() {
   test(
-    'celebration aggregates winning tickets beyond the selected page',
+    'restores and celebrates winning tickets beyond the first page',
     () async {
       final repo = _PagedWinningRepository();
       final controller = LiveGameController(
@@ -125,10 +125,38 @@ void main() {
       );
       addTearDown(controller.dispose);
       await controller.start();
-      expect(controller.state.ticketPage?.content, hasLength(10));
+      expect(controller.state.ticketPageIndex, 1);
+      expect(controller.state.ticketPage?.content, hasLength(1));
+      expect(controller.state.selectedTicket?.id, 111);
       expect(controller.state.ticketPage?.totalElements, 11);
       expect(controller.state.winningTickets.map((ticket) => ticket.id), [111]);
       expect(controller.state.winningTickets.single.totalWinningMinor, 501);
+    },
+  );
+
+  test(
+    'restores a claimable ticket and its eligible pattern after app restart',
+    () async {
+      final repo = _ClaimablePagedRepository();
+      final controller = LiveGameController(
+        sessionId: 42,
+        repository: repo,
+        readAuthSession: () => _authenticatedState(),
+        clearAuthSession: ({String? reason}) async {},
+        appConfig: const AppConfig(
+          apiBaseUrl: 'https://example.com',
+          apiBaseUrlLabel: 'API_BASE_URL',
+        ),
+        transport: FakeLiveGameTransport(),
+      );
+      addTearDown(controller.dispose);
+
+      await controller.start();
+
+      expect(controller.state.ticketPageIndex, 1);
+      expect(controller.state.selectedTicket?.id, 111);
+      expect(controller.state.selectedClaimPattern, 'FULL_HOUSE');
+      expect(controller.state.canSubmitClaim, isTrue);
     },
   );
 
@@ -599,6 +627,34 @@ class _PagedWinningRepository extends FakeLiveGameRepository {
         'eligibleClaimPatterns': index == 10 ? ['LINE'] : [],
         'winningPrizeAmounts': index == 10 ? {'LINE': 5.01} : {},
         'prizeCurrency': 'ETB',
+      }),
+    );
+    return PageResult(
+      content: all.skip(page * size).take(size).toList(),
+      page: page,
+      size: size,
+      totalElements: 11,
+      totalPages: (11 / size).ceil(),
+      first: page == 0,
+      last: (page + 1) * size >= 11,
+    );
+  }
+}
+
+class _ClaimablePagedRepository extends _PagedWinningRepository {
+  @override
+  Future<PageResult<TicketResponse>> getMyTickets(
+    int sessionId, {
+    required int page,
+    required int size,
+  }) async {
+    final all = List.generate(
+      11,
+      (index) => TicketResponse.fromJson({
+        'id': 101 + index,
+        'sessionId': 42,
+        'grid': _ticketPage().content.first.grid,
+        'eligibleClaimPatterns': index == 10 ? ['FULL_HOUSE'] : [],
       }),
     );
     return PageResult(

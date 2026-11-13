@@ -31,7 +31,7 @@ fi
 
 android_devices=()
 while IFS= read -r serial; do
-  if [[ "$(adb -s "$serial" shell getprop ro.kernel.qemu 2>/dev/null | tr -d '\r')" == "1" ]]; then
+  if [[ "$(adb -s "$serial" shell getprop ro.kernel.qemu </dev/null 2>/dev/null | tr -d '\r')" == "1" ]]; then
     android_devices+=("$serial")
   fi
 done < <(adb devices | awk '$2 == "device" { print $1 }')
@@ -51,7 +51,18 @@ if (( ${#android_devices[@]} == 0 && ${#ios_devices[@]} == 0 )); then
   exit 1
 fi
 
+echo "Discovered ${#android_devices[@]} booted Android emulator(s) and ${#ios_devices[@]} booted iOS simulator(s)."
+for serial in "${android_devices[@]}"; do
+  echo "  Android: $serial"
+done
+for identifier in "${ios_devices[@]}"; do
+  echo "  iOS: $identifier"
+done
+
 cd "$APP_DIR"
+failures=()
+installed_android=0
+installed_ios=0
 
 if (( ${#android_devices[@]} > 0 )); then
   echo "Building Android release APK with https://api.bingo.bakaroo.com..."
@@ -66,17 +77,29 @@ if (( ${#android_devices[@]} > 0 )); then
     elif grep -Fq 'INSTALL_FAILED_UPDATE_INCOMPATIBLE' <<<"$install_output"; then
       printf '%s\n' "$install_output" >&2
       echo "Replacing incompatible prior signature on $serial for $ANDROID_PACKAGE..." >&2
-      adb -s "$serial" uninstall "$ANDROID_PACKAGE"
-      adb -s "$serial" install "$ANDROID_APK"
+      if ! adb -s "$serial" uninstall "$ANDROID_PACKAGE" ||
+        ! adb -s "$serial" install "$ANDROID_APK"; then
+        failures+=("Android $serial: replacement installation failed")
+        continue
+      fi
     else
       printf '%s\n' "$install_output" >&2
-      echo "ERROR: Android installation failed on $serial." >&2
-      exit 1
+      failures+=("Android $serial: installation failed")
+      continue
     fi
-    adb -s "$serial" shell am start -n "$ANDROID_PACKAGE/$ANDROID_PACKAGE.MainActivity" >/dev/null
+    if ! adb -s "$serial" shell am start -n "$ANDROID_PACKAGE/$ANDROID_PACKAGE.MainActivity" >/dev/null; then
+      failures+=("Android $serial: app launch failed")
+      continue
+    fi
+    if ! adb -s "$serial" shell dumpsys package "$ANDROID_PACKAGE" |
+      grep -Eq 'versionCode=[0-9]+'; then
+      failures+=("Android $serial: installed package verification failed")
+      continue
+    fi
     adb -s "$serial" shell dumpsys package "$ANDROID_PACKAGE" |
       grep -E 'versionCode=|versionName=' |
       head -2
+    ((installed_android += 1))
   done
 fi
 
@@ -88,10 +111,25 @@ if (( ${#ios_devices[@]} > 0 )); then
 
   for identifier in "${ios_devices[@]}"; do
     echo "Installing iOS simulator app on $identifier..."
-    xcrun simctl install "$identifier" "$IOS_APP"
-    xcrun simctl launch "$identifier" "$IOS_BUNDLE_ID"
-    xcrun simctl get_app_container "$identifier" "$IOS_BUNDLE_ID" app >/dev/null
+    if ! xcrun simctl install "$identifier" "$IOS_APP"; then
+      failures+=("iOS $identifier: installation failed")
+      continue
+    fi
+    if ! xcrun simctl launch "$identifier" "$IOS_BUNDLE_ID"; then
+      failures+=("iOS $identifier: app launch failed")
+      continue
+    fi
+    if ! xcrun simctl get_app_container "$identifier" "$IOS_BUNDLE_ID" app >/dev/null; then
+      failures+=("iOS $identifier: installed app verification failed")
+      continue
+    fi
+    ((installed_ios += 1))
   done
 fi
 
-echo "Installed production-configured player builds on ${#android_devices[@]} Android emulator(s) and ${#ios_devices[@]} iOS simulator(s)."
+echo "Installed production-configured player builds on $installed_android Android emulator(s) and $installed_ios iOS simulator(s)."
+if (( ${#failures[@]} > 0 )); then
+  printf 'ERROR: Installation failed on %d virtual device(s):\n' "${#failures[@]}" >&2
+  printf '  - %s\n' "${failures[@]}" >&2
+  exit 1
+fi

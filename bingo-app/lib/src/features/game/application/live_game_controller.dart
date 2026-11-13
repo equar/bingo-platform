@@ -597,6 +597,8 @@ class LiveGameController extends StateNotifier<LiveGameState> {
     if (_disposed) {
       return;
     }
+    var displayedTicketPage = ticketPage;
+    var displayedTicketPageIndex = state.ticketPageIndex;
     final allTickets = <TicketResponse>[...ticketPage.content];
     if (session.state != 'OPEN' &&
         session.state != 'DRAFT' &&
@@ -612,6 +614,28 @@ class LiveGameController extends StateNotifier<LiveGameState> {
         if (_disposed) return;
         allTickets.addAll(batch.content);
       }
+    }
+    final shouldFocusClaimableTicket =
+        selectedTicketId == null && state.session == null;
+    final claimableTicketIndex = shouldFocusClaimableTicket
+        ? allTickets.indexWhere(
+            (ticket) => ticket.eligibleClaimPatterns.isNotEmpty,
+          )
+        : -1;
+    if (claimableTicketIndex >= 0) {
+      final claimableTicketPageIndex = claimableTicketIndex ~/ _ticketPageSize;
+      if (claimableTicketPageIndex != state.ticketPageIndex) {
+        displayedTicketPage = await _repository.getMyTickets(
+          sessionId,
+          page: claimableTicketPageIndex,
+          size: _ticketPageSize,
+        );
+        if (_disposed) {
+          return;
+        }
+      }
+      displayedTicketPageIndex = claimableTicketPageIndex;
+      selectedTicketId = allTickets[claimableTicketIndex].id;
     }
     final claimPage = await _repository.getMyWinClaims(
       page: 0,
@@ -629,12 +653,24 @@ class LiveGameController extends StateNotifier<LiveGameState> {
     }
 
     final selectedTicketIndex = selectedTicketId == null
-        ? _clampSelectedTicketIndex(ticketPage)
-        : _ticketIndexForId(ticketPage, selectedTicketId);
+        ? _clampSelectedTicketIndex(displayedTicketPage)
+        : _ticketIndexForId(displayedTicketPage, selectedTicketId);
+    final selectedTicket = displayedTicketPage.content.elementAtOrNull(
+      selectedTicketIndex,
+    );
+    final selectedClaimPattern =
+        selectedTicket?.eligibleClaimPatterns.contains(
+              state.selectedClaimPattern,
+            ) ==
+            true
+        ? state.selectedClaimPattern
+        : selectedTicket?.eligibleClaimPatterns.firstOrNull ??
+              state.selectedClaimPattern ??
+              _defaultClaimPattern(session);
 
     state = state.copyWith(
       session: session,
-      ticketPage: ticketPage,
+      ticketPage: displayedTicketPage,
       winningTickets: {for (final ticket in allTickets) ticket.id: ticket}
           .values
           .where(
@@ -643,10 +679,10 @@ class LiveGameController extends StateNotifier<LiveGameState> {
                 ticket.prizeCurrency.isNotEmpty,
           )
           .toList(),
+      ticketPageIndex: displayedTicketPageIndex,
       selectedTicketIndex: selectedTicketIndex,
       claimPage: claimPage,
-      selectedClaimPattern:
-          state.selectedClaimPattern ?? _defaultClaimPattern(session),
+      selectedClaimPattern: selectedClaimPattern,
       infoMessage: null,
       errorMessage: null,
     );
