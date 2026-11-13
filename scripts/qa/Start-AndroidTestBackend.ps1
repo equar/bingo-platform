@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [int]$Port = 8082,
+    [int]$Port = 8080,
     [string]$MySqlUsername,
     [switch]$ProvisionAndroidTestFixtures
 )
@@ -25,7 +25,7 @@ if ($identity.Name -match 'CodexSandboxOffline') {
 if ($identity.Name -notmatch '\\16414$' -or $env:USERPROFILE -cne 'C:\Users\16414') {
     throw 'Run this launcher as EQUAR-DELL-XPS1\16414 with USERPROFILE C:\Users\16414.'
 }
-if ($Port -ne 8082) { throw 'The isolated Android-test backend must use port 8082.' }
+if ($Port -ne 8080) { throw 'The isolated Android-test backend must use port 8080.' }
 if (-not (Test-Path -LiteralPath $envFile)) { throw 'Ignored bingo-backend/.env.test is missing.' }
 if (-not (Test-Path -LiteralPath $testResources)) { throw 'Backend test profile resources are missing.' }
 $existingListeners = @(Get-AndroidTestTcpListenerPids -Port $Port)

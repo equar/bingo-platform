@@ -57,7 +57,7 @@ void main() {
       readAuthSession: () => const AuthSessionState(isLoading: true),
       clearAuthSession: ({String? reason}) async {},
       appConfig: const AppConfig(
-        apiBaseUrl: 'http://127.0.0.1:8082',
+        apiBaseUrl: 'http://127.0.0.1:8080',
         apiBaseUrlLabel: 'API_BASE_URL',
       ),
       transport: _UnusedLiveGameTransport(),

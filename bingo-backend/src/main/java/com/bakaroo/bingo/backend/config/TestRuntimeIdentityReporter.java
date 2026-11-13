@@ -4,6 +4,7 @@ import java.net.URI;
 import java.sql.Connection;
 import java.util.Arrays;
 import javax.sql.DataSource;
+import org.springframework.beans.factory.annotation.Value;
 
 import org.flywaydb.core.Flyway;
 import org.slf4j.Logger;
@@ -24,16 +25,17 @@ import org.springframework.stereotype.Component;
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class TestRuntimeIdentityReporter implements ApplicationRunner {
     private static final Logger log = LoggerFactory.getLogger(TestRuntimeIdentityReporter.class);
-    private static final String EXPECTED_DATABASE = "bingo_qa_test";
-
     private final DataSource dataSource;
     private final Environment environment;
     private final Flyway flyway;
+    private final String expectedDatabase;
 
-    public TestRuntimeIdentityReporter(DataSource dataSource, Environment environment, Flyway flyway) {
+    public TestRuntimeIdentityReporter(DataSource dataSource, Environment environment, Flyway flyway,
+            @Value("${app.qa.test-runtime-expected-database:bingo_qa_test}") String expectedDatabase) {
         this.dataSource = dataSource;
         this.environment = environment;
         this.flyway = flyway;
+        this.expectedDatabase = expectedDatabase;
     }
 
     @Override
@@ -45,6 +47,10 @@ public class TestRuntimeIdentityReporter implements ApplicationRunner {
         String commit = requiredEnvironment("BINGO_QA_BUILD_COMMIT");
         String checksum = requiredEnvironment("BINGO_QA_BUILD_SHA256");
         String sourceChecksum = requiredEnvironment("BINGO_QA_BUILD_SOURCE_SHA256");
+        if (!"bingo_qa_test".equals(expectedDatabase)
+                && !expectedDatabase.matches("bingo_qa_v22_v40_[0-9a-f]{32}")) {
+            throw new IllegalStateException("Test runtime expected database is not an approved isolated schema name");
+        }
         String adminOrigin = environment.getProperty("CORS_ALLOWED_ORIGINS", "");
         if (!sourceChecksum.matches("(?i)[0-9a-f]{64}")) {
             throw new IllegalStateException("Test runtime source fingerprint is invalid");
@@ -63,9 +69,9 @@ public class TestRuntimeIdentityReporter implements ApplicationRunner {
             URI uri = URI.create(jdbcUrl.substring("jdbc:".length()));
             String database = connection.getCatalog();
             if (!"127.0.0.1".equals(uri.getHost()) || uri.getPort() != 3306
-                    || !EXPECTED_DATABASE.equals(uri.getPath().replaceFirst("^/", ""))
-                    || !EXPECTED_DATABASE.equals(database)) {
-                throw new IllegalStateException("Test backend datasource must be local bingo_qa_test on port 3306");
+                    || !expectedDatabase.equals(uri.getPath().replaceFirst("^/", ""))
+                    || !expectedDatabase.equals(database)) {
+                throw new IllegalStateException("Test backend datasource does not match the approved local schema on port 3306");
             }
 
             var currentMigration = flyway.info().current();

@@ -8,7 +8,7 @@
 - The schema contains 40 InnoDB base tables, no routines/events/triggers, and about 12 users, 17 sessions, 4 rooms, 0 tickets, 0 entitlements, and one legacy finance-role assignment. These are read-only counts; `information_schema.tables.table_rows` is approximate. Largest reported table was `audit_log_entries` (504 approximate rows, 393216 data bytes). This is small local QA state, not a runtime estimate for production.
 - Read-only migration preflight found no duplicate user phone values, no duplicate `(role, phone)` candidates, no duplicate `(ticket_id, prize_type)` entitlements, no duplicate room names, and no duplicate signup-grant players. `user_roles.normalized_phone` does not exist yet at V22, so the role/phone check joined through `users`.
 - The configured account has only `USAGE` globally and `ALL PRIVILEGES` on `bingo_qa_test.*`. It cannot create/use a new database. It lacks global `PROCESS`; its process-list view cannot establish a complete writer freeze.
-- `scripts/qa/Start-AndroidTestBackend.ps1` hard-pins `127.0.0.1:3306/bingo_qa_test`, requires Windows identity `EQUAR-DELL-XPS1\16414` and profile `C:\Users\16414`, rejects the Codex sandbox identity, refuses a port-8082 listener, requires current Flyway V40 and checks scheduler/financial safeguards. It does not auto-migrate a V22 database.
+- `scripts/qa/Start-AndroidTestBackend.ps1` hard-pins `127.0.0.1:3306/bingo_qa_test`, requires Windows identity `EQUAR-DELL-XPS1\16414` and profile `C:\Users\16414`, rejects the Codex sandbox identity, refuses a port-8080 listener, requires current Flyway V40 and checks scheduler/financial safeguards. It does not auto-migrate a V22 database.
 
 ## Migration review V23–V40
 
@@ -38,15 +38,26 @@ For the V22→V40 clone migration, DBA-provision a user scoped only to the uniqu
 
 ## Approval gate and deployment effects
 
-Exact repository instruction in [`qa-blockers-and-approvals.md`](qa-blockers-and-approvals.md), “Local functional E2E schema”: **“Owner/DBA must approve and review an isolated backup/migration rehearsal covering V22→V40, and verify the runbook before migration. Then launch only through the guarded script as the normal Windows user. Do not migrate, clean, or bypass the guard.”** This runbook is now the review artifact; that does not itself grant approval. Owner/DBA approval for the isolated backup/restore rehearsal, disposable schema, and scoped account provisioning remains required.
+Exact repository instruction in [`qa-blockers-and-approvals.md`](qa-blockers-and-approvals.md), “Local functional E2E schema”: **“Owner/DBA must approve and review an isolated backup/migration rehearsal covering V22→V40, and verify the runbook before migration. Then launch only through the guarded script as the normal Windows user. Do not migrate, clean, or bypass the guard.”** User approval for the isolated rehearsal was recorded on 2026-11-13. DBA verification of this runbook, clone provisioning, and scoped account setup remain required before any database write.
 
-**No disposable schema is currently authorized or provisioned.** The runner cannot create one and the local-root exception is limited to the guarded launcher on `bingo_qa_test`. The repo permits a reviewed isolated rehearsal only after owner/DBA approval and DBA provisioning. A fresh synthetic V40 database may support feature acceptance only after the same explicit provisioning approval and a separately reviewed guarded launcher/config; it does not verify V22→V40. Never repoint production/dev settings or the existing V22 schema.
+**User approval for an isolated V22→V40 clone rehearsal was received on 2026-11-13. No disposable schema is provisioned yet.** The runner cannot create one and the local-root exception is limited to the guarded launcher on `bingo_qa_test`. DBA provisioning is still required for a one-time clone creator, clone-scoped migration account, protected encrypted evidence location, and writer/process preflight. A fresh synthetic V40 database may support feature acceptance only after separate approval and a separately reviewed guarded launcher/config; it does not verify V22→V40. Never repoint production/dev settings or modify the existing V22 schema.
 
-Starting the Android-test backend runs Flyway migrations at application startup, then Hibernate `validate`. The test profile disables draw scheduling, wallet deposit/adjustment simulation, agent-float simulation, fixture bootstrap unless explicitly requested, and financial synthetic tests by default. Confirm all controls in fresh launcher evidence. The existing `& .\scripts\qa\Start-AndroidTestBackend.ps1 -Port 8082` command is hard-pinned to `bingo_qa_test`; it requires the owner's interactive PowerShell identity `EQUAR-DELL-XPS1\16414` and `USERPROFILE=C:\Users\16414`, and currently refuses the sandbox identity and V22 schema. **Do not run it for this task:** the existing V22 database must remain unchanged. The repository has no guarded backend launcher or Player E2E identity/reconciliation path for a separately named V40 clone yet. Before authenticated acceptance can use the clone, prepare and review a second launcher that hard-pins the DBA-provisioned clone name, verifies its schema-scoped account/grants, Flyway V40, health, port 8082, and all disabled safeguards, then emits sanitized clone-specific evidence; update the Player runner to accept only that evidence and clone database pattern. Do not start the clone with an unguarded raw Java command.
+The standard `& .\scripts\qa\Start-AndroidTestBackend.ps1` runs against `bingo_qa_test`, runs Flyway at startup, and then performs Hibernate `validate`. It requires the owner's interactive PowerShell identity `EQUAR-DELL-XPS1\16414` and `USERPROFILE=C:\Users\16414`; it refuses the sandbox identity and V22 schema. Do not use it to migrate the existing V22 database. After DBA provisions and migrates the approved clone, `scripts/qa/Start-AndroidTestBackendV40Clone.ps1` can serve it on loopback port 8080. That launcher requires a protected clone-only MySQL option file and evidence directory, verifies V40 and exact schema-scoped grants, uses Hibernate validation, and verifies all financial/scheduler safeguards. It never runs Flyway migrations. This launcher is for Swagger/runtime validation only; authenticated E2E acceptance still requires a separate clone-aware runner and authoritative-record reconciliation. Do not start the clone with an unguarded raw Java command.
 
-## Proposed V22 rehearsal sequence — awaiting required approval
+After V22→V40 migration assertions and DBA review pass, run this from the owner's normal interactive PowerShell session to serve Swagger from the clone:
 
-1. Obtain written owner approval for a consistent source backup/restore rehearsal and written DBA approval for one specifically named clone, one-time creator, clone-scoped migration account, process visibility, and protected evidence location. Confirm an operational write freeze and no task-owned QA backend/client writers. Do not stop unrelated processes.
+```powershell
+& .\scripts\qa\Start-AndroidTestBackendV40Clone.ps1 `
+  -Database $verifyDb `
+  -ConnectionDefaultsFile $verifyDefaults `
+  -EvidenceDirectory $runDir
+```
+
+The guarded command binds only to `127.0.0.1:8080`; the existing `bingo_qa_test` schema remains unchanged.
+
+## Proposed V22→V40 clone rehearsal — user approved; DBA provisioning pending
+
+1. Record the written user approval for a consistent source backup/restore rehearsal. Before any write, the DBA must approve and provision one specifically named clone, a one-time creator, a clone-scoped migration account, process visibility, and a protected encrypted evidence location. Confirm an operational write freeze and no task-owned QA backend/client writers. Do not stop unrelated processes.
 2. Initialize the target and run the read-only identity/history preflight in one PowerShell session. The operator supplies the already approved restricted encrypted evidence path. This reads only ignored `.env.test` connection values and never prints the password:
 
    ```powershell
@@ -57,7 +68,7 @@ Starting the Android-test backend runs Flyway migrations at application startup,
    if (-not (Test-Path -LiteralPath $approvedEncryptedRoot -PathType Container)) { throw 'Evidence directory must already exist.' }
    $approvedSecretRoot = Read-Host 'Approved ACL-restricted directory for MySQL option files'
    if (-not (Test-Path -LiteralPath $approvedSecretRoot -PathType Container)) { throw 'Protected credential directory must already exist.' }
-   $runDir = Join-Path $approvedEncryptedRoot "bingo_v22_v39_$runId"
+   $runDir = Join-Path $approvedEncryptedRoot "bingo_v22_v40_$runId"
    if (Test-Path -LiteralPath $runDir) { throw 'Refuse reused run directory.' }
    New-Item -ItemType Directory -Path $runDir | Out-Null
    $envFile = Join-Path $repoRoot 'bingo-backend\.env.test'
@@ -111,8 +122,8 @@ Starting the Android-test backend runs Flyway migrations at application startup,
 4. DBA creates a new unpredictable, run-specific disposable database and a separate least-privilege migration account scoped only to it. Never reuse an existing schema. The source schema default is verified as `utf8mb4/utf8mb4_0900_ai_ci`. Use a protected DBA option file (not a password argument) and a strict target name; these commands are proposals for review and must not be run until approval:
 
    ```powershell
-   $verifyDb = "bingo_qa_v22_v39_$runToken"
-   if ($verifyDb -notmatch '^bingo_qa_v22_v39_[0-9a-f]{32}$') { throw 'Unsafe target name' }
+   $verifyDb = "bingo_qa_v22_v40_$runToken"
+   if ($verifyDb -notmatch '^bingo_qa_v22_v40_[0-9a-f]{32}$') { throw 'Unsafe target name' }
    $creatorDefaults = Join-Path $approvedSecretRoot 'qa-clone-creator.cnf'
    if (-not (Test-Path -LiteralPath $creatorDefaults -PathType Leaf)) { throw 'Missing DBA protected option file' }
    $mysqlExe = (Get-Command mysql.exe -ErrorAction Stop).Source
@@ -148,12 +159,12 @@ Starting the Android-test backend runs Flyway migrations at application startup,
    ```
 
    Compare exact ordered Flyway history (successful V22), table/column/index/FK definitions, exact per-table row counts, and deterministic data fingerprints before migration. Preserve protected evidence only; do not include account values or secrets in logs.
-5. Build the checkout once and run Flyway against only the verified clone. The test profile has scheduler, simulation, fixture bootstrap, and synthetic financial testing disabled. Never use the standard port-8082 launcher for the clone or expose it beyond loopback. The following exact command template uses only environment variables for the datasource password and refuses reused output paths:
+5. Build the checkout once and run Flyway against only the verified clone. The test profile has scheduler, simulation, fixture bootstrap, and synthetic financial testing disabled. Never use the standard port-8080 launcher for the clone or expose it beyond loopback. The following exact command template uses only environment variables for the datasource password and refuses reused output paths:
 
    ```powershell
    $backendRoot = Join-Path $repoRoot 'bingo-backend'
    $testResources = Join-Path $backendRoot 'src\test\resources'
-   $buildDir = Join-Path $env:TEMP "bingo-v22-v39-build-$runId"
+   $buildDir = Join-Path $env:TEMP "bingo-v22-v40-build-$runId"
    if (Test-Path -LiteralPath $buildDir) { throw 'Refuse reused build directory.' }
    New-Item -ItemType Directory -Path $buildDir | Out-Null
    Push-Location $backendRoot
@@ -167,8 +178,8 @@ Starting the Android-test backend runs Flyway migrations at application startup,
    $env:BINGO_TEST_MYSQL_USERNAME = $verifyUser
    $env:BINGO_TEST_MYSQL_PASSWORD = $verifyPassword
    $resourceUri = ([Uri]::new(($testResources.TrimEnd('\') + '\'))).AbsoluteUri
-   $stdout = Join-Path $runDir 'v22-v39.stdout.log'
-   $stderr = Join-Path $runDir 'v22-v39.stderr.log'
+   $stdout = Join-Path $runDir 'v22-v40.stdout.log'
+   $stderr = Join-Path $runDir 'v22-v40.stderr.log'
    foreach ($path in @($stdout,$stderr)) { if (Test-Path -LiteralPath $path) { throw 'Refuse overwrite.' } }
    $javaArgs = @('-jar',"`"$($jar.FullName)`"", "--spring.config.additional-location=$resourceUri",
        '--spring.profiles.active=android-test','--server.address=127.0.0.1','--server.port=0',
