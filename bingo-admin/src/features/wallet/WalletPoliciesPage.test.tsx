@@ -44,7 +44,7 @@ function renderAt(path: string) {
 }
 
 function MemoryRouterWithPolicyRoute({ path }: { path: string }) {
-  return <MemoryRouter initialEntries={[path]}><Routes><Route path="/wallet/:tab" element={<><LocationDisplay /><WalletPoliciesPage /></>} /><Route path="/wallet/:tab/new" element={<><LocationDisplay /><WalletPoliciesPage /></>} /></Routes></MemoryRouter>;
+  return <MemoryRouter initialEntries={[path]}><Routes><Route path="/wallet/:tab" element={<><LocationDisplay /><WalletPoliciesPage /></>} /></Routes></MemoryRouter>;
 }
 
 function LocationDisplay() {
@@ -104,6 +104,7 @@ describe("WalletPoliciesPage", () => {
     renderAt("/wallet/signup-reward");
     await screen.findByRole("heading", { name: "Promotional rewards" });
     await userEvent.setup().click(screen.getByRole("button", { name: "Add promotional campaign" }));
+    expect(screen.getByTestId("current-location")).toHaveTextContent("/wallet/signup-reward");
     const from = screen.getByLabelText("Effective from") as HTMLInputElement;
     const until = screen.getByLabelText("Effective until") as HTMLInputElement;
     expect(from.type).toBe("date");
