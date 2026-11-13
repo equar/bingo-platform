@@ -32,10 +32,12 @@ import {
   translateAdminValue,
 } from "../../i18n";
 import { formatEthiopianDateTime } from "../../utils/ethiopianDateTime";
+import { WinningTicketCard } from "../../components/WinningTicketCard";
 
 export type EntitlementReference = {
   kind: "player" | "claim" | "session" | "ticket";
   id: number;
+  winningClaimId?: number;
 };
 
 type ReferenceRecord =
@@ -218,10 +220,6 @@ function detailFields(
     { label: t("Session ID"), value: String(ticket.sessionId) },
     { label: t("Operation ID"), value: ticket.operationId },
     { label: t("Purchased"), value: formatDate(ticket.purchasedAt, t) },
-    {
-      label: t("Card grid"),
-      value: ticket.grid.map((row) => row.join("  ")).join("\n"),
-    },
   ];
 }
 
@@ -251,6 +249,11 @@ export function EntitlementReferenceDialog({
     },
     enabled: reference != null,
   });
+  const winningClaimQuery = useQuery({
+    queryKey: ["winning-ticket-claim", reference?.winningClaimId],
+    queryFn: () => adminWinClaimDetail(reference!.winningClaimId!),
+    enabled: reference?.kind === "ticket" && reference.winningClaimId != null,
+  });
   const referenceType = reference
     ? t(
         reference.kind === "claim"
@@ -268,6 +271,8 @@ export function EntitlementReferenceDialog({
       ? detailQuery.data
         ? `${t("Claim number")} ${(detailQuery.data as WinClaimResponse).operationId}`
         : t("Claim details")
+      : reference.kind === "ticket" && detailQuery.data
+        ? `${t("Ticket")} ${(detailQuery.data as TicketResponse).publicTicketCode}`
       : t("{{kind}} #{{id}}", { kind: referenceType, id: reference.id });
   const fields =
     reference && detailQuery.data
@@ -312,25 +317,34 @@ export function EntitlementReferenceDialog({
           </Alert>
         ) : null}
         {detailQuery.data ? (
-          <Stack divider={<Divider flexItem />}>
-            {fields.map((field) => (
-              <Grid container spacing={2} key={field.label} sx={{ py: 1.25 }}>
-                <Grid item xs={12} sm={4}>
-                  <Typography variant="body2" color="text.secondary">
-                    {field.label}
-                  </Typography>
+          <>
+            <Stack divider={<Divider flexItem />}>
+              {fields.map((field) => (
+                <Grid container spacing={2} key={field.label} sx={{ py: 1.25 }}>
+                  <Grid item xs={12} sm={4}>
+                    <Typography variant="body2" color="text.secondary">
+                      {field.label}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={8}>
+                    <Typography
+                      variant="body2"
+                      sx={{ overflowWrap: "anywhere", whiteSpace: "pre-wrap" }}
+                    >
+                      {field.value}
+                    </Typography>
+                  </Grid>
                 </Grid>
-                <Grid item xs={12} sm={8}>
-                  <Typography
-                    variant="body2"
-                    sx={{ overflowWrap: "anywhere", whiteSpace: "pre-wrap" }}
-                  >
-                    {field.value}
-                  </Typography>
-                </Grid>
-              </Grid>
-            ))}
-          </Stack>
+              ))}
+            </Stack>
+            {reference?.kind === "ticket" && winningClaimQuery.data ? (
+              <WinningTicketCard
+                ticket={detailQuery.data as TicketResponse}
+                claim={winningClaimQuery.data}
+                t={t}
+              />
+            ) : null}
+          </>
         ) : null}
       </DialogContent>
       <DialogActions>

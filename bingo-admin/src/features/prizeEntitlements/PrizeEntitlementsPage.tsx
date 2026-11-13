@@ -275,6 +275,7 @@ export function PrizeEntitlementsPage() {
                           setReference({
                             kind: "ticket",
                             id: entitlement.ticketId,
+                            winningClaimId: entitlement.winClaimId,
                           })
                         }
                       >
