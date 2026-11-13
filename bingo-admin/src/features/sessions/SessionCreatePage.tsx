@@ -18,6 +18,12 @@ import { createSession, listRooms } from "../../api/admin";
 import { getUserFacingErrorMessage } from "../../api/types";
 import { StatusState } from "../../components/StatusState";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
+import { EthiopianDatePicker } from "../../components/EthiopianDatePicker";
+import {
+  ethiopianTimeParts,
+  ethiopianTimeToLocal,
+  type EthiopianTimePeriod,
+} from "../../utils/ethiopianDateTime";
 import { translateAdminStatus } from "../../i18n";
 import { formatDateTimeLocal, formatEthiopianScheduleDate, resolveEthiopianRoomScheduleTime } from "./sessionScheduleTime";
 
@@ -54,6 +60,11 @@ export function SessionCreatePage() {
   const scheduleTime = selectedRoom
     ? resolveEthiopianRoomScheduleTime(draft.scheduledDate, draft.scheduledTime, selectedRoom.timezone)
     : { instant: null, error: null };
+  const ethiopianTime = ethiopianTimeParts(draft.scheduledTime) ?? {
+    hour: 12,
+    minute: 0,
+    period: "daytime" as EthiopianTimePeriod,
+  };
 
   const createMutation = useMutation({
     mutationFn: (body: SessionDraft) => {
@@ -93,6 +104,15 @@ export function SessionCreatePage() {
   function updateDraft(next: Partial<SessionDraft>) {
     setDraft((current) => ({ ...current, ...next }));
     if (createMutation.error) createMutation.reset();
+  }
+
+  function updateEthiopianTime(next: Partial<typeof ethiopianTime>) {
+    const localTime = ethiopianTimeToLocal(
+      next.hour ?? ethiopianTime.hour,
+      next.minute ?? ethiopianTime.minute,
+      next.period ?? ethiopianTime.period,
+    );
+    if (localTime) updateDraft({ scheduledTime: localTime });
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -195,12 +215,10 @@ export function SessionCreatePage() {
                 />
               </Grid>
               <Grid item xs={12} md={6}>
-                <TextField
+                <EthiopianDatePicker
                   label={t("Ethiopian calendar date")}
-                  placeholder="2019-01-01"
                   value={draft.scheduledDate}
-                  onChange={(event) => updateDraft({ scheduledDate: event.target.value })}
-                  fullWidth
+                  onChange={(scheduledDate) => updateDraft({ scheduledDate })}
                   required
                   error={Boolean(selectedRoom && draft.scheduledDate && scheduleTime.error)}
                   helperText={selectedRoom
@@ -209,15 +227,45 @@ export function SessionCreatePage() {
                 />
               </Grid>
               <Grid item xs={12} md={6}>
-                <TextField
-                  label={t("Scheduled time")}
-                  type="time"
-                  value={draft.scheduledTime}
-                  onChange={(event) => updateDraft({ scheduledTime: event.target.value })}
-                  fullWidth
-                  required
-                  InputLabelProps={{ shrink: true }}
-                />
+                <Stack spacing={1}>
+                  <Typography variant="caption" color="text.secondary">
+                    {t("Scheduled time")} *
+                  </Typography>
+                  <Stack direction="row" spacing={1}>
+                    <TextField
+                      select
+                      label={t("Hour")}
+                      value={ethiopianTime.hour}
+                      onChange={(event) => updateEthiopianTime({ hour: Number(event.target.value) })}
+                      fullWidth
+                    >
+                      {Array.from({ length: 12 }, (_, index) => index + 1).map((hour) => (
+                        <MenuItem key={hour} value={hour}>{hour}</MenuItem>
+                      ))}
+                    </TextField>
+                    <TextField
+                      select
+                      label={t("Minute")}
+                      value={ethiopianTime.minute}
+                      onChange={(event) => updateEthiopianTime({ minute: Number(event.target.value) })}
+                      fullWidth
+                    >
+                      {Array.from({ length: 60 }, (_, minute) => minute).map((minute) => (
+                        <MenuItem key={minute} value={minute}>{String(minute).padStart(2, "0")}</MenuItem>
+                      ))}
+                    </TextField>
+                    <TextField
+                      select
+                      label={t("Period")}
+                      value={ethiopianTime.period}
+                      onChange={(event) => updateEthiopianTime({ period: event.target.value as EthiopianTimePeriod })}
+                      fullWidth
+                    >
+                      <MenuItem value="daytime">{t("Daytime")}</MenuItem>
+                      <MenuItem value="nighttime">{t("Nighttime")}</MenuItem>
+                    </TextField>
+                  </Stack>
+                </Stack>
               </Grid>
               <Grid item xs={12} md={6}>
                 <TextField

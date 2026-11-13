@@ -3,9 +3,12 @@ import i18n from "../i18n";
 import {
   ethiopianCalendarDate,
   ethiopianDateInputToGregorianDate,
+  ethiopianTimeParts,
+  ethiopianTimeToLocal,
   formatEthiopianDate,
   formatEthiopianDateInput,
   formatEthiopianDateTime,
+  formatEthiopianNumericDate,
   formatEthiopianTime,
 } from "./ethiopianDateTime";
 
@@ -50,5 +53,21 @@ describe("Ethiopian date-time formatting", () => {
     expect(ethiopianDateInputToGregorianDate("2019-01-01")).toBe("2026-09-11");
     expect(ethiopianDateInputToGregorianDate("2015-13-06")).toBe("2023-09-11");
     expect(ethiopianDateInputToGregorianDate("2018-13-06")).toBeNull();
+  });
+
+  it("uses day-first ordering for numeric Ethiopian dates", () => {
+    expect(formatEthiopianNumericDate("2026-09-11T12:00:00.000Z")).toBe(
+      "01-01-2019",
+    );
+  });
+
+  it("converts Ethiopian daytime and nighttime selections to room-local time", () => {
+    expect(ethiopianTimeParts("03:52")).toEqual({
+      hour: 9,
+      minute: 52,
+      period: "nighttime",
+    });
+    expect(ethiopianTimeToLocal(9, 52, "nighttime")).toBe("03:52");
+    expect(ethiopianTimeToLocal(12, 0, "daytime")).toBe("06:00");
   });
 });

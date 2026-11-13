@@ -6,6 +6,14 @@ type EthiopianDate = {
   day: number;
 };
 
+export type EthiopianTimePeriod = "daytime" | "nighttime";
+
+export type EthiopianTime = {
+  hour: number;
+  minute: number;
+  period: EthiopianTimePeriod;
+};
+
 const englishMonths = [
   "Meskerem",
   "Tikimt",
@@ -36,6 +44,11 @@ const amharicMonths = [
   "ነሐሴ",
   "ጳጉሜ",
 ];
+
+export function ethiopianMonthName(month: number): string {
+  const months = isAmharic() ? amharicMonths : englishMonths;
+  return months[month - 1] ?? "";
+}
 
 function isAmharic(): boolean {
   return i18n.resolvedLanguage === "am" || i18n.language === "am";
@@ -83,8 +96,7 @@ export function formatEthiopianDate(
   const date = ethiopianCalendarDate(value);
   if (!date) return fallback;
   const amharic = isAmharic();
-  const months = amharic ? amharicMonths : englishMonths;
-  return `${date.day} ${months[date.month - 1]} ${date.year} ${amharic ? "ዓ.ም." : "E.C."}`;
+  return `${date.day} ${ethiopianMonthName(date.month)} ${date.year} ${amharic ? "ዓ.ም." : "E.C."}`;
 }
 
 export function formatEthiopianDateInput(
@@ -94,6 +106,15 @@ export function formatEthiopianDateInput(
   const date = ethiopianCalendarDate(value);
   if (!date) return fallback;
   return `${String(date.year).padStart(4, "0")}-${String(date.month).padStart(2, "0")}-${String(date.day).padStart(2, "0")}`;
+}
+
+export function formatEthiopianNumericDate(
+  value: string | number | Date,
+  fallback = "—",
+): string {
+  const date = ethiopianCalendarDate(value);
+  if (!date) return fallback;
+  return `${String(date.day).padStart(2, "0")}-${String(date.month).padStart(2, "0")}-${String(date.year).padStart(4, "0")}`;
 }
 
 export function ethiopianDateInputToGregorianDate(
@@ -141,6 +162,34 @@ export function formatEthiopianTime(
       ? "daytime"
       : "nighttime";
   return `${twelveHour}:${String(wall.getUTCMinutes()).padStart(2, "0")} ${period}`;
+}
+
+export function ethiopianTimeParts(value: string): EthiopianTime | null {
+  const match = /^(\d{2}):(\d{2})$/.exec(value);
+  if (!match) return null;
+
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (hour > 23 || minute > 59) return null;
+
+  return {
+    hour: (hour + 6) % 12 || 12,
+    minute,
+    period: hour >= 6 && hour < 18 ? "daytime" : "nighttime",
+  };
+}
+
+export function ethiopianTimeToLocal(
+  hour: number,
+  minute: number,
+  period: EthiopianTimePeriod,
+): string | null {
+  if (!Number.isInteger(hour) || hour < 1 || hour > 12 || !Number.isInteger(minute) || minute < 0 || minute > 59) {
+    return null;
+  }
+
+  const localHour = ((hour % 12) + (period === "daytime" ? 6 : 18)) % 24;
+  return `${String(localHour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
 }
 
 export function formatEthiopianDateTime(
