@@ -166,12 +166,61 @@ void main() {
       expect(controller.state.apiError, isNull);
     },
   );
+
+  test('returns the ticket-limit error for the purchase dialog', () async {
+    final repo = _FakeRepo()
+      ..purchaseError = ApiError(
+        code: 'PLAYER_TICKET_LIMIT_REACHED',
+        statusCode: 409,
+      );
+    final controller = LiveGameController(
+      sessionId: 42,
+      repository: repo,
+      readAuthSession: () => AuthSessionState(
+        isLoading: false,
+        session: AuthSession(
+          accessToken: 'token',
+          expiresAt: DateTime.utc(2027, 1, 2),
+          user: UserProfile(
+            id: 7,
+            displayName: 'Player',
+            phoneNumber: '+251911000000',
+            roles: const ['PLAYER'],
+            status: 'ACTIVE',
+            createdAt: DateTime.utc(2026, 1, 1),
+            updatedAt: DateTime.utc(2026, 1, 1),
+          ),
+        ),
+      ),
+      clearAuthSession: ({String? reason}) async {},
+      appConfig: const AppConfig(
+        apiBaseUrl: 'https://example.com',
+        apiBaseUrlLabel: 'API_BASE_URL',
+      ),
+      transport: _NoopTransport(),
+    );
+    addTearDown(controller.dispose);
+    controller.state = LiveGameState(
+      isLoading: false,
+      connectionState: LiveGameConnectionState.connected,
+      session: _session(),
+      ticketPageIndex: 0,
+      selectedTicketIndex: 0,
+    );
+
+    final error = await controller.purchaseTicket();
+
+    expect(error?.code, 'PLAYER_TICKET_LIMIT_REACHED');
+    expect(controller.state.apiError?.code, 'PLAYER_TICKET_LIMIT_REACHED');
+    expect(controller.state.isPurchasingTicket, false);
+  });
 }
 
 class _FakeRepo implements LiveGameRepository {
   final List<String> submittedKeys = <String>[];
   var _failNext = true;
   ApiError? forcedError;
+  ApiError? purchaseError;
 
   @override
   Future<GameSession> getSession(int sessionId) async =>
@@ -213,6 +262,7 @@ class _FakeRepo implements LiveGameRepository {
     int sessionId,
     String idempotencyKey,
   ) async {
+    if (purchaseError != null) throw purchaseError!;
     throw UnimplementedError();
   }
 

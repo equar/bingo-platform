@@ -1,3 +1,4 @@
+import { formatEthiopianDateTime } from "../../utils/ethiopianDateTime";
 import {
   Alert,
   Avatar,
@@ -28,26 +29,38 @@ import { resolvePreferredLanguage, type SupportedLanguage } from "../../i18n";
 export function ProfilePage() {
   const { t, i18n } = useTranslation();
   const session = useSession();
-  const [selectedLanguage, setSelectedLanguage] = useState<SupportedLanguage>(() =>
-    resolvePreferredLanguage(session?.user.preferredLanguage),
+  const [selectedLanguage, setSelectedLanguage] = useState<SupportedLanguage>(
+    () => resolvePreferredLanguage(session?.user.preferredLanguage),
   );
   const [successOpen, setSuccessOpen] = useState(false);
   const [profileSuccessOpen, setProfileSuccessOpen] = useState(false);
-  const [displayName, setDisplayName] = useState(session?.user.displayName ?? "");
-  const [phoneNumber, setPhoneNumber] = useState(session?.user.phoneNumber ?? "");
+  const [displayName, setDisplayName] = useState(
+    session?.user.displayName ?? "",
+  );
+  const [phoneNumber, setPhoneNumber] = useState(
+    session?.user.phoneNumber ?? "",
+  );
   const [nameError, setNameError] = useState(false);
   const [phoneError, setPhoneError] = useState(false);
 
   const profileMutation = useMutation({
     mutationFn: async () => {
       const token = readSession()?.accessToken;
-      const response = await updateMyProfile({ displayName: displayName.trim(), phoneNumber: phoneNumber.trim() });
+      const response = await updateMyProfile({
+        displayName: displayName.trim(),
+        phoneNumber: phoneNumber.trim(),
+      });
       return { token, response };
     },
     onSuccess: ({ token, response }) => {
       const latest = readSession();
       if (!latest || !token || latest.accessToken !== token) return;
-      writeSession({ ...latest, accessToken: response.accessToken, tokenType: response.tokenType, user: { ...latest.user, ...response.user } });
+      writeSession({
+        ...latest,
+        accessToken: response.accessToken,
+        tokenType: response.tokenType,
+        user: { ...latest.user, ...response.user },
+      });
       setDisplayName(response.user.displayName);
       setPhoneNumber(response.user.phoneNumber ?? "");
       setProfileSuccessOpen(true);
@@ -90,7 +103,10 @@ export function ProfilePage() {
   };
   const statusLabel = t(statusKey[status] ?? "status.unknown");
   const dateLocale = i18n.language.startsWith("am") ? "am-ET" : "en-US";
-  const initials = useMemo(() => session?.user.displayName?.slice(0, 1)?.toUpperCase() ?? "A", [session]);
+  const initials = useMemo(
+    () => session?.user.displayName?.slice(0, 1)?.toUpperCase() ?? "A",
+    [session],
+  );
 
   return (
     <Stack spacing={3}>
@@ -104,8 +120,23 @@ export function ProfilePage() {
           borderColor: "divider",
         }}
       >
-        <Stack direction={{ xs: "column", md: "row" }} spacing={3} alignItems={{ md: "center" }}>
-          <Avatar sx={{ width: 64, height: 64, bgcolor: "primary.light", color: "primary.dark", fontSize: 26, fontWeight: 700 }}>{initials}</Avatar>
+        <Stack
+          direction={{ xs: "column", md: "row" }}
+          spacing={3}
+          alignItems={{ md: "center" }}
+        >
+          <Avatar
+            sx={{
+              width: 64,
+              height: 64,
+              bgcolor: "primary.light",
+              color: "primary.dark",
+              fontSize: 26,
+              fontWeight: 700,
+            }}
+          >
+            {initials}
+          </Avatar>
           <Stack spacing={1} flexGrow={1}>
             <Typography variant="overline" color="primary.main">
               {t("profile.adminProfile")}
@@ -122,7 +153,11 @@ export function ProfilePage() {
               <Chip
                 key={role}
                 label={role}
-                sx={{ color: "primary.dark", borderColor: "primary.light", bgcolor: "primary.light" }}
+                sx={{
+                  color: "primary.dark",
+                  borderColor: "primary.light",
+                  bgcolor: "primary.light",
+                }}
                 variant="outlined"
               />
             ))}
@@ -136,34 +171,67 @@ export function ProfilePage() {
             <CardContent>
               <Stack spacing={2.25}>
                 <div>
-                  <Typography variant="h6" component="h2">{t("profile.personalInfo")}</Typography>
-                  <Typography color="text.secondary">{t("profile.personalInfoIntro")}</Typography>
+                  <Typography variant="h6" component="h2">
+                    {t("profile.personalInfo")}
+                  </Typography>
+                  <Typography color="text.secondary">
+                    {t("profile.personalInfoIntro")}
+                  </Typography>
                 </div>
                 <Box component="form" onSubmit={submitProfile} noValidate>
                   <Stack spacing={2}>
                     <TextField
-                      fullWidth required label={t("profile.displayName")}
-                      value={displayName} onChange={(event) => setDisplayName(event.target.value)}
-                      error={nameError} helperText={nameError ? t("profile.nameRequired") : undefined}
-                      autoComplete="name" inputProps={{ maxLength: 120 }}
+                      fullWidth
+                      required
+                      label={t("profile.displayName")}
+                      value={displayName}
+                      onChange={(event) => setDisplayName(event.target.value)}
+                      error={nameError}
+                      helperText={
+                        nameError ? t("profile.nameRequired") : undefined
+                      }
+                      autoComplete="name"
+                      inputProps={{ maxLength: 120 }}
                     />
                     <TextField
-                      fullWidth label={t("profile.email")} value={session?.user.email ?? ""}
+                      fullWidth
+                      label={t("profile.email")}
+                      value={session?.user.email ?? ""}
                       InputProps={{ readOnly: true }}
                       helperText={t("profile.emailReadOnly")}
                       autoComplete="email"
                     />
                     <TextField
-                      fullWidth required label={t("profile.phone")} value={phoneNumber}
-                      onChange={(event) => { setPhoneNumber(event.target.value); setPhoneError(false); }}
-                      error={phoneError} helperText={phoneError ? t("This field is required.") : t("profile.phoneHelper")} autoComplete="tel"
+                      fullWidth
+                      required
+                      label={t("profile.phone")}
+                      value={phoneNumber}
+                      onChange={(event) => {
+                        setPhoneNumber(event.target.value);
+                        setPhoneError(false);
+                      }}
+                      error={phoneError}
+                      helperText={
+                        phoneError
+                          ? t("This field is required.")
+                          : t("profile.phoneHelper")
+                      }
+                      autoComplete="tel"
                       inputProps={{ inputMode: "tel", maxLength: 20 }}
                     />
-                    {profileMutation.isError ? <Alert severity="error">{t("profile.saveFailed")}</Alert> : null}
+                    {profileMutation.isError ? (
+                      <Alert severity="error">{t("profile.saveFailed")}</Alert>
+                    ) : null}
                     <Box>
-                      <Button type="submit" variant="contained" disabled={profileMutation.isPending}
-                        aria-busy={profileMutation.isPending}>
-                        {profileMutation.isPending ? t("profile.saving") : t("profile.saveChanges")}
+                      <Button
+                        type="submit"
+                        variant="contained"
+                        disabled={profileMutation.isPending}
+                        aria-busy={profileMutation.isPending}
+                      >
+                        {profileMutation.isPending
+                          ? t("profile.saving")
+                          : t("profile.saveChanges")}
                       </Button>
                     </Box>
                   </Stack>
@@ -173,7 +241,12 @@ export function ProfilePage() {
                   <DetailRow
                     label={t("profile.status")}
                     value={
-                      <Chip label={statusLabel} size="small" color="success" variant="outlined" />
+                      <Chip
+                        label={statusLabel}
+                        size="small"
+                        color="success"
+                        variant="outlined"
+                      />
                     }
                   />
                   <DetailRow
@@ -186,14 +259,29 @@ export function ProfilePage() {
                       </Stack>
                     }
                   />
-                  <DetailRow label={t("profile.userId")} value={<Typography>{session?.user.id ?? "-"}</Typography>} />
+                  <DetailRow
+                    label={t("profile.userId")}
+                    value={<Typography>{session?.user.id ?? "-"}</Typography>}
+                  />
                   <DetailRow
                     label={t("profile.created")}
-                    value={<Typography>{session ? new Date(session.user.createdAt).toLocaleString(dateLocale) : "-"}</Typography>}
+                    value={
+                      <Typography>
+                        {session
+                          ? formatEthiopianDateTime(session.user.createdAt)
+                          : "-"}
+                      </Typography>
+                    }
                   />
                   <DetailRow
                     label={t("profile.updated")}
-                    value={<Typography>{session ? new Date(session.user.updatedAt).toLocaleString(dateLocale) : "-"}</Typography>}
+                    value={
+                      <Typography>
+                        {session
+                          ? formatEthiopianDateTime(session.user.updatedAt)
+                          : "-"}
+                      </Typography>
+                    }
                   />
                 </Stack>
                 <Divider />
@@ -213,20 +301,30 @@ export function ProfilePage() {
             <CardContent>
               <Stack spacing={2.25}>
                 <div>
-                  <Typography variant="h6" component="h2" id="profile-preferences-heading">
+                  <Typography
+                    variant="h6"
+                    component="h2"
+                    id="profile-preferences-heading"
+                  >
                     {t("profile.preferences")}
                   </Typography>
-                  <Typography color="text.secondary">{t("profile.preferencesIntro")}</Typography>
+                  <Typography color="text.secondary">
+                    {t("profile.preferencesIntro")}
+                  </Typography>
                 </div>
                 <FormControl fullWidth>
-                  <InputLabel id="profile-language-label">{t("language.label")}</InputLabel>
+                  <InputLabel id="profile-language-label">
+                    {t("language.label")}
+                  </InputLabel>
                   <Select
                     labelId="profile-language-label"
                     id="profile-language-select"
                     value={selectedLanguage}
                     label={t("language.label")}
                     onChange={(event) =>
-                      setSelectedLanguage(resolvePreferredLanguage(event.target.value))
+                      setSelectedLanguage(
+                        resolvePreferredLanguage(event.target.value),
+                      )
                     }
                   >
                     <MenuItem value="en">English</MenuItem>
@@ -244,7 +342,9 @@ export function ProfilePage() {
                     disabled={preferencesMutation.isPending}
                     aria-busy={preferencesMutation.isPending}
                   >
-                    {preferencesMutation.isPending ? t("language.saving") : t("Save")}
+                    {preferencesMutation.isPending
+                      ? t("language.saving")
+                      : t("Save")}
                   </Button>
                 </Box>
               </Stack>
@@ -252,21 +352,44 @@ export function ProfilePage() {
           </Card>
         </Grid>
       </Grid>
-      <Snackbar open={successOpen} autoHideDuration={5000} onClose={() => setSuccessOpen(false)}>
+      <Snackbar
+        open={successOpen}
+        autoHideDuration={5000}
+        onClose={() => setSuccessOpen(false)}
+      >
         <Alert severity="success" onClose={() => setSuccessOpen(false)}>
           {t("language.saved")}
         </Alert>
       </Snackbar>
-      <Snackbar open={profileSuccessOpen} autoHideDuration={5000} onClose={() => setProfileSuccessOpen(false)}>
-        <Alert severity="success" onClose={() => setProfileSuccessOpen(false)}>{t("profile.saved")}</Alert>
+      <Snackbar
+        open={profileSuccessOpen}
+        autoHideDuration={5000}
+        onClose={() => setProfileSuccessOpen(false)}
+      >
+        <Alert severity="success" onClose={() => setProfileSuccessOpen(false)}>
+          {t("profile.saved")}
+        </Alert>
       </Snackbar>
     </Stack>
   );
 }
 
-function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
+function DetailRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: React.ReactNode;
+}) {
   return (
-    <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2 }}>
+    <Box
+      sx={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 2,
+      }}
+    >
       <Typography color="text.secondary">{label}</Typography>
       {value}
     </Box>

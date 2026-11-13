@@ -30,6 +30,18 @@
   "errorInvalidReference": "Enter a valid transaction reference.",
   "errorGameNotOpen": "This game is not currently open for draws.",
   "errorGameFull": "This game is full. Choose another game.",
+  "errorPlayerTicketLimitReached": "You have reached the ticket limit for this session.",
+  "ticketLimitReachedTitle": "Ticket limit reached",
+  "ticketLimitReachedBody": "You can buy up to {maxTickets} tickets for this session.",
+  "@ticketLimitReachedBody": {
+    "placeholders": {
+      "maxTickets": {
+        "type": "int"
+      }
+    }
+  },
+  "ticketsSoldOutTitle": "Tickets sold out",
+  "ticketsSoldOutBody": "All tickets have been sold for this session.",
   "errorDepositVerificationRequired": "This deposit must be independently verified before approval.",
   "errorFinanceSeparation": "A different authorized finance user must review this request.",
   "errorAgentApprovalRequired": "This agent must be approved before this action.",

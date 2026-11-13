@@ -5,6 +5,27 @@ import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { ProtectedRoute } from "./ProtectedRoute";
 import { useSession } from "../api/session";
 
+const staleChunkReloadKey = "bingo-admin:stale-chunk-reload";
+
+function lazyWithStaleChunkRecovery<T extends React.ComponentType>(
+  loader: () => Promise<{ default: T }>,
+) {
+  return lazy(async () => {
+    try {
+      const page = await loader();
+      window.sessionStorage.removeItem(staleChunkReloadKey);
+      return page;
+    } catch (error) {
+      if (window.sessionStorage.getItem(staleChunkReloadKey) !== "true") {
+        window.sessionStorage.setItem(staleChunkReloadKey, "true");
+        window.location.reload();
+        return new Promise<never>(() => {});
+      }
+      throw error;
+    }
+  });
+}
+
 const AppShell = lazy(() => import("../components/AppShell").then((module) => ({ default: module.AppShell })));
 const LoginPage = lazy(() => import("../features/auth/LoginPage").then((module) => ({ default: module.LoginPage })));
 const AdminAccountActivationPage = lazy(() =>
@@ -48,7 +69,7 @@ const ReportsPage = lazy(() =>
 const ClaimsPage = lazy(() =>
   import("../features/claims/ClaimsPage").then((module) => ({ default: module.ClaimsPage })),
 );
-const PrizeEntitlementsPage = lazy(() =>
+const PrizeEntitlementsPage = lazyWithStaleChunkRecovery(() =>
   import("../features/prizeEntitlements/PrizeEntitlementsPage").then((module) => ({
     default: module.PrizeEntitlementsPage,
   })),

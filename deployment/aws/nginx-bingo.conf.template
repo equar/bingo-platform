@@ -68,6 +68,16 @@ server {
         return 200 "ok\n";
     }
 
+    location = /index.html {
+        try_files $uri =404;
+        expires -1;
+    }
+
+    location ^~ /assets/ {
+        try_files $uri =404;
+        expires 1y;
+    }
+
     location / {
         try_files $uri $uri/ /index.html;
     }

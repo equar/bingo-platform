@@ -18,13 +18,20 @@ import { createSession, listRooms } from "../../api/admin";
 import { getUserFacingErrorMessage } from "../../api/types";
 import { StatusState } from "../../components/StatusState";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
+import { EthiopianDatePicker } from "../../components/EthiopianDatePicker";
+import {
+  ethiopianTimeParts,
+  ethiopianTimeToLocal,
+  type EthiopianTimePeriod,
+} from "../../utils/ethiopianDateTime";
 import { translateAdminStatus } from "../../i18n";
-import { formatDateTimeLocal, resolveRoomScheduleTime } from "./sessionScheduleTime";
+import { getDefaultEthiopianRoomScheduleTime, resolveEthiopianRoomScheduleTime } from "./sessionScheduleTime";
 
 interface SessionDraft {
   roomId: string;
   sessionName: string;
-  scheduledStartAt: string;
+  scheduledDate: string;
+  scheduledTime: string;
   state: string;
 }
 
@@ -32,7 +39,8 @@ function createInitialDraft(): SessionDraft {
   return {
     roomId: "",
     sessionName: "",
-    scheduledStartAt: "",
+    scheduledDate: "",
+    scheduledTime: "",
     state: "OPEN",
   };
 }
@@ -50,14 +58,19 @@ export function SessionCreatePage() {
   const [discardOpen, setDiscardOpen] = useState(false);
   const selectedRoom = rooms.find((room) => room.id === Number(draft.roomId));
   const scheduleTime = selectedRoom
-    ? resolveRoomScheduleTime(draft.scheduledStartAt, selectedRoom.timezone)
+    ? resolveEthiopianRoomScheduleTime(draft.scheduledDate, draft.scheduledTime, selectedRoom.timezone)
     : { instant: null, error: null };
+  const ethiopianTime = ethiopianTimeParts(draft.scheduledTime) ?? {
+    hour: 12,
+    minute: 0,
+    period: "daytime" as EthiopianTimePeriod,
+  };
 
   const createMutation = useMutation({
     mutationFn: (body: SessionDraft) => {
       const room = rooms.find((candidate) => candidate.id === Number(body.roomId));
       if (!room) throw new Error("Choose an active room before creating a session.");
-      const resolvedStart = resolveRoomScheduleTime(body.scheduledStartAt, room.timezone);
+      const resolvedStart = resolveEthiopianRoomScheduleTime(body.scheduledDate, body.scheduledTime, room.timezone);
       if (!resolvedStart.instant) throw new Error(resolvedStart.error);
       return createSession(Number(body.roomId), {
         sessionName: body.sessionName,
@@ -76,10 +89,12 @@ export function SessionCreatePage() {
     selectedRoom
     && draft.sessionName.trim()
     && draft.sessionName.trim().length <= 120
+    && draft.scheduledDate
+    && draft.scheduledTime
     && scheduleTime.instant
     && initialSessionStates.includes(draft.state),
   );
-  const hasUnsavedChanges = Boolean(draft.roomId || draft.sessionName.trim() || draft.scheduledStartAt || draft.state !== "OPEN");
+  const hasUnsavedChanges = Boolean(draft.roomId || draft.sessionName.trim() || draft.scheduledDate || draft.scheduledTime || draft.state !== "OPEN");
 
   function cancelCreation() {
     if (hasUnsavedChanges) setDiscardOpen(true);
@@ -89,6 +104,15 @@ export function SessionCreatePage() {
   function updateDraft(next: Partial<SessionDraft>) {
     setDraft((current) => ({ ...current, ...next }));
     if (createMutation.error) createMutation.reset();
+  }
+
+  function updateEthiopianTime(next: Partial<typeof ethiopianTime>) {
+    const localTime = ethiopianTimeToLocal(
+      next.hour ?? ethiopianTime.hour,
+      next.minute ?? ethiopianTime.minute,
+      next.period ?? ethiopianTime.period,
+    );
+    if (localTime) updateDraft({ scheduledTime: localTime });
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -157,11 +181,13 @@ export function SessionCreatePage() {
                   onChange={(event) => {
                     const roomId = event.target.value;
                     const room = rooms.find((candidate) => candidate.id === Number(roomId));
+                    const defaults = room
+                      ? getDefaultEthiopianRoomScheduleTime(room.timezone)
+                      : { scheduledDate: "", scheduledTime: "" };
                     updateDraft({
                       roomId,
-                      scheduledStartAt: draft.scheduledStartAt || (room
-                        ? formatDateTimeLocal(new Date(Date.now() + 5 * 60 * 1000), room.timezone)
-                        : ""),
+                      scheduledDate: draft.scheduledDate || defaults.scheduledDate,
+                      scheduledTime: draft.scheduledTime || defaults.scheduledTime,
                     });
                   }}
                   fullWidth
@@ -187,19 +213,59 @@ export function SessionCreatePage() {
                 />
               </Grid>
               <Grid item xs={12} md={6}>
-                <TextField
-                  label={t("Scheduled start")}
-                  type="datetime-local"
-                  value={draft.scheduledStartAt}
-                  onChange={(event) => updateDraft({ scheduledStartAt: event.target.value })}
-                  fullWidth
+                <EthiopianDatePicker
+                  label={t("Ethiopian calendar date")}
+                  value={draft.scheduledDate}
+                  onChange={(scheduledDate) => updateDraft({ scheduledDate })}
                   required
-                  InputLabelProps={{ shrink: true }}
-                  error={Boolean(selectedRoom && draft.scheduledStartAt && scheduleTime.error)}
+                  error={Boolean(selectedRoom && draft.scheduledDate && scheduleTime.error)}
                   helperText={selectedRoom
-                    ? scheduleTime.error ?? `${t("Room local time")} (${selectedRoom.timezone})`
+                    ? scheduleTime.error
+                      ? t(scheduleTime.error)
+                      : `${t("Room local time")} (${selectedRoom.timezone})`
                     : t("Choose a room to set its local time zone.")}
                 />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Stack spacing={1}>
+                  <Typography variant="caption" color="text.secondary">
+                    {t("Scheduled time")} *
+                  </Typography>
+                  <Stack direction="row" spacing={1}>
+                    <TextField
+                      select
+                      label={t("Hour")}
+                      value={ethiopianTime.hour}
+                      onChange={(event) => updateEthiopianTime({ hour: Number(event.target.value) })}
+                      fullWidth
+                    >
+                      {Array.from({ length: 12 }, (_, index) => index + 1).map((hour) => (
+                        <MenuItem key={hour} value={hour}>{hour}</MenuItem>
+                      ))}
+                    </TextField>
+                    <TextField
+                      select
+                      label={t("Minute")}
+                      value={ethiopianTime.minute}
+                      onChange={(event) => updateEthiopianTime({ minute: Number(event.target.value) })}
+                      fullWidth
+                    >
+                      {Array.from({ length: 60 }, (_, minute) => minute).map((minute) => (
+                        <MenuItem key={minute} value={minute}>{String(minute).padStart(2, "0")}</MenuItem>
+                      ))}
+                    </TextField>
+                    <TextField
+                      select
+                      label={t("Period")}
+                      value={ethiopianTime.period}
+                      onChange={(event) => updateEthiopianTime({ period: event.target.value as EthiopianTimePeriod })}
+                      fullWidth
+                    >
+                      <MenuItem value="daytime">{t("Daytime")}</MenuItem>
+                      <MenuItem value="nighttime">{t("Nighttime")}</MenuItem>
+                    </TextField>
+                  </Stack>
+                </Stack>
               </Grid>
               <Grid item xs={12} md={6}>
                 <TextField

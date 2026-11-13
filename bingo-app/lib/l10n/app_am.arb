@@ -30,6 +30,18 @@
   "errorInvalidReference": "ትክክለኛ የግብይት ማጣቀሻ ያስገቡ።",
   "errorGameNotOpen": "ይህ ጨዋታ አሁን ለዕጣ ማውጣት ክፍት አይደለም።",
   "errorGameFull": "ይህ ጨዋታ ሞልቷል። ሌላ ጨዋታ ይምረጡ።",
+  "errorPlayerTicketLimitReached": "ለዚህ ሴሽን የተፈቀደውን የቲኬት ገደብ ደርሰዋል።",
+  "ticketLimitReachedTitle": "የቲኬት ገደብ ደርሰዋል",
+  "ticketLimitReachedBody": "ለዚህ ሴሽን እስከ {maxTickets} ቲኬቶች መግዛት ይችላሉ።",
+  "@ticketLimitReachedBody": {
+    "placeholders": {
+      "maxTickets": {
+        "type": "int"
+      }
+    }
+  },
+  "ticketsSoldOutTitle": "ቲኬቶች ተሽጠዋል",
+  "ticketsSoldOutBody": "ለዚህ ሴሽን ያሉ ቲኬቶች ሁሉ ተሽጠዋል።",
   "errorDepositVerificationRequired": "ይህ ተቀማጭ ከመጽደቁ በፊት በገለልተኛ ሁኔታ መረጋገጥ አለበት።",
   "errorFinanceSeparation": "ይህን ጥያቄ የተለየ የፋይናንስ ባለሥልጣን መገምገም አለበት።",
   "errorAgentApprovalRequired": "ይህን ተግባር ከማከናወንዎ በፊት ኤጀንቱ መጽደቅ አለበት።",

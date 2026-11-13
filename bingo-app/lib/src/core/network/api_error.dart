@@ -79,6 +79,9 @@ class ApiError implements Exception {
     }
     if (code == 'SESSION_NOT_DRAWING') return localizations.errorGameNotOpen;
     if (code == 'SESSION_CAPACITY_REACHED') return localizations.errorGameFull;
+    if (code == 'PLAYER_TICKET_LIMIT_REACHED') {
+      return localizations.errorPlayerTicketLimitReached;
+    }
     if (code == 'ACCESS_DENIED' || code == 'FORBIDDEN') {
       return localizations.errorPermissionDenied;
     }

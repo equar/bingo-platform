@@ -127,6 +127,24 @@ void main() {
     expect(fieldErrorMessage(error, 'amount', localizations), isNull);
   });
 
+  test('maps the per-player ticket limit to a clear message', () {
+    final error = ApiError(
+      code: 'PLAYER_TICKET_LIMIT_REACHED',
+      statusCode: 409,
+    );
+
+    expect(
+      error.userMessage(localizations),
+      localizations.errorPlayerTicketLimitReached,
+    );
+  });
+
+  test('maps a sold-out session to the game-full message', () {
+    final error = ApiError(code: 'SESSION_CAPACITY_REACHED', statusCode: 409);
+
+    expect(error.userMessage(localizations), localizations.errorGameFull);
+  });
+
   test(
     'distinguishes malformed responses and connection failures from server text',
     () {

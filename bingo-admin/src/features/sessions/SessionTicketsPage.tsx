@@ -1,3 +1,4 @@
+import { formatEthiopianDateTime } from "../../utils/ethiopianDateTime";
 import { useTranslation } from "react-i18next";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
@@ -19,11 +20,17 @@ import {
   Typography,
 } from "@mui/material";
 import { Link as RouterLink, useSearchParams } from "react-router-dom";
-import { searchSessionTicketSessions, searchSessionTickets } from "../../api/admin";
+import {
+  searchSessionTicketSessions,
+  searchSessionTickets,
+} from "../../api/admin";
 import { useSession } from "../../api/session";
 import { getUserFacingErrorMessage } from "../../api/types";
 import { AdminTablePagination } from "../../components/AdminTablePagination";
-import { ListRefreshButton, ListRefreshError } from "../../components/ListRefreshButton";
+import {
+  ListRefreshButton,
+  ListRefreshError,
+} from "../../components/ListRefreshButton";
 import { StatusState } from "../../components/StatusState";
 import { AdminPageHeader } from "../../components/AdminPageHeader";
 import { usePrivateListSearch } from "../../components/usePrivateListSearch";
@@ -40,24 +47,51 @@ export function SessionTicketsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const currentSessionId = searchParams.get("sessionId") ?? "";
   const [sessionQuery, setSessionQuery] = useState(currentSessionId);
-  const [sessionPage, setSessionPage] = useListSessionState("session-tickets:session-page", 0);
-  const [ticketQuery, setTicketQuery] = usePrivateListSearch("session-tickets-query");
-  const [ticketPage, setTicketPage] = useListSessionState("session-tickets:page", 0);
-  const [ticketPageSize, setTicketPageSize] = useListSessionState("session-tickets:size", 20);
+  const [sessionPage, setSessionPage] = useListSessionState(
+    "session-tickets:session-page",
+    0,
+  );
+  const [ticketQuery, setTicketQuery] = usePrivateListSearch(
+    "session-tickets-query",
+  );
+  const [ticketPage, setTicketPage] = useListSessionState(
+    "session-tickets:page",
+    0,
+  );
+  const [ticketPageSize, setTicketPageSize] = useListSessionState(
+    "session-tickets:size",
+    20,
+  );
   const selectedSessionId = sessionIdFromSearch(currentSessionId);
   const session = useSession();
   const canOpenPlayer = Boolean(
-    session?.user.roles.includes("ADMIN") || session?.user.roles.includes("SUPPORT"),
+    session?.user.roles.includes("ADMIN") ||
+    session?.user.roles.includes("SUPPORT"),
   );
 
   const sessionsQuery = useQuery({
-    queryKey: ["session-ticket-lookup-sessions", sessionQuery.trim(), sessionPage],
-    queryFn: () => searchSessionTicketSessions(sessionQuery.trim() || undefined, sessionPage, 20),
+    queryKey: [
+      "session-ticket-lookup-sessions",
+      sessionQuery.trim(),
+      sessionPage,
+    ],
+    queryFn: () =>
+      searchSessionTicketSessions(
+        sessionQuery.trim() || undefined,
+        sessionPage,
+        20,
+      ),
     placeholderData: keepPreviousData,
   });
 
   const ticketsQuery = useQuery({
-    queryKey: ["session-tickets", selectedSessionId, ticketQuery.trim(), ticketPage, ticketPageSize],
+    queryKey: [
+      "session-tickets",
+      selectedSessionId,
+      ticketQuery.trim(),
+      ticketPage,
+      ticketPageSize,
+    ],
     queryFn: () => {
       if (selectedSessionId === null) {
         throw new Error("Select a session before searching its tickets.");
@@ -74,7 +108,9 @@ export function SessionTicketsPage() {
   });
 
   const sessions = sessionsQuery.data?.content ?? [];
-  const selectedSession = sessions.find((item) => item.id === selectedSessionId);
+  const selectedSession = sessions.find(
+    (item) => item.id === selectedSessionId,
+  );
   const tickets = ticketsQuery.data?.content ?? [];
 
   function searchSessions(value: string) {
@@ -95,14 +131,23 @@ export function SessionTicketsPage() {
   }
 
   if (sessionsQuery.isLoading) {
-    return <StatusState title={t("Loading sessions")} loading message={t("Fetching session list")} />;
+    return (
+      <StatusState
+        title={t("Loading sessions")}
+        loading
+        message={t("Fetching session list")}
+      />
+    );
   }
 
   if (sessionsQuery.error && !sessionsQuery.data) {
     return (
       <StatusState
         title={t("Unable to load sessions")}
-        message={t(getUserFacingErrorMessage(sessionsQuery.error) ?? "Something went wrong. Please try again.")}
+        message={t(
+          getUserFacingErrorMessage(sessionsQuery.error) ??
+            "Something went wrong. Please try again.",
+        )}
         actionLabel={t("Retry")}
         onAction={() => sessionsQuery.refetch()}
       />
@@ -111,7 +156,18 @@ export function SessionTicketsPage() {
 
   return (
     <Stack spacing={3}>
-      <AdminPageHeader title={t("Session ticket lookup")} description={t("Find a session, then review the tickets purchased for it.")} refresh={{ isFetching: sessionsQuery.isFetching, failed: sessionsQuery.isRefetchError, error: sessionsQuery.error, onRefresh: () => sessionsQuery.refetch() }} />
+      <AdminPageHeader
+        title={t("Session ticket lookup")}
+        description={t(
+          "Find a session, then review the tickets purchased for it.",
+        )}
+        refresh={{
+          isFetching: sessionsQuery.isFetching,
+          failed: sessionsQuery.isRefetchError,
+          error: sessionsQuery.error,
+          onRefresh: () => sessionsQuery.refetch(),
+        }}
+      />
 
       <Stack spacing={1.5}>
         <TextField
@@ -122,9 +178,12 @@ export function SessionTicketsPage() {
           size="small"
           fullWidth
         />
-        {sessionsQuery.isFetching ? <Alert severity="info">{t("Updating session results...")}</Alert> : null}
+        {sessionsQuery.isFetching ? (
+          <Alert severity="info">{t("Updating session results...")}</Alert>
+        ) : null}
         <Typography variant="body2" color="text.secondary">
-          {t("Showing")} {sessions.length} {t("of")} {sessionsQuery.data?.totalElements ?? 0} {t("sessions")}
+          {t("Showing")} {sessions.length} {t("of")}{" "}
+          {sessionsQuery.data?.totalElements ?? 0} {t("sessions")}
         </Typography>
         <TableContainer component={Paper} variant="outlined">
           <Table size="small" aria-label={t("Sessions")}>
@@ -140,23 +199,35 @@ export function SessionTicketsPage() {
             </TableHead>
             <TableBody>
               {sessions.map((item) => (
-                <TableRow key={item.id} hover selected={item.id === selectedSessionId}>
+                <TableRow
+                  key={item.id}
+                  hover
+                  selected={item.id === selectedSessionId}
+                >
                   <TableCell>
                     <Typography fontWeight={600}>{item.sessionName}</Typography>
                     <Typography variant="caption" color="text.secondary">
-                      {t("#")}{item.id}
+                      {t("#")}
+                      {item.id}
                     </Typography>
                   </TableCell>
                   <TableCell>{item.roomName}</TableCell>
                   <TableCell>
-                    <Chip label={translateAdminStatus(item.state, t)} size="small" />
+                    <Chip
+                      label={translateAdminStatus(item.state, t)}
+                      size="small"
+                    />
                   </TableCell>
-                  <TableCell>{new Date(item.scheduledStartAt).toLocaleString()}</TableCell>
+                  <TableCell>
+                    {formatEthiopianDateTime(item.scheduledStartAt)}
+                  </TableCell>
                   <TableCell align="right">{item.ticketCount}</TableCell>
                   <TableCell align="right">
                     <Button
                       size="small"
-                      variant={item.id === selectedSessionId ? "contained" : "outlined"}
+                      variant={
+                        item.id === selectedSessionId ? "contained" : "outlined"
+                      }
                       onClick={() => selectSession(item.id)}
                     >
                       {t("View tickets")}
@@ -187,21 +258,30 @@ export function SessionTicketsPage() {
       </Stack>
 
       {selectedSessionId === null ? (
-        <Alert severity="info">{t("Select a session to see its tickets.")}</Alert>
+        <Alert severity="info">
+          {t("Select a session to see its tickets.")}
+        </Alert>
       ) : (
         <Stack spacing={1.5}>
           <Box>
             <Typography variant="h5">
-              {selectedSession?.sessionName ?? t("Session")} {t("#")}{selectedSessionId}
+              {selectedSession?.sessionName ?? t("Session")} {t("#")}
+              {selectedSessionId}
             </Typography>
             <Typography color="text.secondary">
-              {selectedSession ? `${selectedSession.roomName} · ${translateAdminStatus(selectedSession.state, t)}` : ""}
-              {ticketsQuery.data ? ` · ${ticketsQuery.data.totalElements} ${t("tickets")}` : ""}
+              {selectedSession
+                ? `${selectedSession.roomName} · ${translateAdminStatus(selectedSession.state, t)}`
+                : ""}
+              {ticketsQuery.data
+                ? ` · ${ticketsQuery.data.totalElements} ${t("tickets")}`
+                : ""}
             </Typography>
           </Box>
           <TextField
             label={t("Search tickets")}
-            placeholder={t("Player name, phone, public code, or ticket ID (#123)")}
+            placeholder={t(
+              "Player name, phone, public code, or ticket ID (#123)",
+            )}
             value={ticketQuery}
             onChange={(event) => {
               setTicketQuery(event.target.value);
@@ -211,17 +291,36 @@ export function SessionTicketsPage() {
             fullWidth
           />
           <Stack direction="row" justifyContent="flex-end" alignItems="center">
-            <ListRefreshButton refreshing={ticketsQuery.isFetching} onRefresh={() => ticketsQuery.refetch()} />
+            <ListRefreshButton
+              refreshing={ticketsQuery.isFetching}
+              onRefresh={() => ticketsQuery.refetch()}
+            />
           </Stack>
-          {ticketsQuery.isRefetchError ? <ListRefreshError retrying={ticketsQuery.isFetching} error={ticketsQuery.error} onRetry={() => ticketsQuery.refetch()} /> : null}
+          {ticketsQuery.isRefetchError ? (
+            <ListRefreshError
+              retrying={ticketsQuery.isFetching}
+              error={ticketsQuery.error}
+              onRetry={() => ticketsQuery.refetch()}
+            />
+          ) : null}
           {ticketsQuery.error && !ticketsQuery.data ? (
             <Alert severity="error">
-              {t(getUserFacingErrorMessage(ticketsQuery.error) ?? "Unable to load session tickets.")}
+              {t(
+                getUserFacingErrorMessage(ticketsQuery.error) ??
+                  "Unable to load session tickets.",
+              )}
             </Alert>
           ) : null}
-          {ticketsQuery.isFetching ? <Alert severity="info">{t("Updating ticket results...")}</Alert> : null}
+          {ticketsQuery.isFetching ? (
+            <Alert severity="info">{t("Updating ticket results...")}</Alert>
+          ) : null}
           <TableContainer component={Paper} variant="outlined">
-            <Table size="small" aria-label={t("Tickets for session {{sessionId}}", { sessionId: selectedSessionId })}>
+            <Table
+              size="small"
+              aria-label={t("Tickets for session {{sessionId}}", {
+                sessionId: selectedSessionId,
+              })}
+            >
               <TableHead>
                 <TableRow>
                   <TableCell>{t("Ticket ID")}</TableCell>
@@ -234,20 +333,35 @@ export function SessionTicketsPage() {
               <TableBody>
                 {tickets.map((ticket) => (
                   <TableRow key={ticket.ticketId} hover>
-                    <TableCell>{t("#")}{ticket.ticketId}</TableCell>
+                    <TableCell>
+                      {t("#")}
+                      {ticket.ticketId}
+                    </TableCell>
                     <TableCell>
                       {canOpenPlayer ? (
-                        <Link component={RouterLink} to={`/players/${ticket.playerId}`} underline="hover">
+                        <Link
+                          component={RouterLink}
+                          to={`/players/${ticket.playerId}`}
+                          underline="hover"
+                        >
                           {ticket.playerName}
                         </Link>
-                      ) : ticket.playerName}
+                      ) : (
+                        ticket.playerName
+                      )}
                     </TableCell>
-                    <TableCell>{ticket.playerPhone ?? t("Not available")}</TableCell>
+                    <TableCell>
+                      {ticket.playerPhone ?? t("Not available")}
+                    </TableCell>
                     <TableCell>{ticket.publicTicketCode}</TableCell>
-                    <TableCell>{new Date(ticket.purchasedAt).toLocaleString()}</TableCell>
+                    <TableCell>
+                      {formatEthiopianDateTime(ticket.purchasedAt)}
+                    </TableCell>
                   </TableRow>
                 ))}
-                {!ticketsQuery.isFetching && !ticketsQuery.error && tickets.length === 0 ? (
+                {!ticketsQuery.isFetching &&
+                !ticketsQuery.error &&
+                tickets.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} align="center">
                       {ticketQuery.trim()

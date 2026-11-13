@@ -107,6 +107,21 @@ describe("SessionCreatePage", () => {
     expect(await screen.findByText("Created session details")).toBeInTheDocument();
   });
 
+  it("translates invalid Ethiopian calendar date guidance to Amharic", async () => {
+    await i18n.changeLanguage("am");
+    const user = userEvent.setup();
+    render(<SessionCreatePage />, { wrapper: createWrapper });
+
+    await user.click(await screen.findByRole("combobox", { name: "ክፍል" }));
+    await user.click(await screen.findByRole("option", { name: "Evening Room" }));
+    await user.type(
+      screen.getByRole("textbox", { name: "የኢትዮጵያ ዘመን መቁጠሪያ ቀን" }),
+      "2018-13-30",
+    );
+
+    expect(await screen.findByText("ትክክለኛ የኢትዮጵያ ዘመን መቁጠሪያ ቀን ያስገቡ።")).toBeInTheDocument();
+  });
+
   it("offers room creation when no rooms are available", async () => {
     listRoomsMock.mockResolvedValue([]);
     render(<SessionCreatePage />, { wrapper: createWrapper });
@@ -116,6 +131,21 @@ describe("SessionCreatePage", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Create room" })).toHaveAttribute("href", "/rooms/new");
     expect(screen.getByRole("button", { name: "Create session" })).toBeDisabled();
+  });
+
+  it("uses an Ethiopian calendar picker for the scheduled date", async () => {
+    const user = userEvent.setup();
+    render(<SessionCreatePage />, { wrapper: createWrapper });
+
+    await user.click(await screen.findByRole("combobox", { name: "Room" }));
+    await user.click(await screen.findByRole("option", { name: "Evening Room" }));
+
+    const dateField = screen.getByRole("textbox", { name: "Ethiopian calendar date" });
+    expect(dateField).toHaveAttribute("readonly");
+
+    await user.click(screen.getByRole("button", { name: "Open Ethiopian calendar date calendar" }));
+    expect(screen.getByRole("button", { name: "Previous Ethiopian month" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /^Select / }).length).toBeGreaterThan(0);
   });
 
   it("asks before discarding edited fields and returns focus when editing continues", async () => {

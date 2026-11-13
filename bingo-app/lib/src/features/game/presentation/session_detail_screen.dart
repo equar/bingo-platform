@@ -8,7 +8,7 @@ import 'package:bingo_app/src/core/widgets/responsive_content.dart';
 
 import 'package:bingo_app/l10n/app_localizations.dart';
 import 'package:bingo_app/src/core/config/app_config.dart';
-import 'package:bingo_app/src/core/storage/player_preferences.dart';
+import 'package:bingo_app/src/core/device/screen_awake.dart';
 import 'package:bingo_app/src/core/widgets/app_status_view.dart';
 import 'package:bingo_app/src/core/widgets/section_card.dart';
 import 'package:bingo_app/src/features/game/application/live_game_controller.dart';
@@ -16,7 +16,6 @@ import 'package:bingo_app/src/features/game/domain/live_game_models.dart';
 import 'package:bingo_app/src/features/game/domain/ticket_models.dart';
 import 'package:bingo_app/src/features/lobby/domain/lobby_models.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class SessionDetailScreen extends ConsumerStatefulWidget {
@@ -33,6 +32,7 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen>
     with WidgetsBindingObserver {
   final Set<String> _celebratedWins = {};
   bool _celebrationQueued = false;
+  late final ScreenAwakeController _screenAwakeController;
 
   Set<String> _winKeys(List<TicketResponse> tickets) => {
     for (final ticket in tickets)
@@ -76,10 +76,14 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _screenAwakeController = ScreenAwakeController(
+      ref.read(screenAwakeProvider),
+    );
   }
 
   @override
   void dispose() {
+    unawaited(_syncScreenAwake(false));
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -91,9 +95,28 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen>
     );
     if (state == AppLifecycleState.resumed) {
       unawaited(controller.resume());
+      final session =
+          ref.read(liveGameControllerProvider(widget.session.id)).session ??
+          widget.session;
+      unawaited(_syncScreenAwake(_isLiveGame(session)));
     } else if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive) {
       unawaited(controller.pause());
+      unawaited(_syncScreenAwake(false));
+    }
+  }
+
+  bool _isLiveGame(GameSession session) =>
+      session.state == 'STARTED' || session.state == 'DRAWING';
+
+  Future<void> _syncScreenAwake(bool active) async {
+    try {
+      await _screenAwakeController.setActiveGame(active);
+    } catch (error, stackTrace) {
+      debugPrint(
+        'Unable to ${active ? 'enable' : 'disable'} screen wake lock: $error',
+      );
+      debugPrintStack(stackTrace: stackTrace);
     }
   }
 
@@ -101,13 +124,6 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen>
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context)!;
     final state = ref.watch(liveGameControllerProvider(widget.session.id));
-    ref.listen(liveGameControllerProvider(widget.session.id), (previous, next) {
-      if (ref.read(playerPreferencesProvider).soundEnabled &&
-          previous != null &&
-          next.draws.length > previous.draws.length) {
-        SystemSound.play(SystemSoundType.click);
-      }
-    });
     _maybeCelebrate(state);
     final controller = ref.read(
       liveGameControllerProvider(widget.session.id).notifier,
@@ -115,39 +131,14 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen>
     final purchasesEnabled = ref
         .watch(appConfigProvider)
         .playerTicketPurchasesEnabled;
-    final playerPreferences = ref.watch(playerPreferencesProvider);
     final session = state.session ?? widget.session;
     final isPreGame = session.state == 'DRAFT' || session.state == 'OPEN';
+    unawaited(_syncScreenAwake(_isLiveGame(session)));
 
     return Scaffold(
       appBar: AppBar(
         title: Text(localizations.liveGameTitle),
         actions: [
-          IconButton(
-            tooltip: 'Game settings',
-            icon: const Icon(Icons.tune_rounded),
-            onPressed: () => showModalBottomSheet<void>(
-              context: context,
-              isScrollControlled: true,
-              useSafeArea: true,
-              showDragHandle: true,
-              builder: (_) => _GameSettingsSheet(
-                preferences: playerPreferences,
-                activeTicketId: state.selectedTicket?.id,
-              ),
-            ),
-          ),
-          IconButton(
-            tooltip: 'Sort cards',
-            icon: const Icon(Icons.sort_rounded),
-            onPressed: () => showModalBottomSheet<void>(
-              context: context,
-              isScrollControlled: true,
-              useSafeArea: true,
-              showDragHandle: true,
-              builder: (_) => _SortCardsSheet(preferences: playerPreferences),
-            ),
-          ),
           if (!isPreGame)
             IconButton(
               key: const ValueKey('live-game-details'),
@@ -187,11 +178,7 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen>
                 ),
               ),
             ),
-          _ConnectionChip(
-            state: state,
-            localizations: localizations,
-            compact: true,
-          ),
+          _ConnectionChip(state: state, localizations: localizations),
           IconButton(
             tooltip: localizations.refresh,
             onPressed: controller.refresh,
@@ -205,7 +192,6 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen>
                 state: state,
                 controller: controller,
                 localizations: localizations,
-                preferences: playerPreferences,
               )
             : RefreshIndicator(
                 onRefresh: controller.refresh,
@@ -255,7 +241,6 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen>
                         state: state,
                         controller: controller,
                         localizations: localizations,
-                        preferences: playerPreferences,
                       ),
                       const SizedBox(height: 16),
                       if (!isPreGame)
@@ -298,12 +283,10 @@ class _LivePlayView extends StatelessWidget {
     required this.state,
     required this.controller,
     required this.localizations,
-    required this.preferences,
   });
   final LiveGameState state;
   final LiveGameController controller;
   final AppLocalizations localizations;
-  final PlayerPreferences preferences;
 
   @override
   Widget build(BuildContext context) => SafeArea(
@@ -347,7 +330,6 @@ class _LivePlayView extends StatelessWidget {
                         controller: controller,
                         localizations: localizations,
                         fillAvailableSpace: true,
-                        preferences: preferences,
                       ),
                     ),
                     _ClaimCard(
@@ -404,7 +386,39 @@ class _SessionSummaryCard extends StatelessWidget {
       ),
     );
     if (confirmed == true && context.mounted) {
-      await controller.purchaseTicket();
+      final purchaseError = await controller.purchaseTicket();
+      if (!context.mounted) {
+        return;
+      }
+      final (title, body) = switch (purchaseError?.code) {
+        'PLAYER_TICKET_LIMIT_REACHED' => (
+          localizations.ticketLimitReachedTitle,
+          session.maxTicketsPerPlayer == null
+              ? localizations.errorPlayerTicketLimitReached
+              : localizations.ticketLimitReachedBody(
+                  session.maxTicketsPerPlayer!,
+                ),
+        ),
+        'SESSION_CAPACITY_REACHED' => (
+          localizations.ticketsSoldOutTitle,
+          localizations.ticketsSoldOutBody,
+        ),
+        _ => (null, null),
+      };
+      if (title == null || body == null) return;
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text(title),
+          content: Text(body),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text(localizations.claimDialogDismiss),
+            ),
+          ],
+        ),
+      );
     }
   }
 
@@ -509,7 +523,6 @@ class _TicketsCard extends StatelessWidget {
     required this.state,
     required this.controller,
     required this.localizations,
-    required this.preferences,
     this.fillAvailableSpace = false,
   });
 
@@ -517,53 +530,18 @@ class _TicketsCard extends StatelessWidget {
   final LiveGameState state;
   final LiveGameController controller;
   final AppLocalizations localizations;
-  final PlayerPreferences preferences;
 
   @override
   Widget build(BuildContext context) {
     final ticketPage = state.ticketPage;
     final tickets = ticketPage?.content ?? const [];
     final selectedTicket = state.selectedTicket;
-    final orderedTickets = [...tickets]
-      ..sort((a, b) {
-        for (final priority in preferences.sortPriorities) {
-          final score = _ticketPatternScore(
-            b,
-            state.calledNumbers,
-            priority,
-          ).compareTo(_ticketPatternScore(a, state.calledNumbers, priority));
-          if (score != 0) return score;
-        }
-        return 0;
-      });
 
     return SectionCard(
       key: const ValueKey('live-tickets'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  localizations.myTicketsTitle,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-              ),
-              if (ticketPage != null)
-                Text(
-                  localizations.ticketPosition(
-                    ticketPage.totalElements == 0
-                        ? 0
-                        : ticketPage.page * ticketPage.size +
-                              state.selectedTicketIndex +
-                              1,
-                    ticketPage.totalElements,
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 12),
           if (tickets.isEmpty)
             AppStatusView(
               title: localizations.emptyState,
@@ -576,18 +554,11 @@ class _TicketsCard extends StatelessWidget {
                 child: Row(
                   spacing: 8,
                   children: [
-                    for (final ticket in orderedTickets)
+                    for (var index = 0; index < tickets.length; index += 1)
                       ChoiceChip(
-                        selected: preferences.multipleCardSelection
-                            ? preferences.selectedTicketIds.contains(ticket.id)
-                            : ticket.id == selectedTicket?.id,
-                        label: Text(ticket.publicTicketCode),
-                        onSelected: (_) {
-                          controller.selectTicketIndex(tickets.indexOf(ticket));
-                          if (preferences.multipleCardSelection) {
-                            preferences.toggleSelectedTicket(ticket.id);
-                          }
-                        },
+                        selected: index == state.selectedTicketIndex,
+                        label: Text(tickets[index].publicTicketCode),
+                        onSelected: (_) => controller.selectTicketIndex(index),
                       ),
                   ],
                 ),
@@ -597,25 +568,18 @@ class _TicketsCard extends StatelessWidget {
             if (selectedTicket != null) ...[
               if (fillAvailableSpace)
                 Expanded(
-                  child: _buildTicketBoard(
-                    orderedTickets,
-                    tickets,
-                    state,
-                    controller,
-                    localizations,
-                    preferences,
-                    true,
+                  child: _TicketGridCard(
+                    ticket: selectedTicket,
+                    calledNumbers: state.calledNumbers,
+                    localizations: localizations,
+                    fillAvailableSpace: true,
                   ),
                 )
               else
-                _buildTicketBoard(
-                  orderedTickets,
-                  tickets,
-                  state,
-                  controller,
-                  localizations,
-                  preferences,
-                  false,
+                _TicketGridCard(
+                  ticket: selectedTicket,
+                  calledNumbers: state.calledNumbers,
+                  localizations: localizations,
                 ),
               const SizedBox(height: 12),
             ],
@@ -646,72 +610,6 @@ class _TicketsCard extends StatelessWidget {
       ),
     );
   }
-
-  Widget _buildTicketBoard(
-    List<TicketResponse> ordered,
-    List<TicketResponse> source,
-    LiveGameState state,
-    LiveGameController controller,
-    AppLocalizations localizations,
-    PlayerPreferences preferences,
-    bool fill,
-  ) {
-    final boardCapacity = preferences.cardsOnBoard * 2;
-    // Keep unselected tickets visible in selection mode so the player can add
-    // or remove any ticket without it disappearing from the grid.
-    final visible = preferences.multipleCardSelection
-        ? ordered
-        : ordered.take(boardCapacity).toList();
-    final selected = state.selectedTicket;
-    if (selected != null &&
-        !visible.any((ticket) => ticket.id == selected.id) &&
-        visible.isNotEmpty) {
-      visible[visible.length - 1] = selected;
-    }
-    return GridView.builder(
-      shrinkWrap: !fill,
-      physics: fill
-          ? const AlwaysScrollableScrollPhysics()
-          : const NeverScrollableScrollPhysics(),
-      padding: EdgeInsets.zero,
-      itemCount: preferences.multipleCardSelection
-          ? visible.length
-          : preferences.hideUnregisteredCards
-          ? visible.length
-          : boardCapacity,
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: preferences.cardsOnBoard,
-        crossAxisSpacing: 8,
-        mainAxisSpacing: 8,
-        childAspectRatio: .72,
-      ),
-      itemBuilder: (context, index) {
-        if (index >= visible.length) {
-          return _UnregisteredTicketCard(localizations: localizations);
-        }
-        final ticket = visible[index];
-        return _TicketGridCard(
-          ticket: ticket,
-          calledNumbers: state.calledNumbers,
-          localizations: localizations,
-          autoMark: preferences.autoMark,
-          manualMarks: preferences.manualMarksForTicket(ticket.id),
-          onToggleManualMark: (number) =>
-              preferences.toggleManualMark(ticket.id, number),
-          selectionColor: PlayerPreferences
-              .selectionColors[preferences.selectionColorIndex],
-          selected: ticket.id == state.selectedTicket?.id,
-          multiSelected: preferences.selectedTicketIds.contains(ticket.id),
-          onTap: () {
-            controller.selectTicketIndex(source.indexOf(ticket));
-            if (preferences.multipleCardSelection) {
-              preferences.toggleSelectedTicket(ticket.id);
-            }
-          },
-        );
-      },
-    );
-  }
 }
 
 class _TicketGridCard extends StatelessWidget {
@@ -719,25 +617,13 @@ class _TicketGridCard extends StatelessWidget {
     required this.ticket,
     required this.calledNumbers,
     required this.localizations,
-    this.autoMark = true,
-    this.manualMarks = const {},
-    this.onToggleManualMark,
-    this.selectionColor = const Color(0xFF245AD8),
-    this.selected = false,
-    this.multiSelected = false,
-    this.onTap,
+    this.fillAvailableSpace = false,
   });
 
+  final bool fillAvailableSpace;
   final TicketResponse ticket;
   final List<int> calledNumbers;
   final AppLocalizations localizations;
-  final bool autoMark;
-  final Set<int> manualMarks;
-  final ValueChanged<int>? onToggleManualMark;
-  final Color selectionColor;
-  final bool selected;
-  final bool multiSelected;
-  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -783,10 +669,7 @@ class _TicketGridCard extends StatelessWidget {
             final ticketRow = row - 1;
             final value = ticket.grid[ticketRow][column];
             final isFree = value == 0;
-            final isCalled =
-                isFree ||
-                manualMarks.contains(value) ||
-                (autoMark && calledNumbers.contains(value));
+            final isCalled = isFree || calledNumbers.contains(value);
             final isLatest = value == latestCalled;
             return _TicketCell(
               key: ValueKey('ticket-cell-$ticketRow-$column'),
@@ -797,39 +680,28 @@ class _TicketGridCard extends StatelessWidget {
               isLatest: isLatest,
               border: cellBorder,
               localizations: localizations,
-              selectionColor: selectionColor,
-              isManuallyMarked: manualMarks.contains(value),
-              onTap: isFree ? null : () => onToggleManualMark?.call(value),
             );
           },
         ),
       ),
     );
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        decoration: BoxDecoration(
-          border: selected || multiSelected
-              ? Border.all(color: selectionColor, width: 2)
-              : null,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        padding: const EdgeInsets.all(3),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              ticket.publicTicketCode,
-              style: Theme.of(
-                context,
-              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (fillAvailableSpace)
+          Expanded(
+            child: SizedBox(
+              key: const ValueKey('live-ticket-grid'),
+              child: grid,
             ),
-            const SizedBox(height: 4),
-            Expanded(key: const ValueKey('live-ticket-grid'), child: grid),
-          ],
-        ),
-      ),
+          )
+        else
+          AspectRatio(
+            key: const ValueKey('live-ticket-grid'),
+            aspectRatio: 5 / 6,
+            child: grid,
+          ),
+      ],
     );
   }
 }
@@ -1102,36 +974,16 @@ String _claimStatusLabel(AppLocalizations localizations, String status) {
 }
 
 class _ConnectionChip extends StatelessWidget {
-  const _ConnectionChip({
-    required this.state,
-    required this.localizations,
-    this.compact = false,
-  });
+  const _ConnectionChip({required this.state, required this.localizations});
 
   final LiveGameState state;
   final AppLocalizations localizations;
-  final bool compact;
 
   @override
   Widget build(BuildContext context) {
-    final label = _connectionLabel(state.connectionState, localizations);
-    if (compact && MediaQuery.sizeOf(context).width < 480) {
-      final icon = switch (state.connectionState) {
-        LiveGameConnectionState.idle ||
-        LiveGameConnectionState.disconnected => Icons.wifi_off_rounded,
-        LiveGameConnectionState.connecting ||
-        LiveGameConnectionState.reconnecting => Icons.sync_rounded,
-        LiveGameConnectionState.connected => Icons.wifi_rounded,
-        LiveGameConnectionState.paused => Icons.pause_rounded,
-        LiveGameConnectionState.finished => Icons.check_circle_outline_rounded,
-        LiveGameConnectionState.expired => Icons.error_outline_rounded,
-      };
-      return Tooltip(
-        message: label,
-        child: Chip(label: Icon(icon, size: 18)),
-      );
-    }
-    return Chip(label: Text(label));
+    return Chip(
+      label: Text(_connectionLabel(state.connectionState, localizations)),
+    );
   }
 }
 
@@ -1181,9 +1033,6 @@ class _TicketCell extends StatelessWidget {
     required this.isLatest,
     required this.border,
     required this.localizations,
-    required this.selectionColor,
-    required this.isManuallyMarked,
-    this.onTap,
   });
 
   final int value;
@@ -1193,116 +1042,80 @@ class _TicketCell extends StatelessWidget {
   final bool isLatest;
   final Border border;
   final AppLocalizations localizations;
-  final Color selectionColor;
-  final bool isManuallyMarked;
-  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final background = isLatest
-        ? selectionColor.withValues(alpha: .34)
+        ? colors.primaryContainer
         : isCalled
-        ? selectionColor.withValues(alpha: isManuallyMarked ? .32 : .2)
+        ? colors.secondaryContainer
         : colors.surface;
     final numberColor = isLatest
-        ? selectionColor
+        ? colors.onPrimaryContainer
         : isCalled
-        ? selectionColor
+        ? colors.onSecondaryContainer
         : colors.onSurface;
 
     return Semantics(
       label: '$columnLetter ${isFree ? localizations.freeCenterLabel : value}',
       selected: isCalled && !isFree,
-      button: onTap != null,
       child: ExcludeSemantics(
-        child: InkWell(
-          onTap: onTap,
-          child: AnimatedContainer(
-            duration: MediaQuery.disableAnimationsOf(context)
-                ? Duration.zero
-                : const Duration(milliseconds: 180),
-            decoration: BoxDecoration(color: background, border: border),
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                if (isFree)
-                  Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(2),
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text(
-                          localizations.freeCenterLabel.toUpperCase(),
-                          style: Theme.of(context).textTheme.labelLarge
-                              ?.copyWith(
-                                color: colors.onSecondaryContainer,
-                                fontWeight: FontWeight.w800,
-                              ),
-                        ),
-                      ),
-                    ),
-                  )
-                else
-                  Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(2),
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text(
-                          value.toString(),
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(
-                                color: numberColor,
-                                fontWeight: isCalled
-                                    ? FontWeight.w700
-                                    : FontWeight.w500,
-                              ),
+        child: AnimatedContainer(
+          duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 180),
+          decoration: BoxDecoration(color: background, border: border),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (isFree)
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(2),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        localizations.freeCenterLabel.toUpperCase(),
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: colors.onSecondaryContainer,
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
                     ),
                   ),
-                if (isCalled && !isFree)
-                  Positioned(
-                    top: 1,
-                    right: 1,
-                    child: Icon(Icons.check, size: 13, color: selectionColor),
+                )
+              else
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(2),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        value.toString(),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
+                              color: numberColor,
+                              fontWeight: isCalled
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                            ),
+                      ),
+                    ),
                   ),
-              ],
-            ),
+                ),
+              if (isCalled && !isFree)
+                Positioned(
+                  top: 1,
+                  right: 1,
+                  child: Icon(Icons.check, size: 13, color: colors.primary),
+                ),
+            ],
           ),
         ),
       ),
     );
   }
-}
-
-class _UnregisteredTicketCard extends StatelessWidget {
-  const _UnregisteredTicketCard({required this.localizations});
-  final AppLocalizations localizations;
-
-  @override
-  Widget build(BuildContext context) => DecoratedBox(
-    decoration: BoxDecoration(
-      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      borderRadius: BorderRadius.circular(10),
-      border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-    ),
-    child: Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.add_card_outlined, color: Colors.grey, size: 32),
-          const SizedBox(height: 4),
-          Text(
-            localizations.unregisteredCard,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.labelSmall,
-          ),
-        ],
-      ),
-    ),
-  );
 }
 
 class _BingoHeaderCell extends StatelessWidget {
@@ -1341,423 +1154,4 @@ class _ClaimStatusChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Chip(label: Text(_claimStatusLabel(localizations, status)));
   }
-}
-
-double _ticketPatternScore(
-  TicketResponse ticket,
-  List<int> called,
-  String pattern,
-) {
-  final calledSet = {...called, 0};
-  final masks = _sortMasks(pattern);
-  if (pattern == 'Most called') {
-    return ticket.grid.expand((row) => row).where(calledSet.contains).length /
-        25;
-  }
-  if (masks.isEmpty) return 0;
-  return masks
-      .map(
-        (mask) =>
-            mask
-                .where(
-                  (cell) =>
-                      calledSet.contains(ticket.grid[cell ~/ 5][cell % 5]),
-                )
-                .length /
-            mask.length,
-      )
-      .reduce(math.max);
-}
-
-List<List<int>> _sortMasks(String name) {
-  List<int> row(int r) => List.generate(5, (c) => r * 5 + c);
-  List<int> column(int c) => List.generate(5, (r) => r * 5 + c);
-  final rows = List.generate(5, row);
-  final columns = List.generate(5, column);
-  final diagonals = [
-    List.generate(5, (i) => i * 6),
-    List.generate(5, (i) => i * 5 + 4),
-  ];
-  if (name.startsWith('Lines')) {
-    var masks = [...rows, ...columns, ...diagonals];
-    if (name == 'Lines touching free') {
-      masks = masks.where((mask) => mask.contains(12)).toList();
-    }
-    if (name == 'Lines not touching free') {
-      masks = masks.where((mask) => !mask.contains(12)).toList();
-    }
-    if (name == 'Non-crossing lines') {
-      masks = masks.where((mask) => !diagonals.contains(mask)).toList();
-    }
-    return masks;
-  }
-  if (name == 'Horizontal lines') {
-    return rows;
-  }
-  if (name == 'Vertical lines') {
-    return columns;
-  }
-  if (name == 'Diagonal lines') {
-    return diagonals;
-  }
-  if (name == 'Corner balls') {
-    return [
-      [0, 4, 20, 24],
-    ];
-  }
-  if (name == 'Big O (border)') {
-    return [
-      [
-        ...rows.first,
-        ...rows.last,
-        ...List.generate(3, (i) => (i + 1) * 5),
-        ...List.generate(3, (i) => (i + 1) * 5 + 4),
-      ],
-    ];
-  }
-  if (name == 'Big T') {
-    return [
-      [...rows.first, 6, 11, 16, 21],
-    ];
-  }
-  if (name == 'Big Z') {
-    return [
-      [...rows.first, ...rows.last, 4, 8, 12, 16],
-    ];
-  }
-  if (name == 'Big H') {
-    return [
-      [...column(0), ...column(4), ...rows[2]],
-    ];
-  }
-  if (name == 'Big L') {
-    return [
-      [...column(0), ...rows.last],
-    ];
-  }
-  if (name == 'Big U') {
-    return [
-      [...column(0), ...column(4), ...rows.last],
-    ];
-  }
-  if (name == 'Small X') {
-    return [
-      [0, 6, 12, 18, 24, 4, 8, 16, 20],
-    ];
-  }
-  if (name == 'Small T') {
-    return [
-      [0, 1, 2, 6, 11, 16, 21],
-    ];
-  }
-  if (name == 'Small cross (+)') {
-    return [
-      [2, 7, 10, 11, 12, 13, 14, 17, 22],
-    ];
-  }
-  if (name == 'Half house') {
-    return [
-      [...rows[0], ...rows[1], ...rows[2]],
-    ];
-  }
-  if (name == 'Squares' || name == 'Rectangles') {
-    final masks = <List<int>>[];
-    for (var height = 2; height <= 4; height++) {
-      for (var width = 2; width <= 4; width++) {
-        if ((height == width) != (name == 'Squares')) continue;
-        for (var r = 0; r + height <= 5; r++) {
-          for (var c = 0; c + width <= 5; c++) {
-            masks.add([
-              for (var y = r; y < r + height; y++)
-                for (var x = c; x < c + width; x++) y * 5 + x,
-            ]);
-          }
-        }
-      }
-    }
-    return masks;
-  }
-  return [];
-}
-
-class _GameSettingsSheet extends StatelessWidget {
-  const _GameSettingsSheet({required this.preferences, this.activeTicketId});
-  final PlayerPreferences preferences;
-  final int? activeTicketId;
-
-  @override
-  Widget build(BuildContext context) => AnimatedBuilder(
-    animation: preferences,
-    builder: (context, _) {
-      final localizations = AppLocalizations.of(context)!;
-      return SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                localizations.gameSettingsTitle,
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
-              const SizedBox(height: 16),
-              Text('Board', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
-              SegmentedButton<int>(
-                segments: const [
-                  ButtonSegment(value: 2, label: Text('2')),
-                  ButtonSegment(value: 3, label: Text('3')),
-                  ButtonSegment(value: 4, label: Text('4')),
-                ],
-                selected: {preferences.cardsOnBoard},
-                onSelectionChanged: (value) =>
-                    preferences.setBoardSize(value.first),
-              ),
-              ListTile(
-                leading: const Icon(Icons.library_add_check_outlined),
-                title: Text(localizations.selectMultipleCards),
-                subtitle: Text(localizations.selectMultipleCardsDescription),
-                trailing: Switch(
-                  value: preferences.multipleCardSelection,
-                  onChanged: (value) => preferences.setMultipleCardSelection(
-                    value,
-                    initialTicketId: activeTicketId,
-                  ),
-                ),
-                onTap: () => preferences.setMultipleCardSelection(
-                  !preferences.multipleCardSelection,
-                  initialTicketId: activeTicketId,
-                ),
-              ),
-              ListTile(
-                leading: const Icon(Icons.sort_rounded),
-                title: Text(localizations.sortCards),
-                subtitle: Text(
-                  preferences.sortPriorities.isEmpty
-                      ? localizations.sortCardsChooseThree
-                      : preferences.sortPriorities.join(' · '),
-                ),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => showModalBottomSheet<void>(
-                  context: context,
-                  isScrollControlled: true,
-                  useSafeArea: true,
-                  showDragHandle: true,
-                  builder: (_) => _SortCardsSheet(preferences: preferences),
-                ),
-              ),
-              const Divider(),
-              ListTile(
-                leading: const Icon(Icons.restart_alt_rounded),
-                title: Text(localizations.resetMarkedNumbers),
-                subtitle: Text(localizations.clearManualMarksDescription),
-                onTap: preferences.clearManualMarks,
-              ),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(localizations.autoMarkNumbers),
-                subtitle: Text(localizations.autoMarkNumbersDescription),
-                value: preferences.autoMark,
-                onChanged: preferences.setAutoMark,
-              ),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(localizations.hideUnregisteredCards),
-                subtitle: Text(localizations.hideUnregisteredCardsDescription),
-                value: preferences.hideUnregisteredCards,
-                onChanged: preferences.setHideUnregistered,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                localizations.selectionColor,
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  for (
-                    var i = 0;
-                    i < PlayerPreferences.selectionColors.length;
-                    i++
-                  )
-                    InkWell(
-                      onTap: () => preferences.setSelectionColor(i),
-                      customBorder: const CircleBorder(),
-                      child: Container(
-                        width: 38,
-                        height: 38,
-                        decoration: BoxDecoration(
-                          color: PlayerPreferences.selectionColors[i],
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: preferences.selectionColorIndex == i
-                                ? Theme.of(context).colorScheme.onSurface
-                                : Colors.transparent,
-                            width: 3,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 18),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Close'),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    },
-  );
-}
-
-class _SortCardsSheet extends StatelessWidget {
-  const _SortCardsSheet({required this.preferences});
-  final PlayerPreferences preferences;
-
-  @override
-  Widget build(BuildContext context) => AnimatedBuilder(
-    animation: preferences,
-    builder: (context, _) {
-      const groups = <String, List<String>>{
-        'Lines': [
-          'Lines (anywhere)',
-          'Lines touching free',
-          'Lines not touching free',
-          'Non-crossing lines',
-        ],
-        'Squares': ['Squares'],
-        'Rectangles': ['Rectangles'],
-        'Horizontal lines': ['Horizontal lines'],
-        'Vertical lines': ['Vertical lines'],
-        'Big T': ['Big T'],
-        'Big Z': ['Big Z'],
-        'Big H': ['Big H'],
-        'Big L': ['Big L'],
-        'Big U': ['Big U'],
-        'Other patterns': [
-          'Diagonal lines',
-          'Most called',
-          'Small X',
-          'Small T',
-          'Small cross (+)',
-          'Corner balls',
-          'Half house',
-          'Big O (border)',
-        ],
-      };
-      return SafeArea(
-        child: SizedBox(
-          height: MediaQuery.sizeOf(context).height * .82,
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
-                child: Row(
-                  children: [
-                    const Icon(Icons.sort_rounded),
-                    const SizedBox(width: 12),
-                    Text(
-                      'Sort by',
-                      style: Theme.of(context).textTheme.headlineSmall,
-                    ),
-                  ],
-                ),
-              ),
-              if (preferences.sortPriorities.isNotEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 20),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'The order you tick them sets the priority. Up to 3.',
-                    ),
-                  ),
-                ),
-              if (preferences.sortPriorities.isNotEmpty)
-                Wrap(
-                  spacing: 6,
-                  children: [
-                    for (var i = 0; i < preferences.sortPriorities.length; i++)
-                      InputChip(
-                        label: Text(
-                          '${i + 1}. ${preferences.sortPriorities[i]}',
-                        ),
-                        onDeleted: () => preferences.toggleSortPriority(
-                          preferences.sortPriorities[i],
-                        ),
-                      ),
-                  ],
-                ),
-              Expanded(
-                child: ListView(
-                  children: [
-                    for (final group in groups.entries)
-                      ExpansionTile(
-                        title: Text(
-                          '${group.key}${group.key == 'Lines' ? '  ${preferences.sortPriorities.where(group.value.contains).length}' : ''}',
-                        ),
-                        initiallyExpanded:
-                            group.key == 'Lines' &&
-                            preferences.sortPriorities.isNotEmpty,
-                        children: [
-                          for (final option in group.value)
-                            CheckboxListTile(
-                              value: preferences.sortPriorities.contains(
-                                option,
-                              ),
-                              title: Text(option),
-                              secondary: Text(
-                                option
-                                    .split(' ')
-                                    .map((word) => word.isEmpty ? '' : word[0])
-                                    .take(2)
-                                    .join()
-                                    .toUpperCase(),
-                              ),
-                              onChanged: (_) {
-                                if (!preferences.sortPriorities.contains(
-                                      option,
-                                    ) &&
-                                    preferences.sortPriorities.length >= 3) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Choose up to 3 priorities.',
-                                      ),
-                                    ),
-                                  );
-                                  return;
-                                }
-                                preferences.toggleSortPriority(option);
-                              },
-                            ),
-                        ],
-                      ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Done'),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    },
-  );
 }
