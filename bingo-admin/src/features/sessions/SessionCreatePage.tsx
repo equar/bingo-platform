@@ -19,12 +19,13 @@ import { getUserFacingErrorMessage } from "../../api/types";
 import { StatusState } from "../../components/StatusState";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { translateAdminStatus } from "../../i18n";
-import { formatDateTimeLocal, resolveRoomScheduleTime } from "./sessionScheduleTime";
+import { formatDateTimeLocal, formatEthiopianScheduleDate, resolveEthiopianRoomScheduleTime } from "./sessionScheduleTime";
 
 interface SessionDraft {
   roomId: string;
   sessionName: string;
-  scheduledStartAt: string;
+  scheduledDate: string;
+  scheduledTime: string;
   state: string;
 }
 
@@ -32,7 +33,8 @@ function createInitialDraft(): SessionDraft {
   return {
     roomId: "",
     sessionName: "",
-    scheduledStartAt: "",
+    scheduledDate: "",
+    scheduledTime: "",
     state: "OPEN",
   };
 }
@@ -50,14 +52,14 @@ export function SessionCreatePage() {
   const [discardOpen, setDiscardOpen] = useState(false);
   const selectedRoom = rooms.find((room) => room.id === Number(draft.roomId));
   const scheduleTime = selectedRoom
-    ? resolveRoomScheduleTime(draft.scheduledStartAt, selectedRoom.timezone)
+    ? resolveEthiopianRoomScheduleTime(draft.scheduledDate, draft.scheduledTime, selectedRoom.timezone)
     : { instant: null, error: null };
 
   const createMutation = useMutation({
     mutationFn: (body: SessionDraft) => {
       const room = rooms.find((candidate) => candidate.id === Number(body.roomId));
       if (!room) throw new Error("Choose an active room before creating a session.");
-      const resolvedStart = resolveRoomScheduleTime(body.scheduledStartAt, room.timezone);
+      const resolvedStart = resolveEthiopianRoomScheduleTime(body.scheduledDate, body.scheduledTime, room.timezone);
       if (!resolvedStart.instant) throw new Error(resolvedStart.error);
       return createSession(Number(body.roomId), {
         sessionName: body.sessionName,
@@ -76,10 +78,12 @@ export function SessionCreatePage() {
     selectedRoom
     && draft.sessionName.trim()
     && draft.sessionName.trim().length <= 120
+    && draft.scheduledDate
+    && draft.scheduledTime
     && scheduleTime.instant
     && initialSessionStates.includes(draft.state),
   );
-  const hasUnsavedChanges = Boolean(draft.roomId || draft.sessionName.trim() || draft.scheduledStartAt || draft.state !== "OPEN");
+  const hasUnsavedChanges = Boolean(draft.roomId || draft.sessionName.trim() || draft.scheduledDate || draft.scheduledTime || draft.state !== "OPEN");
 
   function cancelCreation() {
     if (hasUnsavedChanges) setDiscardOpen(true);
@@ -157,11 +161,15 @@ export function SessionCreatePage() {
                   onChange={(event) => {
                     const roomId = event.target.value;
                     const room = rooms.find((candidate) => candidate.id === Number(roomId));
+                    const defaultStart = room
+                      ? formatDateTimeLocal(new Date(Date.now() + 5 * 60 * 1000), room.timezone)
+                      : "";
                     updateDraft({
                       roomId,
-                      scheduledStartAt: draft.scheduledStartAt || (room
-                        ? formatDateTimeLocal(new Date(Date.now() + 5 * 60 * 1000), room.timezone)
+                      scheduledDate: draft.scheduledDate || (room
+                        ? formatEthiopianScheduleDate(new Date(Date.now() + 5 * 60 * 1000), room.timezone)
                         : ""),
+                      scheduledTime: draft.scheduledTime || defaultStart.slice(11, 16),
                     });
                   }}
                   fullWidth
@@ -188,17 +196,27 @@ export function SessionCreatePage() {
               </Grid>
               <Grid item xs={12} md={6}>
                 <TextField
-                  label={t("Scheduled start")}
-                  type="datetime-local"
-                  value={draft.scheduledStartAt}
-                  onChange={(event) => updateDraft({ scheduledStartAt: event.target.value })}
+                  label={t("Ethiopian calendar date")}
+                  placeholder="2019-01-01"
+                  value={draft.scheduledDate}
+                  onChange={(event) => updateDraft({ scheduledDate: event.target.value })}
                   fullWidth
                   required
-                  InputLabelProps={{ shrink: true }}
-                  error={Boolean(selectedRoom && draft.scheduledStartAt && scheduleTime.error)}
+                  error={Boolean(selectedRoom && draft.scheduledDate && scheduleTime.error)}
                   helperText={selectedRoom
                     ? scheduleTime.error ?? `${t("Room local time")} (${selectedRoom.timezone})`
                     : t("Choose a room to set its local time zone.")}
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  label={t("Scheduled time")}
+                  type="time"
+                  value={draft.scheduledTime}
+                  onChange={(event) => updateDraft({ scheduledTime: event.target.value })}
+                  fullWidth
+                  required
+                  InputLabelProps={{ shrink: true }}
                 />
               </Grid>
               <Grid item xs={12} md={6}>

@@ -1,3 +1,5 @@
+import { ethiopianDateInputToGregorianDate, formatEthiopianDateInput } from "../../utils/ethiopianDateTime";
+
 interface DateTimeParts {
   year: number;
   month: number;
@@ -67,6 +69,18 @@ export function formatDateTimeLocal(instant: Date, timeZone: string): string {
   } catch {
     return "";
   }
+}
+
+export function formatEthiopianScheduleDate(instant: Date, timeZone: string): string {
+  const localValue = formatDateTimeLocal(instant, timeZone);
+  const localDate = localValue.slice(0, 10);
+  return localDate ? formatEthiopianDateInput(`${localDate}T12:00:00Z`) : "";
+}
+
+export function resolveEthiopianRoomScheduleTime(ethiopianDate: string, time: string, timeZone: string, now = new Date()): ScheduleTimeResult {
+  const gregorianDate = ethiopianDateInputToGregorianDate(ethiopianDate);
+  if (!gregorianDate) return { instant: null, error: "Enter a valid Ethiopian calendar date." };
+  return resolveRoomScheduleTime(`${gregorianDate}T${time}`, timeZone, now);
 }
 
 export function resolveRoomScheduleTime(value: string, timeZone: string, now = new Date()): ScheduleTimeResult {

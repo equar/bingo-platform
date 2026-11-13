@@ -409,6 +409,8 @@ export const adminUiTranslations = {
   Schedule: "መርሃ ግብር",
   "Schedule rule": "የመርሃ ግብር ደንብ",
   "Scheduled start": "የታቀደ መጀመሪያ",
+  "Ethiopian calendar date": "የኢትዮጵያ ዘመን መቁጠሪያ ቀን",
+  "Scheduled time": "የታቀደ ሰዓት",
   "Search agents": "ወኪሎችን ፈልግ",
   "Search audit logs": "የኦዲት መዝገቦችን ፈልግ",
   "Search all audit fields": "በሁሉም የኦዲት መስኮች ፈልግ",

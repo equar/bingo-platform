@@ -87,6 +87,42 @@ export function formatEthiopianDate(
   return `${date.day} ${months[date.month - 1]} ${date.year} ${amharic ? "ዓ.ም." : "E.C."}`;
 }
 
+export function formatEthiopianDateInput(
+  value: string | number | Date,
+  fallback = "",
+): string {
+  const date = ethiopianCalendarDate(value);
+  if (!date) return fallback;
+  return `${String(date.year).padStart(4, "0")}-${String(date.month).padStart(2, "0")}-${String(date.day).padStart(2, "0")}`;
+}
+
+export function ethiopianDateInputToGregorianDate(
+  value: string,
+): string | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return null;
+
+  const [, yearValue, monthValue, dayValue] = match;
+  const year = Number(yearValue);
+  const month = Number(monthValue);
+  const day = Number(dayValue);
+  if (month < 1 || month > 13 || day < 1 || day > 30) return null;
+
+  const julianDay =
+    1_723_856 + 365 * year + Math.floor(year / 4) + 30 * (month - 1) + day - 1;
+  const candidate = new Date((julianDay - 2_440_588) * 86_400_000);
+  const converted = ethiopianCalendarDate(candidate);
+  if (
+    !converted ||
+    converted.year !== year ||
+    converted.month !== month ||
+    converted.day !== day
+  ) {
+    return null;
+  }
+  return candidate.toISOString().slice(0, 10);
+}
+
 export function formatEthiopianTime(
   value: string | number | Date,
   fallback = "—",
