@@ -19,7 +19,7 @@ import { getUserFacingErrorMessage } from "../../api/types";
 import { StatusState } from "../../components/StatusState";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { translateAdminStatus } from "../../i18n";
-import { formatDateTimeLocal, formatEthiopianScheduleDate, resolveEthiopianRoomScheduleTime } from "./sessionScheduleTime";
+import { getDefaultEthiopianRoomScheduleTime, resolveEthiopianRoomScheduleTime } from "./sessionScheduleTime";
 
 interface SessionDraft {
   roomId: string;
@@ -161,15 +161,13 @@ export function SessionCreatePage() {
                   onChange={(event) => {
                     const roomId = event.target.value;
                     const room = rooms.find((candidate) => candidate.id === Number(roomId));
-                    const defaultStart = room
-                      ? formatDateTimeLocal(new Date(Date.now() + 5 * 60 * 1000), room.timezone)
-                      : "";
+                    const defaults = room
+                      ? getDefaultEthiopianRoomScheduleTime(room.timezone)
+                      : { scheduledDate: "", scheduledTime: "" };
                     updateDraft({
                       roomId,
-                      scheduledDate: draft.scheduledDate || (room
-                        ? formatEthiopianScheduleDate(new Date(Date.now() + 5 * 60 * 1000), room.timezone)
-                        : ""),
-                      scheduledTime: draft.scheduledTime || defaultStart.slice(11, 16),
+                      scheduledDate: draft.scheduledDate || defaults.scheduledDate,
+                      scheduledTime: draft.scheduledTime || defaults.scheduledTime,
                     });
                   }}
                   fullWidth
@@ -204,7 +202,9 @@ export function SessionCreatePage() {
                   required
                   error={Boolean(selectedRoom && draft.scheduledDate && scheduleTime.error)}
                   helperText={selectedRoom
-                    ? scheduleTime.error ?? `${t("Room local time")} (${selectedRoom.timezone})`
+                    ? scheduleTime.error
+                      ? t(scheduleTime.error)
+                      : `${t("Room local time")} (${selectedRoom.timezone})`
                     : t("Choose a room to set its local time zone.")}
                 />
               </Grid>

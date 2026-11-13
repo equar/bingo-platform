@@ -77,6 +77,15 @@ export function formatEthiopianScheduleDate(instant: Date, timeZone: string): st
   return localDate ? formatEthiopianDateInput(`${localDate}T12:00:00Z`) : "";
 }
 
+export function getDefaultEthiopianRoomScheduleTime(timeZone: string, now = new Date()) {
+  const defaultInstant = new Date(now.getTime() + 5 * 60 * 1000);
+  const defaultStart = formatDateTimeLocal(defaultInstant, timeZone);
+  return {
+    scheduledDate: formatEthiopianScheduleDate(defaultInstant, timeZone),
+    scheduledTime: defaultStart.slice(11, 16),
+  };
+}
+
 export function resolveEthiopianRoomScheduleTime(ethiopianDate: string, time: string, timeZone: string, now = new Date()): ScheduleTimeResult {
   const gregorianDate = ethiopianDateInputToGregorianDate(ethiopianDate);
   if (!gregorianDate) return { instant: null, error: "Enter a valid Ethiopian calendar date." };
