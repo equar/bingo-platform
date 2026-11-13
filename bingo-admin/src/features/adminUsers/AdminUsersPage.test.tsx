@@ -1,10 +1,18 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { AdminUsersPage } from "./AdminUsersPage";
 import i18n from "../../i18n";
+import { formatEthiopianDateTime } from "../../utils/ethiopianDateTime";
 
 const adminUsersMock = vi.fn();
 const createAdminUserMock = vi.fn();
@@ -76,15 +84,28 @@ describe("AdminUsersPage", () => {
     const user = userEvent.setup();
     render(<AdminUsersPage />, { wrapper: createWrapper() });
 
-    expect((await screen.findAllByRole("heading", { name: "Admin users" }))[0]).toBeInTheDocument();
+    expect(
+      (await screen.findAllByRole("heading", { name: "Admin users" }))[0],
+    ).toBeInTheDocument();
     expect(screen.getByText("Alice Admin")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Create admin user" }));
-    expect(await screen.findByRole("heading", { name: "Create admin user" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Create admin user" }),
+    ).toBeInTheDocument();
     expect(screen.queryByLabelText("Status")).not.toBeInTheDocument();
-    await user.type(screen.getByRole("textbox", { name: /display name/i }), "New Admin");
-    await user.type(screen.getByRole("textbox", { name: /email/i }), "new@bingo.local");
-    await user.type(screen.getByRole("textbox", { name: /phone number/i }), "0925636541");
+    await user.type(
+      screen.getByRole("textbox", { name: /display name/i }),
+      "New Admin",
+    );
+    await user.type(
+      screen.getByRole("textbox", { name: /email/i }),
+      "new@bingo.local",
+    );
+    await user.type(
+      screen.getByRole("textbox", { name: /phone number/i }),
+      "0925636541",
+    );
     await user.click(screen.getByRole("button", { name: "Create admin user" }));
 
     await waitFor(() => {
@@ -111,24 +132,40 @@ describe("AdminUsersPage", () => {
 
     const user = userEvent.setup();
     render(<AdminUsersPage />, { wrapper: createWrapper() });
-    await user.click(await screen.findByRole("button", { name: "Create admin user" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Create admin user" }),
+    );
     await screen.findByRole("heading", { name: "Create admin user" });
     const submit = screen.getByRole("button", { name: "Create admin user" });
 
     await user.click(submit);
     await screen.findByText("Enter a display name.");
 
-    await user.type(screen.getByRole("textbox", { name: /display name/i }), "New Admin");
-    await user.type(screen.getByRole("textbox", { name: /^email$/i }), "not-an-email");
-    await user.type(screen.getByRole("textbox", { name: /phone number/i }), "123456789");
+    await user.type(
+      screen.getByRole("textbox", { name: /display name/i }),
+      "New Admin",
+    );
+    await user.type(
+      screen.getByRole("textbox", { name: /^email$/i }),
+      "not-an-email",
+    );
+    await user.type(
+      screen.getByRole("textbox", { name: /phone number/i }),
+      "123456789",
+    );
     await user.click(submit);
     await screen.findByText("Enter a valid email address.");
 
     await user.clear(screen.getByRole("textbox", { name: /^email$/i }));
-    await user.type(screen.getByRole("textbox", { name: /^email$/i }), "new@bingo.local");
+    await user.type(
+      screen.getByRole("textbox", { name: /^email$/i }),
+      "new@bingo.local",
+    );
     await user.click(submit);
     expect(screen.getByText("Enter exactly 10 digits.")).toBeInTheDocument();
-    await act(async () => { await i18n.changeLanguage("am"); });
+    await act(async () => {
+      await i18n.changeLanguage("am");
+    });
     expect(screen.getByText("በትክክል 10 አሃዞች ያስገቡ።")).toBeInTheDocument();
     expect(createAdminUserMock).not.toHaveBeenCalled();
     expect(updateAdminUserMock).not.toHaveBeenCalled();
@@ -166,17 +203,47 @@ describe("AdminUsersPage", () => {
 
     expect(await screen.findByText("Alice Admin")).toBeInTheDocument();
     await user.click(await screen.findByRole("button", { name: "Edit" }));
-    expect(await screen.findByRole("heading", { name: "Edit admin user" })).toBeInTheDocument();
-    expect(screen.getByRole("textbox", { name: /phone number/i })).toHaveValue("0911000001");
-    const accountActivity = screen.getByRole("region", { name: "Account activity" });
-    expect(within(accountActivity).getByText(/Password reset email status: Failed to send/)).toBeInTheDocument();
-    expect(within(accountActivity).getByText("Password reset email status date")).toBeInTheDocument();
-    expect(within(accountActivity).getByText(new Date("2026-01-03T00:00:00.000Z").toLocaleString())).toBeInTheDocument();
-    expect(within(accountActivity).queryByText(/Activation email status:/)).not.toBeInTheDocument();
-    expect(within(accountActivity).getByText("Platform Owner")).toBeInTheDocument();
-    expect(within(accountActivity).getByText("Operations Admin")).toBeInTheDocument();
-    expect(within(accountActivity).getByText(new Date("2026-01-01T00:00:00.000Z").toLocaleString())).toBeInTheDocument();
-    expect(within(accountActivity).getByText(new Date("2026-01-02T00:00:00.000Z").toLocaleString())).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Edit admin user" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: /phone number/i })).toHaveValue(
+      "0911000001",
+    );
+    const accountActivity = screen.getByRole("region", {
+      name: "Account activity",
+    });
+    expect(
+      within(accountActivity).getByText(
+        /Password reset email status: Failed to send/,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(accountActivity).getByText("Password reset email status date"),
+    ).toBeInTheDocument();
+    expect(
+      within(accountActivity).getByText(
+        formatEthiopianDateTime("2026-01-03T00:00:00.000Z"),
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(accountActivity).queryByText(/Activation email status:/),
+    ).not.toBeInTheDocument();
+    expect(
+      within(accountActivity).getByText("Platform Owner"),
+    ).toBeInTheDocument();
+    expect(
+      within(accountActivity).getByText("Operations Admin"),
+    ).toBeInTheDocument();
+    expect(
+      within(accountActivity).getByText(
+        formatEthiopianDateTime("2026-01-01T00:00:00.000Z"),
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(accountActivity).getByText(
+        formatEthiopianDateTime("2026-01-02T00:00:00.000Z"),
+      ),
+    ).toBeInTheDocument();
     const saveButton = screen.getByRole("button", { name: "Save changes" });
     expect(saveButton).toBeDisabled();
 
@@ -231,84 +298,127 @@ describe("AdminUsersPage", () => {
     render(<AdminUsersPage />, { wrapper: createWrapper() });
     await user.click(await screen.findByRole("button", { name: "Edit" }));
 
-    const accountActivity = await screen.findByRole("region", { name: "Account activity" });
-    expect(within(accountActivity).getByText(/Activation email status: Sent successfully/)).toBeInTheDocument();
-    expect(within(accountActivity).getByText("Activation email last sent")).toBeInTheDocument();
-    expect(within(accountActivity).queryByText(/Password reset email status:/)).not.toBeInTheDocument();
+    const accountActivity = await screen.findByRole("region", {
+      name: "Account activity",
+    });
+    expect(
+      within(accountActivity).getByText(
+        /Activation email status: Sent successfully/,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(accountActivity).getByText("Activation email last sent"),
+    ).toBeInTheDocument();
+    expect(
+      within(accountActivity).queryByText(/Password reset email status:/),
+    ).not.toBeInTheDocument();
   });
 
   it("keeps unsaved create values when editing continues and returns to the list after discard", async () => {
     adminUsersMock.mockResolvedValue({
-      content: [], page: 0, size: 20, totalElements: 0, totalPages: 0, first: true, last: true,
+      content: [],
+      page: 0,
+      size: 20,
+      totalElements: 0,
+      totalPages: 0,
+      first: true,
+      last: true,
     });
     const user = userEvent.setup();
     render(<AdminUsersPage />, { wrapper: createWrapper() });
-    await user.click(await screen.findByRole("button", { name: "Create admin user" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Create admin user" }),
+    );
     const nameField = screen.getByRole("textbox", { name: /display name/i });
     await user.type(nameField, "Draft account");
     await user.click(screen.getAllByRole("button", { name: "Cancel" })[0]);
-    const discardDialog = screen.getByRole("dialog", { name: "Discard unsaved changes?" });
-    await user.click(within(discardDialog).getByRole("button", { name: "Keep editing" }));
-    expect(await screen.findByRole("textbox", { name: /display name/i })).toHaveValue("Draft account");
+    const discardDialog = screen.getByRole("dialog", {
+      name: "Discard unsaved changes?",
+    });
+    await user.click(
+      within(discardDialog).getByRole("button", { name: "Keep editing" }),
+    );
+    expect(
+      await screen.findByRole("textbox", { name: /display name/i }),
+    ).toHaveValue("Draft account");
     await user.click(screen.getAllByRole("button", { name: "Cancel" })[0]);
-    await user.click(within(screen.getByRole("dialog", { name: "Discard unsaved changes?" })).getByRole("button", { name: "Discard" }));
-    expect(await screen.findByText("No admin users match the current filters.")).toBeInTheDocument();
+    await user.click(
+      within(
+        screen.getByRole("dialog", { name: "Discard unsaved changes?" }),
+      ).getByRole("button", { name: "Discard" }),
+    );
+    expect(
+      await screen.findByText("No admin users match the current filters."),
+    ).toBeInTheDocument();
   });
 
   it("shows current staff roles without legacy finance-role revocation", async () => {
     adminUsersMock.mockResolvedValue({
-      content: [{
-        id: 17,
-        displayName: "Support QA",
-        email: "support@example.invalid",
-        phoneNumber: "251911000017",
-        roles: ["ADMIN", "SUPPORT"],
-        status: "ACTIVE",
-        createdAt: "2026-01-01T00:00:00.000Z",
-        updatedAt: "2026-01-01T00:00:00.000Z",
-      }],
-      page: 0, size: 20, totalElements: 1, totalPages: 1, first: true, last: true,
+      content: [
+        {
+          id: 17,
+          displayName: "Support QA",
+          email: "support@example.invalid",
+          phoneNumber: "251911000017",
+          roles: ["ADMIN", "SUPPORT"],
+          status: "ACTIVE",
+          createdAt: "2026-01-01T00:00:00.000Z",
+          updatedAt: "2026-01-01T00:00:00.000Z",
+        },
+      ],
+      page: 0,
+      size: 20,
+      totalElements: 1,
+      totalPages: 1,
+      first: true,
+      last: true,
     });
     render(<AdminUsersPage />, { wrapper: createWrapper() });
 
     expect(await screen.findByText("Support QA")).toBeInTheDocument();
     expect(screen.getByText("Administrator")).toBeInTheDocument();
     expect(screen.getByText("Support staff")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /revoke finance/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /revoke finance/i }),
+    ).not.toBeInTheDocument();
   });
 
   it("switches operational labels and display-only statuses without changing API values", async () => {
-      adminUsersMock.mockResolvedValue({
-        content: [
-          {
-            id: 1,
-            displayName: "Alice Admin",
-            email: "alice@bingo.local",
-            phoneNumber: "251911000001",
-            roles: ["ADMIN"],
-            status: "ACTIVE",
-            createdAt: "2026-01-01T00:00:00.000Z",
-            updatedAt: "2026-01-01T00:00:00.000Z",
-          },
-        ],
-        page: 0,
-        size: 20,
-        totalElements: 1,
-        totalPages: 1,
-        first: true,
-        last: true,
-      });
+    adminUsersMock.mockResolvedValue({
+      content: [
+        {
+          id: 1,
+          displayName: "Alice Admin",
+          email: "alice@bingo.local",
+          phoneNumber: "251911000001",
+          roles: ["ADMIN"],
+          status: "ACTIVE",
+          createdAt: "2026-01-01T00:00:00.000Z",
+          updatedAt: "2026-01-01T00:00:00.000Z",
+        },
+      ],
+      page: 0,
+      size: 20,
+      totalElements: 1,
+      totalPages: 1,
+      first: true,
+      last: true,
+    });
 
-      render(<AdminUsersPage />, { wrapper: createWrapper() });
-      expect((await screen.findAllByRole("heading", { name: "Admin users" }))[0]).toBeInTheDocument();
+    render(<AdminUsersPage />, { wrapper: createWrapper() });
+    expect(
+      (await screen.findAllByRole("heading", { name: "Admin users" }))[0],
+    ).toBeInTheDocument();
 
-      await act(async () => {
-        await i18n.changeLanguage("am");
-      });
+    await act(async () => {
+      await i18n.changeLanguage("am");
+    });
 
-      expect((await screen.findAllByRole("heading", { name: "የአስተዳዳሪ ተጠቃሚዎች" }))[0]).toBeInTheDocument();
-      expect(screen.getAllByText("ንቁ")[0]).toBeInTheDocument();
-      expect(screen.getAllByText("Alice Admin")[0]).toBeInTheDocument();
-      expect(adminUsersMock).toHaveBeenCalledWith(0, 20, "", "");
+    expect(
+      (await screen.findAllByRole("heading", { name: "የአስተዳዳሪ ተጠቃሚዎች" }))[0],
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("ንቁ")[0]).toBeInTheDocument();
+    expect(screen.getAllByText("Alice Admin")[0]).toBeInTheDocument();
+    expect(adminUsersMock).toHaveBeenCalledWith(0, 20, "", "");
   });
 });
