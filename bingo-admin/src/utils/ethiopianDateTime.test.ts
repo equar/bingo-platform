@@ -2,7 +2,9 @@ import { beforeEach, describe, expect, it } from "vitest";
 import i18n from "../i18n";
 import {
   ethiopianCalendarDate,
+  ethiopianDateInputToGregorianDate,
   formatEthiopianDate,
+  formatEthiopianDateInput,
   formatEthiopianDateTime,
   formatEthiopianTime,
 } from "./ethiopianDateTime";
@@ -39,5 +41,14 @@ describe("Ethiopian date-time formatting", () => {
     expect(formatEthiopianDateTime("not-a-date", "Not available")).toBe(
       "Not available",
     );
+  });
+
+  it("round-trips an Ethiopian calendar date for scheduling", () => {
+    expect(formatEthiopianDateInput("2026-09-11T12:00:00.000Z")).toBe(
+      "2019-01-01",
+    );
+    expect(ethiopianDateInputToGregorianDate("2019-01-01")).toBe("2026-09-11");
+    expect(ethiopianDateInputToGregorianDate("2015-13-06")).toBe("2023-09-11");
+    expect(ethiopianDateInputToGregorianDate("2018-13-06")).toBeNull();
   });
 });
