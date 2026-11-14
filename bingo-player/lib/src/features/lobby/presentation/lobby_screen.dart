@@ -8,7 +8,9 @@ import 'package:bingo_player/src/features/lobby/data/lobby_repository.dart';
 import 'package:bingo_player/src/features/lobby/domain/lobby_models.dart';
 import 'package:bingo_player/src/features/game/presentation/session_detail_screen.dart';
 import 'package:bingo_player/src/features/game/application/live_game_controller.dart';
+import 'package:bingo_player/src/core/config/app_config.dart';
 import 'package:bingo_player/src/features/lobby/presentation/ticket_preview_screen.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -165,9 +167,19 @@ class LobbyScreen extends ConsumerWidget {
                                     ),
                                   ),
                                   const SizedBox(width: 4),
-                                  Icon(
-                                    Icons.chevron_right_rounded,
-                                    color: colors.onSurfaceVariant,
+                                  IconButton(
+                                    tooltip: 'Play or view tickets',
+                                    onPressed: () => Navigator.of(context).push(
+                                      MaterialPageRoute<void>(
+                                        builder: (_) => SessionDetailScreen(
+                                          session: session,
+                                        ),
+                                      ),
+                                    ),
+                                    icon: Icon(
+                                      Icons.chevron_right_rounded,
+                                      color: colors.onSurfaceVariant,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -190,7 +202,7 @@ class LobbyScreen extends ConsumerWidget {
                                   ),
                                   Expanded(
                                     child: _LobbyMetric(
-                                      label: 'Players',
+                                      label: localizations.ticketCountLabel,
                                       value: session.ticketCount.toString(),
                                     ),
                                   ),
@@ -256,90 +268,203 @@ class LobbyScreen extends ConsumerWidget {
     WidgetRef ref,
     GameSession session,
   ) async {
+    final localizations = AppLocalizations.of(context)!;
+    if (!ref.read(appConfigProvider).playerTicketPurchasesEnabled) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Ticket purchases are unavailable in this app build.'),
+        ),
+      );
+      return;
+    }
+    late final GameSession purchaseSession;
+    try {
+      purchaseSession = await ref
+          .read(lobbyRepositoryProvider)
+          .getSession(session.id);
+    } on DioException catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message ?? localizations.errorGeneric)),
+      );
+      return;
+    }
+    if (!context.mounted) return;
     var quantity = 1;
-    final configuredLimit = session.maxTicketsPerPlayer;
-    if (configuredLimit == null || configuredLimit < 1) return;
+    final configuredLimit = purchaseSession.maxTicketsPerPlayer;
+    if (configuredLimit == null || configuredLimit < 1) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Ticket purchase configuration is unavailable for this session.',
+          ),
+        ),
+      );
+      return;
+    }
+    final controllerSubscription = ref.listenManual(
+      liveGameControllerProvider(session.id),
+      (_, _) {},
+    );
+    final ownedTickets =
+        ref
+            .read(liveGameControllerProvider(session.id))
+            .ticketPage
+            ?.totalElements ??
+        0;
     final maximum = [
-      session.availableSeats,
-      configuredLimit,
+      purchaseSession.availableSeats,
+      (configuredLimit - ownedTickets).clamp(0, configuredLimit),
     ].reduce((left, right) => left < right ? left : right);
-    if (maximum < 1) return;
-    await showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (sheetContext) => StatefulBuilder(
-        builder: (context, setSheetState) => SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  session.sessionName,
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 4),
-                Text('${session.ticketPrice} ${session.currency} per ticket'),
-                const SizedBox(height: 20),
-                Row(
-                  children: [
-                    IconButton(
-                      onPressed: quantity == 1
-                          ? null
-                          : () => setSheetState(() => quantity--),
-                      icon: const Icon(Icons.remove_circle_outline),
-                    ),
-                    Expanded(
-                      child: Text(
-                        quantity.toString(),
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.headlineMedium,
+    if (maximum < 1) {
+      controllerSubscription.close();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            ownedTickets >= configuredLimit
+                ? 'You have reached the $configuredLimit-ticket limit for this game.'
+                : localizations.errorGeneric,
+          ),
+        ),
+      );
+      return;
+    }
+    var submitting = false;
+    String? outcomeMessage;
+    var purchaseOutcomeUncertain = false;
+    try {
+      await showModalBottomSheet<void>(
+        context: context,
+        showDragHandle: true,
+        builder: (sheetContext) => StatefulBuilder(
+          builder: (context, setSheetState) => SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    purchaseSession.sessionName,
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${purchaseSession.ticketPrice} ${purchaseSession.currency} per ticket',
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      IconButton(
+                        onPressed: submitting || quantity == 1
+                            ? null
+                            : () => setSheetState(() => quantity--),
+                        icon: const Icon(Icons.remove_circle_outline),
                       ),
-                    ),
-                    IconButton(
-                      onPressed: quantity == maximum
-                          ? null
-                          : () => setSheetState(() => quantity++),
-                      icon: const Icon(Icons.add_circle_outline),
+                      Expanded(
+                        child: Text(
+                          quantity.toString(),
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.headlineMedium,
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: submitting || quantity == maximum
+                            ? null
+                            : () => setSheetState(() => quantity++),
+                        icon: const Icon(Icons.add_circle_outline),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Total: ${(purchaseSession.ticketPrice * quantity).toStringAsFixed(2)} ${purchaseSession.currency}',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  if (outcomeMessage != null) ...[
+                    const SizedBox(height: 16),
+                    Text(
+                      outcomeMessage!,
+                      style: Theme.of(context).textTheme.bodyMedium,
                     ),
                   ],
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'Total: ${(session.ticketPrice * quantity).toStringAsFixed(2)} ${session.currency}',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: () async {
-                      final result = await ref
-                          .read(liveGameControllerProvider(session.id).notifier)
-                          .purchaseTickets(quantity);
-                      if (!sheetContext.mounted) return;
-                      Navigator.of(sheetContext).pop();
-                      if (!context.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            result.purchasedCount > 0
-                                ? 'Purchased ${result.purchasedCount} ticket${result.purchasedCount == 1 ? '' : 's'}'
-                                : 'Unable to purchase tickets',
-                          ),
-                        ),
-                      );
-                    },
-                    child: const Text('Buy Tickets'),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: submitting
+                          ? null
+                          : () async {
+                              if (!ref
+                                  .read(appConfigProvider)
+                                  .playerTicketPurchasesEnabled) {
+                                return;
+                              }
+                              setSheetState(() => submitting = true);
+                              final result = await ref
+                                  .read(
+                                    liveGameControllerProvider(
+                                      session.id,
+                                    ).notifier,
+                                  )
+                                  .purchaseTickets(quantity);
+                              if (!sheetContext.mounted) return;
+                              final errorMessage = result.error?.userMessage(
+                                AppLocalizations.of(sheetContext)!,
+                              );
+                              setSheetState(() {
+                                submitting = false;
+                                purchaseOutcomeUncertain =
+                                    result.error?.outcomeUnknown == true;
+                                outcomeMessage = [
+                                  if (result.purchasedCount > 0)
+                                    'Purchased ${result.purchasedCount} ticket${result.purchasedCount == 1 ? '' : 's'}.',
+                                  if (errorMessage != null) errorMessage,
+                                ].join(' ');
+                              });
+                            },
+                      child: const Text('Buy Tickets'),
+                    ),
                   ),
-                ),
-              ],
+                  if (purchaseOutcomeUncertain)
+                    SizedBox(
+                      width: double.infinity,
+                      child: TextButton(
+                        onPressed: submitting
+                            ? null
+                            : () async {
+                                setSheetState(() => submitting = true);
+                                final error = await ref
+                                    .read(
+                                      liveGameControllerProvider(
+                                        session.id,
+                                      ).notifier,
+                                    )
+                                    .resolvePendingPurchase();
+                                if (!sheetContext.mounted) return;
+                                setSheetState(() {
+                                  submitting = false;
+                                  purchaseOutcomeUncertain =
+                                      error?.outcomeUnknown == true;
+                                  outcomeMessage = error == null
+                                      ? 'Purchase recovery completed. Your tickets have been refreshed.'
+                                      : error.userMessage(
+                                          AppLocalizations.of(sheetContext)!,
+                                        );
+                                });
+                              },
+                        child: const Text('Resolve purchase'),
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
         ),
-      ),
-    );
+      );
+    } finally {
+      controllerSubscription.close();
+    }
   }
 }
 
