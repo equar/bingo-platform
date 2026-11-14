@@ -31,8 +31,14 @@ done
 for app in "${apps[@]}"; do
   [[ -f "$ROOT/bingo-$app/dist/index.html" ]] || { echo "Build bingo-$app first" >&2; exit 1; }
 done
-remote="$(ssh -i "$SSH_KEY" "$SERVER" 'umask 077; mktemp -d /tmp/bingo-frontend.XXXXXXXX')"
-[[ "$remote" =~ ^/tmp/bingo-frontend\.[a-zA-Z0-9]+$ ]]
+remote="$(ssh -i "$SSH_KEY" "$SERVER" '
+  set -e
+  umask 077
+  staging_directory="$HOME/.cache/bingo-deploy"
+  install -d -m 700 "$staging_directory"
+  mktemp -d "$staging_directory/frontend.XXXXXXXX"
+')"
+[[ "$remote" =~ ^/home/[a-z_][a-z0-9_-]*/\.cache/bingo-deploy/frontend\.[a-zA-Z0-9]+$ ]]
 cleanup() {
   ssh -i "$SSH_KEY" "$SERVER" "rm -rf '$remote'"
 }

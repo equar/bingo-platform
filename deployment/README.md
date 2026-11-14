@@ -30,8 +30,9 @@ tests. `.github/workflows/validate-lightsail-infrastructure.yml` checks
 deployment shell/Python syntax, the Nginx template, and the retained
 CloudFormation reference; it does not deploy.
 
-Backend artifacts stage in a private `~/.cache/bingo-deploy` directory owned
-by the deployment SSH user, rather than relying on shared `/tmp` permissions.
+Backend and frontend artifacts stage in a private `~/.cache/bingo-deploy`
+directory owned by the deployment SSH user, rather than relying on shared
+`/tmp` permissions.
 
 Before stopping a running backend, the deployer reads the candidate JAR's
 Flyway migrations and compares its highest version with the production schema
