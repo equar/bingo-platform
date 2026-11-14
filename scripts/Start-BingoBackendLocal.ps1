@@ -9,7 +9,7 @@ Set-StrictMode -Version Latest
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $backendRoot = Join-Path $repoRoot 'bingo-backend'
 $settingsFile = Join-Path $env:USERPROFILE '.m2\settings.xml'
-$localDatasourceUrl = 'jdbc:mysql://localhost:3306/bingo?createDatabaseIfNotExist=false&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC'
+$localDatasourceUrl = 'jdbc:mysql://localhost:3306/bingo'
 $localDatasourceArgument = "--spring.datasource.url=$localDatasourceUrl"
 
 if ($ShowEffectiveConfig) {
