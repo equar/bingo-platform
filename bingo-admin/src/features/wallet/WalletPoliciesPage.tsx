@@ -28,7 +28,7 @@ import {
   MenuItem,
   Select,
 } from "@mui/material";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   currentSignupRewardSettings,
   currentWalletTransferSettings,
@@ -64,8 +64,9 @@ function toIsoValue(localValue: string) {
   return localValue ? new Date(localValue).toISOString() : "";
 }
 
-function isValidRewardAmount(value: string) {
-  return /^\d{1,17}(?:\.\d{1,2})?$/.test(value.trim()) && Number(value) >= 0.01;
+function isValidRewardAmount(value: string | number) {
+  const amount = String(value).trim();
+  return /^\d{1,17}(?:\.\d{1,2})?$/.test(amount) && Number(amount) >= 0.01;
 }
 
 function formatPolicyDate(value: string | null, inclusiveEnd = false) {
@@ -127,8 +128,10 @@ export function WalletPoliciesPage() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const location = useLocation();
-  const isTransferPolicy = location.pathname === "/wallet/transfer-policy";
-  const [formOpen, setFormOpen] = useState(false);
+  const navigate = useNavigate();
+  const isTransferPolicy = location.pathname.startsWith("/wallet/transfer-policy");
+  const isCreatePage = location.pathname.endsWith("/new");
+  const listPath = isTransferPolicy ? "/wallet/transfer-policy" : "/wallet/signup-reward";
   const [rewardSearch, setRewardSearch] = usePrivateListSearch(
     "signup-reward-history",
   );
@@ -149,7 +152,6 @@ export function WalletPoliciesPage() {
   );
   useEffect(() => {
     setHistoryPage(0);
-    setFormOpen(false);
   }, [isTransferPolicy, setHistoryPage]);
   const rewardQuery = useQuery({
     queryKey: ["wallet-policies", "signup-reward"],
@@ -170,7 +172,7 @@ export function WalletPoliciesPage() {
         rewardSearch.trim() || undefined,
         rewardStatus === "" ? undefined : rewardStatus === "active",
       ),
-    enabled: !isTransferPolicy,
+    enabled: !isTransferPolicy && !isCreatePage,
   });
   const transferHistoryQuery = useQuery({
     queryKey: [
@@ -187,7 +189,7 @@ export function WalletPoliciesPage() {
         transferQueryText.trim() || undefined,
         transferStatus === "" ? undefined : transferStatus === "active",
       ),
-    enabled: isTransferPolicy,
+    enabled: isTransferPolicy && !isCreatePage,
   });
 
   const [rewardDraft, setRewardDraft] = useState({
@@ -229,7 +231,7 @@ export function WalletPoliciesPage() {
         name: "Signup reward",
         triggerType: "SIGNUP",
         enabled: rewardQuery.data.enabled,
-        rewardAmount: rewardQuery.data.rewardAmount,
+        rewardAmount: String(rewardQuery.data.rewardAmount),
         thresholdAmount: "",
         currency: rewardQuery.data.currency,
         effectiveFrom,
@@ -288,7 +290,7 @@ export function WalletPoliciesPage() {
       }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["wallet-policies"] });
-      setFormOpen(false);
+      navigate(listPath);
     },
   });
 
@@ -309,7 +311,7 @@ export function WalletPoliciesPage() {
       }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["wallet-policies"] });
-      setFormOpen(false);
+      navigate(listPath);
     },
   });
 
@@ -366,10 +368,10 @@ export function WalletPoliciesPage() {
   return (
     <Stack spacing={3}>
       <AdminPageHeader
-        title={
-          isTransferPolicy ? t("Transfer policy") : t("Promotional rewards")
-        }
-        refresh={
+        title={isCreatePage
+          ? isTransferPolicy ? t("Add transfer policy") : t("Add promotional campaign")
+          : isTransferPolicy ? t("Transfer policy") : t("Promotional rewards")}
+        refresh={!isCreatePage ? (
           isTransferPolicy
             ? {
                 isFetching:
@@ -397,9 +399,9 @@ export function WalletPoliciesPage() {
                     rewardQuery.refetch(),
                   ]),
               }
-        }
+        ) : undefined}
         description={
-          isTransferPolicy
+          isCreatePage ? undefined : isTransferPolicy
             ? t(
                 "Controls the player-to-player transfer limit and daily outgoing cap.",
               )
@@ -407,24 +409,24 @@ export function WalletPoliciesPage() {
                 "Configure signup, referral, and verified wallet credit bonus campaigns.",
               )
         }
-        actions={
+        actions={!isCreatePage ? (
           <Button
             variant="contained"
             onClick={() => {
               if (isTransferPolicy) saveTransferMutation.reset();
               else saveRewardMutation.reset();
-              setFormOpen(true);
+              navigate(`${listPath}/new`);
             }}
           >
             {isTransferPolicy
               ? t("Add transfer policy")
               : t("Add promotional campaign")}
           </Button>
-        }
+        ) : undefined}
       />
 
       <Grid container spacing={2}>
-        {!isTransferPolicy && formOpen ? (
+        {!isTransferPolicy && isCreatePage ? (
           <Grid item xs={12}>
             <Card
               elevation={0}
@@ -567,7 +569,7 @@ export function WalletPoliciesPage() {
                       {t("Create campaign")}
                     </Button>
                     <Button
-                      onClick={() => setFormOpen(false)}
+                      onClick={() => navigate(listPath)}
                       disabled={saveRewardMutation.isPending}
                     >
                       {t("Cancel")}
@@ -592,7 +594,7 @@ export function WalletPoliciesPage() {
           </Grid>
         ) : null}
 
-        {isTransferPolicy && formOpen ? (
+        {isTransferPolicy && isCreatePage ? (
           <Grid item xs={12}>
             <Card
               elevation={0}
@@ -726,7 +728,7 @@ export function WalletPoliciesPage() {
                       {t("Save transfer policy")}
                     </Button>
                     <Button
-                      onClick={() => setFormOpen(false)}
+                      onClick={() => navigate(listPath)}
                       disabled={saveTransferMutation.isPending}
                     >
                       {t("Cancel")}
@@ -756,7 +758,7 @@ export function WalletPoliciesPage() {
         ) : null}
       </Grid>
 
-      {isTransferPolicy ? (
+      {isTransferPolicy && !isCreatePage ? (
         <Grid container spacing={2}>
           <Grid item xs={12}>
             <Card
@@ -890,7 +892,7 @@ export function WalletPoliciesPage() {
             </Card>
           </Grid>
         </Grid>
-      ) : (
+      ) : !isCreatePage ? (
         <Grid container spacing={2}>
           <Grid item xs={12}>
             <Card
@@ -1039,7 +1041,7 @@ export function WalletPoliciesPage() {
             </Card>
           </Grid>
         </Grid>
-      )}
+      ) : null}
     </Stack>
   );
 }

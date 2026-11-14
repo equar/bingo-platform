@@ -20,14 +20,18 @@ and live game events.
 Start MySQL, then the backend, followed by the clients you need. Run each
 command from the directory shown:
 
-From `bingo-backend`:
+From the repository root, start the normal local backend:
 
-```bash
-mvn spring-boot:run -Dspring-boot.run.profiles=dev
+```powershell
+.\scripts\Start-BingoBackendLocal.ps1
 ```
 
-Before startup, follow the [backend guide](bingo-backend/README.md) to create
-the ignored `.env` file and configure `JWT_SECRET`.
+This launcher explicitly selects the `dev` profile and MySQL schema `bingo`;
+it passes the datasource URL as a Spring command-line argument so ambient
+datasource environment overrides cannot redirect local startup. It does not
+start or alter MySQL itself. Before startup, follow the
+[backend guide](bingo-backend/README.md) to create the ignored `.env` file and
+configure `JWT_SECRET`.
 
 From `bingo-admin`:
 
