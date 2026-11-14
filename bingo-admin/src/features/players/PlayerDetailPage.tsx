@@ -58,6 +58,18 @@ const emptyDraft: AdjustmentDraft = {
   currency: "ETB",
 };
 
+const accountStatusReasonOptions = [
+  { value: "SUSPECTED_FRAUD", label: "Suspected fraudulent activity" },
+  { value: "POLICY_VIOLATION", label: "Policy violation" },
+  { value: "SECURITY_CONCERN", label: "Security concern" },
+  { value: "IDENTITY_VERIFICATION_REQUIRED", label: "Identity verification required" },
+  { value: "DUPLICATE_ACCOUNT", label: "Duplicate account" },
+  { value: "PAYMENT_DISPUTE", label: "Payment dispute or chargeback" },
+  { value: "PLAYER_REQUESTED_CLOSURE", label: "Player requested account closure" },
+  { value: "LEGAL_OR_REGULATORY_REQUIREMENT", label: "Legal or regulatory requirement" },
+  { value: "OTHER", label: "Other" },
+] as const;
+
 function adjustmentReason(draft: AdjustmentDraft) {
   const reason = draft.reason.trim();
   const reference = draft.reference.trim();
@@ -197,6 +209,8 @@ export function PlayerDetailPage() {
   });
 
   const player = playerQuery.data;
+  const categorizedStatusReason =
+    nextStatus === "SUSPENDED" || nextStatus === "DISABLED";
   const adjustmentOutcomeUnknown =
     adjustmentMutation.isError &&
     parseApiError(adjustmentMutation.error).outcomeUnknown;
@@ -393,7 +407,7 @@ export function PlayerDetailPage() {
         </Grid>
         <Grid item xs={12} sm={6} lg={4}>
           <PlayerActivityCard
-            title={t("Available balance")}
+              title={t("Available cash balance")}
             value={
               player.walletAvailableBalance == null
                 ? t("No wallet")
@@ -405,7 +419,7 @@ export function PlayerDetailPage() {
         </Grid>
         <Grid item xs={12} sm={6} lg={4}>
           <PlayerActivityCard
-            title={t("Promotional balance")}
+              title={t("Restricted promotional balance")}
             value={
               player.walletPromotionalBalance == null
                 ? t("No wallet")
@@ -626,7 +640,10 @@ export function PlayerDetailPage() {
               select
               label={t("Account status")}
               value={nextStatus}
-              onChange={(event) => setNextStatus(event.target.value)}
+              onChange={(event) => {
+                setNextStatus(event.target.value);
+                setStatusReason("");
+              }}
               fullWidth
             >
               {["ACTIVE", "PENDING", "SUSPENDED", "DISABLED"].map((status) => (
@@ -635,16 +652,36 @@ export function PlayerDetailPage() {
                 </MenuItem>
               ))}
             </TextField>
-            <TextField
-              label={t("Reason")}
-              value={statusReason}
-              onChange={(event) => setStatusReason(event.target.value)}
-              inputProps={{ maxLength: 500 }}
-              required
-              multiline
-              minRows={2}
-              fullWidth
-            />
+            {categorizedStatusReason ? (
+              <TextField
+                select
+                label={t("Reason")}
+                value={statusReason}
+                onChange={(event) => setStatusReason(event.target.value)}
+                required
+                fullWidth
+              >
+                <MenuItem value="" disabled>
+                  {t("Choose a reason")}
+                </MenuItem>
+                {accountStatusReasonOptions.map((option) => (
+                  <MenuItem key={option.value} value={option.value}>
+                    {t(option.label)}
+                  </MenuItem>
+                ))}
+              </TextField>
+            ) : (
+              <TextField
+                label={t("Reason")}
+                value={statusReason}
+                onChange={(event) => setStatusReason(event.target.value)}
+                inputProps={{ maxLength: 500 }}
+                required
+                multiline
+                minRows={2}
+                fullWidth
+              />
+            )}
           </Stack>
         </DialogContent>
         <DialogActions>

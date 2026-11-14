@@ -51,6 +51,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     Optional<User> findByNormalizedPhone(String normalizedPhone);
 
+    Optional<User> findByReferralCodeIgnoreCase(String referralCode);
+
     @Query("select distinct u from User u join u.roles role where u.normalizedPhone = :phone and role = :role")
     Optional<User> findByNormalizedPhoneAndRole(@Param("phone") String normalizedPhone, @Param("role") UserRole role);
 

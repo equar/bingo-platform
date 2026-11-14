@@ -3,7 +3,6 @@ import { initReactI18next } from "react-i18next";
 import { adminUiTranslations } from "./adminUiTranslations";
 
 const sessionStorageKey = "bingo-admin-session";
-const legacyLocaleStorageKey = "bingo-admin-locale";
 const adminUiEnglish = Object.fromEntries(
   Object.keys(adminUiTranslations).map((text) => [text, text]),
 );
@@ -22,7 +21,6 @@ export function resolvePreferredLanguage(value: unknown): SupportedLanguage {
 // Browser language and shared global storage are intentionally ignored.
 function getInitialLanguage(): SupportedLanguage {
   try {
-    window.localStorage.removeItem(legacyLocaleStorageKey);
     const raw = window.localStorage.getItem(sessionStorageKey);
     if (!raw) {
       return DEFAULT_LANGUAGE;

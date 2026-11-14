@@ -15,48 +15,49 @@ ThemeData buildAppTheme({Brightness brightness = Brightness.light}) {
     outlineVariant: isDark ? const Color(0xFF38445B) : const Color(0xFFE2E7F0),
   );
   final outline = OutlineInputBorder(borderRadius: BorderRadius.circular(14));
+  final inputHighlightColor = isDark ? Colors.white : scheme.secondary;
+  final inputErrorColor = isDark ? Colors.white : scheme.secondary;
   return ThemeData(
     useMaterial3: true,
     colorScheme: scheme,
-    scaffoldBackgroundColor: isDark
-        ? const Color(0xFF101725)
-        : const Color(0xFFF4F6FA),
+    scaffoldBackgroundColor:
+        isDark ? const Color(0xFF101725) : const Color(0xFFF4F6FA),
     materialTapTargetSize: MaterialTapTargetSize.padded,
     textTheme: ThemeData(brightness: brightness).textTheme.copyWith(
-      headlineMedium: const TextStyle(
-        fontFamily: 'Roboto',
-        fontSize: 30,
-        fontWeight: FontWeight.w800,
-        letterSpacing: -.8,
-      ),
-      headlineSmall: const TextStyle(
-        fontFamily: 'Roboto',
-        fontSize: 24,
-        fontWeight: FontWeight.w800,
-        letterSpacing: -.5,
-      ),
-      titleLarge: const TextStyle(
-        fontFamily: 'Roboto',
-        fontSize: 21,
-        fontWeight: FontWeight.w800,
-        letterSpacing: -.3,
-      ),
-      titleMedium: const TextStyle(
-        fontFamily: 'Roboto',
-        fontSize: 16,
-        fontWeight: FontWeight.w700,
-      ),
-      bodyLarge: const TextStyle(
-        fontFamily: 'Roboto',
-        fontSize: 16,
-        height: 1.5,
-      ),
-      bodyMedium: const TextStyle(
-        fontFamily: 'Roboto',
-        fontSize: 14,
-        height: 1.45,
-      ),
-    ),
+          headlineMedium: const TextStyle(
+            fontFamily: 'Roboto',
+            fontSize: 30,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -.8,
+          ),
+          headlineSmall: const TextStyle(
+            fontFamily: 'Roboto',
+            fontSize: 24,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -.5,
+          ),
+          titleLarge: const TextStyle(
+            fontFamily: 'Roboto',
+            fontSize: 21,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -.3,
+          ),
+          titleMedium: const TextStyle(
+            fontFamily: 'Roboto',
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+          ),
+          bodyLarge: const TextStyle(
+            fontFamily: 'Roboto',
+            fontSize: 16,
+            height: 1.5,
+          ),
+          bodyMedium: const TextStyle(
+            fontFamily: 'Roboto',
+            fontSize: 14,
+            height: 1.45,
+          ),
+        ),
     cardTheme: CardThemeData(
       elevation: 0,
       margin: EdgeInsets.zero,
@@ -75,9 +76,8 @@ ThemeData buildAppTheme({Brightness brightness = Brightness.light}) {
       ),
     ),
     chipTheme: ChipThemeData(
-      backgroundColor: isDark
-          ? const Color(0xFF27344B)
-          : const Color(0xFFF1F5FB),
+      backgroundColor:
+          isDark ? const Color(0xFF27344B) : const Color(0xFFF1F5FB),
       side: BorderSide.none,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       labelStyle: const TextStyle(
@@ -133,8 +133,16 @@ ThemeData buildAppTheme({Brightness brightness = Brightness.light}) {
         borderSide: BorderSide(color: scheme.outlineVariant),
       ),
       focusedBorder: outline.copyWith(
-        borderSide: BorderSide(color: scheme.primary, width: 2),
+        borderSide: BorderSide(color: inputHighlightColor, width: 2),
       ),
+      errorBorder: outline.copyWith(
+        borderSide: BorderSide(color: inputErrorColor),
+      ),
+      focusedErrorBorder: outline.copyWith(
+        borderSide: BorderSide(color: inputErrorColor, width: 2),
+      ),
+      floatingLabelStyle: TextStyle(color: inputHighlightColor),
+      errorStyle: TextStyle(color: inputErrorColor),
       errorMaxLines: 4,
     ),
     filledButtonTheme: FilledButtonThemeData(

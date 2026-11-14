@@ -10,6 +10,18 @@ import org.springframework.data.repository.query.Param;
 
 public interface WalletTransactionRepository extends JpaRepository<WalletTransaction, Long> {
 
+    @Query("""
+            select coalesce(sum(t.amount), 0) from WalletTransaction t
+            where t.wallet.owner.id = :ownerId
+                and t.transactionType = com.bakaroo.bingo.backend.feature.wallet.entity.WalletTransactionType.DEPOSIT_CREDIT
+                and t.currency = 'ETB'
+                and t.createdAt >= :effectiveFrom
+                and (:effectiveUntil is null or t.createdAt < :effectiveUntil)
+            """)
+    java.math.BigDecimal sumEtbDepositCreditsPostedInCampaignWindow(@Param("ownerId") Long ownerId,
+            @Param("effectiveFrom") java.time.Instant effectiveFrom,
+            @Param("effectiveUntil") java.time.Instant effectiveUntil);
+
     @Query("select t from WalletTransaction t where t.wallet.owner.id = :ownerId order by t.createdAt desc, t.id desc")
     Page<WalletTransaction> findByOwnerId(@Param("ownerId") Long ownerId, Pageable pageable);
 

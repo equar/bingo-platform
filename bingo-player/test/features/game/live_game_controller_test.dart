@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bingo_player/src/core/config/app_config.dart';
 import 'package:bingo_player/src/core/network/api_error.dart';
 import 'package:bingo_player/src/core/models/page_result.dart';
@@ -10,6 +12,7 @@ import 'package:bingo_player/src/features/game/domain/live_game_models.dart';
 import 'package:bingo_player/src/features/game/domain/ticket_models.dart';
 import 'package:bingo_player/src/features/lobby/domain/lobby_models.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 GameSession _session() {
   return GameSession(
@@ -36,6 +39,33 @@ GameSession _session() {
   );
 }
 
+AuthSessionState _authState({int userId = 7}) => AuthSessionState(
+  isLoading: false,
+  session: AuthSession(
+    accessToken: 'token',
+    expiresAt: DateTime.utc(2030, 1, 1),
+    user: UserProfile(
+      id: userId,
+      displayName: 'Player',
+      phoneNumber: '+251900000000',
+      roles: const ['PLAYER'],
+      status: 'ACTIVE',
+      createdAt: DateTime.utc(2026, 1, 1),
+      updatedAt: DateTime.utc(2026, 1, 1),
+    ),
+  ),
+);
+
+LiveDrawEvent _draw({required int sequenceNo, required int numberDrawn}) =>
+    LiveDrawEvent(
+      sessionId: 42,
+      sequenceNo: sequenceNo,
+      numberDrawn: numberDrawn,
+      drawnAt: DateTime.utc(2026, 1, 1),
+      id: sequenceNo,
+      operationId: 'draw-$sequenceNo',
+    );
+
 TicketResponse _ticket() {
   return TicketResponse(
     id: 101,
@@ -56,6 +86,9 @@ TicketResponse _ticket() {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  setUp(() => SharedPreferences.setMockInitialValues({}));
+
   for (final code in ['DUPLICATE_WIN_CLAIM', 'TICKET_PRIZE_ALREADY_AWARDED']) {
     test('server $code becomes an already-submitted result', () async {
       final repo = _FakeRepo()
@@ -100,7 +133,7 @@ void main() {
   test(
     'retains the pending claim idempotency key after a failed submit and reuses it on retry',
     () async {
-      final repo = _FakeRepo();
+      final repo = _FakeRepo()..ownedTickets.add(_ticket());
       final transport = _NoopTransport();
       final controller = LiveGameController(
         sessionId: 42,
@@ -214,6 +247,181 @@ void main() {
     expect(controller.state.apiError?.code, 'PLAYER_TICKET_LIMIT_REACHED');
     expect(controller.state.isPurchasingTicket, false);
   });
+
+  test(
+    'purchase batch stops on failure and reports confirmed partial success',
+    () async {
+      final repo = _FakeRepo()
+        ..purchaseErrorOnCall = 2
+        ..purchaseError = ApiError(
+          code: 'INSUFFICIENT_BALANCE',
+          statusCode: 409,
+        );
+      final controller = LiveGameController(
+        sessionId: 42,
+        repository: repo,
+        readAuthSession: _authState,
+        clearAuthSession: ({String? reason}) async {},
+        appConfig: const AppConfig(
+          apiBaseUrl: 'https://example.com',
+          apiBaseUrlLabel: 'API_BASE_URL',
+        ),
+        transport: _NoopTransport(),
+      );
+      addTearDown(controller.dispose);
+      controller.state = LiveGameState(
+        isLoading: false,
+        connectionState: LiveGameConnectionState.connected,
+        session: _session(),
+        ticketPageIndex: 0,
+        selectedTicketIndex: 0,
+      );
+
+      final result = await controller.purchaseTickets(3);
+
+      expect(result.purchasedCount, 1);
+      expect(result.error?.code, 'INSUFFICIENT_BALANCE');
+      expect(repo.ownedTickets, hasLength(1));
+      expect(repo.purchaseKeys, hasLength(2));
+      expect(controller.state.isPurchasingTicket, false);
+    },
+  );
+
+  test(
+    'uncertain purchase reconciles with the same backend idempotency key',
+    () async {
+      final repo = _FakeRepo()
+        ..purchaseErrorOnCall = 1
+        ..purchaseError = ApiError(
+          code: 'OUTCOME_UNKNOWN',
+          outcomeUnknown: true,
+        )
+        ..commitBeforeUncertainError = true;
+      final controller = LiveGameController(
+        sessionId: 42,
+        repository: repo,
+        readAuthSession: _authState,
+        clearAuthSession: ({String? reason}) async {},
+        appConfig: const AppConfig(
+          apiBaseUrl: 'https://example.com',
+          apiBaseUrlLabel: 'API_BASE_URL',
+        ),
+        transport: _NoopTransport(),
+      );
+      addTearDown(controller.dispose);
+      controller.state = LiveGameState(
+        isLoading: false,
+        connectionState: LiveGameConnectionState.connected,
+        session: _session(),
+        ticketPageIndex: 0,
+        selectedTicketIndex: 0,
+      );
+
+      final result = await controller.purchaseTickets(2);
+      expect(result.purchasedCount, 0);
+      expect(result.error?.outcomeUnknown, true);
+      expect(controller.state.purchaseOutcomeUncertain, true);
+      expect(repo.purchaseKeys, hasLength(1));
+
+      final resolveError = await controller.resolvePendingPurchase();
+      expect(resolveError, isNull);
+      expect(repo.purchaseKeys, hasLength(2));
+      expect(repo.purchaseKeys[1], repo.purchaseKeys.first);
+      expect(repo.ownedTickets, hasLength(1));
+      expect(controller.state.purchaseOutcomeUncertain, false);
+      expect(
+        (await SharedPreferences.getInstance()).getString(
+          'player.pendingPurchase.7.42',
+        ),
+        isNull,
+      );
+    },
+  );
+
+  test('concurrent claim taps submit one individual claim', () async {
+    final repo = _FakeRepo()
+      ..ownedTickets.add(_ticket())
+      .._failNext = false
+      ..claimGate = Completer<void>();
+    final controller = LiveGameController(
+      sessionId: 42,
+      repository: repo,
+      readAuthSession: _authState,
+      clearAuthSession: ({String? reason}) async {},
+      appConfig: const AppConfig(
+        apiBaseUrl: 'https://example.com',
+        apiBaseUrlLabel: 'API_BASE_URL',
+      ),
+      transport: _NoopTransport(),
+    );
+    addTearDown(controller.dispose);
+    controller.state = LiveGameState(
+      isLoading: false,
+      connectionState: LiveGameConnectionState.connected,
+      session: _session(),
+      ticketPageIndex: 0,
+      selectedTicketIndex: 0,
+      ticketPage: PageResult<TicketResponse>(
+        content: [_ticket()],
+        page: 0,
+        size: 10,
+        totalElements: 1,
+        totalPages: 1,
+        first: true,
+        last: true,
+      ),
+      selectedClaimPattern: 'LINE',
+      draws: [_draw(sequenceNo: 1, numberDrawn: 1)],
+    );
+
+    final first = controller.submitClaim();
+    await Future<void>.delayed(Duration.zero);
+    expect(controller.state.isSubmittingClaim, true);
+    expect(await controller.submitClaim(), ClaimSubmissionOutcome.notSubmitted);
+    repo.claimGate!.complete();
+    expect(await first, ClaimSubmissionOutcome.submitted);
+    expect(repo.submittedKeys, hasLength(1));
+  });
+
+  test(
+    'restores uncertain purchase keys per account and session before purchase',
+    () async {
+      SharedPreferences.setMockInitialValues({
+        'player.pendingPurchase.7.42': 'account-seven-key',
+        'player.pendingPurchase.8.42': 'account-eight-key',
+      });
+      final repo = _FakeRepo();
+      LiveGameController buildController(int accountId) => LiveGameController(
+        sessionId: 42,
+        repository: repo,
+        readAuthSession: () => _authState(userId: accountId),
+        clearAuthSession: ({String? reason}) async {},
+        appConfig: const AppConfig(
+          apiBaseUrl: 'https://example.com',
+          apiBaseUrlLabel: 'API_BASE_URL',
+        ),
+        transport: _NoopTransport(),
+      );
+      final accountSeven = buildController(7);
+      final accountEight = buildController(8);
+      addTearDown(accountSeven.dispose);
+      addTearDown(accountEight.dispose);
+
+      await accountSeven.start();
+      await accountEight.start();
+      expect(
+        accountSeven.state.pendingPurchaseIdempotencyKey,
+        'account-seven-key',
+      );
+      expect(
+        accountEight.state.pendingPurchaseIdempotencyKey,
+        'account-eight-key',
+      );
+      expect(accountSeven.state.purchaseOutcomeUncertain, true);
+      expect((await accountSeven.purchaseTickets(1)).purchasedCount, 0);
+      expect(repo.purchaseKeys, isEmpty);
+    },
+  );
 }
 
 class _FakeRepo implements LiveGameRepository {
@@ -221,10 +429,16 @@ class _FakeRepo implements LiveGameRepository {
   var _failNext = true;
   ApiError? forcedError;
   ApiError? purchaseError;
+  int? purchaseErrorOnCall;
+  bool commitBeforeUncertainError = false;
+  int _purchaseCalls = 0;
+  final List<String> purchaseKeys = [];
+  final List<TicketResponse> ownedTickets = [];
+  final Map<String, TicketPurchaseResponse> purchaseResponses = {};
+  Completer<void>? claimGate;
 
   @override
-  Future<GameSession> getSession(int sessionId) async =>
-      throw UnimplementedError();
+  Future<GameSession> getSession(int sessionId) async => _session();
 
   @override
   Future<List<LiveDrawEvent>> getDraws(
@@ -254,7 +468,23 @@ class _FakeRepo implements LiveGameRepository {
     required int page,
     required int size,
   }) async {
-    throw UnimplementedError();
+    final start = page * size;
+    final end = (start + size).clamp(0, ownedTickets.length);
+    final content = start >= ownedTickets.length
+        ? <TicketResponse>[]
+        : ownedTickets.sublist(start, end);
+    final pages = ownedTickets.isEmpty
+        ? 0
+        : (ownedTickets.length / size).ceil();
+    return PageResult<TicketResponse>(
+      content: content,
+      page: page,
+      size: size,
+      totalElements: ownedTickets.length,
+      totalPages: pages,
+      first: page == 0,
+      last: page >= pages - 1,
+    );
   }
 
   @override
@@ -262,8 +492,29 @@ class _FakeRepo implements LiveGameRepository {
     int sessionId,
     String idempotencyKey,
   ) async {
-    if (purchaseError != null) throw purchaseError!;
-    throw UnimplementedError();
+    purchaseKeys.add(idempotencyKey);
+    _purchaseCalls++;
+    final saved = purchaseResponses[idempotencyKey];
+    if (saved != null) return saved;
+    final shouldFail =
+        purchaseError != null &&
+        (purchaseErrorOnCall == null || purchaseErrorOnCall == _purchaseCalls);
+    if (shouldFail && !commitBeforeUncertainError) throw purchaseError!;
+    final id = 200 + ownedTickets.length;
+    final ticket = TicketResponse(
+      id: id,
+      sessionId: 42,
+      ownerId: 7,
+      publicTicketCode: 'T-$id',
+      operationId: 'operation-$idempotencyKey',
+      grid: _ticket().grid,
+      purchasedAt: DateTime.utc(2026, 1, 1),
+    );
+    final response = TicketPurchaseResponse(ticket: ticket);
+    ownedTickets.add(ticket);
+    purchaseResponses[idempotencyKey] = response;
+    if (shouldFail) throw purchaseError!;
+    return response;
   }
 
   @override
@@ -273,6 +524,7 @@ class _FakeRepo implements LiveGameRepository {
     String idempotencyKey,
   ) async {
     submittedKeys.add(idempotencyKey);
+    await claimGate?.future;
     if (forcedError != null) throw forcedError!;
     if (_failNext) {
       _failNext = false;

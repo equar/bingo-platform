@@ -9,6 +9,7 @@ import 'package:bingo_player/src/features/game/domain/live_game_models.dart';
 import 'package:bingo_player/src/features/game/domain/ticket_models.dart';
 import 'package:bingo_player/src/features/lobby/domain/lobby_models.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 LiveDrawEvent _draw({required int sequenceNo, required int numberDrawn}) {
   return LiveDrawEvent(
@@ -108,6 +109,9 @@ AuthSessionState _authenticatedState({DateTime? expiresAt}) {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  setUp(() => SharedPreferences.setMockInitialValues({}));
+
   test(
     'celebration aggregates winning tickets beyond the selected page',
     () async {
@@ -131,6 +135,27 @@ void main() {
       expect(controller.state.winningTickets.single.totalWinningMinor, 501);
     },
   );
+
+  test('selects an owned ticket on later pages by its stable ID', () async {
+    final controller = LiveGameController(
+      sessionId: 42,
+      repository: _PagedWinningRepository(),
+      readAuthSession: () => _authenticatedState(),
+      clearAuthSession: ({String? reason}) async {},
+      appConfig: const AppConfig(
+        apiBaseUrl: 'https://example.com',
+        apiBaseUrlLabel: 'API_BASE_URL',
+      ),
+      transport: FakeLiveGameTransport(),
+    );
+    addTearDown(controller.dispose);
+    await controller.start();
+
+    expect(controller.state.allTickets, hasLength(11));
+    expect(await controller.selectTicketById(111), true);
+    expect(controller.state.ticketPageIndex, 1);
+    expect(controller.state.selectedTicket?.id, 111);
+  });
 
   testWidgets(
     'session polling updates OPEN to DRAWING and preserves the closed claim window',
@@ -284,6 +309,46 @@ void main() {
       expect(repo.drawRequests.take(2), [0, 1]);
     },
   );
+
+  test('ignores realtime events belonging to another session', () async {
+    final repo = FakeLiveGameRepository(
+      session: _session(state: 'DRAWING'),
+      ticketPage: _ticketPage(),
+      claimPage: _claimPage(),
+      drawResponses: {
+        0: [_draw(sequenceNo: 1, numberDrawn: 7)],
+      },
+    );
+    final transport = FakeLiveGameTransport();
+    final controller = LiveGameController(
+      sessionId: 42,
+      repository: repo,
+      readAuthSession: () => _authenticatedState(),
+      clearAuthSession: ({String? reason}) async {},
+      appConfig: const AppConfig(
+        apiBaseUrl: 'https://example.com',
+        apiBaseUrlLabel: 'API_BASE_URL',
+      ),
+      transport: transport,
+    );
+    addTearDown(controller.dispose);
+    await controller.start();
+
+    transport.emitDraw(
+      LiveDrawEvent(
+        sessionId: 43,
+        sequenceNo: 2,
+        numberDrawn: 18,
+        drawnAt: DateTime.utc(2026, 1, 1, 0, 0, 2),
+        id: 2,
+        operationId: 'other-session-draw',
+      ),
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    expect(controller.state.draws.map((event) => event.numberDrawn), [7]);
+    expect(controller.state.session?.id, 42);
+  });
 
   test(
     'reconnects and never announces a server-rejected claim as submitted',

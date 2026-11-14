@@ -147,6 +147,6 @@ public class AdminAuthService {
                 user.getCreatedAt(),
                 user.getUpdatedAt(),
                 user.isMustChangePassword(),
-                UserLanguages.resolve(user.getPreferredLanguage()));
+                UserLanguages.resolve(user.getPreferredLanguage()), user.getReferralCode());
     }
 }

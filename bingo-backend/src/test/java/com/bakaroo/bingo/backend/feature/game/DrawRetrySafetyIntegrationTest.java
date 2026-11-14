@@ -238,8 +238,7 @@ class DrawRetrySafetyIntegrationTest extends MySqlIntegrationTest {
                 List.of(new BingoPrizeConfigRequest(
                         BingoPatternType.LINE,
                         new BigDecimal("1.00"),
-                        PrizeSettlementPath.PLAYER_WALLET,
-                        1)),
+                        PrizeSettlementPath.PLAYER_WALLET)),
                 null));
         var session = bingoGameService.createSession(room.id(), new GameSessionRequest(
                 "QA " + runId,
@@ -255,8 +254,7 @@ class DrawRetrySafetyIntegrationTest extends MySqlIntegrationTest {
                 List.of(new BingoPrizeConfigRequest(
                         BingoPatternType.LINE,
                         new BigDecimal("1.00"),
-                        PrizeSettlementPath.PLAYER_WALLET,
-                        1))));
+                        PrizeSettlementPath.PLAYER_WALLET))));
         bingoGameService.updateSessionState(session.id(), new GameSessionStateUpdateRequest(GameSessionState.OPEN));
         var started = bingoGameService.updateSessionState(
                 session.id(), new GameSessionStateUpdateRequest(GameSessionState.STARTED));

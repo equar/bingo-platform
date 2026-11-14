@@ -75,7 +75,7 @@ any runner:
 
 3. Proceed only when fresh evidence confirms the exact runtime identity,
    expected local account scope, current Flyway version, and isolated backend
-   on `127.0.0.1:8082`. Confirm scheduler configuration and the runtime database
+   on `127.0.0.1:8080`. Confirm scheduler configuration and the runtime database
    identity. Player ticket purchases use the same path as production.
 
 4. Capture read-only before/after state for the authorized scenario. Use only

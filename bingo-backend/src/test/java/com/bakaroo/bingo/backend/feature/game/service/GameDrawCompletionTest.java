@@ -25,7 +25,7 @@ class GameDrawCompletionTest {
     GameLiveDrawService service;
     @BeforeEach void setup() {
         org.springframework.test.util.ReflectionTestUtils.setField(game,"id",42L); game.setState(GameSessionState.DRAWING);
-        game.setStartedAt(now.minusSeconds(60)); game.setRulesVersion("EARLIEST_SPLIT_V1");
+        game.setStartedAt(now.minusSeconds(60));
         game.setPatternsSnapshotJson("[\"LINE\"]");
         when(sessions.findByIdForUpdate(42L)).thenReturn(Optional.of(game));
         when(draws.findTopBySessionIdOrderBySequenceNoDesc(42L)).thenReturn(Optional.empty());

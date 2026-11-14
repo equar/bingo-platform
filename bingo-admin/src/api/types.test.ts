@@ -28,7 +28,7 @@ describe('api types helpers', () => {
     expect(parseApiError({ response: { status: 409, data: { code: 'CLAIM_WINDOW_OPEN' } } }).message).toContain('claim window closes');
   });
 
-  it('uses status fallbacks for legacy and malformed responses', () => {
+  it('uses status fallbacks for malformed responses', () => {
     const forbidden = parseApiError({ response: { status: 403, data: 'not-json' } });
     const missing = parseApiError({ response: { status: 404, data: { message: 'internal details' } } });
 
@@ -72,7 +72,7 @@ describe('api types helpers', () => {
     expect(getFieldError(error, 'amount')).toBeUndefined();
   });
 
-  it('does not expose raw error text from legacy or non-JSON responses', () => {
+  it('does not expose raw error text from non-JSON responses', () => {
     expect(getUserFacingErrorMessage(new Error('java.sql.SQLException: internal host'))).toBe(
       'Something went wrong. Please try again.',
     );

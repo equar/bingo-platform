@@ -27,7 +27,10 @@ import com.bakaroo.bingo.backend.feature.wallet.repository.WalletRepository;
 import com.bakaroo.bingo.backend.feature.wallet.repository.WalletTransactionRepository;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
@@ -37,6 +40,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class SignupRewardService {
+
+    private static final ZoneId CAMPAIGN_ZONE = ZoneId.of("Africa/Addis_Ababa");
 
     private final SignupRewardPolicyRepository policyRepository;
     private final SignupRewardGrantRepository grantRepository;
@@ -66,9 +71,7 @@ public class SignupRewardService {
         }
 
         Instant registeredAt = Optional.ofNullable(player.getCreatedAt()).orElseGet(Instant::now);
-        Optional<SignupRewardPolicy> policyOptional = policyRepository
-                .findFirstByTriggerTypeOrderByCreatedAtDesc(SignupRewardPolicy.TriggerType.SIGNUP)
-                .filter(policy -> policy.isEnabled() && isActive(policy, registeredAt));
+        Optional<SignupRewardPolicy> policyOptional = activeCampaign(SignupRewardPolicy.TriggerType.SIGNUP, registeredAt);
         if (policyOptional.isEmpty()) {
             return;
         }
@@ -77,7 +80,7 @@ public class SignupRewardService {
         if (policy.getRewardAmount().compareTo(BigDecimal.ZERO) <= 0) {
             return;
         }
-        if (grantRepository.existsByTriggerTypeAndPlayerId(SignupRewardPolicy.TriggerType.SIGNUP, player.getId())) {
+        if (grantRepository.existsByPolicyIdAndTriggerReferenceKey(policy.getId(), "PLAYER-" + player.getId())) {
             return;
         }
 
@@ -85,6 +88,10 @@ public class SignupRewardService {
             Wallet created = Wallet.create(player, policy.getCurrency());
             return walletRepository.save(created);
         });
+        if (grantRepository.findByPolicyIdAndTriggerReferenceKeyForUpdate(
+                policy.getId(), "PLAYER-" + player.getId()).isPresent()) {
+            return;
+        }
         if (!policy.getCurrency().equalsIgnoreCase(wallet.getCurrency())) {
             throw new ConflictException("SIGNUP_REWARD_CURRENCY_MISMATCH",
                     "Signup reward currency must match the player's wallet currency");
@@ -113,15 +120,60 @@ public class SignupRewardService {
                 wallet.getCurrency(),
                 "SIGNUP_REWARD",
                 grant.getId(),
-                policy.getReason(),
+                rewardDescription(policy),
                 null,
                 now));
+    }
+
+    @Transactional
+    public void grantReferralReward(User referrer, User newPlayer) {
+        if (referrer == null || newPlayer == null || !referrer.isActive() || !referrer.hasRole(UserRole.PLAYER)
+                || !newPlayer.isActive() || !newPlayer.hasRole(UserRole.PLAYER)
+                || Objects.equals(referrer.getId(), newPlayer.getId())
+                || newPlayer.getReferredBy() == null
+                || !Objects.equals(newPlayer.getReferredBy().getId(), referrer.getId())) return;
+        Instant registeredAt = Optional.ofNullable(newPlayer.getCreatedAt()).orElseGet(Instant::now);
+        SignupRewardPolicy campaign = activeCampaign(SignupRewardPolicy.TriggerType.REFERRAL, registeredAt).orElse(null);
+        if (campaign == null) return;
+        awardAutomaticCampaign(campaign, referrer, "REFERRAL-" + newPlayer.getId(), Instant.now());
+    }
+
+    @Transactional
+    public void grantWalletCreditReward(User player) {
+        if (player == null || !player.isActive() || !player.hasRole(UserRole.PLAYER)) return;
+        SignupRewardPolicy campaign = activeCampaign(SignupRewardPolicy.TriggerType.WALLET_CREDIT, Instant.now()).orElse(null);
+        if (campaign == null || campaign.getThresholdAmount() == null
+                || walletTransactionRepository.sumEtbDepositCreditsPostedInCampaignWindow(player.getId(),
+                        campaign.getEffectiveFrom(), campaign.getEffectiveUntil())
+                        .compareTo(campaign.getThresholdAmount()) < 0) return;
+        awardAutomaticCampaign(campaign, player, "WALLET-CREDIT-" + player.getId(), Instant.now());
+    }
+
+    private void awardAutomaticCampaign(SignupRewardPolicy campaign, User player, String triggerReference, Instant now) {
+        if (campaign.getRewardAmount().signum() <= 0) return;
+        Wallet wallet = walletRepository.findByOwnerIdForUpdate(player.getId()).orElseGet(() ->
+                walletRepository.save(Wallet.create(player, campaign.getCurrency())));
+        if (grantRepository.findByPolicyIdAndTriggerReferenceKeyForUpdate(campaign.getId(), triggerReference)
+                .isPresent()) return;
+        if (!campaign.getCurrency().equalsIgnoreCase(wallet.getCurrency())) return;
+        BigDecimal amount = MoneyValues.money(campaign.getRewardAmount());
+        BigDecimal before = wallet.getPromotionalBalance();
+        BigDecimal after = MoneyValues.money(before.add(amount));
+        wallet.setPromotionalBalance(after);
+        walletRepository.save(wallet);
+        String operationId = UUID.randomUUID().toString();
+        SignupRewardGrant grant = grantRepository.save(SignupRewardGrant.createForTrigger(player, campaign,
+                operationId, amount, campaign.getCurrency(), now, triggerReference));
+        walletTransactionRepository.save(WalletTransaction.create(wallet, operationId,
+                WalletTransactionType.PROMOTIONAL_REWARD_CREDIT, amount,
+                wallet.getAvailableBalance(), wallet.getAvailableBalance(), before, after,
+                wallet.getCurrency(), "PROMOTIONAL_REWARD", grant.getId(), rewardDescription(campaign), null, now));
     }
 
     @Transactional(readOnly = true)
     public SignupRewardSettingsResponse currentSettings() {
         SignupRewardPolicy policy = policyRepository
-                .findFirstByTriggerTypeOrderByCreatedAtDesc(SignupRewardPolicy.TriggerType.SIGNUP)
+                .findFirstByTriggerTypeOrderByCreatedAtDescIdDesc(SignupRewardPolicy.TriggerType.SIGNUP)
                 .orElseGet(() -> SignupRewardPolicy.create(false, BigDecimal.ZERO.setScale(2), "ETB", Instant.EPOCH,
                         null, null, null, Instant.now()));
         return toSettingsResponse(policy);
@@ -153,6 +205,7 @@ public class SignupRewardService {
             throw new BadRequestException("INVALID_SIGNUP_REWARD_DATES",
                     "Effective until must be later than effective from");
         }
+        validateCampaignStartDate(request.effectiveFrom());
         String currency = request.currency().trim().toUpperCase(Locale.ROOT);
         if (!walletProperties.currency().equalsIgnoreCase(currency)) {
             throw new BadRequestException("UNSUPPORTED_SIGNUP_REWARD_CURRENCY",
@@ -206,8 +259,15 @@ public class SignupRewardService {
         validateCampaign(request.rewardAmount(), request.currency(), request.effectiveFrom(), request.effectiveUntil());
         String name = request.name().trim();
         if (name.isEmpty()) throw new BadRequestException("INVALID_REWARD_CAMPAIGN_NAME", "Campaign name is required");
+        if (request.triggerType() == SignupRewardPolicy.TriggerType.WALLET_CREDIT) {
+            if (request.thresholdAmount() == null || request.thresholdAmount().signum() <= 0)
+                throw new BadRequestException("INVALID_WALLET_CREDIT_THRESHOLD", "Wallet credit reward needs a positive credit threshold");
+        } else if (request.thresholdAmount() != null) {
+            throw new BadRequestException("UNEXPECTED_WALLET_CREDIT_THRESHOLD", "Only wallet credit campaigns accept a threshold");
+        }
         SignupRewardPolicy campaign = policyRepository.save(SignupRewardPolicy.create(name,
                 request.triggerType(), request.enabled(), MoneyValues.money(request.rewardAmount()),
+                request.thresholdAmount() == null ? null : MoneyValues.money(request.thresholdAmount()),
                 request.currency().trim().toUpperCase(Locale.ROOT), request.effectiveFrom(),
                 request.effectiveUntil(), principal.getUser(), request.reason(), Instant.now()));
         return toCampaignResponse(campaign);
@@ -245,7 +305,7 @@ public class SignupRewardService {
         walletTransactionRepository.save(WalletTransaction.create(wallet, operationId,
                 WalletTransactionType.PROMOTIONAL_REWARD_CREDIT, amount,
                 wallet.getAvailableBalance(), wallet.getAvailableBalance(), before, after,
-                wallet.getCurrency(), "PROMOTIONAL_REWARD", grant.getId(), campaign.getReason(), null, now));
+                wallet.getCurrency(), "PROMOTIONAL_REWARD", grant.getId(), rewardDescription(campaign), null, now));
         return toPromotionalGrantResponse(grant);
     }
 
@@ -273,6 +333,19 @@ public class SignupRewardService {
         if (until != null && !until.isAfter(from)) throw new BadRequestException("INVALID_PROMOTIONAL_REWARD_DATES", "Effective until must be later than effective from");
         if (!walletProperties.currency().equalsIgnoreCase(currency.trim()))
             throw new BadRequestException("UNSUPPORTED_PROMOTIONAL_REWARD_CURRENCY", "Campaign currency must match the configured wallet currency");
+        validateCampaignStartDate(from);
+    }
+
+    private void validateCampaignStartDate(Instant from) {
+        Instant businessDayStart = LocalDate.now(CAMPAIGN_ZONE).atStartOfDay(CAMPAIGN_ZONE).toInstant();
+        if (from.isBefore(businessDayStart))
+            throw new BadRequestException("CAMPAIGN_START_IN_PAST", "Campaign start cannot be before the current Addis Ababa business date");
+    }
+
+    private Optional<SignupRewardPolicy> activeCampaign(SignupRewardPolicy.TriggerType triggerType, Instant at) {
+        return policyRepository.findAllByTriggerTypeOrderByCreatedAtDescIdDesc(triggerType).stream()
+                .filter(policy -> policy.isEnabled() && isActive(policy, at))
+                .findFirst();
     }
 
     private PromotionalRewardCampaignResponse toCampaignResponse(SignupRewardPolicy campaign) {
@@ -280,7 +353,7 @@ public class SignupRewardService {
                 campaign.isEnabled(), campaign.getRewardAmount(), campaign.getCurrency(), campaign.getEffectiveFrom(),
                 campaign.getEffectiveUntil(), campaign.getChangedBy() == null ? null : campaign.getChangedBy().getId(),
                 campaign.getReason(), campaign.getCreatedAt(), campaign.getUpdatedAt(),
-                campaign.isEnabled() && isActive(campaign, Instant.now()));
+                campaign.isEnabled() && isActive(campaign, Instant.now()), campaign.getThresholdAmount());
     }
 
     private PromotionalRewardGrantResponse toPromotionalGrantResponse(SignupRewardGrant grant) {
@@ -309,6 +382,12 @@ public class SignupRewardService {
     private boolean isActive(SignupRewardPolicy policy, Instant now) {
         return !now.isBefore(policy.getEffectiveFrom())
                 && (policy.getEffectiveUntil() == null || now.isBefore(policy.getEffectiveUntil()));
+    }
+
+    private String rewardDescription(SignupRewardPolicy campaign) {
+        return campaign.getReason() == null || campaign.getReason().isBlank()
+                ? campaign.getName()
+                : campaign.getName() + " — " + campaign.getReason();
     }
 
     private SignupRewardSettingsResponse toSettingsResponse(SignupRewardPolicy policy) {

@@ -78,6 +78,7 @@ describe("SessionDetailPage automatic draws", () => {
     );
 
     const drawButton = await screen.findByRole("button", { name: "Draw next number" });
+    expect(screen.getByText(/Earliest completion; split ties/)).toBeInTheDocument();
     expect(screen.queryByLabelText(/number drawn/i)).not.toBeInTheDocument();
     fireEvent.click(drawButton);
 

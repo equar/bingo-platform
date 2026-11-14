@@ -63,6 +63,7 @@ public class DepositFinancialService {
     private final LocalFinancialSimulationGuard simulationGuard;
     private final boolean simulationEnabled;
     private final AuditLogService auditLogService;
+    private final SignupRewardService signupRewardService;
 
     public DepositFinancialService(JdbcTemplate jdbc,
             DepositClaimRepository claims,
@@ -76,6 +77,7 @@ public class DepositFinancialService {
             TelebirrReferenceNormalizer referenceNormalizer,
             LocalFinancialSimulationGuard simulationGuard,
             AuditLogService auditLogService,
+            SignupRewardService signupRewardService,
             @Value("${app.wallet.deposit-simulation-enabled:false}") boolean simulationEnabled) {
         this.jdbc = jdbc;
         this.claims = claims;
@@ -89,6 +91,7 @@ public class DepositFinancialService {
         this.referenceNormalizer = referenceNormalizer;
         this.simulationGuard = simulationGuard;
         this.auditLogService = auditLogService;
+        this.signupRewardService = signupRewardService;
         this.simulationEnabled = simulationEnabled;
         simulationGuard.validateConfiguration(simulationEnabled, "Player deposit");
     }
@@ -282,6 +285,7 @@ public class DepositFinancialService {
                             wallet.getPromotionalBalance(), wallet.getPromotionalBalance(), wallet.getCurrency(),
                             "DEPOSIT_CLAIM", claim.getId(), (simulated ? "Simulated QA posting " : "Bank verified deposit ") + postingReference,
                             "{\"journalId\":" + journalId + ",\"simulated\":" + simulated + "}", now));
+                    signupRewardService.grantWalletCreditReward(claim.getPlayer());
                     if (adminCorrection) {
                         auditLogService.record(approver, "PLAYER_DEPOSIT_REJECTION_OVERRIDDEN", "DEPOSIT_CLAIM",
                                 depositId, claim.getReviewNote(), operationId,

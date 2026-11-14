@@ -729,7 +729,6 @@ class AgentServiceIntegrationTest extends MySqlIntegrationTest {
                 room = bingoRoomRepository.save(room);
 
                 GameSession session = new GameSession();
-                session.setRulesVersion("EARLIEST_SPLIT_V1");
                 session.setMinimumHouseMarginBps(1000);
                 session.setSessionCostReserve(BigDecimal.ZERO);
                 session.setClaimWindowSeconds(86400L);

@@ -19,6 +19,7 @@ import com.bakaroo.bingo.backend.feature.user.entity.UserLanguages;
 import com.bakaroo.bingo.backend.feature.user.entity.UserRole;
 import com.bakaroo.bingo.backend.feature.user.repository.UserRepository;
 import java.time.Instant;
+import java.util.Locale;
 import java.sql.SQLException;
 import java.util.Set;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -74,6 +75,18 @@ public class AuthService {
                 AccountStatus.ACTIVE,
                 Set.of(UserRole.PLAYER),
                 Instant.now());
+        String requestedReferralCode = request.referralCode() == null ? null
+                : request.referralCode().trim().toUpperCase(Locale.ROOT);
+        User referrer = null;
+        if (requestedReferralCode != null && !requestedReferralCode.isBlank()) {
+            referrer = userRepository.findByReferralCodeIgnoreCase(requestedReferralCode)
+                    .orElseThrow(() -> new BadRequestException("INVALID_REFERRAL_CODE", "Referral code was not found"));
+            if (!referrer.hasRole(UserRole.PLAYER) || !referrer.isActive()
+                    || normalizedPhone.equals(referrer.getNormalizedPhone())) {
+                throw new BadRequestException("INVALID_REFERRAL_CODE", "Referral code must belong to another active player");
+            }
+        }
+        user.setReferralDetails(User.newReferralCode(), referrer);
 
         User saved;
         try {
@@ -86,6 +99,7 @@ public class AuthService {
         }
         walletService.createWalletIfMissing(saved);
         signupRewardService.grantForNewPlayer(saved);
+        if (referrer != null) signupRewardService.grantReferralReward(referrer, saved);
         String token = jwtService.generateToken(saved);
         return new AuthResponse(token, "Bearer", jwtService.getExpirationSeconds(), toProfile(saved));
     }
@@ -181,7 +195,8 @@ public class AuthService {
                 user.getCreatedAt(),
                 user.getUpdatedAt(),
                 user.isMustChangePassword(),
-                UserLanguages.resolve(user.getPreferredLanguage()));
+                UserLanguages.resolve(user.getPreferredLanguage()),
+                user.getReferralCode());
     }
 
     private boolean isDuplicatePhoneConstraint(Throwable failure) {

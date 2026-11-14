@@ -3,9 +3,11 @@
 Production application deployment uses GitHub Actions to build Bingo and
 upload it over SSH to an existing Ubuntu Lightsail/EC2 host. The sole
 production application deployment workflow is `.github/workflows/deploy.yml`;
-it runs after an in-repository feature-branch pull request is merged into
-`main`. Changed application files select what is built and deployed from the
-merge commit. Manual dispatch on `main` can redeploy selected applications.
+it runs after an in-repository pull request is merged into `develop`. Changed
+application files select what is built and deployed from the merge commit.
+Manual dispatch on `develop` can redeploy selected applications. This changes
+the deployment trigger, not its target: a merge to `develop` deploys to the
+existing production Lightsail host with the production configuration.
 There is no OIDC deployment role or required source-branch naming convention.
 
 ## Runtime layout and deployment behavior
@@ -28,13 +30,28 @@ tests. `.github/workflows/validate-lightsail-infrastructure.yml` checks
 deployment shell/Python syntax, the Nginx template, and the retained
 CloudFormation reference; it does not deploy.
 
-The backend deploy retains the previous JAR/environment pair and attempts
+Backend and frontend artifacts stage in a private `~/.cache/bingo-deploy`
+directory owned by the deployment SSH user, rather than relying on shared
+`/tmp` permissions.
+
+Before stopping a running backend, the deployer reads the candidate JAR's
+Flyway migrations and compares its highest version with the production schema
+history. It refuses to replace the service when the candidate is behind the
+database, preventing an older JAR from starting against a newer schema. The
+deployer has one narrowly scoped recovery for the withdrawn
+`V41__remove_legacy_prize_winner_caps.sql` migration: it removes that failed
+history entry only when it is the sole failed migration and the candidate JAR
+does not contain V41. Any other failed migration still blocks deployment for
+manual investigation.
+backend deploy retains the previous JAR/environment pair and attempts
 restoration after a failed restart/health check only if the previous pair was
-healthy. Static deployments retain `.backup` directories. Health-check
-failures fail the workflow. Database migrations are not automatically rolled
-back; take a database snapshot before a risky Flyway release. A failed
-frontend check can be recovered from its backup. Fix the cause and use the
-normal reviewed merge/deployment path.
+healthy and Flyway did not advance during the failed attempt. A JAR rollback
+is unsafe after any migration is applied, because the previous JAR may not
+match the new schema. Static deployments retain `.backup` directories.
+Health-check failures fail the workflow. Database migrations are not
+automatically rolled back; take a database snapshot before a risky Flyway
+release. A failed frontend check can be recovered from its backup. Fix the
+cause and use the normal reviewed merge/deployment path.
 
 The backend is intentionally single-instance because scheduler and WebSocket
 state are process-local. Configure monitoring, log retention, backups, restore
@@ -50,9 +67,11 @@ ownership, and incident procedures before production use.
    to `bingo.*` with the privileges required by Flyway and the application.
    The workflow does not create the database. Keep it private and use its DNS
    hostname for `MYSQL_HOST`; production JDBC requires `sslMode=VERIFY_IDENTITY`.
-   The deployment prepares `/etc/bingo/database-truststore.jks` from Java's
-   default roots plus the official AWS database CA bundle. Its truststore
-   password protects public CA material, not an application credential.
+   The    deployment prepares `/etc/bingo/database-truststore.jks` and
+   `/etc/bingo/database-ca-bundle.pem` from Java's default roots plus the
+   official AWS database CA bundle. The PEM bundle is used by the deployment
+   migration-compatibility preflight; neither file contains an application
+   credential.
 3. Point `bingo.bakaroo.com`, `admin.bingo.bakaroo.com`, and
    `api.bingo.bakaroo.com` to the server's static IP. After DNS resolves, copy
    `deployment/aws/setup-web-host.sh` and `nginx-bingo.conf.template` to the
@@ -128,13 +147,13 @@ Secrets Manager ARNs.
 
 ## Release and verification
 
-1. Protect `main` with required PR validation and workflow-file review rules.
+1. Protect `develop` with the required branch-policy and PR validation checks.
 2. For a host using the retired OIDC deployment, stop its workflow and back
    up the database, runtime configuration, and artifacts. The current service
    uses `/opt/bingo`, not the old `/opt/bingo/backend/current` layout. Plan the
    JAR/service and static-root cutover together with Nginx; back up existing
    files first.
-3. Merge a reviewed feature-branch PR into `main`. The deployment workflow
+3. Merge an in-repository PR into `develop`. The deployment workflow
    checks out the merge commit and serializes production runs without
    cancelling a previous merge's deployment.
 4. Verify website, Admin login, `/actuator/health`, CORS, authenticated
@@ -180,15 +199,15 @@ working HTTPS and a healthy API for verification.
 
 To deploy after changing repository secrets/variables, or to redeploy without a
 source change, use **Actions → Build and Deploy Bingo to Lightsail → Run workflow**,
-select branch **main**, and choose `all`, `backend`, `frontend`, `admin`, or `website`.
+select branch **develop**, and choose `all`, `backend`, `frontend`, `admin`, or `website`.
 `frontend` selects both frontends. Other branches cannot use manual production
 deployment. Existing concurrency protection serializes these deployments.
 
 The diff selects changes from the current merge, not from the last successful
 deployment. Resolve and rerun failed deployments before subsequent releases;
-if releases were skipped or a previous deployment partly failed, manually deploy
-`all` from the latest `main` to reconcile all application artifacts. Manually
-redeploying an older workflow run can deploy older code, so prefer this latest-main
+if deployments were skipped or a previous deployment partly failed, manually deploy
+`all` from the latest `develop` to reconcile all application artifacts. Manually
+redeploying an older workflow run can deploy older code, so prefer this latest-develop
 manual action for recovery. Nginx and certificate setup remain separate one-time
 host operations.
 

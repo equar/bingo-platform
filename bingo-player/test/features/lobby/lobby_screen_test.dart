@@ -19,7 +19,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('lobby exposes OPEN sessions through live detail', (tester) async {
+  testWidgets('lobby exposes OPEN sessions through live detail', (
+    tester,
+  ) async {
     final repository = _LobbyRepository();
     await tester.pumpWidget(_app(repository));
     await tester.pumpAndSettle();
@@ -55,7 +57,7 @@ void main() {
       readAuthSession: () => const AuthSessionState(isLoading: true),
       clearAuthSession: ({String? reason}) async {},
       appConfig: const AppConfig(
-        apiBaseUrl: 'http://127.0.0.1:8082',
+        apiBaseUrl: 'http://127.0.0.1:8080',
         apiBaseUrlLabel: 'API_BASE_URL',
       ),
       transport: _UnusedLiveGameTransport(),
@@ -114,6 +116,11 @@ void main() {
       expect(find.text('31–45'), findsOneWidget);
       expect(find.text('46–60'), findsOneWidget);
       expect(find.text('61–75'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('ticket-preview-purchase-disabled')),
+        240,
+        scrollable: find.byType(Scrollable).last,
+      );
       final purchase = tester.widget<FilledButton>(
         find.byKey(const ValueKey('ticket-preview-purchase-disabled')),
       );
@@ -153,6 +160,11 @@ void main() {
       repository.failPreview = false;
       await tester.tap(find.text('Try again'));
       await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('This session is not open for ticket sales (DRAFT).'),
+        240,
+        scrollable: find.byType(Scrollable).last,
+      );
       expect(
         find.text('This session is not open for ticket sales (DRAFT).'),
         findsOneWidget,
@@ -180,6 +192,23 @@ void main() {
       await tester.pumpAndSettle();
     }
   });
+
+  testWidgets(
+    'a closed session remains accessible while its claim window is open',
+    (tester) async {
+      final repository = _LobbyRepository(
+        sessionState: 'CLOSED',
+        endedAt: DateTime.now().toUtc(),
+        claimWindowSeconds: 3600,
+      );
+      await tester.pumpWidget(_app(repository));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('room-details-6')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('live-game-12')), findsOneWidget);
+    },
+  );
 
   testWidgets('empty lobby displays an appropriate message', (tester) async {
     final repository = _LobbyRepository(emptyRooms: true);
@@ -257,12 +286,16 @@ class _LobbyRepository extends LobbyRepository {
     this.failPreview = false,
     this.emptyRooms = false,
     this.sessionState = 'OPEN',
+    this.endedAt,
+    this.claimWindowSeconds,
   }) : super(_UnusedLobbyApi());
 
   bool failRooms;
   bool failPreview;
   final bool emptyRooms;
   final String sessionState;
+  final DateTime? endedAt;
+  final int? claimWindowSeconds;
   Completer<List<BingoRoom>>? pendingRooms;
   int roomRequests = 0;
   int previewRequests = 0;
@@ -294,6 +327,8 @@ class _LobbyRepository extends LobbyRepository {
       sessionName: 'QA Scheduled Session',
       state: sessionState,
       scheduledStartAt: DateTime.utc(2030),
+      endedAt: endedAt,
+      claimWindowSeconds: claimWindowSeconds,
       ticketPrice: 3.25,
       currency: 'ETB',
       sessionCapacity: 30,

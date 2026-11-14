@@ -12,14 +12,12 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
-import jakarta.persistence.UniqueConstraint;
 import java.math.BigDecimal;
 import java.time.Instant;
 
 @Entity
 @Table(name = "signup_reward_grants", uniqueConstraints = {
-        @UniqueConstraint(name = "uk_signup_reward_grants_campaign_player", columnNames = {"policy_id", "player_id"}),
-        @UniqueConstraint(name = "uk_signup_reward_grants_signup_player", columnNames = "signup_player_id"),
+        @UniqueConstraint(name = "uk_signup_reward_grants_campaign_event", columnNames = {"policy_id", "trigger_reference_key"}),
         @UniqueConstraint(name = "uk_signup_reward_grants_operation", columnNames = "operation_id")
 })
 public class SignupRewardGrant {
@@ -39,6 +37,9 @@ public class SignupRewardGrant {
     @jakarta.persistence.Enumerated(jakarta.persistence.EnumType.STRING)
     @Column(name = "trigger_type", nullable = false, length = 20)
     private SignupRewardPolicy.TriggerType triggerType;
+
+    @Column(name = "trigger_reference_key", nullable = false, length = 80)
+    private String triggerReferenceKey;
 
     @Column(name = "signup_player_id", insertable = false, updatable = false)
     private Long signupPlayerId;
@@ -72,10 +73,18 @@ public class SignupRewardGrant {
         grant.player = player;
         grant.policy = policy;
         grant.triggerType = policy.getTriggerType();
+        grant.triggerReferenceKey = "PLAYER-" + player.getId();
         grant.operationId = operationId;
         grant.rewardAmount = rewardAmount;
         grant.currency = currency;
         grant.awardedAt = awardedAt;
+        return grant;
+    }
+
+    public static SignupRewardGrant createForTrigger(User player, SignupRewardPolicy policy, String operationId,
+            BigDecimal rewardAmount, String currency, Instant awardedAt, String triggerReferenceKey) {
+        SignupRewardGrant grant = create(player, policy, operationId, rewardAmount, currency, awardedAt);
+        grant.triggerReferenceKey = triggerReferenceKey;
         return grant;
     }
 
@@ -96,6 +105,14 @@ public class SignupRewardGrant {
 
     public SignupRewardPolicy getPolicy() {
         return policy;
+    }
+
+    public SignupRewardPolicy.TriggerType getTriggerType() {
+        return triggerType;
+    }
+
+    public String getTriggerReferenceKey() {
+        return triggerReferenceKey;
     }
 
     public String getOperationId() {

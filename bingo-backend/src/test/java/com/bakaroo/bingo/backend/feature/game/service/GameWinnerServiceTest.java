@@ -40,8 +40,7 @@ class GameWinnerServiceTest {
         assertEquals(List.of(10L,12L),result.ticketIds());
         var session = new GameSession();
         ReflectionTestUtils.setField(session,"id",42L);
-        session.setRulesVersion("EARLIEST_SPLIT_V1");
-        session.setPrizesSnapshotJson("[{\"prizeType\":\"LINE\",\"amount\":10.00,\"settlementPath\":\"PLAYER_WALLET\",\"maxWinners\":1}]");
+        session.setPrizesSnapshotJson("[{\"prizeType\":\"LINE\",\"amount\":10.00,\"settlementPath\":\"PLAYER_WALLET\"}]");
         var claim = new WinClaim();
         claim.setSession(session); claim.setClaimedPattern(BingoPatternType.LINE);
         claim.setDrawSequenceSnapshot(75); claim.setTicket(later);

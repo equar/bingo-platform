@@ -4,7 +4,6 @@ import 'package:bingo_player/src/core/localization/ethiopian_date_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bingo_player/l10n/app_localizations.dart';
-import 'package:bingo_player/src/core/storage/player_preferences.dart';
 
 class MessagesScreen extends ConsumerStatefulWidget {
   const MessagesScreen({super.key});
@@ -72,9 +71,6 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen> {
             );
           }
           final language = Localizations.localeOf(context).languageCode;
-          final highlightUnread = ref
-              .watch(playerPreferencesProvider)
-              .notificationsEnabled;
           return ListView.separated(
             padding: const EdgeInsets.all(16),
             itemCount: messages.length,
@@ -98,7 +94,7 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen> {
                   title: Text(
                     title,
                     style: TextStyle(
-                      fontWeight: message.read || !highlightUnread
+                      fontWeight: message.read
                           ? FontWeight.w500
                           : FontWeight.w800,
                     ),

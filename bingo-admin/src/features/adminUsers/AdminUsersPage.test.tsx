@@ -352,7 +352,7 @@ describe("AdminUsersPage", () => {
     ).toBeInTheDocument();
   });
 
-  it("shows current staff roles without legacy finance-role revocation", async () => {
+  it("shows current staff roles without revoking them", async () => {
     adminUsersMock.mockResolvedValue({
       content: [
         {

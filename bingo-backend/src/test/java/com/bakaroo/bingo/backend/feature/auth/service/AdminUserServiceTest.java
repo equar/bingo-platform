@@ -181,7 +181,7 @@ class AdminUserServiceTest {
 
                 var response = service.updateUser(31L,
                                 new AdminUserUpdateRequest(" Updated Admin ", "existing@example.com",
-                                                "0911000003", "   ", AccountStatus.SUSPENDED,
+                                                "0911000003", AccountStatus.SUSPENDED,
                                                 Set.of(UserRole.ADMIN)), 17L, "Operations Admin");
 
                 assertThat(response.displayName()).isEqualTo("Updated Admin");
@@ -203,10 +203,10 @@ class AdminUserServiceTest {
                 when(userRepository.findByIdForUpdate(42L)).thenReturn(Optional.of(existing));
 
                 assertThrows(ConflictException.class, () -> service.updateUser(42L,
-                                new AdminUserUpdateRequest("Existing Admin", "updated@example.com", "0911000008", "",
+                                new AdminUserUpdateRequest("Existing Admin", "updated@example.com", "0911000008",
                                                 AccountStatus.ACTIVE, Set.of(UserRole.ADMIN))));
                 assertThrows(ConflictException.class, () -> service.updateUser(42L,
-                                new AdminUserUpdateRequest("Existing Admin", "existing@example.com", "0911000008", "",
+                                new AdminUserUpdateRequest("Existing Admin", "existing@example.com", "0911000008",
                                                 AccountStatus.ACTIVE, Set.of(UserRole.ADMIN, UserRole.SUPPORT))));
 
                 verify(userRepository, org.mockito.Mockito.never()).save(any(User.class));
@@ -219,7 +219,7 @@ class AdminUserServiceTest {
                 when(userRepository.findByIdForUpdate(99L)).thenReturn(Optional.empty());
 
                 assertThrows(NotFoundException.class, () -> service.updateUser(99L, new AdminUserUpdateRequest(
-                                "Admin", "admin@example.com", "0911000005", "Secret123!", AccountStatus.ACTIVE,
+                                "Admin", "admin@example.com", "0911000005", AccountStatus.ACTIVE,
                                 Set.of(UserRole.ADMIN))));
         }
 
@@ -238,7 +238,7 @@ class AdminUserServiceTest {
                 when(userRepository.findByEmail("taken@example.com")).thenReturn(Optional.of(other));
 
                 assertThrows(ConflictException.class, () -> service.updateUser(40L, new AdminUserUpdateRequest(
-                                "Admin", "taken@example.com", "0911000006", null, AccountStatus.ACTIVE,
+                                "Admin", "taken@example.com", "0911000006", AccountStatus.ACTIVE,
                                 Set.of(UserRole.ADMIN))));
         }
 

@@ -18,6 +18,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 const output = String.fromEnvironment('LIVE_LAYOUT_SCREENSHOT_DIR');
 const captureKey = ValueKey('live-layout-capture');
@@ -35,12 +36,15 @@ GameSession game({String status = 'DRAWING'}) => GameSession(
   ticketCount: 1,
   drawCount: 21,
   configuredPatterns: const ['LINE'],
+  configuredPrizes: const [
+    BingoPrizeConfig(prizeType: 'LINE', amount: 100, settlementPath: 'WALLET'),
+  ],
   createdAt: DateTime.utc(2026, 11, 11),
   updatedAt: DateTime.utc(2026, 11, 11),
 );
 
-TicketResponse ticket() => TicketResponse(
-  id: 101,
+TicketResponse ticket({int id = 101}) => TicketResponse(
+  id: id,
   sessionId: 42,
   ownerId: 7,
   publicTicketCode: 'TK-42-101',
@@ -68,18 +72,19 @@ List<LiveDrawEvent> calls(int count) => List.generate(
   ),
 );
 
-LiveGameState state(int count) => LiveGameState(
+LiveGameState state(int count, {int ownedCount = 1}) => LiveGameState(
   isLoading: false,
   connectionState: LiveGameConnectionState.connected,
   ticketPageIndex: 0,
   selectedTicketIndex: 0,
   session: game(),
   draws: calls(count),
+  allTickets: [for (var id = 0; id < ownedCount; id++) ticket(id: 101 + id)],
   ticketPage: PageResult(
-    content: [ticket()],
+    content: [for (var id = 0; id < ownedCount; id++) ticket(id: 101 + id)],
     page: 0,
     size: 10,
-    totalElements: 1,
+    totalElements: ownedCount,
     totalPages: 1,
     first: true,
     last: true,
@@ -110,6 +115,7 @@ Future<LiveGameController> mount(
   Locale locale = const Locale('en'),
   double scale = 1,
   Brightness brightness = Brightness.light,
+  int ownedCount = 1,
 }) async {
   tester.view.devicePixelRatio = 1;
   tester.view.physicalSize = size;
@@ -125,7 +131,7 @@ Future<LiveGameController> mount(
       apiBaseUrl: 'https://example.invalid',
       apiBaseUrlLabel: 'API_BASE_URL',
     ),
-  )..state = state(count);
+  )..state = state(count, ownedCount: ownedCount);
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
@@ -190,11 +196,13 @@ void main() {
     }
   });
 
+  setUp(() => SharedPreferences.setMockInitialValues({}));
+
   testWidgets(
     'ticket position stays fixed as the call history grows from zero to 75',
     (tester) async {
       final controller = await mount(tester, count: 0);
-      final grid = find.byKey(const ValueKey('live-ticket-grid'));
+      final grid = find.byKey(const ValueKey('live-ticket-grid-101'));
       final initial = tester.getRect(grid);
       for (final count in [1, 5, 21, 75]) {
         controller.state = state(count);
@@ -220,11 +228,185 @@ void main() {
     },
   );
 
+  for (final (locale, size) in [
+    (const Locale('en'), const Size(320, 800)),
+    (const Locale('am'), const Size(320, 800)),
+    (const Locale('en'), const Size(1024, 768)),
+    (const Locale('am'), const Size(1024, 768)),
+  ]) {
+    testWidgets(
+      'four selected tickets remain readable at ${size.width.toInt()}px in ${locale.languageCode}',
+      (tester) async {
+        SharedPreferences.setMockInitialValues({'player.boardSize': 4});
+        await mount(
+          tester,
+          size: size,
+          count: 21,
+          ownedCount: 4,
+          locale: locale,
+        );
+        await tester.pump(const Duration(milliseconds: 350));
+        final board = tester.widget<GridView>(
+          find.byKey(const ValueKey('multi-ticket-board')),
+        );
+        expect(board.childrenDelegate.estimatedChildCount, 4);
+        await tester.scrollUntilVisible(
+          find.byKey(const ValueKey('live-ticket-grid-104')),
+          120,
+          scrollable: find.byType(Scrollable).last,
+        );
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+  }
+
+  testWidgets('manual marking is available when auto-mark is turned off', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    SharedPreferences.setMockInitialValues({
+      'player.boardSize': 1,
+      'player.autoMark': false,
+    });
+    final controller = await mount(tester, size: const Size(320, 800));
+    controller.state = state(0).copyWith(
+      draws: [
+        LiveDrawEvent(
+          sessionId: 42,
+          sequenceNo: 1,
+          numberDrawn: 1,
+          drawnAt: DateTime.utc(2026, 1, 1),
+        ),
+      ],
+    );
+    await tester.pump();
+    final cell = find.byKey(const ValueKey('ticket-cell-0-0'));
+    await tester.ensureVisible(cell);
+    expect(
+      tester.getSemantics(cell).flagsCollection.isSelected,
+      ui.Tristate.isFalse,
+    );
+    await tester.tap(cell);
+    await tester.pump();
+    expect(
+      tester.getSemantics(cell).flagsCollection.isSelected,
+      ui.Tristate.isTrue,
+    );
+    expect(tester.takeException(), isNull);
+    semantics.dispose();
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('auto-mark selects a called number without a manual tap', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    SharedPreferences.setMockInitialValues({
+      'player.boardSize': 1,
+      'player.autoMark': true,
+    });
+    final controller = await mount(tester, size: const Size(320, 800));
+    controller.state = state(0).copyWith(
+      draws: [
+        LiveDrawEvent(
+          sessionId: 42,
+          sequenceNo: 1,
+          numberDrawn: 1,
+          drawnAt: DateTime.utc(2026, 1, 1),
+        ),
+      ],
+    );
+    await tester.pump();
+    final cell = find.byKey(const ValueKey('ticket-cell-0-0'));
+    expect(
+      tester.getSemantics(cell).flagsCollection.isSelected,
+      ui.Tristate.isTrue,
+    );
+    expect(tester.takeException(), isNull);
+    semantics.dispose();
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('clearing manual marks confirms without erasing call history', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'player.boardSize': 1,
+      'player.autoMark': false,
+    });
+    final controller = await mount(tester, count: 0);
+    controller.state = state(0).copyWith(
+      draws: [
+        LiveDrawEvent(
+          sessionId: 42,
+          sequenceNo: 1,
+          numberDrawn: 1,
+          drawnAt: DateTime.utc(2026, 1, 1),
+        ),
+      ],
+    );
+    await tester.pump();
+    final cell = find.byKey(const ValueKey('ticket-cell-0-0'));
+    await tester.ensureVisible(cell);
+    await tester.tap(cell);
+    await tester.pump();
+    expect(controller.state.calledNumbers, [1]);
+    expect(
+      (await SharedPreferences.getInstance()).getStringList(
+        'player.manualMarks.account-7-session-42.101',
+      ),
+      contains('1'),
+    );
+
+    await tester.tap(find.byKey(const ValueKey('live-game-settings')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    final resetButton = find.widgetWithText(
+      OutlinedButton,
+      'Reset/Clear Marked Numbers',
+    );
+    await tester.drag(find.byType(ListView).last, const Offset(0, -1200));
+    await tester.pumpAndSettle();
+    expect(resetButton, findsOneWidget);
+    await tester.tap(resetButton);
+    await tester.pump();
+    expect(
+      find.text('Clear manual marks on tickets in this game?'),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Cancel'));
+    await tester.pump();
+    expect(
+      (await SharedPreferences.getInstance()).getStringList(
+        'player.manualMarks.account-7-session-42.101',
+      ),
+      contains('1'),
+    );
+
+    await tester.tap(resetButton);
+    await tester.pump();
+    await tester.tap(
+      find.widgetWithText(FilledButton, 'Reset/Clear Marked Numbers'),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    expect(
+      (await SharedPreferences.getInstance()).getStringList(
+        'player.manualMarks.account-7-session-42.101',
+      ),
+      isNull,
+    );
+    expect(controller.state.calledNumbers, [1]);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets(
     'full history opens in a scrollable sheet without shifting the ticket',
     (tester) async {
       final controller = await mount(tester, count: 21);
-      final grid = find.byKey(const ValueKey('live-ticket-grid'));
+      final grid = find.byKey(const ValueKey('live-ticket-grid-101'));
       final initial = tester.getRect(grid);
       expect(find.byKey(const ValueKey('history-call-1')), findsNothing);
       await tester.tap(find.byKey(const ValueKey('view-all-calls')));
@@ -314,7 +496,7 @@ void main() {
     );
     final color = (header.decoration! as BoxDecoration).color;
     final context = tester.element(
-      find.byKey(const ValueKey('live-ticket-grid')),
+      find.byKey(const ValueKey('live-ticket-grid-101')),
     );
     expect(color, isNot(Theme.of(context).colorScheme.primaryContainer));
     expect(color, isNot(Theme.of(context).colorScheme.secondaryContainer));
@@ -456,6 +638,10 @@ void main() {
       ),
     );
     await tester.pump();
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('claim-submit-button')),
+    );
+    await tester.pump();
     await tester.tap(find.byKey(const ValueKey('claim-submit-button')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
@@ -479,6 +665,10 @@ void main() {
       find.byKey(const ValueKey('live-play-screen')),
     );
     expect(scroll.child, isA<SizedBox>());
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('claim-submit-button')),
+    );
+    await tester.pump();
     expect(
       tester
           .getBottomLeft(find.byKey(const ValueKey('claim-submit-button')))
@@ -546,7 +736,7 @@ void main() {
           locale: locale,
           scale: 2,
         );
-        final grid = find.byKey(const ValueKey('live-ticket-grid'));
+        final grid = find.byKey(const ValueKey('live-ticket-grid-101'));
         final initial = tester.getRect(grid);
         controller.state = state(75);
         await tester.pump(const Duration(milliseconds: 300));
@@ -566,12 +756,12 @@ void main() {
       brightness: Brightness.dark,
     );
     final initial = tester.getRect(
-      find.byKey(const ValueKey('live-ticket-grid')),
+      find.byKey(const ValueKey('live-ticket-grid-101')),
     );
     controller.state = state(75);
     await tester.pump(const Duration(milliseconds: 300));
     expect(
-      tester.getRect(find.byKey(const ValueKey('live-ticket-grid'))),
+      tester.getRect(find.byKey(const ValueKey('live-ticket-grid-101'))),
       initial,
     );
     expect(tester.takeException(), isNull);

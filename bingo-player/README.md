@@ -21,6 +21,35 @@ Tools with the **Desktop development with C++** workload and a Windows 10/11
 SDK. Start MySQL and the backend `dev` profile first; the backend guide
 explains its local `.env` setup.
 
+On Windows, Android builds need `ANDROID_HOME`/`ANDROID_SDK_ROOT` and
+`ANDROID_USER_HOME` set to the installed SDK and user Android directories. If
+Kotlin compilation stalls or fails while closing incremental compiler caches,
+and the Gradle distribution/dependencies are already cached, run this
+workspace-local workaround from PowerShell (it does not change global Gradle
+settings or delete caches):
+
+```powershell
+$env:GRADLE_USER_HOME = "$env:USERPROFILE\.gradle"
+$env:ANDROID_HOME = "$env:USERPROFILE\AppData\Local\Android\Sdk"
+$env:ANDROID_SDK_ROOT = $env:ANDROID_HOME
+$env:ANDROID_USER_HOME = "$env:USERPROFILE\.android"
+$env:ANDROID_EMULATOR_HOME = $env:ANDROID_USER_HOME
+$env:ANDROID_AVD_HOME = "$env:ANDROID_USER_HOME\avd"
+cd android
+.\gradlew.bat --no-daemon --offline `
+  '-Pkotlin.compiler.execution.strategy=in-process' `
+  '-Pkotlin.incremental=false' :app:assembleDebug
+```
+
+This workaround completed a fresh debug APK build on Windows with the current
+cached Gradle distribution and Android dependencies. `--offline` makes the
+cache requirement explicit; if dependencies are missing, resolve them using
+the normal approved network setup before retrying. The APK build is compile
+evidence only and does not replace emulator acceptance testing. The build
+currently emits Android Gradle Plugin/Kotlin plugin migration warnings; follow
+the Flutter built-in Kotlin migration guidance before upgrading past the
+currently supported plugin/toolchain combination.
+
 The equivalent VS Code launch configurations are **Bingo Player — Android
 emulator**, **Bingo Player — Chrome**, and **Bingo Player — Windows**. For
 Android, select the emulator in the VS Code device picker. The app uses the
@@ -29,6 +58,22 @@ backend origin `http://10.0.2.2:8080` in the emulator and
 live draws use `ws://<backend-host>:8080/ws`. Chrome authentication is stored
 for its origin; logout clears that app's saved session. Chrome's localhost
 origin is separate from the Agent app's origin on port 5181.
+
+The Player's current browser target is for local development and browser QA.
+The repository deploys the public information website, but has no configured
+public Player web deployment or public web authentication release. Do not treat
+the browser target as approved for real accounts or public production use.
+Chrome uses Flutter's standard JavaScript renderer. The current
+`flutter_secure_storage_web` 1.2.1 implementation stores encrypted values and
+the AES key used to encrypt them in the same origin's browser `localStorage`;
+it does not provide hardware-backed secret storage or protect a session from
+same-origin script execution/XSS. If web deployment is later approved, require
+HTTPS, a restrictive CSP, careful XSS/dependency controls, and an explicit
+session-storage/security review before accepting real sessions. Flutter's
+WebAssembly dry-run warning for this plugin (`dart:html`/`dart:js_util` and
+`package:js`) means that plugin is not Wasm-compatible; it does not prevent the
+standard JavaScript web build. A standard JavaScript build is not evidence that
+the browser authentication storage is suitable for public deployment.
 
 Switching platforms starts a separate app instance and does not transfer an
 in-progress game session. Development HTTP/WS URLs are debug-only; profile and

@@ -60,19 +60,6 @@ const emptyDraft: AuditFilterDraft = {
   to: "",
 };
 
-function hasDetailedMetadata(metadataJson: string) {
-  try {
-    const metadata = JSON.parse(metadataJson) as Record<string, unknown>;
-    return (
-      metadata.schemaVersion === 1 &&
-      "outcome" in metadata &&
-      "arguments" in metadata
-    );
-  } catch {
-    return false;
-  }
-}
-
 function parseOptionalId(value: string) {
   if (!value.trim()) return undefined;
   const parsed = Number(value);
@@ -615,21 +602,8 @@ export function AuditLogsPage() {
                         }
                       })()}
                     </Box>
-                    {!hasDetailedMetadata(detailQuery.data.metadataJson) ? (
-                      <Alert severity="info" sx={{ mt: 1 }}>
-                        {t(
-                          "This is a legacy entry with limited context. New audit entries include redacted request and outcome details.",
-                        )}
-                      </Alert>
-                    ) : null}
                   </Box>
-                ) : (
-                  <Alert severity="info">
-                    {t(
-                      "This older audit entry has no recorded context. New entries include redacted request and outcome details.",
-                    )}
-                  </Alert>
-                )}
+                ) : null}
               </Stack>
             ) : null}
           </DialogContent>

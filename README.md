@@ -85,6 +85,17 @@ recovery operations at production, shared QA, or persistent test data. Follow
 migration-specific recovery guidance instead of dropping or cleaning a
 database.
 
+## Branch promotion policy
+
+Promote changes through `feature/*` or `fix/*` -> `develop` -> `release` ->
+`main`. Hotfixes follow the same flow; do not bypass an intermediate branch.
+Any source branch may target `develop`, including `release` or `main` when
+synchronizing changes back. Only this repository's `develop` branch may target
+`release`, and only this repository's `release` branch may target `main`; fork
+branches with those names are not valid promotion sources. Changes to
+`develop`, `release`, and `main` must go through pull requests; direct pushes,
+force pushes, and branch deletion are blocked, including for administrators.
+
 ## Documentation
 
 - [Documentation index](docs/README.md)

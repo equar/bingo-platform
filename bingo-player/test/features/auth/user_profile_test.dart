@@ -17,4 +17,16 @@ void main() {
     expect(profile.toPersistedJson(), isNot(contains('password')));
     expect(profile.toPersistedJson(), isNot(contains('token')));
   });
+
+  test('profile exposes the referral code returned by the server', () {
+    final profile = UserProfile.fromJson({
+      'id': 178,
+      'displayName': 'QA player',
+      'phoneNumber': '251930300001',
+      'referralCode': 'B123456789ABC',
+    });
+
+    expect(profile.referralCode, 'B123456789ABC');
+    expect(profile.toJson()['referralCode'], 'B123456789ABC');
+  });
 }

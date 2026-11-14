@@ -48,9 +48,6 @@ public class GameFundingService {
     }
 
     public void requireFunded(GameSession session) {
-        if (!"EARLIEST_SPLIT_V1".equals(session.getRulesVersion())) {
-            throw new ConflictException("LEGACY_SESSION_REQUIRES_REVIEW", "Legacy game terms require reconciliation before operation");
-        }
         FundingSummary summary = summarize(session);
         if (!summary.funded()) {
             throw new ConflictException("SESSION_UNDERFUNDED",

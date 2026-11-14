@@ -32,6 +32,7 @@ class UserProfile {
     required this.status,
     required this.createdAt,
     required this.updatedAt,
+    this.referralCode = '',
   });
 
   final int id;
@@ -41,6 +42,7 @@ class UserProfile {
   final String status;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final String referralCode;
 
   bool get isPlayer => roles.contains('PLAYER');
 
@@ -53,6 +55,7 @@ class UserProfile {
       status: json['status']?.toString() ?? '',
       createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0),
       updatedAt: DateTime.tryParse(json['updatedAt']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0),
+      referralCode: json['referralCode']?.toString() ?? '',
     );
   }
 
@@ -64,6 +67,7 @@ class UserProfile {
         'status': status,
         'createdAt': createdAt.toIso8601String(),
         'updatedAt': updatedAt.toIso8601String(),
+        'referralCode': referralCode,
       };
 
   String toPersistedJson() => jsonEncode(toJson());
@@ -106,11 +110,12 @@ class LoginRequest {
 }
 
 class RegisterRequest {
-  const RegisterRequest({required this.displayName, required this.phoneNumber, required this.password});
+  const RegisterRequest({required this.displayName, required this.phoneNumber, required this.password, this.referralCode = ''});
 
   final String displayName;
   final String phoneNumber;
   final String password;
+  final String referralCode;
 
-  Map<String, dynamic> toJson() => {'displayName': displayName, 'phoneNumber': phoneNumber, 'password': password};
+  Map<String, dynamic> toJson() => {'displayName': displayName, 'phoneNumber': phoneNumber, 'password': password, if (referralCode.trim().isNotEmpty) 'referralCode': referralCode.trim()};
 }
