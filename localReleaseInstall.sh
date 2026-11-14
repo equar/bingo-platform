@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-APP_DIR="$SCRIPT_DIR/bingo-app"
+APP_DIR="$SCRIPT_DIR/bingo-player"
 PRODUCTION_CONFIG="$SCRIPT_DIR/deployment/mobile/production.json"
 ANDROID_APK="$APP_DIR/build/app/outputs/flutter-apk/app-release.apk"
 IOS_APP="$APP_DIR/build/ios/iphonesimulator/Runner.app"
