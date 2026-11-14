@@ -117,12 +117,64 @@ print(result)
 PY
 }
 
+assert_no_failed_flyway_migrations() {
+  python3 - /opt/bingo/.env <<'PY'
+import os
+import shlex
+import subprocess
+import sys
+from pathlib import Path
+
+settings = {}
+for line in Path(sys.argv[1]).read_text().splitlines():
+    if '=' not in line or line.lstrip().startswith('#'):
+        continue
+    key, value = line.split('=', 1)
+    parsed = shlex.split(value)
+    if len(parsed) == 1:
+        settings[key] = parsed[0]
+
+required = ['MYSQL_HOST', 'MYSQL_PORT', 'MYSQL_USER', 'MYSQL_PASSWORD', 'MYSQL_DATABASE']
+missing = [key for key in required if not settings.get(key)]
+if missing:
+    raise SystemExit('Current backend environment is missing database settings: ' + ', '.join(missing))
+
+environment = os.environ | {'MYSQL_PWD': settings['MYSQL_PASSWORD']}
+base = [
+    'mysql', '--batch', '--skip-column-names', '--protocol=TCP',
+    '--ssl-mode=VERIFY_IDENTITY', '--ssl-ca=/etc/bingo/database-ca-bundle.pem',
+    '--host', settings['MYSQL_HOST'], '--port', settings['MYSQL_PORT'],
+    '--user', settings['MYSQL_USER'], '--database', settings['MYSQL_DATABASE'],
+]
+table_query = (
+    "SELECT COUNT(*) FROM information_schema.tables "
+    "WHERE table_schema = DATABASE() AND table_name = 'flyway_schema_history'"
+)
+table = subprocess.run(base + ['--execute', table_query], check=True, capture_output=True, text=True, env=environment)
+if table.stdout.strip() == '0':
+    raise SystemExit
+
+query = (
+    "SELECT GROUP_CONCAT(version ORDER BY installed_rank SEPARATOR ', ') "
+    "FROM flyway_schema_history WHERE success = 0"
+)
+result = subprocess.run(base + ['--execute', query], check=True, capture_output=True, text=True, env=environment)
+failed_versions = result.stdout.strip()
+if failed_versions:
+    raise SystemExit(
+        'Refusing deployment: Flyway has failed migration(s): ' + failed_versions
+        + '. Repair the failed migration through the approved database workflow before deploying.'
+    )
+PY
+}
+
 schema_version_before_deploy=""
 if [[ -f /opt/bingo/.env ]]; then
   command -v mysql >/dev/null 2>&1 ||
     { echo 'MySQL client is required for the Flyway compatibility preflight.' >&2; exit 1; }
   [[ -f /etc/bingo/database-ca-bundle.pem ]] ||
     { echo 'RDS CA bundle is required for the Flyway compatibility preflight.' >&2; exit 1; }
+  assert_no_failed_flyway_migrations
   candidate_schema_version="$(python3 - "$incoming/backend.jar" <<'PY'
 import re
 import sys
@@ -194,7 +246,8 @@ for attempt in $(seq 1 60); do
     echo 'Bingo backend healthy'
     exit 0
   fi
-  if [[ "$(systemctl show bingo-backend --property=ExecMainStatus --value)" != "0" ]]; then
+  service_state="$(systemctl show bingo-backend --property=ActiveState --value)"
+  if [[ "$service_state" == "failed" || "$service_state" == "inactive" ]]; then
     echo 'Bingo backend exited during startup' >&2
     break
   fi
