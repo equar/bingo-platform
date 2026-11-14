@@ -168,12 +168,84 @@ if failed_versions:
 PY
 }
 
+repair_failed_removed_v41_migration() {
+  python3 - /opt/bingo/.env "$1" <<'PY'
+import os
+import re
+import shlex
+import subprocess
+import sys
+import zipfile
+from pathlib import Path
+
+environment_file = Path(sys.argv[1])
+candidate_jar = Path(sys.argv[2])
+removed_migration = 'V41__remove_legacy_prize_winner_caps.sql'
+
+with zipfile.ZipFile(candidate_jar) as archive:
+    if any(name.endswith('/' + removed_migration) for name in archive.namelist()):
+        raise SystemExit('Refusing to repair Flyway V41: the candidate JAR still contains the removed migration.')
+
+settings = {}
+for line in environment_file.read_text().splitlines():
+    if '=' not in line or line.lstrip().startswith('#'):
+        continue
+    key, value = line.split('=', 1)
+    parsed = shlex.split(value)
+    if len(parsed) == 1:
+        settings[key] = parsed[0]
+
+required = ['MYSQL_HOST', 'MYSQL_PORT', 'MYSQL_USER', 'MYSQL_PASSWORD', 'MYSQL_DATABASE']
+missing = [key for key in required if not settings.get(key)]
+if missing:
+    raise SystemExit('Current backend environment is missing database settings: ' + ', '.join(missing))
+
+environment = os.environ | {'MYSQL_PWD': settings['MYSQL_PASSWORD']}
+base = [
+    'mysql', '--batch', '--skip-column-names', '--protocol=TCP',
+    '--ssl-mode=VERIFY_IDENTITY', '--ssl-ca=/etc/bingo/database-ca-bundle.pem',
+    '--host', settings['MYSQL_HOST'], '--port', settings['MYSQL_PORT'],
+    '--user', settings['MYSQL_USER'], '--database', settings['MYSQL_DATABASE'],
+]
+
+table_query = (
+    "SELECT COUNT(*) FROM information_schema.tables "
+    "WHERE table_schema = DATABASE() AND table_name = 'flyway_schema_history'"
+)
+table = subprocess.run(base + ['--execute', table_query], check=True, capture_output=True, text=True, env=environment)
+if table.stdout.strip() == '0':
+    raise SystemExit
+
+failed_query = (
+    "SELECT version, script FROM flyway_schema_history "
+    "WHERE success = 0 ORDER BY installed_rank"
+)
+failed = subprocess.run(base + ['--execute', failed_query], check=True, capture_output=True, text=True, env=environment)
+failed_rows = [line.split('\t', 1) for line in failed.stdout.splitlines() if line]
+if not failed_rows:
+    raise SystemExit
+if failed_rows != [['41', removed_migration]]:
+    raise SystemExit(
+        'Refusing automatic Flyway repair because failed migration history is not exactly V41 '
+        + removed_migration + '.'
+    )
+
+delete_query = (
+    "DELETE FROM flyway_schema_history "
+    "WHERE version = '41' AND script = 'V41__remove_legacy_prize_winner_caps.sql' AND success = 0"
+)
+subprocess.run(base + ['--execute', delete_query], check=True, env=environment)
+print('Removed the failed V41 Flyway history entry for the deleted migration.')
+PY
+}
+
 schema_version_before_deploy=""
 if [[ -f /opt/bingo/.env ]]; then
   command -v mysql >/dev/null 2>&1 ||
     { echo 'MySQL client is required for the Flyway compatibility preflight.' >&2; exit 1; }
   [[ -f /etc/bingo/database-ca-bundle.pem ]] ||
     { echo 'RDS CA bundle is required for the Flyway compatibility preflight.' >&2; exit 1; }
+  repair_failed_removed_v41_migration "$incoming/backend.jar"
   assert_no_failed_flyway_migrations
   candidate_schema_version="$(python3 - "$incoming/backend.jar" <<'PY'
 import re
