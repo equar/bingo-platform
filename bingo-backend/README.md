@@ -71,10 +71,13 @@ the protected runtime environment and secret setup.
 
 ## API, OpenAPI, and live draws
 
-The checked-in [OpenAPI contract](openapi.json) is the source for client
-generation and mocked API fixtures. During local development the live contract
-is at `http://localhost:8080/v3/api-docs`. After an API change, refresh
-`openapi.json` from that endpoint and commit it with the backend change.
+The checked-in [OpenAPI contract](openapi.json) is a documentation and fixture
+snapshot. During local development the live contract is at
+`http://localhost:8080/v3/api-docs`. Backend validation tests required API
+operations and fields directly from that generated contract; they do not
+compare the entire generated document with this snapshot, so harmless
+Springdoc output changes cannot block deployment. Refresh `openapi.json` when
+publishing a deliberate API documentation update.
 The Admin agent roster uses zero-based Spring Data pages with a default size of
 20 and a maximum size of 100. Search (`query`) and status filtering are applied
 by the database before pagination; results default to `createdAt DESC, id DESC`
