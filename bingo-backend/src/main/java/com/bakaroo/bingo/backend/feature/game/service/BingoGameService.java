@@ -1205,7 +1205,7 @@ public class BingoGameService {
         if (requests != null) {
             for (BingoPrizeConfigRequest request : requests) {
                 configs.add(new BingoPrizeConfig(request.prizeType(), MoneyValues.money(request.amount()),
-                        request.settlementPath()));
+                        request.settlementPath(), 1));
             }
         }
         return writePrizeConfigs(configs);
