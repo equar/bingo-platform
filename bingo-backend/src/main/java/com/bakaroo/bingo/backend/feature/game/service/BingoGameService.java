@@ -1191,6 +1191,7 @@ public class BingoGameService {
                 session.getTicketPriceSnapshot(),
                 session.getCurrencySnapshot(),
                 session.getSessionCapacitySnapshot(),
+                session.getMaxTicketsPerPlayerSnapshot(),
                 readPatterns(session.getPatternsSnapshotJson()),
                 ticketRepository.countBySessionId(session.getId()),
                 drawEventRepository.countBySessionId(session.getId()),

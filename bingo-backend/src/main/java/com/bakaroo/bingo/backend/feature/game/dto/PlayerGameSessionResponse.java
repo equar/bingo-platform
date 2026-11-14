@@ -18,6 +18,7 @@ public record PlayerGameSessionResponse(
         BigDecimal ticketPrice,
         String currency,
         int sessionCapacity,
+        int maxTicketsPerPlayer,
         List<BingoPatternType> configuredPatterns,
         long ticketCount,
         long drawCount,

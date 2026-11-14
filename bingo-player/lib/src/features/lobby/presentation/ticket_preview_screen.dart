@@ -109,15 +109,30 @@ class TicketPreviewScreen extends ConsumerWidget {
                               ? l10n.ticketPatternsUnavailable
                               : session.configuredPatterns.join(', '),
                         ),
+                        if ((data.room.description ?? '').isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          Text(
+                            'Game rules',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(data.room.description!),
+                        ],
                       ],
                     ),
                   ),
                   const SizedBox(height: 12),
                   Text(l10n.earliestSplitRule),
                   if (session.claimWindowSeconds != null)
-                    Text(l10n.gameClaimWindow((session.claimWindowSeconds! / 3600).toStringAsFixed(1))),
+                    Text(
+                      l10n.gameClaimWindow(
+                        (session.claimWindowSeconds! / 3600).toStringAsFixed(1),
+                      ),
+                    ),
                   for (final prize in session.configuredPrizes)
-                    Text('${prize.prizeType}: ${prize.amount} ${session.currency}'),
+                    Text(
+                      '${prize.prizeType}: ${prize.amount} ${session.currency}',
+                    ),
                   const SizedBox(height: 12),
                   SectionCard(
                     child: Column(

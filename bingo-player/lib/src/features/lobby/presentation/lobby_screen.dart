@@ -7,6 +7,7 @@ import 'package:bingo_player/src/core/widgets/section_card.dart';
 import 'package:bingo_player/src/features/lobby/data/lobby_repository.dart';
 import 'package:bingo_player/src/features/lobby/domain/lobby_models.dart';
 import 'package:bingo_player/src/features/game/presentation/session_detail_screen.dart';
+import 'package:bingo_player/src/features/game/application/live_game_controller.dart';
 import 'package:bingo_player/src/features/lobby/presentation/ticket_preview_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -97,18 +98,26 @@ class LobbyScreen extends ConsumerWidget {
                           child: Row(
                             children: [
                               Expanded(
-                                child: Text(
-                                  localizations.roomsTitle,
-                                  style: Theme.of(
-                                    context,
-                                  ).textTheme.headlineMedium,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Bingo',
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.headlineMedium,
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'Choose a session to play',
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.bodyMedium,
+                                    ),
+                                  ],
                                 ),
                               ),
-                              Chip(
-                                label: Text(
-                                  '${sessions.length} ${localizations.roomStatusActive}',
-                                ),
-                              ),
+                              Chip(label: Text('${sessions.length} Available')),
                             ],
                           ),
                         );
@@ -155,20 +164,35 @@ class LobbyScreen extends ConsumerWidget {
                                       ),
                                     ),
                                   ),
+                                  const SizedBox(width: 4),
+                                  Icon(
+                                    Icons.chevron_right_rounded,
+                                    color: colors.onSurfaceVariant,
+                                  ),
                                 ],
                               ),
                               const SizedBox(height: 12),
                               Row(
                                 children: [
-                                  _InfoChip(
-                                    label: localizations.roomPriceLabel,
-                                    value:
-                                        '${session.ticketPrice} ${session.currency}',
+                                  Expanded(
+                                    child: _LobbyMetric(
+                                      label: 'Ticket',
+                                      value:
+                                          '${session.ticketPrice} ${session.currency}',
+                                    ),
                                   ),
-                                  const SizedBox(width: 24),
-                                  _InfoChip(
-                                    label: localizations.roomCapacityLabel,
-                                    value: session.ticketCount.toString(),
+                                  Expanded(
+                                    child: _LobbyMetric(
+                                      label: 'Prize',
+                                      value:
+                                          '${session.configuredPrizes.fold<num>(0, (total, prize) => total + prize.amount)} ${session.currency}',
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: _LobbyMetric(
+                                      label: 'Players',
+                                      value: session.ticketCount.toString(),
+                                    ),
                                   ),
                                 ],
                               ),
@@ -177,21 +201,12 @@ class LobbyScreen extends ConsumerWidget {
                                 children: [
                                   Expanded(
                                     child: OutlinedButton(
-                                      onPressed: () =>
-                                          Navigator.of(context).push(
-                                            MaterialPageRoute<void>(
-                                              builder: (_) =>
-                                                  SessionDetailScreen(
-                                                    session: session,
-                                                  ),
-                                            ),
-                                          ),
-                                      child: Text(localizations.roomDetails),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: FilledButton(
+                                      style: OutlinedButton.styleFrom(
+                                        minimumSize: const Size.fromHeight(44),
+                                        textStyle: Theme.of(
+                                          context,
+                                        ).textTheme.labelLarge,
+                                      ),
                                       onPressed: () =>
                                           Navigator.of(context).push(
                                             MaterialPageRoute<void>(
@@ -202,9 +217,24 @@ class LobbyScreen extends ConsumerWidget {
                                                   ),
                                             ),
                                           ),
-                                      child: Text(
-                                        localizations.ticketPreviewButton,
+                                      child: const Text('Details & Rules'),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: FilledButton(
+                                      style: FilledButton.styleFrom(
+                                        minimumSize: const Size.fromHeight(44),
+                                        textStyle: Theme.of(
+                                          context,
+                                        ).textTheme.labelLarge,
                                       ),
+                                      onPressed: () => _showPurchaseSheet(
+                                        context,
+                                        ref,
+                                        session,
+                                      ),
+                                      child: const Text('Buy Tickets'),
                                     ),
                                   ),
                                 ],
@@ -215,6 +245,97 @@ class LobbyScreen extends ConsumerWidget {
                       );
                     },
                   ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showPurchaseSheet(
+    BuildContext context,
+    WidgetRef ref,
+    GameSession session,
+  ) async {
+    var quantity = 1;
+    final configuredLimit = session.maxTicketsPerPlayer;
+    if (configuredLimit == null || configuredLimit < 1) return;
+    final maximum = [
+      session.availableSeats,
+      configuredLimit,
+    ].reduce((left, right) => left < right ? left : right);
+    if (maximum < 1) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  session.sessionName,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 4),
+                Text('${session.ticketPrice} ${session.currency} per ticket'),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    IconButton(
+                      onPressed: quantity == 1
+                          ? null
+                          : () => setSheetState(() => quantity--),
+                      icon: const Icon(Icons.remove_circle_outline),
+                    ),
+                    Expanded(
+                      child: Text(
+                        quantity.toString(),
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.headlineMedium,
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: quantity == maximum
+                          ? null
+                          : () => setSheetState(() => quantity++),
+                      icon: const Icon(Icons.add_circle_outline),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Total: ${(session.ticketPrice * quantity).toStringAsFixed(2)} ${session.currency}',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: () async {
+                      final result = await ref
+                          .read(liveGameControllerProvider(session.id).notifier)
+                          .purchaseTickets(quantity);
+                      if (!sheetContext.mounted) return;
+                      Navigator.of(sheetContext).pop();
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            result.purchasedCount > 0
+                                ? 'Purchased ${result.purchasedCount} ticket${result.purchasedCount == 1 ? '' : 's'}'
+                                : 'Unable to purchase tickets',
+                          ),
+                        ),
+                      );
+                    },
+                    child: const Text('Buy Tickets'),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -451,27 +572,24 @@ class _DetailLine extends StatelessWidget {
   );
 }
 
-class _InfoChip extends StatelessWidget {
-  const _InfoChip({required this.label, required this.value});
+class _LobbyMetric extends StatelessWidget {
+  const _LobbyMetric({required this.label, required this.value});
 
   final String label;
   final String value;
 
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-    decoration: BoxDecoration(
-      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      borderRadius: BorderRadius.circular(12),
-    ),
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: Theme.of(context).textTheme.bodySmall),
-        const SizedBox(height: 3),
-        Text(value, style: Theme.of(context).textTheme.titleSmall),
-      ],
-    ),
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(label, style: Theme.of(context).textTheme.bodySmall),
+      const SizedBox(height: 4),
+      Text(
+        value,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: Theme.of(context).textTheme.titleMedium,
+      ),
+    ],
   );
 }
