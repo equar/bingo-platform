@@ -18,19 +18,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
-  const ProfileScreen({
-    super.key,
-    this.onGames,
-    this.onWallet,
-    this.onSupport,
-    this.onMessages,
-    this.onGameHistory,
-  });
+  const ProfileScreen({super.key, this.onSupport, this.onGameHistory});
 
-  final VoidCallback? onGames;
-  final VoidCallback? onWallet;
   final VoidCallback? onSupport;
-  final VoidCallback? onMessages;
   final VoidCallback? onGameHistory;
 
   @override
@@ -425,49 +415,55 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              if (widget.onGames != null ||
-                  widget.onWallet != null ||
-                  widget.onSupport != null ||
-                  widget.onMessages != null ||
-                  widget.onGameHistory != null) ...[
-                SectionCard(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  child: Column(
-                    children: [
-                      if (widget.onGames != null)
-                        _shortcut(
-                          Icons.grid_view_rounded,
-                          localizations.homeGames,
-                          widget.onGames!,
-                        ),
-                      if (widget.onWallet != null)
-                        _shortcut(
-                          Icons.account_balance_wallet_outlined,
-                          localizations.homeWallet,
-                          widget.onWallet!,
-                        ),
-                      if (widget.onSupport != null)
-                        _shortcut(
-                          Icons.support_agent_rounded,
+              if (widget.onSupport != null && widget.onGameHistory != null) ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        icon: const Icon(Icons.support_agent_rounded),
+                        onPressed: widget.onSupport,
+                        label: Text(
                           localizations.homeSupport,
-                          widget.onSupport!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                      if (widget.onMessages != null)
-                        _shortcut(
-                          Icons.mail_outline_rounded,
-                          localizations.messagesTitle,
-                          widget.onMessages!,
-                        ),
-                      if (widget.onGameHistory != null)
-                        _shortcut(
-                          Icons.sports_esports_outlined,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        icon: const Icon(Icons.sports_esports_outlined),
+                        onPressed: widget.onGameHistory,
+                        label: Text(
                           localizations.gameHistoryTitle,
-                          widget.onGameHistory!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                    ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+              ] else if (widget.onSupport != null) ...[
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    icon: const Icon(Icons.support_agent_rounded),
+                    onPressed: widget.onSupport,
+                    label: Text(localizations.homeSupport),
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 16),
+              ] else if (widget.onGameHistory != null) ...[
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    icon: const Icon(Icons.sports_esports_outlined),
+                    onPressed: widget.onGameHistory,
+                    label: Text(localizations.gameHistoryTitle),
+                  ),
+                ),
+                const SizedBox(height: 16),
               ],
               OutlinedButton.icon(
                 icon: const Icon(Icons.logout_rounded),
@@ -482,13 +478,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       ),
     );
   }
-
-  Widget _shortcut(IconData icon, String label, VoidCallback onTap) => ListTile(
-    leading: Icon(icon, color: Theme.of(context).colorScheme.primary),
-    title: Text(label),
-    trailing: const Icon(Icons.chevron_right_rounded),
-    onTap: onTap,
-  );
 
   Widget _externalLink(
     BuildContext context,
