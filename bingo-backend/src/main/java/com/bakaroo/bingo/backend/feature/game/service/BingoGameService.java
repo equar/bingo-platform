@@ -212,6 +212,15 @@ public class BingoGameService {
     }
 
     @Transactional(readOnly = true)
+    public List<PlayerGameSessionResponse> listPlayerActiveSessions() {
+        return gameSessionRepository.findOpenPublicRoomSessionsForAgents().stream()
+                        .filter(session -> ticketRepository.countBySessionId(session.getId())
+                                < session.getSessionCapacitySnapshot())
+                        .map(this::toPlayerSessionResponse)
+                        .toList();
+    }
+
+    @Transactional(readOnly = true)
     public PlayerGameSessionResponse getPlayerSession(Long sessionId) {
         GameSession session = requireSession(sessionId);
         if (!session.getRoom().isActive() && !session.getRoom().isPrivateRoom()) {
