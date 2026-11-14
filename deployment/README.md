@@ -30,13 +30,19 @@ tests. `.github/workflows/validate-lightsail-infrastructure.yml` checks
 deployment shell/Python syntax, the Nginx template, and the retained
 CloudFormation reference; it does not deploy.
 
-The backend deploy retains the previous JAR/environment pair and attempts
+Before stopping a running backend, the deployer reads the candidate JAR's
+Flyway migrations and compares its highest version with the production schema
+history. It refuses to replace the service when the candidate is behind the
+database, preventing an older JAR from starting against a newer schema. The
+backend deploy retains the previous JAR/environment pair and attempts
 restoration after a failed restart/health check only if the previous pair was
-healthy. Static deployments retain `.backup` directories. Health-check
-failures fail the workflow. Database migrations are not automatically rolled
-back; take a database snapshot before a risky Flyway release. A failed
-frontend check can be recovered from its backup. Fix the cause and use the
-normal reviewed merge/deployment path.
+healthy and Flyway did not advance during the failed attempt. A JAR rollback
+is unsafe after any migration is applied, because the previous JAR may not
+match the new schema. Static deployments retain `.backup` directories.
+Health-check failures fail the workflow. Database migrations are not
+automatically rolled back; take a database snapshot before a risky Flyway
+release. A failed frontend check can be recovered from its backup. Fix the
+cause and use the normal reviewed merge/deployment path.
 
 The backend is intentionally single-instance because scheduler and WebSocket
 state are process-local. Configure monitoring, log retention, backups, restore
@@ -52,9 +58,11 @@ ownership, and incident procedures before production use.
    to `bingo.*` with the privileges required by Flyway and the application.
    The workflow does not create the database. Keep it private and use its DNS
    hostname for `MYSQL_HOST`; production JDBC requires `sslMode=VERIFY_IDENTITY`.
-   The deployment prepares `/etc/bingo/database-truststore.jks` from Java's
-   default roots plus the official AWS database CA bundle. Its truststore
-   password protects public CA material, not an application credential.
+   The    deployment prepares `/etc/bingo/database-truststore.jks` and
+   `/etc/bingo/database-ca-bundle.pem` from Java's default roots plus the
+   official AWS database CA bundle. The PEM bundle is used by the deployment
+   migration-compatibility preflight; neither file contains an application
+   credential.
 3. Point `bingo.bakaroo.com`, `admin.bingo.bakaroo.com`, and
    `api.bingo.bakaroo.com` to the server's static IP. After DNS resolves, copy
    `deployment/aws/setup-web-host.sh` and `nginx-bingo.conf.template` to the
