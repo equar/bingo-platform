@@ -37,6 +37,11 @@ Before stopping a running backend, the deployer reads the candidate JAR's
 Flyway migrations and compares its highest version with the production schema
 history. It refuses to replace the service when the candidate is behind the
 database, preventing an older JAR from starting against a newer schema. The
+deployer has one narrowly scoped recovery for the withdrawn
+`V41__remove_legacy_prize_winner_caps.sql` migration: it removes that failed
+history entry only when it is the sole failed migration and the candidate JAR
+does not contain V41. Any other failed migration still blocks deployment for
+manual investigation.
 backend deploy retains the previous JAR/environment pair and attempts
 restoration after a failed restart/health check only if the previous pair was
 healthy and Flyway did not advance during the failed attempt. A JAR rollback
