@@ -28,8 +28,8 @@ test('existing admin lifecycle presents funding, rules, review and wallet settle
     scheduledStartAt: '2026-11-11T23:00:00Z', startedAt: sessionState === 'OPEN' ? null : '2026-11-11T23:00:00Z', endedAt: null,
     ticketPrice: '100.00', currency: 'ETB', sessionCapacity: 100, maxTicketsPerPlayer: 10,
     ticketSalesCloseOnSessionStart: true, allowMultipleWinnersPerPrize: true, configuredPatterns: ['LINE'],
-    configuredPrizes: [{ prizeType: 'LINE', amount: '500.00', settlementPath: 'PLAYER_WALLET', maxWinners: 1 }],
-    ticketCount: 10, drawCount: 0, createdAt: '2026-11-11', updatedAt: '2026-11-11', rulesVersion: 'EARLIEST_SPLIT_V1',
+    configuredPrizes: [{ prizeType: 'LINE', amount: '500.00', settlementPath: 'PLAYER_WALLET' }],
+    ticketCount: 10, drawCount: 0, createdAt: '2026-11-11', updatedAt: '2026-11-11',
     minimumHouseMarginBps: 2000, claimWindowSeconds: 86400, payoutsEnabled: true,
     funding: { cashBackedRevenue: '1000.00', commissionLiability: '50.00', prizeLiability: '500.00', costReserve: '25.00', requiredHouseRetention: '200.00', totalRequired: '775.00', funded: true },
   });

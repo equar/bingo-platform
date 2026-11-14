@@ -102,6 +102,23 @@ describe("RoomsPage", () => {
     expect(await screen.findByRole("button", { name: "← Rooms" })).toBeInTheDocument();
   });
 
+  it("offers the supported suggested session cadences", async () => {
+    const user = userEvent.setup();
+    render(<RoomsPage />, { wrapper: createWrapperFor("/rooms/new") });
+
+    await user.click(
+      await screen.findByRole("combobox", {
+        name: "Suggested session cadence",
+      }),
+    );
+
+    for (const cadence of ["Hourly", "Daily", "Weekly", "Biweekly", "Monthly"]) {
+      expect(
+        await screen.findByRole("option", { name: cadence }),
+      ).toBeInTheDocument();
+    }
+  });
+
   it("offers common 75-ball patterns in prize setup", async () => {
     const user = userEvent.setup();
     render(<RoomsPage />, { wrapper: createWrapperFor("/rooms/new") });

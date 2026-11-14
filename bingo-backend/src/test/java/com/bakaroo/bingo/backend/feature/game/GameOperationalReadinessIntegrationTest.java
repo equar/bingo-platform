@@ -60,7 +60,7 @@ class GameOperationalReadinessIntegrationTest extends MySqlIntegrationTest {
         room = games.createRoom(new BingoRoomRequest("Test " + UUID.randomUUID(), "Fixture", new BigDecimal("100.00"),
                 "ETB", "Africa/Addis_Ababa", "0 0 * * * *", 10, 10, true, true, true,
                 List.of(BingoPatternType.LINE), List.of(new BingoPrizeConfigRequest(BingoPatternType.LINE,
-                new BigDecimal("10.01"), PrizeSettlementPath.PLAYER_WALLET, 1)), null)).id();
+                new BigDecimal("10.01"), PrizeSettlementPath.PLAYER_WALLET)), null)).id();
         session = games.createSession(room, request(null, null)).id();
     }
 
@@ -135,8 +135,11 @@ class GameOperationalReadinessIntegrationTest extends MySqlIntegrationTest {
     @Test void unfundedAndPromotionalOnlyGamesCannotStart() {
         assertEquals("SESSION_UNDERFUNDED", assertThrows(ConflictException.class, () -> state(GameSessionState.STARTED)).getCode());
         Wallet wallet = wallets.findByOwnerId(one.getId()).orElseThrow();
-        wallet.setAvailableBalance(BigDecimal.ZERO); wallet.setPromotionalBalance(new BigDecimal("1000.00")); wallets.save(wallet);
-        buy(one);
+        wallet.setAvailableBalance(BigDecimal.ZERO);
+        wallet.setPromotionalBalance(new BigDecimal("1000.00"));
+        wallets.save(wallet);
+        assertEquals("INSUFFICIENT_BALANCE",
+                assertThrows(ConflictException.class, () -> buy(one)).getCode());
         assertEquals("SESSION_UNDERFUNDED", assertThrows(ConflictException.class, () -> state(GameSessionState.STARTED)).getCode());
     }
 
@@ -294,7 +297,7 @@ class GameOperationalReadinessIntegrationTest extends MySqlIntegrationTest {
 
     @Test void agentCashUsesTheSameWinnerFundingAndExactlyOnceControls() {
         session = games.createSession(room, request(null, List.of(new BingoPrizeConfigRequest(BingoPatternType.LINE,
-                new BigDecimal("10.01"), PrizeSettlementPath.AGENT_CASH, 1)))).id();
+                new BigDecimal("10.01"), PrizeSettlementPath.AGENT_CASH)))).id();
         User agent = sellingAgent(); Long ticket = buy(one); state(GameSessionState.STARTED); calls(75); approve(claim(ticket, one).id());
         var entitlement = prizes.findAll().stream().filter(p -> p.getSession().getId().equals(session)).findFirst().orElseThrow();
         assertEquals(entitlement.getPayoutCode(), games.getMyWinClaims(new BingoUserPrincipal(one), org.springframework.data.domain.Pageable.unpaged()).getContent().getFirst().payoutCode());
@@ -329,7 +332,7 @@ class GameOperationalReadinessIntegrationTest extends MySqlIntegrationTest {
         Long otherRoom = games.createRoom(new BingoRoomRequest("Currency " + UUID.randomUUID(), "Fixture", new BigDecimal("100.00"),
                 "USD", "Africa/Addis_Ababa", "0 0 * * * *", 10, 10, true, true, true,
                 List.of(BingoPatternType.LINE), List.of(new BingoPrizeConfigRequest(BingoPatternType.LINE,
-                new BigDecimal("10.00"), PrizeSettlementPath.PLAYER_WALLET, 1)), null)).id();
+                new BigDecimal("10.00"), PrizeSettlementPath.PLAYER_WALLET)), null)).id();
         session = games.createSession(otherRoom, request(null, null)).id();
         assertEquals("CURRENCY_MISMATCH", assertThrows(ConflictException.class, () -> buy(one)).getCode());
         assertEquals(new BigDecimal("1000.00"), wallets.findByOwnerId(one.getId()).orElseThrow().getAvailableBalance());

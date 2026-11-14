@@ -45,6 +45,13 @@ import { AdminTablePagination } from "../../components/AdminTablePagination";
 import { usePrivateListSearch } from "../../components/usePrivateListSearch";
 import { useListSessionState } from "../../components/useListSessionState";
 import { translateAdminStatus } from "../../i18n";
+import {
+  campaignEndExclusiveIso,
+  campaignStartIso,
+  getCampaignDateValue as toLocalDateValue,
+  isValidCampaignDateRange as isValidRewardDateRange,
+  todayCampaignDateValue as getTodayDateValue,
+} from "./campaignDates";
 
 function toLocalInputValue(isoString: string | null | undefined) {
   if (!isoString) return "";
@@ -57,46 +64,8 @@ function toIsoValue(localValue: string) {
   return localValue ? new Date(localValue).toISOString() : "";
 }
 
-function toLocalDateValue(
-  isoString: string | null | undefined,
-  inclusiveEnd = false,
-) {
-  if (!isoString) return "";
-  const date = new Date(isoString);
-  if (
-    inclusiveEnd &&
-    date.getHours() === 0 &&
-    date.getMinutes() === 0 &&
-    date.getSeconds() === 0 &&
-    date.getMilliseconds() === 0
-  ) {
-    date.setDate(date.getDate() - 1);
-  }
-  const pad = (value: number) => String(value).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-}
-
-function toDateStartIso(dateValue: string) {
-  return dateValue ? new Date(`${dateValue}T00:00:00`).toISOString() : "";
-}
-
-function toDateEndExclusiveIso(dateValue: string) {
-  if (!dateValue) return "";
-  const date = new Date(`${dateValue}T00:00:00`);
-  date.setDate(date.getDate() + 1);
-  return date.toISOString();
-}
-
-function getTodayDateValue() {
-  return toLocalDateValue(new Date().toISOString());
-}
-
-function isValidRewardDateRange(effectiveFrom: string, effectiveUntil: string) {
-  return Boolean(
-    effectiveFrom &&
-    effectiveFrom >= getTodayDateValue() &&
-    (!effectiveUntil || effectiveUntil >= effectiveFrom),
-  );
+function isValidRewardAmount(value: string) {
+  return /^\d{1,17}(?:\.\d{1,2})?$/.test(value.trim()) && Number(value) >= 0.01;
 }
 
 function formatPolicyDate(value: string | null, inclusiveEnd = false) {
@@ -223,9 +192,10 @@ export function WalletPoliciesPage() {
 
   const [rewardDraft, setRewardDraft] = useState({
     name: "Signup reward",
-    triggerType: "SIGNUP" as "SIGNUP" | "MANUAL",
+    triggerType: "SIGNUP" as "SIGNUP" | "REFERRAL" | "WALLET_CREDIT",
     enabled: false,
     rewardAmount: "0",
+    thresholdAmount: "",
     currency: "ETB",
     effectiveFrom: "",
     effectiveUntil: "",
@@ -260,6 +230,7 @@ export function WalletPoliciesPage() {
         triggerType: "SIGNUP",
         enabled: rewardQuery.data.enabled,
         rewardAmount: rewardQuery.data.rewardAmount,
+        thresholdAmount: "",
         currency: rewardQuery.data.currency,
         effectiveFrom,
         effectiveUntil:
@@ -307,10 +278,11 @@ export function WalletPoliciesPage() {
         triggerType: rewardDraft.triggerType,
         enabled: rewardDraft.enabled,
         rewardAmount: Number(rewardDraft.rewardAmount),
+        thresholdAmount: rewardDraft.triggerType === "WALLET_CREDIT" ? Number(rewardDraft.thresholdAmount) : null,
         currency: rewardDraft.currency,
-        effectiveFrom: toDateStartIso(rewardDraft.effectiveFrom),
+        effectiveFrom: campaignStartIso(rewardDraft.effectiveFrom),
         effectiveUntil: rewardDraft.effectiveUntil
-          ? toDateEndExclusiveIso(rewardDraft.effectiveUntil)
+          ? campaignEndExclusiveIso(rewardDraft.effectiveUntil)
           : null,
         reason: rewardDraft.reason || null,
       }),
@@ -432,7 +404,7 @@ export function WalletPoliciesPage() {
                 "Controls the player-to-player transfer limit and daily outgoing cap.",
               )
             : t(
-                "Create signup and manual wallet bonus campaigns. Awards are credited to promotional balance.",
+                "Configure signup, referral, and verified wallet credit bonus campaigns.",
               )
         }
         actions={
@@ -462,39 +434,15 @@ export function WalletPoliciesPage() {
                 <Stack spacing={2}>
                   <Grid container spacing={2}>
                     <Grid item xs={12}>
-                      <TextField
-                        label={t("Campaign name")}
-                        value={rewardDraft.name}
-                        onChange={(event) =>
-                          setRewardDraft({
-                            ...rewardDraft,
-                            name: event.target.value,
-                          })
-                        }
-                        inputProps={{ maxLength: 120 }}
-                        fullWidth
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <TextField
-                        select
-                        label={t("Award trigger")}
-                        value={rewardDraft.triggerType}
-                        onChange={(event) =>
-                          setRewardDraft({
-                            ...rewardDraft,
-                            triggerType: event.target.value as
-                              "SIGNUP" | "MANUAL",
-                          })
-                        }
-                        fullWidth
-                      >
-                        <MenuItem value="SIGNUP">
-                          {t("At player signup")}
-                        </MenuItem>
-                        <MenuItem value="MANUAL">
-                          {t("Admin manual award")}
-                        </MenuItem>
+                      <TextField select label={t("Campaign name")} value={rewardDraft.triggerType}
+                        onChange={(event) => {
+                          const triggerType = event.target.value as typeof rewardDraft.triggerType;
+                          const name = triggerType === "SIGNUP" ? "Signup reward" : triggerType === "REFERRAL" ? "Referral reward" : "Wallet credit reward";
+                          setRewardDraft({ ...rewardDraft, triggerType, name });
+                        }} fullWidth>
+                        <MenuItem value="SIGNUP">{t("Signup reward")}</MenuItem>
+                        <MenuItem value="REFERRAL">{t("Referral reward")}</MenuItem>
+                        <MenuItem value="WALLET_CREDIT">{t("Wallet credit reward")}</MenuItem>
                       </TextField>
                     </Grid>
                     <Grid item xs={12} sm={6}>
@@ -522,6 +470,7 @@ export function WalletPoliciesPage() {
                       <TextField
                         label={t("Reward amount")}
                         type="number"
+                        inputProps={{ min: 0.01, step: 0.01 }}
                         value={rewardDraft.rewardAmount}
                         onChange={(event) =>
                           setRewardDraft({
@@ -532,16 +481,19 @@ export function WalletPoliciesPage() {
                         fullWidth
                       />
                     </Grid>
+                    {rewardDraft.triggerType === "WALLET_CREDIT" ? (
+                      <Grid item xs={12} sm={6}>
+                        <TextField label={t("Qualifying wallet credits")} type="number" value={rewardDraft.thresholdAmount}
+                          onChange={(event) => setRewardDraft({ ...rewardDraft, thresholdAmount: event.target.value })}
+                          inputProps={{ min: 0.01, step: 0.01 }}
+                          helperText={t("Reward is granted once verified ETB deposits posted during the campaign reach this amount.")} fullWidth />
+                      </Grid>
+                    ) : null}
                     <Grid item xs={12} sm={6}>
                       <TextField
                         label={t("Currency")}
                         value={rewardDraft.currency}
-                        onChange={(event) =>
-                          setRewardDraft({
-                            ...rewardDraft,
-                            currency: event.target.value.toUpperCase(),
-                          })
-                        }
+                        disabled
                         fullWidth
                       />
                     </Grid>
@@ -557,6 +509,7 @@ export function WalletPoliciesPage() {
                           })
                         }
                         inputProps={{ min: getTodayDateValue() }}
+                        helperText={t("Campaign dates use the Africa/Addis_Ababa timezone. Start dates cannot be in the past.")}
                         fullWidth
                         InputLabelProps={{ shrink: true }}
                       />
@@ -604,10 +557,11 @@ export function WalletPoliciesPage() {
                       onClick={() => saveRewardMutation.mutate()}
                       disabled={
                         saveRewardMutation.isPending ||
+                        !isValidRewardAmount(rewardDraft.rewardAmount) ||
                         !isValidRewardDateRange(
                           rewardDraft.effectiveFrom,
                           rewardDraft.effectiveUntil,
-                        )
+                        ) || (rewardDraft.triggerType === "WALLET_CREDIT" && !isValidRewardAmount(rewardDraft.thresholdAmount))
                       }
                     >
                       {t("Create campaign")}
@@ -629,7 +583,7 @@ export function WalletPoliciesPage() {
                   ) : null}
                   <Alert severity="info">
                     {t(
-                      "Signup campaigns are applied automatically at registration. Manual campaigns are awarded by an admin from the grants page.",
+                      rewardDraft.triggerType === "SIGNUP" ? "Signup rewards are credited once after player registration." : rewardDraft.triggerType === "REFERRAL" ? "Referral rewards are credited to the referring player when a new player registers with their referral code." : "Wallet credit rewards are credited once after verified deposits reach the configured threshold.",
                     )}
                   </Alert>
                 </Stack>
@@ -1014,8 +968,9 @@ export function WalletPoliciesPage() {
                         <TableRow key={entry.id} hover>
                           <TableCell>{entry.name}</TableCell>
                           <TableCell>
-                            {entry.triggerType === "SIGNUP"
-                              ? t("Signup")
+                            {entry.triggerType === "SIGNUP" ? t("Signup reward")
+                              : entry.triggerType === "REFERRAL" ? t("Referral reward")
+                              : entry.triggerType === "WALLET_CREDIT" ? `${t("Wallet credit reward")} · ${entry.thresholdAmount ?? "—"} ${entry.currency}`
                               : t("Manual")}
                           </TableCell>
                           <TableCell>

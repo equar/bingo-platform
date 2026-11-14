@@ -16,8 +16,8 @@ current certification.
   product, finance, security, database, operations, and release gates.
 - [Financial controls and reconciliation](financial-reconciliation.md) —
   financial boundaries, verification, posting, and release evidence.
-- [V23 local QA backup/restore runbook](local-bingo-qa-test-v23-runbook.md) —
-  gated recovery procedure; prepared for review and not authorization to execute.
+- [Local QA V22→V40 schema upgrade and recovery runbook](local-bingo-qa-schema-upgrade-runbook.md) —
+  supersedes the V23-only instructions; prepared for review, not authorization.
 - [Persistent QA test-data registry](test-data-registry.md) — runner-readable
   record of retained test identities and state. Preserve its path and format;
   never add credentials or remove existing records through documentation work.

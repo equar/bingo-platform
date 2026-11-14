@@ -57,7 +57,7 @@ void main() {
       readAuthSession: () => const AuthSessionState(isLoading: true),
       clearAuthSession: ({String? reason}) async {},
       appConfig: const AppConfig(
-        apiBaseUrl: 'http://127.0.0.1:8082',
+        apiBaseUrl: 'http://127.0.0.1:8080',
         apiBaseUrlLabel: 'API_BASE_URL',
       ),
       transport: _UnusedLiveGameTransport(),
@@ -116,6 +116,11 @@ void main() {
       expect(find.text('31–45'), findsOneWidget);
       expect(find.text('46–60'), findsOneWidget);
       expect(find.text('61–75'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('ticket-preview-purchase-disabled')),
+        240,
+        scrollable: find.byType(Scrollable).last,
+      );
       final purchase = tester.widget<FilledButton>(
         find.byKey(const ValueKey('ticket-preview-purchase-disabled')),
       );
@@ -155,6 +160,11 @@ void main() {
       repository.failPreview = false;
       await tester.tap(find.text('Try again'));
       await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('This session is not open for ticket sales (DRAFT).'),
+        240,
+        scrollable: find.byType(Scrollable).last,
+      );
       expect(
         find.text('This session is not open for ticket sales (DRAFT).'),
         findsOneWidget,

@@ -14,6 +14,11 @@ void main() {
       (english.walletTransfersTab, amharic.walletTransfersTab),
       (english.availableBalanceLabel, amharic.availableBalanceLabel),
       (english.promotionalBalanceLabel, amharic.promotionalBalanceLabel),
+      (
+        english.promotionalBalanceRestrictionHelp,
+        amharic.promotionalBalanceRestrictionHelp,
+      ),
+      (english.currentBalance, amharic.currentBalance),
       (english.sendMoneyTitle, amharic.sendMoneyTitle),
       (english.recipientPhoneLabel, amharic.recipientPhoneLabel),
       (english.lookupRecipient, amharic.lookupRecipient),

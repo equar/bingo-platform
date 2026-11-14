@@ -128,16 +128,16 @@ try {
     if (-not (Test-Path -LiteralPath $statusPath)) { throw 'BLOCKED: isolated backend identity evidence is missing.' }
     $backend = Get-Content -LiteralPath $statusPath -Raw | ConvertFrom-Json
     if ($backend.profile -ne 'android-test' -or $backend.database -ne 'bingo_qa_test' -or
-        $backend.backendUrl -ne 'http://127.0.0.1:8082' -or $backend.emulatorBackendUrl -ne 'http://10.0.2.2:8082' -or
+        $backend.backendUrl -ne 'http://127.0.0.1:8080' -or $backend.emulatorBackendUrl -ne 'http://10.0.2.2:8080' -or
         $backend.jdbcHost -ne '127.0.0.1' -or $backend.jdbcPort -ne 3306 -or $backend.drawScheduler -ne 'disabled' -or
         $backend.financialPostingAndSimulation -ne 'disabled') {
         throw 'BLOCKED: saved backend identity or no-financial/no-scheduler gates do not match the approved target.'
     }
-    $health = Invoke-RestMethod -Uri 'http://127.0.0.1:8082/actuator/health' -TimeoutSec 5
+    $health = Invoke-RestMethod -Uri 'http://127.0.0.1:8080/actuator/health' -TimeoutSec 5
     if ($health.status -ne 'UP' -or $health.components.db.status -ne 'UP') { throw 'BLOCKED: isolated backend/database health is not UP.' }
-    $listenerPids = @(Get-AndroidTestTcpListenerPids -Port 8082)
+    $listenerPids = @(Get-AndroidTestTcpListenerPids -Port 8080)
     if ($listenerPids.Count -ne 1 -or [int]$listenerPids[0] -ne [int]$backend.processId) {
-        throw 'BLOCKED: port 8082 listener PID does not match saved isolated backend PID.'
+        throw 'BLOCKED: port 8080 listener PID does not match saved isolated backend PID.'
     }
     $backendProcess = Get-Process -Id ([int]$backend.processId) -ErrorAction Stop
     if ($backendProcess.ProcessName -ne 'java' -or [System.IO.Path]::GetFileName($backendProcess.Path) -ne 'java.exe') { throw 'BLOCKED: saved backend PID is not a Java process.' }
@@ -287,10 +287,10 @@ try {
     if ($adminPassword.Length -lt 8 -or $adminPassword.Length -gt 72) { throw 'BLOCKED: supplied QA administrator password length is invalid.' }
 
     # Verify both supplied credentials without writing them to logs or evidence.
-    $playerLogin = Invoke-RestMethod -Method Post -Uri 'http://127.0.0.1:8082/api/v1/auth/login' -ContentType 'application/json' -Body (@{ phoneNumber = $phone; password = $pin } | ConvertTo-Json -Compress) -TimeoutSec 15
+    $playerLogin = Invoke-RestMethod -Method Post -Uri 'http://127.0.0.1:8080/api/v1/auth/login' -ContentType 'application/json' -Body (@{ phoneNumber = $phone; password = $pin } | ConvertTo-Json -Compress) -TimeoutSec 15
     if (-not $playerLogin.accessToken -or $playerLogin.user.status -ne 'ACTIVE' -or $playerLogin.user.roles -notcontains 'PLAYER') { throw 'BLOCKED: player credential preflight did not return an active PLAYER.' }
     $playerLogin = $null
-    $adminLogin = Invoke-RestMethod -Method Post -Uri 'http://127.0.0.1:8082/api/v1/admin/login' -ContentType 'application/json' -Body (@{ email = $adminEmail; password = $adminPassword } | ConvertTo-Json -Compress) -TimeoutSec 15
+    $adminLogin = Invoke-RestMethod -Method Post -Uri 'http://127.0.0.1:8080/api/v1/admin/login' -ContentType 'application/json' -Body (@{ email = $adminEmail; password = $adminPassword } | ConvertTo-Json -Compress) -TimeoutSec 15
     if (-not $adminLogin.accessToken) { throw 'BLOCKED: administrator credential preflight did not return an access token.' }
     $adminToken = [string]$adminLogin.accessToken
     $adminLogin = $null
@@ -305,7 +305,7 @@ try {
     $sessionName = "QA_E2E_06A9_$($runId.Substring(10))"
     $scheduledStart = [DateTime]::UtcNow.AddDays(2).ToString('o')
     $sessionRequest = @{ sessionName = $sessionName; scheduledStartAt = $scheduledStart; state = 'OPEN'; ticketPrice = $roomPrice; currency = $roomCurrency }
-    $sessionResponse = Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8082/api/v1/admin/rooms/$roomId/sessions" -Headers @{ Authorization = "Bearer $adminToken" } -ContentType 'application/json' -Body ($sessionRequest | ConvertTo-Json -Compress) -TimeoutSec 20
+    $sessionResponse = Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8080/api/v1/admin/rooms/$roomId/sessions" -Headers @{ Authorization = "Bearer $adminToken" } -ContentType 'application/json' -Body ($sessionRequest | ConvertTo-Json -Compress) -TimeoutSec 20
     if ($sessionResponse.state -ne 'OPEN' -or [long]$sessionResponse.roomId -ne $roomId -or [decimal]$sessionResponse.ticketPrice -ne $roomPrice -or $sessionResponse.currency -ne $roomCurrency) {
         throw 'FAIL: Admin API did not return the expected isolated OPEN session snapshot.'
     }
@@ -344,12 +344,12 @@ try {
     $securePin.Dispose()
 
     $null = New-Item -ItemType Directory -Path $evidenceDir -Force
-    $env:API_BASE_URL = 'http://10.0.2.2:8082'
+    $env:API_BASE_URL = 'http://10.0.2.2:8080'
     Push-Location $appRoot
     try {
         & $flutter test integration_test/module_06a9_player_e2e_test.dart -d emulator-5554 `
             "--dart-define-from-file=$secretPath" `
-            '--dart-define=API_BASE_URL=http://10.0.2.2:8082' `
+            '--dart-define=API_BASE_URL=http://10.0.2.2:8080' `
             '--dart-define=BINGO_PLAYER_PURCHASES_ENABLED=false' 2>&1 |
             ForEach-Object {
                 $line = [string]$_
@@ -437,7 +437,7 @@ try {
         startedAt = $startedAt
         completedAt = (Get-Date).ToString('o')
         overall = $status
-        target = [ordered]@{ backend = 'http://127.0.0.1:8082'; emulatorBackend = 'http://10.0.2.2:8082'; profile = $backend.profile; database = $dbIdentity[0]; mysqlIdentity = $dbIdentity[1]; mysqlPort = [int]$dbIdentity[2]; backendPid = [int]$backend.processId; emulator = 'emulator-5554'; purchaseFlag = $false }
+        target = [ordered]@{ backend = 'http://127.0.0.1:8080'; emulatorBackend = 'http://10.0.2.2:8080'; profile = $backend.profile; database = $dbIdentity[0]; mysqlIdentity = $dbIdentity[1]; mysqlPort = [int]$dbIdentity[2]; backendPid = [int]$backend.processId; emulator = 'emulator-5554'; purchaseFlag = $false }
         playerAccount = $accountBefore
         checks = $checks
         flutterExitCode = $processExit

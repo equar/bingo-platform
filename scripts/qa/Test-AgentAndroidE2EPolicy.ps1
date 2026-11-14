@@ -13,8 +13,8 @@ $validIdentity = [pscustomobject]@{
     drawScheduler = 'disabled'
     financialPostingAndSimulation = 'disabled'
     processId = 20588
-    backendUrl = 'http://127.0.0.1:8082'
-    emulatorBackendUrl = 'http://10.0.2.2:8082'
+    backendUrl = 'http://127.0.0.1:8080'
+    emulatorBackendUrl = 'http://10.0.2.2:8080'
     sourceCommit = '0123456789abcdef0123456789abcdef01234567'
     artifactSha256 = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
     sourceSha256 = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
@@ -34,42 +34,42 @@ function Assert-Rejected([string]$Name, [scriptblock]$Action) {
 
 $environment = Assert-AgentAndroidE2EEnvironment `
     -EnvironmentName 'android-test' `
-    -BackendUrl 'http://127.0.0.1:8082' `
-    -EmulatorBackendUrl 'http://10.0.2.2:8082' `
+    -BackendUrl 'http://127.0.0.1:8080' `
+    -EmulatorBackendUrl 'http://10.0.2.2:8080' `
     -JdbcUrl $validJdbcUrl `
     -MysqlUsername 'bingo_qa_test_runner' `
     -MysqlPassword 'synthetic-nonempty-value'
 if ($environment.Database -ne 'bingo_qa_test') { throw 'Valid isolated environment regression failed.' }
 
 Assert-Rejected 'missing environment' {
-    Assert-AgentAndroidE2EEnvironment -EnvironmentName '' -BackendUrl 'http://127.0.0.1:8082' -EmulatorBackendUrl 'http://10.0.2.2:8082' -JdbcUrl $validJdbcUrl -MysqlUsername 'runner' -MysqlPassword 'synthetic'
+    Assert-AgentAndroidE2EEnvironment -EnvironmentName '' -BackendUrl 'http://127.0.0.1:8080' -EmulatorBackendUrl 'http://10.0.2.2:8080' -JdbcUrl $validJdbcUrl -MysqlUsername 'runner' -MysqlPassword 'synthetic'
 }
 Assert-Rejected 'wrong environment' {
-    Assert-AgentAndroidE2EEnvironment -EnvironmentName 'qa' -BackendUrl 'http://127.0.0.1:8082' -EmulatorBackendUrl 'http://10.0.2.2:8082' -JdbcUrl $validJdbcUrl -MysqlUsername 'runner' -MysqlPassword 'synthetic'
+    Assert-AgentAndroidE2EEnvironment -EnvironmentName 'qa' -BackendUrl 'http://127.0.0.1:8080' -EmulatorBackendUrl 'http://10.0.2.2:8080' -JdbcUrl $validJdbcUrl -MysqlUsername 'runner' -MysqlPassword 'synthetic'
 }
 Assert-Rejected 'missing datasource' {
-    Assert-AgentAndroidE2EEnvironment -EnvironmentName 'android-test' -BackendUrl 'http://127.0.0.1:8082' -EmulatorBackendUrl 'http://10.0.2.2:8082' -JdbcUrl '' -MysqlUsername 'runner' -MysqlPassword 'synthetic'
+    Assert-AgentAndroidE2EEnvironment -EnvironmentName 'android-test' -BackendUrl 'http://127.0.0.1:8080' -EmulatorBackendUrl 'http://10.0.2.2:8080' -JdbcUrl '' -MysqlUsername 'runner' -MysqlPassword 'synthetic'
 }
 Assert-Rejected 'unsafe schema' {
-    Assert-AgentAndroidE2EEnvironment -EnvironmentName 'android-test' -BackendUrl 'http://127.0.0.1:8082' -EmulatorBackendUrl 'http://10.0.2.2:8082' -JdbcUrl 'jdbc:mysql://127.0.0.1:3306/bingo?createDatabaseIfNotExist=false' -MysqlUsername 'runner' -MysqlPassword 'synthetic'
+    Assert-AgentAndroidE2EEnvironment -EnvironmentName 'android-test' -BackendUrl 'http://127.0.0.1:8080' -EmulatorBackendUrl 'http://10.0.2.2:8080' -JdbcUrl 'jdbc:mysql://127.0.0.1:3306/bingo?createDatabaseIfNotExist=false' -MysqlUsername 'runner' -MysqlPassword 'synthetic'
 }
 Assert-Rejected 'unsafe database host' {
-    Assert-AgentAndroidE2EEnvironment -EnvironmentName 'android-test' -BackendUrl 'http://127.0.0.1:8082' -EmulatorBackendUrl 'http://10.0.2.2:8082' -JdbcUrl 'jdbc:mysql://localhost:3306/bingo_qa_test?createDatabaseIfNotExist=false' -MysqlUsername 'runner' -MysqlPassword 'synthetic'
+    Assert-AgentAndroidE2EEnvironment -EnvironmentName 'android-test' -BackendUrl 'http://127.0.0.1:8080' -EmulatorBackendUrl 'http://10.0.2.2:8080' -JdbcUrl 'jdbc:mysql://localhost:3306/bingo_qa_test?createDatabaseIfNotExist=false' -MysqlUsername 'runner' -MysqlPassword 'synthetic'
 }
 Assert-Rejected 'unsafe database port' {
-    Assert-AgentAndroidE2EEnvironment -EnvironmentName 'android-test' -BackendUrl 'http://127.0.0.1:8082' -EmulatorBackendUrl 'http://10.0.2.2:8082' -JdbcUrl 'jdbc:mysql://127.0.0.1:3307/bingo_qa_test?createDatabaseIfNotExist=false' -MysqlUsername 'runner' -MysqlPassword 'synthetic'
+    Assert-AgentAndroidE2EEnvironment -EnvironmentName 'android-test' -BackendUrl 'http://127.0.0.1:8080' -EmulatorBackendUrl 'http://10.0.2.2:8080' -JdbcUrl 'jdbc:mysql://127.0.0.1:3307/bingo_qa_test?createDatabaseIfNotExist=false' -MysqlUsername 'runner' -MysqlPassword 'synthetic'
 }
 Assert-Rejected 'database auto-creation enabled' {
-    Assert-AgentAndroidE2EEnvironment -EnvironmentName 'android-test' -BackendUrl 'http://127.0.0.1:8082' -EmulatorBackendUrl 'http://10.0.2.2:8082' -JdbcUrl 'jdbc:mysql://127.0.0.1:3306/bingo_qa_test?createDatabaseIfNotExist=true' -MysqlUsername 'runner' -MysqlPassword 'synthetic'
+    Assert-AgentAndroidE2EEnvironment -EnvironmentName 'android-test' -BackendUrl 'http://127.0.0.1:8080' -EmulatorBackendUrl 'http://10.0.2.2:8080' -JdbcUrl 'jdbc:mysql://127.0.0.1:3306/bingo_qa_test?createDatabaseIfNotExist=true' -MysqlUsername 'runner' -MysqlPassword 'synthetic'
 }
 Assert-Rejected 'missing backend URL' {
-    Assert-AgentAndroidE2EEnvironment -EnvironmentName 'android-test' -BackendUrl '' -EmulatorBackendUrl 'http://10.0.2.2:8082' -JdbcUrl $validJdbcUrl -MysqlUsername 'runner' -MysqlPassword 'synthetic'
+    Assert-AgentAndroidE2EEnvironment -EnvironmentName 'android-test' -BackendUrl '' -EmulatorBackendUrl 'http://10.0.2.2:8080' -JdbcUrl $validJdbcUrl -MysqlUsername 'runner' -MysqlPassword 'synthetic'
 }
 Assert-Rejected 'missing MySQL username' {
-    Assert-AgentAndroidE2EEnvironment -EnvironmentName 'android-test' -BackendUrl 'http://127.0.0.1:8082' -EmulatorBackendUrl 'http://10.0.2.2:8082' -JdbcUrl $validJdbcUrl -MysqlUsername '' -MysqlPassword 'synthetic'
+    Assert-AgentAndroidE2EEnvironment -EnvironmentName 'android-test' -BackendUrl 'http://127.0.0.1:8080' -EmulatorBackendUrl 'http://10.0.2.2:8080' -JdbcUrl $validJdbcUrl -MysqlUsername '' -MysqlPassword 'synthetic'
 }
 Assert-Rejected 'missing MySQL password' {
-    Assert-AgentAndroidE2EEnvironment -EnvironmentName 'android-test' -BackendUrl 'http://127.0.0.1:8082' -EmulatorBackendUrl 'http://10.0.2.2:8082' -JdbcUrl $validJdbcUrl -MysqlUsername 'runner' -MysqlPassword ''
+    Assert-AgentAndroidE2EEnvironment -EnvironmentName 'android-test' -BackendUrl 'http://127.0.0.1:8080' -EmulatorBackendUrl 'http://10.0.2.2:8080' -JdbcUrl $validJdbcUrl -MysqlUsername 'runner' -MysqlPassword ''
 }
 
 $runtime = Assert-AndroidTestBackendRuntimeIdentity `

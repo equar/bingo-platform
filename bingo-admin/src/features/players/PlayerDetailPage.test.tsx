@@ -131,6 +131,30 @@ describe("PlayerDetailPage", () => {
     await waitFor(() => expect(updatePlayerStatusMock).toHaveBeenCalledWith(6, "PENDING", "Policy review"));
   });
 
+  it.each([
+    ["Suspended", "SUSPENDED", "SUSPECTED_FRAUD", "Suspected fraudulent activity"],
+    ["Disabled", "DISABLED", "PLAYER_REQUESTED_CLOSURE", "Player requested account closure"],
+  ])("uses a categorized reason when changing a player to %s", async (label, status, reason, reasonLabel) => {
+    const user = userEvent.setup();
+    render(<PlayerDetailPage />, { wrapper: createWrapper });
+
+    await user.click(await screen.findByRole("button", { name: "Change account status" }));
+    await user.click(screen.getByRole("combobox", { name: "Account status" }));
+    await user.click(await screen.findByRole("option", { name: label }));
+
+    expect(screen.queryByRole("textbox", { name: "Reason" })).not.toBeInTheDocument();
+    const save = screen.getByRole("button", { name: "Save status" });
+    expect(save).toBeDisabled();
+    await user.click(screen.getByRole("combobox", { name: "Reason" }));
+    await user.click(await screen.findByRole("option", { name: reasonLabel }));
+    expect(save).toBeEnabled();
+    await user.click(save);
+
+    await waitFor(() =>
+      expect(updatePlayerStatusMock).toHaveBeenCalledWith(6, status, reason),
+    );
+  });
+
   it("keeps a back-to-players button available while the profile is loading", async () => {
     const user = userEvent.setup();
     playerDetailMock.mockReturnValue(new Promise(() => {}));

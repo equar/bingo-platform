@@ -200,8 +200,8 @@ try {
     }
     $environment = Assert-AgentAndroidE2EEnvironment `
         -EnvironmentName $EnvironmentName `
-        -BackendUrl 'http://127.0.0.1:8082' `
-        -EmulatorBackendUrl 'http://10.0.2.2:8082' `
+        -BackendUrl 'http://127.0.0.1:8080' `
+        -EmulatorBackendUrl 'http://10.0.2.2:8080' `
         -JdbcUrl ([string]$settings.BINGO_TEST_MYSQL_URL) `
         -MysqlUsername ([string]$settings.BINGO_TEST_MYSQL_USERNAME) `
         -MysqlPassword ([string]$settings.BINGO_TEST_MYSQL_PASSWORD)
@@ -215,8 +215,8 @@ try {
     if ([string]$backend.backendUrl -ne $environment.BackendUrl) { throw 'BLOCKED: saved backend URL does not match the approved local target.' }
 
     $backendPid = [int]$backend.processId
-    $listenerPids = @(Get-AndroidTestTcpListenerPids -Port 8082)
-    if ($listenerPids.Count -ne 1) { throw 'BLOCKED: exactly one listener must be verified on isolated backend port 8082.' }
+    $listenerPids = @(Get-AndroidTestTcpListenerPids -Port 8080)
+    if ($listenerPids.Count -ne 1) { throw 'BLOCKED: exactly one listener must be verified on isolated backend port 8080.' }
     $listenerPid = [int]$listenerPids[0]
     $process = Get-Process -Id $backendPid -ErrorAction Stop
     if ($process.ProcessName -ne 'java' -or $listenerPid -ne $backendPid) {
@@ -366,7 +366,7 @@ SELECT CONCAT('PENDING|',COUNT(*)) FROM users u JOIN bingo_agents a ON a.user_id
     $secretFile = Join-Path $secretDir 'e2e-secrets.json'
     $defines = @{}
     foreach ($property in $secrets.PSObject.Properties) { $defines[$property.Name] = $property.Value }
-    $defines['API_BASE_URL'] = 'http://10.0.2.2:8082'
+    $defines['API_BASE_URL'] = 'http://10.0.2.2:8080'
     [System.IO.File]::WriteAllText(
         $secretFile,
         ($defines | ConvertTo-Json -Compress),

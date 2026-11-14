@@ -97,7 +97,7 @@ export function SessionsPage() {
       { replace: true },
     );
   };
-  // Remove legacy free-text values from the URL; session names may contain personal data.
+  // Keep potentially personal session search values out of the URL.
   useEffect(() => {
     if (!searchParams.has("search")) return;
     const safeParams = new URLSearchParams(searchParams);

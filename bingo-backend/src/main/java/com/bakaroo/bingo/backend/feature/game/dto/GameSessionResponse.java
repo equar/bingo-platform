@@ -28,7 +28,6 @@ public record GameSessionResponse(
         long drawCount,
         Instant createdAt,
         Instant updatedAt,
-        String rulesVersion,
         Integer minimumHouseMarginBps,
         Long claimWindowSeconds,
         boolean payoutsEnabled,

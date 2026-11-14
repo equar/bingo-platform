@@ -12,11 +12,12 @@ import org.springframework.data.repository.query.Param;
 
 public interface SignupRewardPolicyRepository extends JpaRepository<SignupRewardPolicy, Long> {
 
-    Optional<SignupRewardPolicy> findFirstByOrderByCreatedAtDesc();
+    Optional<SignupRewardPolicy> findFirstByOrderByCreatedAtDescIdDesc();
 
-    Optional<SignupRewardPolicy> findFirstByTriggerTypeOrderByCreatedAtDesc(SignupRewardPolicy.TriggerType triggerType);
+    Optional<SignupRewardPolicy> findFirstByTriggerTypeOrderByCreatedAtDescIdDesc(
+            SignupRewardPolicy.TriggerType triggerType);
 
-    List<SignupRewardPolicy> findAllByTriggerTypeOrderByCreatedAtDesc(SignupRewardPolicy.TriggerType triggerType);
+    List<SignupRewardPolicy> findAllByTriggerTypeOrderByCreatedAtDescIdDesc(SignupRewardPolicy.TriggerType triggerType);
 
     List<SignupRewardPolicy> findAllByEnabledTrueOrderByCreatedAtDesc();
 

@@ -112,14 +112,12 @@ class TicketPreviewScreen extends ConsumerWidget {
                       ],
                     ),
                   ),
-                  if (session.rulesVersion == 'EARLIEST_SPLIT_V1') ...[
-                    const SizedBox(height: 12),
-                    Text(l10n.earliestSplitRule),
-                    if (session.claimWindowSeconds != null)
-                      Text(l10n.gameClaimWindow((session.claimWindowSeconds! / 3600).toStringAsFixed(1))),
-                    for (final prize in session.configuredPrizes)
-                      Text('${prize.prizeType}: ${prize.amount} ${session.currency}'),
-                  ],
+                  const SizedBox(height: 12),
+                  Text(l10n.earliestSplitRule),
+                  if (session.claimWindowSeconds != null)
+                    Text(l10n.gameClaimWindow((session.claimWindowSeconds! / 3600).toStringAsFixed(1))),
+                  for (final prize in session.configuredPrizes)
+                    Text('${prize.prizeType}: ${prize.amount} ${session.currency}'),
                   const SizedBox(height: 12),
                   SectionCard(
                     child: Column(

@@ -23,18 +23,18 @@ if (-not (Test-Path -LiteralPath $identityFile)) {
     throw 'BLOCKED: guarded Android-test backend identity evidence is missing.'
 }
 $identity = Get-Content -LiteralPath $identityFile -Raw | ConvertFrom-Json
-$listenerPids = @(Get-AndroidTestTcpListenerPids -Port 8082)
-if ($listenerPids.Count -ne 1) { throw 'BLOCKED: exactly one verified backend listener is required on port 8082.' }
+$listenerPids = @(Get-AndroidTestTcpListenerPids -Port 8080)
+if ($listenerPids.Count -ne 1) { throw 'BLOCKED: exactly one verified backend listener is required on port 8080.' }
 $listenerPid = [int]$listenerPids[0]
-if ($listenerPid -ne [int]$identity.processId) { throw 'BLOCKED: 8082 listener does not match the saved isolated backend PID.' }
+if ($listenerPid -ne [int]$identity.processId) { throw 'BLOCKED: 8080 listener does not match the saved isolated backend PID.' }
 $backendProcess = Get-Process -Id $listenerPid -ErrorAction Stop
-if ($backendProcess.ProcessName -ne 'java' -or [System.IO.Path]::GetFileName($backendProcess.Path) -ne 'java.exe') { throw 'BLOCKED: 8082 listener process is not Java.' }
+if ($backendProcess.ProcessName -ne 'java' -or [System.IO.Path]::GetFileName($backendProcess.Path) -ne 'java.exe') { throw 'BLOCKED: 8080 listener process is not Java.' }
 $logDir = Join-Path $env:TEMP 'bingo-platform-module-06a5'
 $runtimeLogs = ((Get-Content -LiteralPath (Join-Path $logDir 'backend.stdout.log') -ErrorAction SilentlyContinue) +
     (Get-Content -LiteralPath (Join-Path $logDir 'backend.stderr.log') -ErrorAction SilentlyContinue)) -join "`n"
 $identityLine = ([regex]::Matches($runtimeLogs, '(?m)^.*QA_TEST_RUNTIME_IDENTITY .*?$') | Select-Object -Last 1).Value
 $guardLine = ([regex]::Matches($runtimeLogs, '(?m)^.*QA_TEST_RUNTIME_GUARDS .*?$') | Select-Object -Last 1).Value
-$health = Invoke-RestMethod -Uri 'http://127.0.0.1:8082/actuator/health' -TimeoutSec 5
+$health = Invoke-RestMethod -Uri 'http://127.0.0.1:8080/actuator/health' -TimeoutSec 5
 $databaseHealth = if ($health.components -and $health.components.db) { [string]$health.components.db.status } else { 'DOWN' }
 $jar = if ($identity.artifactPath) {
     Get-Item -LiteralPath ([string]$identity.artifactPath) -ErrorAction SilentlyContinue
@@ -97,7 +97,7 @@ if (-not $email -or -not $password -or -not $candidatePhone -or -not $pendingPho
 $env:BINGO_E2E_ADMIN_EMAIL = $email
 $env:BINGO_E2E_ADMIN_PASSWORD = $password
 $env:BINGO_E2E_ADMIN_URL = $AdminUrl.TrimEnd('/')
-$env:BINGO_E2E_BACKEND_URL = 'http://127.0.0.1:8082'
+$env:BINGO_E2E_BACKEND_URL = 'http://127.0.0.1:8080'
 $env:BINGO_QA_APPROVED_AGENT_PHONE = $candidatePhone
 $env:BINGO_QA_PENDING_AGENT_PHONE = $pendingPhone
 New-Item -ItemType Directory -Path (Split-Path -Parent $logPath) -Force | Out-Null

@@ -1,4 +1,4 @@
-name: Branch Flow Guard
+name: Branch Promotion Policy
 
 on:
   pull_request:
@@ -9,18 +9,102 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read
+  {}
 
 jobs:
   validate-flow:
+    name: Branch Promotion Policy
     runs-on: ubuntu-latest
     steps:
       - name: Validate source/target branch policy
-        uses: actions/github-script@v8
-        with:
-          script: |
-            const base = context.payload.pull_request.base.ref;
-            const head = context.payload.pull_request.head.ref;
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          BASE_REPOSITORY: ${{ github.event.pull_request.base.repo.full_name }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name || '' }}
+        run: |
+          node <<'NODE'
+          const assert = require('node:assert/strict');
 
-            // Feature branches merge directly into main; no source-name restriction.
-            core.info(`Allowed PR flow: ${head} -> ${base}`);
+          function evaluate(baseRef, headRef, headRepository, baseRepository) {
+            if (baseRef === 'develop') {
+              return {
+                allowed: true,
+                message: 'Allowed: any source branch may target develop, including main or release for synchronization.',
+              };
+            }
+
+            if (baseRef === 'release') {
+              if (headRef === 'develop' && headRepository === baseRepository) {
+                return {
+                  allowed: true,
+                  message: "Allowed: this repository's develop branch may target release.",
+                };
+              }
+              return {
+                allowed: false,
+                message: `Rejected: only ${baseRepository}:develop may target release. Permitted path: feature/fix/hotfix -> develop -> release. Fork branches named develop are not accepted.`,
+              };
+            }
+
+            if (baseRef === 'main') {
+              if (headRef === 'release' && headRepository === baseRepository) {
+                return {
+                  allowed: true,
+                  message: "Allowed: this repository's release branch may target main.",
+                };
+              }
+              return {
+                allowed: false,
+                message: `Rejected: only ${baseRepository}:release may target main. Permitted path: feature/fix/hotfix -> develop -> release -> main. Fork branches named release are not accepted.`,
+              };
+            }
+
+            return {
+              allowed: true,
+              message: 'Not a protected target: branch policy applies only to develop, release, and main.',
+            };
+          }
+
+          const repository = 'equar/bingo-platform';
+          const fork = 'example-fork/bingo-platform';
+          const cases = [
+            ['feature/example -> develop', 'develop', 'feature/example', repository, true],
+            ['fix/example -> develop', 'develop', 'fix/example', repository, true],
+            ['develop -> release', 'release', 'develop', repository, true],
+            ['feature/example -> release', 'release', 'feature/example', repository, false],
+            ['main -> release', 'release', 'main', repository, false],
+            ['release -> main', 'main', 'release', repository, true],
+            ['develop -> main', 'main', 'develop', repository, false],
+            ['feature/example -> main', 'main', 'feature/example', repository, false],
+            ['fork develop -> release', 'release', 'develop', fork, false],
+            ['fork release -> main', 'main', 'release', fork, false],
+            ['release -> develop synchronization', 'develop', 'release', repository, true],
+            ['main -> develop synchronization', 'develop', 'main', repository, true],
+            ['fork feature -> develop', 'develop', 'feature/example', fork, true],
+          ];
+
+          for (const [label, base, head, headRepo, expected] of cases) {
+            assert.equal(
+              evaluate(base, head, headRepo, repository).allowed,
+              expected,
+              `Branch policy test failed: ${label}`,
+            );
+          }
+
+          if (process.env.BRANCH_POLICY_TESTS_ONLY === '1') {
+            console.log(`Validated ${cases.length} branch-policy cases.`);
+            process.exit(0);
+          }
+
+          const result = evaluate(
+            process.env.BASE_REF,
+            process.env.HEAD_REF,
+            process.env.HEAD_REPOSITORY,
+            process.env.BASE_REPOSITORY,
+          );
+          console.log(result.message);
+          if (!result.allowed) {
+            process.exit(1);
+          }
+          NODE

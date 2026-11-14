@@ -10,6 +10,8 @@ import 'package:bingo_player/src/core/widgets/app_status_view.dart';
 import 'package:bingo_player/src/core/widgets/section_card.dart';
 import 'package:bingo_player/src/features/wallet/data/wallet_repository.dart';
 import 'package:bingo_player/src/features/wallet/domain/wallet_models.dart';
+import 'package:bingo_player/src/features/wallet/presentation/wallet_transaction_labels.dart';
+import 'package:bingo_player/src/features/auth/data/auth_session_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
@@ -195,6 +197,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
       walletTransactionsProvider(_transactionPage),
     );
     final depositsAsync = ref.watch(walletDepositsProvider(_depositPage));
+    final session = ref.watch(authSessionControllerProvider).session;
 
     return Scaffold(
       appBar: AppBar(
@@ -230,6 +233,17 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _BalanceSummary(balance: balance),
+                      if ((session?.user.referralCode ?? '').isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          localizations.yourReferralCode,
+                          style: Theme.of(context).textTheme.titleSmall,
+                        ),
+                        SelectableText(
+                          session!.user.referralCode,
+                          key: const ValueKey('player-referral-code'),
+                        ),
+                      ],
                       const SizedBox(height: 16),
                       Text(localizations.balanceDisclaimer),
                       const SizedBox(height: 12),
@@ -759,7 +773,7 @@ class _TransactionsPane extends StatelessWidget {
                       padding: const EdgeInsets.all(12),
                       child: ListTile(
                         title: Text(
-                          '${entry.transactionType} • ${entry.amount} ${entry.currency}',
+                          '${walletTransactionTypeLabel(localizations, entry.transactionType)} • ${entry.amount} ${entry.currency}',
                         ),
                         subtitle: Text(
                           '${entry.note ?? entry.operationId}$bucketSummary',
@@ -966,6 +980,7 @@ class _BalanceSummary extends StatelessWidget {
               _amount(
                 l.promotionalBalanceLabel,
                 balance.promotionalBalance.toString(),
+                description: l.promotionalBalanceRestrictionHelp,
               ),
             ],
           ),
@@ -974,7 +989,7 @@ class _BalanceSummary extends StatelessWidget {
     );
   }
 
-  Widget _amount(String label, String value) => Column(
+  Widget _amount(String label, String value, {String? description}) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     mainAxisSize: MainAxisSize.min,
     children: [
@@ -991,6 +1006,16 @@ class _BalanceSummary extends StatelessWidget {
           fontWeight: FontWeight.w700,
         ),
       ),
+      if (description != null) ...[
+        const SizedBox(height: 4),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 240),
+          child: Text(
+            description,
+            style: const TextStyle(color: Color(0xFFDAE8FF), fontSize: 11),
+          ),
+        ),
+      ],
     ],
   );
 }
