@@ -155,7 +155,7 @@ if table.stdout.strip() == '0':
     raise SystemExit
 
 query = (
-    "SELECT GROUP_CONCAT(version ORDER BY installed_rank SEPARATOR ', ') "
+    "SELECT COALESCE(GROUP_CONCAT(version ORDER BY installed_rank SEPARATOR ', '), '') "
     "FROM flyway_schema_history WHERE success = 0"
 )
 result = subprocess.run(base + ['--execute', query], check=True, capture_output=True, text=True, env=environment)
@@ -228,6 +228,16 @@ if failed_rows != [['41', removed_migration]]:
     raise SystemExit(
         'Refusing automatic Flyway repair because failed migration history is not exactly V41 '
         + removed_migration + '.'
+    )
+
+subprocess.run(['systemctl', 'stop', 'bingo-backend'], check=True)
+failed = subprocess.run(base + ['--execute', failed_query], check=True, capture_output=True, text=True, env=environment)
+failed_rows = [line.split('\t', 1) for line in failed.stdout.splitlines() if line]
+if not failed_rows:
+    raise SystemExit
+if failed_rows != [['41', removed_migration]]:
+    raise SystemExit(
+        'Refusing automatic Flyway repair because failed migration history changed while stopping the backend.'
     )
 
 delete_query = (

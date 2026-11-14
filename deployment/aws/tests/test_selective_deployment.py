@@ -7,6 +7,7 @@ import tempfile
 import unittest
 
 AWS = Path(__file__).resolve().parents[1]
+BACKEND_DEPLOY = AWS / 'deploy-backend.sh'
 spec = importlib.util.spec_from_file_location('changes', AWS / 'detect-deployment-changes.py')
 changes = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(changes)
@@ -99,6 +100,29 @@ esac
                 for app in apps:
                     self.assertTrue(any(f'bingo-{app}/dist' in line for line in uploaded))
                 self.assertIn("sudo -n bash -s -- '/tmp/bingo-frontend.ABCDEFGH' " + ' '.join(apps), log.read_text())
+
+
+class BackendFlywayPreflightTest(unittest.TestCase):
+    def test_empty_failed_migration_list_is_null_safe(self):
+        source = BACKEND_DEPLOY.read_text()
+        self.assertIn(
+            "SELECT COALESCE(GROUP_CONCAT(version ORDER BY installed_rank SEPARATOR ', '), '')",
+            source,
+        )
+
+    def test_v41_repair_stops_then_rechecks_before_deleting(self):
+        source = BACKEND_DEPLOY.read_text()
+        repair = source.split('repair_failed_removed_v41_migration() {', 1)[1].split(
+            '\n}\n\nschema_version_before_deploy=', 1
+        )[0]
+        validation = repair.index("if failed_rows != [['41', removed_migration]]:")
+        stop = repair.index("subprocess.run(['systemctl', 'stop', 'bingo-backend'], check=True)")
+        recheck = repair.index("failed = subprocess.run(base + ['--execute', failed_query]", stop)
+        deletion = repair.index("DELETE FROM flyway_schema_history", recheck)
+        self.assertLess(validation, stop)
+        self.assertLess(stop, recheck)
+        self.assertLess(recheck, deletion)
+        self.assertEqual(repair.count("failed = subprocess.run(base + ['--execute', failed_query]"), 2)
 
 
 if __name__ == '__main__':
