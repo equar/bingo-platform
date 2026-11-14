@@ -19,29 +19,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('lobby exposes OPEN sessions through live detail', (
-    tester,
-  ) async {
+  testWidgets('lobby lists active sessions', (tester) async {
     final repository = _LobbyRepository();
     await tester.pumpWidget(_app(repository));
     await tester.pumpAndSettle();
 
-    expect(find.text('QA Main Room'), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('room-details-6')));
-    await tester.pumpAndSettle();
-
-    expect(find.text('QA Main Room'), findsOneWidget);
     expect(find.text('QA Scheduled Session'), findsOneWidget);
-    expect(find.textContaining('OPEN'), findsOneWidget);
-    expect(find.byKey(const ValueKey('live-game-12')), findsOneWidget);
-    expect(find.byKey(const ValueKey('buy-ticket-button')), findsNothing);
+    expect(find.byKey(const ValueKey('session-details-12')), findsOneWidget);
+    expect(find.byKey(const ValueKey('ticket-preview-12')), findsOneWidget);
   });
 
   testWidgets('cancelled sessions are shown as not playable', (tester) async {
     final repository = _LobbyRepository(sessionState: 'CANCELLED');
-    await tester.pumpWidget(_app(repository));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('room-details-6')));
+    await tester.pumpWidget(
+      _app(repository, home: const RoomDetailsScreen(roomId: 6)),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('Not playable: CANCELLED'), findsOneWidget);
@@ -70,18 +62,10 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('room-details-6')));
+    await tester.tap(find.byKey(const ValueKey('session-details-12')));
     await tester.pumpAndSettle();
 
-    final liveGameButton = find.byKey(const ValueKey('live-game-12'));
-    expect(liveGameButton, findsOneWidget);
-    expect(tester.widget<FilledButton>(liveGameButton).onPressed, isNotNull);
-    await tester.ensureVisible(liveGameButton);
-    await tester.pumpAndSettle();
-    tester.widget<FilledButton>(liveGameButton).onPressed!();
-    await tester.pump(const Duration(milliseconds: 500));
-
-    expect(navigatorObserver.pushes, hasLength(3));
+    expect(navigatorObserver.pushes, hasLength(2));
     expect(navigatorObserver.pushes.last.isCurrent, isTrue);
     expect(
       find.byType(SessionDetailScreen, skipOffstage: false),
@@ -95,12 +79,6 @@ void main() {
     (tester) async {
       final repository = _LobbyRepository();
       await tester.pumpWidget(_app(repository));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('room-details-6')));
-      await tester.pumpAndSettle();
-      await tester.ensureVisible(
-        find.byKey(const ValueKey('ticket-preview-12')),
-      );
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('ticket-preview-12')));
       await tester.pumpAndSettle();
@@ -142,12 +120,6 @@ void main() {
       );
       await tester.pumpWidget(_app(repository));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('room-details-6')));
-      await tester.pumpAndSettle();
-      await tester.ensureVisible(
-        find.byKey(const ValueKey('ticket-preview-12')),
-      );
-      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('ticket-preview-12')));
       await tester.pumpAndSettle();
       expect(
@@ -181,14 +153,14 @@ void main() {
   ) async {
     for (final state in ['CLOSED', 'SETTLED']) {
       final repository = _LobbyRepository(sessionState: state);
-      await tester.pumpWidget(_app(repository));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('room-details-6')));
+      await tester.pumpWidget(
+        _app(repository, home: const RoomDetailsScreen(roomId: 6)),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('Not playable: $state'), findsOneWidget);
       expect(find.byKey(const ValueKey('buy-ticket-button')), findsNothing);
-      await tester.pageBack();
+      await tester.pumpWidget(const SizedBox.shrink());
       await tester.pumpAndSettle();
     }
   });
@@ -201,25 +173,27 @@ void main() {
         endedAt: DateTime.now().toUtc(),
         claimWindowSeconds: 3600,
       );
-      await tester.pumpWidget(_app(repository));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('room-details-6')));
+      await tester.pumpWidget(
+        _app(repository, home: const RoomDetailsScreen(roomId: 6)),
+      );
       await tester.pumpAndSettle();
 
       expect(find.byKey(const ValueKey('live-game-12')), findsOneWidget);
     },
   );
 
-  testWidgets('empty lobby displays an appropriate message', (tester) async {
-    final repository = _LobbyRepository(emptyRooms: true);
+  testWidgets('empty active sessions display an appropriate message', (
+    tester,
+  ) async {
+    final repository = _LobbyRepository(emptySessions: true);
     await tester.pumpWidget(_app(repository));
     await tester.pumpAndSettle();
 
     expect(find.text('No rooms available'), findsOneWidget);
   });
 
-  testWidgets('room listing network error offers retry', (tester) async {
-    final repository = _LobbyRepository(failRooms: true);
+  testWidgets('active session load error offers retry', (tester) async {
+    final repository = _LobbyRepository(failSessions: true);
     await tester.pumpWidget(_app(repository));
     await tester.pumpAndSettle();
     expect(
@@ -228,31 +202,33 @@ void main() {
     );
     expect(find.text('Try again'), findsOneWidget);
 
-    repository.failRooms = false;
+    repository.failSessions = false;
     await tester.tap(find.text('Try again'));
     await tester.pumpAndSettle();
-    expect(find.text('QA Main Room'), findsOneWidget);
+    expect(find.text('QA Scheduled Session'), findsOneWidget);
   });
 
   testWidgets('pending retry cannot be submitted again', (tester) async {
-    final repository = _LobbyRepository(failRooms: true);
+    final repository = _LobbyRepository(failSessions: true);
     await tester.pumpWidget(_app(repository));
     await tester.pumpAndSettle();
     expect(find.text('Try again'), findsOneWidget);
 
-    repository.failRooms = false;
-    repository.pendingRooms = Completer<List<BingoRoom>>();
+    repository.failSessions = false;
+    repository.pendingSessions = Completer<List<GameSession>>();
     await tester.tap(find.text('Try again'));
     await tester.pump();
 
-    expect(repository.roomRequests, 2); // initial request and one retry
+    expect(repository.sessionRequests, 2);
     expect(find.text('Try again'), findsNothing);
     expect(find.text('Loading...'), findsOneWidget);
 
-    repository.pendingRooms!.complete([_room]);
+    repository.pendingSessions!.complete(
+      await repository.getRoomSessions(_room.id),
+    );
     await tester.pumpAndSettle();
-    expect(repository.roomRequests, 2);
-    expect(find.text('QA Main Room'), findsOneWidget);
+    expect(repository.sessionRequests, 2);
+    expect(find.text('QA Scheduled Session'), findsOneWidget);
     expect(find.text('Try again'), findsNothing);
   });
 }
@@ -261,6 +237,7 @@ Widget _app(
   _LobbyRepository repository, {
   LiveGameController? liveGameController,
   NavigatorObserver? navigatorObserver,
+  Widget home = const LobbyScreen(),
 }) => ProviderScope(
   overrides: [
     lobbyRepositoryProvider.overrideWithValue(repository),
@@ -276,36 +253,36 @@ Widget _app(
       GlobalCupertinoLocalizations.delegate,
     ],
     supportedLocales: AppLocalizations.supportedLocales,
-    home: const LobbyScreen(),
+    home: home,
   ),
 );
 
 class _LobbyRepository extends LobbyRepository {
   _LobbyRepository({
-    this.failRooms = false,
     this.failPreview = false,
-    this.emptyRooms = false,
+    this.failSessions = false,
+    this.emptySessions = false,
     this.sessionState = 'OPEN',
     this.endedAt,
     this.claimWindowSeconds,
   }) : super(_UnusedLobbyApi());
 
-  bool failRooms;
   bool failPreview;
-  final bool emptyRooms;
+  bool failSessions;
+  final bool emptySessions;
   final String sessionState;
   final DateTime? endedAt;
   final int? claimWindowSeconds;
-  Completer<List<BingoRoom>>? pendingRooms;
-  int roomRequests = 0;
+  Completer<List<GameSession>>? pendingSessions;
+  int sessionRequests = 0;
   int previewRequests = 0;
 
   @override
-  Future<List<BingoRoom>> getRooms() async {
-    roomRequests++;
-    if (pendingRooms != null) return pendingRooms!.future;
-    if (failRooms) throw Exception('offline');
-    return emptyRooms ? [] : [_room];
+  Future<List<GameSession>> getActiveSessions() async {
+    sessionRequests++;
+    if (pendingSessions != null) return pendingSessions!.future;
+    if (failSessions) throw Exception('offline');
+    return emptySessions ? [] : await getRoomSessions(_room.id);
   }
 
   @override
