@@ -3,7 +3,6 @@ import 'package:bingo_player/l10n/app_localizations.dart';
 import 'package:bingo_player/src/features/home/presentation/home_screen.dart';
 import 'package:bingo_player/src/features/lobby/presentation/lobby_screen.dart';
 import 'package:bingo_player/src/features/profile/presentation/profile_screen.dart';
-import 'package:bingo_player/src/features/player_content/presentation/messages_screen.dart';
 import 'package:bingo_player/src/features/player_content/presentation/game_history_screen.dart';
 import 'package:bingo_player/src/features/support/presentation/support_screen.dart';
 import 'package:bingo_player/src/features/wallet/presentation/wallet_screen.dart';
@@ -51,13 +50,7 @@ class _HomeShellState extends State<HomeShell> {
     ),
     1 => const LobbyScreen(),
     2 => const WalletScreen(),
-    _ => ProfileScreen(
-      onGames: () => _select(1),
-      onWallet: () => _select(2),
-      onSupport: _support,
-      onMessages: _messages,
-      onGameHistory: _gameHistory,
-    ),
+    _ => ProfileScreen(onSupport: _support, onGameHistory: _gameHistory),
   };
 
   Widget _pages() => PopScope<Object?>(
@@ -98,10 +91,6 @@ class _HomeShellState extends State<HomeShell> {
 
   void _support() => _navigatorKeys[_index].currentState!.push<void>(
     MaterialPageRoute(builder: (_) => const SupportScreen()),
-  );
-
-  void _messages() => _navigatorKeys[_index].currentState!.push<void>(
-    MaterialPageRoute(builder: (_) => const MessagesScreen()),
   );
 
   void _gameHistory() => _navigatorKeys[_index].currentState!.push<void>(
