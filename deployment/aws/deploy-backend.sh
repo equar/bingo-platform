@@ -38,8 +38,14 @@ if [[ ! -f "$jar" ]]; then
   (cd "$ROOT/bingo-backend" && mvn -B -Dmaven.test.skip=true clean package)
 fi
 [[ -f "$jar" ]] || { echo 'Bingo backend JAR not found' >&2; exit 1; }
-remote="$(ssh -o BatchMode=yes -i "$SSH_KEY" "$SERVER" 'umask 077; mktemp -d /tmp/bingo-backend.XXXXXXXX')"
-[[ "$remote" =~ ^/tmp/bingo-backend\.[a-zA-Z0-9]+$ ]]
+remote="$(ssh -o BatchMode=yes -i "$SSH_KEY" "$SERVER" '
+  set -e
+  umask 077
+  staging_directory="$HOME/.cache/bingo-deploy"
+  install -d -m 700 "$staging_directory"
+  mktemp -d "$staging_directory/backend.XXXXXXXX"
+')"
+[[ "$remote" =~ ^/home/[a-z_][a-z0-9_-]*/\.cache/bingo-deploy/backend\.[a-zA-Z0-9]+$ ]]
 cleanup() {
   status=$?
   trap - EXIT
