@@ -60,6 +60,88 @@ id bingo >/dev/null 2>&1 || useradd --system --home /opt/bingo --shell /usr/sbin
 install -d -o bingo -g bingo -m 755 /opt/bingo /opt/bingo/logs
 # Keep relative config imports away from the root-only systemd environment file.
 install -d -o root -g root -m 755 /opt/bingo/runtime
+
+read_flyway_schema_version() {
+  python3 - /opt/bingo/.env <<'PY'
+import os
+import shlex
+import subprocess
+import sys
+from pathlib import Path
+
+settings = {}
+for line in Path(sys.argv[1]).read_text().splitlines():
+    if '=' not in line or line.lstrip().startswith('#'):
+        continue
+    key, value = line.split('=', 1)
+    parsed = shlex.split(value)
+    if len(parsed) == 1:
+        settings[key] = parsed[0]
+
+required = ['MYSQL_HOST', 'MYSQL_PORT', 'MYSQL_USER', 'MYSQL_PASSWORD', 'MYSQL_DATABASE']
+missing = [key for key in required if not settings.get(key)]
+if missing:
+    raise SystemExit('Current backend environment is missing database settings: ' + ', '.join(missing))
+
+environment = os.environ | {'MYSQL_PWD': settings['MYSQL_PASSWORD']}
+base = [
+    'mysql', '--batch', '--skip-column-names', '--protocol=TCP',
+    '--ssl-mode=VERIFY_IDENTITY', '--ssl-ca=/etc/bingo/database-ca-bundle.pem',
+    '--host', settings['MYSQL_HOST'], '--port', settings['MYSQL_PORT'],
+    '--user', settings['MYSQL_USER'], '--database', settings['MYSQL_DATABASE'],
+]
+table_query = (
+    "SELECT COUNT(*) FROM information_schema.tables "
+    "WHERE table_schema = DATABASE() AND table_name = 'flyway_schema_history'"
+)
+table = subprocess.run(base + ['--execute', table_query], check=True, capture_output=True, text=True, env=environment)
+if table.stdout.strip() == '0':
+    print(0)
+    raise SystemExit
+
+version_query = (
+    "SELECT COALESCE(MAX(CAST(version AS UNSIGNED)), 0) "
+    "FROM flyway_schema_history WHERE success = 1 AND version REGEXP '^[0-9]+$'"
+)
+version = subprocess.run(base + ['--execute', version_query], check=True, capture_output=True, text=True, env=environment)
+result = version.stdout.strip()
+if not result.isdigit():
+    raise SystemExit('Could not determine the current Flyway schema version.')
+print(result)
+PY
+}
+
+schema_version_before_deploy=""
+if [[ -f /opt/bingo/.env ]]; then
+  command -v mysql >/dev/null 2>&1 ||
+    { echo 'MySQL client is required for the Flyway compatibility preflight.' >&2; exit 1; }
+  [[ -f /etc/bingo/database-ca-bundle.pem ]] ||
+    { echo 'RDS CA bundle is required for the Flyway compatibility preflight.' >&2; exit 1; }
+  candidate_schema_version="$(python3 - "$incoming/backend.jar" <<'PY'
+import re
+import sys
+import zipfile
+
+with zipfile.ZipFile(sys.argv[1]) as archive:
+    versions = [
+        int(match.group(1))
+        for name in archive.namelist()
+        if (match := re.fullmatch(r'BOOT-INF/classes/db/migration/V([0-9]+)__[^/]+\.sql', name))
+    ]
+
+if not versions:
+    raise SystemExit('Candidate backend JAR contains no Flyway migrations.')
+print(max(versions))
+PY
+)"
+  schema_version_before_deploy="$(read_flyway_schema_version)"
+  if (( schema_version_before_deploy > candidate_schema_version )); then
+    echo "Refusing deployment: production schema is at Flyway V$schema_version_before_deploy, but the candidate JAR only includes migrations through V$candidate_schema_version." >&2
+    echo 'Deploy a backend artifact that includes the current migration history before replacing the running service.' >&2
+    exit 1
+  fi
+fi
+
 previous_backend_healthy=false
 if systemctl is-active --quiet bingo-backend &&
    curl -fsS --max-time 3 http://127.0.0.1:8081/actuator/health 2>/dev/null | grep -q '"status":"UP"'; then
@@ -76,9 +158,17 @@ rollback() {
   if [[ "$status" != 0 ]]; then
     systemctl stop bingo-backend || true
     if [[ "$previous_backend_healthy" == "true" && -f /opt/bingo/backend.jar.previous ]]; then
-      cp -p /opt/bingo/backend.jar.previous /opt/bingo/backend.jar
-      cp -p /opt/bingo/.env.previous /opt/bingo/.env
-      systemctl restart bingo-backend || true
+      if [[ -z "$schema_version_before_deploy" ]]; then
+        echo 'Skipping automatic JAR rollback because the prior Flyway schema version is unknown.' >&2
+      elif ! schema_version_after_deploy="$(read_flyway_schema_version)"; then
+        echo 'Skipping automatic JAR rollback because the post-failure Flyway schema version could not be verified.' >&2
+      elif (( schema_version_after_deploy > schema_version_before_deploy )); then
+        echo "Skipping automatic JAR rollback because Flyway advanced from V$schema_version_before_deploy to V$schema_version_after_deploy." >&2
+      else
+        cp -p /opt/bingo/backend.jar.previous /opt/bingo/backend.jar
+        cp -p /opt/bingo/.env.previous /opt/bingo/.env
+        systemctl restart bingo-backend || true
+      fi
     else
       echo 'No healthy previous backend to restore; failed release retained for diagnosis' >&2
     fi
