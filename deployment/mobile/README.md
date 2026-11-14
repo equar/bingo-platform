@@ -26,6 +26,12 @@ Android application ID is `com.bakaroo.bingo_app`; the agent's is
 `com.bakaroo.bingo_agent`. Previously installed debug/demo apps may need
 uninstalling if their signing identity or package ID differs.
 
+The Play Store helper (`playstoreBuild.sh`) never generates a signing key. On
+the Player rename it restores the ignored `bingo-player/android/key.properties`
+from the existing `signing/bingo-app.jks` and `signing/bingo-app.json` upload
+key pair. If that pair is unavailable, restore the registered Play upload key
+instead of creating a replacement.
+
 ## iOS
 
 An IPA is not generally installable simply by opening a Telegram attachment.

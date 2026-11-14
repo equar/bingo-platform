@@ -12,11 +12,7 @@ if [[ ! "$BUILD_NUMBER" =~ ^[1-9][0-9]*$ ]]; then
   exit 2
 fi
 
-if [[ ! -f "$APP_DIR/android/key.properties" ]]; then
-  echo 'ERROR: bingo-player/android/key.properties is missing.' >&2
-  echo 'Configure it with the upload keystore registered for this Play Console app.' >&2
-  exit 1
-fi
+python3 "$SCRIPT_DIR/deployment/mobile/prepare-android-signing.py" bingo-player --require-existing
 
 SOURCE_BUILD_NUMBER="$(sed -n 's/^version: .*+\([0-9][0-9]*\)$/\1/p' "$APP_DIR/pubspec.yaml")"
 if [[ -n "$SOURCE_BUILD_NUMBER" ]] && (( BUILD_NUMBER <= SOURCE_BUILD_NUMBER )); then

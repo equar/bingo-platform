@@ -465,13 +465,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  Widget _shortcut(IconData icon, String label, VoidCallback onTap) => ListTile(
-    leading: Icon(icon, color: Theme.of(context).colorScheme.primary),
-    title: Text(label),
-    trailing: const Icon(Icons.chevron_right_rounded),
-    onTap: onTap,
-  );
-
   Widget _externalLink(
     BuildContext context,
     IconData icon,
@@ -483,5 +476,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     subtitle: Text(url, maxLines: 1, overflow: TextOverflow.ellipsis),
     trailing: const Icon(Icons.chevron_right_rounded),
     onTap: () => ExternalLink.open(url),
+  );
+
+  Widget _shortcut(IconData icon, String label, VoidCallback onTap) => ListTile(
+    leading: Icon(icon, color: Theme.of(context).colorScheme.primary),
+    title: Text(label),
+    trailing: const Icon(Icons.chevron_right_rounded),
+    onTap: onTap,
   );
 }

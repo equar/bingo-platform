@@ -10,6 +10,40 @@ void main() {
     expect(lightTheme.brightness, Brightness.light);
     expect(darkTheme.brightness, Brightness.dark);
     expect(darkTheme.scaffoldBackgroundColor, const Color(0xFF101725));
+    const darkInputHighlightColor = Colors.white;
+    expect(
+      darkTheme.inputDecorationTheme.focusedBorder!.borderSide.color,
+      darkInputHighlightColor,
+    );
+    expect(
+      darkTheme.inputDecorationTheme.errorBorder!.borderSide.color,
+      darkInputHighlightColor,
+    );
+    expect(
+      darkTheme.inputDecorationTheme.focusedErrorBorder!.borderSide.color,
+      darkInputHighlightColor,
+    );
+    expect(
+      darkTheme.inputDecorationTheme.errorStyle!.color,
+      darkInputHighlightColor,
+    );
+    const lightInputHighlightColor = Color(0xFF1264C8);
+    expect(
+      lightTheme.inputDecorationTheme.focusedBorder!.borderSide.color,
+      lightInputHighlightColor,
+    );
+    expect(
+      lightTheme.inputDecorationTheme.errorBorder!.borderSide.color,
+      lightInputHighlightColor,
+    );
+    expect(
+      lightTheme.inputDecorationTheme.focusedErrorBorder!.borderSide.color,
+      lightInputHighlightColor,
+    );
+    expect(
+      lightTheme.inputDecorationTheme.errorStyle!.color,
+      lightInputHighlightColor,
+    );
     for (final theme in [lightTheme, darkTheme]) {
       final colors = theme.colorScheme;
       _expectTextContrast(

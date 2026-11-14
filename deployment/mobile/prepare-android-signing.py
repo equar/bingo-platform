@@ -4,6 +4,7 @@ from pathlib import Path
 root=Path(__file__).resolve().parents[2]
 app=sys.argv[1]
 if app not in ('bingo-player','bingo-agent'): raise SystemExit('Unknown app')
+require_existing='--require-existing' in sys.argv[2:]
 properties=root/app/'android/key.properties'
 if properties.exists():
     print('Using existing signing configuration for '+app)
@@ -12,6 +13,19 @@ folder=root/'deployment/mobile/signing'
 folder.mkdir(mode=0o700, parents=True, exist_ok=True)
 metadata=folder/(app+'.json')
 keystore=folder/(app+'.jks')
+legacy_metadata=folder/'bingo-app.json'
+legacy_keystore=folder/'bingo-app.jks'
+if app == 'bingo-player' and legacy_metadata.exists() and legacy_keystore.exists():
+    settings=json.loads(legacy_metadata.read_text())
+    settings['storeFile']=str(legacy_keystore)
+    def escape(value):return value.replace('\\','\\\\').replace(':','\\:').replace('=','\\=')
+    fd=os.open(properties,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
+    with os.fdopen(fd,'w') as f:
+        for key,value in settings.items():f.write(key+'='+escape(value)+'\n')
+    print('Prepared Player signing configuration from the existing Play upload key')
+    raise SystemExit()
+if require_existing:
+    raise SystemExit('Play upload signing configuration is missing; restore the registered upload key instead of generating one')
 if metadata.exists():
     settings=json.loads(metadata.read_text())
     if not keystore.exists():raise SystemExit('Signing keystore is missing; restore the original key')

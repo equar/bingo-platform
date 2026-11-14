@@ -15,6 +15,12 @@ final lobbyRoomsProvider = FutureProvider.autoDispose<List<BingoRoom>>((ref) {
   return ref.read(lobbyRepositoryProvider).getRooms();
 });
 
+final activeSessionsProvider = FutureProvider.autoDispose<List<GameSession>>((
+  ref,
+) {
+  return ref.read(lobbyRepositoryProvider).getActiveSessions();
+});
+
 final roomDetailsProvider = FutureProvider.autoDispose.family<BingoRoom, int>((
   ref,
   roomId,
@@ -33,23 +39,23 @@ class LobbyScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final localizations = AppLocalizations.of(context)!;
-    final roomsAsync = ref.watch(lobbyRoomsProvider);
+    final sessionsAsync = ref.watch(activeSessionsProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(localizations.roomsTitle),
+        title: const Text('Bingo'),
         actions: [
           const SupportShortcut(),
           IconButton(
             key: const ValueKey('lobby-refresh-button'),
             tooltip: localizations.refresh,
-            onPressed: () => ref.invalidate(lobbyRoomsProvider),
+            onPressed: () => ref.invalidate(activeSessionsProvider),
             icon: const Icon(Icons.refresh),
           ),
         ],
       ),
       body: ResponsiveContent(
-        child: roomsAsync.when(
+        child: sessionsAsync.when(
           skipLoadingOnRefresh: false,
           loading: () => Center(
             child: Column(
@@ -64,11 +70,11 @@ class LobbyScreen extends ConsumerWidget {
           error: (error, stack) => AppStatusView(
             title: localizations.errorGeneric,
             message: localizations.lobbyLoadError,
-            onAction: () => ref.invalidate(lobbyRoomsProvider),
+            onAction: () => ref.invalidate(activeSessionsProvider),
           ),
-          data: (rooms) => RefreshIndicator(
-            onRefresh: () async => ref.invalidate(lobbyRoomsProvider),
-            child: rooms.isEmpty
+          data: (sessions) => RefreshIndicator(
+            onRefresh: () async => ref.invalidate(activeSessionsProvider),
+            child: sessions.isEmpty
                 ? ListView(
                     physics: const AlwaysScrollableScrollPhysics(),
                     children: [
@@ -80,12 +86,34 @@ class LobbyScreen extends ConsumerWidget {
                     ],
                   )
                 : ListView.builder(
-                    key: const ValueKey('lobby-rooms-list'),
+                    key: const ValueKey('lobby-active-sessions-list'),
                     physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.all(16),
-                    itemCount: rooms.length,
+                    itemCount: sessions.length + 1,
                     itemBuilder: (context, index) {
-                      final room = rooms[index];
+                      if (index == 0) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  localizations.roomsTitle,
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.headlineMedium,
+                                ),
+                              ),
+                              Chip(
+                                label: Text(
+                                  '${sessions.length} ${localizations.roomStatusActive}',
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+                      final session = sessions[index - 1];
                       final colors = Theme.of(context).colorScheme;
                       final isDark =
                           Theme.of(context).brightness == Brightness.dark;
@@ -99,7 +127,7 @@ class LobbyScreen extends ConsumerWidget {
                                 children: [
                                   Expanded(
                                     child: Text(
-                                      room.name,
+                                      session.sessionName,
                                       style: Theme.of(
                                         context,
                                       ).textTheme.titleLarge,
@@ -111,78 +139,75 @@ class LobbyScreen extends ConsumerWidget {
                                       vertical: 6,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: room.active
-                                          ? (isDark
-                                                ? colors.secondaryContainer
-                                                : const Color(0xFFEAF8EE))
-                                          : (isDark
-                                                ? colors.surfaceContainerHigh
-                                                : const Color(0xFFF1F3F7)),
+                                      color: isDark
+                                          ? colors.secondaryContainer
+                                          : const Color(0xFFEAF8EE),
                                       borderRadius: BorderRadius.circular(20),
                                     ),
                                     child: Text(
-                                      room.active
-                                          ? localizations.roomStatusActive
-                                          : localizations.roomStatusInactive,
+                                      localizations.roomStatusActive,
                                       style: TextStyle(
                                         fontWeight: FontWeight.w700,
                                         fontSize: 12,
-                                        color: room.active
-                                            ? (isDark
-                                                  ? colors.onSecondaryContainer
-                                                  : const Color(0xFF167639))
-                                            : (isDark
-                                                  ? colors.onSurfaceVariant
-                                                  : const Color(0xFF667084)),
+                                        color: isDark
+                                            ? colors.onSecondaryContainer
+                                            : const Color(0xFF167639),
                                       ),
                                     ),
                                   ),
                                 ],
                               ),
-                              if (room.description?.isNotEmpty == true) ...[
-                                const SizedBox(height: 8),
-                                Text(room.description!),
-                              ],
                               const SizedBox(height: 12),
-                              Text(
-                                '${room.ticketPrice} ${room.currency}',
-                                style: Theme.of(
-                                  context,
-                                ).textTheme.headlineSmall,
-                              ),
-                              Text(
-                                localizations.roomPriceLabel,
-                                style: Theme.of(context).textTheme.bodySmall,
-                              ),
-                              const SizedBox(height: 16),
-                              Wrap(
-                                spacing: 12,
-                                runSpacing: 8,
+                              Row(
                                 children: [
                                   _InfoChip(
-                                    label: localizations.roomCapacityLabel,
-                                    value: room.sessionCapacity.toString(),
+                                    label: localizations.roomPriceLabel,
+                                    value:
+                                        '${session.ticketPrice} ${session.currency}',
                                   ),
+                                  const SizedBox(width: 24),
                                   _InfoChip(
-                                    label: localizations.roomScheduleLabel,
-                                    value: room.scheduleRule,
+                                    label: localizations.roomCapacityLabel,
+                                    value: session.ticketCount.toString(),
                                   ),
                                 ],
                               ),
                               const SizedBox(height: 12),
-                              SizedBox(
-                                width: double.infinity,
-                                child: FilledButton.icon(
-                                  key: ValueKey('room-details-${room.id}'),
-                                  onPressed: () => Navigator.of(context).push(
-                                    MaterialPageRoute<void>(
-                                      builder: (_) =>
-                                          RoomDetailsScreen(roomId: room.id),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: OutlinedButton(
+                                      onPressed: () =>
+                                          Navigator.of(context).push(
+                                            MaterialPageRoute<void>(
+                                              builder: (_) =>
+                                                  SessionDetailScreen(
+                                                    session: session,
+                                                  ),
+                                            ),
+                                          ),
+                                      child: Text(localizations.roomDetails),
                                     ),
                                   ),
-                                  icon: const Icon(Icons.arrow_forward_rounded),
-                                  label: Text(localizations.roomDetails),
-                                ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: FilledButton(
+                                      onPressed: () =>
+                                          Navigator.of(context).push(
+                                            MaterialPageRoute<void>(
+                                              builder: (_) =>
+                                                  TicketPreviewScreen(
+                                                    sessionId: session.id,
+                                                    roomId: session.roomId,
+                                                  ),
+                                            ),
+                                          ),
+                                      child: Text(
+                                        localizations.ticketPreviewButton,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
@@ -324,11 +349,20 @@ class _SessionCard extends StatelessWidget {
       'CLOSED',
       'SETTLED',
     }.contains(session.state.toUpperCase());
-    final canOpenLiveGame = const {
-      'OPEN',
-      'STARTED',
-      'DRAWING',
-    }.contains(session.state.toUpperCase());
+    final hasOpenClaimWindow =
+        session.state.toUpperCase() == 'CLOSED' &&
+        session.endedAt != null &&
+        session.claimWindowSeconds != null &&
+        DateTime.now().isBefore(
+          session.endedAt!.add(Duration(seconds: session.claimWindowSeconds!)),
+        );
+    final canOpenLiveGame =
+        hasOpenClaimWindow ||
+        const {
+          'OPEN',
+          'STARTED',
+          'DRAWING',
+        }.contains(session.state.toUpperCase());
     return SectionCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

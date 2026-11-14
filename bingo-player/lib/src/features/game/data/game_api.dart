@@ -30,7 +30,7 @@ class GameApi {
   Future<PageResult<TicketResponse>> getMyTickets(int sessionId, {required int page, required int size}) async {
     final response = await _dio.get<Map<String, dynamic>>(
       '/api/v1/sessions/$sessionId/my-tickets',
-      queryParameters: {'page': page, 'size': size},
+      queryParameters: {'page': page, 'size': size, 'sort': 'id,asc'},
     );
     return PageResult.fromJson(response.data ?? const <String, dynamic>{}, TicketResponse.fromJson);
   }

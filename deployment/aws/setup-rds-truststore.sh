@@ -6,6 +6,7 @@ JAVA_HOME_DIR="$(dirname "$(dirname "$JAVA_BIN")")"
 KEYTOOL="${BINGO_KEYTOOL:-$JAVA_HOME_DIR/bin/keytool}"
 CACERTS="${BINGO_JAVA_CACERTS:-$JAVA_HOME_DIR/lib/security/cacerts}"
 DESTINATION="${BINGO_TRUSTSTORE_PATH:-/etc/bingo/database-truststore.jks}"
+CA_BUNDLE_DESTINATION="${BINGO_RDS_CA_BUNDLE_PATH:-/etc/bingo/database-ca-bundle.pem}"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 if [[ -n "${BINGO_RDS_CA_BUNDLE_FILE:-}" ]]; then
@@ -54,4 +55,6 @@ for certificate in "$work"/root-*.pem; do
 install -d -m 755 "$(dirname "$DESTINATION")"
 install -m 644 "$work/truststore.jks" "$DESTINATION.new"
 mv -f "$DESTINATION.new" "$DESTINATION"
+install -m 644 "$work/bundle.pem" "$CA_BUNDLE_DESTINATION.new"
+mv -f "$CA_BUNDLE_DESTINATION.new" "$CA_BUNDLE_DESTINATION"
 echo 'Bingo database truststore installed'
