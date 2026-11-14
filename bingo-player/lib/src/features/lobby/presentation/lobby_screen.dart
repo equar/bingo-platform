@@ -324,11 +324,20 @@ class _SessionCard extends StatelessWidget {
       'CLOSED',
       'SETTLED',
     }.contains(session.state.toUpperCase());
-    final canOpenLiveGame = const {
-      'OPEN',
-      'STARTED',
-      'DRAWING',
-    }.contains(session.state.toUpperCase());
+    final hasOpenClaimWindow =
+        session.state.toUpperCase() == 'CLOSED' &&
+        session.endedAt != null &&
+        session.claimWindowSeconds != null &&
+        DateTime.now().isBefore(
+          session.endedAt!.add(Duration(seconds: session.claimWindowSeconds!)),
+        );
+    final canOpenLiveGame =
+        hasOpenClaimWindow ||
+        const {
+          'OPEN',
+          'STARTED',
+          'DRAWING',
+        }.contains(session.state.toUpperCase());
     return SectionCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

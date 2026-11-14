@@ -193,6 +193,23 @@ void main() {
     }
   });
 
+  testWidgets(
+    'a closed session remains accessible while its claim window is open',
+    (tester) async {
+      final repository = _LobbyRepository(
+        sessionState: 'CLOSED',
+        endedAt: DateTime.now().toUtc(),
+        claimWindowSeconds: 3600,
+      );
+      await tester.pumpWidget(_app(repository));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('room-details-6')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('live-game-12')), findsOneWidget);
+    },
+  );
+
   testWidgets('empty lobby displays an appropriate message', (tester) async {
     final repository = _LobbyRepository(emptyRooms: true);
     await tester.pumpWidget(_app(repository));
@@ -269,12 +286,16 @@ class _LobbyRepository extends LobbyRepository {
     this.failPreview = false,
     this.emptyRooms = false,
     this.sessionState = 'OPEN',
+    this.endedAt,
+    this.claimWindowSeconds,
   }) : super(_UnusedLobbyApi());
 
   bool failRooms;
   bool failPreview;
   final bool emptyRooms;
   final String sessionState;
+  final DateTime? endedAt;
+  final int? claimWindowSeconds;
   Completer<List<BingoRoom>>? pendingRooms;
   int roomRequests = 0;
   int previewRequests = 0;
@@ -306,6 +327,8 @@ class _LobbyRepository extends LobbyRepository {
       sessionName: 'QA Scheduled Session',
       state: sessionState,
       scheduledStartAt: DateTime.utc(2030),
+      endedAt: endedAt,
+      claimWindowSeconds: claimWindowSeconds,
       ticketPrice: 3.25,
       currency: 'ETB',
       sessionCapacity: 30,
