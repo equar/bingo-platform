@@ -28,4 +28,7 @@ class WalletRepository {
 
     Future<WalletTransferResponse> submitTransfer(WalletTransferRequest request, String idempotencyKey) =>
       _api.submitTransfer(request, idempotencyKey);
+
+  Future<PageResult<WalletWithdrawal>> getWithdrawals({required int page, required int size}) => _api.getWithdrawals(page: page, size: size);
+  Future<WalletWithdrawal> submitWithdrawal(WithdrawalRequest request,String key) => _api.submitWithdrawal(request,key);
 }

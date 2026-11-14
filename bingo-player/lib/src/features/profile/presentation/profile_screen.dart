@@ -20,15 +20,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({
     super.key,
-    this.onGames,
-    this.onWallet,
     this.onSupport,
     this.onMessages,
     this.onGameHistory,
   });
 
-  final VoidCallback? onGames;
-  final VoidCallback? onWallet;
   final VoidCallback? onSupport;
   final VoidCallback? onMessages;
   final VoidCallback? onGameHistory;
@@ -425,27 +421,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              if (widget.onGames != null ||
-                  widget.onWallet != null ||
-                  widget.onSupport != null ||
+              if (widget.onSupport != null ||
                   widget.onMessages != null ||
                   widget.onGameHistory != null) ...[
                 SectionCard(
                   padding: const EdgeInsets.symmetric(vertical: 6),
                   child: Column(
                     children: [
-                      if (widget.onGames != null)
-                        _shortcut(
-                          Icons.grid_view_rounded,
-                          localizations.homeGames,
-                          widget.onGames!,
-                        ),
-                      if (widget.onWallet != null)
-                        _shortcut(
-                          Icons.account_balance_wallet_outlined,
-                          localizations.homeWallet,
-                          widget.onWallet!,
-                        ),
                       if (widget.onSupport != null)
                         _shortcut(
                           Icons.support_agent_rounded,

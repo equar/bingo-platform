@@ -81,6 +81,7 @@ const navGroups = [
       { to: "/wallet/signup-reward-grants", label: "nav.signupRewardGrants", icon: "wallet" },
       { to: "/wallet/transfer-policy", label: "nav.transferPolicy", icon: "transfers" },
       { to: "/wallet/transfers", label: "nav.transfers", icon: "transfers" },
+      { to: "/wallet/withdrawals", label: "nav.withdrawals", icon: "wallet" },
     ],
   },
   {
@@ -202,6 +203,7 @@ const routeTitles: Array<{ match: RegExp; title: string; parent?: string; parent
   { match: /^\/wallet\/transfer-policy\/new$/, title: "Add transfer policy", parent: "nav.transferPolicy", parentTo: "/wallet/transfer-policy" },
   { match: /^\/wallet\/transfer-policy$/, title: "nav.transferPolicy" },
   { match: /^\/wallet\/transfers$/, title: "nav.transfers" },
+  { match: /^\/wallet\/withdrawals$/, title: "nav.withdrawals" },
   { match: /^\/admin-users$/, title: "nav.adminUsers" },
   { match: /^\/admin-users\/new$/, title: "Create admin user", parent: "nav.adminUsers", parentTo: "/admin-users" },
   { match: /^\/admin-users\/[^/]+\/edit$/, title: "Edit admin user", parent: "nav.adminUsers", parentTo: "/admin-users" },

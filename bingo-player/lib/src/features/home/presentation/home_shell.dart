@@ -52,8 +52,6 @@ class _HomeShellState extends State<HomeShell> {
     1 => const LobbyScreen(),
     2 => const WalletScreen(),
     _ => ProfileScreen(
-      onGames: () => _select(1),
-      onWallet: () => _select(2),
       onSupport: _support,
       onMessages: _messages,
       onGameHistory: _gameHistory,

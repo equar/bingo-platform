@@ -107,6 +107,7 @@ const WalletPoliciesPage = lazy(() =>
 const WalletTransfersPage = lazy(() =>
   import("../features/wallet/WalletTransfersPage").then((module) => ({ default: module.WalletTransfersPage })),
 );
+const WalletWithdrawalsPage = lazy(() => import("../features/wallet/WalletWithdrawalsPage").then((module) => ({ default: module.WalletWithdrawalsPage })));
 const SignupRewardGrantsPage = lazy(() =>
   import("../features/wallet/SignupRewardGrantsPage").then((module) => ({ default: module.SignupRewardGrantsPage })),
 );
@@ -161,6 +162,7 @@ export function AppRouter() {
               <Route path="agents/:agentId" element={<AgentDetailPage />} />
               <Route path="wallet" element={<WalletHomeRedirect />} />
               <Route path="wallet/transfers" element={<WalletTransfersPage />} />
+              <Route path="wallet/withdrawals" element={<WalletWithdrawalsPage />} />
               <Route path="wallet/signup-reward-grants" element={<SignupRewardGrantsPage />} />
             </Route>
             <Route element={<ProtectedRoute allowedRoles={["ADMIN"]} />}>
