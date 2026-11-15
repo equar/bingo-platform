@@ -10,6 +10,9 @@ import com.bakaroo.bingo.backend.feature.wallet.dto.WalletRecipientLookupRespons
 import com.bakaroo.bingo.backend.feature.wallet.dto.WalletTransferRequest;
 import com.bakaroo.bingo.backend.feature.wallet.dto.WalletTransferResponse;
 import com.bakaroo.bingo.backend.feature.wallet.dto.WalletTransactionResponse;
+import com.bakaroo.bingo.backend.feature.wallet.dto.WithdrawalRequestDto;
+import com.bakaroo.bingo.backend.feature.wallet.dto.WithdrawalResponse;
+import com.bakaroo.bingo.backend.feature.wallet.service.WithdrawalService;
 import com.bakaroo.bingo.backend.feature.wallet.service.WalletService;
 import com.bakaroo.bingo.backend.feature.wallet.service.WalletTransferService;
 import jakarta.validation.Valid;
@@ -34,10 +37,12 @@ public class WalletController {
 
     private final WalletService walletService;
     private final WalletTransferService walletTransferService;
+    private final WithdrawalService withdrawalService;
 
-    public WalletController(WalletService walletService, WalletTransferService walletTransferService) {
+    public WalletController(WalletService walletService, WalletTransferService walletTransferService, WithdrawalService withdrawalService) {
         this.walletService = walletService;
         this.walletTransferService = walletTransferService;
+        this.withdrawalService = withdrawalService;
     }
 
     @GetMapping("/balance")
@@ -64,6 +69,19 @@ public class WalletController {
     public PageResponse<DepositClaimResponse> deposits(@AuthenticationPrincipal BingoUserPrincipal principal,
             @PageableDefault(size = 20) Pageable pageable) {
         return PageResponse.from(walletService.getOwnDeposits(principal, pageable));
+    }
+
+    @PostMapping("/withdrawals")
+    public ResponseEntity<WithdrawalResponse> createWithdrawal(@AuthenticationPrincipal BingoUserPrincipal principal,
+            @Valid @RequestBody WithdrawalRequestDto request, @RequestHeader("Idempotency-Key") String key) {
+        var result = withdrawalService.submit(principal, request, key);
+        return ResponseEntity.status(result.statusCode()).body(result.body());
+    }
+
+    @GetMapping("/withdrawals")
+    public PageResponse<WithdrawalResponse> withdrawals(@AuthenticationPrincipal BingoUserPrincipal principal,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return PageResponse.from(withdrawalService.own(principal, pageable));
     }
 
     @GetMapping("/transfers/recipient")

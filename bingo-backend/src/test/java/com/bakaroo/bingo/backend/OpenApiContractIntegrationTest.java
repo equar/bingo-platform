@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,6 +39,13 @@ class OpenApiContractIntegrationTest extends MySqlIntegrationTest {
             objectMapper.writeValue(checkedInSpecPath.toFile(), generatedSpec);
         }
         JsonNode checkedInSpec = objectMapper.readTree(checkedInSpecPath.toFile());
+        if (!generatedSpec.path("paths").equals(checkedInSpec.path("paths"))
+                || !generatedSpec.path("components").equals(checkedInSpec.path("components"))
+                || !generatedSpec.path("security").equals(checkedInSpec.path("security"))) {
+            Path diagnosticPath = Path.of("target", "surefire-reports", "openapi-generated.json");
+            Files.createDirectories(diagnosticPath.getParent());
+            objectMapper.writeValue(diagnosticPath.toFile(), generatedSpec);
+        }
 
         assertEquals(generatedSpec.path("paths"), checkedInSpec.path("paths"),
                 "Checked-in OpenAPI paths, methods, parameters, schemas, security, and responses must match the app");

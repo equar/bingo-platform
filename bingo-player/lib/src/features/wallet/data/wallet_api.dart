@@ -53,4 +53,13 @@ class WalletApi {
     );
     return WalletTransferResponse.fromJson(response.data ?? const <String, dynamic>{});
   }
+
+  Future<PageResult<WalletWithdrawal>> getWithdrawals({required int page, required int size}) async {
+    final response = await _dio.get<Map<String,dynamic>>('/api/v1/wallet/withdrawals', queryParameters: {'page':page,'size':size});
+    return PageResult.fromJson(response.data ?? const {}, WalletWithdrawal.fromJson);
+  }
+  Future<WalletWithdrawal> submitWithdrawal(WithdrawalRequest request,String key) async {
+    final response=await _dio.post<Map<String,dynamic>>('/api/v1/wallet/withdrawals',data:request.toJson(),options:Options(headers:{'Idempotency-Key':key}));
+    return WalletWithdrawal.fromJson(response.data ?? const {});
+  }
 }

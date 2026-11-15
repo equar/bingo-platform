@@ -28,6 +28,14 @@ Windows. The API origin is the backend root; routes are under `/api/v1`. The
 Agent app has no live-draw WebSocket client. Chrome uses a separate origin from
 Player (`localhost:5180`), and logout clears the Agent's saved session.
 
+On Windows, configure `PUB_CACHE` and the supported Android user paths as
+described in the repository [local development guide](../README.md). The
+launcher preserves Gradle and Kotlin incremental caches and resolves packages
+only when package configuration is missing or stale. Run `flutter pub get`
+from `bingo-agent` after changing dependencies. Keep the Android launch
+terminal open for hot reload (`r`) and hot restart (`R`). Use `-CleanRebuild`
+only to recover this app's generated build state.
+
 Switching platforms starts a separate app instance and does not transfer an
 in-progress workflow. Development HTTP is debug-only; profile and release
 builds require a non-loopback HTTPS URL. A local Agent account must be

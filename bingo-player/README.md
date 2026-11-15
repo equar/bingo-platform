@@ -21,34 +21,15 @@ Tools with the **Desktop development with C++** workload and a Windows 10/11
 SDK. Start MySQL and the backend `dev` profile first; the backend guide
 explains its local `.env` setup.
 
-On Windows, Android builds need `ANDROID_HOME`/`ANDROID_SDK_ROOT` and
-`ANDROID_USER_HOME` set to the installed SDK and user Android directories. If
-Kotlin compilation stalls or fails while closing incremental compiler caches,
-and the Gradle distribution/dependencies are already cached, run this
-workspace-local workaround from PowerShell (it does not change global Gradle
-settings or delete caches):
-
-```powershell
-$env:GRADLE_USER_HOME = "$env:USERPROFILE\.gradle"
-$env:ANDROID_HOME = "$env:USERPROFILE\AppData\Local\Android\Sdk"
-$env:ANDROID_SDK_ROOT = $env:ANDROID_HOME
-$env:ANDROID_USER_HOME = "$env:USERPROFILE\.android"
-$env:ANDROID_EMULATOR_HOME = $env:ANDROID_USER_HOME
-$env:ANDROID_AVD_HOME = "$env:ANDROID_USER_HOME\avd"
-cd android
-.\gradlew.bat --no-daemon --offline `
-  '-Pkotlin.compiler.execution.strategy=in-process' `
-  '-Pkotlin.incremental=false' :app:assembleDebug
-```
-
-This workaround completed a fresh debug APK build on Windows with the current
-cached Gradle distribution and Android dependencies. `--offline` makes the
-cache requirement explicit; if dependencies are missing, resolve them using
-the normal approved network setup before retrying. The APK build is compile
-evidence only and does not replace emulator acceptance testing. The build
-currently emits Android Gradle Plugin/Kotlin plugin migration warnings; follow
-the Flutter built-in Kotlin migration guidance before upgrading past the
-currently supported plugin/toolchain combination.
+On Windows, configure the persistent `PUB_CACHE` and supported Android paths
+as described in the repository [local development guide](../README.md). The
+launcher preserves Gradle daemons, Gradle build caching, and Kotlin
+incremental compilation. It runs `flutter pub get` when package configuration
+is missing or stale; after changing dependencies, run it from `bingo-player`
+first.
+Keep the Android launch terminal open for hot reload (`r`) and hot restart
+(`R`). Use `-CleanRebuild` only to recover this app's generated build state;
+ordinary launches retain it.
 
 The equivalent VS Code launch configurations are **Bingo Player — Android
 emulator**, **Bingo Player — Chrome**, and **Bingo Player — Windows**. For

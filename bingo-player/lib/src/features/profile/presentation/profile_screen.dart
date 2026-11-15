@@ -18,9 +18,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
-  const ProfileScreen({super.key, this.onSupport, this.onGameHistory});
+  const ProfileScreen({
+    super.key,
+    this.onSupport,
+    this.onMessages,
+    this.onGameHistory,
+  });
 
   final VoidCallback? onSupport;
+  final VoidCallback? onMessages;
   final VoidCallback? onGameHistory;
 
   @override
@@ -415,55 +421,35 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              if (widget.onSupport != null && widget.onGameHistory != null) ...[
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        icon: const Icon(Icons.support_agent_rounded),
-                        onPressed: widget.onSupport,
-                        label: Text(
+              if (widget.onSupport != null ||
+                  widget.onMessages != null ||
+                  widget.onGameHistory != null) ...[
+                SectionCard(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Column(
+                    children: [
+                      if (widget.onSupport != null)
+                        _shortcut(
+                          Icons.support_agent_rounded,
                           localizations.homeSupport,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                          widget.onSupport!,
                         ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        icon: const Icon(Icons.sports_esports_outlined),
-                        onPressed: widget.onGameHistory,
-                        label: Text(
+                      if (widget.onMessages != null)
+                        _shortcut(
+                          Icons.mail_outline_rounded,
+                          localizations.messagesTitle,
+                          widget.onMessages!,
+                        ),
+                      if (widget.onGameHistory != null)
+                        _shortcut(
+                          Icons.sports_esports_outlined,
                           localizations.gameHistoryTitle,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                          widget.onGameHistory!,
                         ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-              ] else if (widget.onSupport != null) ...[
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    icon: const Icon(Icons.support_agent_rounded),
-                    onPressed: widget.onSupport,
-                    label: Text(localizations.homeSupport),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 16),
-              ] else if (widget.onGameHistory != null) ...[
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    icon: const Icon(Icons.sports_esports_outlined),
-                    onPressed: widget.onGameHistory,
-                    label: Text(localizations.gameHistoryTitle),
-                  ),
-                ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 24),
               ],
               OutlinedButton.icon(
                 icon: const Icon(Icons.logout_rounded),
@@ -490,5 +476,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     subtitle: Text(url, maxLines: 1, overflow: TextOverflow.ellipsis),
     trailing: const Icon(Icons.chevron_right_rounded),
     onTap: () => ExternalLink.open(url),
+  );
+
+  Widget _shortcut(IconData icon, String label, VoidCallback onTap) => ListTile(
+    leading: Icon(icon, color: Theme.of(context).colorScheme.primary),
+    title: Text(label),
+    trailing: const Icon(Icons.chevron_right_rounded),
+    onTap: onTap,
   );
 }

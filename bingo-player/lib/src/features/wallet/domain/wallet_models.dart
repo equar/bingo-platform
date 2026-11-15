@@ -261,3 +261,15 @@ class DepositRequest {
         'telebirrReference': telebirrReference,
       };
 }
+
+class WithdrawalRequest {
+  const WithdrawalRequest({required this.amount, required this.currency, required this.destinationType, required this.accountName, this.phoneNumber, this.bankName, this.accountNumber});
+  final num amount; final String currency; final String destinationType; final String accountName; final String? phoneNumber; final String? bankName; final String? accountNumber;
+  Map<String, dynamic> toJson() => {'amount': amount, 'currency': currency, 'destinationType': destinationType, 'accountName': accountName, 'phoneNumber': phoneNumber, 'bankName': bankName, 'accountNumber': accountNumber};
+}
+
+class WalletWithdrawal {
+  const WalletWithdrawal({required this.id,required this.amount,required this.currency,required this.destinationType,required this.accountName,required this.status,required this.createdAt,this.phoneNumber,this.bankName,this.accountNumber,this.transferReference,this.reviewNote});
+  final int id; final num amount; final String currency; final String destinationType; final String accountName; final String status; final DateTime createdAt; final String? phoneNumber; final String? bankName; final String? accountNumber; final String? transferReference; final String? reviewNote;
+  factory WalletWithdrawal.fromJson(Map<String,dynamic> j)=>WalletWithdrawal(id:(j['id'] as num?)?.toInt()??0,amount:j['amount'] as num? ?? 0,currency:j['currency']?.toString()??'',destinationType:j['destinationType']?.toString()??'',accountName:j['accountName']?.toString()??'',status:j['status']?.toString()??'',createdAt:DateTime.tryParse(j['createdAt']?.toString()??'')??DateTime.fromMillisecondsSinceEpoch(0),phoneNumber:j['phoneNumber']?.toString(),bankName:j['bankName']?.toString(),accountNumber:j['accountNumber']?.toString(),transferReference:j['transferReference']?.toString(),reviewNote:j['reviewNote']?.toString());
+}

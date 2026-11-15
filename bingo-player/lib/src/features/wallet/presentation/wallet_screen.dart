@@ -36,6 +36,13 @@ final walletDepositsProvider = FutureProvider.autoDispose
           .getDeposits(page: page, size: 10);
     });
 
+final walletWithdrawalsProvider = FutureProvider.autoDispose
+    .family<PageResult<WalletWithdrawal>, int>(
+      (ref, page) async => ref
+          .read(walletRepositoryProvider)
+          .getWithdrawals(page: page, size: 10),
+    );
+
 class WalletScreen extends ConsumerStatefulWidget {
   const WalletScreen({super.key});
 
@@ -64,7 +71,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
   String? _depositError;
   ApiError? _depositApiError;
   late final TabController _tabController = TabController(
-    length: 3,
+    length: 4,
     vsync: this,
   );
 
@@ -187,6 +194,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
     ref.invalidate(walletBalanceProvider);
     ref.invalidate(walletTransactionsProvider(_transactionPage));
     ref.invalidate(walletDepositsProvider(_depositPage));
+    ref.invalidate(walletWithdrawalsProvider(0));
   }
 
   @override
@@ -211,6 +219,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
             Tab(text: localizations.walletTransactionsTab),
             Tab(text: localizations.walletDepositsTab),
             Tab(text: localizations.walletTransfersTab),
+            const Tab(text: 'Withdrawals'),
           ],
         ),
       ),
@@ -440,6 +449,10 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                         currency: balance.currency,
                         onCompleted: _refreshWalletData,
                       ),
+                      _WithdrawalsPane(
+                        currency: balance.currency,
+                        onCompleted: _refreshWalletData,
+                      ),
                     ],
                   ),
                 ),
@@ -448,6 +461,237 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
           },
         ),
       ),
+    );
+  }
+}
+
+class _WithdrawalsPane extends ConsumerStatefulWidget {
+  const _WithdrawalsPane({required this.currency, required this.onCompleted});
+  final String currency;
+  final VoidCallback onCompleted;
+  @override
+  ConsumerState<_WithdrawalsPane> createState() => _WithdrawalsPaneState();
+}
+
+class _WithdrawalsPaneState extends ConsumerState<_WithdrawalsPane> {
+  final _formKey = GlobalKey<FormState>();
+  final _amount = TextEditingController();
+  final _name = TextEditingController();
+  final _phone = TextEditingController();
+  final _bank = TextEditingController();
+  final _account = TextEditingController();
+  String _type = 'TELEBIRR';
+  bool _busy = false;
+  String? _error;
+  int _page = 0;
+  @override
+  void dispose() {
+    _amount.dispose();
+    _name.dispose();
+    _phone.dispose();
+    _bank.dispose();
+    _account.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _busy = true);
+    try {
+      await ref
+          .read(walletRepositoryProvider)
+          .submitWithdrawal(
+            WithdrawalRequest(
+              amount: num.parse(_amount.text),
+              currency: widget.currency,
+              destinationType: _type,
+              accountName: _name.text.trim(),
+              phoneNumber: _type == 'TELEBIRR' ? _phone.text.trim() : null,
+              bankName: _type == 'BANK' ? _bank.text.trim() : null,
+              accountNumber: _type == 'BANK' ? _account.text.trim() : null,
+            ),
+            const Uuid().v4(),
+          );
+      if (!mounted) return;
+      _amount.clear();
+      _name.clear();
+      _phone.clear();
+      _bank.clear();
+      _account.clear();
+      ref.invalidate(walletWithdrawalsProvider(_page));
+      widget.onCompleted();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Withdrawal request submitted. Funds are reserved while it is reviewed.',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        setState(
+          () => _error =
+              userFacingApiError(e, AppLocalizations.of(context)!) ??
+              'Unable to submit withdrawal request.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final async = ref.watch(walletWithdrawalsProvider(_page));
+    return ListView(
+      padding: const EdgeInsets.all(12),
+      children: [
+        SectionCard(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Request a withdrawal',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Requests reserve available cash. Support will transfer it and update the status.',
+                ),
+                DropdownButtonFormField<String>(
+                  initialValue: _type,
+                  decoration: const InputDecoration(labelText: 'Send to'),
+                  items: const [
+                    DropdownMenuItem(
+                      value: 'TELEBIRR',
+                      child: Text('Telebirr'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'BANK',
+                      child: Text('Bank account'),
+                    ),
+                  ],
+                  onChanged: _busy
+                      ? null
+                      : (v) => setState(() => _type = v ?? 'TELEBIRR'),
+                ),
+                TextFormField(
+                  controller: _amount,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: InputDecoration(
+                    labelText: 'Amount (${widget.currency})',
+                  ),
+                  validator: (v) {
+                    final n = num.tryParse(v ?? '');
+                    return n == null || n <= 0
+                        ? 'Enter an amount greater than zero'
+                        : null;
+                  },
+                ),
+                TextFormField(
+                  controller: _name,
+                  decoration: const InputDecoration(
+                    labelText: 'Account holder name',
+                  ),
+                  validator: (v) =>
+                      (v == null || v.trim().isEmpty) ? 'Required' : null,
+                ),
+                if (_type == 'TELEBIRR')
+                  TextFormField(
+                    controller: _phone,
+                    decoration: const InputDecoration(
+                      labelText: 'Telebirr phone number',
+                    ),
+                    validator: (v) =>
+                        (v == null || v.trim().isEmpty) ? 'Required' : null,
+                  ),
+                if (_type == 'BANK') ...[
+                  TextFormField(
+                    controller: _bank,
+                    decoration: const InputDecoration(labelText: 'Bank name'),
+                    validator: (v) =>
+                        (v == null || v.trim().isEmpty) ? 'Required' : null,
+                  ),
+                  TextFormField(
+                    controller: _account,
+                    decoration: const InputDecoration(
+                      labelText: 'Account number',
+                    ),
+                    validator: (v) =>
+                        (v == null || v.trim().isEmpty) ? 'Required' : null,
+                  ),
+                ],
+                if (_error != null)
+                  Text(
+                    _error!,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                const SizedBox(height: 8),
+                FilledButton(
+                  onPressed: _busy ? null : _submit,
+                  child: _busy
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Submit withdrawal request'),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          'Your withdrawal requests',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        async.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, s) => Text(
+            userFacingApiError(e, AppLocalizations.of(context)!) ??
+                'Unable to load withdrawals',
+          ),
+          data: (result) => Column(
+            children: [
+              for (final r in result.content)
+                Card(
+                  child: ListTile(
+                    title: Text(
+                      '${r.amount} ${r.currency} · ${r.destinationType}',
+                    ),
+                    subtitle: Text(
+                      '${r.accountName} · ${r.status}${r.transferReference == null ? '' : ' · Ref ${r.transferReference}'}${r.reviewNote == null ? '' : ' · ${r.reviewNote}'}',
+                    ),
+                    trailing: Text('${r.createdAt.toLocal()}'),
+                  ),
+                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  IconButton(
+                    onPressed: _page > 0 ? () => setState(() => _page--) : null,
+                    icon: const Icon(Icons.chevron_left),
+                  ),
+                  Text('Page ${_page + 1}'),
+                  IconButton(
+                    onPressed: result.content.length == 10
+                        ? () => setState(() => _page++)
+                        : null,
+                    icon: const Icon(Icons.chevron_right),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

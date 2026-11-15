@@ -158,14 +158,15 @@ class LobbyScreen extends ConsumerWidget {
                                 ],
                               ),
                               const SizedBox(height: 12),
-                              Row(
+                              Wrap(
+                                spacing: 24,
+                                runSpacing: 8,
                                 children: [
                                   _InfoChip(
                                     label: localizations.roomPriceLabel,
                                     value:
                                         '${session.ticketPrice} ${session.currency}',
                                   ),
-                                  const SizedBox(width: 24),
                                   _InfoChip(
                                     label: localizations.roomCapacityLabel,
                                     value: session.ticketCount.toString(),
@@ -173,41 +174,64 @@ class LobbyScreen extends ConsumerWidget {
                                 ],
                               ),
                               const SizedBox(height: 12),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: OutlinedButton(
-                                      onPressed: () =>
-                                          Navigator.of(context).push(
-                                            MaterialPageRoute<void>(
-                                              builder: (_) =>
-                                                  SessionDetailScreen(
-                                                    session: session,
-                                                  ),
-                                            ),
-                                          ),
-                                      child: Text(localizations.roomDetails),
+                              LayoutBuilder(
+                                builder: (context, constraints) {
+                                  final stackButtons =
+                                      constraints.maxWidth < 420 ||
+                                      MediaQuery.textScalerOf(
+                                            context,
+                                          ).scale(14) >
+                                          18;
+                                  final detailsButton = OutlinedButton(
+                                    key: ValueKey(
+                                      'session-details-${session.id}',
                                     ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: FilledButton(
-                                      onPressed: () =>
-                                          Navigator.of(context).push(
-                                            MaterialPageRoute<void>(
-                                              builder: (_) =>
-                                                  TicketPreviewScreen(
-                                                    sessionId: session.id,
-                                                    roomId: session.roomId,
-                                                  ),
-                                            ),
-                                          ),
-                                      child: Text(
-                                        localizations.ticketPreviewButton,
+                                    onPressed: () => Navigator.of(context).push(
+                                      MaterialPageRoute<void>(
+                                        builder: (_) => SessionDetailScreen(
+                                          session: session,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                ],
+                                    child: Text(localizations.roomDetails),
+                                  );
+                                  final previewButton = FilledButton(
+                                    key: ValueKey(
+                                      'ticket-preview-${session.id}',
+                                    ),
+                                    onPressed: () => Navigator.of(context).push(
+                                      MaterialPageRoute<void>(
+                                        builder: (_) => TicketPreviewScreen(
+                                          sessionId: session.id,
+                                          roomId: session.roomId,
+                                        ),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      localizations.ticketPreviewButton,
+                                    ),
+                                  );
+
+                                  if (stackButtons) {
+                                    return Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.stretch,
+                                      children: [
+                                        detailsButton,
+                                        const SizedBox(height: 8),
+                                        previewButton,
+                                      ],
+                                    );
+                                  }
+
+                                  return Row(
+                                    children: [
+                                      Expanded(child: detailsButton),
+                                      const SizedBox(width: 12),
+                                      Expanded(child: previewButton),
+                                    ],
+                                  );
+                                },
                               ),
                             ],
                           ),
