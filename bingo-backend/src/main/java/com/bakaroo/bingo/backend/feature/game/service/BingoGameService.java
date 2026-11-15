@@ -235,6 +235,9 @@ public class BingoGameService {
     @Transactional(readOnly = true)
     public PlayerGameSessionResponse getPlayerSession(Long sessionId) {
         GameSession session = requireSession(sessionId);
+        if (!session.getRoom().isActive() && !session.getRoom().isPrivateRoom()) {
+            throw new NotFoundException("SESSION_NOT_FOUND", "Game session not found");
+        }
         gameAccess.requireRoomAccess(session.getRoom().getId());
         return toPlayerSessionResponse(session);
     }
