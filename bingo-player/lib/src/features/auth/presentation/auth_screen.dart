@@ -6,6 +6,7 @@ import 'package:bingo_player/src/features/auth/data/auth_repository.dart';
 import 'package:bingo_player/src/features/auth/data/auth_session_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthScreen extends ConsumerStatefulWidget {
   const AuthScreen({
@@ -24,6 +25,8 @@ class AuthScreen extends ConsumerStatefulWidget {
 }
 
 class _AuthScreenState extends ConsumerState<AuthScreen> {
+  static const String _lastLoginPhoneKey = 'player.last_login_phone';
+
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final TextEditingController _displayNameController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
@@ -35,11 +38,23 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   String? _errorMessage;
   ApiError? _apiError;
   bool _suspensionDialogOpen = false;
+  bool _phoneEdited = false;
 
   @override
   void initState() {
     super.initState();
+    _restoreLastLoginPhone();
     if (widget.accountSuspended) _scheduleSuspensionDialog();
+  }
+
+  Future<void> _restoreLastLoginPhone() async {
+    final preferences = await SharedPreferences.getInstance();
+    final phone = preferences.getString(_lastLoginPhoneKey);
+    if (!mounted || _phoneEdited || _phoneController.text.isNotEmpty) return;
+    if (phone != null && phone.isNotEmpty) {
+      _phoneController.text = phone;
+      setState(() {});
+    }
   }
 
   @override
@@ -113,6 +128,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       );
       final requestPhone = _phoneController.text.trim();
       final pin = _pinController.text;
+      if (!_registerMode) {
+        final preferences = await SharedPreferences.getInstance();
+        await preferences.setString(_lastLoginPhoneKey, requestPhone);
+      }
       final authResponse = _registerMode
           ? await repository.register(
               RegisterRequest(
@@ -279,7 +298,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                             textInputAction: TextInputAction.next,
                             keyboardType: TextInputType.phone,
                             maxLength: 30,
-                            onChanged: (_) => _clearStaleErrors(),
+                            onChanged: (_) {
+                              _phoneEdited = true;
+                              _clearStaleErrors();
+                            },
                             onFieldSubmitted: (_) =>
                                 FocusScope.of(context).nextFocus(),
                             decoration: InputDecoration(

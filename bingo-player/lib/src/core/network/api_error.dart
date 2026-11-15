@@ -130,6 +130,8 @@ class ApiError implements Exception {
       return localizations.errorInvalidPhone;
     }
     if (code == 'INVALID_PIN') return localizations.errorInvalidPin;
+    if (code == 'INVALID_CURRENT_PIN') return localizations.currentPinIncorrect;
+    if (code == 'PIN_REUSE_NOT_ALLOWED') return localizations.pinMustDiffer;
     if (code == 'DUPLICATE_TELEBIRR_REFERENCE' ||
         code == 'DUPLICATE_BANK_REFERENCE') {
       return localizations.errorDuplicateReference;

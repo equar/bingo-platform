@@ -9,7 +9,10 @@ class AuthApi {
 
   Future<AuthResponse> login(LoginRequest request) async {
     try {
-      final response = await _dio.post<Map<String, dynamic>>('/api/v1/auth/login', data: request.toJson());
+      final response = await _dio.post<Map<String, dynamic>>(
+        '/api/v1/auth/login',
+        data: request.toJson(),
+      );
       return AuthResponse.fromJson(response.data ?? const <String, dynamic>{});
     } on DioException catch (error) {
       throw mapDioError(error);
@@ -18,7 +21,10 @@ class AuthApi {
 
   Future<AuthResponse> register(RegisterRequest request) async {
     try {
-      final response = await _dio.post<Map<String, dynamic>>('/api/v1/auth/register', data: request.toJson());
+      final response = await _dio.post<Map<String, dynamic>>(
+        '/api/v1/auth/register',
+        data: request.toJson(),
+      );
       return AuthResponse.fromJson(response.data ?? const <String, dynamic>{});
     } on DioException catch (error) {
       throw mapDioError(error);
@@ -29,8 +35,18 @@ class AuthApi {
     try {
       final response = await _dio.get<Map<String, dynamic>>('/api/v1/me');
       final data = response.data ?? const <String, dynamic>{};
-      final userJson = data['user'] is Map ? Map<String, dynamic>.from(data['user'] as Map) : data;
+      final userJson = data['user'] is Map
+          ? Map<String, dynamic>.from(data['user'] as Map)
+          : data;
       return UserProfile.fromJson(userJson);
+    } on DioException catch (error) {
+      throw mapDioError(error);
+    }
+  }
+
+  Future<void> changePin(ChangePlayerPinRequest request) async {
+    try {
+      await _dio.put<void>('/api/v1/me/pin', data: request.toJson());
     } on DioException catch (error) {
       throw mapDioError(error);
     }

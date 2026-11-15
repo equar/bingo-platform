@@ -5,6 +5,7 @@ import com.bakaroo.bingo.backend.common.exception.AccountSuspendedException;
 import com.bakaroo.bingo.backend.common.exception.ConflictException;
 import com.bakaroo.bingo.backend.common.exception.NotFoundException;
 import com.bakaroo.bingo.backend.feature.auth.dto.AuthResponse;
+import com.bakaroo.bingo.backend.feature.auth.dto.ChangePlayerPinRequest;
 import com.bakaroo.bingo.backend.feature.auth.dto.LoginRequest;
 import com.bakaroo.bingo.backend.feature.auth.dto.MeResponse;
 import com.bakaroo.bingo.backend.feature.auth.dto.RegisterRequest;
@@ -141,6 +142,26 @@ public class AuthService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException("USER_NOT_FOUND", "User account not found"));
         return new MeResponse(toProfile(user));
+    }
+
+    @Transactional
+    public void changeMyPin(Long userId, ChangePlayerPinRequest request) {
+        User user = userRepository.findByIdForUpdate(userId)
+                .orElseThrow(() -> new NotFoundException("USER_NOT_FOUND", "User account not found"));
+        if (!user.hasRole(UserRole.PLAYER)) {
+            throw new BadRequestException("PLAYER_ACCOUNT_REQUIRED", "A player account is required to change this PIN");
+        }
+        throttleService.requireAccountAllowed("player", user.getNormalizedPhone());
+        if (!passwordEncoder.matches(request.currentPin(), user.getPasswordHash())) {
+            throttleService.recordAccountFailure("player", user.getNormalizedPhone());
+            throw new BadRequestException("INVALID_CURRENT_PIN", "Current PIN is incorrect");
+        }
+        if (passwordEncoder.matches(request.newPin(), user.getPasswordHash())) {
+            throw new ConflictException("PIN_REUSE_NOT_ALLOWED", "Choose a PIN different from the current PIN");
+        }
+        user.setPasswordHash(passwordEncoder.encode(request.newPin()));
+        userRepository.save(user);
+        throttleService.clearAccountAttempts("player", user.getNormalizedPhone());
     }
 
     @Transactional
