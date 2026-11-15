@@ -44,7 +44,9 @@ final walletWithdrawalsProvider = FutureProvider.autoDispose
     );
 
 class WalletScreen extends ConsumerStatefulWidget {
-  const WalletScreen({super.key});
+  const WalletScreen({super.key, this.initialTab = 0});
+
+  final int initialTab;
 
   @override
   ConsumerState<WalletScreen> createState() => _WalletScreenState();
@@ -61,7 +63,6 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
   bool _isAppActive = true;
   PaymentInstructions? _instructions;
   bool _submittingDeposit = false;
-  bool _showDepositForm = false;
   final _depositFormKey = GlobalKey<FormState>();
   final _depositAmountController = TextEditingController();
   final _depositReferenceController = TextEditingController();
@@ -70,20 +71,29 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
   bool _depositOutcomeUnknown = false;
   String? _depositError;
   ApiError? _depositApiError;
+  int _selectedTabIndex = 0;
   late final TabController _tabController = TabController(
     length: 4,
+    initialIndex: widget.initialTab.clamp(0, 3).toInt(),
     vsync: this,
   );
 
   @override
   void initState() {
     super.initState();
+    _selectedTabIndex = _tabController.index;
+    _tabController.addListener(_handleTabChanged);
     WidgetsBinding.instance.addObserver(this);
     _walletRefreshTimer = Timer.periodic(_walletRefreshInterval, (_) {
       if (_isWalletVisible && _isAppActive) {
         _refreshWalletData();
       }
     });
+  }
+
+  void _handleTabChanged() {
+    if (_tabController.index == _selectedTabIndex) return;
+    if (mounted) setState(() => _selectedTabIndex = _tabController.index);
   }
 
   @override
@@ -109,6 +119,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _tabController.removeListener(_handleTabChanged);
     _walletRefreshTimer?.cancel();
     _tabController.dispose();
     _depositAmountController.dispose();
@@ -116,17 +127,23 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
     super.dispose();
   }
 
-  Future<void> _createDeposit(String currency) async {
+  Future<void> _confirmDeposit(String currency) async {
     if (_depositOutcomeUnknown && _pendingDeposit != null) {
       await _submitPendingDeposit();
-      return;
+    } else {
+      await _submitDepositForm(currency);
     }
-    _depositAmountController.text =
-        _pendingDeposit?.submittedCashAmount.toString() ?? '';
-    _depositReferenceController.text = _pendingDeposit?.telebirrReference ?? '';
+  }
+
+  void _cancelDeposit() {
+    if (_depositOutcomeUnknown && _pendingDeposit != null) return;
     setState(() {
-      _showDepositForm = true;
+      _depositAmountController.clear();
+      _depositReferenceController.clear();
       _depositError = null;
+      _depositApiError = null;
+      _pendingDeposit = null;
+      _pendingDepositIdempotencyKey = null;
     });
   }
 
@@ -168,7 +185,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
         _pendingDepositIdempotencyKey = null;
         _depositOutcomeUnknown = false;
         _depositError = null;
-        _showDepositForm = false;
+        _depositAmountController.clear();
+        _depositReferenceController.clear();
       });
       _refreshWalletData();
     } catch (error) {
@@ -180,7 +198,6 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
             ? null
             : parsed.userMessage(AppLocalizations.of(context)!);
         _depositOutcomeUnknown = parsed.outcomeUnknown;
-        _showDepositForm = !parsed.outcomeUnknown;
         if (!parsed.outcomeUnknown) _pendingDepositIdempotencyKey = null;
       });
     } finally {
@@ -215,6 +232,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
           isScrollable: true,
           tabAlignment: TabAlignment.start,
           controller: _tabController,
+          onTap: (index) => setState(() => _selectedTabIndex = index),
           tabs: [
             Tab(text: localizations.walletTransactionsTab),
             Tab(text: localizations.walletDepositsTab),
@@ -237,42 +255,27 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
             return ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                SectionCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _BalanceSummary(balance: balance),
-                      if ((session?.user.referralCode ?? '').isNotEmpty) ...[
-                        const SizedBox(height: 12),
-                        Text(
-                          localizations.yourReferralCode,
-                          style: Theme.of(context).textTheme.titleSmall,
-                        ),
-                        SelectableText(
-                          session!.user.referralCode,
-                          key: const ValueKey('player-referral-code'),
-                        ),
-                      ],
-                      const SizedBox(height: 16),
-                      Text(localizations.balanceDisclaimer),
-                      const SizedBox(height: 12),
-                      if (_depositError != null && !_showDepositForm) ...[
-                        Text(
-                          _depositError!,
-                          style: TextStyle(
-                            color: Theme.of(context).colorScheme.error,
-                          ),
-                        ),
-                        if (_pendingDeposit != null) ...[
-                          const SizedBox(height: 8),
+                SectionCard(child: _BalanceSummary(balance: balance)),
+                const SizedBox(height: 16),
+                if (_selectedTabIndex == 1) ...[
+                  SectionCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if ((session?.user.referralCode ?? '').isNotEmpty) ...[
+                          const SizedBox(height: 12),
                           Text(
-                            '${_pendingDeposit!.submittedCashAmount} ${_pendingDeposit!.currency} · ${_pendingDeposit!.telebirrReference}',
-                            style: Theme.of(context).textTheme.bodySmall,
+                            localizations.yourReferralCode,
+                            style: Theme.of(context).textTheme.titleSmall,
+                          ),
+                          SelectableText(
+                            session!.user.referralCode,
+                            key: const ValueKey('player-referral-code'),
                           ),
                         ],
+                        const SizedBox(height: 16),
+                        Text(localizations.balanceDisclaimer),
                         const SizedBox(height: 12),
-                      ],
-                      if (_showDepositForm) ...[
                         Form(
                           key: _depositFormKey,
                           child: Column(
@@ -343,22 +346,21 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                                 spacing: 12,
                                 children: [
                                   OutlinedButton(
-                                    onPressed: _submittingDeposit
+                                    onPressed:
+                                        _submittingDeposit ||
+                                            _depositOutcomeUnknown
                                         ? null
-                                        : () => setState(
-                                            () => _showDepositForm = false,
-                                          ),
+                                        : _cancelDeposit,
                                     child: Text(localizations.cancel),
                                   ),
                                   FilledButton(
                                     key: const ValueKey(
-                                      'wallet-submit-deposit-button',
+                                      'wallet-confirm-deposit-button',
                                     ),
                                     onPressed: _submittingDeposit
                                         ? null
-                                        : () => _submitDepositForm(
-                                            balance.currency,
-                                          ),
+                                        : () =>
+                                              _confirmDeposit(balance.currency),
                                     child: _submittingDeposit
                                         ? const SizedBox(
                                             width: 18,
@@ -367,60 +369,47 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                                               strokeWidth: 2,
                                             ),
                                           )
-                                        : Text(localizations.confirm),
+                                        : Text(
+                                            _depositOutcomeUnknown
+                                                ? localizations.retry
+                                                : localizations.confirm,
+                                          ),
                                   ),
                                 ],
                               ),
                             ],
                           ),
                         ),
-                      ] else
-                        FilledButton(
-                          key: const ValueKey('wallet-submit-deposit-button'),
-                          onPressed: _submittingDeposit
-                              ? null
-                              : () => _createDeposit(balance.currency),
-                          child: _submittingDeposit
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : Text(
-                                  _depositOutcomeUnknown
-                                      ? localizations.retry
-                                      : localizations.submitDeposit,
-                                ),
-                        ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                if (_instructions != null) ...[
-                  SectionCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          localizations.telebirrInstructionsTitle,
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(_instructions!.providerName),
-                        Text(_instructions!.businessAccount),
-                        const SizedBox(height: 8),
-                        Text(_instructions!.paymentInstructions),
                       ],
                     ),
                   ),
                   const SizedBox(height: 16),
+                  if (_instructions != null) ...[
+                    SectionCard(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            localizations.telebirrInstructionsTitle,
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(_instructions!.providerName),
+                          Text(_instructions!.businessAccount),
+                          const SizedBox(height: 8),
+                          Text(_instructions!.paymentInstructions),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                 ],
                 SizedBox(
-                  height: (MediaQuery.sizeOf(context).height * .65)
-                      .clamp(360.0, 640.0)
-                      .toDouble(),
+                  height:
+                      (MediaQuery.sizeOf(context).height *
+                              (_selectedTabIndex == 0 ? .78 : .65))
+                          .clamp(360.0, 640.0)
+                          .toDouble(),
                   child: TabBarView(
                     controller: _tabController,
                     children: [

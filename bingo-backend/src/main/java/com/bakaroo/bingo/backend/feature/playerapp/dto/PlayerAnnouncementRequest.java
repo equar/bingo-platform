@@ -8,5 +8,8 @@ public record PlayerAnnouncementRequest(
         @Size(max = 160) String titleAm,
         @NotBlank @Size(max = 2000) String bodyEn,
         @Size(max = 2000) String bodyAm,
-        boolean published) {
+        @Size(max = 1000) String imageUrl,
+        boolean published,
+        boolean showInCarousel,
+        int displayOrder) {
 }

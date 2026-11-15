@@ -17,6 +17,8 @@ class LiveCallPanel extends StatefulWidget {
     required this.finished,
     this.soundEnabled = false,
     this.notificationsEnabled = false,
+    this.notificationMode = 'my_card',
+    this.ticketNumbers = const {},
     this.missedCallCount = 0,
     this.eligibleWinCount = 0,
     this.onMarkMissedCalls,
@@ -28,6 +30,8 @@ class LiveCallPanel extends StatefulWidget {
   final bool finished;
   final bool soundEnabled;
   final bool notificationsEnabled;
+  final String notificationMode;
+  final Set<int> ticketNumbers;
   final int missedCallCount;
   final int eligibleWinCount;
   final VoidCallback? onMarkMissedCalls;
@@ -69,17 +73,31 @@ class _LiveCallPanelState extends State<LiveCallPanel> {
     if (widget.soundEnabled && (isNewLiveCall || isNewEligibleWin)) {
       unawaited(PlayerNotifications.playSound(win: isNewEligibleWin));
     }
+    final notifyForCall = switch (widget.notificationMode) {
+      'every_call' => isNewLiveCall,
+      'my_card' =>
+        isNewLiveCall &&
+            widget.ticketNumbers.contains(widget.draws.last.numberDrawn),
+      'win' => isNewEligibleWin && widget.draws.isNotEmpty,
+      _ => false,
+    };
     if (widget.notificationsEnabled &&
         widget.isLive &&
         widget.connected &&
-        isNewLiveCall) {
+        notifyForCall) {
       unawaited(
         PlayerNotifications.show(
           title: AppLocalizations.of(context)!.liveGameTitle,
-          body: AppLocalizations.of(
-            context,
-          )!.newCalledNumberAlert(widget.draws.last.numberDrawn),
-          id: widget.draws.isEmpty ? 7003 : widget.draws.last.sequenceNo,
+          body: widget.notificationMode == 'win'
+              ? AppLocalizations.of(context)!.winningNotificationAlert
+              : AppLocalizations.of(
+                  context,
+                )!.newCalledNumberAlert(widget.draws.last.numberDrawn),
+          id: widget.notificationMode == 'win'
+              ? 7002
+              : widget.draws.isEmpty
+              ? 7003
+              : widget.draws.last.sequenceNo,
         ),
       );
     }

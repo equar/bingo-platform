@@ -76,6 +76,7 @@ class WinClaimSessionSecurityTest {
     @Mock private RequestHashService requestHashService;
     @Mock private ObjectMapper objectMapper;
     @Mock private GameLiveDrawService gameLiveDrawService;
+    @Mock private RoomSessionCadenceService roomSessionCadence;
 
     private BingoGameService service;
     private User player;
@@ -91,7 +92,7 @@ class WinClaimSessionSecurityTest {
                 org.mockito.Mockito.mock(com.bakaroo.bingo.backend.feature.community.service.GameAccessService.class),
                 mock(GameFundingService.class), mock(GameWinnerService.class), mock(GameRefundService.class),
                 new com.bakaroo.bingo.backend.feature.game.config.GamePolicyProperties(1000, java.math.BigDecimal.ZERO,
-                        java.time.Duration.ofHours(24), false));
+                        java.time.Duration.ofHours(24), false), roomSessionCadence);
 
     }
 

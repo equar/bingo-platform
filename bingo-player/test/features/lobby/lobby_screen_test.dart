@@ -12,6 +12,7 @@ import 'package:bingo_player/src/features/lobby/data/lobby_api.dart';
 import 'package:bingo_player/src/features/lobby/data/lobby_repository.dart';
 import 'package:bingo_player/src/features/lobby/domain/lobby_models.dart';
 import 'package:bingo_player/src/features/lobby/presentation/lobby_screen.dart';
+import 'package:bingo_player/src/features/lobby/presentation/ticket_preview_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -23,10 +24,11 @@ void main() {
     final repository = _LobbyRepository();
     await tester.pumpWidget(_app(repository));
     await tester.pumpAndSettle();
+    await _openUpcomingGames(tester);
 
     expect(find.text('QA Scheduled Session'), findsOneWidget);
     expect(find.byKey(const ValueKey('session-details-12')), findsOneWidget);
-    expect(find.byKey(const ValueKey('ticket-preview-12')), findsOneWidget);
+    expect(find.byKey(const ValueKey('buy-tickets-12')), findsOneWidget);
   });
 
   testWidgets('cancelled sessions are shown as not playable', (tester) async {
@@ -62,6 +64,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    await _openUpcomingGames(tester);
     await tester.tap(find.byKey(const ValueKey('session-details-12')));
     await tester.pumpAndSettle();
 
@@ -78,9 +81,12 @@ void main() {
     'ticket information shows server snapshot and keeps purchase disabled',
     (tester) async {
       final repository = _LobbyRepository();
-      await tester.pumpWidget(_app(repository));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('ticket-preview-12')));
+      await tester.pumpWidget(
+        _app(
+          repository,
+          home: const TicketPreviewScreen(sessionId: 12, roomId: 6),
+        ),
+      );
       await tester.pumpAndSettle();
 
       expect(find.textContaining('3.25 ETB'), findsOneWidget);
@@ -118,9 +124,12 @@ void main() {
         failPreview: true,
         sessionState: 'DRAFT',
       );
-      await tester.pumpWidget(_app(repository));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('ticket-preview-12')));
+      await tester.pumpWidget(
+        _app(
+          repository,
+          home: const TicketPreviewScreen(sessionId: 12, roomId: 6),
+        ),
+      );
       await tester.pumpAndSettle();
       expect(
         find.text(
@@ -188,8 +197,9 @@ void main() {
     final repository = _LobbyRepository(emptySessions: true);
     await tester.pumpWidget(_app(repository));
     await tester.pumpAndSettle();
+    await _openUpcomingGames(tester);
 
-    expect(find.text('No rooms available'), findsOneWidget);
+    expect(find.text('No upcoming games are scheduled.'), findsOneWidget);
   });
 
   testWidgets('active session load error offers retry', (tester) async {
@@ -205,6 +215,7 @@ void main() {
     repository.failSessions = false;
     await tester.tap(find.text('Try again'));
     await tester.pumpAndSettle();
+    await _openUpcomingGames(tester);
     expect(find.text('QA Scheduled Session'), findsOneWidget);
   });
 
@@ -227,6 +238,7 @@ void main() {
       await repository.getRoomSessions(_room.id),
     );
     await tester.pumpAndSettle();
+    await _openUpcomingGames(tester);
     expect(repository.sessionRequests, 2);
     expect(find.text('QA Scheduled Session'), findsOneWidget);
     expect(find.text('Try again'), findsNothing);
@@ -257,6 +269,12 @@ Widget _app(
   ),
 );
 
+Future<void> _openUpcomingGames(WidgetTester tester) async {
+  await tester.ensureVisible(find.text('Upcoming games'));
+  await tester.tap(find.text('Upcoming games'));
+  await tester.pumpAndSettle();
+}
+
 class _LobbyRepository extends LobbyRepository {
   _LobbyRepository({
     this.failPreview = false,
@@ -278,7 +296,7 @@ class _LobbyRepository extends LobbyRepository {
   int previewRequests = 0;
 
   @override
-  Future<List<GameSession>> getActiveSessions() async {
+  Future<List<GameSession>> getSessions() async {
     sessionRequests++;
     if (pendingSessions != null) return pendingSessions!.future;
     if (failSessions) throw Exception('offline');

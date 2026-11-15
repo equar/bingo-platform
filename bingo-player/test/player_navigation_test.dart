@@ -94,6 +94,15 @@ Future<void> tab(WidgetTester tester, String label) async {
   await tester.pumpAndSettle();
 }
 
+Future<void> _selectUpcomingSessionTab(WidgetTester tester) async {
+  final lobby = find.byType(LobbyScreen);
+  final context = tester.element(lobby);
+  final label = AppLocalizations.of(context)!.upcomingGamesTab;
+  await tester.ensureVisible(find.text(label));
+  await tester.tap(find.text(label));
+  await tester.pumpAndSettle();
+}
+
 Future<void> capture(
   WidgetTester tester,
   String name, {
@@ -151,6 +160,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('home-play-bingo')));
       await tester.pumpAndSettle();
+      await _selectUpcomingSessionTab(tester);
       await tester.tap(find.byKey(const ValueKey('session-details-7')));
       await tester.pumpAndSettle();
       expect(find.byType(NavigationBar), findsOneWidget);
@@ -205,6 +215,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('home-play-bingo')));
       await tester.pumpAndSettle();
+      await _selectUpcomingSessionTab(tester);
       await tester.ensureVisible(
         find.byKey(const ValueKey('session-details-7')),
       );

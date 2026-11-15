@@ -12,6 +12,10 @@ spring:
       ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:update}
   flyway:
     enabled: true
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
   config:
     import: ${BINGO_ENV_IMPORT:optional:file:.env[.properties]}
   main:

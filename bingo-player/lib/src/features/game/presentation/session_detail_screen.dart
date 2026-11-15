@@ -12,7 +12,9 @@ import 'package:bingo_player/src/core/device/screen_awake.dart';
 import 'package:bingo_player/src/core/storage/player_preferences.dart';
 import 'package:bingo_player/src/core/widgets/app_status_view.dart';
 import 'package:bingo_player/src/core/widgets/section_card.dart';
+import 'package:bingo_player/src/features/auth/data/auth_session_controller.dart';
 import 'package:bingo_player/src/features/game/application/live_game_controller.dart';
+import 'package:bingo_player/src/features/game/data/game_api_provider.dart';
 import 'package:bingo_player/src/features/game/domain/live_game_models.dart';
 import 'package:bingo_player/src/features/game/domain/ticket_models.dart';
 import 'package:bingo_player/src/features/game/domain/ticket_ranking.dart';
@@ -152,8 +154,10 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen>
                 isScrollControlled: true,
                 useSafeArea: true,
                 showDragHandle: true,
-                builder: (context) =>
-                    _GameSettingsSheet(sessionId: widget.session.id),
+                builder: (context) => _GameSettingsSheet(
+                  sessionId: widget.session.id,
+                  selectedTicketId: state.selectedTicket?.id,
+                ),
               ),
             ),
           if (!isPreGame)
@@ -263,7 +267,7 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen>
                         localizations: localizations,
                       ),
                       const SizedBox(height: 16),
-                      if (!isPreGame)
+                      if (!isPreGame && state.selectedTicket != null)
                         _ClaimCard(
                           state: state,
                           controller: controller,
@@ -298,7 +302,7 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen>
   }
 }
 
-class _LivePlayView extends ConsumerWidget {
+class _LivePlayView extends ConsumerStatefulWidget {
   const _LivePlayView({
     required this.state,
     required this.controller,
@@ -309,7 +313,74 @@ class _LivePlayView extends ConsumerWidget {
   final AppLocalizations localizations;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_LivePlayView> createState() => _LivePlayViewState();
+}
+
+class _LivePlayViewState extends ConsumerState<_LivePlayView>
+    with WidgetsBindingObserver {
+  String? _registrationSyncingScope;
+  final Set<String> _registrationSyncedScopes = {};
+  final Map<String, String> _registrationSignatures = {};
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_retryPendingRegistration());
+    }
+  }
+
+  Future<void> _retryPendingRegistration() async {
+    if (!mounted) return;
+    final gameState = widget.state;
+    final tickets = gameState.allTickets.isNotEmpty
+        ? gameState.allTickets
+        : gameState.ticketPage?.content ?? const <TicketResponse>[];
+    final sessionId = gameState.session?.id ?? 0;
+    if (sessionId <= 0 || tickets.isEmpty) return;
+    final ownerId = gameState.selectedTicket?.ownerId ?? tickets.first.ownerId;
+    final scope = 'account-$ownerId-session-${gameState.session?.id ?? 0}';
+    if (!ref.read(authSessionControllerProvider).isAuthenticated) return;
+    final preferences = ref.read(playerPreferencesProvider);
+    if (!preferences.loaded || !preferences.multipleCardSelection) return;
+    if (!_registrationSyncedScopes.contains(scope)) {
+      await _syncTicketRegistration(
+        preferences: preferences,
+        sessionId: sessionId,
+        scope: scope,
+        availableTicketIds: tickets.map((ticket) => ticket.id).toList(),
+      );
+      return;
+    }
+    if (await preferences.pendingTicketRegistration(scope) != null) {
+      await _syncTicketRegistration(
+        preferences: preferences,
+        sessionId: sessionId,
+        scope: scope,
+        availableTicketIds: tickets.map((ticket) => ticket.id).toList(),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = widget.state;
+    final controller = widget.controller;
+    final localizations = widget.localizations;
+    final isAuthenticated = ref
+        .read(authSessionControllerProvider)
+        .isAuthenticated;
     final preferences = ref.watch(playerPreferencesProvider);
     final ticketList = state.allTickets.isNotEmpty
         ? state.allTickets
@@ -319,30 +390,40 @@ class _LivePlayView extends ConsumerWidget {
         (ticketList.isEmpty ? 0 : ticketList.first.ownerId);
     final preferenceScope =
         'account-$accountId-session-${state.session?.id ?? 0}';
-    if (preferences.loaded && ticketList.isNotEmpty) {
+    if (preferences.loaded &&
+        preferences.multipleCardSelection &&
+        isAuthenticated &&
+        ticketList.isNotEmpty) {
       final availableTicketIds = ticketList.map((ticket) => ticket.id).toList();
+      if (_registrationSyncedScopes.contains(preferenceScope)) {
+        final signature = _ticketRegistrationSignature(
+          preferences.selectedTicketIds,
+        );
+        if (_registrationSignatures[preferenceScope] != signature) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (context.mounted) {
+              unawaited(_saveTicketRegistration(preferences, preferenceScope));
+            }
+          });
+        }
+      }
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!context.mounted) return;
-        unawaited(() async {
-          await preferences.setScope(preferenceScope);
-          if (context.mounted) {
-            await preferences.ensureBoardSelection(
-              availableTicketIds,
-              expectedScope: preferenceScope,
-            );
-          }
-        }());
+        unawaited(
+          _syncTicketRegistration(
+            preferences: preferences,
+            sessionId: state.session?.id ?? 0,
+            scope: preferenceScope,
+            availableTicketIds: availableTicketIds,
+          ),
+        );
       });
     } else {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (context.mounted) unawaited(preferences.setScope(preferenceScope));
       });
     }
-    final onBoard = preferences.cardsOnBoard > 1
-        ? _visibleTickets(ticketList, preferences, state)
-        : state.selectedTicket == null
-        ? const <TicketResponse>[]
-        : <TicketResponse>[state.selectedTicket!];
+    final onBoard = _visibleTickets(ticketList, preferences, state);
     final visibleCardCount = onBoard.length;
     final missedCalls = preferences.autoMark
         ? 0
@@ -394,6 +475,13 @@ class _LivePlayView extends ConsumerWidget {
                             .watch(playerPreferencesProvider)
                             .soundEnabled,
                         notificationsEnabled: preferences.notificationsEnabled,
+                        notificationMode: preferences.notificationMode,
+                        ticketNumbers: onBoard
+                            .expand(
+                              (ticket) => ticket.grid.expand((row) => row),
+                            )
+                            .where((number) => number != 0)
+                            .toSet(),
                         missedCallCount: missedCalls,
                         onMarkMissedCalls: missedCalls == 0
                             ? null
@@ -428,12 +516,13 @@ class _LivePlayView extends ConsumerWidget {
                         ),
                       ),
                       _ClaimReviewCard(state: state, controller: controller),
-                      _ClaimCard(
-                        state: state,
-                        controller: controller,
-                        localizations: localizations,
-                        compact: true,
-                      ),
+                      if (state.selectedTicket != null)
+                        _ClaimCard(
+                          state: state,
+                          controller: controller,
+                          localizations: localizations,
+                          compact: true,
+                        ),
                     ],
                   ),
                 ),
@@ -444,6 +533,112 @@ class _LivePlayView extends ConsumerWidget {
       ),
     );
   }
+
+  Future<void> _syncTicketRegistration({
+    required PlayerPreferences preferences,
+    required int sessionId,
+    required String scope,
+    required List<int> availableTicketIds,
+  }) async {
+    if (_registrationSyncingScope == scope || sessionId <= 0) {
+      return;
+    }
+    if (_registrationSyncedScopes.contains(scope) &&
+        await preferences.pendingTicketRegistration(scope) == null) {
+      return;
+    }
+    _registrationSyncingScope = scope;
+    try {
+      await preferences.setScope(scope);
+      if (!mounted) return;
+      final api = ref.read(gameApiProvider);
+      final pending = await preferences.pendingTicketRegistration(scope);
+      if (pending != null) {
+        final pendingIds = pending.where(availableTicketIds.contains).toList();
+        await preferences.replaceSelectedTicketIds(
+          pendingIds,
+          expectedScope: scope,
+        );
+        await preferences.queueTicketRegistration(
+          pendingIds,
+          expectedScope: scope,
+        );
+        await api.saveMyTicketRegistration(sessionId, pendingIds);
+        await preferences.clearPendingTicketRegistration(
+          pendingIds,
+          expectedScope: scope,
+        );
+      } else {
+        final registration = await api.getMyTicketRegistration(sessionId);
+        if (!mounted) return;
+        if (registration.initialized) {
+          await preferences.replaceSelectedTicketIds(
+            registration.ticketIds.where(availableTicketIds.contains),
+            expectedScope: scope,
+          );
+        } else {
+          await preferences.ensureBoardSelection(
+            availableTicketIds,
+            expectedScope: scope,
+          );
+          final selectedIds = preferences.selectedTicketIds.toList();
+          await preferences.queueTicketRegistration(
+            selectedIds,
+            expectedScope: scope,
+          );
+          await api.saveMyTicketRegistration(sessionId, selectedIds);
+          await preferences.clearPendingTicketRegistration(
+            selectedIds,
+            expectedScope: scope,
+          );
+        }
+      }
+      _registrationSignatures[scope] = _ticketRegistrationSignature(
+        preferences.selectedTicketIds,
+      );
+      _registrationSyncedScopes.add(scope);
+    } catch (_) {
+      // Local persisted selections remain usable when the registration service
+      // is temporarily unavailable; later rebuilds retry the account sync.
+    } finally {
+      if (_registrationSyncingScope == scope) {
+        _registrationSyncingScope = null;
+      }
+    }
+  }
+
+  Future<void> _saveTicketRegistration(
+    PlayerPreferences preferences,
+    String scope,
+  ) async {
+    final sessionId = widget.state.session?.id;
+    if (sessionId == null ||
+        sessionId <= 0 ||
+        !ref.read(authSessionControllerProvider).isAuthenticated) {
+      return;
+    }
+    try {
+      final selectedIds = preferences.selectedTicketIds.toList();
+      final signature = _ticketRegistrationSignature(selectedIds);
+      await preferences.queueTicketRegistration(
+        selectedIds,
+        expectedScope: scope,
+      );
+      await ref
+          .read(gameApiProvider)
+          .saveMyTicketRegistration(sessionId, selectedIds);
+      await preferences.clearPendingTicketRegistration(
+        selectedIds,
+        expectedScope: scope,
+      );
+      _registrationSignatures[scope] = signature;
+    } catch (_) {
+      // The queued snapshot stays on disk and is retried on reconnect/resume.
+    }
+  }
+
+  String _ticketRegistrationSignature(Iterable<int> ids) =>
+      (ids.toList()..sort()).join(',');
 }
 
 class _ClaimReviewCard extends ConsumerWidget {
@@ -512,8 +707,12 @@ String _claimReviewPatternStatus(
 }
 
 class _GameSettingsSheet extends ConsumerWidget {
-  const _GameSettingsSheet({required this.sessionId});
+  const _GameSettingsSheet({
+    required this.sessionId,
+    required this.selectedTicketId,
+  });
   final int sessionId;
+  final int? selectedTicketId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -549,6 +748,23 @@ class _GameSettingsSheet extends ConsumerWidget {
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
+            title: Text(strings.selectMultipleCards),
+            subtitle: Text(strings.selectMultipleCardsDescription),
+            value: preferences.multipleCardSelection,
+            onChanged: (enabled) => settings.setMultipleCardSelection(
+              enabled,
+              initialTicketId: selectedTicketId,
+            ),
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(strings.hideUnregisteredCards),
+            subtitle: Text(strings.hideUnregisteredCardsDescription),
+            value: preferences.hideUnregisteredCards,
+            onChanged: settings.setHideUnregistered,
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
             title: Text(strings.autoMarkNumbers),
             subtitle: Text(strings.autoMarkNumbersDescription),
             value: preferences.autoMark,
@@ -560,28 +776,58 @@ class _GameSettingsSheet extends ConsumerWidget {
             subtitle: Text(strings.sortCardsChooseThree),
             children: [
               if (preferences.sortPriorities.isNotEmpty)
-                Wrap(
-                  spacing: 6,
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    for (var i = 0; i < preferences.sortPriorities.length; i++)
-                      Chip(
-                        avatar: CircleAvatar(child: Text('${i + 1}')),
-                        label: Text(
-                          _patternLabel(strings, preferences.sortPriorities[i]),
-                        ),
-                        onDeleted: () => settings.toggleSortPriority(
-                          preferences.sortPriorities[i],
-                        ),
+                    Wrap(
+                      spacing: 6,
+                      children: [
+                        for (
+                          var i = 0;
+                          i < preferences.sortPriorities.length;
+                          i++
+                        )
+                          Chip(
+                            avatar: CircleAvatar(child: Text('${i + 1}')),
+                            label: Text(
+                              _patternLabel(
+                                strings,
+                                preferences.sortPriorities[i],
+                              ),
+                            ),
+                            onDeleted: () => settings.toggleSortPriority(
+                              preferences.sortPriorities[i],
+                            ),
+                          ),
+                      ],
+                    ),
+                    Align(
+                      alignment: AlignmentDirectional.centerEnd,
+                      child: TextButton(
+                        onPressed: settings.clearSortPriorities,
+                        child: const Text('Clear'),
                       ),
+                    ),
                   ],
                 ),
-              for (final option in PlayerPreferences.sortOptions)
-                CheckboxListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(_patternLabel(strings, option)),
-                  value: preferences.sortPriorities.contains(option),
-                  onChanged: (_) => settings.toggleSortPriority(option),
+              for (final group in _sortPatternGroups.entries)
+                ExpansionTile(
+                  tilePadding: EdgeInsets.zero,
+                  title: Text(group.key),
+                  children: [
+                    for (final option in group.value)
+                      CheckboxListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(_patternLabel(strings, option)),
+                        value: preferences.sortPriorities.contains(option),
+                        onChanged:
+                            preferences.sortPriorities.length >= 3 &&
+                                !preferences.sortPriorities.contains(option)
+                            ? null
+                            : (_) => settings.toggleSortPriority(option),
+                      ),
+                  ],
                 ),
             ],
           ),
@@ -945,11 +1191,11 @@ class _TicketsCard extends ConsumerWidget {
         children: [
           if (tickets.isEmpty)
             AppStatusView(
-              title: localizations.emptyState,
-              message: localizations.contractGapBody,
+              title: localizations.noTicketsPurchasedTitle,
+              message: localizations.noTicketsPurchasedBody,
             )
           else ...[
-            if (allTickets.length > 1) ...[
+            if (preferences.multipleCardSelection && allTickets.length > 1) ...[
               SizedBox(
                 height: 44,
                 child: ListView.separated(
@@ -964,9 +1210,10 @@ class _TicketsCard extends ConsumerWidget {
                           : preferences.selectedTicketIds.contains(item.id),
                       label: Text(item.publicTicketCode),
                       onSelected: (_) {
-                        ref
-                            .read(playerPreferencesProvider)
-                            .toggleSelectedTicket(item.id);
+                        final ticketPreferences = ref.read(
+                          playerPreferencesProvider,
+                        );
+                        ticketPreferences.toggleSelectedTicket(item.id);
                         controller.selectTicketById(item.id);
                       },
                     );
@@ -975,7 +1222,12 @@ class _TicketsCard extends ConsumerWidget {
               ),
               const SizedBox(height: 12),
             ],
-            if (selectedTicket != null) ...[
+            if (boardTickets.isEmpty)
+              AppStatusView(
+                title: localizations.selectMultipleCards,
+                message: localizations.selectMultipleCardsDescription,
+              )
+            else if (selectedTicket != null) ...[
               if (fillAvailableSpace)
                 Expanded(
                   child: GridView.builder(
@@ -1064,12 +1316,22 @@ List<TicketResponse> _visibleTickets(
   PlayerPreferences preferences,
   LiveGameState state,
 ) {
-  final selected = tickets
+  final boardCandidates =
+      preferences.hideUnregisteredCards && preferences.multipleCardSelection
+      ? tickets
+            .where(
+              (ticket) => preferences.selectedTicketIds.contains(ticket.id),
+            )
+            .toList()
+      : tickets;
+  final selected = boardCandidates
       .where((ticket) => preferences.selectedTicketIds.contains(ticket.id))
       .toList();
   final candidates = selected.isEmpty
-      ? (List<TicketResponse>.of(tickets)..sort((a, b) => a.id.compareTo(b.id)))
+      ? (List<TicketResponse>.of(boardCandidates)
+          ..sort((a, b) => a.id.compareTo(b.id)))
       : selected;
+  if (candidates.isEmpty) return const <TicketResponse>[];
   final ranked = TicketRanking.rank(
     tickets: candidates,
     called: state.calledNumbers.toSet(),
@@ -1120,7 +1382,28 @@ Map<String, String> _ticketClaimStatuses(LiveGameState state) {
 }
 
 String _patternLabel(AppLocalizations l, String pattern) => switch (pattern) {
-  'LINE' => l.patternLine,
+  'SQUARE' => 'Squares',
+  'RECTANGLE' => 'Rectangles',
+  'HORIZONTAL_LINE' => 'Horizontal lines',
+  'VERTICAL_LINE' => 'Vertical lines',
+  'LINE' => 'Lines (anywhere)',
+  'LINE_ANYWHERE' => 'Lines (anywhere)',
+  'LINE_TOUCHING_FREE' => 'Lines touching free',
+  'LINE_NOT_TOUCHING_FREE' => 'Lines not touching free',
+  'NON_CROSSING_LINES' => 'Non-crossing lines',
+  'DIAGONAL_LINES' => 'Diagonal lines',
+  'MOST_CALLED' => 'Most called',
+  'BIG_T' => 'Big T',
+  'BIG_Z' => 'Big Z',
+  'BIG_H' => 'Big H',
+  'BIG_L' => 'Big L',
+  'BIG_U' => 'Big U',
+  'SMALL_X' => 'Small X',
+  'SMALL_T' => 'Small T',
+  'SMALL_CROSS' => 'Small cross (+)',
+  'CORNER_BALLS' => 'Corner balls',
+  'HALF_HOUSE' => 'Half house',
+  'BIG_O' => 'Big O (border)',
   'TWO_LINES' => l.patternTwoLines,
   'FULL_HOUSE' => l.patternFullHouse,
   'FOUR_CORNERS' => l.patternFourCorners,
@@ -1130,6 +1413,42 @@ String _patternLabel(AppLocalizations l, String pattern) => switch (pattern) {
   'L_SHAPE' => l.patternLShape,
   'OUTER_FRAME' => l.patternOuterFrame,
   _ => pattern,
+};
+
+const _sortPatternGroups = <String, List<String>>{
+  'Lines': [
+    'LINE',
+    'LINE_TOUCHING_FREE',
+    'LINE_NOT_TOUCHING_FREE',
+    'NON_CROSSING_LINES',
+  ],
+  'Squares': ['SQUARE'],
+  'Rectangles': ['RECTANGLE'],
+  'Horizontal lines': ['HORIZONTAL_LINE'],
+  'Vertical lines': ['VERTICAL_LINE'],
+  'Big T': ['BIG_T'],
+  'Big Z': ['BIG_Z'],
+  'Big H': ['BIG_H'],
+  'Big L': ['BIG_L'],
+  'Big U': ['BIG_U'],
+  'Other patterns': [
+    'DIAGONAL_LINES',
+    'MOST_CALLED',
+    'SMALL_X',
+    'SMALL_T',
+    'SMALL_CROSS',
+    'CORNER_BALLS',
+    'HALF_HOUSE',
+    'BIG_O',
+    'TWO_LINES',
+    'FULL_HOUSE',
+    'FOUR_CORNERS',
+    'POSTAGE_STAMP',
+    'X_SHAPE',
+    'T_SHAPE',
+    'L_SHAPE',
+    'OUTER_FRAME',
+  ],
 };
 
 class _TicketGridCard extends ConsumerWidget {
@@ -1436,10 +1755,6 @@ class _ClaimCard extends ConsumerWidget {
                   )
                 : Text(localizations.submitClaim),
           ),
-          if (ticket == null) ...[
-            const SizedBox(height: 12),
-            Text(localizations.contractGapBody),
-          ],
           if (!compact &&
               state.infoMessage != null &&
               state.infoMessage != 'CLAIM_ALREADY_SUBMITTED') ...[
@@ -1492,7 +1807,7 @@ class _ClaimHistoryCard extends StatelessWidget {
           if (sessionClaims.isEmpty)
             AppStatusView(
               title: localizations.emptyState,
-              message: localizations.contractGapBody,
+              message: localizations.noClaimsForGame,
             )
           else
             Column(
