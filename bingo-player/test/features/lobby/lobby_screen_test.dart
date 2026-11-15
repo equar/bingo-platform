@@ -12,6 +12,7 @@ import 'package:bingo_player/src/features/lobby/data/lobby_api.dart';
 import 'package:bingo_player/src/features/lobby/data/lobby_repository.dart';
 import 'package:bingo_player/src/features/lobby/domain/lobby_models.dart';
 import 'package:bingo_player/src/features/lobby/presentation/lobby_screen.dart';
+import 'package:bingo_player/src/features/lobby/presentation/ticket_preview_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -81,10 +82,11 @@ void main() {
     (tester) async {
       final repository = _LobbyRepository();
       await tester.pumpWidget(
-        _app(repository, home: const RoomDetailsScreen(roomId: 6)),
+        _app(
+          repository,
+          home: const TicketPreviewScreen(sessionId: 12, roomId: 6),
+        ),
       );
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('ticket-preview-12')));
       await tester.pumpAndSettle();
 
       expect(find.textContaining('3.25 ETB'), findsOneWidget);
@@ -123,10 +125,11 @@ void main() {
         sessionState: 'DRAFT',
       );
       await tester.pumpWidget(
-        _app(repository, home: const RoomDetailsScreen(roomId: 6)),
+        _app(
+          repository,
+          home: const TicketPreviewScreen(sessionId: 12, roomId: 6),
+        ),
       );
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('ticket-preview-12')));
       await tester.pumpAndSettle();
       expect(
         find.text(
