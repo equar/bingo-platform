@@ -156,6 +156,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             ),
                           ),
                           Container(
+                            width: 132,
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
                               color: Theme.of(
@@ -174,7 +175,30 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                     fontWeight: FontWeight.w800,
                                   ),
                                 ),
-                                Text(localizations.withdrawableBalance),
+                                Text(
+                                  localizations.withdrawableBalance,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(fontSize: 10),
+                                ),
+                                const SizedBox(height: 6),
+                                const Divider(height: 1),
+                                const SizedBox(height: 6),
+                                Text(
+                                  balance.promotionalBalance.toStringAsFixed(2),
+                                  style: TextStyle(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primary,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                Text(
+                                  localizations.promotionalBalanceLabel,
+                                  textAlign: TextAlign.center,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontSize: 10),
+                                ),
                               ],
                             ),
                           ),

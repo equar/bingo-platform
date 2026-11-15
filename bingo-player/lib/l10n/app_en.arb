@@ -21,7 +21,7 @@
   "claimReviewTitle": "Review {count} eligible ticket(s)",
   "@claimReviewTitle": {"placeholders": {"count": {"type": "int"}}},
   "claimReviewHint": "Select a ticket to review and submit its claim individually.",
-  "clearManualMarksConfirm": "Clear manual marks on tickets in this game?",
+  "clearManualMarksConfirm": "Clear all currently marked numbers on tickets in this game? New calls will still be auto-marked.",
   "ticketsPurchasedCount": "{count} ticket(s) purchased.",
   "@ticketsPurchasedCount": {"placeholders": {"count": {"type": "int"}}},
   "resolvePurchase": "Check purchase status safely",
