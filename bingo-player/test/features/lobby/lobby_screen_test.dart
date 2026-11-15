@@ -27,7 +27,7 @@ void main() {
 
     expect(find.text('QA Scheduled Session'), findsOneWidget);
     expect(find.byKey(const ValueKey('session-details-12')), findsOneWidget);
-    expect(find.byKey(const ValueKey('ticket-preview-12')), findsOneWidget);
+    expect(find.byKey(const ValueKey('buy-tickets-12')), findsOneWidget);
   });
 
   testWidgets('cancelled sessions are shown as not playable', (tester) async {
@@ -80,9 +80,10 @@ void main() {
     'ticket information shows server snapshot and keeps purchase disabled',
     (tester) async {
       final repository = _LobbyRepository();
-      await tester.pumpWidget(_app(repository));
+      await tester.pumpWidget(
+        _app(repository, home: const RoomDetailsScreen(roomId: 6)),
+      );
       await tester.pumpAndSettle();
-      await _openUpcomingGames(tester);
       await tester.tap(find.byKey(const ValueKey('ticket-preview-12')));
       await tester.pumpAndSettle();
 
@@ -121,9 +122,10 @@ void main() {
         failPreview: true,
         sessionState: 'DRAFT',
       );
-      await tester.pumpWidget(_app(repository));
+      await tester.pumpWidget(
+        _app(repository, home: const RoomDetailsScreen(roomId: 6)),
+      );
       await tester.pumpAndSettle();
-      await _openUpcomingGames(tester);
       await tester.tap(find.byKey(const ValueKey('ticket-preview-12')));
       await tester.pumpAndSettle();
       expect(

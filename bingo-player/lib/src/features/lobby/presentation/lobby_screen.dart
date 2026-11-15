@@ -239,6 +239,7 @@ class _SessionList extends StatelessWidget {
                               const SizedBox(width: 8),
                               Expanded(
                                 child: FilledButton(
+                                  key: ValueKey('buy-tickets-${session.id}'),
                                   onPressed:
                                       purchasesEnabled &&
                                           session.availableSeats > 0
