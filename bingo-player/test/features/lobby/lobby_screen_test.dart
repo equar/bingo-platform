@@ -23,6 +23,7 @@ void main() {
     final repository = _LobbyRepository();
     await tester.pumpWidget(_app(repository));
     await tester.pumpAndSettle();
+    await _openUpcomingGames(tester);
 
     expect(find.text('QA Scheduled Session'), findsOneWidget);
     expect(find.byKey(const ValueKey('session-details-12')), findsOneWidget);
@@ -62,6 +63,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    await _openUpcomingGames(tester);
     await tester.tap(find.byKey(const ValueKey('session-details-12')));
     await tester.pumpAndSettle();
 
@@ -80,6 +82,7 @@ void main() {
       final repository = _LobbyRepository();
       await tester.pumpWidget(_app(repository));
       await tester.pumpAndSettle();
+      await _openUpcomingGames(tester);
       await tester.tap(find.byKey(const ValueKey('ticket-preview-12')));
       await tester.pumpAndSettle();
 
@@ -120,6 +123,7 @@ void main() {
       );
       await tester.pumpWidget(_app(repository));
       await tester.pumpAndSettle();
+      await _openUpcomingGames(tester);
       await tester.tap(find.byKey(const ValueKey('ticket-preview-12')));
       await tester.pumpAndSettle();
       expect(
@@ -188,8 +192,9 @@ void main() {
     final repository = _LobbyRepository(emptySessions: true);
     await tester.pumpWidget(_app(repository));
     await tester.pumpAndSettle();
+    await _openUpcomingGames(tester);
 
-    expect(find.text('No rooms available'), findsOneWidget);
+    expect(find.text('No upcoming games are scheduled.'), findsOneWidget);
   });
 
   testWidgets('active session load error offers retry', (tester) async {
@@ -205,6 +210,7 @@ void main() {
     repository.failSessions = false;
     await tester.tap(find.text('Try again'));
     await tester.pumpAndSettle();
+    await _openUpcomingGames(tester);
     expect(find.text('QA Scheduled Session'), findsOneWidget);
   });
 
@@ -227,6 +233,7 @@ void main() {
       await repository.getRoomSessions(_room.id),
     );
     await tester.pumpAndSettle();
+    await _openUpcomingGames(tester);
     expect(repository.sessionRequests, 2);
     expect(find.text('QA Scheduled Session'), findsOneWidget);
     expect(find.text('Try again'), findsNothing);
@@ -256,6 +263,12 @@ Widget _app(
     home: home,
   ),
 );
+
+Future<void> _openUpcomingGames(WidgetTester tester) async {
+  await tester.ensureVisible(find.text('Upcoming games'));
+  await tester.tap(find.text('Upcoming games'));
+  await tester.pumpAndSettle();
+}
 
 class _LobbyRepository extends LobbyRepository {
   _LobbyRepository({

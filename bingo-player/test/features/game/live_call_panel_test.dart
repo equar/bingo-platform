@@ -123,6 +123,7 @@ void main() {
           connected: connected,
           finished: false,
           notificationsEnabled: true,
+          notificationMode: 'every_call',
         ),
       ),
     );

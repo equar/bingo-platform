@@ -12,6 +12,7 @@ import 'package:bingo_player/src/core/device/screen_awake.dart';
 import 'package:bingo_player/src/core/storage/player_preferences.dart';
 import 'package:bingo_player/src/core/widgets/app_status_view.dart';
 import 'package:bingo_player/src/core/widgets/section_card.dart';
+import 'package:bingo_player/src/features/auth/data/auth_session_controller.dart';
 import 'package:bingo_player/src/features/game/application/live_game_controller.dart';
 import 'package:bingo_player/src/features/game/data/game_api_provider.dart';
 import 'package:bingo_player/src/features/game/domain/live_game_models.dart';
@@ -350,6 +351,7 @@ class _LivePlayViewState extends ConsumerState<_LivePlayView>
     if (sessionId <= 0 || tickets.isEmpty) return;
     final ownerId = gameState.selectedTicket?.ownerId ?? tickets.first.ownerId;
     final scope = 'account-$ownerId-session-${gameState.session?.id ?? 0}';
+    if (!ref.read(authSessionControllerProvider).isAuthenticated) return;
     final preferences = ref.read(playerPreferencesProvider);
     if (!preferences.loaded || !preferences.multipleCardSelection) return;
     if (!_registrationSyncedScopes.contains(scope)) {
@@ -376,6 +378,9 @@ class _LivePlayViewState extends ConsumerState<_LivePlayView>
     final state = widget.state;
     final controller = widget.controller;
     final localizations = widget.localizations;
+    final isAuthenticated = ref
+        .read(authSessionControllerProvider)
+        .isAuthenticated;
     final preferences = ref.watch(playerPreferencesProvider);
     final ticketList = state.allTickets.isNotEmpty
         ? state.allTickets
@@ -387,6 +392,7 @@ class _LivePlayViewState extends ConsumerState<_LivePlayView>
         'account-$accountId-session-${state.session?.id ?? 0}';
     if (preferences.loaded &&
         preferences.multipleCardSelection &&
+        isAuthenticated &&
         ticketList.isNotEmpty) {
       final availableTicketIds = ticketList.map((ticket) => ticket.id).toList();
       if (_registrationSyncedScopes.contains(preferenceScope)) {
@@ -606,7 +612,11 @@ class _LivePlayViewState extends ConsumerState<_LivePlayView>
     String scope,
   ) async {
     final sessionId = widget.state.session?.id;
-    if (sessionId == null || sessionId <= 0) return;
+    if (sessionId == null ||
+        sessionId <= 0 ||
+        !ref.read(authSessionControllerProvider).isAuthenticated) {
+      return;
+    }
     try {
       final selectedIds = preferences.selectedTicketIds.toList();
       final signature = _ticketRegistrationSignature(selectedIds);

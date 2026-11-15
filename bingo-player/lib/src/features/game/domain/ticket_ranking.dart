@@ -163,10 +163,11 @@ class TicketRanking {
                   configuredPrizePatterns.contains(pattern)),
         )
         .toList();
-    if (configured.isEmpty && priorities.isEmpty) return const [];
+    if (configured.isEmpty) return const [];
+    final configuredPriorities = priorities.where(configured.contains).toList();
     final ordered = <String>[
-      ...priorities.where((pattern) => pattern.isNotEmpty),
-      ...configured.where((pattern) => !priorities.contains(pattern)),
+      ...configuredPriorities,
+      ...configured.where((pattern) => !configuredPriorities.contains(pattern)),
     ];
     final result = tickets.map((ticket) {
       final winnerPatterns = ordered
@@ -174,8 +175,8 @@ class TicketRanking {
           .toList();
       final pattern = winnerPatterns.isNotEmpty
           ? winnerPatterns.first
-          : priorities.isNotEmpty
-          ? priorities.first
+          : configuredPriorities.isNotEmpty
+          ? configuredPriorities.first
           : configured.reduce(
               (best, next) =>
                   remainingCells(ticket.grid, called, next) <
@@ -207,7 +208,7 @@ class TicketRanking {
       final bClaim = b.claimState == TicketClaimState.claimable ? 0 : 1;
       final claimOrder = aClaim.compareTo(bClaim);
       if (claimOrder != 0) return claimOrder;
-      for (final priority in priorities) {
+      for (final priority in configuredPriorities) {
         final priorityOrder = remainingCells(
           a.ticket.grid,
           called,
