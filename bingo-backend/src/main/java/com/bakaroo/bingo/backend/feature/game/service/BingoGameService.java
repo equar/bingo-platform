@@ -540,14 +540,15 @@ public class BingoGameService {
                     BigDecimal price = MoneyValues.money(session.getTicketPriceSnapshot());
                     BigDecimal transferableBefore = wallet.getAvailableBalance();
                     BigDecimal promotionalBefore = wallet.getPromotionalBalance();
-                    if (transferableBefore.compareTo(price) < 0) {
-                        throw new ConflictException("INSUFFICIENT_BALANCE", "Available cash balance cannot go below zero");
+                    if (transferableBefore.add(promotionalBefore).compareTo(price) < 0) {
+                        throw new ConflictException("INSUFFICIENT_BALANCE",
+                                "Available cash and promotional balance are insufficient to buy this ticket");
                     }
 
-                    BigDecimal promotionalUsed = BigDecimal.ZERO.setScale(2);
-                    BigDecimal transferableUsed = price;
-                    BigDecimal transferableAfter = MoneyValues.money(transferableBefore.subtract(price));
-                    BigDecimal promotionalAfter = promotionalBefore;
+                    BigDecimal promotionalUsed = MoneyValues.money(promotionalBefore.min(price));
+                    BigDecimal transferableUsed = MoneyValues.money(price.subtract(promotionalUsed));
+                    BigDecimal transferableAfter = MoneyValues.money(transferableBefore.subtract(transferableUsed));
+                    BigDecimal promotionalAfter = MoneyValues.money(promotionalBefore.subtract(promotionalUsed));
 
                     wallet.setAvailableBalance(transferableAfter);
                     wallet.setPromotionalBalance(promotionalAfter);

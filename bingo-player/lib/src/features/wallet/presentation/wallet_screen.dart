@@ -255,12 +255,13 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
             return ListView(
               padding: const EdgeInsets.all(16),
               children: [
+                SectionCard(child: _BalanceSummary(balance: balance)),
+                const SizedBox(height: 16),
                 if (_selectedTabIndex == 1) ...[
                   SectionCard(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _BalanceSummary(balance: balance),
                         if ((session?.user.referralCode ?? '').isNotEmpty) ...[
                           const SizedBox(height: 12),
                           Text(
@@ -345,7 +346,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                                 spacing: 12,
                                 children: [
                                   OutlinedButton(
-                                    onPressed: _submittingDeposit ||
+                                    onPressed:
+                                        _submittingDeposit ||
                                             _depositOutcomeUnknown
                                         ? null
                                         : _cancelDeposit,

@@ -348,7 +348,7 @@ Future<void> _buyTickets(
   try {
     final wallet = await ref.read(walletRepositoryProvider).getBalance();
     final total = session.ticketPrice * selected;
-    if (wallet.availableBalance < total) {
+    if (wallet.totalBalance < total) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
