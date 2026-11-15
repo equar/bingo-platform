@@ -229,10 +229,10 @@ class _SessionList extends StatelessWidget {
                                 onPressed: () => Navigator.of(context).push(
                                   MaterialPageRoute<void>(
                                     builder: (_) =>
-                                        SessionDetailScreen(session: session),
+                                        const GameRulesScreen(),
                                   ),
                                 ),
-                                child: Text(localizations.roomDetails),
+                                child: Text(localizations.gameRules),
                               ),
                             ),
                             if (onBuy != null) ...[

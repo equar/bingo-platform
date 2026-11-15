@@ -1,13 +1,6 @@
 import 'dart:async';
 
 import 'package:bingo_player/l10n/app_localizations.dart';
-import 'package:bingo_player/src/core/config/app_config.dart';
-import 'package:bingo_player/src/features/auth/data/auth_session_controller.dart';
-import 'package:bingo_player/src/features/game/application/live_game_controller.dart';
-import 'package:bingo_player/src/features/game/application/live_game_transport.dart';
-import 'package:bingo_player/src/features/game/data/game_repository.dart';
-import 'package:bingo_player/src/features/game/domain/live_game_models.dart';
-import 'package:bingo_player/src/features/game/presentation/session_detail_screen.dart';
 import 'package:bingo_player/src/features/lobby/data/lobby_api.dart';
 import 'package:bingo_player/src/features/lobby/data/lobby_repository.dart';
 import 'package:bingo_player/src/features/lobby/domain/lobby_models.dart';
@@ -42,24 +35,12 @@ void main() {
     expect(find.byKey(const ValueKey('buy-ticket-button')), findsNothing);
   });
 
-  testWidgets('active sessions open the live-game screen', (tester) async {
+  testWidgets('game rules returns to the upcoming games tab', (tester) async {
     final repository = _LobbyRepository(sessionState: 'OPEN');
     final navigatorObserver = _RecordingNavigatorObserver();
-    final liveController = LiveGameController(
-      sessionId: 12,
-      repository: _UnusedLiveGameRepository(),
-      readAuthSession: () => const AuthSessionState(isLoading: true),
-      clearAuthSession: ({String? reason}) async {},
-      appConfig: const AppConfig(
-        apiBaseUrl: 'http://127.0.0.1:8080',
-        apiBaseUrlLabel: 'API_BASE_URL',
-      ),
-      transport: _UnusedLiveGameTransport(),
-    );
     await tester.pumpWidget(
       _app(
         repository,
-        liveGameController: liveController,
         navigatorObserver: navigatorObserver,
       ),
     );
@@ -71,10 +52,17 @@ void main() {
     expect(navigatorObserver.pushes, hasLength(2));
     expect(navigatorObserver.pushes.last.isCurrent, isTrue);
     expect(
-      find.byType(SessionDetailScreen, skipOffstage: false),
+      find.byType(GameRulesScreen, skipOffstage: false),
       findsOneWidget,
     );
-    expect(find.text('Live game'), findsOneWidget);
+    expect(find.text('Game Rules'), findsOneWidget);
+    expect(find.text('General Game Rule'), findsOneWidget);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Upcoming games'), findsOneWidget);
+    expect(find.text('QA Scheduled Session'), findsOneWidget);
   });
 
   testWidgets(
@@ -91,6 +79,34 @@ void main() {
 
       expect(find.textContaining('3.25 ETB'), findsOneWidget);
       expect(find.textContaining('30 / 30'), findsOneWidget);
+      expect(find.text('How to play'), findsOneWidget);
+      expect(find.text('Winning patterns'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('winning-pattern-horizontal-10')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('winning-pattern-vertical-2')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('winning-pattern-diagonal-0')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('winning-pattern-fullHouse-24')),
+        findsOneWidget,
+      );
+      expect(find.text('Prize sharing when there is a tie'), findsOneWidget);
+      expect(find.text('Important rules'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.text('1–15'),
+        240,
+        scrollable: find.descendant(
+          of: find.byKey(const ValueKey('game-rules-scroll')),
+          matching: find.byType(Scrollable),
+        ),
+      );
       expect(
         find.textContaining('This is the card format, not an assigned ticket.'),
         findsOneWidget,
@@ -103,7 +119,10 @@ void main() {
       await tester.scrollUntilVisible(
         find.byKey(const ValueKey('ticket-preview-purchase-disabled')),
         240,
-        scrollable: find.byType(Scrollable).last,
+        scrollable: find.descendant(
+          of: find.byKey(const ValueKey('game-rules-scroll')),
+          matching: find.byType(Scrollable),
+        ),
       );
       final purchase = tester.widget<FilledButton>(
         find.byKey(const ValueKey('ticket-preview-purchase-disabled')),
@@ -144,7 +163,10 @@ void main() {
       await tester.scrollUntilVisible(
         find.text('This session is not open for ticket sales (DRAFT).'),
         240,
-        scrollable: find.byType(Scrollable).last,
+        scrollable: find.descendant(
+          of: find.byKey(const ValueKey('game-rules-scroll')),
+          matching: find.byType(Scrollable),
+        ),
       );
       expect(
         find.text('This session is not open for ticket sales (DRAFT).'),
@@ -247,14 +269,11 @@ void main() {
 
 Widget _app(
   _LobbyRepository repository, {
-  LiveGameController? liveGameController,
   NavigatorObserver? navigatorObserver,
   Widget home = const LobbyScreen(),
 }) => ProviderScope(
   overrides: [
     lobbyRepositoryProvider.overrideWithValue(repository),
-    if (liveGameController != null)
-      liveGameControllerProvider(12).overrideWith((ref) => liveGameController),
   ],
   child: MaterialApp(
     navigatorObservers: [if (navigatorObserver != null) navigatorObserver],
@@ -357,29 +376,6 @@ final _room = BingoRoom(
 
 class _UnusedLobbyApi extends LobbyApi {
   _UnusedLobbyApi() : super(Dio());
-}
-
-class _UnusedLiveGameRepository implements LiveGameRepository {
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
-
-class _UnusedLiveGameTransport implements LiveGameTransport {
-  @override
-  bool get isConnected => false;
-
-  @override
-  Future<void> connect({
-    required Uri uri,
-    required String accessToken,
-    required int sessionId,
-    required void Function(LiveDrawEvent event) onDraw,
-    required void Function(Object error) onError,
-    required void Function() onDisconnected,
-  }) async {}
-
-  @override
-  Future<void> disconnect() async {}
 }
 
 class _RecordingNavigatorObserver extends NavigatorObserver {

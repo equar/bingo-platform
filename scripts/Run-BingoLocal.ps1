@@ -330,6 +330,21 @@ $device = switch ($Platform) {
     'windows' { 'windows' }
 }
 
+if ($Platform -eq 'android') {
+    $adbCommand = Get-Command adb -ErrorAction SilentlyContinue
+    if ($null -eq $adbCommand) {
+        throw 'ADB was not found on PATH. Install Android platform tools, then rerun the local launcher.'
+    }
+
+    & $adbCommand.Source -s $device reverse tcp:8080 tcp:8080
+    if ($LASTEXITCODE -ne 0) {
+        throw "Could not forward emulator port 8080 to the local backend for '$device'. Reconnect the virtual device through ADB and retry."
+    }
+
+    $apiBaseUrl = 'http://127.0.0.1:8080'
+    $webSocketBaseUrl = 'ws://127.0.0.1:8080/ws'
+}
+
 # Resolve the target before any opt-in clean so restricted or unavailable ADB
 # cannot erase generated build state without a viable device to launch on.
 if ($CleanRebuild) {

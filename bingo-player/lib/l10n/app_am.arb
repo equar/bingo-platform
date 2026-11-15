@@ -163,6 +163,7 @@
   "roomPlayersLabel": "የተጫዋቾች ብዛት",
   "playerCountUnavailable": "በአሁኑ ኮንትራት አልተገለጸም",
   "roomDetails": "የክፍል ዝርዝር",
+  "gameRules": "የጨዋታ ህጎች",
   "roomSessions": "ሴሽኖች",
   "sessionsEmpty": "ለዚህ ክፍል እስካሁን ሴሽን የለም።",
   "lobbyEmptyTitle": "ምንም ክፍል አይገኝም",

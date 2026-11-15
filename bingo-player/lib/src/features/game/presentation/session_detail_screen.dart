@@ -183,6 +183,8 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen>
                           localizations: localizations,
                           purchasesEnabled: purchasesEnabled,
                         ),
+                        const SizedBox(height: 16),
+                        _GameRulesCard(session: session),
                         _ClaimHistoryCard(
                           state: state,
                           localizations: localizations,
@@ -895,6 +897,102 @@ class _GameSettingsSheet extends ConsumerWidget {
   }
 }
 
+class _GameRulesCard extends StatelessWidget {
+  const _GameRulesCard({required this.session});
+
+  final GameSession session;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final prize = session.configuredPrizes.fold<num>(
+      0,
+      (total, item) => total + item.amount,
+    );
+    return SectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Game details & rules', style: theme.textTheme.titleLarge),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _RuleMetric(label: 'Prize', value: '$prize ${session.currency}'),
+              _RuleMetric(
+                label: 'Ticket',
+                value: '${session.ticketPrice} ${session.currency}',
+              ),
+              _RuleMetric(
+                label: 'Max',
+                value: session.maxTicketsPerPlayer?.toString() ?? '—',
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text('How to play', style: theme.textTheme.titleMedium),
+          const SizedBox(height: 6),
+          const Text(
+            'Buy tickets before sales close. Matching called numbers are marked automatically. '
+            'Complete an eligible pattern to win; the system verifies every winning ticket.',
+          ),
+          const SizedBox(height: 16),
+          Text('Winning patterns', style: theme.textTheme.titleMedium),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final pattern in session.configuredPatterns)
+                Chip(label: Text(pattern.replaceAll('_', ' '))),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text('Important rules', style: theme.textTheme.titleMedium),
+          const SizedBox(height: 6),
+          Text(
+            'The center square is free. Tickets cannot be changed after the game starts. '
+            'If multiple tickets win on the same called number, the prize is split equally per winning ticket. '
+            'Tickets and called numbers remain recorded if you disconnect.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colors.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RuleMetric extends StatelessWidget {
+  const _RuleMetric({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.secondaryContainer,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label, style: theme.textTheme.labelSmall),
+          Text(value, style: theme.textTheme.titleSmall),
+        ],
+      ),
+    );
+  }
+}
+
 class _SessionSummaryCard extends ConsumerWidget {
   const _SessionSummaryCard({
     required this.session,
@@ -1100,6 +1198,15 @@ class _SessionSummaryCard extends ConsumerWidget {
               localizations.purchaseTicketBody,
               style: Theme.of(context).textTheme.bodyMedium,
             ),
+          const SizedBox(height: 8),
+          ExpansionTile(
+            tilePadding: EdgeInsets.zero,
+            childrenPadding: const EdgeInsets.only(top: 8),
+            leading: const Icon(Icons.menu_book_outlined),
+            title: const Text('Game details & rules'),
+            subtitle: const Text('How to play, winning patterns, and prize rules'),
+            children: [_GameRulesCard(session: session)],
+          ),
           if (state.purchaseOutcomeUncertain) ...[
             const SizedBox(height: 8),
             Text(
