@@ -41,6 +41,9 @@ public class GameSession {
     @Column(name = "scheduled_start_at", nullable = false)
     private Instant scheduledStartAt;
 
+    @Column(name = "auto_scheduled", nullable = false)
+    private boolean autoScheduled;
+
     @Column(name = "started_at")
     private Instant startedAt;
 
@@ -148,6 +151,14 @@ public class GameSession {
 
     public void setScheduledStartAt(Instant scheduledStartAt) {
         this.scheduledStartAt = scheduledStartAt;
+    }
+
+    public boolean isAutoScheduled() {
+        return autoScheduled;
+    }
+
+    public void setAutoScheduled(boolean autoScheduled) {
+        this.autoScheduled = autoScheduled;
     }
 
     public Instant getStartedAt() {

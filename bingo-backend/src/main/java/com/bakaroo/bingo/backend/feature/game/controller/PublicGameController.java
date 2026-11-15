@@ -73,6 +73,12 @@ public class PublicGameController {
         return bingoGameService.listPlayerActiveSessions();
     }
 
+    @GetMapping("/sessions")
+    @PreAuthorize("hasRole('PLAYER')")
+    public List<PlayerGameSessionResponse> sessions(@AuthenticationPrincipal BingoUserPrincipal principal) {
+        return bingoGameService.listPlayerSessions(principal);
+    }
+
     @GetMapping("/sessions/{id}")
     @PreAuthorize("hasRole('PLAYER')")
     public PlayerGameSessionResponse session(@PathVariable Long id) {

@@ -8,6 +8,11 @@ import 'package:bingo_player/src/features/lobby/data/lobby_repository.dart';
 import 'package:bingo_player/src/features/lobby/domain/lobby_models.dart';
 import 'package:bingo_player/src/features/game/presentation/session_detail_screen.dart';
 import 'package:bingo_player/src/features/lobby/presentation/ticket_preview_screen.dart';
+import 'package:bingo_player/src/core/config/app_config.dart';
+import 'package:bingo_player/src/features/game/application/live_game_controller.dart';
+import 'package:bingo_player/src/features/game/data/game_repository.dart';
+import 'package:bingo_player/src/features/wallet/data/wallet_repository.dart';
+import 'package:bingo_player/src/features/wallet/presentation/wallet_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -18,7 +23,7 @@ final lobbyRoomsProvider = FutureProvider.autoDispose<List<BingoRoom>>((ref) {
 final activeSessionsProvider = FutureProvider.autoDispose<List<GameSession>>((
   ref,
 ) {
-  return ref.read(lobbyRepositoryProvider).getActiveSessions();
+  return ref.read(lobbyRepositoryProvider).getSessions();
 });
 
 final roomDetailsProvider = FutureProvider.autoDispose.family<BingoRoom, int>((
@@ -40,209 +45,345 @@ class LobbyScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final localizations = AppLocalizations.of(context)!;
     final sessionsAsync = ref.watch(activeSessionsProvider);
+    final purchasesEnabled = ref
+        .watch(appConfigProvider)
+        .playerTicketPurchasesEnabled;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Bingo'),
-        actions: [
-          const SupportShortcut(),
-          IconButton(
-            key: const ValueKey('lobby-refresh-button'),
-            tooltip: localizations.refresh,
-            onPressed: () => ref.invalidate(activeSessionsProvider),
-            icon: const Icon(Icons.refresh),
+    return DefaultTabController(
+      length: 3,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Bingo'),
+          bottom: TabBar(
+            isScrollable: true,
+            tabs: [
+              Tab(text: localizations.liveGamesTab),
+              Tab(text: localizations.upcomingGamesTab),
+              Tab(text: localizations.previousGamesTab),
+            ],
           ),
-        ],
-      ),
-      body: ResponsiveContent(
-        child: sessionsAsync.when(
-          skipLoadingOnRefresh: false,
-          loading: () => Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+          actions: [
+            const SupportShortcut(),
+            IconButton(
+              key: const ValueKey('lobby-refresh-button'),
+              tooltip: localizations.refresh,
+              onPressed: () => ref.invalidate(activeSessionsProvider),
+              icon: const Icon(Icons.refresh),
+            ),
+          ],
+        ),
+        body: ResponsiveContent(
+          child: sessionsAsync.when(
+            skipLoadingOnRefresh: false,
+            loading: () => Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const CircularProgressIndicator(),
+                  const SizedBox(height: 16),
+                  Text(localizations.loading),
+                ],
+              ),
+            ),
+            error: (error, stack) => AppStatusView(
+              title: localizations.errorGeneric,
+              message: localizations.lobbyLoadError,
+              onAction: () => ref.invalidate(activeSessionsProvider),
+            ),
+            data: (sessions) => TabBarView(
               children: [
-                const CircularProgressIndicator(),
-                const SizedBox(height: 16),
-                Text(localizations.loading),
+                _SessionList(
+                  sessions: sessions
+                      .where(
+                        (s) => const {
+                          'STARTED',
+                          'DRAWING',
+                        }.contains(s.state.toUpperCase()),
+                      )
+                      .toList(),
+                  emptyTitle: localizations.noLiveGames,
+                  emptyBody: localizations.lobbyEmptyBody,
+                  onRefresh: () => ref.invalidate(activeSessionsProvider),
+                  onBuy: null,
+                  purchasesEnabled: purchasesEnabled,
+                ),
+                _SessionList(
+                  sessions:
+                      sessions
+                          .where((s) => s.state.toUpperCase() == 'OPEN')
+                          .toList()
+                        ..sort(
+                          (a, b) =>
+                              a.scheduledStartAt.compareTo(b.scheduledStartAt),
+                        ),
+                  emptyTitle: localizations.noUpcomingGames,
+                  emptyBody: localizations.lobbyEmptyBody,
+                  onRefresh: () => ref.invalidate(activeSessionsProvider),
+                  onBuy: (session) => _buyTickets(context, ref, session),
+                  purchasesEnabled: purchasesEnabled,
+                ),
+                _SessionList(
+                  sessions:
+                      sessions
+                          .where(
+                            (s) => const {
+                              'CLOSED',
+                              'SETTLED',
+                              'CANCELLED',
+                            }.contains(s.state.toUpperCase()),
+                          )
+                          .toList()
+                        ..sort(
+                          (a, b) =>
+                              b.scheduledStartAt.compareTo(a.scheduledStartAt),
+                        ),
+                  emptyTitle: localizations.noPreviousGames,
+                  emptyBody: localizations.lobbyEmptyBody,
+                  onRefresh: () => ref.invalidate(activeSessionsProvider),
+                  onBuy: null,
+                  purchasesEnabled: purchasesEnabled,
+                ),
               ],
             ),
-          ),
-          error: (error, stack) => AppStatusView(
-            title: localizations.errorGeneric,
-            message: localizations.lobbyLoadError,
-            onAction: () => ref.invalidate(activeSessionsProvider),
-          ),
-          data: (sessions) => RefreshIndicator(
-            onRefresh: () async => ref.invalidate(activeSessionsProvider),
-            child: sessions.isEmpty
-                ? ListView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    children: [
-                      const SizedBox(height: 120),
-                      AppStatusView(
-                        title: localizations.lobbyEmptyTitle,
-                        message: localizations.lobbyEmptyBody,
-                      ),
-                    ],
-                  )
-                : ListView.builder(
-                    key: const ValueKey('lobby-active-sessions-list'),
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.all(16),
-                    itemCount: sessions.length + 1,
-                    itemBuilder: (context, index) {
-                      if (index == 0) {
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 16),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  localizations.roomsTitle,
-                                  style: Theme.of(
-                                    context,
-                                  ).textTheme.headlineMedium,
-                                ),
-                              ),
-                              Chip(
-                                label: Text(
-                                  '${sessions.length} ${localizations.roomStatusActive}',
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }
-                      final session = sessions[index - 1];
-                      final colors = Theme.of(context).colorScheme;
-                      final isDark =
-                          Theme.of(context).brightness == Brightness.dark;
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: SectionCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      session.sessionName,
-                                      style: Theme.of(
-                                        context,
-                                      ).textTheme.titleLarge,
-                                    ),
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 6,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: isDark
-                                          ? colors.secondaryContainer
-                                          : const Color(0xFFEAF8EE),
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: Text(
-                                      localizations.roomStatusActive,
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w700,
-                                        fontSize: 12,
-                                        color: isDark
-                                            ? colors.onSecondaryContainer
-                                            : const Color(0xFF167639),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              Wrap(
-                                spacing: 24,
-                                runSpacing: 8,
-                                children: [
-                                  _InfoChip(
-                                    label: localizations.roomPriceLabel,
-                                    value:
-                                        '${session.ticketPrice} ${session.currency}',
-                                  ),
-                                  _InfoChip(
-                                    label: localizations.roomCapacityLabel,
-                                    value: session.ticketCount.toString(),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              LayoutBuilder(
-                                builder: (context, constraints) {
-                                  final stackButtons =
-                                      constraints.maxWidth < 420 ||
-                                      MediaQuery.textScalerOf(
-                                            context,
-                                          ).scale(14) >
-                                          18;
-                                  final detailsButton = OutlinedButton(
-                                    key: ValueKey(
-                                      'session-details-${session.id}',
-                                    ),
-                                    onPressed: () => Navigator.of(context).push(
-                                      MaterialPageRoute<void>(
-                                        builder: (_) => SessionDetailScreen(
-                                          session: session,
-                                        ),
-                                      ),
-                                    ),
-                                    child: Text(localizations.roomDetails),
-                                  );
-                                  final previewButton = FilledButton(
-                                    key: ValueKey(
-                                      'ticket-preview-${session.id}',
-                                    ),
-                                    onPressed: () => Navigator.of(context).push(
-                                      MaterialPageRoute<void>(
-                                        builder: (_) => TicketPreviewScreen(
-                                          sessionId: session.id,
-                                          roomId: session.roomId,
-                                        ),
-                                      ),
-                                    ),
-                                    child: Text(
-                                      localizations.ticketPreviewButton,
-                                    ),
-                                  );
-
-                                  if (stackButtons) {
-                                    return Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.stretch,
-                                      children: [
-                                        detailsButton,
-                                        const SizedBox(height: 8),
-                                        previewButton,
-                                      ],
-                                    );
-                                  }
-
-                                  return Row(
-                                    children: [
-                                      Expanded(child: detailsButton),
-                                      const SizedBox(width: 12),
-                                      Expanded(child: previewButton),
-                                    ],
-                                  );
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
           ),
         ),
       ),
     );
+  }
+}
+
+class _SessionList extends StatelessWidget {
+  const _SessionList({
+    required this.sessions,
+    required this.emptyTitle,
+    required this.emptyBody,
+    required this.onRefresh,
+    required this.onBuy,
+    required this.purchasesEnabled,
+  });
+  final List<GameSession> sessions;
+  final String emptyTitle;
+  final String emptyBody;
+  final VoidCallback onRefresh;
+  final ValueChanged<GameSession>? onBuy;
+  final bool purchasesEnabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context)!;
+    return RefreshIndicator(
+      onRefresh: () async => onRefresh(),
+      child: sessions.isEmpty
+          ? ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                const SizedBox(height: 120),
+                AppStatusView(title: emptyTitle, message: emptyBody),
+              ],
+            )
+          : ListView.builder(
+              key: ValueKey(
+                'player-sessions-${onBuy == null ? 'history' : 'upcoming'}',
+              ),
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(16),
+              itemCount: sessions.length,
+              itemBuilder: (context, index) {
+                final session = sessions[index];
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: SectionCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          session.sessionName,
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                        Text(session.roomName),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 16,
+                          children: [
+                            _InfoChip(
+                              label: localizations.sessionStatusLabel,
+                              value: session.state,
+                            ),
+                            _InfoChip(
+                              label: localizations.roomPriceLabel,
+                              value:
+                                  '${session.ticketPrice} ${session.currency}',
+                            ),
+                            _InfoChip(
+                              label: localizations.availableSeatsLabel,
+                              value: session.availableSeats.toString(),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () => Navigator.of(context).push(
+                                  MaterialPageRoute<void>(
+                                    builder: (_) =>
+                                        SessionDetailScreen(session: session),
+                                  ),
+                                ),
+                                child: Text(localizations.roomDetails),
+                              ),
+                            ),
+                            if (onBuy != null) ...[
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: FilledButton(
+                                  onPressed:
+                                      purchasesEnabled &&
+                                          session.availableSeats > 0
+                                      ? () => onBuy!(session)
+                                      : null,
+                                  child: Text(localizations.buyTicketsButton),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+    );
+  }
+}
+
+Future<void> _buyTickets(
+  BuildContext context,
+  WidgetRef ref,
+  GameSession session,
+) async {
+  final localizations = AppLocalizations.of(context)!;
+  final int owned;
+  try {
+    owned =
+        (await ref
+                .read(gameRepositoryProvider)
+                .getMyTickets(session.id, page: 0, size: 1))
+            .totalElements;
+  } catch (_) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(localizations.errorGeneric)));
+    }
+    return;
+  }
+  final remainingPlayerLimit = session.maxTicketsPerPlayer == null
+      ? 10
+      : (session.maxTicketsPerPlayer! - owned).clamp(0, 10);
+  final maxQuantity = [
+    10,
+    session.availableSeats,
+    remainingPlayerLimit,
+  ].reduce((a, b) => a < b ? a : b);
+  if (maxQuantity == 0) {
+    if (context.mounted) {
+      final message = session.availableSeats == 0
+          ? localizations.ticketsSoldOutTitle
+          : localizations.ticketLimitReachedTitle;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    }
+    return;
+  }
+  if (!context.mounted) return;
+  var quantity = 1;
+  final selected = await showDialog<int>(
+    context: context,
+    builder: (dialogContext) => StatefulBuilder(
+      builder: (context, setState) => AlertDialog(
+        title: Text(localizations.purchaseTicketTitle),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            DropdownButton<int>(
+              value: quantity,
+              items: [
+                for (var i = 1; i <= maxQuantity; i++)
+                  DropdownMenuItem(
+                    value: i,
+                    child: Text(localizations.purchaseQuantityLabel(i)),
+                  ),
+              ],
+              onChanged: (value) {
+                if (value != null) setState(() => quantity = value);
+              },
+            ),
+            Text(
+              localizations.purchaseTotalLabel(
+                (session.ticketPrice * quantity).toStringAsFixed(2),
+                session.currency,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(localizations.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, quantity),
+            child: Text(localizations.buyTicketsButton),
+          ),
+        ],
+      ),
+    ),
+  );
+  if (selected == null || !context.mounted) return;
+  try {
+    final wallet = await ref.read(walletRepositoryProvider).getBalance();
+    final total = session.ticketPrice * selected;
+    if (wallet.availableBalance < total) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              localizations.insufficientTicketBalance(
+                total.toStringAsFixed(2),
+                session.currency,
+              ),
+            ),
+          ),
+        );
+      }
+      return;
+    }
+    final result = await ref
+        .read(liveGameControllerProvider(session.id).notifier)
+        .purchaseTickets(selected);
+    ref.invalidate(walletBalanceProvider);
+    ref.invalidate(activeSessionsProvider);
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          result.error == null
+              ? localizations.ticketsPurchasedCount(result.purchasedCount)
+              : '${result.purchasedCount > 0 ? '${localizations.ticketsPurchasedCount(result.purchasedCount)}. ' : ''}${result.error!.userMessage(localizations)}',
+        ),
+      ),
+    );
+  } catch (_) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(localizations.errorGeneric)));
+    }
   }
 }
 

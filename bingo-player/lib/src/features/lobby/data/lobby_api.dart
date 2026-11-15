@@ -14,8 +14,8 @@ class LobbyApi {
         .toList();
   }
 
-  Future<List<GameSession>> getActiveSessions() async {
-    final response = await _dio.get<List<dynamic>>('/api/v1/sessions/active');
+  Future<List<GameSession>> getSessions() async {
+    final response = await _dio.get<List<dynamic>>('/api/v1/sessions');
     return (response.data ?? const [])
         .whereType<Map>()
         .map((item) => GameSession.fromJson(Map<String, dynamic>.from(item)))

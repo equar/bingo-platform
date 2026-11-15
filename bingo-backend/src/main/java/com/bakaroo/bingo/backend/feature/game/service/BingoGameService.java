@@ -109,6 +109,7 @@ public class BingoGameService {
     private final GameFundingService funding;
     private final GameWinnerService winners;
     private final com.bakaroo.bingo.backend.feature.game.config.GamePolicyProperties policy;
+    private final RoomSessionCadenceService roomSessionCadence;
 
     public BingoGameService(BingoRoomRepository bingoRoomRepository,
             GameSessionRepository gameSessionRepository,
@@ -127,11 +128,13 @@ public class BingoGameService {
             GameLiveDrawService gameLiveDrawService,
             com.bakaroo.bingo.backend.feature.community.service.GameAccessService gameAccess,
             GameFundingService funding, GameWinnerService winners, GameRefundService refunds,
-            com.bakaroo.bingo.backend.feature.game.config.GamePolicyProperties policy) {
+            com.bakaroo.bingo.backend.feature.game.config.GamePolicyProperties policy,
+            RoomSessionCadenceService roomSessionCadence) {
         this.funding = funding;
         this.refunds = refunds;
         this.winners = winners;
         this.policy = policy;
+        this.roomSessionCadence = roomSessionCadence;
         this.gameAccess = gameAccess;
         this.bingoRoomRepository = bingoRoomRepository;
         this.gameSessionRepository = gameSessionRepository;
@@ -221,11 +224,17 @@ public class BingoGameService {
     }
 
     @Transactional(readOnly = true)
+    public List<PlayerGameSessionResponse> listPlayerSessions(BingoUserPrincipal principal) {
+        return gameSessionRepository.findPlayerVisibleSessions().stream()
+                .filter(session -> !session.getRoom().isPrivateRoom()
+                        || gameAccess.isMember(session.getRoom().getId(), principal.getUser().getId()))
+                .map(this::toPlayerSessionResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
     public PlayerGameSessionResponse getPlayerSession(Long sessionId) {
         GameSession session = requireSession(sessionId);
-        if (!session.getRoom().isActive() && !session.getRoom().isPrivateRoom()) {
-            throw new NotFoundException("SESSION_NOT_FOUND", "Game session not found");
-        }
         gameAccess.requireRoomAccess(session.getRoom().getId());
         return toPlayerSessionResponse(session);
     }
@@ -345,13 +354,16 @@ public class BingoGameService {
         String actorName = currentActorDisplayName();
         room.setCreatedByDisplayName(actorName);
         room.setUpdatedByDisplayName(actorName);
-        return toRoomResponse(bingoRoomRepository.save(room));
+        BingoRoom savedRoom = bingoRoomRepository.saveAndFlush(room);
+        if (savedRoom.isActive()) roomSessionCadence.ensureNextSession(savedRoom.getId());
+        return toRoomResponse(savedRoom);
     }
 
     @Transactional
     public BingoRoomResponse updateRoom(Long roomId, BingoRoomRequest request) {
         validateRoomPrizeConfiguration(request);
         BingoRoom room = requireRoom(roomId);
+        boolean wasActive = room.isActive();
         if (request.version() == null) {
             throw new BadRequestException("ROOM_VERSION_REQUIRED", "Room version is required when updating configuration");
         }
@@ -377,6 +389,7 @@ public class BingoGameService {
         room.setConfiguredPrizesJson(writePrizes(request.configuredPrizes()));
         room.setUpdatedByDisplayName(currentActorDisplayName());
         bingoRoomRepository.saveAndFlush(room);
+        if (!wasActive && room.isActive()) roomSessionCadence.ensureNextSession(roomId);
         return toRoomResponse(room);
     }
 
@@ -408,6 +421,7 @@ public class BingoGameService {
         session.setSessionName(request.sessionName().trim());
         session.setState(request.state() == null ? GameSessionState.DRAFT : request.state());
         session.setScheduledStartAt(request.scheduledStartAt());
+        session.setAutoScheduled(false);
         session.setTicketPriceSnapshot(
                 MoneyValues.money(request.ticketPrice() != null ? request.ticketPrice() : room.getTicketPrice()));
         session.setCurrencySnapshot(
@@ -488,6 +502,9 @@ public class BingoGameService {
         }
         if (session.getEndedAt() == null && (next == GameSessionState.CLOSED || next == GameSessionState.CANCELLED)) {
             session.setEndedAt(Instant.now());
+        }
+        if (next == GameSessionState.CLOSED) {
+            roomSessionCadence.scheduleAfterSuccessfulCompletion(session, session.getEndedAt());
         }
         return toSessionResponse(session);
     }
@@ -1191,6 +1208,7 @@ public class BingoGameService {
                 session.getTicketPriceSnapshot(),
                 session.getCurrencySnapshot(),
                 session.getSessionCapacitySnapshot(),
+                session.getMaxTicketsPerPlayerSnapshot(),
                 readPatterns(session.getPatternsSnapshotJson()),
                 ticketRepository.countBySessionId(session.getId()),
                 drawEventRepository.countBySessionId(session.getId()),
