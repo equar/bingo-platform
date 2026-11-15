@@ -96,10 +96,10 @@ Future<void> tab(WidgetTester tester, String label) async {
 
 Future<void> _selectUpcomingSessionTab(WidgetTester tester) async {
   final lobby = find.byType(LobbyScreen);
-  final tabBar = tester.widget<TabBar>(
-    find.descendant(of: lobby, matching: find.byType(TabBar)),
-  );
-  tabBar.controller!.animateTo(1);
+  final context = tester.element(lobby);
+  final label = AppLocalizations.of(context)!.upcomingGamesTab;
+  await tester.ensureVisible(find.text(label));
+  await tester.tap(find.text(label));
   await tester.pumpAndSettle();
 }
 

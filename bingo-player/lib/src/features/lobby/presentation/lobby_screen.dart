@@ -225,6 +225,7 @@ class _SessionList extends StatelessWidget {
                           children: [
                             Expanded(
                               child: OutlinedButton(
+                                key: ValueKey('session-details-${session.id}'),
                                 onPressed: () => Navigator.of(context).push(
                                   MaterialPageRoute<void>(
                                     builder: (_) =>
