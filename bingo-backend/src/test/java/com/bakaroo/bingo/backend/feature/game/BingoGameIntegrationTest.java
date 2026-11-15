@@ -299,7 +299,7 @@ class BingoGameIntegrationTest extends MySqlIntegrationTest {
                                 .andExpect(jsonPath("$.ticketCount").value(0))
                                 .andExpect(jsonPath("$.configuredPatterns[0]").value("LINE"))
                                 .andExpect(jsonPath("$.configuredPrizes").isArray())
-                                .andExpect(jsonPath("$.maxTicketsPerPlayer").doesNotExist());
+                                .andExpect(jsonPath("$.maxTicketsPerPlayer").value(10));
         }
 
         @Test
