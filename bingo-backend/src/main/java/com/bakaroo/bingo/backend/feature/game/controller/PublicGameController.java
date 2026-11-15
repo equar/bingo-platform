@@ -11,7 +11,10 @@ import com.bakaroo.bingo.backend.feature.game.dto.TicketResponse;
 import com.bakaroo.bingo.backend.feature.game.dto.WinClaimRequest;
 import com.bakaroo.bingo.backend.feature.game.dto.WinClaimResponse;
 import com.bakaroo.bingo.backend.feature.game.dto.PlayerGameHistoryResponse;
+import com.bakaroo.bingo.backend.feature.game.dto.PlayerTicketRegistrationRequest;
+import com.bakaroo.bingo.backend.feature.game.dto.PlayerTicketRegistrationResponse;
 import com.bakaroo.bingo.backend.feature.game.service.BingoGameService;
+import com.bakaroo.bingo.backend.feature.game.service.PlayerTicketRegistrationService;
 import jakarta.validation.Valid;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -38,9 +41,12 @@ import java.util.List;
 public class PublicGameController {
 
     private final BingoGameService bingoGameService;
+    private final PlayerTicketRegistrationService ticketRegistrationService;
 
-    public PublicGameController(BingoGameService bingoGameService) {
+    public PublicGameController(BingoGameService bingoGameService,
+            PlayerTicketRegistrationService ticketRegistrationService) {
         this.bingoGameService = bingoGameService;
+        this.ticketRegistrationService = ticketRegistrationService;
     }
 
     @GetMapping("/rooms")
@@ -90,6 +96,21 @@ public class PublicGameController {
             @AuthenticationPrincipal BingoUserPrincipal principal,
             @PageableDefault(size = 20) Pageable pageable) {
         return PageResponse.from(bingoGameService.getMyTickets(id, principal, pageable));
+    }
+
+    @GetMapping("/sessions/{id}/my-ticket-registration")
+    @PreAuthorize("hasRole('PLAYER')")
+    public PlayerTicketRegistrationResponse myTicketRegistration(@PathVariable Long id,
+            @AuthenticationPrincipal BingoUserPrincipal principal) {
+        return ticketRegistrationService.get(id, principal);
+    }
+
+    @org.springframework.web.bind.annotation.PutMapping("/sessions/{id}/my-ticket-registration")
+    @PreAuthorize("hasRole('PLAYER')")
+    public PlayerTicketRegistrationResponse saveMyTicketRegistration(@PathVariable Long id,
+            @AuthenticationPrincipal BingoUserPrincipal principal,
+            @Valid @RequestBody PlayerTicketRegistrationRequest request) {
+        return ticketRegistrationService.save(id, principal, request);
     }
 
     @GetMapping("/sessions/{id}/draws")

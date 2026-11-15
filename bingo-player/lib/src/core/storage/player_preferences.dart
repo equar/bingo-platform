@@ -15,9 +15,11 @@ class PlayerPreferences extends ChangeNotifier {
   static const _selectionColorKey = 'player.selectionColor';
   static const _soundKey = 'player.sound';
   static const _notificationsKey = 'player.notifications';
+  static const _notificationModeKey = 'player.notificationMode';
   static const _sortKey = 'player.ticketSortPriorities';
   static const _multipleCardsKey = 'player.multipleCards';
   static const _selectedTicketsKey = 'player.selectedTicketIds.';
+  static const _pendingTicketsKey = 'player.pendingTicketRegistration.';
   static const _manualMarkPrefix = 'player.manualMarks.';
   String _scope = 'default';
 
@@ -26,11 +28,12 @@ class PlayerPreferences extends ChangeNotifier {
   bool hideUnregisteredCards = false;
   bool soundEnabled = true;
   bool notificationsEnabled = false;
+  String notificationMode = 'my_card';
   int cardsOnBoard = 2;
   int selectionColorIndex = 0;
   List<String> sortPriorities = [];
   bool loaded = false;
-  bool multipleCardSelection = false;
+  bool multipleCardSelection = true;
   Set<int> selectedTicketIds = {};
   Future<void>? _scopeLoad;
 
@@ -46,6 +49,26 @@ class PlayerPreferences extends ChangeNotifier {
   ];
 
   static const sortOptions = <String>[
+    'SQUARE',
+    'RECTANGLE',
+    'HORIZONTAL_LINE',
+    'VERTICAL_LINE',
+    'LINE_TOUCHING_FREE',
+    'LINE_NOT_TOUCHING_FREE',
+    'NON_CROSSING_LINES',
+    'DIAGONAL_LINES',
+    'MOST_CALLED',
+    'BIG_T',
+    'BIG_Z',
+    'BIG_H',
+    'BIG_L',
+    'BIG_U',
+    'SMALL_X',
+    'SMALL_T',
+    'SMALL_CROSS',
+    'CORNER_BALLS',
+    'HALF_HOUSE',
+    'BIG_O',
     'LINE',
     'TWO_LINES',
     'FULL_HOUSE',
@@ -68,6 +91,11 @@ class PlayerPreferences extends ChangeNotifier {
     hideUnregisteredCards = prefs.getBool(_hideUnregisteredKey) ?? false;
     soundEnabled = prefs.getBool(_soundKey) ?? true;
     notificationsEnabled = prefs.getBool(_notificationsKey) ?? false;
+    final savedNotificationMode = prefs.getString(_notificationModeKey);
+    notificationMode =
+        const {'every_call', 'my_card', 'win'}.contains(savedNotificationMode)
+        ? savedNotificationMode!
+        : 'my_card';
     cardsOnBoard = [1, 2, 3, 4].contains(prefs.getInt(_boardSizeKey))
         ? prefs.getInt(_boardSizeKey)!
         : 2;
@@ -80,7 +108,7 @@ class PlayerPreferences extends ChangeNotifier {
         .toSet()
         .take(3)
         .toList();
-    multipleCardSelection = prefs.getBool(_multipleCardsKey) ?? false;
+    multipleCardSelection = prefs.getBool(_multipleCardsKey) ?? true;
     final scopeLoad = _loadScopedData(prefs);
     _scopeLoad = scopeLoad;
     await scopeLoad;
@@ -142,6 +170,23 @@ class PlayerPreferences extends ChangeNotifier {
     }
   }
 
+  Future<void> replaceSelectedTicketIds(
+    Iterable<int> ticketIds, {
+    String? expectedScope,
+  }) async {
+    final targetScope = expectedScope ?? _scope;
+    if (targetScope != _scope) return;
+    await _scopeLoad;
+    if (targetScope != _scope) return;
+    selectedTicketIds = ticketIds.take(cardsOnBoard).toSet();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(
+      '$_selectedTicketsKey$_scope',
+      selectedTicketIds.map((id) => id.toString()).toList(),
+    );
+    notifyListeners();
+  }
+
   Future<void> _loadScopedData(SharedPreferences prefs) async {
     selectedTicketIds =
         (prefs.getStringList('$_selectedTicketsKey$_scope') ?? [])
@@ -167,6 +212,67 @@ class PlayerPreferences extends ChangeNotifier {
     if (value is int) await prefs.setInt(key, value);
     if (value is String) await prefs.setString(key, value);
     if (value is List<String>) await prefs.setStringList(key, value);
+    notifyListeners();
+  }
+
+  Future<List<int>?> pendingTicketRegistration(String scope) async {
+    final prefs = await SharedPreferences.getInstance();
+    final key = '$_pendingTicketsKey${_normalizeScope(scope)}';
+    if (!prefs.containsKey(key)) return null;
+    return (prefs.getStringList(key) ?? const [])
+        .map(int.tryParse)
+        .whereType<int>()
+        .toList();
+  }
+
+  Future<void> queueTicketRegistration(
+    Iterable<int> ticketIds, {
+    String? expectedScope,
+  }) async {
+    final scope = _normalizeScope(expectedScope ?? _scope);
+    final ids = ticketIds.toSet().toList()..sort();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(
+      '$_pendingTicketsKey$scope',
+      ids.map((id) => id.toString()).toList(),
+    );
+  }
+
+  Future<void> clearPendingTicketRegistration(
+    Iterable<int> uploadedIds, {
+    String? expectedScope,
+  }) async {
+    final scope = _normalizeScope(expectedScope ?? _scope);
+    final uploaded = uploadedIds.toSet().toList()..sort();
+    final prefs = await SharedPreferences.getInstance();
+    final key = '$_pendingTicketsKey$scope';
+    if (!prefs.containsKey(key)) return;
+    final pending =
+        (prefs.getStringList(key) ?? const [])
+            .map(int.tryParse)
+            .whereType<int>()
+            .toList()
+          ..sort();
+    if (pending.length == uploaded.length &&
+        pending.asMap().entries.every(
+          (entry) => entry.value == uploaded[entry.key],
+        )) {
+      await prefs.remove(key);
+    }
+  }
+
+  String _normalizeScope(String scope) =>
+      scope.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
+
+  Future<void> _persistTicketSelection({String? expectedScope}) async {
+    final scope = _normalizeScope(expectedScope ?? _scope);
+    final ids = selectedTicketIds.toList()..sort();
+    final prefs = await SharedPreferences.getInstance();
+    final values = ids.map((id) => id.toString()).toList();
+    // Persist the pending snapshot first so an app shutdown cannot silently
+    // replace an offline edit with the older server value on next launch.
+    await prefs.setStringList('$_pendingTicketsKey$scope', values);
+    await prefs.setStringList('$_selectedTicketsKey$scope', values);
     notifyListeners();
   }
 
@@ -196,17 +302,18 @@ class PlayerPreferences extends ChangeNotifier {
     await _save(_notificationsKey, value);
   }
 
+  Future<void> setNotificationMode(String value) async {
+    if (!const {'every_call', 'my_card', 'win'}.contains(value)) return;
+    notificationMode = value;
+    await _save(_notificationModeKey, value);
+  }
+
   Future<void> setBoardSize(int value) async {
     final scope = _scope;
     cardsOnBoard = value.clamp(1, 4).toInt();
     if (selectedTicketIds.length > cardsOnBoard) {
       selectedTicketIds = selectedTicketIds.take(cardsOnBoard).toSet();
-      final selectedIds = selectedTicketIds;
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setStringList(
-        '$_selectedTicketsKey$scope',
-        selectedIds.map((id) => id.toString()).toList(),
-      );
+      await _persistTicketSelection(expectedScope: scope);
     }
     await _save(_boardSizeKey, cardsOnBoard);
   }
@@ -223,15 +330,10 @@ class PlayerPreferences extends ChangeNotifier {
     }
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_multipleCardsKey, value);
-    await prefs.setStringList(
-      '$_selectedTicketsKey$_scope',
-      selectedTicketIds.map((id) => id.toString()).toList(),
-    );
-    notifyListeners();
+    await _persistTicketSelection();
   }
 
   Future<void> toggleSelectedTicket(int ticketId) async {
-    final key = '$_selectedTicketsKey$_scope';
     final next = {...selectedTicketIds};
     if (next.contains(ticketId)) {
       next.remove(ticketId);
@@ -242,17 +344,16 @@ class PlayerPreferences extends ChangeNotifier {
       next.add(ticketId);
     }
     selectedTicketIds = next;
-    await _save(key, next.map((id) => id.toString()).toList());
+    await _persistTicketSelection();
   }
 
   Future<void> selectTicketForBoard(int ticketId) async {
     if (selectedTicketIds.contains(ticketId)) return;
-    final key = '$_selectedTicketsKey$_scope';
     final next = {...selectedTicketIds};
     if (next.length >= cardsOnBoard) next.remove(next.first);
     next.add(ticketId);
     selectedTicketIds = next;
-    await _save(key, next.map((id) => id.toString()).toList());
+    await _persistTicketSelection();
   }
 
   Set<int> manualMarksForTicket(int ticketId) {

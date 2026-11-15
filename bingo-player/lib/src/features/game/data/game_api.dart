@@ -10,35 +10,84 @@ class GameApi {
 
   final Dio _dio;
 
-  Future<TicketPurchaseResponse> purchaseTicket(int sessionId, String idempotencyKey) async {
+  Future<TicketPurchaseResponse> purchaseTicket(
+    int sessionId,
+    String idempotencyKey,
+  ) async {
     try {
       final response = await _dio.post<Map<String, dynamic>>(
         '/api/v1/sessions/$sessionId/tickets',
         options: Options(headers: {'Idempotency-Key': idempotencyKey}),
       );
-      return TicketPurchaseResponse.fromJson(response.data ?? const <String, dynamic>{});
+      return TicketPurchaseResponse.fromJson(
+        response.data ?? const <String, dynamic>{},
+      );
     } on DioException catch (error) {
       throw mapDioError(error);
     }
   }
 
   Future<GameSession> getSession(int sessionId) async {
-    final response = await _dio.get<Map<String, dynamic>>('/api/v1/sessions/$sessionId');
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/v1/sessions/$sessionId',
+    );
     return GameSession.fromJson(response.data ?? const <String, dynamic>{});
   }
 
-  Future<PageResult<TicketResponse>> getMyTickets(int sessionId, {required int page, required int size}) async {
+  Future<PageResult<TicketResponse>> getMyTickets(
+    int sessionId, {
+    required int page,
+    required int size,
+  }) async {
     final response = await _dio.get<Map<String, dynamic>>(
       '/api/v1/sessions/$sessionId/my-tickets',
       queryParameters: {'page': page, 'size': size, 'sort': 'id,asc'},
     );
-    return PageResult.fromJson(response.data ?? const <String, dynamic>{}, TicketResponse.fromJson);
+    return PageResult.fromJson(
+      response.data ?? const <String, dynamic>{},
+      TicketResponse.fromJson,
+    );
   }
 
-  Future<List<LiveDrawEvent>> getDraws(int sessionId, {int? afterSequence}) async {
+  Future<({bool initialized, List<int> ticketIds})> getMyTicketRegistration(
+    int sessionId,
+  ) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/v1/sessions/$sessionId/my-ticket-registration',
+    );
+    final data = response.data ?? const <String, dynamic>{};
+    return (
+      initialized: data['initialized'] == true,
+      ticketIds: (data['ticketIds'] as List<dynamic>? ?? const [])
+          .whereType<num>()
+          .map((id) => id.toInt())
+          .toList(),
+    );
+  }
+
+  Future<List<int>> saveMyTicketRegistration(
+    int sessionId,
+    Iterable<int> ticketIds,
+  ) async {
+    final response = await _dio.put<Map<String, dynamic>>(
+      '/api/v1/sessions/$sessionId/my-ticket-registration',
+      data: {'ticketIds': ticketIds.toList()},
+    );
+    return (response.data?['ticketIds'] as List<dynamic>? ?? const [])
+        .whereType<num>()
+        .map((id) => id.toInt())
+        .toList();
+  }
+
+  Future<List<LiveDrawEvent>> getDraws(
+    int sessionId, {
+    int? afterSequence,
+  }) async {
     final response = await _dio.get<List<dynamic>>(
       '/api/v1/sessions/$sessionId/draws',
-      queryParameters: afterSequence == null ? null : {'afterSequence': afterSequence},
+      queryParameters: afterSequence == null
+          ? null
+          : {'afterSequence': afterSequence},
     );
     return (response.data ?? const [])
         .whereType<Map>()
@@ -46,15 +95,25 @@ class GameApi {
         .toList();
   }
 
-  Future<PageResult<WinClaimRecord>> getMyWinClaims({required int page, required int size}) async {
+  Future<PageResult<WinClaimRecord>> getMyWinClaims({
+    required int page,
+    required int size,
+  }) async {
     final response = await _dio.get<Map<String, dynamic>>(
       '/api/v1/me/win-claims',
       queryParameters: {'page': page, 'size': size},
     );
-    return PageResult.fromJson(response.data ?? const <String, dynamic>{}, WinClaimRecord.fromJson);
+    return PageResult.fromJson(
+      response.data ?? const <String, dynamic>{},
+      WinClaimRecord.fromJson,
+    );
   }
 
-  Future<WinClaimRecord> submitWinClaim(int ticketId, String claimedPattern, String idempotencyKey) async {
+  Future<WinClaimRecord> submitWinClaim(
+    int ticketId,
+    String claimedPattern,
+    String idempotencyKey,
+  ) async {
     final response = await _dio.post<Map<String, dynamic>>(
       '/api/v1/tickets/$ticketId/win-claims',
       data: {'claimedPattern': claimedPattern},

@@ -44,7 +44,10 @@ export interface PlayerAnnouncementResponse {
   titleAm: string | null;
   bodyEn: string;
   bodyAm: string | null;
+  imageUrl: string | null;
   published: boolean;
+  showInCarousel: boolean;
+  displayOrder: number;
   read: boolean;
   createdAt: string;
   updatedAt: string;
@@ -52,7 +55,7 @@ export interface PlayerAnnouncementResponse {
 
 export type PlayerAppSettingsRequest = Omit<PlayerAppSettingsResponse, "updatedAt">;
 export type PlayerAnnouncementRequest = Pick<PlayerAnnouncementResponse,
-  "titleEn" | "titleAm" | "bodyEn" | "bodyAm" | "published">;
+  "titleEn" | "titleAm" | "bodyEn" | "bodyAm" | "imageUrl" | "published" | "showInCarousel" | "displayOrder">;
 
 export async function playerAppSettings() {
   const { data } = await http.get<PlayerAppSettingsResponse>("/api/v1/admin/player-app/content");
@@ -69,6 +72,11 @@ export async function playerAnnouncements() {
   return data;
 }
 
+export async function playerBannerSlides() {
+  const { data } = await http.get<PlayerAnnouncementResponse[]>("/api/v1/admin/player-app/banners");
+  return data;
+}
+
 export async function createPlayerAnnouncement(body: PlayerAnnouncementRequest) {
   const { data } = await http.post<PlayerAnnouncementResponse>("/api/v1/admin/player-app/messages", body);
   return data;
@@ -81,6 +89,16 @@ export async function updatePlayerAnnouncement(id: number, body: PlayerAnnouncem
 
 export async function deletePlayerAnnouncement(id: number) {
   await http.delete(`/api/v1/admin/player-app/messages/${id}`);
+}
+
+export async function uploadPlayerBannerImage(id: number, file: File) {
+  const form = new FormData();
+  form.append("file", file);
+  const { data } = await http.post<PlayerAnnouncementResponse>(
+    `/api/v1/admin/player-app/messages/${id}/image`,
+    form,
+  );
+  return data;
 }
 
 export interface AdminDashboardMetricsResponse {

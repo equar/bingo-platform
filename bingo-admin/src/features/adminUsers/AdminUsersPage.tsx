@@ -531,37 +531,6 @@ export function AdminUsersPage() {
                   }}
                 >
                   <Stack spacing={2} minWidth={0}>
-                    {selectedUser?.status === "ACTIVE" ? (
-                      <Box
-                        display="flex"
-                        justifyContent="flex-end"
-                        gap={1}
-                        flexWrap="wrap"
-                      >
-                        <Button
-                          size="small"
-                          color="warning"
-                          disabled={
-                            isEditingOwnAccount ||
-                            resetPasswordMutation.isPending
-                          }
-                          title={
-                            isEditingOwnAccount
-                              ? t(
-                                  "You cannot send a password reset link to your own account.",
-                                )
-                              : undefined
-                          }
-                          onClick={() => {
-                            setResendError(null);
-                            setResendSuccess(null);
-                            setResetTarget(selectedUser);
-                          }}
-                        >
-                          {t("Reset password")}
-                        </Button>
-                      </Box>
-                    ) : null}
                     <TextField
                       label={t("Display name")}
                       value={form.displayName}
@@ -930,6 +899,31 @@ export function AdminUsersPage() {
                             {formatEthiopianDateTime(selectedUser.updatedAt)}
                           </Typography>
                         </Box>
+                        {selectedUser.status === "ACTIVE" ? (
+                          <Button
+                            size="small"
+                            color="warning"
+                            sx={{ alignSelf: "flex-start" }}
+                            disabled={
+                              isEditingOwnAccount ||
+                              resetPasswordMutation.isPending
+                            }
+                            title={
+                              isEditingOwnAccount
+                                ? t(
+                                    "You cannot send a password reset link to your own account.",
+                                  )
+                                : undefined
+                            }
+                            onClick={() => {
+                              setResendError(null);
+                              setResendSuccess(null);
+                              setResetTarget(selectedUser);
+                            }}
+                          >
+                            {t("Reset password")}
+                          </Button>
+                        ) : null}
                       </Stack>
                     </Box>
                   ) : null}

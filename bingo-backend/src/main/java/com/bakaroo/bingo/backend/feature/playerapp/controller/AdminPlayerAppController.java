@@ -3,6 +3,7 @@ package com.bakaroo.bingo.backend.feature.playerapp.controller;
 import com.bakaroo.bingo.backend.feature.auth.service.BingoUserPrincipal;
 import com.bakaroo.bingo.backend.feature.playerapp.dto.PlayerAnnouncementRequest;
 import com.bakaroo.bingo.backend.feature.playerapp.dto.PlayerAnnouncementResponse;
+import com.bakaroo.bingo.backend.feature.playerapp.dto.PlayerBannerImageResponse;
 import com.bakaroo.bingo.backend.feature.playerapp.dto.PlayerAppSettingsRequest;
 import com.bakaroo.bingo.backend.feature.playerapp.dto.PlayerAppSettingsResponse;
 import com.bakaroo.bingo.backend.feature.playerapp.service.PlayerAppContentService;
@@ -18,6 +19,8 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/v1/admin/player-app")
@@ -43,6 +46,18 @@ public class AdminPlayerAppController {
     @GetMapping("/messages")
     public List<PlayerAnnouncementResponse> messages() {
         return service.listAnnouncements(true, null);
+    }
+
+    @GetMapping("/banners")
+    public List<PlayerAnnouncementResponse> banners() {
+        return service.listBannerSlides(true);
+    }
+
+    @PostMapping(value = "/messages/{id}/image", consumes = "multipart/form-data")
+    public PlayerAnnouncementResponse uploadBannerImage(@PathVariable Long id,
+            @RequestParam("file") MultipartFile file,
+            @AuthenticationPrincipal BingoUserPrincipal principal) throws java.io.IOException {
+        return service.uploadBannerImage(id, file.getBytes(), file.getContentType(), principal);
     }
 
     @PostMapping("/messages")

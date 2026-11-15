@@ -46,7 +46,7 @@ class _HomeShellState extends State<HomeShell> {
     0 => HomeScreen(
       onGames: () => _select(1),
       onWallet: () => _select(2),
-      onProfile: () => _select(3),
+      onProfile: _showProfile,
       onSupport: _support,
     ),
     1 => const LobbyScreen(),
@@ -55,6 +55,9 @@ class _HomeShellState extends State<HomeShell> {
       onSupport: _support,
       onMessages: _messages,
       onGameHistory: _gameHistory,
+      onDeposit: () => _openWalletTab(1),
+      onWithdraw: () => _openWalletTab(3),
+      onTransactions: () => _openWalletTab(0),
     ),
   };
 
@@ -105,6 +108,39 @@ class _HomeShellState extends State<HomeShell> {
   void _gameHistory() => _navigatorKeys[_index].currentState!.push<void>(
     MaterialPageRoute(builder: (_) => const GameHistoryScreen()),
   );
+
+  void _openWalletTab(int tab) =>
+      _navigatorKeys[_index].currentState!.push<void>(
+        MaterialPageRoute(builder: (_) => WalletScreen(initialTab: tab)),
+      );
+
+  void _showProfile() {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (sheetContext) => FractionallySizedBox(
+        heightFactor: .94,
+        child: ProfileScreen(
+          onSupport: () => _dismissProfileAnd(sheetContext, _support),
+          onMessages: () => _dismissProfileAnd(sheetContext, _messages),
+          onGameHistory: () => _dismissProfileAnd(sheetContext, _gameHistory),
+          onDeposit: () =>
+              _dismissProfileAnd(sheetContext, () => _openWalletTab(1)),
+          onWithdraw: () =>
+              _dismissProfileAnd(sheetContext, () => _openWalletTab(3)),
+          onTransactions: () =>
+              _dismissProfileAnd(sheetContext, () => _openWalletTab(0)),
+        ),
+      ),
+    );
+  }
+
+  void _dismissProfileAnd(BuildContext sheetContext, VoidCallback action) {
+    Navigator.of(sheetContext).pop();
+    WidgetsBinding.instance.addPostFrameCallback((_) => action());
+  }
 
   @override
   Widget build(BuildContext context) {

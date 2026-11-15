@@ -44,7 +44,9 @@ final walletWithdrawalsProvider = FutureProvider.autoDispose
     );
 
 class WalletScreen extends ConsumerStatefulWidget {
-  const WalletScreen({super.key});
+  const WalletScreen({super.key, this.initialTab = 0});
+
+  final int initialTab;
 
   @override
   ConsumerState<WalletScreen> createState() => _WalletScreenState();
@@ -72,6 +74,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
   ApiError? _depositApiError;
   late final TabController _tabController = TabController(
     length: 4,
+    initialIndex: widget.initialTab.clamp(0, 3).toInt(),
     vsync: this,
   );
 

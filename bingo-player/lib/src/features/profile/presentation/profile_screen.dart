@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:bingo_player/src/core/localization/ethiopian_date_time.dart';
 import 'package:bingo_player/src/core/network/api_provider.dart';
+import 'package:bingo_player/src/core/config/app_config.dart';
 import 'package:bingo_player/src/core/platform/external_link.dart';
 import 'package:bingo_player/src/core/platform/player_notifications.dart';
 import 'package:bingo_player/src/core/storage/player_preferences.dart';
@@ -23,11 +26,17 @@ class ProfileScreen extends ConsumerStatefulWidget {
     this.onSupport,
     this.onMessages,
     this.onGameHistory,
+    this.onDeposit,
+    this.onWithdraw,
+    this.onTransactions,
   });
 
   final VoidCallback? onSupport;
   final VoidCallback? onMessages;
   final VoidCallback? onGameHistory;
+  final VoidCallback? onDeposit;
+  final VoidCallback? onWithdraw;
+  final VoidCallback? onTransactions;
 
   @override
   ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
@@ -38,6 +47,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   bool _isRefreshing = true;
   bool _hasRefreshError = false;
   Future<PlayerAppContent>? _contentFuture;
+  Future<List<PlayerAnnouncement>>? _bannerSlidesFuture;
   Future<WalletBalance>? _walletFuture;
 
   @override
@@ -53,6 +63,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       _isRefreshing = true;
       _hasRefreshError = false;
       _contentFuture = ref.read(playerContentApiProvider).getContent();
+      _bannerSlidesFuture = ref
+          .read(playerContentApiProvider)
+          .getBannerSlides();
       _walletFuture = ref.read(walletRepositoryProvider).getBalance();
     });
     try {
@@ -75,6 +88,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context)!;
     final preferences = ref.watch(playerPreferencesProvider);
+    final apiBaseUrl = ref.watch(appConfigProvider).apiBaseUrl;
     final session = ref.watch(authSessionControllerProvider).session;
     if (session == null) {
       return Scaffold(
@@ -196,91 +210,90 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         .map((value) => value.trim())
                         .where((value) => value.isNotEmpty)
                         .toList();
-                    if ([
-                      title,
-                      body,
-                      content.bannerImageUrl,
+                    final hasContactInfo = [
                       content.telegramUrl,
                       content.tiktokUrl,
                       content.termsUrl,
                       content.supportPhoneNumbers,
-                    ].every((value) => value == null || value.isEmpty)) {
-                      return const SizedBox.shrink();
-                    }
-                    return Column(
-                      children: [
-                        SectionCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              if (content.bannerImageUrl?.isNotEmpty ?? false)
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(16),
-                                  child: Image.network(
-                                    content.bannerImageUrl!,
-                                    width: double.infinity,
-                                    height: 150,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, _, _) =>
-                                        const SizedBox.shrink(),
-                                  ),
-                                ),
-                              if (title?.isNotEmpty ?? false)
-                                Text(
-                                  title!,
-                                  style: Theme.of(context).textTheme.titleLarge,
-                                ),
-                              if (body?.isNotEmpty ?? false)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 6),
-                                  child: Text(body!),
-                                ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        SectionCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                localizations.contactUs,
-                                style: Theme.of(context).textTheme.titleMedium,
+                    ].any((value) => value != null && value.isNotEmpty);
+                    return FutureBuilder<List<PlayerAnnouncement>>(
+                      future: _bannerSlidesFuture,
+                      builder: (context, announcementsSnapshot) {
+                        final announcements =
+                            announcementsSnapshot.data ?? const [];
+                        if (!hasContactInfo &&
+                            (title == null || title.isEmpty) &&
+                            (body == null || body.isEmpty) &&
+                            (content.bannerImageUrl == null ||
+                                content.bannerImageUrl!.isEmpty) &&
+                            announcements.isEmpty) {
+                          return const SizedBox.shrink();
+                        }
+                        return Column(
+                          children: [
+                            if ((title?.isNotEmpty ?? false) ||
+                                (body?.isNotEmpty ?? false) ||
+                                (content.bannerImageUrl?.isNotEmpty ?? false) ||
+                                announcements.isNotEmpty)
+                              _ProfileBannerCarousel(
+                                content: content,
+                                slides: announcements,
+                                apiBaseUrl: apiBaseUrl,
+                                accessToken: session.accessToken,
+                                isAmharic: isAmharic,
                               ),
-                              if (content.telegramUrl?.isNotEmpty ?? false)
-                                _externalLink(
-                                  context,
-                                  Icons.send_rounded,
-                                  'Telegram',
-                                  content.telegramUrl!,
-                                ),
-                              if (content.tiktokUrl?.isNotEmpty ?? false)
-                                _externalLink(
-                                  context,
-                                  Icons.music_video_rounded,
-                                  'TikTok',
-                                  content.tiktokUrl!,
-                                ),
-                              if (content.termsUrl?.isNotEmpty ?? false)
-                                _externalLink(
-                                  context,
-                                  Icons.description_outlined,
-                                  localizations.termsAndConditions,
-                                  content.termsUrl!,
-                                ),
-                              if (phoneNumbers.isNotEmpty)
-                                ListTile(
-                                  leading: const Icon(Icons.phone_outlined),
-                                  title: Text(
-                                    localizations.phoneLabelWithNumbers(
-                                      phoneNumbers.join(', '),
+                            if (hasContactInfo) ...[
+                              const SizedBox(height: 12),
+                              SectionCard(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      localizations.contactUs,
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.titleMedium,
                                     ),
-                                  ),
+                                    if (content.telegramUrl?.isNotEmpty ??
+                                        false)
+                                      _externalLink(
+                                        context,
+                                        Icons.send_rounded,
+                                        'Telegram',
+                                        content.telegramUrl!,
+                                      ),
+                                    if (content.tiktokUrl?.isNotEmpty ?? false)
+                                      _externalLink(
+                                        context,
+                                        Icons.music_video_rounded,
+                                        'TikTok',
+                                        content.tiktokUrl!,
+                                      ),
+                                    if (content.termsUrl?.isNotEmpty ?? false)
+                                      _externalLink(
+                                        context,
+                                        Icons.description_outlined,
+                                        localizations.termsAndConditions,
+                                        content.termsUrl!,
+                                      ),
+                                    if (phoneNumbers.isNotEmpty)
+                                      ListTile(
+                                        leading: const Icon(
+                                          Icons.phone_outlined,
+                                        ),
+                                        title: Text(
+                                          localizations.phoneLabelWithNumbers(
+                                            phoneNumbers.join(', '),
+                                          ),
+                                        ),
+                                      ),
+                                  ],
                                 ),
+                              ),
                             ],
-                          ),
-                        ),
-                      ],
+                          ],
+                        );
+                      },
                     );
                   },
                 ),
@@ -398,6 +411,37 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         }
                       },
                     ),
+                    if (preferences.notificationsEnabled)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                        child: DropdownButtonFormField<String>(
+                          initialValue: preferences.notificationMode,
+                          decoration: InputDecoration(
+                            labelText: localizations.notificationFrequencyTitle,
+                            helperText:
+                                localizations.notificationFrequencyDescription,
+                          ),
+                          items: [
+                            DropdownMenuItem(
+                              value: 'my_card',
+                              child: Text(localizations.notificationMyCard),
+                            ),
+                            DropdownMenuItem(
+                              value: 'every_call',
+                              child: Text(localizations.notificationEveryCall),
+                            ),
+                            DropdownMenuItem(
+                              value: 'win',
+                              child: Text(localizations.notificationWin),
+                            ),
+                          ],
+                          onChanged: (value) {
+                            if (value != null) {
+                              preferences.setNotificationMode(value);
+                            }
+                          },
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -423,16 +467,37 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               const SizedBox(height: 16),
               if (widget.onSupport != null ||
                   widget.onMessages != null ||
-                  widget.onGameHistory != null) ...[
+                  widget.onGameHistory != null ||
+                  widget.onDeposit != null ||
+                  widget.onWithdraw != null ||
+                  widget.onTransactions != null) ...[
                 SectionCard(
                   padding: const EdgeInsets.symmetric(vertical: 6),
                   child: Column(
                     children: [
-                      if (widget.onSupport != null)
+                      if (widget.onDeposit != null)
                         _shortcut(
-                          Icons.support_agent_rounded,
-                          localizations.homeSupport,
-                          widget.onSupport!,
+                          Icons.south_west_rounded,
+                          localizations.walletDepositsTab,
+                          widget.onDeposit!,
+                        ),
+                      if (widget.onWithdraw != null)
+                        _shortcut(
+                          Icons.north_east_rounded,
+                          'Withdraw',
+                          widget.onWithdraw!,
+                        ),
+                      if (widget.onTransactions != null)
+                        _shortcut(
+                          Icons.receipt_long_outlined,
+                          localizations.walletTransactionsTab,
+                          widget.onTransactions!,
+                        ),
+                      if (widget.onGameHistory != null)
+                        _shortcut(
+                          Icons.sports_esports_outlined,
+                          localizations.gameHistoryTitle,
+                          widget.onGameHistory!,
                         ),
                       if (widget.onMessages != null)
                         _shortcut(
@@ -440,11 +505,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           localizations.messagesTitle,
                           widget.onMessages!,
                         ),
-                      if (widget.onGameHistory != null)
+                      if (widget.onSupport != null)
                         _shortcut(
-                          Icons.sports_esports_outlined,
-                          localizations.gameHistoryTitle,
-                          widget.onGameHistory!,
+                          Icons.support_agent_rounded,
+                          localizations.homeSupport,
+                          widget.onSupport!,
                         ),
                     ],
                   ),
@@ -483,5 +548,198 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     title: Text(label),
     trailing: const Icon(Icons.chevron_right_rounded),
     onTap: onTap,
+  );
+}
+
+class _ProfileBannerCarousel extends StatefulWidget {
+  const _ProfileBannerCarousel({
+    required this.content,
+    required this.slides,
+    required this.isAmharic,
+    required this.apiBaseUrl,
+    required this.accessToken,
+  });
+
+  final PlayerAppContent content;
+  final List<PlayerAnnouncement> slides;
+  final bool isAmharic;
+  final String apiBaseUrl;
+  final String accessToken;
+
+  @override
+  State<_ProfileBannerCarousel> createState() => _ProfileBannerCarouselState();
+}
+
+class _ProfileBannerCarouselState extends State<_ProfileBannerCarousel> {
+  final PageController _controller = PageController();
+  Timer? _timer;
+  int _index = 0;
+
+  bool get _hasConfiguredBanner =>
+      (widget.content.bannerTitleEn?.isNotEmpty ?? false) ||
+      (widget.content.bannerTitleAm?.isNotEmpty ?? false) ||
+      (widget.content.bannerBodyEn?.isNotEmpty ?? false) ||
+      (widget.content.bannerBodyAm?.isNotEmpty ?? false) ||
+      (widget.content.bannerImageUrl?.isNotEmpty ?? false);
+
+  int get _slideCount => (_hasConfiguredBanner ? 1 : 0) + widget.slides.length;
+
+  @override
+  void initState() {
+    super.initState();
+    _syncTimer();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ProfileBannerCarousel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_index >= _slideCount) {
+      _index = 0;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _controller.hasClients) _controller.jumpToPage(0);
+      });
+    }
+    _syncTimer();
+  }
+
+  void _syncTimer() {
+    _timer?.cancel();
+    if (_slideCount > 1) {
+      _timer = Timer.periodic(const Duration(seconds: 6), (_) {
+        if (!_controller.hasClients || !mounted) return;
+        final next = (_index + 1) % _slideCount;
+        _controller.animateToPage(
+          next,
+          duration: const Duration(milliseconds: 350),
+          curve: Curves.easeOut,
+        );
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_slideCount == 0) return const SizedBox.shrink();
+    final title =
+        widget.isAmharic && (widget.content.bannerTitleAm?.isNotEmpty ?? false)
+        ? widget.content.bannerTitleAm!
+        : widget.content.bannerTitleEn;
+    final body =
+        widget.isAmharic && (widget.content.bannerBodyAm?.isNotEmpty ?? false)
+        ? widget.content.bannerBodyAm!
+        : widget.content.bannerBodyEn;
+    return Column(
+      children: [
+        SizedBox(
+          height: (widget.content.bannerImageUrl?.isNotEmpty ?? false)
+              ? 280
+              : 180,
+          child: PageView.builder(
+            controller: _controller,
+            itemCount: _slideCount,
+            onPageChanged: (index) => setState(() => _index = index),
+            itemBuilder: (context, index) {
+              final hasBanner = _hasConfiguredBanner;
+              if (hasBanner && index == 0) {
+                return _slideCard(
+                  context,
+                  title: title ?? '',
+                  body: body ?? '',
+                  imageUrl: widget.content.bannerImageUrl,
+                );
+              }
+              final announcement = widget.slides[index - (hasBanner ? 1 : 0)];
+              return _slideCard(
+                context,
+                title:
+                    widget.isAmharic &&
+                        (announcement.titleAm?.isNotEmpty ?? false)
+                    ? announcement.titleAm!
+                    : announcement.titleEn,
+                body:
+                    widget.isAmharic &&
+                        (announcement.bodyAm?.isNotEmpty ?? false)
+                    ? announcement.bodyAm!
+                    : announcement.bodyEn,
+                imageUrl: announcement.imageUrl,
+              );
+            },
+          ),
+        ),
+        if (_slideCount > 1)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                for (var index = 0; index < _slideCount; index++)
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    width: index == _index ? 18 : 6,
+                    height: 6,
+                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                    decoration: BoxDecoration(
+                      color: index == _index
+                          ? Theme.of(context).colorScheme.primary
+                          : Theme.of(context).colorScheme.outlineVariant,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _slideCard(
+    BuildContext context, {
+    required String title,
+    required String body,
+    String? imageUrl,
+  }) => SectionCard(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (imageUrl?.isNotEmpty ?? false)
+          ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: Image.network(
+              imageUrl!.startsWith('/')
+                  ? Uri.parse(widget.apiBaseUrl).resolve(imageUrl).toString()
+                  : imageUrl,
+              headers: {'Authorization': 'Bearer ${widget.accessToken}'},
+              width: double.infinity,
+              height: 96,
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) => const SizedBox.shrink(),
+            ),
+          ),
+        if (title.isNotEmpty)
+          Padding(
+            padding: EdgeInsets.only(
+              top: (imageUrl?.isNotEmpty ?? false) ? 8 : 0,
+            ),
+            child: Text(
+              title,
+              style: Theme.of(context).textTheme.titleLarge,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        if (body.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text(body, maxLines: 3, overflow: TextOverflow.ellipsis),
+          ),
+      ],
+    ),
   );
 }
