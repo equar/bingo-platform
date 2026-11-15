@@ -546,8 +546,8 @@ class BingoGameIntegrationTest extends MySqlIntegrationTest {
                 assertEquals(promotionalBeforeTicket, ticketTransaction.getPromotionalBalanceBefore());
                 assertEquals(ticketWalletAfter.getPromotionalBalance(),
                                 ticketTransaction.getPromotionalBalanceAfter());
-                assertEquals(promotionalBeforeTicket, ticketWalletAfter.getPromotionalBalance());
-                assertEquals(transferableBeforeTicket.subtract(new BigDecimal("4.00")),
+                assertEquals(BigDecimal.ZERO.setScale(2), ticketWalletAfter.getPromotionalBalance());
+                assertEquals(transferableBeforeTicket.subtract(new BigDecimal("3.00")),
                                 ticketWalletAfter.getAvailableBalance());
                 assertEquals(totalBeforeTicket, ticketTransaction.getBalanceBefore());
                 assertEquals(ticketWalletAfter.getTotalBalance(), ticketTransaction.getBalanceAfter());
