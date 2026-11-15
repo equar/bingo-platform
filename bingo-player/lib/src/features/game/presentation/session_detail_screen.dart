@@ -266,7 +266,7 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen>
                         localizations: localizations,
                       ),
                       const SizedBox(height: 16),
-                      if (!isPreGame)
+                      if (!isPreGame && state.selectedTicket != null)
                         _ClaimCard(
                           state: state,
                           controller: controller,
@@ -510,12 +510,13 @@ class _LivePlayViewState extends ConsumerState<_LivePlayView>
                         ),
                       ),
                       _ClaimReviewCard(state: state, controller: controller),
-                      _ClaimCard(
-                        state: state,
-                        controller: controller,
-                        localizations: localizations,
-                        compact: true,
-                      ),
+                      if (state.selectedTicket != null)
+                        _ClaimCard(
+                          state: state,
+                          controller: controller,
+                          localizations: localizations,
+                          compact: true,
+                        ),
                     ],
                   ),
                 ),
@@ -1180,8 +1181,8 @@ class _TicketsCard extends ConsumerWidget {
         children: [
           if (tickets.isEmpty)
             AppStatusView(
-              title: localizations.emptyState,
-              message: localizations.contractGapBody,
+              title: localizations.noTicketsPurchasedTitle,
+              message: localizations.noTicketsPurchasedBody,
             )
           else ...[
             if (preferences.multipleCardSelection && allTickets.length > 1) ...[
@@ -1744,10 +1745,6 @@ class _ClaimCard extends ConsumerWidget {
                   )
                 : Text(localizations.submitClaim),
           ),
-          if (ticket == null) ...[
-            const SizedBox(height: 12),
-            Text(localizations.contractGapBody),
-          ],
           if (!compact &&
               state.infoMessage != null &&
               state.infoMessage != 'CLAIM_ALREADY_SUBMITTED') ...[
@@ -1800,7 +1797,7 @@ class _ClaimHistoryCard extends StatelessWidget {
           if (sessionClaims.isEmpty)
             AppStatusView(
               title: localizations.emptyState,
-              message: localizations.contractGapBody,
+              message: localizations.noClaimsForGame,
             )
           else
             Column(

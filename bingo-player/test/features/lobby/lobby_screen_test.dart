@@ -278,7 +278,7 @@ class _LobbyRepository extends LobbyRepository {
   int previewRequests = 0;
 
   @override
-  Future<List<GameSession>> getActiveSessions() async {
+  Future<List<GameSession>> getSessions() async {
     sessionRequests++;
     if (pendingSessions != null) return pendingSessions!.future;
     if (failSessions) throw Exception('offline');
