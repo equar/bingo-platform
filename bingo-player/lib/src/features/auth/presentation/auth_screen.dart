@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bingo_player/l10n/app_localizations.dart';
 import 'package:bingo_player/src/core/network/api_error.dart';
 import 'package:bingo_player/src/core/widgets/section_card.dart';
@@ -48,12 +50,25 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   }
 
   Future<void> _restoreLastLoginPhone() async {
-    final preferences = await SharedPreferences.getInstance();
-    final phone = preferences.getString(_lastLoginPhoneKey);
-    if (!mounted || _phoneEdited || _phoneController.text.isNotEmpty) return;
-    if (phone != null && phone.isNotEmpty) {
-      _phoneController.text = phone;
-      setState(() {});
+    try {
+      final preferences = await SharedPreferences.getInstance();
+      final phone = preferences.getString(_lastLoginPhoneKey);
+      if (!mounted || _phoneEdited || _phoneController.text.isNotEmpty) return;
+      if (phone != null && phone.isNotEmpty) {
+        _phoneController.text = phone;
+        setState(() {});
+      }
+    } catch (_) {
+      // Sign-in must remain usable when local preferences are unavailable.
+    }
+  }
+
+  Future<void> _saveLastLoginPhone(String phone) async {
+    try {
+      final preferences = await SharedPreferences.getInstance();
+      await preferences.setString(_lastLoginPhoneKey, phone);
+    } catch (_) {
+      // Remembering the phone number is optional and must not block sign-in.
     }
   }
 
@@ -129,8 +144,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       final requestPhone = _phoneController.text.trim();
       final pin = _pinController.text;
       if (!_registerMode) {
-        final preferences = await SharedPreferences.getInstance();
-        await preferences.setString(_lastLoginPhoneKey, requestPhone);
+        unawaited(_saveLastLoginPhone(requestPhone));
       }
       final authResponse = _registerMode
           ? await repository.register(
