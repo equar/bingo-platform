@@ -3,6 +3,7 @@ import 'package:bingo_player/l10n/app_localizations.dart';
 import 'package:bingo_player/src/features/home/presentation/home_screen.dart';
 import 'package:bingo_player/src/features/lobby/presentation/lobby_screen.dart';
 import 'package:bingo_player/src/features/profile/presentation/profile_screen.dart';
+import 'package:bingo_player/src/features/player_content/presentation/messages_screen.dart';
 import 'package:bingo_player/src/features/player_content/presentation/game_history_screen.dart';
 import 'package:bingo_player/src/features/support/presentation/support_screen.dart';
 import 'package:bingo_player/src/features/wallet/presentation/wallet_screen.dart';
@@ -45,12 +46,19 @@ class _HomeShellState extends State<HomeShell> {
     0 => HomeScreen(
       onGames: () => _select(1),
       onWallet: () => _select(2),
-      onProfile: () => _select(3),
+      onProfile: _showProfile,
       onSupport: _support,
     ),
     1 => const LobbyScreen(),
     2 => const WalletScreen(),
-    _ => ProfileScreen(onSupport: _support, onGameHistory: _gameHistory),
+    _ => ProfileScreen(
+      onSupport: _support,
+      onMessages: _messages,
+      onGameHistory: _gameHistory,
+      onDeposit: () => _openWalletTab(1),
+      onWithdraw: () => _openWalletTab(3),
+      onTransactions: () => _openWalletTab(0),
+    ),
   };
 
   Widget _pages() => PopScope<Object?>(
@@ -93,9 +101,46 @@ class _HomeShellState extends State<HomeShell> {
     MaterialPageRoute(builder: (_) => const SupportScreen()),
   );
 
+  void _messages() => _navigatorKeys[_index].currentState!.push<void>(
+    MaterialPageRoute(builder: (_) => const MessagesScreen()),
+  );
+
   void _gameHistory() => _navigatorKeys[_index].currentState!.push<void>(
     MaterialPageRoute(builder: (_) => const GameHistoryScreen()),
   );
+
+  void _openWalletTab(int tab) =>
+      _navigatorKeys[_index].currentState!.push<void>(
+        MaterialPageRoute(builder: (_) => WalletScreen(initialTab: tab)),
+      );
+
+  void _showProfile() {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (sheetContext) => FractionallySizedBox(
+        heightFactor: .94,
+        child: ProfileScreen(
+          onSupport: () => _dismissProfileAnd(sheetContext, _support),
+          onMessages: () => _dismissProfileAnd(sheetContext, _messages),
+          onGameHistory: () => _dismissProfileAnd(sheetContext, _gameHistory),
+          onDeposit: () =>
+              _dismissProfileAnd(sheetContext, () => _openWalletTab(1)),
+          onWithdraw: () =>
+              _dismissProfileAnd(sheetContext, () => _openWalletTab(3)),
+          onTransactions: () =>
+              _dismissProfileAnd(sheetContext, () => _openWalletTab(0)),
+        ),
+      ),
+    );
+  }
+
+  void _dismissProfileAnd(BuildContext sheetContext, VoidCallback action) {
+    Navigator.of(sheetContext).pop();
+    WidgetsBinding.instance.addPostFrameCallback((_) => action());
+  }
 
   @override
   Widget build(BuildContext context) {

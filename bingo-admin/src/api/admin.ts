@@ -44,7 +44,10 @@ export interface PlayerAnnouncementResponse {
   titleAm: string | null;
   bodyEn: string;
   bodyAm: string | null;
+  imageUrl: string | null;
   published: boolean;
+  showInCarousel: boolean;
+  displayOrder: number;
   read: boolean;
   createdAt: string;
   updatedAt: string;
@@ -52,7 +55,7 @@ export interface PlayerAnnouncementResponse {
 
 export type PlayerAppSettingsRequest = Omit<PlayerAppSettingsResponse, "updatedAt">;
 export type PlayerAnnouncementRequest = Pick<PlayerAnnouncementResponse,
-  "titleEn" | "titleAm" | "bodyEn" | "bodyAm" | "published">;
+  "titleEn" | "titleAm" | "bodyEn" | "bodyAm" | "imageUrl" | "published" | "showInCarousel" | "displayOrder">;
 
 export async function playerAppSettings() {
   const { data } = await http.get<PlayerAppSettingsResponse>("/api/v1/admin/player-app/content");
@@ -69,6 +72,11 @@ export async function playerAnnouncements() {
   return data;
 }
 
+export async function playerBannerSlides() {
+  const { data } = await http.get<PlayerAnnouncementResponse[]>("/api/v1/admin/player-app/banners");
+  return data;
+}
+
 export async function createPlayerAnnouncement(body: PlayerAnnouncementRequest) {
   const { data } = await http.post<PlayerAnnouncementResponse>("/api/v1/admin/player-app/messages", body);
   return data;
@@ -81,6 +89,16 @@ export async function updatePlayerAnnouncement(id: number, body: PlayerAnnouncem
 
 export async function deletePlayerAnnouncement(id: number) {
   await http.delete(`/api/v1/admin/player-app/messages/${id}`);
+}
+
+export async function uploadPlayerBannerImage(id: number, file: File) {
+  const form = new FormData();
+  form.append("file", file);
+  const { data } = await http.post<PlayerAnnouncementResponse>(
+    `/api/v1/admin/player-app/messages/${id}/image`,
+    form,
+  );
+  return data;
 }
 
 export interface AdminDashboardMetricsResponse {
@@ -804,7 +822,7 @@ export interface WalletTransferDetailResponse {
 export interface SignupRewardSettingsResponse {
   id: number | null;
   enabled: boolean;
-  rewardAmount: string;
+  rewardAmount: number | string;
   currency: string;
   effectiveFrom: string;
   effectiveUntil: string | null;
@@ -841,7 +859,7 @@ export type PromotionalRewardTrigger = 'SIGNUP' | 'REFERRAL' | 'WALLET_CREDIT' |
 export interface PromotionalRewardCampaignResponse extends SignupRewardSettingsResponse {
   name: string;
   triggerType: PromotionalRewardTrigger;
-  thresholdAmount?: string | null;
+  thresholdAmount?: number | string | null;
 }
 
 export interface PromotionalRewardCampaignRequest extends SignupRewardSettingsRequest {
@@ -1305,6 +1323,11 @@ export async function deposits(page = 0, size = 20, query?: string, status?: str
   });
   return data;
 }
+
+export interface WithdrawalResponse { id:number; operationId:string; playerId:number; playerDisplayName:string; playerPhoneNumber:string|null; amount:string; currency:string; destinationType:string; accountName:string; phoneNumber:string|null; bankName:string|null; accountNumber:string|null; status:string; createdAt:string; reviewedBy:number|null; reviewedAt:string|null; transferReference:string|null; reviewNote:string|null }
+export interface WithdrawalReviewRequest { transferReference?:string; reviewNote:string; idempotencyKey:string }
+export async function withdrawals(page=0,size=20,query?:string,status?:string){const {data}=await http.get<PageResponse<WithdrawalResponse>>('/api/v1/admin/wallet/withdrawals',{params:{page,size,query,status}});return data;}
+export async function reviewWithdrawal(id:number,action:'complete'|'reject',body:WithdrawalReviewRequest){const {data}=await http.post<WithdrawalResponse>(`/api/v1/admin/wallet/withdrawals/${id}/${action}`,{transferReference:body.transferReference,reviewNote:body.reviewNote},{headers:{'Idempotency-Key':body.idempotencyKey}});return data;}
 
 export async function deposit(depositId: number) {
   const { data } = await http.get<DepositClaimResponse>(`/api/v1/admin/deposits/${depositId}`);

@@ -38,7 +38,7 @@ class GameDrawCompletionTest {
         when(properties.drawInterval()).thenReturn(Duration.ofSeconds(10));
         service = new GameLiveDrawService(sessions, draws, properties,
                 mock(ApplicationEventPublisher.class), mock(AuditLogService.class), manager,
-                winners, new GameSnapshotMapper(new ObjectMapper()));
+                winners, new GameSnapshotMapper(new ObjectMapper()), mock(RoomSessionCadenceService.class));
     }
     @Test void lineOnlyClosesOnWinningCallAndDoesNotDrawAgain() {
         when(winners.winners(42L,BingoPatternType.LINE)).thenReturn(

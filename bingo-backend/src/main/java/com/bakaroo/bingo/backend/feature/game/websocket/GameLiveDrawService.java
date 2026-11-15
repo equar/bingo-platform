@@ -6,6 +6,7 @@ import com.bakaroo.bingo.backend.feature.audit.service.AuditLogService;
 import com.bakaroo.bingo.backend.feature.game.config.GameProperties;
 import com.bakaroo.bingo.backend.feature.game.service.GameWinnerService;
 import com.bakaroo.bingo.backend.feature.game.service.GameSnapshotMapper;
+import com.bakaroo.bingo.backend.feature.game.service.RoomSessionCadenceService;
 import com.bakaroo.bingo.backend.feature.game.dto.DrawEventResponse;
 import com.bakaroo.bingo.backend.feature.game.entity.DrawEvent;
 import com.bakaroo.bingo.backend.feature.game.entity.GameSession;
@@ -40,6 +41,7 @@ public class GameLiveDrawService {
     private final TransactionTemplate transactionTemplate;
     private final GameWinnerService winners;
     private final GameSnapshotMapper snapshots;
+    private final RoomSessionCadenceService roomSessionCadence;
     private final SecureRandom secureRandom = new SecureRandom();
 
     public GameLiveDrawService(GameSessionRepository gameSessionRepository,
@@ -47,9 +49,11 @@ public class GameLiveDrawService {
             GameProperties gameProperties,
             ApplicationEventPublisher applicationEventPublisher,
             AuditLogService auditLogService,
-            PlatformTransactionManager transactionManager, GameWinnerService winners, GameSnapshotMapper snapshots) {
+            PlatformTransactionManager transactionManager, GameWinnerService winners, GameSnapshotMapper snapshots,
+            RoomSessionCadenceService roomSessionCadence) {
         this.winners = winners;
         this.snapshots = snapshots;
+        this.roomSessionCadence = roomSessionCadence;
         this.gameSessionRepository = gameSessionRepository;
         this.drawEventRepository = drawEventRepository;
         this.gameProperties = gameProperties;
@@ -194,6 +198,7 @@ public class GameLiveDrawService {
                 && session.getState() != GameSessionState.CANCELLED) {
             session.setState(GameSessionState.CLOSED);
             session.setEndedAt(now);
+            roomSessionCadence.scheduleAfterSuccessfulCompletion(session, now);
         }
     }
 }

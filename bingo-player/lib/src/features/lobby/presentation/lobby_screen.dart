@@ -7,10 +7,12 @@ import 'package:bingo_player/src/core/widgets/section_card.dart';
 import 'package:bingo_player/src/features/lobby/data/lobby_repository.dart';
 import 'package:bingo_player/src/features/lobby/domain/lobby_models.dart';
 import 'package:bingo_player/src/features/game/presentation/session_detail_screen.dart';
-import 'package:bingo_player/src/features/game/application/live_game_controller.dart';
-import 'package:bingo_player/src/core/config/app_config.dart';
 import 'package:bingo_player/src/features/lobby/presentation/ticket_preview_screen.dart';
-import 'package:dio/dio.dart';
+import 'package:bingo_player/src/core/config/app_config.dart';
+import 'package:bingo_player/src/features/game/application/live_game_controller.dart';
+import 'package:bingo_player/src/features/game/data/game_repository.dart';
+import 'package:bingo_player/src/features/wallet/data/wallet_repository.dart';
+import 'package:bingo_player/src/features/wallet/presentation/wallet_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -21,7 +23,7 @@ final lobbyRoomsProvider = FutureProvider.autoDispose<List<BingoRoom>>((ref) {
 final activeSessionsProvider = FutureProvider.autoDispose<List<GameSession>>((
   ref,
 ) {
-  return ref.read(lobbyRepositoryProvider).getActiveSessions();
+  return ref.read(lobbyRepositoryProvider).getSessions();
 });
 
 final roomDetailsProvider = FutureProvider.autoDispose.family<BingoRoom, int>((
@@ -43,427 +45,346 @@ class LobbyScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final localizations = AppLocalizations.of(context)!;
     final sessionsAsync = ref.watch(activeSessionsProvider);
+    final purchasesEnabled = ref
+        .watch(appConfigProvider)
+        .playerTicketPurchasesEnabled;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Bingo'),
-        actions: [
-          const SupportShortcut(),
-          IconButton(
-            key: const ValueKey('lobby-refresh-button'),
-            tooltip: localizations.refresh,
-            onPressed: () => ref.invalidate(activeSessionsProvider),
-            icon: const Icon(Icons.refresh),
+    return DefaultTabController(
+      length: 3,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Bingo'),
+          bottom: TabBar(
+            isScrollable: true,
+            tabs: [
+              Tab(text: localizations.liveGamesTab),
+              Tab(text: localizations.upcomingGamesTab),
+              Tab(text: localizations.previousGamesTab),
+            ],
           ),
-        ],
-      ),
-      body: ResponsiveContent(
-        child: sessionsAsync.when(
-          skipLoadingOnRefresh: false,
-          loading: () => Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+          actions: [
+            const SupportShortcut(),
+            IconButton(
+              key: const ValueKey('lobby-refresh-button'),
+              tooltip: localizations.refresh,
+              onPressed: () => ref.invalidate(activeSessionsProvider),
+              icon: const Icon(Icons.refresh),
+            ),
+          ],
+        ),
+        body: ResponsiveContent(
+          child: sessionsAsync.when(
+            skipLoadingOnRefresh: false,
+            loading: () => Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const CircularProgressIndicator(),
+                  const SizedBox(height: 16),
+                  Text(localizations.loading),
+                ],
+              ),
+            ),
+            error: (error, stack) => AppStatusView(
+              title: localizations.errorGeneric,
+              message: localizations.lobbyLoadError,
+              onAction: () => ref.invalidate(activeSessionsProvider),
+            ),
+            data: (sessions) => TabBarView(
               children: [
-                const CircularProgressIndicator(),
-                const SizedBox(height: 16),
-                Text(localizations.loading),
+                _SessionList(
+                  sessions: sessions
+                      .where(
+                        (s) => const {
+                          'STARTED',
+                          'DRAWING',
+                        }.contains(s.state.toUpperCase()),
+                      )
+                      .toList(),
+                  emptyTitle: localizations.noLiveGames,
+                  emptyBody: localizations.lobbyEmptyBody,
+                  onRefresh: () => ref.invalidate(activeSessionsProvider),
+                  onBuy: null,
+                  purchasesEnabled: purchasesEnabled,
+                ),
+                _SessionList(
+                  sessions:
+                      sessions
+                          .where((s) => s.state.toUpperCase() == 'OPEN')
+                          .toList()
+                        ..sort(
+                          (a, b) =>
+                              a.scheduledStartAt.compareTo(b.scheduledStartAt),
+                        ),
+                  emptyTitle: localizations.noUpcomingGames,
+                  emptyBody: localizations.lobbyEmptyBody,
+                  onRefresh: () => ref.invalidate(activeSessionsProvider),
+                  onBuy: (session) => _buyTickets(context, ref, session),
+                  purchasesEnabled: purchasesEnabled,
+                ),
+                _SessionList(
+                  sessions:
+                      sessions
+                          .where(
+                            (s) => const {
+                              'CLOSED',
+                              'SETTLED',
+                              'CANCELLED',
+                            }.contains(s.state.toUpperCase()),
+                          )
+                          .toList()
+                        ..sort(
+                          (a, b) =>
+                              b.scheduledStartAt.compareTo(a.scheduledStartAt),
+                        ),
+                  emptyTitle: localizations.noPreviousGames,
+                  emptyBody: localizations.lobbyEmptyBody,
+                  onRefresh: () => ref.invalidate(activeSessionsProvider),
+                  onBuy: null,
+                  purchasesEnabled: purchasesEnabled,
+                ),
               ],
             ),
-          ),
-          error: (error, stack) => AppStatusView(
-            title: localizations.errorGeneric,
-            message: localizations.lobbyLoadError,
-            onAction: () => ref.invalidate(activeSessionsProvider),
-          ),
-          data: (sessions) => RefreshIndicator(
-            onRefresh: () async => ref.invalidate(activeSessionsProvider),
-            child: sessions.isEmpty
-                ? ListView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    children: [
-                      const SizedBox(height: 120),
-                      AppStatusView(
-                        title: localizations.lobbyEmptyTitle,
-                        message: localizations.lobbyEmptyBody,
-                      ),
-                    ],
-                  )
-                : ListView.builder(
-                    key: const ValueKey('lobby-active-sessions-list'),
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.all(16),
-                    itemCount: sessions.length + 1,
-                    itemBuilder: (context, index) {
-                      if (index == 0) {
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 16),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Bingo',
-                                      style: Theme.of(
-                                        context,
-                                      ).textTheme.headlineMedium,
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      'Choose a session to play',
-                                      style: Theme.of(
-                                        context,
-                                      ).textTheme.bodyMedium,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Chip(label: Text('${sessions.length} Available')),
-                            ],
-                          ),
-                        );
-                      }
-                      final session = sessions[index - 1];
-                      final colors = Theme.of(context).colorScheme;
-                      final isDark =
-                          Theme.of(context).brightness == Brightness.dark;
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: SectionCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      session.sessionName,
-                                      style: Theme.of(
-                                        context,
-                                      ).textTheme.titleLarge,
-                                    ),
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 6,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: isDark
-                                          ? colors.secondaryContainer
-                                          : const Color(0xFFEAF8EE),
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: Text(
-                                      localizations.roomStatusActive,
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w700,
-                                        fontSize: 12,
-                                        color: isDark
-                                            ? colors.onSecondaryContainer
-                                            : const Color(0xFF167639),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  IconButton(
-                                    tooltip: 'Play or view tickets',
-                                    onPressed: () => Navigator.of(context).push(
-                                      MaterialPageRoute<void>(
-                                        builder: (_) => SessionDetailScreen(
-                                          session: session,
-                                        ),
-                                      ),
-                                    ),
-                                    icon: Icon(
-                                      Icons.chevron_right_rounded,
-                                      color: colors.onSurfaceVariant,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: _LobbyMetric(
-                                      label: 'Ticket',
-                                      value:
-                                          '${session.ticketPrice} ${session.currency}',
-                                    ),
-                                  ),
-                                  Expanded(
-                                    child: _LobbyMetric(
-                                      label: 'Prize',
-                                      value:
-                                          '${session.configuredPrizes.fold<num>(0, (total, prize) => total + prize.amount)} ${session.currency}',
-                                    ),
-                                  ),
-                                  Expanded(
-                                    child: _LobbyMetric(
-                                      label: localizations.ticketCountLabel,
-                                      value: session.ticketCount.toString(),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: OutlinedButton(
-                                      style: OutlinedButton.styleFrom(
-                                        minimumSize: const Size.fromHeight(44),
-                                        textStyle: Theme.of(
-                                          context,
-                                        ).textTheme.labelLarge,
-                                      ),
-                                      onPressed: () =>
-                                          Navigator.of(context).push(
-                                            MaterialPageRoute<void>(
-                                              builder: (_) =>
-                                                  TicketPreviewScreen(
-                                                    sessionId: session.id,
-                                                    roomId: session.roomId,
-                                                  ),
-                                            ),
-                                          ),
-                                      child: const Text('Details & Rules'),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: FilledButton(
-                                      style: FilledButton.styleFrom(
-                                        minimumSize: const Size.fromHeight(44),
-                                        textStyle: Theme.of(
-                                          context,
-                                        ).textTheme.labelLarge,
-                                      ),
-                                      onPressed: () => _showPurchaseSheet(
-                                        context,
-                                        ref,
-                                        session,
-                                      ),
-                                      child: const Text('Buy Tickets'),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
           ),
         ),
       ),
     );
   }
+}
 
-  Future<void> _showPurchaseSheet(
-    BuildContext context,
-    WidgetRef ref,
-    GameSession session,
-  ) async {
+class _SessionList extends StatelessWidget {
+  const _SessionList({
+    required this.sessions,
+    required this.emptyTitle,
+    required this.emptyBody,
+    required this.onRefresh,
+    required this.onBuy,
+    required this.purchasesEnabled,
+  });
+  final List<GameSession> sessions;
+  final String emptyTitle;
+  final String emptyBody;
+  final VoidCallback onRefresh;
+  final ValueChanged<GameSession>? onBuy;
+  final bool purchasesEnabled;
+
+  @override
+  Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context)!;
-    if (!ref.read(appConfigProvider).playerTicketPurchasesEnabled) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Ticket purchases are unavailable in this app build.'),
-        ),
-      );
-      return;
-    }
-    late final GameSession purchaseSession;
-    try {
-      purchaseSession = await ref
-          .read(lobbyRepositoryProvider)
-          .getSession(session.id);
-    } on DioException catch (error) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.message ?? localizations.errorGeneric)),
-      );
-      return;
-    }
-    if (!context.mounted) return;
-    var quantity = 1;
-    final configuredLimit = purchaseSession.maxTicketsPerPlayer;
-    if (configuredLimit == null || configuredLimit < 1) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Ticket purchase configuration is unavailable for this session.',
-          ),
-        ),
-      );
-      return;
-    }
-    final controllerSubscription = ref.listenManual(
-      liveGameControllerProvider(session.id),
-      (_, _) {},
-    );
-    final ownedTickets =
-        ref
-            .read(liveGameControllerProvider(session.id))
-            .ticketPage
-            ?.totalElements ??
-        0;
-    final maximum = [
-      purchaseSession.availableSeats,
-      (configuredLimit - ownedTickets).clamp(0, configuredLimit),
-    ].reduce((left, right) => left < right ? left : right);
-    if (maximum < 1) {
-      controllerSubscription.close();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            ownedTickets >= configuredLimit
-                ? 'You have reached the $configuredLimit-ticket limit for this game.'
-                : localizations.errorGeneric,
-          ),
-        ),
-      );
-      return;
-    }
-    var submitting = false;
-    String? outcomeMessage;
-    var purchaseOutcomeUncertain = false;
-    try {
-      await showModalBottomSheet<void>(
-        context: context,
-        showDragHandle: true,
-        builder: (sheetContext) => StatefulBuilder(
-          builder: (context, setSheetState) => SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    purchaseSession.sessionName,
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${purchaseSession.ticketPrice} ${purchaseSession.currency} per ticket',
-                  ),
-                  const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      IconButton(
-                        onPressed: submitting || quantity == 1
-                            ? null
-                            : () => setSheetState(() => quantity--),
-                        icon: const Icon(Icons.remove_circle_outline),
-                      ),
-                      Expanded(
-                        child: Text(
-                          quantity.toString(),
-                          textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.headlineMedium,
+    return RefreshIndicator(
+      onRefresh: () async => onRefresh(),
+      child: sessions.isEmpty
+          ? ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                const SizedBox(height: 120),
+                AppStatusView(title: emptyTitle, message: emptyBody),
+              ],
+            )
+          : ListView.builder(
+              key: ValueKey(
+                'player-sessions-${onBuy == null ? 'history' : 'upcoming'}',
+              ),
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(16),
+              itemCount: sessions.length,
+              itemBuilder: (context, index) {
+                final session = sessions[index];
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: SectionCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          session.sessionName,
+                          style: Theme.of(context).textTheme.titleLarge,
                         ),
-                      ),
-                      IconButton(
-                        onPressed: submitting || quantity == maximum
-                            ? null
-                            : () => setSheetState(() => quantity++),
-                        icon: const Icon(Icons.add_circle_outline),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Total: ${(purchaseSession.ticketPrice * quantity).toStringAsFixed(2)} ${purchaseSession.currency}',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  if (outcomeMessage != null) ...[
-                    const SizedBox(height: 16),
-                    Text(
-                      outcomeMessage!,
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                  ],
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(
-                      onPressed: submitting
-                          ? null
-                          : () async {
-                              if (!ref
-                                  .read(appConfigProvider)
-                                  .playerTicketPurchasesEnabled) {
-                                return;
-                              }
-                              setSheetState(() => submitting = true);
-                              final result = await ref
-                                  .read(
-                                    liveGameControllerProvider(
-                                      session.id,
-                                    ).notifier,
-                                  )
-                                  .purchaseTickets(quantity);
-                              if (!sheetContext.mounted) return;
-                              final errorMessage = result.error?.userMessage(
-                                AppLocalizations.of(sheetContext)!,
-                              );
-                              setSheetState(() {
-                                submitting = false;
-                                purchaseOutcomeUncertain =
-                                    result.error?.outcomeUnknown == true;
-                                outcomeMessage = [
-                                  if (result.purchasedCount > 0)
-                                    'Purchased ${result.purchasedCount} ticket${result.purchasedCount == 1 ? '' : 's'}.',
-                                  if (errorMessage != null) errorMessage,
-                                ].join(' ');
-                              });
-                            },
-                      child: const Text('Buy Tickets'),
+                        Text(session.roomName),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 16,
+                          children: [
+                            _InfoChip(
+                              label: localizations.sessionStatusLabel,
+                              value: session.state,
+                            ),
+                            _InfoChip(
+                              label: localizations.roomPriceLabel,
+                              value:
+                                  '${session.ticketPrice} ${session.currency}',
+                            ),
+                            _InfoChip(
+                              label: localizations.availableSeatsLabel,
+                              value: session.availableSeats.toString(),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                key: ValueKey('session-details-${session.id}'),
+                                onPressed: () => Navigator.of(context).push(
+                                  MaterialPageRoute<void>(
+                                    builder: (_) =>
+                                        SessionDetailScreen(session: session),
+                                  ),
+                                ),
+                                child: Text(localizations.roomDetails),
+                              ),
+                            ),
+                            if (onBuy != null) ...[
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: FilledButton(
+                                  key: ValueKey('buy-tickets-${session.id}'),
+                                  onPressed:
+                                      purchasesEnabled &&
+                                          session.availableSeats > 0
+                                      ? () => onBuy!(session)
+                                      : null,
+                                  child: Text(localizations.buyTicketsButton),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ],
                     ),
                   ),
-                  if (purchaseOutcomeUncertain)
-                    SizedBox(
-                      width: double.infinity,
-                      child: TextButton(
-                        onPressed: submitting
-                            ? null
-                            : () async {
-                                setSheetState(() => submitting = true);
-                                final error = await ref
-                                    .read(
-                                      liveGameControllerProvider(
-                                        session.id,
-                                      ).notifier,
-                                    )
-                                    .resolvePendingPurchase();
-                                if (!sheetContext.mounted) return;
-                                setSheetState(() {
-                                  submitting = false;
-                                  purchaseOutcomeUncertain =
-                                      error?.outcomeUnknown == true;
-                                  outcomeMessage = error == null
-                                      ? 'Purchase recovery completed. Your tickets have been refreshed.'
-                                      : error.userMessage(
-                                          AppLocalizations.of(sheetContext)!,
-                                        );
-                                });
-                              },
-                        child: const Text('Resolve purchase'),
-                      ),
-                    ),
-                ],
+                );
+              },
+            ),
+    );
+  }
+}
+
+Future<void> _buyTickets(
+  BuildContext context,
+  WidgetRef ref,
+  GameSession session,
+) async {
+  final localizations = AppLocalizations.of(context)!;
+  final int owned;
+  try {
+    owned =
+        (await ref
+                .read(gameRepositoryProvider)
+                .getMyTickets(session.id, page: 0, size: 1))
+            .totalElements;
+  } catch (_) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(localizations.errorGeneric)));
+    }
+    return;
+  }
+  final remainingPlayerLimit = session.maxTicketsPerPlayer == null
+      ? 10
+      : (session.maxTicketsPerPlayer! - owned).clamp(0, 10);
+  final maxQuantity = [
+    10,
+    session.availableSeats,
+    remainingPlayerLimit,
+  ].reduce((a, b) => a < b ? a : b);
+  if (maxQuantity == 0) {
+    if (context.mounted) {
+      final message = session.availableSeats == 0
+          ? localizations.ticketsSoldOutTitle
+          : localizations.ticketLimitReachedTitle;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    }
+    return;
+  }
+  if (!context.mounted) return;
+  var quantity = 1;
+  final selected = await showDialog<int>(
+    context: context,
+    builder: (dialogContext) => StatefulBuilder(
+      builder: (context, setState) => AlertDialog(
+        title: Text(localizations.purchaseTicketTitle),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            DropdownButton<int>(
+              value: quantity,
+              items: [
+                for (var i = 1; i <= maxQuantity; i++)
+                  DropdownMenuItem(
+                    value: i,
+                    child: Text(localizations.purchaseQuantityLabel(i)),
+                  ),
+              ],
+              onChanged: (value) {
+                if (value != null) setState(() => quantity = value);
+              },
+            ),
+            Text(
+              localizations.purchaseTotalLabel(
+                (session.ticketPrice * quantity).toStringAsFixed(2),
+                session.currency,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(localizations.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, quantity),
+            child: Text(localizations.buyTicketsButton),
+          ),
+        ],
+      ),
+    ),
+  );
+  if (selected == null || !context.mounted) return;
+  try {
+    final wallet = await ref.read(walletRepositoryProvider).getBalance();
+    final total = session.ticketPrice * selected;
+    if (wallet.totalBalance < total) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              localizations.insufficientTicketBalance(
+                total.toStringAsFixed(2),
+                session.currency,
               ),
             ),
           ),
+        );
+      }
+      return;
+    }
+    final result = await ref
+        .read(liveGameControllerProvider(session.id).notifier)
+        .purchaseTickets(selected);
+    ref.invalidate(walletBalanceProvider);
+    ref.invalidate(activeSessionsProvider);
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          result.error == null
+              ? localizations.ticketsPurchasedCount(result.purchasedCount)
+              : '${result.purchasedCount > 0 ? '${localizations.ticketsPurchasedCount(result.purchasedCount)}. ' : ''}${result.error!.userMessage(localizations)}',
         ),
-      );
-    } finally {
-      controllerSubscription.close();
+      ),
+    );
+  } catch (_) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(localizations.errorGeneric)));
     }
   }
 }
@@ -697,24 +618,27 @@ class _DetailLine extends StatelessWidget {
   );
 }
 
-class _LobbyMetric extends StatelessWidget {
-  const _LobbyMetric({required this.label, required this.value});
+class _InfoChip extends StatelessWidget {
+  const _InfoChip({required this.label, required this.value});
 
   final String label;
   final String value;
 
   @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text(label, style: Theme.of(context).textTheme.bodySmall),
-      const SizedBox(height: 4),
-      Text(
-        value,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: Theme.of(context).textTheme.titleMedium,
-      ),
-    ],
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    decoration: BoxDecoration(
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: Theme.of(context).textTheme.bodySmall),
+        const SizedBox(height: 3),
+        Text(value, style: Theme.of(context).textTheme.titleSmall),
+      ],
+    ),
   );
 }

@@ -3,9 +3,16 @@ import 'dart:ui' as ui;
 
 import 'package:bingo_player/l10n/app_localizations.dart';
 import 'package:bingo_player/src/core/theme/app_theme.dart';
+import 'package:bingo_player/src/core/config/app_config.dart';
 import 'package:bingo_player/src/features/auth/data/auth_repository.dart';
 import 'package:bingo_player/src/core/storage/session_storage.dart';
+import 'package:bingo_player/src/features/auth/data/auth_session_controller.dart';
 import 'package:bingo_player/src/features/auth/presentation/auth_screen.dart';
+import 'package:bingo_player/src/features/game/application/live_game_controller.dart';
+import 'package:bingo_player/src/features/game/application/live_game_transport.dart';
+import 'package:bingo_player/src/features/game/data/game_repository.dart';
+import 'package:bingo_player/src/features/game/domain/live_game_models.dart';
+import 'package:bingo_player/src/features/game/presentation/session_detail_screen.dart';
 import 'package:bingo_player/src/features/home/presentation/home_screen.dart';
 import 'package:bingo_player/src/features/home/presentation/home_shell.dart';
 import 'package:bingo_player/src/features/lobby/domain/lobby_models.dart';
@@ -33,23 +40,20 @@ final room = BingoRoom.fromJson({
   'timezone': 'Africa/Addis_Ababa',
 });
 
-final activeSession = GameSession(
+final session = GameSession(
   id: 7,
-  roomId: room.id,
+  roomId: 7,
   roomName: room.name,
-  sessionName: 'Addis Active Session',
+  sessionName: 'Friday Night',
   state: 'OPEN',
   scheduledStartAt: DateTime.utc(2030),
-  ticketPrice: room.ticketPrice,
-  currency: room.currency,
-  sessionCapacity: room.sessionCapacity,
-  maxTicketsPerPlayer: 5,
+  ticketPrice: 10,
+  currency: 'ETB',
+  sessionCapacity: 100,
   ticketCount: 0,
   drawCount: 0,
   createdAt: DateTime.utc(2029),
   updatedAt: DateTime.utc(2029),
-  configuredPatterns: const ['LINE'],
-  configuredPrizes: const [],
 );
 
 Widget app({
@@ -58,10 +62,10 @@ Widget app({
   Locale locale = const Locale('en'),
 }) => ProviderScope(
   overrides: [
-    lobbyRoomsProvider.overrideWith((ref) async => [room]),
-    activeSessionsProvider.overrideWith((ref) async => [activeSession]),
-    roomDetailsProvider(7).overrideWith((ref) async => room),
-    roomSessionsProvider(7).overrideWith((ref) async => []),
+    activeSessionsProvider.overrideWith((ref) async => [session]),
+    liveGameControllerProvider(
+      session.id,
+    ).overrideWith((ref) => _liveGameController()),
     sessionStorageProvider.overrideWithValue(auth.MemoryStorage()),
     authRepositoryProvider.overrideWithValue(auth.TestAuthRepository()),
   ],
@@ -87,6 +91,15 @@ Widget app({
 Future<void> tab(WidgetTester tester, String label) async {
   final bar = find.byType(NavigationBar);
   await tester.tap(find.descendant(of: bar, matching: find.text(label)));
+  await tester.pumpAndSettle();
+}
+
+Future<void> _selectUpcomingSessionTab(WidgetTester tester) async {
+  final lobby = find.byType(LobbyScreen);
+  final context = tester.element(lobby);
+  final label = AppLocalizations.of(context)!.upcomingGamesTab;
+  await tester.ensureVisible(find.text(label));
+  await tester.tap(find.text(label));
   await tester.pumpAndSettle();
 }
 
@@ -140,19 +153,28 @@ void main() {
   });
 
   testWidgets(
-    'active session stays available when switching navigation sections',
+    'session navigation stays available and returns to its previous detail',
     (tester) async {
       responsive.viewport(tester, const Size(390, 844));
       await tester.pumpWidget(app());
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('home-play-bingo')));
       await tester.pumpAndSettle();
+      await _selectUpcomingSessionTab(tester);
+      await tester.tap(find.byKey(const ValueKey('session-details-7')));
+      await tester.pumpAndSettle();
       expect(find.byType(NavigationBar), findsOneWidget);
-      expect(find.text('Addis Active Session'), findsOneWidget);
+      expect(find.byType(SessionDetailScreen), findsOneWidget);
       await tab(tester, 'Home');
       expect(find.byType(HomeScreen), findsOneWidget);
       await tab(tester, 'Games');
-      expect(find.text('Addis Active Session'), findsOneWidget);
+      expect(find.byType(SessionDetailScreen), findsOneWidget);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('session-details-7')), findsOneWidget);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.byType(HomeScreen), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );
@@ -176,7 +198,7 @@ void main() {
   });
 
   for (final size in [const Size(320, 568), const Size(390, 844)]) {
-    testWidgets('login and home fit ${size.width} with large text', (
+    testWidgets('login and sessions fit ${size.width} with large text', (
       tester,
     ) async {
       responsive.viewport(tester, size);
@@ -191,6 +213,12 @@ void main() {
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(app(scale: 2, locale: const Locale('am')));
       await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('home-play-bingo')));
+      await tester.pumpAndSettle();
+      await _selectUpcomingSessionTab(tester);
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('session-details-7')),
+      );
       expect(tester.takeException(), isNull);
     });
   }
@@ -212,4 +240,39 @@ void main() {
     await capture(tester, 'wallet', boundaryKey: const ValueKey('preview'));
     expect(tester.takeException(), isNull);
   });
+}
+
+LiveGameController _liveGameController() => LiveGameController(
+  sessionId: session.id,
+  repository: _UnusedLiveGameRepository(),
+  readAuthSession: () => const AuthSessionState(isLoading: true),
+  clearAuthSession: ({String? reason}) async {},
+  appConfig: const AppConfig(
+    apiBaseUrl: 'http://127.0.0.1:8080',
+    apiBaseUrlLabel: 'API_BASE_URL',
+  ),
+  transport: _UnusedLiveGameTransport(),
+);
+
+class _UnusedLiveGameRepository implements LiveGameRepository {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _UnusedLiveGameTransport implements LiveGameTransport {
+  @override
+  bool get isConnected => false;
+
+  @override
+  Future<void> connect({
+    required Uri uri,
+    required String accessToken,
+    required int sessionId,
+    required void Function(LiveDrawEvent event) onDraw,
+    required void Function(Object error) onError,
+    required void Function() onDisconnected,
+  }) async {}
+
+  @override
+  Future<void> disconnect() async {}
 }

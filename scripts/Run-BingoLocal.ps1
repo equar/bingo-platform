@@ -6,6 +6,7 @@ Runs the Player or Agent Flutter app against the local Bingo backend.
 .\scripts\Run-BingoLocal.ps1 -App player -Platform android
 .\scripts\Run-BingoLocal.ps1 -App agent -Platform chrome
 .\scripts\Run-BingoLocal.ps1 -App player -Platform android -DeviceId emulator-5554
+.\scripts\Run-BingoLocal.ps1 -App player -Platform android -CleanRebuild
 #>
 [CmdletBinding()]
 param(
@@ -17,7 +18,9 @@ param(
     [ValidateSet('android', 'chrome', 'windows')]
     [string] $Platform,
 
-    [string] $DeviceId
+    [string] $DeviceId,
+
+    [switch] $CleanRebuild
 )
 
 $ErrorActionPreference = 'Stop'
@@ -41,6 +44,54 @@ if ($DeviceId -and $Platform -ne 'android') {
     throw '-DeviceId is only used with -Platform android.'
 }
 
+# PowerShell processes started before a user environment change do not inherit
+# it. Read the persisted setting when available, then pass it to Flutter and
+# Gradle as a process-scoped override without hard-coding a developer path.
+if ([string]::IsNullOrWhiteSpace($env:PUB_CACHE)) {
+    $userPubCache = [Environment]::GetEnvironmentVariable('PUB_CACHE', 'User')
+    if (-not [string]::IsNullOrWhiteSpace($userPubCache)) {
+        $env:PUB_CACHE = $userPubCache
+    }
+}
+
+$profilePath = $env:USERPROFILE
+if (-not [string]::IsNullOrWhiteSpace($profilePath) -and [System.IO.Path]::IsPathRooted($profilePath)) {
+    if ([string]::IsNullOrWhiteSpace($env:ANDROID_USER_HOME)) {
+        $profileAndroidHome = Join-Path $profilePath '.android'
+        if (Test-Path -LiteralPath $profileAndroidHome -PathType Container) {
+            $env:ANDROID_USER_HOME = $profileAndroidHome
+        }
+    }
+    if ([string]::IsNullOrWhiteSpace($env:ANDROID_EMULATOR_HOME) -and $env:ANDROID_USER_HOME) {
+        $env:ANDROID_EMULATOR_HOME = $env:ANDROID_USER_HOME
+    }
+    if ([string]::IsNullOrWhiteSpace($env:ANDROID_AVD_HOME) -and $env:ANDROID_USER_HOME) {
+        $env:ANDROID_AVD_HOME = Join-Path $env:ANDROID_USER_HOME 'avd'
+    }
+    if ([string]::IsNullOrWhiteSpace($env:GRADLE_USER_HOME)) {
+        $profileGradleHome = Join-Path $profilePath '.gradle'
+        if (Test-Path -LiteralPath $profileGradleHome -PathType Container) {
+            $env:GRADLE_USER_HOME = $profileGradleHome
+        }
+    }
+}
+
+if ($Platform -eq 'android' -and [string]::IsNullOrWhiteSpace($env:ANDROID_HOME)) {
+    $localProperties = Join-Path $projectDirectory 'android\local.properties'
+    if (Test-Path -LiteralPath $localProperties -PathType Leaf) {
+        $sdkLine = Get-Content -LiteralPath $localProperties | Where-Object { $_ -match '^sdk\.dir=' } | Select-Object -First 1
+        if ($sdkLine) {
+            $sdkPath = ($sdkLine -replace '^sdk\.dir=', '').Replace('\\', '\')
+            if (Test-Path -LiteralPath $sdkPath -PathType Container) {
+                $env:ANDROID_HOME = $sdkPath
+            }
+        }
+    }
+}
+if ($Platform -eq 'android' -and [string]::IsNullOrWhiteSpace($env:ANDROID_SDK_ROOT) -and $env:ANDROID_HOME) {
+    $env:ANDROID_SDK_ROOT = $env:ANDROID_HOME
+}
+
 $flutterCommand = Get-Command flutter -ErrorAction SilentlyContinue
 if ($null -eq $flutterCommand) {
     throw 'Flutter was not found on PATH. Install Flutter 3.41 or newer, add its bin directory to PATH, then open a new terminal.'
@@ -53,6 +104,9 @@ function Get-FlutterJson {
     $output = & $flutter @Arguments 2>&1
     if ($LASTEXITCODE -ne 0) {
         $details = ($output | Out-String).Trim()
+        if ($details -match 'Cannot mkdir') {
+            throw "Android tools could not access the Windows user profile (ADB reported '$details'). ANDROID_USER_HOME cannot repair this ADB profile API failure in the current shell. Run this launcher from normal Windows PowerShell under your developer account."
+        }
         throw "Flutter could not enumerate devices. $details`nCheck Flutter and Android SDK setup with 'flutter doctor -v'."
     }
 
@@ -218,10 +272,82 @@ if ($Platform -eq 'windows') {
     }
 }
 
+$packageConfiguration = Join-Path $projectDirectory '.dart_tool\package_config.json'
+$dependencyInputs = @('pubspec.yaml', 'pubspec.lock', 'pubspec_overrides.yaml') |
+    ForEach-Object { Join-Path $projectDirectory $_ } |
+    Where-Object { Test-Path -LiteralPath $_ -PathType Leaf }
+$resolveDependencies = -not (Test-Path -LiteralPath $packageConfiguration -PathType Leaf)
+if (-not $resolveDependencies) {
+    $configurationTime = (Get-Item -LiteralPath $packageConfiguration).LastWriteTimeUtc
+    $newerDependencyInput = $dependencyInputs | Where-Object {
+        (Get-Item -LiteralPath $_).LastWriteTimeUtc -gt $configurationTime
+    } | Select-Object -First 1
+    if ($newerDependencyInput) {
+        Write-Host "Dependency configuration is older than '$([System.IO.Path]::GetFileName($newerDependencyInput))'."
+        $resolveDependencies = $true
+    }
+}
+if (-not $resolveDependencies -and -not [string]::IsNullOrWhiteSpace($env:PUB_CACHE)) {
+    try {
+        $cacheRoot = [System.IO.Path]::GetFullPath($env:PUB_CACHE).TrimEnd('\', '/')
+        $cachePrefix = $cacheRoot + [System.IO.Path]::DirectorySeparatorChar
+        $configurationUri = [Uri] (Get-Item -LiteralPath $packageConfiguration).FullName
+        $packageConfig = Get-Content -LiteralPath $packageConfiguration -Raw | ConvertFrom-Json
+        foreach ($package in $packageConfig.packages) {
+            $packageRootUri = [Uri]::new($configurationUri, [string] $package.rootUri)
+            if (-not $packageRootUri.IsFile) { continue }
+            $packageRoot = [System.IO.Path]::GetFullPath($packageRootUri.LocalPath)
+            $usesPubCache = $packageRoot -match '[\\/](hosted|git)[\\/]'
+            if ($usesPubCache -and -not $packageRoot.StartsWith($cachePrefix, [StringComparison]::OrdinalIgnoreCase)) {
+                Write-Host "Package '$($package.name)' is configured outside PUB_CACHE."
+                $resolveDependencies = $true
+                break
+            }
+        }
+    }
+    catch {
+        Write-Host 'Package configuration could not be validated; resolving dependencies again.'
+        $resolveDependencies = $true
+    }
+}
+if ($resolveDependencies) {
+    Write-Host 'Resolving Flutter dependencies for the current manifests and PUB_CACHE.'
+    Push-Location $projectDirectory
+    try {
+        & $flutter pub get
+        if ($LASTEXITCODE -ne 0) {
+            throw "Flutter pub get exited with code $LASTEXITCODE. Resolve dependencies and retry."
+        }
+    }
+    finally {
+        Pop-Location
+    }
+}
+
 $device = switch ($Platform) {
     'android' { Resolve-AndroidDevice }
     'chrome' { 'chrome' }
     'windows' { 'windows' }
+}
+
+# Resolve the target before any opt-in clean so restricted or unavailable ADB
+# cannot erase generated build state without a viable device to launch on.
+if ($CleanRebuild) {
+    Write-Host "Cleaning generated Flutter/Android build state for Bingo $App only."
+    Push-Location $projectDirectory
+    try {
+        & $flutter clean
+        if ($LASTEXITCODE -ne 0) {
+            throw "Flutter clean exited with code $LASTEXITCODE. No other app was cleaned."
+        }
+        & $flutter pub get
+        if ($LASTEXITCODE -ne 0) {
+            throw "Flutter pub get exited with code $LASTEXITCODE. Run 'flutter pub get' from '$projectDirectory' and retry."
+        }
+    }
+    finally {
+        Pop-Location
+    }
 }
 
 if ($Platform -eq 'chrome') {
@@ -251,11 +377,11 @@ if (Test-LocalBackend) {
     Write-Host 'Backend health: UP'
 }
 else {
-    Write-Warning "Backend health check failed. Start MySQL and run 'mvn spring-boot:run -Dspring-boot.run.profiles=dev' from bingo-backend."
+    Write-Warning "Backend health check failed. Start MySQL and run '.\scripts\Start-BingoBackendLocal.ps1' from the repository root."
 }
 
 $arguments = @(
-    'run', '--debug', '-d', $device,
+    'run', '--debug', '--no-pub', '-d', $device,
     "--dart-define=API_BASE_URL=$apiBaseUrl"
 )
 if ($App -eq 'player') {

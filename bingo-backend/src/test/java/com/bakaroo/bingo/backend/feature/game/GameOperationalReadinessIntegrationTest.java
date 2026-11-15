@@ -138,8 +138,11 @@ class GameOperationalReadinessIntegrationTest extends MySqlIntegrationTest {
         wallet.setAvailableBalance(BigDecimal.ZERO);
         wallet.setPromotionalBalance(new BigDecimal("1000.00"));
         wallets.save(wallet);
-        assertEquals("INSUFFICIENT_BALANCE",
-                assertThrows(ConflictException.class, () -> buy(one)).getCode());
+        Long promotionalTicket = buy(one);
+        assertNotNull(promotionalTicket);
+        Wallet afterPromotionalPurchase = wallets.findByOwnerId(one.getId()).orElseThrow();
+        assertEquals(BigDecimal.ZERO.setScale(2), afterPromotionalPurchase.getAvailableBalance());
+        assertEquals(new BigDecimal("900.00"), afterPromotionalPurchase.getPromotionalBalance());
         assertEquals("SESSION_UNDERFUNDED", assertThrows(ConflictException.class, () -> state(GameSessionState.STARTED)).getCode());
     }
 

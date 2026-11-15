@@ -1,11 +1,14 @@
 package com.bakaroo.bingo.backend;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -25,24 +28,42 @@ class OpenApiContractIntegrationTest extends MySqlIntegrationTest {
     ObjectMapper objectMapper;
 
     @Test
-    void generatedOpenApiExposesRequiredPlayerAndAuthenticationContracts() throws Exception {
+    void checkedInOpenApiMatchesGeneratedOperationsAndSchemas() throws Exception {
         JsonNode generatedSpec = objectMapper.readTree(mockMvc.perform(get("/v3/api-docs"))
                 .andExpect(status().isOk())
                 .andReturn()
                 .getResponse()
                 .getContentAsString());
+        Path checkedInSpecPath = Path.of(System.getProperty("user.dir")).resolve("openapi.json");
+        if (Boolean.getBoolean("updateOpenApi")) {
+            objectMapper.writeValue(checkedInSpecPath.toFile(), generatedSpec);
+        }
+        JsonNode checkedInSpec = objectMapper.readTree(checkedInSpecPath.toFile());
+        if (!generatedSpec.path("paths").equals(checkedInSpec.path("paths"))
+                || !generatedSpec.path("components").equals(checkedInSpec.path("components"))
+                || !generatedSpec.path("security").equals(checkedInSpec.path("security"))) {
+            Path diagnosticPath = Path.of("target", "surefire-reports", "openapi-generated.json");
+            Files.createDirectories(diagnosticPath.getParent());
+            objectMapper.writeValue(diagnosticPath.toFile(), generatedSpec);
+        }
 
-        JsonNode adminLogin = generatedSpec.path("paths").path("/api/v1/admin/login").path("post");
+        assertEquals(generatedSpec.path("paths"), checkedInSpec.path("paths"),
+                "Checked-in OpenAPI paths, methods, parameters, schemas, security, and responses must match the app");
+        assertEquals(generatedSpec.path("components"), checkedInSpec.path("components"),
+                "Checked-in OpenAPI components must match the generated contract");
+        assertEquals(generatedSpec.path("security"), checkedInSpec.path("security"),
+                "Checked-in OpenAPI global authentication requirements must match the application");
+
+        JsonNode adminLogin = checkedInSpec.path("paths").path("/api/v1/admin/login").path("post");
         assertTrue(adminLogin.has("requestBody"));
+        assertEquals("#/components/schemas/AdminLoginRequest",
+                adminLogin.path("requestBody").path("content").path("application/json")
+                        .path("schema").path("$ref").asText());
+        assertEquals("#/components/schemas/AuthResponse",
+                adminLogin.path("responses").path("200").path("content").path("*/*")
+                        .path("schema").path("$ref").asText());
         assertTrue(adminLogin.path("security").isArray());
-        assertTrue(adminLogin.path("security").isEmpty(),
+        assertEquals(0, adminLogin.path("security").size(),
                 "Admin login must be documented as unauthenticated");
-
-        JsonNode activeSessions = generatedSpec.path("paths").path("/api/v1/sessions/active").path("get");
-        assertTrue(activeSessions.isObject(), "Player active-session endpoint must remain documented");
-        JsonNode sessionSchema = generatedSpec.path("components").path("schemas")
-                .path("PlayerGameSessionResponse").path("properties");
-        assertTrue(sessionSchema.path("maxTicketsPerPlayer").isObject(),
-                "Player session contract must expose the configured ticket limit");
     }
 }

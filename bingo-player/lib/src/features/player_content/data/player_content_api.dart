@@ -26,6 +26,19 @@ class PlayerContentApi {
         .toList();
   }
 
+  Future<List<PlayerAnnouncement>> getBannerSlides() async {
+    final response = await _dio.get<List<dynamic>>(
+      '/api/v1/player-app/banners',
+    );
+    return (response.data ?? const [])
+        .whereType<Map>()
+        .map(
+          (json) =>
+              PlayerAnnouncement.fromJson(Map<String, dynamic>.from(json)),
+        )
+        .toList();
+  }
+
   Future<void> markMessageRead(int id) =>
       _dio.post<void>('/api/v1/player-app/messages/$id/read').then((_) {});
 

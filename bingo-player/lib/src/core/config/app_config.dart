@@ -21,8 +21,10 @@ class AppConfig {
         apiBaseUrlLabel: 'API_BASE_URL',
         webSocketBaseUrl: const String.fromEnvironment('WS_BASE_URL'),
         isProduction: !kDebugMode,
-        playerTicketPurchasesEnabled:
-            const bool.fromEnvironment('BINGO_PLAYER_PURCHASES_ENABLED'),
+        playerTicketPurchasesEnabled: const bool.fromEnvironment(
+          'BINGO_PLAYER_PURCHASES_ENABLED',
+          defaultValue: true,
+        ),
       );
 
   final String _apiBaseUrl;

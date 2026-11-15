@@ -36,8 +36,17 @@ final walletDepositsProvider = FutureProvider.autoDispose
           .getDeposits(page: page, size: 10);
     });
 
+final walletWithdrawalsProvider = FutureProvider.autoDispose
+    .family<PageResult<WalletWithdrawal>, int>(
+      (ref, page) async => ref
+          .read(walletRepositoryProvider)
+          .getWithdrawals(page: page, size: 10),
+    );
+
 class WalletScreen extends ConsumerStatefulWidget {
-  const WalletScreen({super.key});
+  const WalletScreen({super.key, this.initialTab = 0});
+
+  final int initialTab;
 
   @override
   ConsumerState<WalletScreen> createState() => _WalletScreenState();
@@ -63,20 +72,34 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
   bool _depositOutcomeUnknown = false;
   String? _depositError;
   ApiError? _depositApiError;
+  int _selectedTabIndex = 0;
   late final TabController _tabController = TabController(
-    length: 3,
+    length: 4,
+    initialIndex: widget.initialTab.clamp(0, 3).toInt(),
     vsync: this,
   );
 
   @override
   void initState() {
     super.initState();
+    _selectedTabIndex = _tabController.index;
+    _tabController.addListener(_handleTabChanged);
     WidgetsBinding.instance.addObserver(this);
     _walletRefreshTimer = Timer.periodic(_walletRefreshInterval, (_) {
       if (_isWalletVisible && _isAppActive) {
         _refreshWalletData();
       }
     });
+  }
+
+  void _handleTabChanged() {
+    if (_tabController.index == _selectedTabIndex) return;
+    if (mounted) {
+      setState(() {
+        _selectedTabIndex = _tabController.index;
+        if (_selectedTabIndex != 1) _showDepositForm = false;
+      });
+    }
   }
 
   @override
@@ -102,6 +125,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _tabController.removeListener(_handleTabChanged);
     _walletRefreshTimer?.cancel();
     _tabController.dispose();
     _depositAmountController.dispose();
@@ -109,17 +133,24 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
     super.dispose();
   }
 
-  Future<void> _createDeposit(String currency) async {
+  Future<void> _confirmDeposit(String currency) async {
     if (_depositOutcomeUnknown && _pendingDeposit != null) {
       await _submitPendingDeposit();
-      return;
+    } else {
+      await _submitDepositForm(currency);
     }
-    _depositAmountController.text =
-        _pendingDeposit?.submittedCashAmount.toString() ?? '';
-    _depositReferenceController.text = _pendingDeposit?.telebirrReference ?? '';
+  }
+
+  void _cancelDeposit() {
+    if (_depositOutcomeUnknown && _pendingDeposit != null) return;
     setState(() {
-      _showDepositForm = true;
+      _depositAmountController.clear();
+      _depositReferenceController.clear();
       _depositError = null;
+      _depositApiError = null;
+      _pendingDeposit = null;
+      _pendingDepositIdempotencyKey = null;
+      _showDepositForm = false;
     });
   }
 
@@ -161,7 +192,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
         _pendingDepositIdempotencyKey = null;
         _depositOutcomeUnknown = false;
         _depositError = null;
-        _showDepositForm = false;
+        _depositAmountController.clear();
+        _depositReferenceController.clear();
       });
       _refreshWalletData();
     } catch (error) {
@@ -173,7 +205,6 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
             ? null
             : parsed.userMessage(AppLocalizations.of(context)!);
         _depositOutcomeUnknown = parsed.outcomeUnknown;
-        _showDepositForm = !parsed.outcomeUnknown;
         if (!parsed.outcomeUnknown) _pendingDepositIdempotencyKey = null;
       });
     } finally {
@@ -187,31 +218,58 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
     ref.invalidate(walletBalanceProvider);
     ref.invalidate(walletTransactionsProvider(_transactionPage));
     ref.invalidate(walletDepositsProvider(_depositPage));
+    ref.invalidate(walletWithdrawalsProvider(0));
   }
 
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context)!;
     final balanceAsync = ref.watch(walletBalanceProvider);
+    final walletBalance = balanceAsync.asData?.value;
     final transactionsAsync = ref.watch(
       walletTransactionsProvider(_transactionPage),
     );
     final depositsAsync = ref.watch(walletDepositsProvider(_depositPage));
     final session = ref.watch(authSessionControllerProvider).session;
+    final referralCode = session?.user.referralCode ?? '';
+    final bannerHeight = walletBalance == null
+        ? 0.0
+        : _WalletBalanceBanner.heightFor(
+            textScale: MediaQuery.textScalerOf(context).scale(14) / 14,
+            hasReferralCode: referralCode.isNotEmpty,
+          );
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(localizations.balanceTitle),
+        title: const SizedBox.shrink(),
         actions: const [SupportShortcut()],
-        bottom: TabBar(
-          isScrollable: true,
-          tabAlignment: TabAlignment.start,
-          controller: _tabController,
-          tabs: [
-            Tab(text: localizations.walletTransactionsTab),
-            Tab(text: localizations.walletDepositsTab),
-            Tab(text: localizations.walletTransfersTab),
-          ],
+        bottom: PreferredSize(
+          preferredSize: Size.fromHeight(48 + bannerHeight),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (walletBalance != null)
+                _WalletBalanceBanner(
+                  balance: walletBalance,
+                  referralCode: referralCode,
+                ),
+              TabBar(
+                isScrollable: true,
+                tabAlignment: TabAlignment.start,
+                controller: _tabController,
+                onTap: (index) => setState(() {
+                  _selectedTabIndex = index;
+                  if (index != 1) _showDepositForm = false;
+                }),
+                tabs: [
+                  Tab(text: localizations.walletTransactionsTab),
+                  Tab(text: localizations.walletDepositsTab),
+                  Tab(text: localizations.walletTransfersTab),
+                  const Tab(text: 'Withdrawals'),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
       body: ResponsiveContent(
@@ -228,42 +286,29 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
             return ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                SectionCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _BalanceSummary(balance: balance),
-                      if ((session?.user.referralCode ?? '').isNotEmpty) ...[
+                if (_selectedTabIndex == 1 && !_showDepositForm) ...[
+                  SectionCard(
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        key: const ValueKey('wallet-open-deposit-form-button'),
+                        onPressed: () =>
+                            setState(() => _showDepositForm = true),
+                        icon: const Icon(Icons.add_rounded),
+                        label: Text(localizations.submitDeposit),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                if (_selectedTabIndex == 1 && _showDepositForm) ...[
+                  SectionCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 16),
+                        Text(localizations.balanceDisclaimer),
                         const SizedBox(height: 12),
-                        Text(
-                          localizations.yourReferralCode,
-                          style: Theme.of(context).textTheme.titleSmall,
-                        ),
-                        SelectableText(
-                          session!.user.referralCode,
-                          key: const ValueKey('player-referral-code'),
-                        ),
-                      ],
-                      const SizedBox(height: 16),
-                      Text(localizations.balanceDisclaimer),
-                      const SizedBox(height: 12),
-                      if (_depositError != null && !_showDepositForm) ...[
-                        Text(
-                          _depositError!,
-                          style: TextStyle(
-                            color: Theme.of(context).colorScheme.error,
-                          ),
-                        ),
-                        if (_pendingDeposit != null) ...[
-                          const SizedBox(height: 8),
-                          Text(
-                            '${_pendingDeposit!.submittedCashAmount} ${_pendingDeposit!.currency} · ${_pendingDeposit!.telebirrReference}',
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ],
-                        const SizedBox(height: 12),
-                      ],
-                      if (_showDepositForm) ...[
                         Form(
                           key: _depositFormKey,
                           child: Column(
@@ -334,22 +379,21 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                                 spacing: 12,
                                 children: [
                                   OutlinedButton(
-                                    onPressed: _submittingDeposit
+                                    onPressed:
+                                        _submittingDeposit ||
+                                            _depositOutcomeUnknown
                                         ? null
-                                        : () => setState(
-                                            () => _showDepositForm = false,
-                                          ),
+                                        : _cancelDeposit,
                                     child: Text(localizations.cancel),
                                   ),
                                   FilledButton(
                                     key: const ValueKey(
-                                      'wallet-submit-deposit-button',
+                                      'wallet-confirm-deposit-button',
                                     ),
                                     onPressed: _submittingDeposit
                                         ? null
-                                        : () => _submitDepositForm(
-                                            balance.currency,
-                                          ),
+                                        : () =>
+                                              _confirmDeposit(balance.currency),
                                     child: _submittingDeposit
                                         ? const SizedBox(
                                             width: 18,
@@ -358,60 +402,47 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                                               strokeWidth: 2,
                                             ),
                                           )
-                                        : Text(localizations.confirm),
+                                        : Text(
+                                            _depositOutcomeUnknown
+                                                ? localizations.retry
+                                                : localizations.confirm,
+                                          ),
                                   ),
                                 ],
                               ),
                             ],
                           ),
                         ),
-                      ] else
-                        FilledButton(
-                          key: const ValueKey('wallet-submit-deposit-button'),
-                          onPressed: _submittingDeposit
-                              ? null
-                              : () => _createDeposit(balance.currency),
-                          child: _submittingDeposit
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : Text(
-                                  _depositOutcomeUnknown
-                                      ? localizations.retry
-                                      : localizations.submitDeposit,
-                                ),
-                        ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                if (_instructions != null) ...[
-                  SectionCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          localizations.telebirrInstructionsTitle,
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(_instructions!.providerName),
-                        Text(_instructions!.businessAccount),
-                        const SizedBox(height: 8),
-                        Text(_instructions!.paymentInstructions),
                       ],
                     ),
                   ),
                   const SizedBox(height: 16),
+                  if (_instructions != null) ...[
+                    SectionCard(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            localizations.telebirrInstructionsTitle,
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(_instructions!.providerName),
+                          Text(_instructions!.businessAccount),
+                          const SizedBox(height: 8),
+                          Text(_instructions!.paymentInstructions),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                 ],
                 SizedBox(
-                  height: (MediaQuery.sizeOf(context).height * .65)
-                      .clamp(360.0, 640.0)
-                      .toDouble(),
+                  height:
+                      (MediaQuery.sizeOf(context).height *
+                              (_selectedTabIndex == 0 ? .78 : .65))
+                          .clamp(360.0, 640.0)
+                          .toDouble(),
                   child: TabBarView(
                     controller: _tabController,
                     children: [
@@ -440,6 +471,10 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                         currency: balance.currency,
                         onCompleted: _refreshWalletData,
                       ),
+                      _WithdrawalsPane(
+                        currency: balance.currency,
+                        onCompleted: _refreshWalletData,
+                      ),
                     ],
                   ),
                 ),
@@ -448,6 +483,270 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
           },
         ),
       ),
+    );
+  }
+}
+
+class _WithdrawalsPane extends ConsumerStatefulWidget {
+  const _WithdrawalsPane({required this.currency, required this.onCompleted});
+  final String currency;
+  final VoidCallback onCompleted;
+  @override
+  ConsumerState<_WithdrawalsPane> createState() => _WithdrawalsPaneState();
+}
+
+class _WithdrawalsPaneState extends ConsumerState<_WithdrawalsPane> {
+  final _formKey = GlobalKey<FormState>();
+  final _amount = TextEditingController();
+  final _name = TextEditingController();
+  final _phone = TextEditingController();
+  final _bank = TextEditingController();
+  final _account = TextEditingController();
+  String _type = 'TELEBIRR';
+  bool _busy = false;
+  bool _showForm = false;
+  String? _error;
+  int _page = 0;
+  @override
+  void dispose() {
+    _amount.dispose();
+    _name.dispose();
+    _phone.dispose();
+    _bank.dispose();
+    _account.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _busy = true);
+    try {
+      await ref
+          .read(walletRepositoryProvider)
+          .submitWithdrawal(
+            WithdrawalRequest(
+              amount: num.parse(_amount.text),
+              currency: widget.currency,
+              destinationType: _type,
+              accountName: _name.text.trim(),
+              phoneNumber: _type == 'TELEBIRR' ? _phone.text.trim() : null,
+              bankName: _type == 'BANK' ? _bank.text.trim() : null,
+              accountNumber: _type == 'BANK' ? _account.text.trim() : null,
+            ),
+            const Uuid().v4(),
+          );
+      if (!mounted) return;
+      setState(() {
+        _amount.clear();
+        _name.clear();
+        _phone.clear();
+        _bank.clear();
+        _account.clear();
+        _showForm = false;
+      });
+      ref.invalidate(walletWithdrawalsProvider(_page));
+      widget.onCompleted();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Withdrawal request submitted. Funds are reserved while it is reviewed.',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        setState(
+          () => _error =
+              userFacingApiError(e, AppLocalizations.of(context)!) ??
+              'Unable to submit withdrawal request.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final async = ref.watch(walletWithdrawalsProvider(_page));
+    return ListView(
+      padding: const EdgeInsets.all(12),
+      children: [
+        if (!_showForm)
+          SectionCard(
+            child: SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                key: const ValueKey('wallet-open-withdrawal-form-button'),
+                onPressed: () => setState(() => _showForm = true),
+                icon: const Icon(Icons.north_east_rounded),
+                label: const Text('Submit withdrawal request'),
+              ),
+            ),
+          ),
+        if (_showForm)
+          SectionCard(
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Request a withdrawal',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Requests reserve available cash. Support will transfer it and update the status.',
+                  ),
+                  DropdownButtonFormField<String>(
+                    initialValue: _type,
+                    decoration: const InputDecoration(labelText: 'Send to'),
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'TELEBIRR',
+                        child: Text('Telebirr'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'BANK',
+                        child: Text('Bank account'),
+                      ),
+                    ],
+                    onChanged: _busy
+                        ? null
+                        : (v) => setState(() => _type = v ?? 'TELEBIRR'),
+                  ),
+                  TextFormField(
+                    controller: _amount,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: InputDecoration(
+                      labelText: 'Amount (${widget.currency})',
+                    ),
+                    validator: (v) {
+                      final n = num.tryParse(v ?? '');
+                      return n == null || n <= 0
+                          ? 'Enter an amount greater than zero'
+                          : null;
+                    },
+                  ),
+                  TextFormField(
+                    controller: _name,
+                    decoration: const InputDecoration(
+                      labelText: 'Account holder name',
+                    ),
+                    validator: (v) =>
+                        (v == null || v.trim().isEmpty) ? 'Required' : null,
+                  ),
+                  if (_type == 'TELEBIRR')
+                    TextFormField(
+                      controller: _phone,
+                      decoration: const InputDecoration(
+                        labelText: 'Telebirr phone number',
+                      ),
+                      validator: (v) =>
+                          (v == null || v.trim().isEmpty) ? 'Required' : null,
+                    ),
+                  if (_type == 'BANK') ...[
+                    TextFormField(
+                      controller: _bank,
+                      decoration: const InputDecoration(labelText: 'Bank name'),
+                      validator: (v) =>
+                          (v == null || v.trim().isEmpty) ? 'Required' : null,
+                    ),
+                    TextFormField(
+                      controller: _account,
+                      decoration: const InputDecoration(
+                        labelText: 'Account number',
+                      ),
+                      validator: (v) =>
+                          (v == null || v.trim().isEmpty) ? 'Required' : null,
+                    ),
+                  ],
+                  if (_error != null)
+                    Text(
+                      _error!,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                  const SizedBox(height: 8),
+                  FilledButton(
+                    key: const ValueKey('wallet-submit-withdrawal-button'),
+                    onPressed: _busy ? null : _submit,
+                    child: _busy
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Submit withdrawal request'),
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton(
+                    onPressed: _busy
+                        ? null
+                        : () => setState(() {
+                            _showForm = false;
+                            _amount.clear();
+                            _name.clear();
+                            _phone.clear();
+                            _bank.clear();
+                            _account.clear();
+                            _error = null;
+                          }),
+                    child: Text(AppLocalizations.of(context)!.cancel),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        const SizedBox(height: 12),
+        Text(
+          'Your withdrawal requests',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        async.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, s) => Text(
+            userFacingApiError(e, AppLocalizations.of(context)!) ??
+                'Unable to load withdrawals',
+          ),
+          data: (result) => Column(
+            children: [
+              for (final r in result.content)
+                Card(
+                  child: ListTile(
+                    title: Text(
+                      '${r.amount} ${r.currency} · ${r.destinationType}',
+                    ),
+                    subtitle: Text(
+                      '${r.accountName} · ${r.status}${r.transferReference == null ? '' : ' · Ref ${r.transferReference}'}${r.reviewNote == null ? '' : ' · ${r.reviewNote}'}',
+                    ),
+                    trailing: Text('${r.createdAt.toLocal()}'),
+                  ),
+                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  IconButton(
+                    onPressed: _page > 0 ? () => setState(() => _page--) : null,
+                    icon: const Icon(Icons.chevron_left),
+                  ),
+                  Text('Page ${_page + 1}'),
+                  IconButton(
+                    onPressed: result.content.length == 10
+                        ? () => setState(() => _page++)
+                        : null,
+                    icon: const Icon(Icons.chevron_right),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -468,12 +767,28 @@ class _TransfersPaneState extends ConsumerState<_TransfersPane> {
   final TextEditingController _noteController = TextEditingController();
   bool _lookingUp = false;
   bool _submitting = false;
+  bool _showTransferForm = false;
   WalletRecipientLookup? _recipient;
   String? _errorMessage;
   ApiError? _apiError;
   WalletTransferRequest? _pendingTransfer;
   String? _transferIdempotencyKey;
   bool _transferOutcomeUnknown = false;
+
+  void _cancelTransferForm() {
+    if (_submitting || _transferOutcomeUnknown) return;
+    setState(() {
+      _showTransferForm = false;
+      _phoneController.clear();
+      _amountController.clear();
+      _noteController.clear();
+      _recipient = null;
+      _errorMessage = null;
+      _apiError = null;
+      _pendingTransfer = null;
+      _transferIdempotencyKey = null;
+    });
+  }
 
   @override
   void dispose() {
@@ -574,6 +889,7 @@ class _TransfersPaneState extends ConsumerState<_TransfersPane> {
         ),
       );
       setState(() {
+        _showTransferForm = false;
         _recipient = null;
         _pendingTransfer = null;
         _transferIdempotencyKey = null;
@@ -614,6 +930,26 @@ class _TransfersPaneState extends ConsumerState<_TransfersPane> {
     );
     final amountError = fieldErrorMessage(_apiError, 'amount', localizations);
     final hasInlineError = phoneError != null || amountError != null;
+    if (!_showTransferForm) {
+      return SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SectionCard(
+              child: SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  key: const ValueKey('wallet-open-transfer-form-button'),
+                  onPressed: () => setState(() => _showTransferForm = true),
+                  icon: const Icon(Icons.north_east_rounded),
+                  label: Text(localizations.submitTransfer),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     return SingleChildScrollView(
       child: Column(
         children: [
@@ -660,6 +996,12 @@ class _TransfersPaneState extends ConsumerState<_TransfersPane> {
                   spacing: 12,
                   runSpacing: 12,
                   children: [
+                    OutlinedButton(
+                      onPressed: _submitting || _transferOutcomeUnknown
+                          ? null
+                          : _cancelTransferForm,
+                      child: Text(localizations.cancel),
+                    ),
                     OutlinedButton(
                       onPressed: _lookingUp || _transferOutcomeUnknown
                           ? null
@@ -915,107 +1257,136 @@ class _DepositsPane extends StatelessWidget {
   }
 }
 
-class _BalanceSummary extends StatelessWidget {
-  const _BalanceSummary({required this.balance});
+class _WalletBalanceBanner extends StatelessWidget {
+  const _WalletBalanceBanner({
+    required this.balance,
+    required this.referralCode,
+  });
   final WalletBalance balance;
+  final String referralCode;
+
+  static double heightFor({
+    required double textScale,
+    required bool hasReferralCode,
+  }) => max(76.0, 60 * textScale + 12) + (hasReferralCode ? 17 * textScale : 0);
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF081D46), Color(0xFF174A89)],
-        ),
-        borderRadius: BorderRadius.circular(20),
+    return SizedBox(
+      height: heightFor(
+        textScale: MediaQuery.textScalerOf(context).scale(14) / 14,
+        hasReferralCode: referralCode.isNotEmpty,
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(
-                Icons.account_balance_wallet_outlined,
-                color: Color(0xFF9ACBFF),
-                size: 22,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  l.currentBalance,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 5, 16, 7),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '${l.totalBalance}: ${balance.totalBalance} ${balance.currency}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Expanded(
+                  child: _BalanceFigure(
+                    label: l.availableBalanceLabel,
+                    value: balance.availableBalance,
+                    currency: balance.currency,
+                  ),
+                ),
+                Expanded(
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _BalanceFigure(
+                          label: l.promotionalBalanceLabel,
+                          value: balance.promotionalBalance,
+                          currency: balance.currency,
+                        ),
+                      ),
+                      Tooltip(
+                        message: l.promotionalBalanceRestrictionHelp,
+                        child: const Icon(
+                          Icons.info_outline,
+                          size: 16,
+                          color: Color(0xFF9ACBFF),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            if (referralCode.isNotEmpty) ...[
+              const SizedBox(height: 5),
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: SelectableText(
+                  '${l.yourReferralCode}: $referralCode',
+                  key: const ValueKey('player-referral-code'),
+                  maxLines: 1,
                   style: const TextStyle(
                     color: Color(0xFFDAE8FF),
+                    fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            '${balance.totalBalance} ${balance.currency}',
-            style: const TextStyle(
-              fontSize: 32,
-              color: Colors.white,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -.8,
-            ),
-          ),
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 14),
-            child: Divider(color: Color(0xFF3B5A83)),
-          ),
-          Wrap(
-            spacing: 20,
-            runSpacing: 12,
-            children: [
-              _amount(
-                l.availableBalanceLabel,
-                balance.availableBalance.toString(),
-              ),
-              _amount(
-                l.promotionalBalanceLabel,
-                balance.promotionalBalance.toString(),
-                description: l.promotionalBalanceRestrictionHelp,
-              ),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
+}
 
-  Widget _amount(String label, String value, {String? description}) => Column(
+class _BalanceFigure extends StatelessWidget {
+  const _BalanceFigure({
+    required this.label,
+    required this.value,
+    required this.currency,
+  });
+
+  final String label;
+  final num value;
+  final String currency;
+
+  @override
+  Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     mainAxisSize: MainAxisSize.min,
     children: [
       Text(
         label,
-        style: const TextStyle(color: Color(0xFFDAE8FF), fontSize: 12),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(color: Color(0xFFDAE8FF), fontSize: 10),
       ),
-      const SizedBox(height: 4),
       Text(
-        '$value ${balance.currency}',
+        '$value $currency',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
         style: const TextStyle(
           color: Colors.white,
-          fontSize: 16,
+          fontSize: 13,
           fontWeight: FontWeight.w700,
         ),
       ),
-      if (description != null) ...[
-        const SizedBox(height: 4),
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 240),
-          child: Text(
-            description,
-            style: const TextStyle(color: Color(0xFFDAE8FF), fontSize: 11),
-          ),
-        ),
-      ],
     ],
   );
 }

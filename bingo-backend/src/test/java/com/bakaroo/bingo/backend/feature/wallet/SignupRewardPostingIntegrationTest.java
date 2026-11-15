@@ -65,7 +65,7 @@ import org.springframework.test.web.servlet.MockMvc;
 // interrupted runs leave rows for the next guarded run's scoped cleanup.
 class SignupRewardPostingIntegrationTest extends MySqlIntegrationTest {
     static {
-        requireVersion40SchemaBeforeContextStartup();
+        requireVersion41OrNewerSchemaBeforeContextStartup();
     }
 
     private static final String ADMIN_PHONE = "0911000191";
@@ -87,7 +87,7 @@ class SignupRewardPostingIntegrationTest extends MySqlIntegrationTest {
     @Autowired SignupRewardService signupRewardService;
     @Autowired PlatformTransactionManager transactionManager;
 
-    private static void requireVersion40SchemaBeforeContextStartup() {
+    private static void requireVersion41OrNewerSchemaBeforeContextStartup() {
         var database = MySqlIntegrationTest.requireIsolatedTestDatabase();
         try (var connection = DriverManager.getConnection(database.url(), database.username(), database.password());
                 var statement = connection.createStatement();
@@ -98,9 +98,12 @@ class SignupRewardPostingIntegrationTest extends MySqlIntegrationTest {
                         from flyway_schema_history
                         limit 1
                         """)) {
-            if (!result.next() || !"40".equals(result.getString(1)) || result.getInt(2) != 0) {
+            if (!result.next()
+                    || result.getString(1) == null
+                    || Integer.parseInt(result.getString(1)) < 41
+                    || result.getInt(2) != 0) {
                 throw new IllegalStateException(
-                        "Refusing reward integration tests: isolated Maven schema must be at successful Flyway V40 with no failed migrations.");
+                        "Refusing reward integration tests: isolated Maven schema must be at successful Flyway V41 or newer with no failed migrations.");
             }
         } catch (SQLException exception) {
             throw new IllegalStateException(

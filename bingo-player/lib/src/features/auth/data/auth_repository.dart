@@ -14,7 +14,11 @@ class AuthRepository {
 
   Future<AuthResponse> login(LoginRequest request) => _api.login(request);
 
-  Future<AuthResponse> register(RegisterRequest request) => _api.register(request);
+  Future<AuthResponse> register(RegisterRequest request) =>
+      _api.register(request);
 
   Future<UserProfile> me() => _api.me();
+
+  Future<void> changePin(ChangePlayerPinRequest request) =>
+      _api.changePin(request);
 }

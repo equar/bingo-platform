@@ -250,6 +250,12 @@ void main() {
       await tester.ensureVisible(transferTab);
       await tester.tap(transferTab);
       await tester.pumpAndSettle();
+      final submitTransfer = find.byKey(
+        const ValueKey('wallet-open-transfer-form-button'),
+      );
+      await tester.ensureVisible(submitTransfer);
+      await tester.tap(submitTransfer);
+      await tester.pumpAndSettle();
       await tester.ensureVisible(find.text(l.lookupRecipient));
       expect(tester.takeException(), isNull);
     },

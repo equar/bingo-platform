@@ -83,6 +83,14 @@ public interface GameSessionRepository extends JpaRepository<GameSession, Long> 
                         """)
         List<GameSession> findOpenPublicRoomSessionsForAgents();
 
+        @Query("""
+                        select s from GameSession s join fetch s.room r
+                        where s.state <> com.bakaroo.bingo.backend.feature.game.entity.GameSessionState.DRAFT
+                                and (r.privateRoom = true or r.active = true)
+                        order by s.scheduledStartAt desc, s.id desc
+                        """)
+        List<GameSession> findPlayerVisibleSessions();
+
         List<GameSession> findByRoomIdOrderByScheduledStartAtDesc(Long roomId);
 
         List<GameSession> findByStateInAndStartedAtIsNotNullAndEndedAtIsNullOrderByScheduledStartAtAsc(
@@ -95,4 +103,10 @@ public interface GameSessionRepository extends JpaRepository<GameSession, Long> 
         @Query("select s from GameSession s where s.room.id = :roomId and s.scheduledStartAt = :scheduledStartAt")
         Optional<GameSession> findByRoomIdAndScheduledStartAt(@Param("roomId") Long roomId,
                         @Param("scheduledStartAt") Instant scheduledStartAt);
+        @Query("select case when count(s) > 0 then true else false end from GameSession s "
+                        + "where s.room.id = :roomId and s.scheduledStartAt > :after "
+                        + "and (:excludedSessionId is null or s.id <> :excludedSessionId) "
+                        + "and s.state <> com.bakaroo.bingo.backend.feature.game.entity.GameSessionState.CANCELLED")
+        boolean existsFutureNonCancelledSession(@Param("roomId") Long roomId, @Param("after") Instant after,
+                        @Param("excludedSessionId") Long excludedSessionId);
 }

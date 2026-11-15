@@ -20,14 +20,18 @@ and live game events.
 Start MySQL, then the backend, followed by the clients you need. Run each
 command from the directory shown:
 
-From `bingo-backend`:
+From the repository root, start the normal local backend:
 
-```bash
-mvn spring-boot:run -Dspring-boot.run.profiles=dev
+```powershell
+.\scripts\Start-BingoBackendLocal.ps1
 ```
 
-Before startup, follow the [backend guide](bingo-backend/README.md) to create
-the ignored `.env` file and configure `JWT_SECRET`.
+This launcher explicitly selects the `dev` profile and MySQL schema `bingo`;
+it passes the datasource URL as a Spring command-line argument so ambient
+datasource environment overrides cannot redirect local startup. It does not
+start or alter MySQL itself. Before startup, follow the
+[backend guide](bingo-backend/README.md) to create the ignored `.env` file and
+configure `JWT_SECRET`.
 
 From `bingo-admin`:
 
@@ -48,6 +52,61 @@ Start Player or Agent on a selected platform from the repository root:
 .\scripts\Run-BingoLocal.ps1 -App agent -Platform chrome
 .\scripts\Run-BingoLocal.ps1 -App agent -Platform windows
 ```
+
+For Android development on Windows, keep the Pub package cache on the same
+drive as this checkout when possible. The following commands are for normal
+Windows PowerShell (not CMD). Run them as the Windows developer account so
+the user-level setting persists:
+
+```powershell
+$env:PUB_CACHE = 'D:\DevCaches\Pub'
+New-Item -ItemType Directory -Force $env:PUB_CACHE | Out-Null
+[Environment]::SetEnvironmentVariable('PUB_CACHE', $env:PUB_CACHE, 'User')
+```
+
+If using CMD instead, use CMD syntax and switch drives with `cd /d`:
+
+```bat
+setx PUB_CACHE "D:\DevCaches\Pub"
+set "PUB_CACHE=D:\DevCaches\Pub"
+cd /d D:\GitHub\bingo-platform\bingo-player
+flutter pub get
+cd /d D:\GitHub\bingo-platform\bingo-agent
+flutter pub get
+```
+
+In PowerShell, use `Set-Location` (or `cd`) and set `$env:PUB_CACHE`; do not
+paste the PowerShell commands into CMD. Both apps' package configurations
+should resolve hosted and Git dependencies under `D:\DevCaches\Pub`.
+
+Set supported Android paths in the same PowerShell session if Android tools
+report a `.android` path at the drive root:
+
+```powershell
+$env:ANDROID_HOME = Join-Path $env:LOCALAPPDATA 'Android\Sdk'
+$env:ANDROID_SDK_ROOT = $env:ANDROID_HOME
+$env:ANDROID_USER_HOME = Join-Path $env:USERPROFILE '.android'
+$env:ANDROID_EMULATOR_HOME = $env:ANDROID_USER_HOME
+$env:ANDROID_AVD_HOME = Join-Path $env:ANDROID_USER_HOME 'avd'
+```
+
+Persist those Android values with the same user-level API when running as the
+normal Windows developer account:
+
+```powershell
+foreach ($name in 'ANDROID_HOME','ANDROID_SDK_ROOT','ANDROID_USER_HOME','ANDROID_EMULATOR_HOME','ANDROID_AVD_HOME') {
+    [Environment]::SetEnvironmentVariable($name, (Get-Item "Env:$name").Value, 'User')
+}
+```
+
+After changing `PUB_CACHE`, run `flutter pub get` once in both apps. The
+launcher checks generated package configuration against `pubspec.yaml`,
+`pubspec.lock`, optional `pubspec_overrides.yaml`, and the selected Pub cache;
+it resolves dependencies only when one is stale or missing. Keep the launcher
+terminal open: `r` hot reloads and `R` hot
+restarts. Use a full stop and relaunch after native Android/Gradle changes.
+For a one-app generated-state recovery, pass `-CleanRebuild`; normal launches
+keep build and Gradle caches.
 
 The launcher resolves paths from its own location, so it can be run from any
 working directory. It uses `10.0.2.2:8080` from an Android emulator and

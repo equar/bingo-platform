@@ -42,6 +42,7 @@ class PlayerAnnouncement {
     required this.titleAm,
     required this.bodyEn,
     required this.bodyAm,
+    required this.imageUrl,
     required this.published,
     required this.read,
     required this.createdAt,
@@ -52,6 +53,7 @@ class PlayerAnnouncement {
   final String? titleAm;
   final String bodyEn;
   final String? bodyAm;
+  final String? imageUrl;
   final bool published;
   final bool read;
   final DateTime createdAt;
@@ -63,6 +65,7 @@ class PlayerAnnouncement {
         titleAm: json['titleAm']?.toString(),
         bodyEn: json['bodyEn']?.toString() ?? '',
         bodyAm: json['bodyAm']?.toString(),
+        imageUrl: json['imageUrl']?.toString(),
         published: json['published'] == true,
         read: json['read'] == true,
         createdAt:
