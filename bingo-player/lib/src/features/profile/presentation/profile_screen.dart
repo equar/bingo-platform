@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:bingo_player/src/core/localization/ethiopian_date_time.dart';
 import 'package:bingo_player/src/core/network/api_provider.dart';
+import 'package:bingo_player/src/core/network/api_error.dart';
 import 'package:bingo_player/src/core/config/app_config.dart';
 import 'package:bingo_player/src/core/platform/external_link.dart';
 import 'package:bingo_player/src/core/platform/player_notifications.dart';
@@ -81,6 +82,165 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         _isRefreshing = false;
         _hasRefreshError = true;
       });
+    }
+  }
+
+  Future<void> _showChangePinDialog() async {
+    final localizations = AppLocalizations.of(context)!;
+    final formKey = GlobalKey<FormState>();
+    final currentPinController = TextEditingController();
+    final newPinController = TextEditingController();
+    final confirmPinController = TextEditingController();
+    var saving = false;
+    var changed = false;
+    String? errorMessage;
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(localizations.changePinTitle),
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: SingleChildScrollView(
+              child: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextFormField(
+                      key: const ValueKey('profile-current-pin-field'),
+                      controller: currentPinController,
+                      obscureText: true,
+                      keyboardType: TextInputType.number,
+                      maxLength: 6,
+                      enabled: !saving,
+                      decoration: InputDecoration(
+                        labelText: localizations.currentPinLabel,
+                      ),
+                      validator: (value) => value == null || value.isEmpty
+                          ? localizations.requiredField
+                          : RegExp(r'^[0-9]{6}$').hasMatch(value)
+                          ? null
+                          : localizations.passwordTooShort,
+                    ),
+                    TextFormField(
+                      key: const ValueKey('profile-new-pin-field'),
+                      controller: newPinController,
+                      obscureText: true,
+                      keyboardType: TextInputType.number,
+                      maxLength: 6,
+                      enabled: !saving,
+                      decoration: InputDecoration(
+                        labelText: localizations.newPinLabel,
+                      ),
+                      validator: (value) => value == null || value.isEmpty
+                          ? localizations.requiredField
+                          : RegExp(r'^[0-9]{6}$').hasMatch(value)
+                          ? null
+                          : localizations.passwordTooShort,
+                    ),
+                    TextFormField(
+                      key: const ValueKey('profile-confirm-pin-field'),
+                      controller: confirmPinController,
+                      obscureText: true,
+                      keyboardType: TextInputType.number,
+                      maxLength: 6,
+                      enabled: !saving,
+                      textInputAction: TextInputAction.done,
+                      decoration: InputDecoration(
+                        labelText: localizations.confirmNewPinLabel,
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return localizations.requiredField;
+                        }
+                        if (!RegExp(r'^[0-9]{6}$').hasMatch(value)) {
+                          return localizations.passwordTooShort;
+                        }
+                        return value == newPinController.text
+                            ? null
+                            : localizations.pinConfirmationMismatch;
+                      },
+                    ),
+                    if (errorMessage != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        errorMessage!,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: saving
+                  ? null
+                  : () => Navigator.of(dialogContext).pop(),
+              child: Text(MaterialLocalizations.of(context).cancelButtonLabel),
+            ),
+            FilledButton(
+              key: const ValueKey('profile-change-pin-submit'),
+              onPressed: saving
+                  ? null
+                  : () async {
+                      if (!formKey.currentState!.validate()) return;
+                      setDialogState(() {
+                        saving = true;
+                        errorMessage = null;
+                      });
+                      try {
+                        await ref
+                            .read(authRepositoryProvider)
+                            .changePin(
+                              ChangePlayerPinRequest(
+                                currentPin: currentPinController.text,
+                                newPin: newPinController.text,
+                              ),
+                            );
+                        changed = true;
+                        if (dialogContext.mounted) {
+                          Navigator.of(dialogContext).pop();
+                        }
+                      } catch (error) {
+                        if (dialogContext.mounted) {
+                          setDialogState(() {
+                            errorMessage = normalizeApiError(
+                              error,
+                            ).userMessage(localizations);
+                          });
+                        }
+                      } finally {
+                        if (dialogContext.mounted) {
+                          setDialogState(() => saving = false);
+                        }
+                      }
+                    },
+              child: saving
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Text(localizations.changePinAction),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    currentPinController.dispose();
+    newPinController.dispose();
+    confirmPinController.dispose();
+    if (changed && mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(localizations.pinChanged)));
     }
   }
 
@@ -373,6 +533,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           .toList(),
                     ),
                   ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              SectionCard(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: ListTile(
+                  key: const ValueKey('profile-change-pin'),
+                  leading: const Icon(Icons.lock_reset_rounded),
+                  title: Text(localizations.changePinTitle),
+                  subtitle: Text(localizations.changePinDescription),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: _showChangePinDialog,
                 ),
               ),
               const SizedBox(height: 16),

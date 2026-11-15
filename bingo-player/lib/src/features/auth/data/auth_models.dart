@@ -18,7 +18,9 @@ class AuthResponse {
       accessToken: json['accessToken']?.toString() ?? '',
       tokenType: json['tokenType']?.toString() ?? '',
       expiresInSeconds: (json['expiresInSeconds'] as num?)?.toInt() ?? 0,
-      user: UserProfile.fromJson(Map<String, dynamic>.from(json['user'] as Map)),
+      user: UserProfile.fromJson(
+        Map<String, dynamic>.from(json['user'] as Map),
+      ),
     );
   }
 }
@@ -50,31 +52,44 @@ class UserProfile {
     return UserProfile(
       id: (json['id'] as num?)?.toInt() ?? 0,
       displayName: json['displayName']?.toString() ?? '',
-      phoneNumber: json['phoneNumber']?.toString() ?? json['normalizedPhone']?.toString() ?? '',
-      roles: (json['roles'] as List? ?? const []).map((item) => item.toString()).toList(),
+      phoneNumber:
+          json['phoneNumber']?.toString() ??
+          json['normalizedPhone']?.toString() ??
+          '',
+      roles: (json['roles'] as List? ?? const [])
+          .map((item) => item.toString())
+          .toList(),
       status: json['status']?.toString() ?? '',
-      createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0),
-      updatedAt: DateTime.tryParse(json['updatedAt']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0),
+      createdAt:
+          DateTime.tryParse(json['createdAt']?.toString() ?? '') ??
+          DateTime.fromMillisecondsSinceEpoch(0),
+      updatedAt:
+          DateTime.tryParse(json['updatedAt']?.toString() ?? '') ??
+          DateTime.fromMillisecondsSinceEpoch(0),
       referralCode: json['referralCode']?.toString() ?? '',
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'displayName': displayName,
-        'phoneNumber': phoneNumber,
-        'roles': roles,
-        'status': status,
-        'createdAt': createdAt.toIso8601String(),
-        'updatedAt': updatedAt.toIso8601String(),
-        'referralCode': referralCode,
-      };
+    'id': id,
+    'displayName': displayName,
+    'phoneNumber': phoneNumber,
+    'roles': roles,
+    'status': status,
+    'createdAt': createdAt.toIso8601String(),
+    'updatedAt': updatedAt.toIso8601String(),
+    'referralCode': referralCode,
+  };
 
   String toPersistedJson() => jsonEncode(toJson());
 }
 
 class AuthSession {
-  const AuthSession({required this.accessToken, required this.expiresAt, required this.user});
+  const AuthSession({
+    required this.accessToken,
+    required this.expiresAt,
+    required this.user,
+  });
 
   final String accessToken;
   final DateTime expiresAt;
@@ -83,10 +98,10 @@ class AuthSession {
   bool get isExpired => DateTime.now().toUtc().isAfter(expiresAt.toUtc());
 
   Map<String, dynamic> toJson() => {
-        'accessToken': accessToken,
-        'expiresAt': expiresAt.toIso8601String(),
-        'user': user.toJson(),
-      };
+    'accessToken': accessToken,
+    'expiresAt': expiresAt.toIso8601String(),
+    'user': user.toJson(),
+  };
 
   String toPersistedJson() => jsonEncode(toJson());
 
@@ -94,8 +109,12 @@ class AuthSession {
     final json = jsonDecode(jsonString) as Map<String, dynamic>;
     return AuthSession(
       accessToken: json['accessToken']?.toString() ?? '',
-      expiresAt: DateTime.tryParse(json['expiresAt']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0),
-      user: UserProfile.fromJson(Map<String, dynamic>.from(json['user'] as Map)),
+      expiresAt:
+          DateTime.tryParse(json['expiresAt']?.toString() ?? '') ??
+          DateTime.fromMillisecondsSinceEpoch(0),
+      user: UserProfile.fromJson(
+        Map<String, dynamic>.from(json['user'] as Map),
+      ),
     );
   }
 }
@@ -106,16 +125,41 @@ class LoginRequest {
   final String phoneNumber;
   final String password;
 
-  Map<String, dynamic> toJson() => {'phoneNumber': phoneNumber, 'password': password};
+  Map<String, dynamic> toJson() => {
+    'phoneNumber': phoneNumber,
+    'password': password,
+  };
 }
 
 class RegisterRequest {
-  const RegisterRequest({required this.displayName, required this.phoneNumber, required this.password, this.referralCode = ''});
+  const RegisterRequest({
+    required this.displayName,
+    required this.phoneNumber,
+    required this.password,
+    this.referralCode = '',
+  });
 
   final String displayName;
   final String phoneNumber;
   final String password;
   final String referralCode;
 
-  Map<String, dynamic> toJson() => {'displayName': displayName, 'phoneNumber': phoneNumber, 'password': password, if (referralCode.trim().isNotEmpty) 'referralCode': referralCode.trim()};
+  Map<String, dynamic> toJson() => {
+    'displayName': displayName,
+    'phoneNumber': phoneNumber,
+    'password': password,
+    if (referralCode.trim().isNotEmpty) 'referralCode': referralCode.trim(),
+  };
+}
+
+class ChangePlayerPinRequest {
+  const ChangePlayerPinRequest({
+    required this.currentPin,
+    required this.newPin,
+  });
+
+  final String currentPin;
+  final String newPin;
+
+  Map<String, dynamic> toJson() => {'currentPin': currentPin, 'newPin': newPin};
 }
