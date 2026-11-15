@@ -21,6 +21,7 @@ class PlayerPreferences extends ChangeNotifier {
   static const _selectedTicketsKey = 'player.selectedTicketIds.';
   static const _pendingTicketsKey = 'player.pendingTicketRegistration.';
   static const _manualMarkPrefix = 'player.manualMarks.';
+  static const _autoMarkClearedPrefix = 'player.autoMarkCleared.';
   String _scope = 'default';
 
   ThemeMode themeMode = ThemeMode.system;
@@ -35,6 +36,7 @@ class PlayerPreferences extends ChangeNotifier {
   bool loaded = false;
   bool multipleCardSelection = true;
   Set<int> selectedTicketIds = {};
+  Set<int> _clearedAutoMarkNumbers = {};
   Future<void>? _scopeLoad;
 
   static const selectionColors = <Color>[
@@ -122,6 +124,7 @@ class PlayerPreferences extends ChangeNotifier {
     if (normalized == _scope) return;
     _scope = normalized;
     _manualMarks.clear();
+    _clearedAutoMarkNumbers = {};
     selectedTicketIds = {};
     notifyListeners();
     final scopeLoad = SharedPreferences.getInstance().then((prefs) {
@@ -204,6 +207,12 @@ class PlayerPreferences extends ChangeNotifier {
           .where((n) => n >= 1 && n <= 75)
           .toSet();
     }
+    _clearedAutoMarkNumbers =
+        (prefs.getStringList('$_autoMarkClearedPrefix$_scope') ?? const [])
+            .map(int.tryParse)
+            .whereType<int>()
+            .where((number) => number >= 1 && number <= 75)
+            .toSet();
   }
 
   Future<void> _save(String key, Object value) async {
@@ -361,6 +370,9 @@ class PlayerPreferences extends ChangeNotifier {
     return _manualMarks[ticketId] ?? const {};
   }
 
+  bool isAutoMarkCleared(int number) =>
+      _clearedAutoMarkNumbers.contains(number);
+
   final Map<int, Set<int>> _manualMarks = {};
 
   Future<void> toggleManualMark(int ticketId, int number) async {
@@ -400,6 +412,28 @@ class PlayerPreferences extends ChangeNotifier {
       await prefs.remove(key);
     }
     if (_scope == scope) _manualMarks.clear();
+    notifyListeners();
+  }
+
+  Future<void> clearMarkedNumbers(Iterable<int> calledNumbers) async {
+    final scope = _scope;
+    await _scopeLoad;
+    if (scope != _scope) return;
+    final clearedCalls = calledNumbers
+        .where((number) => number >= 1 && number <= 75)
+        .toSet();
+    final prefs = await SharedPreferences.getInstance();
+    final prefix = '$_manualMarkPrefix$scope.';
+    for (final key in prefs.getKeys().where((key) => key.startsWith(prefix))) {
+      await prefs.remove(key);
+    }
+    await prefs.setStringList(
+      '$_autoMarkClearedPrefix$scope',
+      (clearedCalls.toList()..sort()).map((number) => '$number').toList(),
+    );
+    if (scope != _scope) return;
+    _manualMarks.clear();
+    _clearedAutoMarkNumbers = clearedCalls;
     notifyListeners();
   }
 

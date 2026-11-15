@@ -874,7 +874,12 @@ class _GameSettingsSheet extends ConsumerWidget {
                   ],
                 ),
               );
-              if (confirmed == true) await settings.clearManualMarks();
+              if (confirmed == true) {
+                final calledNumbers = ref
+                    .read(liveGameControllerProvider(sessionId))
+                    .calledNumbers;
+                await settings.clearMarkedNumbers(calledNumbers);
+              }
             },
             icon: const Icon(Icons.restart_alt),
             label: Text(strings.resetMarkedNumbers),
@@ -1518,11 +1523,12 @@ class _TicketGridCard extends ConsumerWidget {
             final isCalled =
                 isFree ||
                 (preferences.autoMark
-                    ? calledNumbers.contains(value)
+                    ? calledNumbers.contains(value) &&
+                          !preferences.isAutoMarkCleared(value)
                     : preferences
                           .manualMarksForTicket(ticket.id)
                           .contains(value));
-            final isLatest = value == latestCalled;
+            final isLatest = isCalled && value == latestCalled;
             return _TicketCell(
               key: ValueKey('ticket-cell-$ticketRow-$column'),
               value: value,

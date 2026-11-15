@@ -218,6 +218,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context)!;
     final balanceAsync = ref.watch(walletBalanceProvider);
+    final walletBalance = balanceAsync.asData?.value;
     final transactionsAsync = ref.watch(
       walletTransactionsProvider(_transactionPage),
     );
@@ -226,19 +227,38 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(localizations.balanceTitle),
+        title: const SizedBox.shrink(),
         actions: const [SupportShortcut()],
-        bottom: TabBar(
-          isScrollable: true,
-          tabAlignment: TabAlignment.start,
-          controller: _tabController,
-          onTap: (index) => setState(() => _selectedTabIndex = index),
-          tabs: [
-            Tab(text: localizations.walletTransactionsTab),
-            Tab(text: localizations.walletDepositsTab),
-            Tab(text: localizations.walletTransfersTab),
-            const Tab(text: 'Withdrawals'),
-          ],
+        bottom: PreferredSize(
+          preferredSize: Size.fromHeight(
+            walletBalance == null
+                ? 48
+                : (session?.user.referralCode.isNotEmpty ?? false)
+                ? 144
+                : 124,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (walletBalance != null)
+                _WalletBalanceBanner(
+                  balance: walletBalance,
+                  referralCode: session?.user.referralCode ?? '',
+                ),
+              TabBar(
+                isScrollable: true,
+                tabAlignment: TabAlignment.start,
+                controller: _tabController,
+                onTap: (index) => setState(() => _selectedTabIndex = index),
+                tabs: [
+                  Tab(text: localizations.walletTransactionsTab),
+                  Tab(text: localizations.walletDepositsTab),
+                  Tab(text: localizations.walletTransfersTab),
+                  const Tab(text: 'Withdrawals'),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
       body: ResponsiveContent(
@@ -255,24 +275,11 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
             return ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                SectionCard(child: _BalanceSummary(balance: balance)),
-                const SizedBox(height: 16),
                 if (_selectedTabIndex == 1) ...[
                   SectionCard(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if ((session?.user.referralCode ?? '').isNotEmpty) ...[
-                          const SizedBox(height: 12),
-                          Text(
-                            localizations.yourReferralCode,
-                            style: Theme.of(context).textTheme.titleSmall,
-                          ),
-                          SelectableText(
-                            session!.user.referralCode,
-                            key: const ValueKey('player-referral-code'),
-                          ),
-                        ],
                         const SizedBox(height: 16),
                         Text(localizations.balanceDisclaimer),
                         const SizedBox(height: 12),
@@ -1148,107 +1155,128 @@ class _DepositsPane extends StatelessWidget {
   }
 }
 
-class _BalanceSummary extends StatelessWidget {
-  const _BalanceSummary({required this.balance});
+class _WalletBalanceBanner extends StatelessWidget {
+  const _WalletBalanceBanner({
+    required this.balance,
+    required this.referralCode,
+  });
   final WalletBalance balance;
+  final String referralCode;
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF081D46), Color(0xFF174A89)],
-        ),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(
-                Icons.account_balance_wallet_outlined,
-                color: Color(0xFF9ACBFF),
-                size: 22,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  l.currentBalance,
+    return SizedBox(
+      height: referralCode.isEmpty ? 76 : 96,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 5, 16, 7),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '${l.totalBalance}: ${balance.totalBalance} ${balance.currency}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Expanded(
+                  child: _BalanceFigure(
+                    label: l.availableBalanceLabel,
+                    value: balance.availableBalance,
+                    currency: balance.currency,
+                  ),
+                ),
+                Expanded(
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _BalanceFigure(
+                          label: l.promotionalBalanceLabel,
+                          value: balance.promotionalBalance,
+                          currency: balance.currency,
+                        ),
+                      ),
+                      Tooltip(
+                        message: l.promotionalBalanceRestrictionHelp,
+                        child: const Icon(
+                          Icons.info_outline,
+                          size: 16,
+                          color: Color(0xFF9ACBFF),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            if (referralCode.isNotEmpty) ...[
+              const SizedBox(height: 5),
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: SelectableText(
+                  '${l.yourReferralCode}: $referralCode',
+                  key: const ValueKey('player-referral-code'),
+                  maxLines: 1,
                   style: const TextStyle(
                     color: Color(0xFFDAE8FF),
+                    fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            '${balance.totalBalance} ${balance.currency}',
-            style: const TextStyle(
-              fontSize: 32,
-              color: Colors.white,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -.8,
-            ),
-          ),
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 14),
-            child: Divider(color: Color(0xFF3B5A83)),
-          ),
-          Wrap(
-            spacing: 20,
-            runSpacing: 12,
-            children: [
-              _amount(
-                l.availableBalanceLabel,
-                balance.availableBalance.toString(),
-              ),
-              _amount(
-                l.promotionalBalanceLabel,
-                balance.promotionalBalance.toString(),
-                description: l.promotionalBalanceRestrictionHelp,
-              ),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
+}
 
-  Widget _amount(String label, String value, {String? description}) => Column(
+class _BalanceFigure extends StatelessWidget {
+  const _BalanceFigure({
+    required this.label,
+    required this.value,
+    required this.currency,
+  });
+
+  final String label;
+  final num value;
+  final String currency;
+
+  @override
+  Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     mainAxisSize: MainAxisSize.min,
     children: [
       Text(
         label,
-        style: const TextStyle(color: Color(0xFFDAE8FF), fontSize: 12),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(color: Color(0xFFDAE8FF), fontSize: 10),
       ),
-      const SizedBox(height: 4),
       Text(
-        '$value ${balance.currency}',
+        '$value $currency',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
         style: const TextStyle(
           color: Colors.white,
-          fontSize: 16,
+          fontSize: 13,
           fontWeight: FontWeight.w700,
         ),
       ),
-      if (description != null) ...[
-        const SizedBox(height: 4),
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 240),
-          child: Text(
-            description,
-            style: const TextStyle(color: Color(0xFFDAE8FF), fontSize: 11),
-          ),
-        ),
-      ],
     ],
   );
 }

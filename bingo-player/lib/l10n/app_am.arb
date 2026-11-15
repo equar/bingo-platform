@@ -21,7 +21,7 @@
   "claimReviewTitle": "{count} ብቁ ቲኬት(ቶች)ን ይመልከቱ",
   "@claimReviewTitle": {"placeholders": {"count": {"type": "int"}}},
   "claimReviewHint": "ቲኬት ይምረጡና የሽልማት ጥያቄውን በተናጠል ይላኩ።",
-  "clearManualMarksConfirm": "በዚህ ጨዋታ ውስጥ ያሉ ቲኬቶች ላይ የእጅ ምልክቶችን ያጽዱ?",
+  "clearManualMarksConfirm": "በዚህ ጨዋታ ውስጥ በቲኬቶች ላይ የተመለከቱ ቁጥሮችን ሁሉ ያጽዱ? አዲስ የሚጠሩ ቁጥሮች በራስ-ሰር መመልከታቸው ይቀጥላል።",
   "ticketsPurchasedCount": "{count} ቲኬት(ቶች) ተገዝተዋል።",
   "@ticketsPurchasedCount": {"placeholders": {"count": {"type": "int"}}},
   "resolvePurchase": "የግዢውን ሁኔታ በደህና ያረጋግጡ",
