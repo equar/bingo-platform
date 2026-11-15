@@ -63,7 +63,6 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
   bool _isAppActive = true;
   PaymentInstructions? _instructions;
   bool _submittingDeposit = false;
-  bool _showDepositForm = false;
   final _depositFormKey = GlobalKey<FormState>();
   final _depositAmountController = TextEditingController();
   final _depositReferenceController = TextEditingController();
@@ -128,17 +127,23 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
     super.dispose();
   }
 
-  Future<void> _createDeposit(String currency) async {
+  Future<void> _confirmDeposit(String currency) async {
     if (_depositOutcomeUnknown && _pendingDeposit != null) {
       await _submitPendingDeposit();
-      return;
+    } else {
+      await _submitDepositForm(currency);
     }
-    _depositAmountController.text =
-        _pendingDeposit?.submittedCashAmount.toString() ?? '';
-    _depositReferenceController.text = _pendingDeposit?.telebirrReference ?? '';
+  }
+
+  void _cancelDeposit() {
+    if (_depositOutcomeUnknown && _pendingDeposit != null) return;
     setState(() {
-      _showDepositForm = true;
+      _depositAmountController.clear();
+      _depositReferenceController.clear();
       _depositError = null;
+      _depositApiError = null;
+      _pendingDeposit = null;
+      _pendingDepositIdempotencyKey = null;
     });
   }
 
@@ -180,7 +185,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
         _pendingDepositIdempotencyKey = null;
         _depositOutcomeUnknown = false;
         _depositError = null;
-        _showDepositForm = false;
+        _depositAmountController.clear();
+        _depositReferenceController.clear();
       });
       _refreshWalletData();
     } catch (error) {
@@ -192,7 +198,6 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
             ? null
             : parsed.userMessage(AppLocalizations.of(context)!);
         _depositOutcomeUnknown = parsed.outcomeUnknown;
-        _showDepositForm = !parsed.outcomeUnknown;
         if (!parsed.outcomeUnknown) _pendingDepositIdempotencyKey = null;
       });
     } finally {
@@ -270,149 +275,109 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                         const SizedBox(height: 16),
                         Text(localizations.balanceDisclaimer),
                         const SizedBox(height: 12),
-                        if (_depositError != null && !_showDepositForm) ...[
-                          Text(
-                            _depositError!,
-                            style: TextStyle(
-                              color: Theme.of(context).colorScheme.error,
-                            ),
-                          ),
-                          if (_pendingDeposit != null) ...[
-                            const SizedBox(height: 8),
-                            Text(
-                              '${_pendingDeposit!.submittedCashAmount} ${_pendingDeposit!.currency} · ${_pendingDeposit!.telebirrReference}',
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                          ],
-                          const SizedBox(height: 12),
-                        ],
-                        if (_showDepositForm) ...[
-                          Form(
-                            key: _depositFormKey,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                TextFormField(
-                                  key: const ValueKey('deposit-amount-field'),
-                                  controller: _depositAmountController,
-                                  enabled: !_submittingDeposit,
-                                  keyboardType:
-                                      const TextInputType.numberWithOptions(
-                                        decimal: true,
-                                      ),
-                                  decoration: InputDecoration(
-                                    labelText:
-                                        '${localizations.amountLabel} (${balance.currency})',
-                                    errorText: fieldErrorMessage(
-                                      _depositApiError,
-                                      'submittedCashAmount',
-                                      localizations,
+                        Form(
+                          key: _depositFormKey,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              TextFormField(
+                                key: const ValueKey('deposit-amount-field'),
+                                controller: _depositAmountController,
+                                enabled: !_submittingDeposit,
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                      decimal: true,
                                     ),
+                                decoration: InputDecoration(
+                                  labelText:
+                                      '${localizations.amountLabel} (${balance.currency})',
+                                  errorText: fieldErrorMessage(
+                                    _depositApiError,
+                                    'submittedCashAmount',
+                                    localizations,
                                   ),
-                                  validator: (value) {
-                                    final text = value?.trim() ?? '';
-                                    if (text.isEmpty) {
-                                      return localizations.requiredField;
-                                    }
-                                    final amount = num.tryParse(text);
-                                    if (amount == null || !amount.isFinite) {
-                                      return localizations.errorInvalidAmount;
-                                    }
-                                    if (amount <= 0) {
-                                      return localizations
-                                          .depositAmountPositive;
-                                    }
-                                    return null;
-                                  },
                                 ),
-                                const SizedBox(height: 12),
-                                TextFormField(
-                                  key: const ValueKey(
-                                    'deposit-reference-field',
+                                validator: (value) {
+                                  final text = value?.trim() ?? '';
+                                  if (text.isEmpty) {
+                                    return localizations.requiredField;
+                                  }
+                                  final amount = num.tryParse(text);
+                                  if (amount == null || !amount.isFinite) {
+                                    return localizations.errorInvalidAmount;
+                                  }
+                                  if (amount <= 0) {
+                                    return localizations.depositAmountPositive;
+                                  }
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 12),
+                              TextFormField(
+                                key: const ValueKey('deposit-reference-field'),
+                                controller: _depositReferenceController,
+                                enabled: !_submittingDeposit,
+                                decoration: InputDecoration(
+                                  labelText:
+                                      localizations.telebirrReferenceLabel,
+                                  errorText: fieldErrorMessage(
+                                    _depositApiError,
+                                    'telebirrReference',
+                                    localizations,
                                   ),
-                                  controller: _depositReferenceController,
-                                  enabled: !_submittingDeposit,
-                                  decoration: InputDecoration(
-                                    labelText:
-                                        localizations.telebirrReferenceLabel,
-                                    errorText: fieldErrorMessage(
-                                      _depositApiError,
-                                      'telebirrReference',
-                                      localizations,
-                                    ),
-                                  ),
-                                  validator: (value) =>
-                                      value == null || value.trim().isEmpty
-                                      ? localizations.requiredField
-                                      : null,
                                 ),
-                                if (_depositError != null) ...[
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    _depositError!,
-                                    style: TextStyle(
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.error,
-                                    ),
+                                validator: (value) =>
+                                    value == null || value.trim().isEmpty
+                                    ? localizations.requiredField
+                                    : null,
+                              ),
+                              if (_depositError != null) ...[
+                                const SizedBox(height: 8),
+                                Text(
+                                  _depositError!,
+                                  style: TextStyle(
+                                    color: Theme.of(context).colorScheme.error,
                                   ),
-                                ],
-                                const SizedBox(height: 12),
-                                Wrap(
-                                  spacing: 12,
-                                  children: [
-                                    OutlinedButton(
-                                      onPressed: _submittingDeposit
-                                          ? null
-                                          : () => setState(
-                                              () => _showDepositForm = false,
-                                            ),
-                                      child: Text(localizations.cancel),
-                                    ),
-                                    FilledButton(
-                                      key: const ValueKey(
-                                        'wallet-submit-deposit-button',
-                                      ),
-                                      onPressed: _submittingDeposit
-                                          ? null
-                                          : () => _submitDepositForm(
-                                              balance.currency,
-                                            ),
-                                      child: _submittingDeposit
-                                          ? const SizedBox(
-                                              width: 18,
-                                              height: 18,
-                                              child: CircularProgressIndicator(
-                                                strokeWidth: 2,
-                                              ),
-                                            )
-                                          : Text(localizations.confirm),
-                                    ),
-                                  ],
                                 ),
                               ],
-                            ),
-                          ),
-                        ] else
-                          FilledButton(
-                            key: const ValueKey('wallet-submit-deposit-button'),
-                            onPressed: _submittingDeposit
-                                ? null
-                                : () => _createDeposit(balance.currency),
-                            child: _submittingDeposit
-                                ? const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : Text(
-                                    _depositOutcomeUnknown
-                                        ? localizations.retry
-                                        : localizations.submitDeposit,
+                              const SizedBox(height: 12),
+                              Wrap(
+                                spacing: 12,
+                                children: [
+                                  OutlinedButton(
+                                    onPressed: _submittingDeposit ||
+                                            _depositOutcomeUnknown
+                                        ? null
+                                        : _cancelDeposit,
+                                    child: Text(localizations.cancel),
                                   ),
+                                  FilledButton(
+                                    key: const ValueKey(
+                                      'wallet-confirm-deposit-button',
+                                    ),
+                                    onPressed: _submittingDeposit
+                                        ? null
+                                        : () =>
+                                              _confirmDeposit(balance.currency),
+                                    child: _submittingDeposit
+                                        ? const SizedBox(
+                                            width: 18,
+                                            height: 18,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : Text(
+                                            _depositOutcomeUnknown
+                                                ? localizations.retry
+                                                : localizations.confirm,
+                                          ),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
+                        ),
                       ],
                     ),
                   ),
