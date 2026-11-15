@@ -372,7 +372,9 @@ void main() {
     await tester.tap(resetButton);
     await tester.pump();
     expect(
-      find.text('Clear manual marks on tickets in this game?'),
+      find.text(
+        'Clear all currently marked numbers on tickets in this game? New calls will still be auto-marked.',
+      ),
       findsOneWidget,
     );
     await tester.tap(find.text('Cancel'));

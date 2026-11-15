@@ -224,26 +224,27 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
     );
     final depositsAsync = ref.watch(walletDepositsProvider(_depositPage));
     final session = ref.watch(authSessionControllerProvider).session;
+    final referralCode = session?.user.referralCode ?? '';
+    final bannerHeight = walletBalance == null
+        ? 0.0
+        : _WalletBalanceBanner.heightFor(
+            textScale: MediaQuery.textScalerOf(context).scale(14) / 14,
+            hasReferralCode: referralCode.isNotEmpty,
+          );
 
     return Scaffold(
       appBar: AppBar(
         title: const SizedBox.shrink(),
         actions: const [SupportShortcut()],
         bottom: PreferredSize(
-          preferredSize: Size.fromHeight(
-            walletBalance == null
-                ? 48
-                : (session?.user.referralCode.isNotEmpty ?? false)
-                ? 144
-                : 124,
-          ),
+          preferredSize: Size.fromHeight(48 + bannerHeight),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               if (walletBalance != null)
                 _WalletBalanceBanner(
                   balance: walletBalance,
-                  referralCode: session?.user.referralCode ?? '',
+                  referralCode: referralCode,
                 ),
               TabBar(
                 isScrollable: true,
@@ -1163,11 +1164,19 @@ class _WalletBalanceBanner extends StatelessWidget {
   final WalletBalance balance;
   final String referralCode;
 
+  static double heightFor({
+    required double textScale,
+    required bool hasReferralCode,
+  }) => max(76.0, 60 * textScale + 12) + (hasReferralCode ? 17 * textScale : 0);
+
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     return SizedBox(
-      height: referralCode.isEmpty ? 76 : 96,
+      height: heightFor(
+        textScale: MediaQuery.textScalerOf(context).scale(14) / 14,
+        hasReferralCode: referralCode.isNotEmpty,
+      ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 5, 16, 7),
         child: Column(
