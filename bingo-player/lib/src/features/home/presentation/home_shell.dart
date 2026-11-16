@@ -21,10 +21,10 @@ class _HomeShellState extends State<HomeShell> {
   int _index = 0;
 
   final _visited = <int>{0};
-  final _navigatorKeys = List.generate(2, (_) => GlobalKey<NavigatorState>());
-  final _heroControllers = List.generate(2, (_) => HeroController());
+  final _navigatorKeys = List.generate(4, (_) => GlobalKey<NavigatorState>());
+  final _heroControllers = List.generate(4, (_) => HeroController());
   late final _observers = List.generate(
-    2,
+    4,
     (_) => _TabObserver(() {
       if (mounted) setState(() {});
     }),
@@ -44,10 +44,12 @@ class _HomeShellState extends State<HomeShell> {
 
   Widget _rootPage(int index) => switch (index) {
     0 => HomeScreen(
-      onGames: _openGames,
+      onGames: () => _select(1),
       onOpenMenu: _showNavigationMenu,
       onSupport: _support,
     ),
+    1 => const LobbyScreen(),
+    2 => const WalletScreen(),
     _ => ProfileScreen(onOpenMenu: _showNavigationMenu),
   };
 
@@ -67,7 +69,7 @@ class _HomeShellState extends State<HomeShell> {
     child: IndexedStack(
       index: _index,
       children: [
-        for (var index = 0; index < 2; index++)
+        for (var index = 0; index < 4; index++)
           if (_visited.contains(index))
             TickerMode(
               enabled: _index == index,
@@ -89,10 +91,6 @@ class _HomeShellState extends State<HomeShell> {
 
   void _support() => _navigatorKeys[_index].currentState!.push<void>(
     MaterialPageRoute(builder: (_) => const SupportScreen()),
-  );
-
-  void _openGames() => _navigatorKeys[_index].currentState!.push<void>(
-    MaterialPageRoute(builder: (_) => const LobbyScreen()),
   );
 
   void _messages() => _navigatorKeys[_index].currentState!.push<void>(
@@ -146,7 +144,7 @@ class _HomeShellState extends State<HomeShell> {
         Icons.person_outline_rounded,
         l.homeProfile,
         'navigation-menu-profile',
-        () => _select(1),
+        () => _select(3),
       ),
     ];
     showModalBottomSheet<void>(
@@ -213,6 +211,20 @@ class _HomeShellState extends State<HomeShell> {
                               icon: const Icon(Icons.home_outlined),
                               selectedIcon: const Icon(Icons.home_rounded),
                               label: Text(l.homeTitle),
+                            ),
+                            NavigationRailDestination(
+                              icon: const Icon(Icons.grid_view_rounded),
+                              selectedIcon: const Icon(Icons.grid_view_rounded),
+                              label: Text(l.homeGames),
+                            ),
+                            NavigationRailDestination(
+                              icon: const Icon(
+                                Icons.account_balance_wallet_outlined,
+                              ),
+                              selectedIcon: const Icon(
+                                Icons.account_balance_wallet_rounded,
+                              ),
+                              label: Text(l.homeWallet),
                             ),
                             NavigationRailDestination(
                               icon: const Icon(Icons.person_outline_rounded),
@@ -287,6 +299,20 @@ class _HomeShellState extends State<HomeShell> {
                             icon: const Icon(Icons.home_outlined),
                             selectedIcon: const Icon(Icons.home_rounded),
                             label: l.homeTitle,
+                          ),
+                          NavigationDestination(
+                            icon: const Icon(Icons.grid_view_rounded),
+                            selectedIcon: const Icon(Icons.grid_view_rounded),
+                            label: l.homeGames,
+                          ),
+                          NavigationDestination(
+                            icon: const Icon(
+                              Icons.account_balance_wallet_outlined,
+                            ),
+                            selectedIcon: const Icon(
+                              Icons.account_balance_wallet_rounded,
+                            ),
+                            label: l.homeWallet,
                           ),
                           NavigationDestination(
                             icon: const Icon(Icons.person_outline_rounded),

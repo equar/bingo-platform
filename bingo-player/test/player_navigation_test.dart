@@ -177,7 +177,7 @@ void main() {
       expect(find.byType(NavigationBar), findsOneWidget);
       expect(find.byType(SessionDetailScreen), findsOneWidget);
       await tab(tester, 'Profile');
-      await tab(tester, 'Home');
+      await tab(tester, 'Games');
       expect(find.byType(SessionDetailScreen), findsOneWidget);
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();

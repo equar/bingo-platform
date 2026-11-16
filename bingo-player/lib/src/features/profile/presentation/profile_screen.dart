@@ -7,7 +7,6 @@ import 'package:bingo_player/src/core/config/app_config.dart';
 import 'package:bingo_player/src/core/platform/external_link.dart';
 import 'package:bingo_player/src/core/platform/player_notifications.dart';
 import 'package:bingo_player/src/core/storage/player_preferences.dart';
-import 'package:bingo_player/src/features/support/presentation/support_shortcut.dart';
 import 'package:bingo_player/src/core/widgets/responsive_content.dart';
 import 'package:bingo_player/l10n/app_localizations.dart';
 import 'package:bingo_player/src/core/widgets/section_card.dart';
@@ -273,7 +272,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 icon: const Icon(Icons.menu_rounded),
               ),
         actions: [
-          const SupportShortcut(),
           IconButton(
             key: const ValueKey('profile-refresh-button'),
             tooltip: localizations.profileRefresh,
@@ -534,13 +532,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     const SizedBox(height: 12),
                     Text(
                       '${localizations.profileMemberSince}: ${EthiopianDateTime.date(profile.createdAt, languageCode: Localizations.localeOf(context).languageCode)}',
-                    ),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      children: profile.roles
-                          .map((role) => Chip(label: Text(role)))
-                          .toList(),
                     ),
                   ],
                 ),
