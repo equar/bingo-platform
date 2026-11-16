@@ -233,7 +233,7 @@ class AuthSecurityIntegrationTest extends MySqlIntegrationTest {
                                 {"displayName":" Player One ","phoneNumber":" 09 11 00 00 03 ","password":"123456","roles":["ADMIN"],"status":"SUSPENDED"}
                                 """;
 
-                mockMvc.perform(post("/api/v1/auth/register")
+                String registrationJson = mockMvc.perform(post("/api/v1/auth/register")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(registerJson))
                                 .andExpect(status().isCreated())
@@ -241,11 +241,22 @@ class AuthSecurityIntegrationTest extends MySqlIntegrationTest {
                                 .andExpect(jsonPath("$.user.displayName").value("Player One"))
                                 .andExpect(jsonPath("$.user.phoneNumber").value("251911000003"))
                                 .andExpect(jsonPath("$.user.roles[0]").value("PLAYER"))
-                                .andExpect(jsonPath("$.user.status").value("ACTIVE"));
+                                .andExpect(jsonPath("$.user.status").value("ACTIVE"))
+                                .andReturn().getResponse().getContentAsString();
+                String registrationToken = objectMapper.readTree(registrationJson).path("accessToken").asText();
 
                 String loginJson = objectMapper.writeValueAsString(new LoginRequest(
                                 "0911000003",
                                 "123456"));
+
+                mockMvc.perform(post("/api/v1/auth/login")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(loginJson))
+                                .andExpect(status().isConflict())
+                                .andExpect(jsonPath("$.code").value("PLAYER_ALREADY_LOGGED_IN"));
+                mockMvc.perform(post("/api/v1/auth/logout")
+                                .header("Authorization", "Bearer " + registrationToken))
+                                .andExpect(status().isNoContent());
 
                 String loginResponse = mockMvc.perform(post("/api/v1/auth/login")
                                 .contentType(MediaType.APPLICATION_JSON)
@@ -1369,6 +1380,15 @@ class AuthSecurityIntegrationTest extends MySqlIntegrationTest {
         private String issueTokenFor(String phone) {
                 User user = userRepository.findByNormalizedPhone(phoneNormalizer.normalize(phone))
                                 .orElseThrow();
+                if (user.hasRole(UserRole.PLAYER)) {
+                        String sessionId = user.getActivePlayerSessionId();
+                        if (sessionId == null) {
+                                sessionId = jwtService.newPlayerSessionId();
+                                user.startPlayerSession(sessionId, jwtService.tokenExpiresAt());
+                                user = userRepository.saveAndFlush(user);
+                        }
+                        return jwtService.generateToken(user, sessionId);
+                }
                 return jwtService.generateToken(user);
         }
 }

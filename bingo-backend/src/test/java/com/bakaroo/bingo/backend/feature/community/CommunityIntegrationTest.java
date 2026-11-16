@@ -111,6 +111,15 @@ class CommunityIntegrationTest extends MySqlIntegrationTest {
   }
 
   private String bearer(User user) {
+    if (user.hasRole(UserRole.PLAYER)) {
+      String sessionId = user.getActivePlayerSessionId();
+      if (sessionId == null) {
+        sessionId = jwt.newPlayerSessionId();
+        user.startPlayerSession(sessionId, jwt.tokenExpiresAt());
+        user = users.save(user);
+      }
+      return "Bearer " + jwt.generateToken(user, sessionId);
+    }
     return "Bearer " + jwt.generateToken(user);
   }
 
