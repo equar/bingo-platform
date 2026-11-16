@@ -48,6 +48,7 @@ import { EthiopianDatePicker } from "../../components/EthiopianDatePicker";
 import { AdminTablePagination } from "../../components/AdminTablePagination";
 import { usePrivateListSearch } from "../../components/usePrivateListSearch";
 import { useListSessionState } from "../../components/useListSessionState";
+import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { translateAdminStatus } from "../../i18n";
 import {
   campaignEndExclusiveIso,
@@ -136,7 +137,7 @@ export function WalletPoliciesPage() {
   const navigate = useNavigate();
   const isTransferPolicy = location.pathname.startsWith("/wallet/transfer-policy");
   const isCreatePage = location.pathname.endsWith("/new");
-  const listPath = isTransferPolicy ? "/wallet/transfer-policy" : "/wallet/signup-reward";
+  const listPath = isTransferPolicy ? "/wallet/transfer-policy" : "/wallet/promotional-reward";
   const [rewardSearch, setRewardSearch] = usePrivateListSearch(
     "signup-reward-history",
   );
@@ -155,6 +156,11 @@ export function WalletPoliciesPage() {
     "wallet-policy-history:page",
     0,
   );
+  const [pendingRewardStatus, setPendingRewardStatus] = useState<{
+    policyId: number;
+    campaignName: string;
+    enabled: boolean;
+  } | null>(null);
   useEffect(() => {
     setHistoryPage(0);
   }, [isTransferPolicy, setHistoryPage]);
@@ -206,7 +212,6 @@ export function WalletPoliciesPage() {
     currency: "ETB",
     effectiveFrom: "",
     effectiveUntil: "",
-    reason: "",
   });
   const [transferDraft, setTransferDraft] = useState({
     enabled: false,
@@ -244,7 +249,6 @@ export function WalletPoliciesPage() {
           savedEffectiveUntil && savedEffectiveUntil >= effectiveFrom
             ? savedEffectiveUntil
             : "",
-        reason: rewardQuery.data.reason ?? "",
       });
     }
   }, [rewardQuery.data]);
@@ -291,7 +295,6 @@ export function WalletPoliciesPage() {
         effectiveUntil: rewardDraft.effectiveUntil
           ? campaignEndExclusiveIso(rewardDraft.effectiveUntil)
           : null,
-        reason: rewardDraft.reason || null,
       }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["wallet-policies"] });
@@ -330,6 +333,7 @@ export function WalletPoliciesPage() {
     }) => setSignupRewardPolicyStatus(policyId, enabled),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["wallet-policies"] });
+      setPendingRewardStatus(null);
     },
   });
 
@@ -552,21 +556,6 @@ export function WalletPoliciesPage() {
                           InputLabelProps={{ shrink: true }}
                         />
                       )}
-                    </Grid>
-                    <Grid item xs={12}>
-                      <TextField
-                        label={t("Reason")}
-                        value={rewardDraft.reason}
-                        onChange={(event) =>
-                          setRewardDraft({
-                            ...rewardDraft,
-                            reason: event.target.value,
-                          })
-                        }
-                        fullWidth
-                        multiline
-                        minRows={2}
-                      />
                     </Grid>
                   </Grid>
                   <Stack direction="row" spacing={1}>
@@ -791,7 +780,7 @@ export function WalletPoliciesPage() {
                   sx={{ mb: 2 }}
                 >
                   <TextField
-                    label={t("Search amount, currency, or reason")}
+                    label={t("Search amount or currency")}
                     value={transferQueryText}
                     onChange={(event) => {
                       setTransferQueryText(event.target.value);
@@ -925,7 +914,7 @@ export function WalletPoliciesPage() {
                   sx={{ mb: 2 }}
                 >
                   <TextField
-                    label={t("Search amount, currency, or reason")}
+                    label={t("Search amount or currency")}
                     value={rewardSearch}
                     onChange={(event) => {
                       setRewardSearch(event.target.value);
@@ -956,14 +945,6 @@ export function WalletPoliciesPage() {
                     )}
                   </Alert>
                 ) : null}
-                {rewardStatusMutation.error ? (
-                  <Alert severity="error" sx={{ mb: 1 }}>
-                    {t(
-                      getUserFacingErrorMessage(rewardStatusMutation.error) ??
-                        "Something went wrong. Please try again.",
-                    )}
-                  </Alert>
-                ) : null}
                 <Box sx={{ overflowX: "auto" }}>
                   <Table size="small" aria-label={t("Reward history")}>
                     <TableHead>
@@ -977,7 +958,6 @@ export function WalletPoliciesPage() {
                         <TableCell>{t("Currency")}</TableCell>
                         <TableCell>{t("Effective from")}</TableCell>
                         <TableCell>{t("Effective until")}</TableCell>
-                        <TableCell>{t("Reason")}</TableCell>
                         <TableCell>{t("Actions")}</TableCell>
                       </TableRow>
                     </TableHead>
@@ -1012,17 +992,19 @@ export function WalletPoliciesPage() {
                               ? formatPolicyDate(entry.effectiveUntil, true)
                               : t("No expiry")}
                           </TableCell>
-                          <TableCell>{entry.reason ?? t("n/a")}</TableCell>
                           <TableCell>
                             <Button
                               size="small"
+                              color={entry.enabled ? "warning" : "success"}
                               disabled={rewardStatusMutation.isPending}
-                              onClick={() =>
-                                rewardStatusMutation.mutate({
+                              onClick={() => {
+                                rewardStatusMutation.reset();
+                                setPendingRewardStatus({
                                   policyId: entry.id!,
+                                  campaignName: entry.name,
                                   enabled: !entry.enabled,
-                                })
-                              }
+                                });
+                              }}
                             >
                               {entry.enabled
                                 ? t("Make inactive")
@@ -1035,7 +1017,7 @@ export function WalletPoliciesPage() {
                       !rewardHistoryQuery.error &&
                       rewardHistory.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={9}>
+                          <TableCell colSpan={8}>
                             {t("No promotional campaigns yet.")}
                           </TableCell>
                         </TableRow>
@@ -1057,6 +1039,47 @@ export function WalletPoliciesPage() {
             </Card>
           </Grid>
         </Grid>
+      ) : null}
+      {!isCreatePage && !isTransferPolicy ? (
+        <ConfirmDialog
+          open={pendingRewardStatus !== null}
+          title={
+            pendingRewardStatus?.enabled
+              ? t("Activate campaign?")
+              : t("Deactivate campaign?")
+          }
+          description={
+            pendingRewardStatus?.enabled
+              ? t("Make {{campaignName}} active?", {
+                  campaignName: pendingRewardStatus.campaignName,
+                })
+              : t("Make {{campaignName}} inactive?", {
+                  campaignName: pendingRewardStatus?.campaignName ?? "",
+                })
+          }
+          confirmLabel={
+            pendingRewardStatus?.enabled ? t("Make active") : t("Make inactive")
+          }
+          cancelLabel={t("Cancel")}
+          confirming={rewardStatusMutation.isPending}
+          error={
+            rewardStatusMutation.error
+              ? getUserFacingErrorMessage(rewardStatusMutation.error)
+              : undefined
+          }
+          onCancel={() => {
+            setPendingRewardStatus(null);
+            rewardStatusMutation.reset();
+          }}
+          onConfirm={() => {
+            if (pendingRewardStatus) {
+              rewardStatusMutation.mutate({
+                policyId: pendingRewardStatus.policyId,
+                enabled: pendingRewardStatus.enabled,
+              });
+            }
+          }}
+        />
       ) : null}
     </Stack>
   );

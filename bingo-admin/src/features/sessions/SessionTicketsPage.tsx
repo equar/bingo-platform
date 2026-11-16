@@ -130,7 +130,7 @@ export function SessionTicketsPage() {
     setSearchParams({ sessionId: String(sessionId) }, { replace: true });
   }
 
-  if (sessionsQuery.isLoading) {
+  if (selectedSessionId === null && sessionsQuery.isLoading) {
     return (
       <StatusState
         title={t("Loading sessions")}
@@ -140,7 +140,7 @@ export function SessionTicketsPage() {
     );
   }
 
-  if (sessionsQuery.error && !sessionsQuery.data) {
+  if (selectedSessionId === null && sessionsQuery.error && !sessionsQuery.data) {
     return (
       <StatusState
         title={t("Unable to load sessions")}
@@ -156,20 +156,30 @@ export function SessionTicketsPage() {
 
   return (
     <Stack spacing={3}>
-      <AdminPageHeader
-        title={t("Session ticket lookup")}
-        description={t(
-          "Find a session, then review the tickets purchased for it.",
-        )}
-        refresh={{
-          isFetching: sessionsQuery.isFetching,
-          failed: sessionsQuery.isRefetchError,
-          error: sessionsQuery.error,
-          onRefresh: () => sessionsQuery.refetch(),
-        }}
-      />
+      {selectedSessionId === null ? (
+        <AdminPageHeader
+          title={t("Session ticket lookup")}
+          description={t(
+            "Find a session, then review the tickets purchased for it.",
+          )}
+          refresh={{
+            isFetching: sessionsQuery.isFetching,
+            failed: sessionsQuery.isRefetchError,
+            error: sessionsQuery.error,
+            onRefresh: () => sessionsQuery.refetch(),
+          }}
+        />
+      ) : null}
 
-      <Stack spacing={1.5}>
+      {selectedSessionId !== null ? (
+        <Box>
+          <Button component={RouterLink} to="/sessions" size="small">
+            {t("Back to sessions")}
+          </Button>
+        </Box>
+      ) : null}
+
+      {selectedSessionId === null ? <Stack spacing={1.5}>
         <TextField
           label={t("Search sessions")}
           placeholder={t("Session name, room, or ID")}
@@ -255,7 +265,7 @@ export function SessionTicketsPage() {
           onRowsPerPageChange={() => undefined}
           rowsPerPageOptions={[20]}
         />
-      </Stack>
+      </Stack> : null}
 
       {selectedSessionId === null ? (
         <Alert severity="info">
@@ -263,24 +273,112 @@ export function SessionTicketsPage() {
         </Alert>
       ) : (
         <Stack spacing={1.5}>
-          <Box>
-            <Typography variant="h5">
-              {selectedSession?.sessionName ?? t("Session")} {t("#")}
-              {selectedSessionId}
-            </Typography>
-            <Typography color="text.secondary">
-              {selectedSession
-                ? `${selectedSession.roomName} · ${translateAdminStatus(selectedSession.state, t)}`
-                : ""}
-              {ticketsQuery.data
-                ? ` · ${ticketsQuery.data.totalElements} ${t("tickets")}`
-                : ""}
-            </Typography>
-          </Box>
+          <Paper
+            variant="outlined"
+            sx={{
+              p: { xs: 2, sm: 2.5 },
+              borderRadius: 3,
+              background:
+                "linear-gradient(135deg, rgba(63, 81, 181, 0.06), rgba(255, 255, 255, 0.98) 52%)",
+            }}
+          >
+            <Stack spacing={2.5}>
+              <Stack
+                direction={{ xs: "column", sm: "row" }}
+                justifyContent="space-between"
+                alignItems={{ xs: "stretch", sm: "center" }}
+                spacing={2}
+              >
+                <Box>
+                  <Typography
+                    variant="overline"
+                    color="text.secondary"
+                    sx={{ letterSpacing: 1.1 }}
+                  >
+                    {t("Session")} {t("#")}
+                    {selectedSessionId}
+                  </Typography>
+                  <Typography variant="h5" fontWeight={700}>
+                    {selectedSession?.sessionName ?? t("Session")}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {selectedSession?.roomName ?? t("Loading session details")}
+                  </Typography>
+                </Box>
+                <Paper
+                  elevation={0}
+                  sx={{
+                    px: 2.25,
+                    py: 1.5,
+                    minWidth: { sm: 180 },
+                    borderRadius: 2.5,
+                    bgcolor: "primary.main",
+                    color: "primary.contrastText",
+                  }}
+                >
+                  <Typography variant="caption" sx={{ opacity: 0.82 }}>
+                    {t("Ticket price")}
+                  </Typography>
+                  <Typography variant="h5" fontWeight={700}>
+                    {selectedSession
+                      ? `${selectedSession.currency} ${selectedSession.ticketPrice}`
+                      : "—"}
+                  </Typography>
+                </Paper>
+              </Stack>
+
+              <Box
+                sx={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(145px, 1fr))",
+                  gap: 1,
+                }}
+              >
+                <Box sx={{ p: 1.25, borderRadius: 2, bgcolor: "action.hover" }}>
+                  <Typography variant="caption" color="text.secondary">
+                    {t("Status")}
+                  </Typography>
+                  <Typography variant="body2" fontWeight={600}>
+                    {selectedSession
+                      ? translateAdminStatus(selectedSession.state, t)
+                      : "—"}
+                  </Typography>
+                </Box>
+                <Box sx={{ p: 1.25, borderRadius: 2, bgcolor: "action.hover" }}>
+                  <Typography variant="caption" color="text.secondary">
+                    {t("Tickets sold")}
+                  </Typography>
+                  <Typography variant="body2" fontWeight={600}>
+                    {selectedSession?.ticketCount ??
+                      ticketsQuery.data?.totalElements ??
+                      "—"}
+                  </Typography>
+                </Box>
+                <Box sx={{ p: 1.25, borderRadius: 2, bgcolor: "action.hover" }}>
+                  <Typography variant="caption" color="text.secondary">
+                    {t("Capacity")}
+                  </Typography>
+                  <Typography variant="body2" fontWeight={600}>
+                    {selectedSession?.sessionCapacity ?? "—"}
+                  </Typography>
+                </Box>
+                <Box sx={{ p: 1.25, borderRadius: 2, bgcolor: "action.hover" }}>
+                  <Typography variant="caption" color="text.secondary">
+                    {t("Scheduled start")}
+                  </Typography>
+                  <Typography variant="body2" fontWeight={600}>
+                    {selectedSession
+                      ? formatEthiopianDateTime(selectedSession.scheduledStartAt)
+                      : "—"}
+                  </Typography>
+                </Box>
+              </Box>
+            </Stack>
+          </Paper>
           <TextField
             label={t("Search tickets")}
             placeholder={t(
-              "Player name, phone, public code, or ticket ID (#123)",
+              "Player name, phone, or ticket number",
             )}
             value={ticketQuery}
             onChange={(event) => {
@@ -323,10 +421,9 @@ export function SessionTicketsPage() {
             >
               <TableHead>
                 <TableRow>
-                  <TableCell>{t("Ticket ID")}</TableCell>
+                  <TableCell>{t("Ticket number")}</TableCell>
                   <TableCell>{t("Player")}</TableCell>
                   <TableCell>{t("Phone")}</TableCell>
-                  <TableCell>{t("Public code")}</TableCell>
                   <TableCell>{t("Purchased")}</TableCell>
                 </TableRow>
               </TableHead>
@@ -334,8 +431,7 @@ export function SessionTicketsPage() {
                 {tickets.map((ticket) => (
                   <TableRow key={ticket.ticketId} hover>
                     <TableCell>
-                      {t("#")}
-                      {ticket.ticketId}
+                      {ticket.publicTicketCode}
                     </TableCell>
                     <TableCell>
                       {canOpenPlayer ? (
@@ -353,7 +449,6 @@ export function SessionTicketsPage() {
                     <TableCell>
                       {ticket.playerPhone ?? t("Not available")}
                     </TableCell>
-                    <TableCell>{ticket.publicTicketCode}</TableCell>
                     <TableCell>
                       {formatEthiopianDateTime(ticket.purchasedAt)}
                     </TableCell>
@@ -363,7 +458,7 @@ export function SessionTicketsPage() {
                 !ticketsQuery.error &&
                 tickets.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} align="center">
+                    <TableCell colSpan={4} align="center">
                       {ticketQuery.trim()
                         ? t("No tickets match this session and search.")
                         : t("No tickets have been purchased for this session.")}

@@ -296,6 +296,7 @@ export function SessionsPage() {
                   <TableCell>{t("Ticket price")}</TableCell>
                   <TableCell>{t("Status")}</TableCell>
                   <TableCell align="right">{t("Tickets")}</TableCell>
+                  <TableCell align="right">{t("Capacity")}</TableCell>
                   <TableCell align="right">{t("Draws")}</TableCell>
                   <TableCell>{t("Scheduled start")}</TableCell>
                   <TableCell>{t("State actions")}</TableCell>
@@ -326,6 +327,7 @@ export function SessionsPage() {
                       />
                     </TableCell>
                     <TableCell align="right">{session.ticketCount}</TableCell>
+                    <TableCell align="right">{session.sessionCapacity}</TableCell>
                     <TableCell align="right">{session.drawCount}</TableCell>
                     <TableCell sx={{ whiteSpace: "nowrap" }}>
                       {formatEthiopianDateTime(session.scheduledStartAt)}
@@ -383,6 +385,9 @@ export function SessionsPage() {
                         <Button
                           size="small"
                           variant="text"
+                          disabled={["DRAFT", "OPEN", "CANCELLED"].includes(
+                            session.state,
+                          )}
                           onClick={() =>
                             navigate(
                               `/sessions/${session.id}${location.search}`,
@@ -397,7 +402,7 @@ export function SessionsPage() {
                 ))}
                 {sessionsQuery.data && sessions.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
+                    <TableCell colSpan={10} align="center" sx={{ py: 4 }}>
                       {t("No sessions match your search and filters.")}
                     </TableCell>
                   </TableRow>

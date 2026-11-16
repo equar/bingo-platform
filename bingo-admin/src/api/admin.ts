@@ -225,6 +225,7 @@ export interface AdminSessionSummaryResponse {
   endedAt: string | null;
   ticketPrice: string;
   currency: string;
+  sessionCapacity: number;
   ticketCount: number;
   drawCount: number;
   winClaimCount: number;

@@ -28,7 +28,16 @@ public interface GameSessionRepository extends JpaRepository<GameSession, Long> 
                                 and (:upcoming is null
                                         or (:upcoming = true and s.scheduledStartAt >= :now)
                                         or (:upcoming = false and s.scheduledStartAt < :now))
-                        order by s.scheduledStartAt desc, s.id desc
+                        order by case
+                                        when s.state = com.bakaroo.bingo.backend.feature.game.entity.GameSessionState.DRAFT then 0
+                                        when s.state = com.bakaroo.bingo.backend.feature.game.entity.GameSessionState.OPEN then 1
+                                        when s.state = com.bakaroo.bingo.backend.feature.game.entity.GameSessionState.STARTED then 2
+                                        when s.state = com.bakaroo.bingo.backend.feature.game.entity.GameSessionState.DRAWING then 3
+                                        when s.state = com.bakaroo.bingo.backend.feature.game.entity.GameSessionState.CLOSED then 4
+                                        when s.state = com.bakaroo.bingo.backend.feature.game.entity.GameSessionState.SETTLED then 5
+                                        when s.state = com.bakaroo.bingo.backend.feature.game.entity.GameSessionState.CANCELLED then 6
+                                        else 7
+                                end asc, s.scheduledStartAt asc, s.id asc
                         """)
         Page<GameSession> searchAdminSessions(@Param("query") String query, @Param("sessionId") Long sessionId,
                         @Param("state") GameSessionState state, @Param("roomId") Long roomId,
@@ -41,6 +50,7 @@ public interface GameSessionRepository extends JpaRepository<GameSession, Long> 
                         select new com.bakaroo.bingo.backend.feature.admin.dto.AdminSessionSummaryResponse(
                                 s.id, s.room.id, s.room.name, s.sessionName, s.state, s.scheduledStartAt,
                                 s.startedAt, s.endedAt, s.ticketPriceSnapshot, s.currencySnapshot,
+                                s.sessionCapacitySnapshot,
                                 (select count(t) from Ticket t where t.session.id = s.id),
                                 (select count(d) from DrawEvent d where d.session.id = s.id),
                                 (select count(c) from WinClaim c where c.session.id = s.id),

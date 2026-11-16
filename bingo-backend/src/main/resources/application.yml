@@ -1,6 +1,9 @@
 spring:
   application:
     name: bingo-backend
+  devtools:
+    restart:
+      enabled: false
   datasource:
     url: jdbc:mysql://localhost:3306/bingo?createDatabaseIfNotExist=false&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
     username: ${SPRING_DATASOURCE_USERNAME:root}
@@ -9,7 +12,7 @@ spring:
   jpa:
     open-in-view: false
     hibernate:
-      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:update}
+      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:validate}
   flyway:
     enabled: true
   servlet:

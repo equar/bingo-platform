@@ -15,6 +15,7 @@ public record AdminSessionSummaryResponse(
         Instant endedAt,
         BigDecimal ticketPrice,
         String currency,
+        int sessionCapacity,
         long ticketCount,
         long drawCount,
         long winClaimCount,

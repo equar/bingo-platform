@@ -23,7 +23,7 @@ public interface BingoRoomRepository extends JpaRepository<BingoRoom, Long> {
                     or lower(r.scheduleRule) like concat('%', :query, '%')
                                 or lower(r.configuredPatternsJson) like concat('%', :query, '%')
                                 or (:roomId is not null and r.id = :roomId))
-            order by r.active desc, r.name asc
+            order by r.active desc, r.updatedAt desc, r.name asc
             """)
     Page<BingoRoom> searchAdminRooms(@Param("query") String query, @Param("roomId") Long roomId,
             @Param("active") Boolean active, Pageable pageable);

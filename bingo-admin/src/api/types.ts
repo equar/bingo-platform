@@ -99,6 +99,8 @@ const CODE_MESSAGES: Record<string, string> = {
   SESSION_ALREADY_DRAWN: "A game cannot be cancelled after its first draw.",
   PRIZE_POOL_TOO_SMALL: "Each prize pool must provide at least one cent for every possible tied ticket.",
   INVALID_SESSION_PRIZE_CONFIGURATION: "Configure unique patterns and exactly one valid prize pool per pattern.",
+  PROMOTIONAL_REWARD_CAMPAIGN_DATE_OVERLAP: "An active campaign of this type already overlaps these dates. Make the existing campaign inactive before creating or activating this one.",
+  PROMOTIONAL_REWARD_CAMPAIGN_EXPIRED: "Today's date is past the campaign effective-until date. Update the dates before making it active.",
   LATE_TICKET_SALES_NOT_ALLOWED: "Ticket sales must close when the game starts.",
   AGENT_PAYOUT_REQUIRED: "This cash prize must be paid through the agent payout workflow.",
   COMMISSION_REVERSAL_UNFUNDED: "The agent float must cover reversal of the paid commission before cancellation.",

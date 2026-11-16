@@ -429,8 +429,7 @@ public class BingoGameService {
                 MoneyValues.money(request.ticketPrice() != null ? request.ticketPrice() : room.getTicketPrice()));
         session.setCurrencySnapshot(
                 request.currency() != null ? request.currency().trim().toUpperCase() : room.getCurrency());
-        session.setSessionCapacitySnapshot(
-                request.sessionCapacity() != null ? request.sessionCapacity() : room.getSessionCapacity());
+        session.setSessionCapacitySnapshot(room.getSessionCapacity());
         session.setMaxTicketsPerPlayerSnapshot(
                 request.maxTicketsPerPlayer() != null ? request.maxTicketsPerPlayer() : room.getMaxTicketsPerPlayer());
         session.setTicketSalesCloseOnSessionStart(

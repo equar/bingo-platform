@@ -123,7 +123,7 @@ describe("AppShell", () => {
     expect(screen.getAllByRole("link", { name: "Players" })[0]).toHaveAttribute("href", "/players");
     expect(screen.getAllByRole("link", { name: "Player verification" })[0]).toHaveAttribute("href", "/player-verifications");
     expect(screen.getAllByRole("link", { name: "Agents" })[0]).toHaveAttribute("href", "/agents");
-    expect(screen.getAllByRole("link", { name: "Promotional rewards" })[0]).toHaveAttribute("href", "/wallet/signup-reward");
+    expect(screen.getAllByRole("link", { name: "Promotional rewards" })[0]).toHaveAttribute("href", "/wallet/promotional-reward");
     expect(screen.getAllByRole("link", { name: "Transfer policy" })[0]).toHaveAttribute("href", "/wallet/transfer-policy");
     expect(screen.getAllByRole("link", { name: "Transfer history" })[0]).toHaveAttribute("href", "/wallet/transfers");
     expect(screen.getAllByRole("link", { name: "Audit logs" })[0]).toHaveAttribute("href", "/audit-logs");
@@ -212,7 +212,7 @@ describe("AppShell", () => {
     expect(screen.queryByRole("link", { name: "Prize entitlements" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Promotional rewards" })).not.toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "Promotional reward grants" })[0])
-      .toHaveAttribute("href", "/wallet/signup-reward-grants");
+      .toHaveAttribute("href", "/wallet/promotional-reward-grants");
     expect(screen.queryByRole("link", { name: "Transfer policy" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Admin users" })).not.toBeInTheDocument();
   });

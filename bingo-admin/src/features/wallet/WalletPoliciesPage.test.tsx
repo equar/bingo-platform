@@ -83,7 +83,7 @@ describe("WalletPoliciesPage", () => {
   });
 
   it("loads the campaign list for the promotional rewards route and transfer history for its route", async () => {
-    const { unmount } = renderAt("/wallet/signup-reward");
+    const { unmount } = renderAt("/wallet/promotional-reward");
     expect(await screen.findByRole("heading", { name: "Promotional rewards" })).toBeInTheDocument();
     expect(currentSignupSettingsMock).toHaveBeenCalledOnce();
     expect(campaignsMock).toHaveBeenCalledWith(0, 20, undefined, undefined);
@@ -109,10 +109,10 @@ describe("WalletPoliciesPage", () => {
       effectiveUntil: null, changedByUserId: null, reason: null, createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(), activeNow: false,
     });
-    renderAt("/wallet/signup-reward");
+    renderAt("/wallet/promotional-reward");
     await screen.findByRole("heading", { name: "Promotional rewards" });
     await userEvent.setup().click(screen.getByRole("button", { name: "Add promotional campaign" }));
-    expect(screen.getByTestId("current-location")).toHaveTextContent("/wallet/signup-reward/new");
+    expect(screen.getByTestId("current-location")).toHaveTextContent("/wallet/promotional-reward/new");
     expect(screen.getByRole("heading", { name: "Add promotional campaign" })).toBeInTheDocument();
     const from = screen.getByLabelText("Effective from") as HTMLInputElement;
     const until = screen.getByLabelText("Effective until") as HTMLInputElement;
@@ -127,7 +127,7 @@ describe("WalletPoliciesPage", () => {
 
   it("matches backend money precision and keeps the supported campaign currency fixed", async () => {
     const user = userEvent.setup();
-    renderAt("/wallet/signup-reward");
+    renderAt("/wallet/promotional-reward");
     await screen.findByRole("heading", { name: "Promotional rewards" });
     await user.click(screen.getByRole("button", { name: "Add promotional campaign" }));
     const amount = screen.getByLabelText("Reward amount");
@@ -143,7 +143,7 @@ describe("WalletPoliciesPage", () => {
 
   it("offers the three supported reward types and requires a threshold for wallet credit rewards", async () => {
     const user = userEvent.setup();
-    renderAt("/wallet/signup-reward");
+    renderAt("/wallet/promotional-reward");
     await screen.findByRole("heading", { name: "Promotional rewards" });
     await user.click(screen.getByRole("button", { name: "Add promotional campaign" }));
     await user.click(screen.getByLabelText("Campaign name"));
@@ -165,7 +165,7 @@ describe("WalletPoliciesPage", () => {
       id: 1, enabled: false, rewardAmount: "25.00", currency: "ETB", effectiveFrom: yesterday,
       effectiveUntil: yesterday, changedByUserId: 2, reason: null, createdAt: yesterday, updatedAt: yesterday, activeNow: false,
     });
-    renderAt("/wallet/signup-reward");
+    renderAt("/wallet/promotional-reward");
     await screen.findByRole("heading", { name: "Promotional rewards" });
     await userEvent.setup().click(screen.getByRole("button", { name: "Add promotional campaign" }));
     const from = screen.getByLabelText("Effective from") as HTMLInputElement;
@@ -179,7 +179,7 @@ describe("WalletPoliciesPage", () => {
     createCampaignMock.mockRejectedValue({
       response: { status: 400, data: { code: "VALIDATION_ERROR", message: "Internal validation detail" } },
     });
-    renderAt("/wallet/signup-reward");
+    renderAt("/wallet/promotional-reward");
     await screen.findByRole("heading", { name: "Promotional rewards" });
     await user.click(screen.getByRole("button", { name: "Add promotional campaign" }));
     fireEvent.change(screen.getByLabelText("Reward amount"), { target: { value: "25.00" } });

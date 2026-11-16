@@ -21,6 +21,17 @@ Run the normal local backend from the repository root:
 .\scripts\Start-BingoBackendLocal.ps1
 ```
 
+The launcher uses the `dev` profile, with DevTools restart enabled only for
+that profile. Shared/default configuration keeps restart disabled. In VS Code,
+install the **Extension Pack for Java** (`vscjava.vscode-java-pack`) and open
+the repository as a workspace. Java auto-build is enabled in the workspace
+settings. Saving a Java source file makes the Java extension compile it into
+the Maven output directory; DevTools watches those compiled classes and
+restarts the application. DevTools does not compile source files. Dependency
+changes may require Maven project reimport and a full backend restart. Database
+schema changes still require Flyway migrations; Hibernate validates the schema
+and does not apply schema updates.
+
 The launcher pins the local `dev` profile to `localhost:3306/bingo` even when
 `SPRING_DATASOURCE_URL` is set in the shell or imported `.env` file. QA and test
 databases remain available only through their explicit profiles and guarded
