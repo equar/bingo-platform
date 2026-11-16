@@ -575,6 +575,9 @@ class BingoGameIntegrationTest extends MySqlIntegrationTest {
                                 .andExpect(status().isOk())
                                 .andExpect(jsonPath("$.totalElements").value(0))
                                 .andExpect(jsonPath("$.content").isEmpty());
+                mockMvc.perform(post("/api/v1/auth/logout")
+                                .header("Authorization", "Bearer " + otherPlayerToken))
+                                .andExpect(status().isNoContent());
 
                 List<Integer> winningNumbers = winningLineNumbers(ticket.getGridJson());
                 bingoGameService.updateSessionState(session.id(),

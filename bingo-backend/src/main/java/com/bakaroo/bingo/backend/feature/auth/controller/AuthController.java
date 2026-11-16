@@ -18,6 +18,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.HttpHeaders;
+import jakarta.servlet.http.HttpServletRequest;
 
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -47,5 +49,15 @@ public class AuthController {
     @GetMapping("/me")
     public MeResponse me(@AuthenticationPrincipal BingoUserPrincipal principal) {
         return authService.me(principal.getUser().getId());
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(@AuthenticationPrincipal BingoUserPrincipal principal,
+            HttpServletRequest request) {
+        String authorization = request.getHeader(HttpHeaders.AUTHORIZATION);
+        String token = authorization != null && authorization.startsWith("Bearer ")
+                ? authorization.substring(7) : null;
+        authService.logout(principal.getUser().getId(), token == null ? null : authService.sessionId(token));
+        return ResponseEntity.noContent().build();
     }
 }

@@ -11,6 +11,7 @@ import { AdminTablePage } from "../../components/AdminTablePage";
 import { StatusState } from "../../components/StatusState";
 import { translateAdminStatus } from "../../i18n";
 import { useIdempotencyKey } from "../common/useIdempotencyKey";
+import { formatDualCalendarDateTime } from "../../utils/ethiopianDateTime";
 
 const rejectionReasons = ["PAYMENT_REFERENCE_NOT_FOUND", "PAYMENT_REFERENCE_MISMATCH", "SENDER_PHONE_MISMATCH", "AMOUNT_MISMATCH", "PAYMENT_NOT_SETTLED", "DUPLICATE_OR_ALREADY_USED", "OTHER"];
 
@@ -67,12 +68,12 @@ export function DepositDetailPage() {
     [t("Submitted cash"), `${d.submittedCashAmount} ${d.currency}`],
     [t("Credit"), `${d.calculatedCreditAmount} ${d.currency}`],
     [t("Conversion rate"), d.conversionRateSnapshot],
-    [t("Submitted"), new Date(d.submittedAt).toLocaleString()],
+    [t("Submitted"), formatDualCalendarDateTime(d.submittedAt)],
     [t("Operation ID"), d.operationId],
     [t("Verified by user #"), d.verifiedBy == null ? t("n/a") : String(d.verifiedBy)],
-    [t("Verified at"), d.verifiedAt ? new Date(d.verifiedAt).toLocaleString() : t("n/a")],
+    [t("Verified at"), d.verifiedAt ? formatDualCalendarDateTime(d.verifiedAt) : t("n/a")],
     [t("Reviewed by"), d.reviewedBy == null ? t("n/a") : String(d.reviewedBy)],
-    [t("Reviewed at"), d.reviewedAt ? new Date(d.reviewedAt).toLocaleString() : t("n/a")],
+    [t("Reviewed at"), d.reviewedAt ? formatDualCalendarDateTime(d.reviewedAt) : t("n/a")],
     [t("Review note"), d.reviewNote ?? t("n/a")],
   ];
 

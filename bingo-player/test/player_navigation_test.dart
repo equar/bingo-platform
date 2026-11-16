@@ -40,12 +40,12 @@ final room = BingoRoom.fromJson({
   'timezone': 'Africa/Addis_Ababa',
 });
 
-final session = GameSession(
+GameSession _session({String state = 'OPEN'}) => GameSession(
   id: 7,
   roomId: 7,
   roomName: room.name,
   sessionName: 'Friday Night',
-  state: 'OPEN',
+  state: state,
   scheduledStartAt: DateTime.utc(2030),
   ticketPrice: 10,
   currency: 'ETB',
@@ -56,13 +56,16 @@ final session = GameSession(
   updatedAt: DateTime.utc(2029),
 );
 
+final session = _session();
+
 Widget app({
   bool login = false,
   double scale = 1,
   Locale locale = const Locale('en'),
+  List<GameSession>? sessions,
 }) => ProviderScope(
   overrides: [
-    activeSessionsProvider.overrideWith((ref) async => [session]),
+    activeSessionsProvider.overrideWith((ref) async => sessions ?? [session]),
     liveGameControllerProvider(
       session.id,
     ).overrideWith((ref) => _liveGameController()),
@@ -156,12 +159,11 @@ void main() {
     'session navigation stays available and returns to its previous detail',
     (tester) async {
       responsive.viewport(tester, const Size(390, 844));
-      await tester.pumpWidget(app());
+      await tester.pumpWidget(app(sessions: [_session(state: 'STARTED')]));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('home-play-bingo')));
       await tester.pumpAndSettle();
-      await _selectUpcomingSessionTab(tester);
-      await tester.tap(find.byKey(const ValueKey('session-details-7')));
+      await tester.tap(find.byKey(const ValueKey('live-game-7')));
       await tester.pumpAndSettle();
       expect(find.byType(NavigationBar), findsOneWidget);
       expect(find.byType(SessionDetailScreen), findsOneWidget);
@@ -171,7 +173,7 @@ void main() {
       expect(find.byType(SessionDetailScreen), findsOneWidget);
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('session-details-7')), findsOneWidget);
+      expect(find.byKey(const ValueKey('live-game-7')), findsOneWidget);
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
       expect(find.byType(HomeScreen), findsOneWidget);

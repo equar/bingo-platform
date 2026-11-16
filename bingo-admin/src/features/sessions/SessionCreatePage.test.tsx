@@ -8,6 +8,7 @@ import { createSession, listRooms } from "../../api/admin";
 import i18n from "../../i18n";
 import { resolveEthiopianRoomScheduleTime } from "./sessionScheduleTime";
 import { SessionCreatePage } from "./SessionCreatePage";
+import { currentCalendarPreference } from "../../utils/ethiopianDateTime";
 
 vi.mock("../../api/admin", () => ({
   createSession: vi.fn(),
@@ -35,6 +36,7 @@ function createWrapper({ children }: PropsWithChildren) {
 describe("SessionCreatePage", () => {
   afterEach(async () => {
     cleanup();
+    window.localStorage.removeItem("bingo-admin-session");
     await i18n.changeLanguage("en");
   });
 
@@ -137,6 +139,7 @@ describe("SessionCreatePage", () => {
   });
 
   it("uses an Ethiopian calendar picker for the scheduled date", async () => {
+    window.localStorage.setItem("bingo-admin-session", JSON.stringify({ user: { preferredLanguage: "en", preferredCalendar: "ETHIOPIAN" } }));
     const user = userEvent.setup();
     render(<SessionCreatePage />, { wrapper: createWrapper });
 
@@ -149,6 +152,16 @@ describe("SessionCreatePage", () => {
     await user.click(screen.getByRole("button", { name: "Open Ethiopian calendar date calendar" }));
     expect(screen.getByRole("button", { name: "Previous Ethiopian month" })).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /^Select / }).length).toBeGreaterThan(0);
+  });
+
+  it("uses a Gregorian date input when the preference resolves to Gregorian", async () => {
+    window.localStorage.setItem("bingo-admin-session", JSON.stringify({ user: { preferredLanguage: "en", preferredCalendar: "GREGORIAN" } }));
+    expect(currentCalendarPreference()).toBe("GREGORIAN");
+    const user = userEvent.setup();
+    render(<SessionCreatePage />, { wrapper: createWrapper });
+    await user.click(await screen.findByRole("combobox", { name: "Room" }));
+    await user.click(await screen.findByRole("option", { name: "Evening Room" }));
+    expect(document.querySelector('input[type="date"]')).not.toBeNull();
   });
 
   it("asks before discarding edited fields and returns focus when editing continues", async () => {

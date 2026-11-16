@@ -1,6 +1,12 @@
 /// Presentation of API instants using Ethiopia's calendar and clock.
 /// Keep DateTime/ISO-8601 for transport, comparisons and durations.
 abstract final class EthiopianDateTime {
+  static String preferredCalendar = 'AUTO';
+
+  static bool usesEthiopianCalendar(String languageCode) =>
+      preferredCalendar == 'ETHIOPIAN' ||
+      (preferredCalendar == 'AUTO' &&
+          (languageCode == 'am' || languageCode == 'ti'));
   static const _englishMonths = [
     'Meskerem',
     'Tikimt',
@@ -31,6 +37,14 @@ abstract final class EthiopianDateTime {
     'ነሐሴ',
     'ጳጉሜ',
   ];
+  static const _gregorianEnglishMonths = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+  static const _gregorianAmharicMonths = [
+    'ጃንዩወሪ', 'ፌብሩወሪ', 'ማርች', 'ኤፕሪል', 'ሜይ', 'ጁን',
+    'ጁላይ', 'ኦገስት', 'ሴፕቴምበር', 'ኦክቶበር', 'ኖቬምበር', 'ዲሴምበር',
+  ];
 
   // A UTC-backed wall-clock value prevents the device timezone from affecting
   // the calendar date or hour. This value is for formatting only.
@@ -59,6 +73,13 @@ abstract final class EthiopianDateTime {
   }
 
   static String date(DateTime instant, {String languageCode = 'en'}) {
+    if (!usesEthiopianCalendar(languageCode)) {
+      final wall = _ethiopiaWallTime(instant);
+      final months = languageCode == 'am'
+          ? _gregorianAmharicMonths
+          : _gregorianEnglishMonths;
+      return '${wall.day} ${months[wall.month - 1]} ${wall.year}';
+    }
     final value = calendarDate(instant);
     final amharic = languageCode == 'am';
     final months = amharic ? _amharicMonths : _englishMonths;

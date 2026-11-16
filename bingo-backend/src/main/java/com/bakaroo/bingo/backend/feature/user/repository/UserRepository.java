@@ -49,6 +49,10 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("select u from User u where u.id = :id")
     Optional<User> findByIdForUpdate(@Param("id") Long id);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select u from User u where u.normalizedPhone = :phone")
+    Optional<User> findByNormalizedPhoneForUpdate(@Param("phone") String phone);
+
     Optional<User> findByNormalizedPhone(String normalizedPhone);
 
     Optional<User> findByReferralCodeIgnoreCase(String referralCode);

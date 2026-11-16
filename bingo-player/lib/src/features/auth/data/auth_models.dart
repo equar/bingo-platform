@@ -35,6 +35,8 @@ class UserProfile {
     required this.createdAt,
     required this.updatedAt,
     this.referralCode = '',
+    this.preferredLanguage = 'en',
+    this.preferredCalendar = 'AUTO',
   });
 
   final int id;
@@ -45,6 +47,8 @@ class UserProfile {
   final DateTime createdAt;
   final DateTime updatedAt;
   final String referralCode;
+  final String preferredLanguage;
+  final String preferredCalendar;
 
   bool get isPlayer => roles.contains('PLAYER');
 
@@ -67,6 +71,8 @@ class UserProfile {
           DateTime.tryParse(json['updatedAt']?.toString() ?? '') ??
           DateTime.fromMillisecondsSinceEpoch(0),
       referralCode: json['referralCode']?.toString() ?? '',
+      preferredLanguage: json['preferredLanguage']?.toString() ?? 'en',
+      preferredCalendar: json['preferredCalendar']?.toString() ?? 'AUTO',
     );
   }
 
@@ -79,6 +85,8 @@ class UserProfile {
     'createdAt': createdAt.toIso8601String(),
     'updatedAt': updatedAt.toIso8601String(),
     'referralCode': referralCode,
+    'preferredLanguage': preferredLanguage,
+    'preferredCalendar': preferredCalendar,
   };
 
   String toPersistedJson() => jsonEncode(toJson());

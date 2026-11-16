@@ -12,6 +12,7 @@ import {
 import {
   ethiopianDateInputToGregorianDate,
   ethiopianMonthName,
+  ethiopianCalendarDate,
   formatEthiopianNumericDate,
 } from "../utils/ethiopianDateTime";
 
@@ -29,6 +30,7 @@ interface EthiopianDatePickerProps {
   required?: boolean;
   error?: boolean;
   helperText?: string;
+  clearable?: boolean;
 }
 
 function parseDate(value: string): EthiopianDate | null {
@@ -74,6 +76,7 @@ export function EthiopianDatePicker({
   required,
   error,
   helperText,
+  clearable,
 }: EthiopianDatePickerProps) {
   const [anchor, setAnchor] = useState<HTMLButtonElement | null>(null);
   const selectedDate = parseDate(value);
@@ -83,7 +86,7 @@ export function EthiopianDatePicker({
   const padding = displayedMonth ? dayOfWeek(displayedMonth.year, displayedMonth.month) : 0;
 
   function openCalendar(event: MouseEvent<HTMLButtonElement>) {
-    setVisibleMonth(selectedDate);
+    setVisibleMonth(selectedDate ?? ethiopianCalendarDate(new Date()));
     setAnchor(event.currentTarget);
   }
 
@@ -115,6 +118,11 @@ export function EthiopianDatePicker({
               >
                 Calendar
               </Button>
+              {clearable && value ? (
+                <Button size="small" onClick={() => onChange("")} aria-label={`Clear ${label}`}>
+                  Clear
+                </Button>
+              ) : null}
             </InputAdornment>
           ),
         }}

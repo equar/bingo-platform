@@ -85,6 +85,15 @@ public class User {
     @Column(name = "preferred_language", length = 8)
     private String preferredLanguage;
 
+    @Column(name = "preferred_calendar", nullable = false, length = 16)
+    private String preferredCalendar = "AUTO";
+
+    @Column(name = "active_player_session_id", length = 36)
+    private String activePlayerSessionId;
+
+    @Column(name = "active_player_session_expires_at")
+    private Instant activePlayerSessionExpiresAt;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "player_verification_status", nullable = false, length = 30)
     private PlayerVerificationStatus playerVerificationStatus = PlayerVerificationStatus.NOT_REVIEWED;
@@ -314,6 +323,21 @@ public class User {
 
     public void setPreferredLanguage(String preferredLanguage) {
         this.preferredLanguage = preferredLanguage;
+    }
+
+    public String getPreferredCalendar() { return preferredCalendar; }
+
+    public void setPreferredCalendar(String preferredCalendar) { this.preferredCalendar = preferredCalendar; }
+
+    public String getActivePlayerSessionId() { return activePlayerSessionId; }
+    public Instant getActivePlayerSessionExpiresAt() { return activePlayerSessionExpiresAt; }
+    public void startPlayerSession(String sessionId, Instant expiresAt) {
+        this.activePlayerSessionId = sessionId;
+        this.activePlayerSessionExpiresAt = expiresAt;
+    }
+    public void clearPlayerSession() {
+        this.activePlayerSessionId = null;
+        this.activePlayerSessionExpiresAt = null;
     }
 
     public PlayerVerificationStatus getPlayerVerificationStatus() {

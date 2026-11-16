@@ -2,11 +2,16 @@ import 'dart:convert';
 
 import 'package:bingo_player/src/core/storage/session_storage.dart';
 import 'package:bingo_player/src/features/auth/data/auth_models.dart';
+import 'package:bingo_player/src/core/localization/ethiopian_date_time.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class AuthSessionState {
-  const AuthSessionState({required this.isLoading, this.session, this.errorMessage});
+  const AuthSessionState({
+    required this.isLoading,
+    this.session,
+    this.errorMessage,
+  });
 
   final bool isLoading;
   final AuthSession? session;
@@ -17,8 +22,8 @@ class AuthSessionState {
 
 final authSessionControllerProvider =
     StateNotifierProvider<AuthSessionController, AuthSessionState>((ref) {
-  return AuthSessionController(ref.read(sessionStorageProvider));
-});
+      return AuthSessionController(ref.read(sessionStorageProvider));
+    });
 
 class AuthSessionController extends StateNotifier<AuthSessionState> {
   AuthSessionController(this._storage, {bool restoreOnInit = true})
@@ -72,6 +77,7 @@ class AuthSessionController extends StateNotifier<AuthSessionState> {
         return;
       }
       state = AuthSessionState(isLoading: false, session: session);
+      EthiopianDateTime.preferredCalendar = user.preferredCalendar;
     } catch (error, stackTrace) {
       FlutterError.reportError(
         FlutterErrorDetails(
@@ -91,8 +97,14 @@ class AuthSessionController extends StateNotifier<AuthSessionState> {
   }
 
   Future<void> setSession(AuthResponse response) async {
-    final expiresAt = DateTime.now().toUtc().add(Duration(seconds: response.expiresInSeconds));
-    final session = AuthSession(accessToken: response.accessToken, expiresAt: expiresAt, user: response.user);
+    final expiresAt = DateTime.now().toUtc().add(
+      Duration(seconds: response.expiresInSeconds),
+    );
+    final session = AuthSession(
+      accessToken: response.accessToken,
+      expiresAt: expiresAt,
+      user: response.user,
+    );
     try {
       await _storage.saveSession(
         accessToken: session.accessToken,
@@ -100,10 +112,15 @@ class AuthSessionController extends StateNotifier<AuthSessionState> {
         userJson: session.user.toPersistedJson(),
       );
     } catch (error, stackTrace) {
-      _reportStorageError(error, stackTrace, 'saving the authenticated session');
+      _reportStorageError(
+        error,
+        stackTrace,
+        'saving the authenticated session',
+      );
       rethrow;
     }
     state = AuthSessionState(isLoading: false, session: session);
+    EthiopianDateTime.preferredCalendar = session.user.preferredCalendar;
   }
 
   Future<void> clearSession({String? reason}) async {
@@ -111,6 +128,28 @@ class AuthSessionController extends StateNotifier<AuthSessionState> {
       return;
     }
     state = AuthSessionState(isLoading: false, errorMessage: reason);
+  }
+
+  Future<bool> updateUser(
+    UserProfile user, {
+    required String expectedAccessToken,
+  }) async {
+    final current = state.session;
+    if (current == null || current.accessToken != expectedAccessToken) return false;
+    final updated = AuthSession(
+      accessToken: current.accessToken,
+      expiresAt: current.expiresAt,
+      user: user,
+    );
+    await _storage.saveSession(
+      accessToken: updated.accessToken,
+      expiresAtIso: updated.expiresAt.toIso8601String(),
+      userJson: user.toPersistedJson(),
+    );
+    if (!mounted || state.session?.accessToken != current.accessToken) return false;
+    state = AuthSessionState(isLoading: false, session: updated);
+    EthiopianDateTime.preferredCalendar = user.preferredCalendar;
+    return true;
   }
 
   Future<bool> _clearStoredSession(String operation) async {
@@ -124,7 +163,11 @@ class AuthSessionController extends StateNotifier<AuthSessionState> {
     }
   }
 
-  void _reportStorageError(Object error, StackTrace stackTrace, String operation) {
+  void _reportStorageError(
+    Object error,
+    StackTrace stackTrace,
+    String operation,
+  ) {
     FlutterError.reportError(
       FlutterErrorDetails(
         exception: error,

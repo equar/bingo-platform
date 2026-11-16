@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Alert, Box, Button, Card, CardContent, FormControlLabel, Stack, Switch, TextField, Typography } from "@mui/material";
 import { useTranslation } from "react-i18next";
+import { formatEthiopianDateTime } from "../../utils/ethiopianDateTime";
 import {
   createPlayerAnnouncement,
   deletePlayerAnnouncement,
@@ -194,7 +195,7 @@ export function PlayerAppPage() {
             <CardContent sx={{ display: "flex", alignItems: "center", gap: 2 }}>
               <Box sx={{ flex: 1 }}>
                 <Typography fontWeight={700}>{item.titleEn}</Typography>
-                <Typography variant="body2" color="text.secondary">{item.published ? t("Published") : t("Draft")} · {new Date(item.updatedAt).toLocaleString()}</Typography>
+                <Typography variant="body2" color="text.secondary">{item.published ? t("Published") : t("Draft")} · {formatEthiopianDateTime(item.updatedAt)}</Typography>
               </Box>
               <Button onClick={() => edit(item)}>{t("Edit")}</Button>
               <Button color="error" onClick={() => removeMessage.mutate(item.id)}>{t("Delete")}</Button>

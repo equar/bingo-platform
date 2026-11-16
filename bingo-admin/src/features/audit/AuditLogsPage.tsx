@@ -1,4 +1,4 @@
-import { formatEthiopianDateTime } from "../../utils/ethiopianDateTime";
+import { formatDualCalendarDateTime, formatEthiopianDateTime } from "../../utils/ethiopianDateTime";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -35,6 +35,12 @@ import { AdminTablePagination } from "../../components/AdminTablePagination";
 import { AdminTablePage } from "../../components/AdminTablePage";
 import { AdminPageHeader } from "../../components/AdminPageHeader";
 import { useListSessionState } from "../../components/useListSessionState";
+import { EthiopianDatePicker } from "../../components/EthiopianDatePicker";
+import {
+  currentCalendarPreference,
+  ethiopianDateInputToGregorianDate,
+  formatEthiopianDateInput,
+} from "../../utils/ethiopianDateTime";
 
 type AuditFilterDraft = {
   query: string;
@@ -141,6 +147,7 @@ export function AuditLogsPage() {
     useListSessionState<AuditLogSearchFilters>("audit-logs:filters", {});
   const [filterError, setFilterError] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
+  const calendarPreference = currentCalendarPreference();
   const [isExporting, setIsExporting] = useState(false);
   const [selectedEntry, setSelectedEntry] =
     useState<AdminAuditLogSummaryResponse | null>(null);
@@ -348,31 +355,30 @@ export function AuditLogsPage() {
               }
               size="small"
             />
-            <TextField
-              label={t("From date")}
-              type="date"
-              value={draftFilters.from}
-              onChange={(event) =>
-                setDraftFilters({ ...draftFilters, from: event.target.value })
-              }
-              size="small"
-              slotProps={{ inputLabel: { shrink: true } }}
-            />
-            <TextField
-              label={t("To date")}
-              type="date"
-              value={draftFilters.to}
-              onChange={(event) =>
-                setDraftFilters({ ...draftFilters, to: event.target.value })
-              }
-              size="small"
-              slotProps={{ inputLabel: { shrink: true } }}
-            />
+            {calendarPreference === "ETHIOPIAN" ? (
+              <>
+                <EthiopianDatePicker
+                  label={t("From date")}
+                  value={draftFilters.from ? formatEthiopianDateInput(`${draftFilters.from}T12:00:00Z`) : ""}
+                  onChange={(value) => setDraftFilters({ ...draftFilters, from: ethiopianDateInputToGregorianDate(value) ?? "" })}
+                  clearable
+                />
+                <EthiopianDatePicker
+                  label={t("To date")}
+                  value={draftFilters.to ? formatEthiopianDateInput(`${draftFilters.to}T12:00:00Z`) : ""}
+                  onChange={(value) => setDraftFilters({ ...draftFilters, to: ethiopianDateInputToGregorianDate(value) ?? "" })}
+                  clearable
+                />
+              </>
+            ) : (
+              <>
+                <TextField label={t("From date")} type="date" value={draftFilters.from} onChange={(event) => setDraftFilters({ ...draftFilters, from: event.target.value })} size="small" slotProps={{ inputLabel: { shrink: true } }} />
+                <TextField label={t("To date")} type="date" value={draftFilters.to} onChange={(event) => setDraftFilters({ ...draftFilters, to: event.target.value })} size="small" slotProps={{ inputLabel: { shrink: true } }} />
+              </>
+            )}
           </Box>
           <Typography variant="caption" color="text.secondary">
-            {t(
-              "Date filters use UTC calendar days. Leave them blank to search all available history.",
-            )}
+            {t(calendarPreference === "ETHIOPIAN" ? "Date filters use Ethiopian calendar days and convert to Gregorian UTC for search." : "Date filters use UTC calendar days. Leave them blank to search all available history.")}
           </Typography>
           {filterError ? (
             <Alert severity="error">{t(filterError)}</Alert>
@@ -543,7 +549,7 @@ export function AuditLogsPage() {
               >
                 {[
                   ["Log ID", detailQuery.data.id],
-                  ["Time", formatEthiopianDateTime(detailQuery.data.createdAt)],
+                  ["Time", formatDualCalendarDateTime(detailQuery.data.createdAt)],
                   ["Action", detailQuery.data.action],
                   [
                     "Actor",

@@ -101,10 +101,14 @@ public class AuthService {
         walletService.createWalletIfMissing(saved);
         signupRewardService.grantForNewPlayer(saved);
         if (referrer != null) signupRewardService.grantReferralReward(referrer, saved);
-        String token = jwtService.generateToken(saved);
+        String sessionId = jwtService.newPlayerSessionId();
+        saved.startPlayerSession(sessionId, jwtService.tokenExpiresAt());
+        userRepository.save(saved);
+        String token = jwtService.generateToken(saved, sessionId);
         return new AuthResponse(token, "Bearer", jwtService.getExpirationSeconds(), toProfile(saved));
     }
 
+    @Transactional
     public AuthResponse login(LoginRequest request) {
         String normalizedPhone = phoneNormalizer.normalize(request.phoneNumber());
         throttleService.requireAccountAllowed("player", normalizedPhone);
@@ -132,11 +136,33 @@ public class AuthService {
         }
 
         BingoUserPrincipal principal = (BingoUserPrincipal) authentication.getPrincipal();
-        User user = principal.getUser();
+        User user = userRepository.findByIdForUpdate(principal.getUser().getId())
+                .orElseThrow(() -> new NotFoundException("USER_NOT_FOUND", "User account not found"));
+        Instant now = Instant.now();
+        if (user.getActivePlayerSessionId() != null
+                && user.getActivePlayerSessionExpiresAt() != null
+                && user.getActivePlayerSessionExpiresAt().isAfter(now)) {
+            throw new ConflictException("PLAYER_ALREADY_LOGGED_IN",
+                    "This player account is already logged in on another device. Log out there first, then try again.");
+        }
+        String sessionId = jwtService.newPlayerSessionId();
+        user.startPlayerSession(sessionId, jwtService.tokenExpiresAt());
+        userRepository.save(user);
         throttleService.clearAccountAttempts("player", normalizedPhone);
-        String token = jwtService.generateToken(user);
+        String token = jwtService.generateToken(user, sessionId);
         return new AuthResponse(token, "Bearer", jwtService.getExpirationSeconds(), toProfile(user));
     }
+
+    @Transactional
+    public void logout(Long userId, String sessionId) {
+        User user = userRepository.findByIdForUpdate(userId)
+                .orElseThrow(() -> new NotFoundException("USER_NOT_FOUND", "User account not found"));
+        if (sessionId != null && sessionId.equals(user.getActivePlayerSessionId())) {
+            user.clearPlayerSession();
+        }
+    }
+
+    public String sessionId(String token) { return jwtService.extractPlayerSessionId(token); }
 
     public MeResponse me(Long userId) {
         User user = userRepository.findById(userId)
@@ -168,11 +194,12 @@ public class AuthService {
     public MeResponse updateMyPreferences(Long userId, UpdateMyPreferencesRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException("USER_NOT_FOUND", "User account not found"));
-        if (!UserLanguages.isSupported(request.preferredLanguage())) {
+        if (request.preferredLanguage() != null && !UserLanguages.isSupported(request.preferredLanguage())) {
             throw new BadRequestException("UNSUPPORTED_LANGUAGE",
                     "preferredLanguage must be one of: " + String.join(", ", UserLanguages.SUPPORTED_LANGUAGES));
         }
-        user.setPreferredLanguage(request.preferredLanguage());
+        if (request.preferredLanguage() != null) user.setPreferredLanguage(request.preferredLanguage());
+        if (request.preferredCalendar() != null) user.setPreferredCalendar(request.preferredCalendar());
         return new MeResponse(toProfile(userRepository.save(user)));
     }
 
@@ -192,6 +219,9 @@ public class AuthService {
         }
         user.setDisplayName(displayName);
         user.setNormalizedPhone(normalizedPhone);
+        if (user.getActivePlayerSessionId() != null) {
+            user.startPlayerSession(user.getActivePlayerSessionId(), jwtService.tokenExpiresAt());
+        }
         User saved;
         try {
             saved = userRepository.saveAndFlush(user);
@@ -201,7 +231,7 @@ public class AuthService {
             }
             throw exception;
         }
-        return new AuthResponse(jwtService.generateToken(saved), "Bearer", jwtService.getExpirationSeconds(),
+        return new AuthResponse(jwtService.generateToken(saved, saved.getActivePlayerSessionId()), "Bearer", jwtService.getExpirationSeconds(),
                 toProfile(saved));
     }
 
@@ -217,7 +247,8 @@ public class AuthService {
                 user.getUpdatedAt(),
                 user.isMustChangePassword(),
                 UserLanguages.resolve(user.getPreferredLanguage()),
-                user.getReferralCode());
+                user.getReferralCode(),
+                user.getPreferredCalendar() == null ? "AUTO" : user.getPreferredCalendar());
     }
 
     private boolean isDuplicatePhoneConstraint(Throwable failure) {

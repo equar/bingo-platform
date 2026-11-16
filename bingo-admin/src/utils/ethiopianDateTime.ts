@@ -54,6 +54,28 @@ function isAmharic(): boolean {
   return i18n.resolvedLanguage === "am" || i18n.language === "am";
 }
 
+export function resolveEffectiveCalendar(language: unknown, preference: unknown): "ETHIOPIAN" | "GREGORIAN" {
+  if (preference === "ETHIOPIAN" || preference === "GREGORIAN") return preference;
+  return language === "am" || language === "ti" ? "ETHIOPIAN" : "GREGORIAN";
+}
+
+export function currentCalendarPreference(): "ETHIOPIAN" | "GREGORIAN" {
+  try {
+    const raw = window.localStorage.getItem("bingo-admin-session");
+    const user = raw ? (JSON.parse(raw) as { user?: { preferredLanguage?: unknown; preferredCalendar?: unknown } }).user : undefined;
+    return resolveEffectiveCalendar(user?.preferredLanguage ?? i18n.resolvedLanguage, user?.preferredCalendar);
+  } catch { return resolveEffectiveCalendar(i18n.resolvedLanguage, "AUTO"); }
+}
+
+function formatGregorianInEthiopia(value: string | number | Date, fallback: string): string {
+  const instant = asDate(value);
+  if (!instant) return fallback;
+  const wall = ethiopiaWallTime(instant);
+  return new Intl.DateTimeFormat(isAmharic() ? "am-ET" : "en-GB", {
+    day: "numeric", month: "short", year: "numeric", timeZone: "UTC",
+  }).format(wall);
+}
+
 function asDate(value: string | number | Date): Date | null {
   const date = value instanceof Date ? value : new Date(value);
   return Number.isFinite(date.getTime()) ? date : null;
@@ -93,10 +115,32 @@ export function formatEthiopianDate(
   value: string | number | Date,
   fallback = "—",
 ): string {
+  if (currentCalendarPreference() === "GREGORIAN") return formatGregorianInEthiopia(value, fallback);
   const date = ethiopianCalendarDate(value);
   if (!date) return fallback;
   const amharic = isAmharic();
   return `${date.day} ${ethiopianMonthName(date.month)} ${date.year} ${amharic ? "ዓ.ም." : "E.C."}`;
+}
+
+export function formatDualCalendarDateTime(value: string | number | Date, fallback = "—"): string {
+  const instant = asDate(value);
+  if (!instant) return fallback;
+  const selected = currentCalendarPreference();
+  const other = selected === "ETHIOPIAN" ? "GREGORIAN" : "ETHIOPIAN";
+  const selectedName = isAmharic()
+    ? selected === "ETHIOPIAN" ? "የኢትዮጵያ" : "ጎርጎርያን"
+    : selected === "ETHIOPIAN" ? "Ethiopian" : "Gregorian";
+  const otherName = isAmharic()
+    ? other === "ETHIOPIAN" ? "የኢትዮጵያ" : "ጎርጎርያን"
+    : other === "ETHIOPIAN" ? "Ethiopian" : "Gregorian";
+  const otherDate = other === "ETHIOPIAN"
+    ? (() => {
+        const date = ethiopianCalendarDate(instant);
+        if (!date) return fallback;
+        return `${date.day} ${ethiopianMonthName(date.month)} ${date.year} ${isAmharic() ? "ዓ.ም." : "E.C."}`;
+      })()
+    : formatGregorianInEthiopia(instant, fallback);
+  return `${selectedName}: ${formatEthiopianDateTime(instant, fallback)} (EAT, UTC+03:00) · ${otherName}: ${otherDate}`;
 }
 
 export function formatEthiopianDateInput(
@@ -112,6 +156,12 @@ export function formatEthiopianNumericDate(
   value: string | number | Date,
   fallback = "—",
 ): string {
+  if (currentCalendarPreference() === "GREGORIAN") {
+    const instant = asDate(value);
+    if (!instant) return fallback;
+    const wall = ethiopiaWallTime(instant);
+    return `${String(wall.getUTCDate()).padStart(2, "0")}-${String(wall.getUTCMonth() + 1).padStart(2, "0")}-${wall.getUTCFullYear()}`;
+  }
   const date = ethiopianCalendarDate(value);
   if (!date) return fallback;
   return `${String(date.day).padStart(2, "0")}-${String(date.month).padStart(2, "0")}-${String(date.year).padStart(4, "0")}`;

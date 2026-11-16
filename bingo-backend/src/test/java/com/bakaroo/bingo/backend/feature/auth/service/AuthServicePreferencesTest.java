@@ -65,11 +65,26 @@ class AuthServicePreferencesTest {
         when(userRepository.findById(13L)).thenReturn(Optional.of(player));
         when(userRepository.save(player)).thenReturn(player);
 
-        var response = service.updateMyPreferences(13L, new UpdateMyPreferencesRequest("am"));
+        var response = service.updateMyPreferences(13L, new UpdateMyPreferencesRequest("am", null));
 
         assertThat(player.getPreferredLanguage()).isEqualTo("am");
         assertThat(response.user().preferredLanguage()).isEqualTo("am");
         verify(userRepository).save(player);
+    }
+
+    @Test
+    void savesCalendarPreferenceWithoutOverwritingLanguageAndResolvesMissingCalendarToAuto() {
+        player.setPreferredLanguage("am");
+        when(userRepository.findById(13L)).thenReturn(Optional.of(player));
+        when(userRepository.save(player)).thenReturn(player);
+
+        var response = service.updateMyPreferences(13L, new UpdateMyPreferencesRequest(null, "GREGORIAN"));
+
+        assertThat(player.getPreferredLanguage()).isEqualTo("am");
+        assertThat(player.getPreferredCalendar()).isEqualTo("GREGORIAN");
+        assertThat(response.user().preferredCalendar()).isEqualTo("GREGORIAN");
+        player.setPreferredCalendar(null);
+        assertThat(service.me(13L).user().preferredCalendar()).isEqualTo("AUTO");
     }
 
     @Test
@@ -78,7 +93,7 @@ class AuthServicePreferencesTest {
         when(userRepository.findById(13L)).thenReturn(Optional.of(player));
         when(userRepository.save(player)).thenReturn(player);
 
-        var response = service.updateMyPreferences(13L, new UpdateMyPreferencesRequest("en"));
+        var response = service.updateMyPreferences(13L, new UpdateMyPreferencesRequest("en", null));
 
         assertThat(player.getPreferredLanguage()).isEqualTo("en");
         assertThat(response.user().preferredLanguage()).isEqualTo("en");
@@ -89,7 +104,7 @@ class AuthServicePreferencesTest {
         when(userRepository.findById(13L)).thenReturn(Optional.of(player));
 
         assertThrows(BadRequestException.class,
-                () -> service.updateMyPreferences(13L, new UpdateMyPreferencesRequest("fr")));
+                () -> service.updateMyPreferences(13L, new UpdateMyPreferencesRequest("fr", null)));
 
         assertThat(player.getPreferredLanguage()).isNull();
         verify(userRepository, never()).save(any());
@@ -100,6 +115,6 @@ class AuthServicePreferencesTest {
         when(userRepository.findById(99L)).thenReturn(Optional.empty());
 
         assertThrows(NotFoundException.class,
-                () -> service.updateMyPreferences(99L, new UpdateMyPreferencesRequest("am")));
+                () -> service.updateMyPreferences(99L, new UpdateMyPreferencesRequest("am", null)));
     }
 }

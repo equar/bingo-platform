@@ -145,7 +145,7 @@ class SignupRewardPostingIntegrationTest extends MySqlIntegrationTest {
         mockMvc.perform(get("/api/v1/admin/wallet/signup-rewards/settings"))
                 .andExpect(status().isUnauthorized());
         mockMvc.perform(get("/api/v1/admin/wallet/signup-rewards/settings")
-                .header("Authorization", "Bearer " + jwtService.generateToken(player)))
+                .header("Authorization", bearer(player)))
                 .andExpect(status().isForbidden());
 
         String adminToken = jwtService.generateToken(admin);
@@ -319,7 +319,7 @@ class SignupRewardPostingIntegrationTest extends MySqlIntegrationTest {
         assertFalse(entries.getFirst().getNote().contains(referred.getNormalizedPhone()));
 
         String referrerHistory = mockMvc.perform(get("/api/v1/wallet/transactions")
-                .header("Authorization", "Bearer " + jwtService.generateToken(player)))
+                .header("Authorization", bearer(player)))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
         assertFalse(referrerHistory.contains(referred.getDisplayName()));
         assertFalse(referrerHistory.contains(REGISTER_PHONE));
@@ -338,6 +338,16 @@ class SignupRewardPostingIntegrationTest extends MySqlIntegrationTest {
         assertEquals(2, referralGrants.stream().map(grant -> grant.getTriggerReferenceKey()).distinct().count());
         assertEquals(initialGrantCount + 4, grantRepository.count(),
                 "two registrations get one signup and one referral grant each; retry adds no duplicate");
+    }
+
+    private String bearer(User user) {
+        String sessionId = user.getActivePlayerSessionId();
+        if (sessionId == null) {
+            sessionId = jwtService.newPlayerSessionId();
+            user.startPlayerSession(sessionId, jwtService.tokenExpiresAt());
+            user = userRepository.save(user);
+        }
+        return "Bearer " + jwtService.generateToken(user, sessionId);
     }
 
     @Test

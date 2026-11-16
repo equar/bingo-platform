@@ -50,12 +50,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String token = authorization.substring(7);
             BingoUserPrincipal authenticatedPrincipal = null;
             boolean suspended = false;
+            boolean replacedPlayerSession = false;
             try {
                 Long userId = jwtService.extractUserId(token);
                 BingoUserPrincipal principal = userDetailsService.loadById(userId);
                 boolean validToken = jwtService.isTokenValidForUser(token, principal.getUser().getId());
+                if (validToken && principal.getUser().hasRole(com.bakaroo.bingo.backend.feature.user.entity.UserRole.PLAYER)) {
+                    String tokenSessionId = jwtService.extractPlayerSessionId(token);
+                    replacedPlayerSession = tokenSessionId == null
+                            || !tokenSessionId.equals(principal.getUser().getActivePlayerSessionId());
+                }
                 suspended = validToken && principal.getUser().getStatus() == AccountStatus.SUSPENDED;
-                if (validToken && principal.isEnabled()
+                if (validToken && !replacedPlayerSession && principal.isEnabled()
                         && principal.isAccountNonLocked()) {
                     authenticatedPrincipal = principal;
                 }
@@ -73,6 +79,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 SecurityContextHolder.clearContext();
                 errorWriter.write(response, HttpStatus.FORBIDDEN.value(),
                         AccountSuspendedException.CODE, AccountSuspendedException.MESSAGE,
+                        request.getRequestURI(), ApiErrorResponseWriter.resolveCorrelationId(request));
+                return;
+            }
+
+            if (replacedPlayerSession) {
+                SecurityContextHolder.clearContext();
+                errorWriter.write(response, HttpStatus.UNAUTHORIZED.value(),
+                        "PLAYER_SESSION_REPLACED",
+                        "This player account is active on another device. Log out there and try again.",
                         request.getRequestURI(), ApiErrorResponseWriter.resolveCorrelationId(request));
                 return;
             }

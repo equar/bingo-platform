@@ -85,6 +85,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
   }
 
+  Future<void> _logout() async {
+    try {
+      await ref.read(authRepositoryProvider).logout();
+      await ref.read(authSessionControllerProvider.notifier).clearSession();
+    } catch (error) {
+      if (!mounted) return;
+      final message = normalizeApiError(error).userMessage(
+        AppLocalizations.of(context)!,
+      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    }
+  }
+
   Future<void> _showChangePinDialog() async {
     final localizations = AppLocalizations.of(context)!;
     final formKey = GlobalKey<FormState>();
@@ -657,6 +670,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       alignment: AlignmentDirectional.centerEnd,
                       child: LanguageSelector(),
                     ),
+                    const SizedBox(height: 12),
+                    const CalendarPreferenceSelector(),
                   ],
                 ),
               ),
@@ -714,9 +729,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ],
               OutlinedButton.icon(
                 icon: const Icon(Icons.logout_rounded),
-                onPressed: () => ref
-                    .read(authSessionControllerProvider.notifier)
-                    .clearSession(),
+                onPressed: _logout,
                 label: Text(localizations.logout),
               ),
             ],
@@ -745,6 +758,105 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     trailing: const Icon(Icons.chevron_right_rounded),
     onTap: onTap,
   );
+}
+
+class CalendarPreferenceSelector extends ConsumerStatefulWidget {
+  const CalendarPreferenceSelector({super.key});
+
+  @override
+  ConsumerState<CalendarPreferenceSelector> createState() =>
+      _CalendarPreferenceSelectorState();
+}
+
+class _CalendarPreferenceSelectorState
+    extends ConsumerState<CalendarPreferenceSelector> {
+  bool _saving = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final user = ref.watch(authSessionControllerProvider).session?.user;
+    final calendar = user?.preferredCalendar ?? 'AUTO';
+    final language =
+        user?.preferredLanguage ?? Localizations.localeOf(context).languageCode;
+    final resolvedEthiopian =
+        calendar == 'ETHIOPIAN' ||
+        (calendar == 'AUTO' && (language == 'am' || language == 'ti'));
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          l.profileCalendarPreference,
+          style: Theme.of(context).textTheme.titleSmall,
+        ),
+        DropdownButtonFormField<String>(
+          key: ValueKey('$calendar-$_saving'),
+          initialValue: calendar,
+          items: [
+            DropdownMenuItem(value: 'AUTO', child: Text(l.calendarAutomatic)),
+            DropdownMenuItem(
+              value: 'ETHIOPIAN',
+              child: Text(l.calendarEthiopian),
+            ),
+            DropdownMenuItem(
+              value: 'GREGORIAN',
+              child: Text(l.calendarGregorian),
+            ),
+          ],
+          onChanged: _saving
+              ? null
+              : (value) {
+                  if (value != null) _save(value);
+                },
+        ),
+        const SizedBox(height: 4),
+        Text(
+          calendar == 'AUTO'
+              ? (resolvedEthiopian
+                    ? l.calendarAutoEthiopian
+                    : l.calendarAutoGregorian)
+              : (_saving ? l.calendarPreferenceSaving : ''),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _save(String value) async {
+    setState(() => _saving = true);
+    try {
+      final currentSession = ref.read(authSessionControllerProvider).session;
+      if (currentSession == null) return;
+      final user = await ref
+          .read(authRepositoryProvider)
+          .updatePreferences(preferredCalendar: value);
+      final applied = await ref.read(authSessionControllerProvider.notifier).updateUser(
+            user,
+            expectedAccessToken: currentSession.accessToken,
+          );
+      if (!applied) return;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              AppLocalizations.of(context)!.calendarPreferenceSaved,
+            ),
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              AppLocalizations.of(context)!.calendarPreferenceSaveFailed,
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
 }
 
 class _ProfileBannerCarousel extends StatefulWidget {

@@ -8,6 +8,7 @@ import io.jsonwebtoken.security.Keys;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Date;
+import java.util.UUID;
 import javax.crypto.SecretKey;
 import org.springframework.stereotype.Service;
 
@@ -27,17 +28,31 @@ public class JwtService {
     }
 
     public String generateToken(User user) {
+        return generateToken(user, null);
+    }
+
+    public String generateToken(User user, String playerSessionId) {
         Instant issuedAt = Instant.now();
         Instant expiresAt = issuedAt.plusSeconds(jwtProperties.accessTokenTtlSeconds());
 
-        return Jwts.builder()
+        var builder = Jwts.builder()
                 .subject(user.getNormalizedPhone() != null ? user.getNormalizedPhone() : user.getEmail())
                 .issuedAt(Date.from(issuedAt))
                 .expiration(Date.from(expiresAt))
                 .claim("uid", user.getId())
-                .claim("roles", user.getRoles().stream().map(Enum::name).toList())
-                .signWith(secretKey, Jwts.SIG.HS256)
-                .compact();
+                .claim("roles", user.getRoles().stream().map(Enum::name).toList());
+        if (playerSessionId != null) builder.claim("sid", playerSessionId);
+        return builder.signWith(secretKey, Jwts.SIG.HS256).compact();
+    }
+
+    public String extractPlayerSessionId(String token) {
+        return parseClaims(token).get("sid", String.class);
+    }
+
+    public String newPlayerSessionId() { return UUID.randomUUID().toString(); }
+
+    public Instant tokenExpiresAt() {
+        return Instant.now().plusSeconds(jwtProperties.accessTokenTtlSeconds());
     }
 
     public String extractSubject(String token) {
