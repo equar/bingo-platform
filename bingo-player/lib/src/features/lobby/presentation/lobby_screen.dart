@@ -190,6 +190,9 @@ class _SessionList extends StatelessWidget {
               itemCount: sessions.length,
               itemBuilder: (context, index) {
                 final session = sessions[index];
+                final isLive = const {'STARTED', 'DRAWING'}.contains(
+                  session.state.toUpperCase(),
+                );
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: SectionCard(
@@ -246,6 +249,25 @@ class _SessionList extends StatelessWidget {
                                       ? () => onBuy!(session)
                                       : null,
                                   child: Text(localizations.buyTicketsButton),
+                                ),
+                              ),
+                            ] else if (isLive) ...[
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: FilledButton.icon(
+                                  key: ValueKey('live-game-${session.id}'),
+                                  onPressed: () =>
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute<void>(
+                                          builder: (_) => SessionDetailScreen(
+                                            session: session,
+                                          ),
+                                        ),
+                                      ),
+                                  icon: const Icon(
+                                    Icons.sports_esports_outlined,
+                                  ),
+                                  label: Text(localizations.liveGameTitle),
                                 ),
                               ),
                             ],

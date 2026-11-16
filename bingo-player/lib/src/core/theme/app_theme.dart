@@ -4,11 +4,11 @@ import 'package:flutter/material.dart';
 ThemeData buildAppTheme({Brightness brightness = Brightness.light}) {
   final isDark = brightness == Brightness.dark;
   final scheme = ColorScheme.fromSeed(
-    seedColor: const Color(0xFF42A5F5),
+    seedColor: const Color(0xFFFF7900),
     brightness: brightness,
-    primary: const Color(0xFF1976D2),
+    primary: const Color(0xFFBA4900),
     onPrimary: Colors.white,
-    secondary: const Color(0xFF1976D2),
+    secondary: const Color(0xFF1264C8),
     onSecondary: Colors.white,
     surface: isDark ? const Color(0xFF172033) : Colors.white,
     onSurface: isDark ? const Color(0xFFE5EAF3) : const Color(0xFF081D46),
@@ -88,7 +88,7 @@ ThemeData buildAppTheme({Brightness brightness = Brightness.light}) {
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
     ),
     tabBarTheme: TabBarThemeData(
-      labelColor: const Color(0xFF90CAF9),
+      labelColor: const Color(0xFFFFB46A),
       unselectedLabelColor: Colors.white70,
       labelStyle: const TextStyle(
         fontFamily: 'Roboto',
@@ -102,7 +102,7 @@ ThemeData buildAppTheme({Brightness brightness = Brightness.light}) {
       ),
       indicatorSize: TabBarIndicatorSize.label,
       dividerColor: Colors.white24,
-      indicatorColor: const Color(0xFF90CAF9),
+      indicatorColor: const Color(0xFFFFB46A),
     ),
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
@@ -147,7 +147,7 @@ ThemeData buildAppTheme({Brightness brightness = Brightness.light}) {
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
-        backgroundColor: const Color(0xFF1976D2),
+        backgroundColor: const Color(0xFFBA4900),
         foregroundColor: Colors.white,
         minimumSize: const Size(48, 48),
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),

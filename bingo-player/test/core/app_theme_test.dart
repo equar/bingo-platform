@@ -27,7 +27,7 @@ void main() {
       darkTheme.inputDecorationTheme.errorStyle!.color,
       darkInputHighlightColor,
     );
-    const lightInputHighlightColor = Color(0xFF1976D2);
+    const lightInputHighlightColor = Color(0xFF1264C8);
     expect(
       lightTheme.inputDecorationTheme.focusedBorder!.borderSide.color,
       lightInputHighlightColor,

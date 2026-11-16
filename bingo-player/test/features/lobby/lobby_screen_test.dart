@@ -24,6 +24,18 @@ void main() {
     expect(find.byKey(const ValueKey('buy-tickets-12')), findsOneWidget);
   });
 
+  testWidgets('drawing sessions provide a live-game entry action', (
+    tester,
+  ) async {
+    final repository = _LobbyRepository(sessionState: 'DRAWING');
+    await tester.pumpWidget(_app(repository));
+    await tester.pumpAndSettle();
+
+    expect(find.text('QA Scheduled Session'), findsOneWidget);
+    expect(find.byKey(const ValueKey('live-game-12')), findsOneWidget);
+    expect(find.byKey(const ValueKey('buy-tickets-12')), findsNothing);
+  });
+
   testWidgets('cancelled sessions are shown as not playable', (tester) async {
     final repository = _LobbyRepository(sessionState: 'CANCELLED');
     await tester.pumpWidget(
