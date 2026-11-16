@@ -64,12 +64,20 @@ if ! grep -Fq '"API_BASE_URL": "https://api.bingo.bakaroo.com"' "$PRODUCTION_CON
 fi
 
 android_devices=()
+android_device_types=()
 android_device_count=0
+android_emulator_count=0
+android_physical_device_count=0
 if [[ "$install_android" == true ]]; then
   while IFS= read -r serial; do
+    android_devices+=("$serial")
+    ((android_device_count += 1))
     if [[ "$(adb -s "$serial" shell getprop ro.kernel.qemu </dev/null 2>/dev/null | tr -d '\r')" == "1" ]]; then
-      android_devices+=("$serial")
-      ((android_device_count += 1))
+      android_device_types+=("emulator")
+      ((android_emulator_count += 1))
+    else
+      android_device_types+=("physical device")
+      ((android_physical_device_count += 1))
     fi
   done < <(adb devices | awk '$2 == "device" { print $1 }')
 fi
@@ -87,7 +95,7 @@ if [[ "$install_ios" == true ]]; then
 fi
 
 if [[ "$install_android" == true && $android_device_count == 0 ]]; then
-  echo "ERROR: No booted Android emulators were found." >&2
+  echo "ERROR: No booted Android emulators or attached physical Android devices were found." >&2
   exit 1
 fi
 if [[ "$install_ios" == true && $ios_device_count == 0 ]]; then
@@ -95,10 +103,10 @@ if [[ "$install_ios" == true && $ios_device_count == 0 ]]; then
   exit 1
 fi
 
-echo "Installing for $TARGET_PLATFORM: discovered $android_device_count booted Android emulator(s) and $ios_device_count booted iOS simulator(s)."
+echo "Installing for $TARGET_PLATFORM: discovered $android_emulator_count booted Android emulator(s), $android_physical_device_count attached physical Android device(s), and $ios_device_count booted iOS simulator(s)."
 if [[ "$install_android" == true ]]; then
-  for serial in "${android_devices[@]}"; do
-    echo "  Android: $serial"
+  for index in "${!android_devices[@]}"; do
+    echo "  Android ${android_device_types[$index]}: ${android_devices[$index]}"
   done
 fi
 if [[ "$install_ios" == true ]]; then
@@ -118,8 +126,10 @@ if [[ "$install_android" == true ]]; then
     --dart-define-from-file="$PRODUCTION_CONFIG" \
     --dart-define=BINGO_PLAYER_PURCHASES_ENABLED=true
 
-  for serial in "${android_devices[@]}"; do
-    echo "Installing Android release on $serial..."
+  for index in "${!android_devices[@]}"; do
+    serial="${android_devices[$index]}"
+    device_type="${android_device_types[$index]}"
+    echo "Installing Android release on $device_type $serial..."
     if install_output="$(adb -s "$serial" install -r "$ANDROID_APK" 2>&1)"; then
       printf '%s\n' "$install_output"
     elif grep -Fq 'INSTALL_FAILED_UPDATE_INCOMPATIBLE' <<<"$install_output"; then
@@ -175,9 +185,9 @@ if [[ "$install_ios" == true ]]; then
   done
 fi
 
-echo "Installed production-configured player builds on $installed_android Android emulator(s) and $installed_ios iOS simulator(s)."
+echo "Installed production-configured player builds on $installed_android Android device(s) and $installed_ios iOS simulator(s)."
 if (( ${#failures[@]} > 0 )); then
-  printf 'ERROR: Installation failed on %d virtual device(s):\n' "${#failures[@]}" >&2
+  printf 'ERROR: Installation failed on %d device(s):\n' "${#failures[@]}" >&2
   printf '  - %s\n' "${failures[@]}" >&2
   exit 1
 fi

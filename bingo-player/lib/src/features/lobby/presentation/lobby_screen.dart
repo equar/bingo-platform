@@ -387,9 +387,18 @@ Future<void> _buyTickets(
       }
       return;
     }
-    final result = await ref
-        .read(liveGameControllerProvider(session.id).notifier)
-        .purchaseTickets(selected);
+    final controllerSubscription = ref.listenManual(
+      liveGameControllerProvider(session.id),
+      (_, _) {},
+    );
+    final PurchaseFlowResult result;
+    try {
+      result = await ref
+          .read(liveGameControllerProvider(session.id).notifier)
+          .purchaseTickets(selected);
+    } finally {
+      controllerSubscription.close();
+    }
     ref.invalidate(walletBalanceProvider);
     ref.invalidate(activeSessionsProvider);
     if (!context.mounted) return;

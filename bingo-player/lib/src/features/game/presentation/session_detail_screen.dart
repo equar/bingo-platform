@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'live_call_panel.dart';
 import 'winner_celebration_dialog.dart';
@@ -426,112 +425,79 @@ class _LivePlayViewState extends ConsumerState<_LivePlayView>
       });
     }
     final onBoard = _visibleTickets(ticketList, preferences, state);
-    final visibleCardCount = onBoard.length;
     final missedCalls = preferences.autoMark
         ? 0
         : _countMissedCalls(onBoard, state.calledNumbers, preferences);
     return SafeArea(
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
-          // Only short viewports or large accessibility text need scrolling.
-          final controlsHeight =
-              ((state.ticketPage?.content.length ?? 0) > 1 ? 48.0 : 0.0) +
-              (state.canPageBackTickets || state.canPageForwardTickets
-                  ? 48.0
-                  : 0.0) +
-              ((state.session?.configuredPatterns.length ?? 0) > 1
-                  ? 72.0
-                  : 0.0);
-          final height = math.max(
-            constraints.maxHeight,
-            (visibleCardCount == 1
-                    ? 820.0
-                    : visibleCardCount > 2
-                    ? 800.0
-                    : 580.0) +
-                controlsHeight +
-                math.max(0.0, scale - 1) * 1100,
-          );
-          return RefreshIndicator(
-            onRefresh: controller.refresh,
-            child: SingleChildScrollView(
-              key: const ValueKey('live-play-screen'),
-              physics: const AlwaysScrollableScrollPhysics(),
-              child: SizedBox(
-                height: height,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      LiveCallPanel(
-                        draws: state.draws,
-                        eligibleWinCount: state.allTickets
-                            .where(
-                              (ticket) =>
-                                  ticket.eligibleClaimPatterns.isNotEmpty,
-                            )
-                            .length,
-                        soundEnabled: ref
-                            .watch(playerPreferencesProvider)
-                            .soundEnabled,
-                        notificationsEnabled: preferences.notificationsEnabled,
-                        notificationMode: preferences.notificationMode,
-                        ticketNumbers: onBoard
-                            .expand(
-                              (ticket) => ticket.grid.expand((row) => row),
-                            )
-                            .where((number) => number != 0)
-                            .toSet(),
-                        missedCallCount: missedCalls,
-                        onMarkMissedCalls: missedCalls == 0
-                            ? null
-                            : () async {
-                                for (final ticket in onBoard) {
-                                  final calledOnTicket = ticket.grid
-                                      .expand((row) => row)
-                                      .where(
-                                        (number) =>
-                                            number != 0 &&
-                                            state.calledNumbers.contains(
-                                              number,
-                                            ),
-                                      );
-                                  await ref
-                                      .read(playerPreferencesProvider)
-                                      .markNumbers(ticket.id, calledOnTicket);
-                                }
-                              },
-                        isLive: !state.isTerminalSession,
-                        connected:
-                            state.connectionState ==
-                            LiveGameConnectionState.connected,
-                        finished: state.isTerminalSession,
-                      ),
-                      Expanded(
-                        child: _TicketsCard(
-                          state: state,
-                          controller: controller,
-                          localizations: localizations,
-                          fillAvailableSpace: true,
-                        ),
-                      ),
-                      _ClaimReviewCard(state: state, controller: controller),
-                      if (state.selectedTicket != null)
-                        _ClaimCard(
-                          state: state,
-                          controller: controller,
-                          localizations: localizations,
-                          compact: true,
-                        ),
-                    ],
-                  ),
+      child: RefreshIndicator(
+        onRefresh: controller.refresh,
+        child: SingleChildScrollView(
+          key: const ValueKey('live-play-screen'),
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                LiveCallPanel(
+                  draws: state.draws,
+                  eligibleWinCount: state.allTickets
+                      .where(
+                        (ticket) => ticket.eligibleClaimPatterns.isNotEmpty,
+                      )
+                      .length,
+                  soundEnabled: ref
+                      .watch(playerPreferencesProvider)
+                      .soundEnabled,
+                  notificationsEnabled: preferences.notificationsEnabled,
+                  notificationMode: preferences.notificationMode,
+                  ticketNumbers: onBoard
+                      .expand((ticket) => ticket.grid.expand((row) => row))
+                      .where((number) => number != 0)
+                      .toSet(),
+                  missedCallCount: missedCalls,
+                  onMarkMissedCalls: missedCalls == 0
+                      ? null
+                      : () async {
+                          for (final ticket in onBoard) {
+                            final calledOnTicket = ticket.grid
+                                .expand((row) => row)
+                                .where(
+                                  (number) =>
+                                      number != 0 &&
+                                      state.calledNumbers.contains(number),
+                                );
+                            await ref
+                                .read(playerPreferencesProvider)
+                                .markNumbers(ticket.id, calledOnTicket);
+                          }
+                        },
+                  isLive: !state.isTerminalSession,
+                  connected:
+                      state.connectionState ==
+                      LiveGameConnectionState.connected,
+                  finished: state.isTerminalSession,
                 ),
-              ),
+                const SizedBox(height: 8),
+                _TicketsCard(
+                  state: state,
+                  controller: controller,
+                  localizations: localizations,
+                  showAllTickets: true,
+                ),
+                const SizedBox(height: 8),
+                _ClaimReviewCard(state: state, controller: controller),
+                if (state.selectedTicket != null)
+                  _ClaimCard(
+                    state: state,
+                    controller: controller,
+                    localizations: localizations,
+                    compact: true,
+                  ),
+              ],
             ),
-          );
-        },
+          ),
+        ),
       ),
     );
   }
@@ -1204,7 +1170,9 @@ class _SessionSummaryCard extends ConsumerWidget {
             childrenPadding: const EdgeInsets.only(top: 8),
             leading: const Icon(Icons.menu_book_outlined),
             title: const Text('Game details & rules'),
-            subtitle: const Text('How to play, winning patterns, and prize rules'),
+            subtitle: const Text(
+              'How to play, winning patterns, and prize rules',
+            ),
             children: [_GameRulesCard(session: session)],
           ),
           if (state.purchaseOutcomeUncertain) ...[
@@ -1279,10 +1247,10 @@ class _TicketsCard extends ConsumerWidget {
     required this.state,
     required this.controller,
     required this.localizations,
-    this.fillAvailableSpace = false,
+    this.showAllTickets = false,
   });
 
-  final bool fillAvailableSpace;
+  final bool showAllTickets;
   final LiveGameState state;
   final LiveGameController controller;
   final AppLocalizations localizations;
@@ -1293,7 +1261,9 @@ class _TicketsCard extends ConsumerWidget {
     final ticketPage = state.ticketPage;
     final tickets = ticketPage?.content ?? const [];
     final allTickets = state.allTickets.isNotEmpty ? state.allTickets : tickets;
-    final boardTickets = _visibleTickets(allTickets, preferences, state);
+    final boardTickets = showAllTickets
+        ? _displayTickets(allTickets, state)
+        : _visibleTickets(allTickets, preferences, state);
     final selectedTicket = state.selectedTicket;
 
     return SectionCard(
@@ -1307,56 +1277,31 @@ class _TicketsCard extends ConsumerWidget {
               message: localizations.noTicketsPurchasedBody,
             )
           else ...[
-            if (preferences.multipleCardSelection && allTickets.length > 1) ...[
-              SizedBox(
-                height: 44,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: allTickets.length,
-                  separatorBuilder: (_, _) => const SizedBox(width: 8),
-                  itemBuilder: (context, index) {
-                    final item = allTickets[index];
-                    return ChoiceChip(
-                      selected: preferences.selectedTicketIds.isEmpty
-                          ? boardTickets.any((ticket) => ticket.id == item.id)
-                          : preferences.selectedTicketIds.contains(item.id),
-                      label: Text(item.publicTicketCode),
-                      onSelected: (_) {
-                        final ticketPreferences = ref.read(
-                          playerPreferencesProvider,
-                        );
-                        ticketPreferences.toggleSelectedTicket(item.id);
-                        controller.selectTicketById(item.id);
-                      },
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(height: 12),
-            ],
             if (boardTickets.isEmpty)
               AppStatusView(
                 title: localizations.selectMultipleCards,
                 message: localizations.selectMultipleCardsDescription,
               )
             else if (selectedTicket != null) ...[
-              if (fillAvailableSpace)
-                Expanded(
-                  child: GridView.builder(
-                    key: const ValueKey('multi-ticket-board'),
-                    itemCount: boardTickets.length,
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: boardTickets.length == 1 ? 1 : 2,
-                      crossAxisSpacing: 8,
-                      mainAxisSpacing: 8,
-                      childAspectRatio: 5 / 7,
-                    ),
-                    itemBuilder: (context, index) => _TicketGridCard(
-                      ticket: boardTickets[index],
-                      calledNumbers: state.calledNumbers,
-                      state: state,
-                      localizations: localizations,
-                    ),
+              if (showAllTickets)
+                GridView.builder(
+                  key: const ValueKey('multi-ticket-board'),
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: boardTickets.length,
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: boardTickets.length == 1 ? 1 : 2,
+                    crossAxisSpacing: 8,
+                    mainAxisSpacing: 8,
+                    childAspectRatio: 5 / 7,
+                  ),
+                  itemBuilder: (context, index) => _TicketGridCard(
+                    ticket: boardTickets[index],
+                    calledNumbers: state.calledNumbers,
+                    state: state,
+                    localizations: localizations,
+                    onTap: () =>
+                        controller.selectTicketById(boardTickets[index].id),
                   ),
                 )
               else
@@ -1367,15 +1312,8 @@ class _TicketsCard extends ConsumerWidget {
                   localizations: localizations,
                 ),
             ],
-            if (allTickets.length > 1)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  '${boardTickets.length} / ${preferences.cardsOnBoard} cards on board',
-                  style: Theme.of(context).textTheme.labelMedium,
-                ),
-              ),
-            if (state.canPageBackTickets || state.canPageForwardTickets)
+            if (!showAllTickets &&
+                (state.canPageBackTickets || state.canPageForwardTickets))
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -1458,6 +1396,28 @@ List<TicketResponse> _visibleTickets(
       : ranked.map((rank) => rank.ticket).toList();
   if (ranked.isEmpty) ordered.sort((a, b) => a.id.compareTo(b.id));
   return ordered.take(preferences.cardsOnBoard).toList();
+}
+
+List<TicketResponse> _displayTickets(
+  List<TicketResponse> tickets,
+  LiveGameState state,
+) {
+  final ordered = List<TicketResponse>.of(tickets);
+  if (state.session?.state != 'DRAWING') {
+    ordered.sort((a, b) => a.id.compareTo(b.id));
+    return ordered;
+  }
+
+  final called = state.calledNumbers.toSet();
+  int markedCount(TicketResponse ticket) => ticket.grid
+      .expand((row) => row)
+      .where((number) => number != 0 && called.contains(number))
+      .length;
+  ordered.sort((a, b) {
+    final markedOrder = markedCount(b).compareTo(markedCount(a));
+    return markedOrder != 0 ? markedOrder : a.id.compareTo(b.id);
+  });
+  return ordered;
 }
 
 List<String> _activePrizePatterns(LiveGameState state) =>
@@ -1569,22 +1529,18 @@ class _TicketGridCard extends ConsumerWidget {
     required this.calledNumbers,
     required this.state,
     required this.localizations,
+    this.onTap,
   });
 
   final TicketResponse ticket;
   final List<int> calledNumbers;
   final LiveGameState state;
   final AppLocalizations localizations;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final preferences = ref.watch(playerPreferencesProvider);
-    final rank = _ticketRank(ticket, state, preferences);
-    final calledSet = calledNumbers.toSet();
-    final calledOnTicket = ticket.grid
-        .expand((row) => row)
-        .where((number) => number != 0 && calledSet.contains(number))
-        .length;
     final latestCalled = calledNumbers.isEmpty ? null : calledNumbers.last;
     final colors = Theme.of(context).colorScheme;
     final grid = LayoutBuilder(
@@ -1660,81 +1616,30 @@ class _TicketGridCard extends ConsumerWidget {
         ),
       ),
     );
-    return AspectRatio(
-      key: ValueKey('live-ticket-grid-${ticket.id}'),
-      aspectRatio: 5 / 7,
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    ticket.publicTicketCode,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.labelMedium,
-                  ),
-                ),
-                if (rank != null)
-                  Expanded(
-                    child: Text(
-                      _ticketRankLabel(localizations, rank),
-                      textAlign: TextAlign.center,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.labelSmall,
-                    ),
-                  ),
-                Text('$calledOnTicket/24'),
-                if (ticket.eligibleClaimPatterns.isNotEmpty) ...[
-                  const SizedBox(width: 4),
-                  Icon(Icons.emoji_events, size: 16, color: colors.primary),
+    return GestureDetector(
+      onTap: onTap,
+      child: AspectRatio(
+        key: ValueKey('live-ticket-grid-${ticket.id}'),
+        aspectRatio: 5 / 7,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  if (ticket.eligibleClaimPatterns.isNotEmpty) ...[
+                    Icon(Icons.emoji_events, size: 16, color: colors.primary),
+                  ],
                 ],
-              ],
+              ),
             ),
-          ),
-          Expanded(child: grid),
-        ],
+            Expanded(child: grid),
+          ],
+        ),
       ),
     );
   }
-}
-
-String _ticketRankLabel(AppLocalizations l, TicketRank rank) =>
-    switch (rank.claimState) {
-      TicketClaimState.claimable => l.winningTicketReady(
-        _patternLabel(l, rank.pattern),
-      ),
-      TicketClaimState.submitted => l.claimSubmitted,
-      TicketClaimState.rejected => l.claimPatternRejected,
-      TicketClaimState.awarded => l.errorTicketPrizeAwarded,
-      TicketClaimState.closed => l.prizeClosed,
-      TicketClaimState.approaching =>
-        rank.remainingCells == 0
-            ? l.patternWaitingForServer
-            : l.patternToGo(
-                _patternLabel(l, rank.pattern),
-                rank.remainingCells,
-              ),
-    };
-
-TicketRank? _ticketRank(
-  TicketResponse ticket,
-  LiveGameState state,
-  PlayerPreferences preferences,
-) {
-  final result = TicketRanking.rank(
-    tickets: [ticket],
-    called: state.calledNumbers.toSet(),
-    configuredPatterns: state.session?.configuredPatterns ?? const [],
-    configuredPrizePatterns: _activePrizePatterns(state),
-    priorities: preferences.sortPriorities,
-    claimStatuses: _ticketClaimStatuses(state),
-    claimWindowOpen: state.isClaimWindowOpen,
-  );
-  return result.isEmpty ? null : result.first;
 }
 
 class _ClaimCard extends ConsumerWidget {
@@ -2077,17 +1982,22 @@ class _TicketCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
     final background = isCalled
         ? markColor.withValues(alpha: isLatest ? 0.95 : 0.72)
         : isLatest
         ? colors.primaryContainer
         : isCalled
         ? colors.secondaryContainer
+        : isDarkTheme
+        ? Colors.white
         : colors.surface;
     final numberColor = isLatest
         ? Colors.white
         : isCalled
         ? colors.onSecondaryContainer
+        : isDarkTheme
+        ? colors.surface
         : colors.onSurface;
 
     return Semantics(
@@ -2139,12 +2049,6 @@ class _TicketCell extends StatelessWidget {
                         ),
                       ),
                     ),
-                  ),
-                if (isCalled && !isFree)
-                  Positioned(
-                    top: 1,
-                    right: 1,
-                    child: Icon(Icons.check, size: 13, color: colors.primary),
                   ),
               ],
             ),

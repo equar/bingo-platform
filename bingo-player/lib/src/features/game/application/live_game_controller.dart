@@ -265,6 +265,7 @@ class LiveGameController extends StateNotifier<LiveGameState> {
   Timer? _reconnectTimer;
   Timer? _snapshotTimer;
   bool _syncingSnapshot = false;
+  int _snapshotGeneration = 0;
 
   Future<void> start() async {
     if (_disposed || _connecting) {
@@ -854,8 +855,9 @@ class LiveGameController extends StateNotifier<LiveGameState> {
   }
 
   Future<void> _loadSnapshotAndHistory({int? selectedTicketId}) async {
+    final snapshotGeneration = ++_snapshotGeneration;
     final session = await _repository.getSession(sessionId);
-    if (_disposed) {
+    if (_disposed || snapshotGeneration != _snapshotGeneration) {
       return;
     }
     final ticketPage = await _repository.getMyTickets(
@@ -863,7 +865,7 @@ class LiveGameController extends StateNotifier<LiveGameState> {
       page: state.ticketPageIndex,
       size: _ticketPageSize,
     );
-    if (_disposed) {
+    if (_disposed || snapshotGeneration != _snapshotGeneration) {
       return;
     }
     var allTickets = state.allTickets;
@@ -879,7 +881,7 @@ class LiveGameController extends StateNotifier<LiveGameState> {
           page: page,
           size: 100,
         );
-        if (_disposed) return;
+        if (_disposed || snapshotGeneration != _snapshotGeneration) return;
         fetched.addAll(batch.content);
       }
       allTickets = fetched;
@@ -888,20 +890,24 @@ class LiveGameController extends StateNotifier<LiveGameState> {
       page: 0,
       size: _claimPageSize,
     );
-    if (_disposed) {
+    if (_disposed || snapshotGeneration != _snapshotGeneration) {
       return;
     }
     final missingDraws = await _repository.getDraws(
       sessionId,
       afterSequence: _timeline.lastSequence,
     );
-    if (_disposed) {
+    if (_disposed || snapshotGeneration != _snapshotGeneration) {
       return;
     }
 
     final selectedTicketIndex = selectedTicketId == null
         ? _clampSelectedTicketIndex(ticketPage)
         : _ticketIndexForId(ticketPage, selectedTicketId);
+
+    if (snapshotGeneration != _snapshotGeneration) {
+      return;
+    }
 
     state = state.copyWith(
       session: session,
