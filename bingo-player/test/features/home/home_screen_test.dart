@@ -12,6 +12,7 @@ import 'package:flutter_test/flutter_test.dart';
 Widget _home({
   required VoidCallback onGames,
   VoidCallback? onSupport,
+  VoidCallback? onOpenMenu,
   double textScale = 1,
   Brightness brightness = Brightness.light,
 }) => ProviderScope(
@@ -36,7 +37,7 @@ Widget _home({
     home: Scaffold(
       body: HomeScreen(
         onGames: onGames,
-        onOpenMenu: () {},
+        onOpenMenu: onOpenMenu ?? () {},
         onSupport: onSupport ?? () {},
       ),
     ),
@@ -118,16 +119,15 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('support remains accessible from the menu', (tester) async {
+  testWidgets('home menu button opens the shared navigation menu', (
+    tester,
+  ) async {
     var opened = false;
     await tester.pumpWidget(
-      _home(onGames: () {}, onSupport: () => opened = true),
+      _home(onGames: () {}, onOpenMenu: () => opened = true),
     );
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('home-menu')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('support-tab')));
-    await tester.pumpAndSettle();
     expect(opened, isTrue);
   });
 

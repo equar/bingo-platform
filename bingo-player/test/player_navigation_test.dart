@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:bingo_player/l10n/app_localizations.dart';
 import 'package:bingo_player/src/core/theme/app_theme.dart';
 import 'package:bingo_player/src/core/config/app_config.dart';
+import 'package:bingo_player/src/core/network/api_provider.dart';
 import 'package:bingo_player/src/features/auth/data/auth_repository.dart';
 import 'package:bingo_player/src/core/storage/session_storage.dart';
 import 'package:bingo_player/src/features/auth/data/auth_session_controller.dart';
@@ -17,6 +18,12 @@ import 'package:bingo_player/src/features/home/presentation/home_screen.dart';
 import 'package:bingo_player/src/features/home/presentation/home_shell.dart';
 import 'package:bingo_player/src/features/lobby/domain/lobby_models.dart';
 import 'package:bingo_player/src/features/lobby/presentation/lobby_screen.dart';
+import 'package:bingo_player/src/features/player_content/data/player_content_api.dart';
+import 'package:bingo_player/src/features/player_content/domain/player_content_models.dart';
+import 'package:bingo_player/src/features/wallet/data/wallet_api.dart';
+import 'package:bingo_player/src/features/wallet/data/wallet_repository.dart';
+import 'package:bingo_player/src/features/wallet/domain/wallet_models.dart';
+import 'package:dio/dio.dart';
 import 'package:bingo_player/src/features/wallet/presentation/wallet_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -69,6 +76,8 @@ Widget app({
     liveGameControllerProvider(
       session.id,
     ).overrideWith((ref) => _liveGameController()),
+    playerContentApiProvider.overrideWithValue(_UnusedPlayerContentApi()),
+    walletRepositoryProvider.overrideWithValue(_UnusedWalletRepository()),
     sessionStorageProvider.overrideWithValue(auth.MemoryStorage()),
     authRepositoryProvider.overrideWithValue(auth.TestAuthRepository()),
   ],
@@ -167,9 +176,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(NavigationBar), findsOneWidget);
       expect(find.byType(SessionDetailScreen), findsOneWidget);
+      await tab(tester, 'Profile');
       await tab(tester, 'Home');
-      expect(find.byType(HomeScreen), findsOneWidget);
-      await tab(tester, 'Games');
       expect(find.byType(SessionDetailScreen), findsOneWidget);
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
@@ -185,14 +193,27 @@ void main() {
     tester,
   ) async {
     responsive.viewport(tester, const Size(390, 844));
-    await tester.pumpWidget(responsive.harness());
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          playerContentApiProvider.overrideWithValue(_UnusedPlayerContentApi()),
+          walletRepositoryProvider.overrideWithValue(_UnusedWalletRepository()),
+        ],
+        child: responsive.harness(),
+      ),
+    );
     await tester.pumpAndSettle();
-    await tab(tester, 'Wallet');
+    await tester.tap(find.byKey(const ValueKey('home-menu')));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('navigation-menu-transactions')),
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Deposits'));
     await tester.pumpAndSettle();
     final before = tester.state(find.byType(WalletScreen));
+    await tab(tester, 'Profile');
     await tab(tester, 'Home');
-    await tab(tester, 'Wallet');
     expect(identical(before, tester.state(find.byType(WalletScreen))), isTrue);
     final controller = tester.widget<TabBar>(find.byType(TabBar)).controller!;
     expect(controller.index, 1);
@@ -233,12 +254,18 @@ void main() {
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();
     await capture(tester, 'home');
-    await tab(tester, 'Games');
+    await tester.tap(find.byKey(const ValueKey('home-play-bingo')));
+    await tester.pumpAndSettle();
     await capture(tester, 'games');
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pumpWidget(responsive.harness());
     await tester.pumpAndSettle();
-    await tab(tester, 'Wallet');
+    await tester.tap(find.byKey(const ValueKey('home-menu')));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('navigation-menu-transactions')),
+    );
+    await tester.pumpAndSettle();
     await capture(tester, 'wallet', boundaryKey: const ValueKey('preview'));
     expect(tester.takeException(), isNull);
   });
@@ -277,4 +304,27 @@ class _UnusedLiveGameTransport implements LiveGameTransport {
 
   @override
   Future<void> disconnect() async {}
+}
+
+class _UnusedPlayerContentApi extends PlayerContentApi {
+  _UnusedPlayerContentApi() : super(Dio());
+
+  @override
+  Future<PlayerAppContent> getContent() async => const PlayerAppContent();
+
+  @override
+  Future<List<PlayerAnnouncement>> getBannerSlides() async => const [];
+}
+
+class _UnusedWalletRepository extends WalletRepository {
+  _UnusedWalletRepository() : super(WalletApi(Dio()));
+
+  @override
+  Future<WalletBalance> getBalance() async => WalletBalance.fromJson({
+    'walletId': 1,
+    'currency': 'ETB',
+    'availableBalance': 1200,
+    'promotionalBalance': 20,
+    'totalBalance': 1220,
+  });
 }
