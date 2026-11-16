@@ -185,16 +185,20 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('tablet rail still opens the games screen', (tester) async {
+  testWidgets('tablet rail keeps games off navigation and home opens them', (
+    tester,
+  ) async {
     viewport(tester, const Size(1024, 768));
     await tester.pumpWidget(harness());
     await tester.pumpAndSettle();
-    await tester.tap(
+    expect(
       find.descendant(
         of: find.byType(NavigationRail),
         matching: find.text('Games'),
       ),
+      findsNothing,
     );
+    await tester.tap(find.byKey(const ValueKey('home-play-bingo')));
     await tester.pumpAndSettle();
     expect(find.byType(LobbyScreen), findsOneWidget);
     expect(tester.takeException(), isNull);
