@@ -21,4 +21,12 @@ class AuthRepository {
 
   Future<void> changePin(ChangePlayerPinRequest request) =>
       _api.changePin(request);
+
+  Future<UserProfile> updatePreferences({
+    String? preferredLanguage,
+    String? preferredCalendar,
+  }) => _api.updatePreferences(
+    preferredLanguage: preferredLanguage,
+    preferredCalendar: preferredCalendar,
+  );
 }

@@ -263,7 +263,7 @@
   "pinMustDiffer": "ከአሁኑ ፒን የተለየ ፒን ይምረጡ።",
   "pinConfirmationMismatch": "ፒኖቹ አይዛመዱም።",
   "profileLanguagePreference": "የቋንቋ ምርጫ",
-  "profileLanguagePreferenceDescription": "እንግሊዝኛ፣ አማርኛ ወይም ትግርኛ ይምረጡ። ምርጫዎ በዚህ መሣሪያ ላይ ይቀመጣል።",
+  "profileLanguagePreferenceDescription": "እንግሊዝኛ ወይም አማርኛ ይምረጡ። ምርጫዎ በመለያዎ ላይ ይቀመጣል።",
   "profileRefresh": "መገለጫን አድስ",
   "profileLoadError": "መገለጫዎን ማደስ አልተቻለም። የበይነመረብ ግንኙነትዎን ያረጋግጡና እንደገና ይሞክሩ።",
   "logout": "ውጣ",
@@ -520,5 +520,14 @@
   "gamesPlayed": "የተጫወቱ ጨዋታዎች",
   "ticketsPlayed": "የተጫወቱ ቲኬቶች",
   "winningGames": "ያሸነፉባቸው ጨዋታዎች",
-  "prizesWon": "የተሸለሙ ሽልማቶች"
+  "prizesWon": "የተሸለሙ ሽልማቶች",
+  "profileCalendarPreference": "የቀን መቁጠሪያ ምርጫ",
+  "calendarAutomatic": "ራስ-ሰር (በቋንቋ መሠረት)",
+  "calendarEthiopian": "የኢትዮጵያ",
+  "calendarGregorian": "ጎርጎርያን",
+  "calendarAutoEthiopian": "ራስ-ሰር በአሁኑ ጊዜ የኢትዮጵያን ቀን መቁጠሪያ ይጠቀማል።",
+  "calendarAutoGregorian": "ራስ-ሰር በአሁኑ ጊዜ ጎርጎርያን ቀን መቁጠሪያን ይጠቀማል።",
+  "calendarPreferenceSaved": "የቀን መቁጠሪያ ምርጫዎ ተቀምጧል።",
+  "calendarPreferenceSaveFailed": "የቀን መቁጠሪያ ምርጫዎን ማስቀመጥ አልተቻለም።",
+  "calendarPreferenceSaving": "የቀን መቁጠሪያ ምርጫ በማስቀመጥ ላይ..."
 }

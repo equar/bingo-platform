@@ -32,6 +32,7 @@ export function ProfilePage() {
   const [selectedLanguage, setSelectedLanguage] = useState<SupportedLanguage>(
     () => resolvePreferredLanguage(session?.user.preferredLanguage),
   );
+  const [selectedCalendar, setSelectedCalendar] = useState(() => session?.user.preferredCalendar ?? "AUTO");
   const [successOpen, setSuccessOpen] = useState(false);
   const [profileSuccessOpen, setProfileSuccessOpen] = useState(false);
   const [displayName, setDisplayName] = useState(
@@ -77,9 +78,9 @@ export function ProfilePage() {
   }
 
   const preferencesMutation = useMutation({
-    mutationFn: async (language: SupportedLanguage) => {
+    mutationFn: async (preferences: { preferredLanguage?: SupportedLanguage; preferredCalendar?: string }) => {
       const token = readSession()?.accessToken;
-      const user = await updateMyPreferences({ preferredLanguage: language });
+      const user = await updateMyPreferences(preferences);
       return { token, user };
     },
     onSuccess: ({ token, user }) => {
@@ -94,6 +95,13 @@ export function ProfilePage() {
   });
 
   const status = session?.user.status ?? "UNKNOWN";
+  const calendarLanguage =
+    selectedLanguage !== resolvePreferredLanguage(session?.user.preferredLanguage)
+      ? selectedLanguage
+      : session?.user.preferredLanguage ?? selectedLanguage;
+  const preferencesDirty =
+    selectedLanguage !== resolvePreferredLanguage(session?.user.preferredLanguage) ||
+    selectedCalendar !== (session?.user.preferredCalendar ?? "AUTO");
   const statusKey: Record<string, string> = {
     ACTIVE: "status.active",
     INACTIVE: "status.inactive",
@@ -328,9 +336,18 @@ export function ProfilePage() {
                   >
                     <MenuItem value="en">English</MenuItem>
                     <MenuItem value="am">አማርኛ</MenuItem>
-                    <MenuItem value="ti">ትግርኛ</MenuItem>
                   </Select>
                   <FormHelperText>{t("language.helper")}</FormHelperText>
+                </FormControl>
+                <FormControl fullWidth>
+                  <InputLabel id="profile-calendar-label">{t("calendar.label")}</InputLabel>
+                  <Select id="profile-calendar-select" labelId="profile-calendar-label" label={t("calendar.label")} value={selectedCalendar}
+                    onChange={(event) => setSelectedCalendar(event.target.value)}>
+                    <MenuItem value="AUTO">{t("calendar.auto")}</MenuItem>
+                    <MenuItem value="ETHIOPIAN">{t("calendar.ethiopian")}</MenuItem>
+                    <MenuItem value="GREGORIAN">{t("calendar.gregorian")}</MenuItem>
+                  </Select>
+                  <FormHelperText>{selectedCalendar === "AUTO" ? t(calendarLanguage === "am" || calendarLanguage === "ti" ? "calendar.autoAmharicResolved" : "calendar.autoGregorianResolved") : t("calendar.preferenceHelper")}</FormHelperText>
                 </FormControl>
                 {preferencesMutation.isError ? (
                   <Alert severity="error">{t("language.saveFailed")}</Alert>
@@ -338,8 +355,11 @@ export function ProfilePage() {
                 <Box>
                   <Button
                     variant="contained"
-                    onClick={() => preferencesMutation.mutate(selectedLanguage)}
-                    disabled={preferencesMutation.isPending}
+                    onClick={() => preferencesMutation.mutate({
+                      ...(selectedLanguage !== resolvePreferredLanguage(session?.user.preferredLanguage) ? { preferredLanguage: selectedLanguage } : {}),
+                      ...(selectedCalendar !== (session?.user.preferredCalendar ?? "AUTO") ? { preferredCalendar: selectedCalendar } : {}),
+                    })}
+                    disabled={preferencesMutation.isPending || !preferencesDirty}
                     aria-busy={preferencesMutation.isPending}
                   >
                     {preferencesMutation.isPending

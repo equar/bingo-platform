@@ -10,11 +10,31 @@ import {
   formatEthiopianDateTime,
   formatEthiopianNumericDate,
   formatEthiopianTime,
+  formatDualCalendarDateTime,
+  resolveEffectiveCalendar,
 } from "./ethiopianDateTime";
 
 describe("Ethiopian date-time formatting", () => {
   beforeEach(async () => {
     await i18n.changeLanguage("en");
+    window.localStorage.setItem("bingo-admin-session", JSON.stringify({ user: { preferredLanguage: "am", preferredCalendar: "AUTO" } }));
+  });
+
+  it("resolves automatic calendars and explicit overrides", () => {
+    expect(resolveEffectiveCalendar("en", "AUTO")).toBe("GREGORIAN");
+    expect(resolveEffectiveCalendar("am", "AUTO")).toBe("ETHIOPIAN");
+    expect(resolveEffectiveCalendar("ti", "AUTO")).toBe("ETHIOPIAN");
+    expect(resolveEffectiveCalendar(undefined, "AUTO")).toBe("GREGORIAN");
+    expect(resolveEffectiveCalendar("fr", "AUTO")).toBe("GREGORIAN");
+    expect(resolveEffectiveCalendar("am", "GREGORIAN")).toBe("GREGORIAN");
+    expect(resolveEffectiveCalendar("en", "ETHIOPIAN")).toBe("ETHIOPIAN");
+  });
+
+  it("shows both calendars with the selected one first for a transaction timestamp", () => {
+    const formatted = formatDualCalendarDateTime("2026-09-11T00:30:00.000Z");
+    expect(formatted).toContain("Ethiopian: 1 Meskerem 2019 E.C.");
+    expect(formatted).toContain("EAT, UTC+03:00");
+    expect(formatted).toContain("Gregorian: 11 Sept 2026");
   });
 
   it("uses Ethiopia's clock and calendar for API instants", () => {

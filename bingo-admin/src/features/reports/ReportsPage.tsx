@@ -39,6 +39,8 @@ import { getUserFacingErrorMessage, type PageResponse } from "../../api/types";
 import { AdminTablePage } from "../../components/AdminTablePage";
 import { AdminPageHeader } from "../../components/AdminPageHeader";
 import { ListRefreshButton } from "../../components/ListRefreshButton";
+import { EthiopianDatePicker } from "../../components/EthiopianDatePicker";
+import { currentCalendarPreference, ethiopianDateInputToGregorianDate, formatEthiopianDateInput } from "../../utils/ethiopianDateTime";
 
 type ReportKind =
   | "supportTickets"
@@ -131,6 +133,7 @@ export function ReportsPage() {
     isAdmin || session?.user.roles.includes("SUPPORT"),
   );
   const today = dateInputValue(new Date());
+  const calendarPreference = currentCalendarPreference();
   const defaultFrom = dateInputValue(new Date(Date.now() - 6 * 24 * 60 * 60 * 1000));
   const [kind, setKind] = useState<ReportKind>("supportTickets");
   const [from, setFrom] = useState(defaultFrom);
@@ -284,8 +287,19 @@ export function ReportsPage() {
                     : null}
                 </Select>
               </FormControl>
-              <TextField fullWidth type="date" label={t("From")} value={from} onChange={(event) => setFrom(event.target.value)} InputLabelProps={{ shrink: true }} />
-              <TextField fullWidth type="date" label={t("To")} value={to} onChange={(event) => setTo(event.target.value)} InputLabelProps={{ shrink: true }} />
+              {calendarPreference === "ETHIOPIAN" ? (
+                <>
+                  <EthiopianDatePicker label={t("From")} value={formatEthiopianDateInput(`${from}T12:00:00Z`)} onChange={(value) => { const converted = ethiopianDateInputToGregorianDate(value); if (converted) setFrom(converted); }} />
+                  <EthiopianDatePicker label={t("To")} value={formatEthiopianDateInput(`${to}T12:00:00Z`)} onChange={(value) => { const converted = ethiopianDateInputToGregorianDate(value); if (converted) setTo(converted); }} />
+                  <Typography variant="caption" color="text.secondary">{t("Report date filters use Ethiopian dates and convert to Gregorian ISO for reporting.")}</Typography>
+                </>
+              ) : (
+                <>
+                  <TextField fullWidth type="date" label={t("From")} value={from} onChange={(event) => setFrom(event.target.value)} InputLabelProps={{ shrink: true }} />
+                  <TextField fullWidth type="date" label={t("To")} value={to} onChange={(event) => setTo(event.target.value)} InputLabelProps={{ shrink: true }} />
+                  <Typography variant="caption" color="text.secondary">{t("Report date filters use Gregorian dates.")}</Typography>
+                </>
+              )}
               <TextField
                 fullWidth
                 label={t("Search")}

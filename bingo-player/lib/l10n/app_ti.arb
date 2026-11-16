@@ -38,12 +38,21 @@
   "noUpcomingGames": "ዝመጽኡ ጸወታታት ኣይተመደቡን።",
   "profileTitle": "መግለጺ",
   "profileLanguagePreference": "ምርጫ ቋንቋ",
-  "profileLanguagePreferenceDescription": "እንግሊዝኛ፣ ኣማርኛ ወይ ትግርኛ ምረጽ። ምርጫኻ ኣብዚ መሳርሒ ይዕቀብ።",
+  "profileLanguagePreferenceDescription": "እንግሊዝኛ ወይ ኣማርኛ ምረጽ። ምርጫኻ ኣብ ሕሳብካ ይዕቀብ።",
   "logout": "ውጻእ",
   "refresh": "ኣሐድስ",
   "homeTitle": "ገዛ",
   "homeGames": "ጸወታታት",
   "homeMenu": "ምናሌ ክፈት",
   "homePlayBingo": "ቢንጎ ተጻወት",
-  "cancel": "ሰርዝ"
+  "cancel": "ሰርዝ",
+  "profileCalendarPreference": "ምርጫ ዓውደ ኣዋርሕ",
+  "calendarAutomatic": "ብቋንቋ መሰረት ባዕሉ ይወሰን",
+  "calendarEthiopian": "ኢትዮጵያዊ",
+  "calendarGregorian": "ጎርጎርያዊ",
+  "calendarAutoEthiopian": "ባዕሉ ኣብዚ ሕጂ እዋን ኢትዮጵያዊ ዓውደ ኣዋርሕ ይጥቀም።",
+  "calendarAutoGregorian": "ባዕሉ ኣብዚ ሕጂ እዋን ጎርጎርያዊ ዓውደ ኣዋርሕ ይጥቀም።",
+  "calendarPreferenceSaved": "ምርጫ ዓውደ ኣዋርሕ ተዓቂቡ።",
+  "calendarPreferenceSaveFailed": "ምርጫ ዓውደ ኣዋርሕ ምዕቃብ ኣይተኻእለን።",
+  "calendarPreferenceSaving": "ምርጫ ዓውደ ኣዋርሕ ይዕቀብ ኣሎ..."
 }

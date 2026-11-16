@@ -34,6 +34,7 @@ const session = {
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-02T00:00:00.000Z",
     preferredLanguage: "en",
+    preferredCalendar: "AUTO",
   },
 };
 
@@ -131,6 +132,16 @@ describe("ProfilePage", () => {
     });
   });
 
+  it("saves a calendar-only update without overwriting the language preference", async () => {
+    updateMyPreferencesMock.mockResolvedValue({ ...session.user, preferredCalendar: "GREGORIAN" });
+    const user = userEvent.setup();
+    render(<ProfilePage />, { wrapper: createWrapper() });
+    await user.click(await screen.findByRole("combobox", { name: "Calendar" }));
+    await user.click(screen.getByRole("option", { name: "Gregorian" }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(updateMyPreferencesMock).toHaveBeenCalledWith({ preferredCalendar: "GREGORIAN" }));
+  });
+
   it("ignores a late save response from a previous session", async () => {
     updateMyPreferencesMock.mockImplementation(async () => {
       // Another account signs in while the request is in flight.
@@ -163,6 +174,8 @@ describe("ProfilePage", () => {
     await user.keyboard("{ArrowDown}{Enter}");
     expect(combobox).toHaveTextContent("አማርኛ");
 
+    await user.tab();
+    expect(screen.getByRole("combobox", { name: "Calendar" })).toHaveFocus();
     await user.tab();
     expect(screen.getByRole("button", { name: "Save" })).toHaveFocus();
     await user.keyboard("{Enter}");

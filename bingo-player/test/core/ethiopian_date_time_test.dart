@@ -2,6 +2,8 @@ import 'package:bingo_player/src/core/localization/ethiopian_date_time.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  setUp(() => EthiopianDateTime.preferredCalendar = 'ETHIOPIAN');
+
   group('Ethiopian calendar', () {
     test('New Year and leap-year Pagume boundaries', () {
       expect(EthiopianDateTime.calendarDate(DateTime.utc(2023, 9, 11)), (
@@ -67,6 +69,23 @@ void main() {
         '1 መስከረም 2017 ዓ.ም.',
       );
     });
+
+    test(
+      'honors explicit Gregorian and language-based automatic preferences',
+      () {
+        EthiopianDateTime.preferredCalendar = 'GREGORIAN';
+        expect(EthiopianDateTime.date(DateTime.utc(2024, 9, 11)), '11 Sep 2024');
+        EthiopianDateTime.preferredCalendar = 'AUTO';
+        expect(
+          EthiopianDateTime.date(DateTime.utc(2024, 9, 11), languageCode: 'am'),
+          '1 መስከረም 2017 ዓ.ም.',
+        );
+        expect(
+          EthiopianDateTime.date(DateTime.utc(2024, 9, 11), languageCode: 'en'),
+          '11 Sep 2024',
+        );
+      },
+    );
   });
 
   group('Ethiopian clock', () {

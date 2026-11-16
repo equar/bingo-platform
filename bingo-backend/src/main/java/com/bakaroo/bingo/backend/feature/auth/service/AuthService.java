@@ -168,11 +168,12 @@ public class AuthService {
     public MeResponse updateMyPreferences(Long userId, UpdateMyPreferencesRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException("USER_NOT_FOUND", "User account not found"));
-        if (!UserLanguages.isSupported(request.preferredLanguage())) {
+        if (request.preferredLanguage() != null && !UserLanguages.isSupported(request.preferredLanguage())) {
             throw new BadRequestException("UNSUPPORTED_LANGUAGE",
                     "preferredLanguage must be one of: " + String.join(", ", UserLanguages.SUPPORTED_LANGUAGES));
         }
-        user.setPreferredLanguage(request.preferredLanguage());
+        if (request.preferredLanguage() != null) user.setPreferredLanguage(request.preferredLanguage());
+        if (request.preferredCalendar() != null) user.setPreferredCalendar(request.preferredCalendar());
         return new MeResponse(toProfile(userRepository.save(user)));
     }
 
@@ -217,7 +218,8 @@ public class AuthService {
                 user.getUpdatedAt(),
                 user.isMustChangePassword(),
                 UserLanguages.resolve(user.getPreferredLanguage()),
-                user.getReferralCode());
+                user.getReferralCode(),
+                user.getPreferredCalendar() == null ? "AUTO" : user.getPreferredCalendar());
     }
 
     private boolean isDuplicatePhoneConstraint(Throwable failure) {

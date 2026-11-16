@@ -85,6 +85,9 @@ public class User {
     @Column(name = "preferred_language", length = 8)
     private String preferredLanguage;
 
+    @Column(name = "preferred_calendar", nullable = false, length = 16)
+    private String preferredCalendar = "AUTO";
+
     @Enumerated(EnumType.STRING)
     @Column(name = "player_verification_status", nullable = false, length = 30)
     private PlayerVerificationStatus playerVerificationStatus = PlayerVerificationStatus.NOT_REVIEWED;
@@ -315,6 +318,10 @@ public class User {
     public void setPreferredLanguage(String preferredLanguage) {
         this.preferredLanguage = preferredLanguage;
     }
+
+    public String getPreferredCalendar() { return preferredCalendar; }
+
+    public void setPreferredCalendar(String preferredCalendar) { this.preferredCalendar = preferredCalendar; }
 
     public PlayerVerificationStatus getPlayerVerificationStatus() {
         return playerVerificationStatus;

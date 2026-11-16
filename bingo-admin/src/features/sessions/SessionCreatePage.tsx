@@ -22,6 +22,9 @@ import { EthiopianDatePicker } from "../../components/EthiopianDatePicker";
 import {
   ethiopianTimeParts,
   ethiopianTimeToLocal,
+  ethiopianDateInputToGregorianDate,
+  formatEthiopianDateInput,
+  currentCalendarPreference,
   type EthiopianTimePeriod,
 } from "../../utils/ethiopianDateTime";
 import { translateAdminStatus } from "../../i18n";
@@ -54,6 +57,7 @@ export function SessionCreatePage() {
   const queryClient = useQueryClient();
   const roomsQuery = useQuery({ queryKey: ["rooms"], queryFn: listRooms });
   const rooms = (roomsQuery.data ?? []).filter((room) => room.active);
+  const calendarPreference = currentCalendarPreference();
   const [draft, setDraft] = useState<SessionDraft>(createInitialDraft);
   const [discardOpen, setDiscardOpen] = useState(false);
   const selectedRoom = rooms.find((room) => room.id === Number(draft.roomId));
@@ -213,18 +217,36 @@ export function SessionCreatePage() {
                 />
               </Grid>
               <Grid item xs={12} md={6}>
-                <EthiopianDatePicker
-                  label={t("Ethiopian calendar date")}
-                  value={draft.scheduledDate}
-                  onChange={(scheduledDate) => updateDraft({ scheduledDate })}
-                  required
-                  error={Boolean(selectedRoom && draft.scheduledDate && scheduleTime.error)}
-                  helperText={selectedRoom
-                    ? scheduleTime.error
-                      ? t(scheduleTime.error)
-                      : `${t("Room local time")} (${selectedRoom.timezone})`
-                    : t("Choose a room to set its local time zone.")}
-                />
+                {calendarPreference === "ETHIOPIAN" ? (
+                  <EthiopianDatePicker
+                    label={t("Ethiopian calendar date")}
+                    value={draft.scheduledDate}
+                    onChange={(scheduledDate) => updateDraft({ scheduledDate })}
+                    required
+                    error={Boolean(selectedRoom && draft.scheduledDate && scheduleTime.error)}
+                    helperText={selectedRoom
+                      ? scheduleTime.error
+                        ? t(scheduleTime.error)
+                        : `${t("Room local time")} (${selectedRoom.timezone})`
+                      : t("Choose a room to set its local time zone.")}
+                  />
+                ) : (
+                  <TextField
+                    label={t("Gregorian calendar date")}
+                    type="date"
+                    value={ethiopianDateInputToGregorianDate(draft.scheduledDate) ?? ""}
+                    onChange={(event) => updateDraft({ scheduledDate: event.target.value ? formatEthiopianDateInput(`${event.target.value}T12:00:00Z`) : "" })}
+                    fullWidth
+                    required
+                    error={Boolean(selectedRoom && draft.scheduledDate && scheduleTime.error)}
+                    helperText={selectedRoom
+                      ? scheduleTime.error
+                        ? t(scheduleTime.error)
+                        : `${t("Room local time")} (${selectedRoom.timezone})`
+                      : t("Choose a room to set its local time zone.")}
+                    slotProps={{ inputLabel: { shrink: true } }}
+                  />
+                )}
               </Grid>
               <Grid item xs={12} md={6}>
                 <Stack spacing={1}>

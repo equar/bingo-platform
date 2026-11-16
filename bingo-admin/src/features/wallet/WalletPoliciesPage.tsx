@@ -1,4 +1,7 @@
 import {
+  currentCalendarPreference,
+  ethiopianDateInputToGregorianDate,
+  formatEthiopianDateInput,
   formatEthiopianDate,
   formatEthiopianDateTime,
 } from "../../utils/ethiopianDateTime";
@@ -41,6 +44,7 @@ import {
 import { getUserFacingErrorMessage } from "../../api/types";
 import { StatusState } from "../../components/StatusState";
 import { AdminPageHeader } from "../../components/AdminPageHeader";
+import { EthiopianDatePicker } from "../../components/EthiopianDatePicker";
 import { AdminTablePagination } from "../../components/AdminTablePagination";
 import { usePrivateListSearch } from "../../components/usePrivateListSearch";
 import { useListSessionState } from "../../components/useListSessionState";
@@ -126,6 +130,7 @@ function getPolicyStatusColor(
 
 export function WalletPoliciesPage() {
   const { t } = useTranslation();
+  const calendarPreference = currentCalendarPreference();
   const queryClient = useQueryClient();
   const location = useLocation();
   const navigate = useNavigate();
@@ -500,42 +505,53 @@ export function WalletPoliciesPage() {
                       />
                     </Grid>
                     <Grid item xs={12} sm={6}>
-                      <TextField
-                        label={t("Effective from")}
-                        type="date"
-                        value={rewardDraft.effectiveFrom}
-                        onChange={(event) =>
-                          setRewardDraft({
-                            ...rewardDraft,
-                            effectiveFrom: event.target.value,
-                          })
-                        }
-                        inputProps={{ min: getTodayDateValue() }}
-                        helperText={t("Campaign dates use the Africa/Addis_Ababa timezone. Start dates cannot be in the past.")}
-                        fullWidth
-                        InputLabelProps={{ shrink: true }}
-                      />
+                      {calendarPreference === "ETHIOPIAN" ? (
+                        <EthiopianDatePicker
+                          label={t("Effective from")}
+                          value={formatEthiopianDateInput(`${rewardDraft.effectiveFrom}T12:00:00Z`)}
+                          onChange={(value) => {
+                            const converted = ethiopianDateInputToGregorianDate(value);
+                            if (converted) setRewardDraft({ ...rewardDraft, effectiveFrom: converted });
+                          }}
+                          helperText={t("Campaign dates use the Africa/Addis_Ababa timezone. Start dates cannot be in the past.")}
+                        />
+                      ) : (
+                        <TextField
+                          label={t("Effective from")}
+                          type="date"
+                          value={rewardDraft.effectiveFrom}
+                          onChange={(event) => setRewardDraft({ ...rewardDraft, effectiveFrom: event.target.value })}
+                          inputProps={{ min: getTodayDateValue() }}
+                          helperText={t("Campaign dates use the Africa/Addis_Ababa timezone. Start dates cannot be in the past.")}
+                          fullWidth
+                          InputLabelProps={{ shrink: true }}
+                        />
+                      )}
                     </Grid>
                     <Grid item xs={12} sm={6}>
-                      <TextField
-                        label={t("Effective until")}
-                        type="date"
-                        value={rewardDraft.effectiveUntil}
-                        onChange={(event) =>
-                          setRewardDraft({
-                            ...rewardDraft,
-                            effectiveUntil: event.target.value,
-                          })
-                        }
-                        inputProps={{
-                          min: rewardDraft.effectiveFrom || getTodayDateValue(),
-                        }}
-                        helperText={t(
-                          "Leave blank for no expiry. The end date is included.",
-                        )}
-                        fullWidth
-                        InputLabelProps={{ shrink: true }}
-                      />
+                      {calendarPreference === "ETHIOPIAN" ? (
+                        <EthiopianDatePicker
+                          label={t("Effective until")}
+                          value={rewardDraft.effectiveUntil ? formatEthiopianDateInput(`${rewardDraft.effectiveUntil}T12:00:00Z`) : ""}
+                          onChange={(value) => {
+                            const converted = ethiopianDateInputToGregorianDate(value);
+                            if (converted) setRewardDraft({ ...rewardDraft, effectiveUntil: converted });
+                          }}
+                          clearable
+                          helperText={t("Leave blank for no expiry. The end date is included.")}
+                        />
+                      ) : (
+                        <TextField
+                          label={t("Effective until")}
+                          type="date"
+                          value={rewardDraft.effectiveUntil}
+                          onChange={(event) => setRewardDraft({ ...rewardDraft, effectiveUntil: event.target.value })}
+                          inputProps={{ min: rewardDraft.effectiveFrom || getTodayDateValue() }}
+                          helperText={t("Leave blank for no expiry. The end date is included.")}
+                          fullWidth
+                          InputLabelProps={{ shrink: true }}
+                        />
+                      )}
                     </Grid>
                     <Grid item xs={12}>
                       <TextField

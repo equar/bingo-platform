@@ -1,5 +1,7 @@
 import 'package:bingo_player/l10n/app_localizations.dart';
 import 'package:bingo_player/src/core/localization/app_locale_controller.dart';
+import 'package:bingo_player/src/features/auth/data/auth_repository.dart';
+import 'package:bingo_player/src/features/auth/data/auth_session_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -27,14 +29,22 @@ class LanguageSelector extends ConsumerWidget {
             value: const Locale('am'),
             child: Text(localizations.languageAmharic),
           ),
-          DropdownMenuItem(
-            value: const Locale('ti'),
-            child: Text(localizations.languageTigrinya),
-          ),
         ],
         onChanged: (nextLocale) async {
           if (nextLocale == null) return;
           try {
+            final currentSession = ref.read(authSessionControllerProvider).session;
+            if (currentSession != null) {
+              final user = await ref
+                  .read(authRepositoryProvider)
+                  .updatePreferences(
+                    preferredLanguage: nextLocale.languageCode,
+                  );
+              final applied = await ref
+                  .read(authSessionControllerProvider.notifier)
+                  .updateUser(user, expectedAccessToken: currentSession.accessToken);
+              if (!applied) return;
+            }
             await ref
                 .read(appLocaleControllerProvider.notifier)
                 .setLocale(nextLocale);

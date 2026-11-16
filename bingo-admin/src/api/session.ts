@@ -12,6 +12,7 @@ export interface AdminUserProfile {
   updatedAt: string;
   mustChangePassword?: boolean;
   preferredLanguage?: string;
+  preferredCalendar?: string;
 }
 
 export interface AdminAuthSession {

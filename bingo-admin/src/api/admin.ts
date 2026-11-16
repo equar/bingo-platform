@@ -19,6 +19,7 @@ export interface AdminUserProfile {
   updatedAt: string;
   mustChangePassword?: boolean;
   preferredLanguage?: string;
+  preferredCalendar?: string;
 }
 
 export interface MeResponse {
@@ -1591,7 +1592,7 @@ export async function refreshAdminUserProfile() {
   return data.user;
 }
 
-export async function updateMyPreferences(request: { preferredLanguage: string }) {
+export async function updateMyPreferences(request: { preferredLanguage?: string; preferredCalendar?: string }) {
   const { data } = await http.put<MeResponse>("/api/v1/me/preferences", request);
   return data.user;
 }

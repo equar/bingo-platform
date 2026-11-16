@@ -51,4 +51,24 @@ class AuthApi {
       throw mapDioError(error);
     }
   }
+
+  Future<UserProfile> updatePreferences({
+    String? preferredLanguage,
+    String? preferredCalendar,
+  }) async {
+    try {
+      final response = await _dio.put<Map<String, dynamic>>(
+        '/api/v1/me/preferences',
+        data: {
+          if (preferredLanguage != null) 'preferredLanguage': preferredLanguage,
+          if (preferredCalendar != null) 'preferredCalendar': preferredCalendar,
+        },
+      );
+      return UserProfile.fromJson(
+        Map<String, dynamic>.from(response.data?['user'] as Map),
+      );
+    } on DioException catch (error) {
+      throw mapDioError(error);
+    }
+  }
 }

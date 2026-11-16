@@ -1,0 +1,1 @@
+ALTER TABLE users ADD COLUMN preferred_calendar VARCHAR(16) NOT NULL DEFAULT 'AUTO';

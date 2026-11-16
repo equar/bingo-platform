@@ -7,12 +7,12 @@ const adminUiEnglish = Object.fromEntries(
   Object.keys(adminUiTranslations).map((text) => [text, text]),
 );
 
-export const SUPPORTED_LANGUAGES = ["en", "am", "ti"] as const;
+export const SUPPORTED_LANGUAGES = ["en", "am"] as const;
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
 export const DEFAULT_LANGUAGE: SupportedLanguage = "en";
 
 export function resolvePreferredLanguage(value: unknown): SupportedLanguage {
-  return value === "am" || value === "ti" ? value : DEFAULT_LANGUAGE;
+  return value === "am" ? value : DEFAULT_LANGUAGE;
 }
 
 // The unauthenticated login screen is always English. An authenticated user's
@@ -49,6 +49,17 @@ void i18n.use(initReactI18next).init({
         "language.saving": "Saving...",
         "language.saved": "Your language preference has been saved.",
         "language.saveFailed": "Your language preference could not be saved.",
+        "calendar.label": "Calendar",
+        "calendar.auto": "Automatic (based on language)",
+        "calendar.ethiopian": "Ethiopian",
+        "calendar.gregorian": "Gregorian",
+        "calendar.preferenceHelper": "Calendar dates are shown using this preference.",
+        "calendar.autoAmharicResolved": "Automatic currently uses the Ethiopian calendar.",
+        "calendar.autoGregorianResolved": "Automatic currently uses the Gregorian calendar.",
+        "Gregorian calendar date": "Gregorian calendar date",
+        "Report date filters use Ethiopian dates and convert to Gregorian ISO for reporting.": "Report date filters use Ethiopian dates and convert to Gregorian ISO for reporting.",
+        "Report date filters use Gregorian dates.": "Report date filters use Gregorian dates.",
+        "Date filters use Ethiopian calendar days and convert to Gregorian UTC for search.": "Enter dates in the Ethiopian calendar; the range is converted to Gregorian UTC days for filtering.",
         "profile.preferences": "Preferences",
         "profile.preferencesIntro": "Settings saved to your account.",
         "brand": "Sunset Bingo Admin",
@@ -173,6 +184,17 @@ void i18n.use(initReactI18next).init({
         "language.saving": "በማስቀመጥ ላይ...",
         "language.saved": "የቋንቋ ምርጫዎ ተቀምጧል።",
         "language.saveFailed": "የቋንቋ ምርጫዎን ማስቀመጥ አልተቻለም።",
+        "calendar.label": "የቀን መቁጠሪያ",
+        "calendar.auto": "ራስ-ሰር (በቋንቋ መሠረት)",
+        "calendar.ethiopian": "የኢትዮጵያ",
+        "calendar.gregorian": "ጎርጎርያን",
+        "calendar.preferenceHelper": "ቀኖች በዚህ ምርጫ ይታያሉ።",
+        "calendar.autoAmharicResolved": "ራስ-ሰር በአሁኑ ጊዜ የኢትዮጵያን ቀን መቁጠሪያ ይጠቀማል።",
+        "calendar.autoGregorianResolved": "ራስ-ሰር በአሁኑ ጊዜ ጎርጎርያን ቀን መቁጠሪያን ይጠቀማል።",
+        "Gregorian calendar date": "የጎርጎርያን ቀን መቁጠሪያ ቀን",
+        "Report date filters use Ethiopian dates and convert to Gregorian ISO for reporting.": "የሪፖርት ቀን ማጣሪያዎች የኢትዮጵያን ቀን ተጠቅመው ለሪፖርት ወደ ጎርጎርያን ISO ይቀየራሉ።",
+        "Report date filters use Gregorian dates.": "የሪፖርት ቀን ማጣሪያዎች ጎርጎርያን ቀኖችን ይጠቀማሉ።",
+        "Date filters use Ethiopian calendar days and convert to Gregorian UTC for search.": "ቀኖችን በኢትዮጵያ ቀን መቁጠሪያ ያስገቡ፤ ለማጣራት ወደ ጎርጎርያን UTC ቀናት ይቀየራሉ።",
         "profile.preferences": "ምርጫዎች",
         "profile.preferencesIntro": "በመለያዎ ላይ የተቀመጡ ቅንብሮች።",
         "brand": "የSunset Bingo አስተዳደር",

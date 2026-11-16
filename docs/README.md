@@ -1,5 +1,7 @@
 # Documentation
 
+Account preferences include a persisted `preferredCalendar` value (`AUTO`, `ETHIOPIAN`, or `GREGORIAN`) returned by authenticated profile APIs. `AUTO` resolves to Ethiopian for Amharic or Tigrigna profile languages and Gregorian otherwise. Ethiopian display dates retain the platform's Ethiopia wall-time convention; API and export date representations remain canonical Gregorian/ISO. Tigrigna resources are incomplete and are not offered as a selectable UI language until localization is complete.
+
 Start with the root [README](../README.md) for prerequisites and local quick start.
 
 ## Architecture and business rules

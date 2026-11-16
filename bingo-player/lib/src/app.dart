@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bingo_player/src/core/theme/app_theme.dart';
 import 'package:bingo_player/src/core/widgets/responsive_content.dart';
 import 'package:bingo_player/src/core/config/app_config.dart';
@@ -5,6 +7,7 @@ import 'package:bingo_player/src/core/localization/app_locale_controller.dart';
 import 'package:bingo_player/src/core/storage/session_storage.dart';
 import 'package:bingo_player/src/core/storage/player_preferences.dart';
 import 'package:bingo_player/src/features/auth/presentation/auth_gate.dart';
+import 'package:bingo_player/src/features/auth/data/auth_session_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -35,6 +38,17 @@ class _BingoAppView extends ConsumerWidget {
     final locale = ref.watch(appLocaleControllerProvider);
     final preferences = ref.watch(playerPreferencesProvider);
     ref.watch(sessionStorageProvider);
+    ref.listen(authSessionControllerProvider, (previous, next) {
+      final language = next.session?.user.preferredLanguage;
+      if ((language == 'en' || language == 'am') &&
+          language != previous?.session?.user.preferredLanguage) {
+        unawaited(
+          ref
+              .read(appLocaleControllerProvider.notifier)
+              .setLocale(Locale(language!)),
+        );
+      }
+    });
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,

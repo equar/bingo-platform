@@ -1,4 +1,4 @@
-import { formatEthiopianDateTime } from "../../utils/ethiopianDateTime";
+import { formatDualCalendarDateTime, formatEthiopianDateTime } from "../../utils/ethiopianDateTime";
 import { useTranslation } from "react-i18next";
 import {
   keepPreviousData,
@@ -524,7 +524,7 @@ export function DepositsPage() {
                   ],
                   [
                     t("Submitted"),
-                    formatEthiopianDateTime(detailsDeposit.submittedAt),
+                    formatDualCalendarDateTime(detailsDeposit.submittedAt),
                   ],
                   [
                     t("Verified by user #"),
@@ -535,7 +535,7 @@ export function DepositsPage() {
                   [
                     t("Verified at"),
                     detailsDeposit.verifiedAt
-                      ? formatEthiopianDateTime(detailsDeposit.verifiedAt)
+                      ? formatDualCalendarDateTime(detailsDeposit.verifiedAt)
                       : t("n/a"),
                   ],
                   [
@@ -547,7 +547,7 @@ export function DepositsPage() {
                   [
                     t("Reviewed at"),
                     detailsDeposit.reviewedAt
-                      ? formatEthiopianDateTime(detailsDeposit.reviewedAt)
+                      ? formatDualCalendarDateTime(detailsDeposit.reviewedAt)
                       : t("n/a"),
                   ],
                   [t("Review note"), detailsDeposit.reviewNote ?? t("n/a")],
