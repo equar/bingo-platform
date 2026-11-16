@@ -25,7 +25,9 @@ class AppLocaleController extends StateNotifier<Locale> {
       final preferences = _preferences ?? await SharedPreferences.getInstance();
       final savedLanguage = preferences.getString(_preferenceKey);
       if (savedLanguage != null &&
-          (savedLanguage == 'en' || savedLanguage == 'am')) {
+          (savedLanguage == 'en' ||
+              savedLanguage == 'am' ||
+              savedLanguage == 'ti')) {
         state = Locale(savedLanguage);
       }
     } catch (error, stackTrace) {
@@ -41,7 +43,7 @@ class AppLocaleController extends StateNotifier<Locale> {
 
   Future<void> setLocale(Locale locale) async {
     final languageCode = locale.languageCode;
-    if (languageCode != 'en' && languageCode != 'am') {
+    if (languageCode != 'en' && languageCode != 'am' && languageCode != 'ti') {
       throw ArgumentError.value(locale, 'locale', 'Unsupported language');
     }
 

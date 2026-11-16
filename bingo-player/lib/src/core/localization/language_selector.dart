@@ -27,6 +27,10 @@ class LanguageSelector extends ConsumerWidget {
             value: const Locale('am'),
             child: Text(localizations.languageAmharic),
           ),
+          DropdownMenuItem(
+            value: const Locale('ti'),
+            child: Text(localizations.languageTigrinya),
+          ),
         ],
         onChanged: (nextLocale) async {
           if (nextLocale == null) return;

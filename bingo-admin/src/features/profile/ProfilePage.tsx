@@ -328,6 +328,7 @@ export function ProfilePage() {
                   >
                     <MenuItem value="en">English</MenuItem>
                     <MenuItem value="am">አማርኛ</MenuItem>
+                    <MenuItem value="ti">ትግርኛ</MenuItem>
                   </Select>
                   <FormHelperText>{t("language.helper")}</FormHelperText>
                 </FormControl>

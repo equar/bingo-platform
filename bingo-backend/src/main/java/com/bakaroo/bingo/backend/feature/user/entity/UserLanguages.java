@@ -6,7 +6,7 @@ import java.util.Set;
 public final class UserLanguages {
 
     public static final String DEFAULT_LANGUAGE = "en";
-    public static final Set<String> SUPPORTED_LANGUAGES = Set.of("en", "am");
+    public static final Set<String> SUPPORTED_LANGUAGES = Set.of("en", "am", "ti");
 
     private UserLanguages() {
     }
