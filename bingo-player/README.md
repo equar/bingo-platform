@@ -34,7 +34,8 @@ ordinary launches retain it.
 The equivalent VS Code launch configurations are **Bingo Player — Android
 emulator**, **Bingo Player — Chrome**, and **Bingo Player — Windows**. For
 Android, select the emulator in the VS Code device picker. The app uses the
-backend origin `http://10.0.2.2:8080` in the emulator and
+backend origin `http://127.0.0.1:8080` through the local launcher's ADB
+reverse tunnel in the emulator and
 `http://localhost:8080` in Chrome/Windows. REST routes are under `/api/v1`;
 live draws use `ws://<backend-host>:8080/ws`. Chrome authentication is stored
 for its origin; logout clears that app's saved session. Chrome's localhost

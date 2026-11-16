@@ -44,6 +44,20 @@ class BingoPatternEvaluatorTest {
     }
 
     @Test
+    void fullHouseRejectsAnUndrawnNumberEvenWhenEveryOtherSquareIsCalled() {
+        BingoCard cardWithTwentyFive = new BingoCard(List.of(
+                List.of(1, 2, 3, 4, 5),
+                List.of(6, 7, 8, 9, 10),
+                List.of(11, 12, 0, 13, 14),
+                List.of(15, 16, 17, 18, 19),
+                List.of(20, 21, 22, 23, 25)));
+        Set<Integer> called = new HashSet<>(evaluator.allTicketNumbers(cardWithTwentyFive));
+        called.remove(25);
+
+        assertFalse(evaluator.matches(cardWithTwentyFive, called, BingoPatternType.FULL_HOUSE));
+    }
+
+    @Test
     void fourCornersRequiresEveryCorner() {
         assertTrue(evaluator.matches(card, Set.of(1, 5, 20, 24), BingoPatternType.FOUR_CORNERS));
         assertFalse(evaluator.matches(card, Set.of(1, 5, 20), BingoPatternType.FOUR_CORNERS));

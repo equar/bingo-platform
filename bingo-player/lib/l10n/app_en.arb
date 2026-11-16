@@ -163,6 +163,7 @@
   "roomPlayersLabel": "Server player count",
   "playerCountUnavailable": "Unavailable from the current contract",
   "roomDetails": "Room details",
+  "gameRules": "Game Rules",
   "roomSessions": "Sessions",
   "sessionsEmpty": "There are no sessions for this room yet.",
   "lobbyEmptyTitle": "No rooms available",

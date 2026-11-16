@@ -287,6 +287,36 @@ void main() {
     },
   );
 
+  test('purchase batch commits every selected ticket with distinct keys', () async {
+    final repo = _FakeRepo();
+    final controller = LiveGameController(
+      sessionId: 42,
+      repository: repo,
+      readAuthSession: _authState,
+      clearAuthSession: ({String? reason}) async {},
+      appConfig: const AppConfig(
+        apiBaseUrl: 'https://example.com',
+        apiBaseUrlLabel: 'API_BASE_URL',
+      ),
+      transport: _NoopTransport(),
+    );
+    addTearDown(controller.dispose);
+    controller.state = LiveGameState(
+      isLoading: false,
+      connectionState: LiveGameConnectionState.connected,
+      session: _session(),
+      ticketPageIndex: 0,
+      selectedTicketIndex: 0,
+    );
+
+    final result = await controller.purchaseTickets(4);
+
+    expect(result.error, isNull);
+    expect(result.purchasedCount, 4);
+    expect(repo.ownedTickets, hasLength(4));
+    expect(repo.purchaseKeys.toSet(), hasLength(4));
+  });
+
   test(
     'uncertain purchase reconciles with the same backend idempotency key',
     () async {

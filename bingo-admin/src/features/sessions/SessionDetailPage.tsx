@@ -400,19 +400,35 @@ export function SessionDetailPage() {
         </Grid>
         <Grid item xs={12} lg={7}>
           <Card sx={{ border: "1px solid", borderColor: "divider" }}>
-            <CardContent>
-              <Stack spacing={2}>
+            <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>
+              <Stack spacing={1}>
                 <Stack
                   direction="row"
                   justifyContent="space-between"
                   alignItems="center"
                   gap={1}
+                  flexWrap="wrap"
                 >
                   <Typography variant="h6">{t("Live draw")}</Typography>
-                  <ListRefreshButton
-                    refreshing={historyQuery.isFetching}
-                    onRefresh={() => historyQuery.refetch()}
-                  />
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <ListRefreshButton
+                      refreshing={historyQuery.isFetching}
+                      onRefresh={() => historyQuery.refetch()}
+                    />
+                    {canOperateDraws ? (
+                      <Button
+                        data-testid="automatic-draw-button"
+                        size="small"
+                        variant="contained"
+                        onClick={() => drawMutation.mutate()}
+                        disabled={drawMutation.isPending || !sessionCanDraw}
+                      >
+                        {drawMutation.isPending
+                          ? t("Drawing…")
+                          : t("Draw next number")}
+                      </Button>
+                    ) : null}
+                  </Stack>
                 </Stack>
                 {historyQuery.isRefetchError ? (
                   <ListRefreshError
@@ -421,20 +437,8 @@ export function SessionDetailPage() {
                     onRetry={() => historyQuery.refetch()}
                   />
                 ) : null}
-                {canOperateDraws ? (
-                  <Button
-                    data-testid="automatic-draw-button"
-                    variant="contained"
-                    onClick={() => drawMutation.mutate()}
-                    disabled={drawMutation.isPending || !sessionCanDraw}
-                  >
-                    {drawMutation.isPending
-                      ? t("Drawing…")
-                      : t("Draw next number")}
-                  </Button>
-                ) : null}
                 {!sessionCanDraw ? (
-                  <Typography color="text.secondary">
+                  <Typography variant="caption" color="text.secondary">
                     {t(
                       ["CLOSED", "SETTLED", "CANCELLED"].includes(session.state)
                         ? "This game has ended. Drawing is closed."
@@ -443,46 +447,51 @@ export function SessionDetailPage() {
                   </Typography>
                 ) : null}
                 {lastTriggeredDraw ? (
-                  <Alert severity="success" data-testid="automatic-draw-result">
+                  <Alert
+                    severity="success"
+                    variant="outlined"
+                    data-testid="automatic-draw-result"
+                    sx={{ py: 0, "& .MuiAlert-message": { py: 0.25 } }}
+                  >
                     {t("Server drew")} {lastTriggeredDraw.numberDrawn}{" "}
                     {t("at sequence")} {lastTriggeredDraw.sequenceNo}
                     {t(".")}
                   </Alert>
                 ) : null}
-                <Alert severity="info">
+                <Typography variant="caption" color="text.secondary">
                   {t(
-                    "Numbers are selected by the server. WebSocket feed and REST replay are merged by sequence number.",
+                    "Numbers are selected by the server. History is synchronized from the live feed.",
                   )}
-                </Alert>
-                <Stack spacing={1}>
-                  {draws.length === 0 ? (
-                    <Typography color="text.secondary">
+                </Typography>
+                {draws.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary">
                       {t("No draws recorded yet.")}
-                    </Typography>
-                  ) : null}
-                  {draws.map((draw: DrawEventResponse) => (
-                    <Card key={draw.sequenceNo} variant="outlined">
-                      <CardContent>
-                        <Stack
-                          direction="row"
-                          justifyContent="space-between"
-                          alignItems="center"
-                        >
-                          <div>
-                            <Typography fontWeight={700}>
-                              {t("#")}
-                              {draw.sequenceNo} {t("·")} {draw.numberDrawn}
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary">
-                              {formatEthiopianDateTime(draw.drawnAt)}
-                            </Typography>
-                          </div>
-                          <Chip label={draw.operationId} size="small" />
-                        </Stack>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </Stack>
+                  </Typography>
+                ) : (
+                  <Box
+                    data-testid="draw-history"
+                    aria-label={t("Draw history")}
+                    sx={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: 0.75,
+                      maxHeight: 112,
+                      overflowY: "auto",
+                      pr: 0.5,
+                    }}
+                  >
+                    {draws.map((draw: DrawEventResponse) => (
+                      <Chip
+                        key={draw.sequenceNo}
+                        data-testid={`draw-history-chip-${draw.sequenceNo}`}
+                        variant="outlined"
+                        size="small"
+                        label={`${t("#")}${draw.sequenceNo} ${t("·")} ${draw.numberDrawn}`}
+                        title={formatEthiopianDateTime(draw.drawnAt)}
+                      />
+                    ))}
+                  </Box>
+                )}
               </Stack>
             </CardContent>
           </Card>

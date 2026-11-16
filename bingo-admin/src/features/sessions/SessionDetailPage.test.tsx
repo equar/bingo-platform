@@ -107,6 +107,42 @@ describe("SessionDetailPage automatic draws", () => {
     expect(postDraw).toHaveBeenCalledTimes(1);
   });
 
+  it("renders draw history as compact, scrollable sequence chips", async () => {
+    vi.mocked(sessionDraws).mockResolvedValue([
+      {
+        id: 41,
+        sessionId: 9,
+        sequenceNo: 1,
+        numberDrawn: 57,
+        operationId: "draw-op-41",
+        drawnAt: "2026-10-25T10:00:10Z",
+      },
+      {
+        id: 42,
+        sessionId: 9,
+        sequenceNo: 2,
+        numberDrawn: 14,
+        operationId: "draw-op-42",
+        drawnAt: "2026-10-25T10:00:20Z",
+      },
+    ]);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={["/sessions/9"]}>
+          <Routes>
+            <Route path="/sessions/:sessionId" element={<SessionDetailPage />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByTestId("draw-history")).toBeInTheDocument();
+    expect(screen.getByTestId("draw-history-chip-1")).toHaveTextContent("#1 · 57");
+    expect(screen.getByTestId("draw-history-chip-2")).toHaveTextContent("#2 · 14");
+    expect(screen.queryByText("draw-op-41")).not.toBeInTheDocument();
+  });
+
   it("does not allow SUPPORT users to trigger draws", async () => {
     sessionState.roles = ["SUPPORT"];
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });

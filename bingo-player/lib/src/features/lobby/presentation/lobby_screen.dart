@@ -190,6 +190,9 @@ class _SessionList extends StatelessWidget {
               itemCount: sessions.length,
               itemBuilder: (context, index) {
                 final session = sessions[index];
+                final isLive = const {'STARTED', 'DRAWING'}.contains(
+                  session.state.toUpperCase(),
+                );
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: SectionCard(
@@ -229,10 +232,10 @@ class _SessionList extends StatelessWidget {
                                 onPressed: () => Navigator.of(context).push(
                                   MaterialPageRoute<void>(
                                     builder: (_) =>
-                                        SessionDetailScreen(session: session),
+                                        const GameRulesScreen(),
                                   ),
                                 ),
-                                child: Text(localizations.roomDetails),
+                                child: Text(localizations.gameRules),
                               ),
                             ),
                             if (onBuy != null) ...[
@@ -246,6 +249,25 @@ class _SessionList extends StatelessWidget {
                                       ? () => onBuy!(session)
                                       : null,
                                   child: Text(localizations.buyTicketsButton),
+                                ),
+                              ),
+                            ] else if (isLive) ...[
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: FilledButton.icon(
+                                  key: ValueKey('live-game-${session.id}'),
+                                  onPressed: () =>
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute<void>(
+                                          builder: (_) => SessionDetailScreen(
+                                            session: session,
+                                          ),
+                                        ),
+                                      ),
+                                  icon: const Icon(
+                                    Icons.sports_esports_outlined,
+                                  ),
+                                  label: Text(localizations.liveGameTitle),
                                 ),
                               ),
                             ],
@@ -365,9 +387,18 @@ Future<void> _buyTickets(
       }
       return;
     }
-    final result = await ref
-        .read(liveGameControllerProvider(session.id).notifier)
-        .purchaseTickets(selected);
+    final controllerSubscription = ref.listenManual(
+      liveGameControllerProvider(session.id),
+      (_, _) {},
+    );
+    final PurchaseFlowResult result;
+    try {
+      result = await ref
+          .read(liveGameControllerProvider(session.id).notifier)
+          .purchaseTickets(selected);
+    } finally {
+      controllerSubscription.close();
+    }
     ref.invalidate(walletBalanceProvider);
     ref.invalidate(activeSessionsProvider);
     if (!context.mounted) return;
