@@ -733,7 +733,7 @@ export function RoomsPage() {
                         </Grid>
                         <Grid item xs={12}>
                           <TextField
-                            label={t("Description")}
+                            label={t("Game rules")}
                             value={draft?.description ?? ""}
                             onChange={(e) =>
                               draft &&

@@ -43,20 +43,22 @@ GameSession game({String status = 'DRAWING'}) => GameSession(
   updatedAt: DateTime.utc(2026, 11, 11),
 );
 
-TicketResponse ticket({int id = 101}) => TicketResponse(
+TicketResponse ticket({int id = 101, List<List<int>>? grid}) => TicketResponse(
   id: id,
   sessionId: 42,
   ownerId: 7,
   publicTicketCode: 'TK-42-101',
   eligibleClaimPatterns: const ['LINE'],
   operationId: 'fixture',
-  grid: const [
-    [1, 16, 31, 46, 61],
-    [2, 17, 32, 47, 62],
-    [3, 18, 0, 48, 63],
-    [4, 19, 33, 49, 64],
-    [5, 20, 34, 50, 65],
-  ],
+  grid:
+      grid ??
+      const [
+        [1, 16, 31, 46, 61],
+        [2, 17, 32, 47, 62],
+        [3, 18, 0, 48, 63],
+        [4, 19, 33, 49, 64],
+        [5, 20, 34, 50, 65],
+      ],
   purchasedAt: DateTime.utc(2026, 11, 11),
 );
 
@@ -216,7 +218,7 @@ void main() {
                   'recent-call-',
                 ),
           ),
-          findsNWidgets(count < 5 ? count : 5),
+          findsNothing,
         );
         expect(tester.takeException(), isNull);
       }
@@ -242,24 +244,74 @@ void main() {
           tester,
           size: size,
           count: 21,
-          ownedCount: 4,
+          ownedCount: 6,
           locale: locale,
         );
         await tester.pump(const Duration(milliseconds: 350));
         final board = tester.widget<GridView>(
           find.byKey(const ValueKey('multi-ticket-board')),
         );
-        expect(board.childrenDelegate.estimatedChildCount, 4);
+        expect(board.childrenDelegate.estimatedChildCount, 6);
         await tester.scrollUntilVisible(
-          find.byKey(const ValueKey('live-ticket-grid-104')),
+          find.byKey(const ValueKey('live-ticket-grid-106')),
           120,
-          scrollable: find.byType(Scrollable).last,
+          scrollable: find.byType(Scrollable).first,
         );
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox.shrink());
       },
     );
   }
+
+  testWidgets(
+    'drawing promotes the most-marked ticket without hiding other tickets',
+    (tester) async {
+      final controller = await mount(tester, count: 0, ownedCount: 0);
+      final lessMarked = ticket(
+        id: 102,
+        grid: const [
+          [51, 52, 53, 54, 55],
+          [56, 57, 58, 59, 60],
+          [61, 62, 0, 63, 64],
+          [65, 66, 67, 68, 69],
+          [70, 71, 72, 73, 74],
+        ],
+      );
+      final mostMarked = ticket(id: 101);
+      controller.state = state(0).copyWith(
+        draws: [
+          for (var number = 1; number <= 24; number++)
+            LiveDrawEvent(
+              sessionId: 42,
+              sequenceNo: number,
+              numberDrawn: number,
+              drawnAt: DateTime.utc(2026, 11, 11),
+            ),
+        ],
+        allTickets: [lessMarked, mostMarked],
+        ticketPage: PageResult(
+          content: [lessMarked, mostMarked],
+          page: 0,
+          size: 10,
+          totalElements: 2,
+          totalPages: 1,
+          first: true,
+          last: true,
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 300));
+
+      final mostMarkedGrid = find.byKey(const ValueKey('live-ticket-grid-101'));
+      final lessMarkedGrid = find.byKey(const ValueKey('live-ticket-grid-102'));
+      expect(mostMarkedGrid, findsOneWidget);
+      expect(lessMarkedGrid, findsOneWidget);
+      expect(
+        tester.getTopLeft(mostMarkedGrid).dx,
+        lessThan(tester.getTopLeft(lessMarkedGrid).dx),
+      );
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
 
   testWidgets('manual marking is available when auto-mark is turned off', (
     tester,
@@ -292,6 +344,10 @@ void main() {
     expect(
       tester.getSemantics(cell).flagsCollection.isSelected,
       ui.Tristate.isTrue,
+    );
+    expect(
+      find.descendant(of: cell, matching: find.byIcon(Icons.check)),
+      findsNothing,
     );
     expect(tester.takeException(), isNull);
     semantics.dispose();
@@ -659,14 +715,14 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  testWidgets('live play fills the viewport and keeps details in a sheet', (
+  testWidgets('live play scrolls tickets and keeps details in a sheet', (
     tester,
   ) async {
     await mount(tester, count: 21);
     final scroll = tester.widget<SingleChildScrollView>(
       find.byKey(const ValueKey('live-play-screen')),
     );
-    expect(scroll.child, isA<SizedBox>());
+    expect(scroll.child, isA<Padding>());
     await tester.ensureVisible(
       find.byKey(const ValueKey('claim-submit-button')),
     );
@@ -760,6 +816,13 @@ void main() {
     final initial = tester.getRect(
       find.byKey(const ValueKey('live-ticket-grid-101')),
     );
+    final unmarkedCell = tester.widget<AnimatedContainer>(
+      find.descendant(
+        of: find.byKey(const ValueKey('ticket-cell-0-1')),
+        matching: find.byType(AnimatedContainer),
+      ),
+    );
+    expect((unmarkedCell.decoration! as BoxDecoration).color, Colors.white);
     controller.state = state(75);
     await tester.pump(const Duration(milliseconds: 300));
     expect(

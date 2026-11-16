@@ -286,6 +286,7 @@ class BingoGameIntegrationTest extends MySqlIntegrationTest {
                                 .andExpect(status().isOk())
                                 .andExpect(jsonPath("$[0].id").value(session.id()))
                                 .andExpect(jsonPath("$[0].scheduledStartAt").isNotEmpty())
+                                .andExpect(jsonPath("$[0].maxTicketsPerPlayer").value(10))
                                 .andExpect(jsonPath("$[0].configuredPrizes").isArray())
                                 .andExpect(jsonPath("$[0].ticketSalesCloseOnSessionStart").doesNotExist());
 

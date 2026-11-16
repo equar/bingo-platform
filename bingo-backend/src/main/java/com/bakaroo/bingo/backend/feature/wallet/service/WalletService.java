@@ -35,7 +35,6 @@ import java.time.Instant;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -283,11 +282,7 @@ public class WalletService {
     private Wallet ensureWallet(User owner) {
         return walletRepository.findByOwnerId(owner.getId()).orElseGet(() -> {
             Wallet wallet = Wallet.create(owner, walletProperties.currency());
-            try {
-                return walletRepository.save(wallet);
-            } catch (DataIntegrityViolationException exception) {
-                return walletRepository.findByOwnerId(owner.getId()).orElseThrow(() -> exception);
-            }
+            return walletRepository.saveAndFlush(wallet);
         });
     }
 

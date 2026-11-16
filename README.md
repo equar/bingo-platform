@@ -109,7 +109,8 @@ For a one-app generated-state recovery, pass `-CleanRebuild`; normal launches
 keep build and Gradle caches.
 
 The launcher resolves paths from its own location, so it can be run from any
-working directory. It uses `10.0.2.2:8080` from an Android emulator and
+working directory. It uses an ADB reverse tunnel to `127.0.0.1:8080` from
+an Android emulator and
 `localhost:8080` from Chrome and Windows. Player live draws connect to `/ws`;
 the API origin is the backend root at port 8080 and API routes use `/api/v1`.
 Player and Agent use separate Chrome ports (5180 and 5181), so both can run at

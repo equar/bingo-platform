@@ -147,7 +147,6 @@ ThemeData buildAppTheme({Brightness brightness = Brightness.light}) {
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
-        // A deeper orange keeps the original palette and improves white-label contrast.
         backgroundColor: const Color(0xFFBA4900),
         foregroundColor: Colors.white,
         minimumSize: const Size(48, 48),
