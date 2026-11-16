@@ -85,6 +85,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
   }
 
+  Future<void> _logout() async {
+    try {
+      await ref.read(authRepositoryProvider).logout();
+      await ref.read(authSessionControllerProvider.notifier).clearSession();
+    } catch (error) {
+      if (!mounted) return;
+      final message = normalizeApiError(error).userMessage(
+        AppLocalizations.of(context)!,
+      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    }
+  }
+
   Future<void> _showChangePinDialog() async {
     final localizations = AppLocalizations.of(context)!;
     final formKey = GlobalKey<FormState>();
@@ -716,9 +729,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ],
               OutlinedButton.icon(
                 icon: const Icon(Icons.logout_rounded),
-                onPressed: () => ref
-                    .read(authSessionControllerProvider.notifier)
-                    .clearSession(),
+                onPressed: _logout,
                 label: Text(localizations.logout),
               ),
             ],

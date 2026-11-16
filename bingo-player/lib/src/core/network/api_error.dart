@@ -35,6 +35,9 @@ class ApiError implements Exception {
   String _baseUserMessage(AppLocalizations localizations) {
     if (cancelled) return '';
     if (code == 'ACCOUNT_SUSPENDED') return localizations.errorAccountSuspended;
+    if (code == 'PLAYER_ALREADY_LOGGED_IN' || code == 'PLAYER_SESSION_REPLACED') {
+      return localizations.errorPlayerAlreadyLoggedIn;
+    }
     if (outcomeUnknown) return localizations.errorTransactionUnknown;
     if (_isLoginPath &&
         ((statusCode == 401 || statusCode == 403) ||

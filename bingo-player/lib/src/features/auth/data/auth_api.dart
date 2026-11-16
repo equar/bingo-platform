@@ -19,6 +19,14 @@ class AuthApi {
     }
   }
 
+  Future<void> logout() async {
+    try {
+      await _dio.post<void>('/api/v1/auth/logout');
+    } on DioException catch (error) {
+      throw mapDioError(error);
+    }
+  }
+
   Future<AuthResponse> register(RegisterRequest request) async {
     try {
       final response = await _dio.post<Map<String, dynamic>>(

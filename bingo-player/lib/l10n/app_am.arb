@@ -42,6 +42,7 @@
   "retry": "እንደገና ይሞክሩ",
   "errorGeneric": "ችግኝ ተፈጥሯል።",
   "errorInvalidCredentials": "የስልክ ቁጥሩ ወይም ፒኑ ትክክል አይደለም።",
+  "errorPlayerAlreadyLoggedIn": "ይህ መለያ በሌላ መሣሪያ ላይ ንቁ ነው። በዚያ መሣሪያ ላይ ዘግተው ከዚያ እንደገና ይሞክሩ።",
   "errorPermissionDenied": "ይህን ተግባር ለማከናወን ፈቃድ የለዎትም።",
   "errorNoConnection": "መገናኘት አልተቻለም። የኢንተርኔት ግንኙነትዎን ያረጋግጡና እንደገና ይሞክሩ።",
   "errorServiceUnavailable": "አገልግሎቱ ለጊዜው አይገኝም። እባክዎ በኋላ እንደገና ይሞክሩ።",

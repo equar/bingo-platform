@@ -10,6 +10,7 @@
   "retry": "ደጊምካ ፈትን",
   "errorGeneric": "ገለ ጸገም ተፈጢሩ።",
   "errorInvalidCredentials": "ቁጽሪ ተሌፎን ወይ ፒን ቅኑዕ ኣይኮነን።",
+  "errorPlayerAlreadyLoggedIn": "እዚ ኣካውንት ኣብ ካልእ መሳርሒ ንጡፍ እዩ። በቲ ካልእ መሳርሒ ወጺእካ ድሕሪኡ እንደገና ፈትን።",
   "errorPermissionDenied": "ነዚ ተግባር ክትፍጽም ፍቓድ የብልካን።",
   "errorNoConnection": "ምስ ኢንተርነት ምትእስሳር ኣይተኻእለን። ምትእስሳርካ ኣረጋግጽን እንደገና ፈትንን።",
   "loginTitle": "እቶ",

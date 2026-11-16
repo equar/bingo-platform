@@ -14,6 +14,8 @@ class AuthRepository {
 
   Future<AuthResponse> login(LoginRequest request) => _api.login(request);
 
+  Future<void> logout() => _api.logout();
+
   Future<AuthResponse> register(RegisterRequest request) =>
       _api.register(request);
 
