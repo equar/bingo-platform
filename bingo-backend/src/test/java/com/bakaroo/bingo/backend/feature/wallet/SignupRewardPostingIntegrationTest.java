@@ -174,7 +174,7 @@ class SignupRewardPostingIntegrationTest extends MySqlIntegrationTest {
         String positivePolicy = """
                 {"enabled":true,"rewardAmount":25.00,"currency":"ETB",
                  "effectiveFrom":"%s","effectiveUntil":"%s","reason":"approved signup reward"}
-                """.formatted(Instant.now().plusSeconds(60), Instant.now().plusSeconds(3600));
+                """.formatted(Instant.now().plusSeconds(3700), Instant.now().plusSeconds(7200));
         mockMvc.perform(post("/api/v1/admin/wallet/signup-rewards/settings")
                 .header("Authorization", "Bearer " + adminToken)
                 .contentType(MediaType.APPLICATION_JSON).content(positivePolicy))
