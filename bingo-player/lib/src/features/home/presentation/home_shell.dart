@@ -21,10 +21,10 @@ class _HomeShellState extends State<HomeShell> {
   int _index = 0;
 
   final _visited = <int>{0};
-  final _navigatorKeys = List.generate(4, (_) => GlobalKey<NavigatorState>());
-  final _heroControllers = List.generate(4, (_) => HeroController());
+  final _navigatorKeys = List.generate(2, (_) => GlobalKey<NavigatorState>());
+  final _heroControllers = List.generate(2, (_) => HeroController());
   late final _observers = List.generate(
-    4,
+    2,
     (_) => _TabObserver(() {
       if (mounted) setState(() {});
     }),
@@ -44,21 +44,11 @@ class _HomeShellState extends State<HomeShell> {
 
   Widget _rootPage(int index) => switch (index) {
     0 => HomeScreen(
-      onGames: () => _select(1),
-      onWallet: () => _select(2),
-      onProfile: _showProfile,
+      onGames: _openGames,
+      onOpenMenu: _showNavigationMenu,
       onSupport: _support,
     ),
-    1 => const LobbyScreen(),
-    2 => const WalletScreen(),
-    _ => ProfileScreen(
-      onSupport: _support,
-      onMessages: _messages,
-      onGameHistory: _gameHistory,
-      onDeposit: () => _openWalletTab(1),
-      onWithdraw: () => _openWalletTab(3),
-      onTransactions: () => _openWalletTab(0),
-    ),
+    _ => ProfileScreen(onOpenMenu: _showNavigationMenu),
   };
 
   Widget _pages() => PopScope<Object?>(
@@ -77,7 +67,7 @@ class _HomeShellState extends State<HomeShell> {
     child: IndexedStack(
       index: _index,
       children: [
-        for (var index = 0; index < 4; index++)
+        for (var index = 0; index < 2; index++)
           if (_visited.contains(index))
             TickerMode(
               enabled: _index == index,
@@ -101,6 +91,10 @@ class _HomeShellState extends State<HomeShell> {
     MaterialPageRoute(builder: (_) => const SupportScreen()),
   );
 
+  void _openGames() => _navigatorKeys[_index].currentState!.push<void>(
+    MaterialPageRoute(builder: (_) => const LobbyScreen()),
+  );
+
   void _messages() => _navigatorKeys[_index].currentState!.push<void>(
     MaterialPageRoute(builder: (_) => const MessagesScreen()),
   );
@@ -114,32 +108,76 @@ class _HomeShellState extends State<HomeShell> {
         MaterialPageRoute(builder: (_) => WalletScreen(initialTab: tab)),
       );
 
-  void _showProfile() {
+  void _showNavigationMenu() {
+    final l = AppLocalizations.of(context)!;
+    final destinations = <(IconData, String, String, VoidCallback)>[
+      (
+        Icons.south_west_rounded,
+        l.walletDepositsTab,
+        'navigation-menu-deposits',
+        () => _openWalletTab(1),
+      ),
+      (
+        Icons.north_east_rounded,
+        'Withdraw',
+        'navigation-menu-withdraw',
+        () => _openWalletTab(3),
+      ),
+      (
+        Icons.receipt_long_outlined,
+        l.walletTransactionsTab,
+        'navigation-menu-transactions',
+        () => _openWalletTab(0),
+      ),
+      (
+        Icons.sports_esports_outlined,
+        l.gameHistoryTitle,
+        'navigation-menu-game-history',
+        _gameHistory,
+      ),
+      (
+        Icons.mail_outline_rounded,
+        l.messagesTitle,
+        'navigation-menu-messages',
+        _messages,
+      ),
+      (Icons.support_agent_outlined, l.homeSupport, 'support-tab', _support),
+      (
+        Icons.person_outline_rounded,
+        l.homeProfile,
+        'navigation-menu-profile',
+        () => _select(1),
+      ),
+    ];
     showModalBottomSheet<void>(
       context: context,
-      isScrollControlled: true,
       useSafeArea: true,
       showDragHandle: true,
-      builder: (sheetContext) => FractionallySizedBox(
-        heightFactor: .94,
-        child: ProfileScreen(
-          onSupport: () => _dismissProfileAnd(sheetContext, _support),
-          onMessages: () => _dismissProfileAnd(sheetContext, _messages),
-          onGameHistory: () => _dismissProfileAnd(sheetContext, _gameHistory),
-          onDeposit: () =>
-              _dismissProfileAnd(sheetContext, () => _openWalletTab(1)),
-          onWithdraw: () =>
-              _dismissProfileAnd(sheetContext, () => _openWalletTab(3)),
-          onTransactions: () =>
-              _dismissProfileAnd(sheetContext, () => _openWalletTab(0)),
+      builder: (sheetContext) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          padding: const EdgeInsets.only(bottom: 12),
+          children: [
+            for (final destination in destinations)
+              ListTile(
+                key: ValueKey(destination.$3),
+                leading: Icon(
+                  destination.$1,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                title: Text(destination.$2),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) destination.$4();
+                  });
+                },
+              ),
+          ],
         ),
       ),
     );
-  }
-
-  void _dismissProfileAnd(BuildContext sheetContext, VoidCallback action) {
-    Navigator.of(sheetContext).pop();
-    WidgetsBinding.instance.addPostFrameCallback((_) => action());
   }
 
   @override
@@ -175,20 +213,6 @@ class _HomeShellState extends State<HomeShell> {
                               icon: const Icon(Icons.home_outlined),
                               selectedIcon: const Icon(Icons.home_rounded),
                               label: Text(l.homeTitle),
-                            ),
-                            NavigationRailDestination(
-                              icon: const Icon(Icons.grid_view_outlined),
-                              selectedIcon: const Icon(Icons.grid_view_rounded),
-                              label: Text(l.homeGames),
-                            ),
-                            NavigationRailDestination(
-                              icon: const Icon(
-                                Icons.account_balance_wallet_outlined,
-                              ),
-                              selectedIcon: const Icon(
-                                Icons.account_balance_wallet_rounded,
-                              ),
-                              label: Text(l.homeWallet),
                             ),
                             NavigationRailDestination(
                               icon: const Icon(Icons.person_outline_rounded),
@@ -263,20 +287,6 @@ class _HomeShellState extends State<HomeShell> {
                             icon: const Icon(Icons.home_outlined),
                             selectedIcon: const Icon(Icons.home_rounded),
                             label: l.homeTitle,
-                          ),
-                          NavigationDestination(
-                            icon: const Icon(Icons.grid_view_outlined),
-                            selectedIcon: const Icon(Icons.grid_view_rounded),
-                            label: l.homeGames,
-                          ),
-                          NavigationDestination(
-                            icon: const Icon(
-                              Icons.account_balance_wallet_outlined,
-                            ),
-                            selectedIcon: const Icon(
-                              Icons.account_balance_wallet_rounded,
-                            ),
-                            label: l.homeWallet,
                           ),
                           NavigationDestination(
                             icon: const Icon(Icons.person_outline_rounded),

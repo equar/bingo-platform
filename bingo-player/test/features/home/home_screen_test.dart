@@ -36,8 +36,7 @@ Widget _home({
     home: Scaffold(
       body: HomeScreen(
         onGames: onGames,
-        onWallet: () {},
-        onProfile: () {},
+        onOpenMenu: () {},
         onSupport: onSupport ?? () {},
       ),
     ),

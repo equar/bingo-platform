@@ -22,22 +22,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
-  const ProfileScreen({
-    super.key,
-    this.onSupport,
-    this.onMessages,
-    this.onGameHistory,
-    this.onDeposit,
-    this.onWithdraw,
-    this.onTransactions,
-  });
+  const ProfileScreen({super.key, this.onOpenMenu});
 
-  final VoidCallback? onSupport;
-  final VoidCallback? onMessages;
-  final VoidCallback? onGameHistory;
-  final VoidCallback? onDeposit;
-  final VoidCallback? onWithdraw;
-  final VoidCallback? onTransactions;
+  final VoidCallback? onOpenMenu;
 
   @override
   ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
@@ -91,10 +78,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       await ref.read(authSessionControllerProvider.notifier).clearSession();
     } catch (error) {
       if (!mounted) return;
-      final message = normalizeApiError(error).userMessage(
-        AppLocalizations.of(context)!,
-      );
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      final message = normalizeApiError(
+        error,
+      ).userMessage(AppLocalizations.of(context)!);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
     }
   }
 
@@ -275,6 +264,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(localizations.profileTitle),
+        leading: widget.onOpenMenu == null
+            ? null
+            : IconButton(
+                key: const ValueKey('profile-menu'),
+                tooltip: localizations.homeMenu,
+                onPressed: widget.onOpenMenu,
+                icon: const Icon(Icons.menu_rounded),
+              ),
         actions: [
           const SupportShortcut(),
           IconButton(
@@ -676,57 +673,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              if (widget.onSupport != null ||
-                  widget.onMessages != null ||
-                  widget.onGameHistory != null ||
-                  widget.onDeposit != null ||
-                  widget.onWithdraw != null ||
-                  widget.onTransactions != null) ...[
-                SectionCard(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  child: Column(
-                    children: [
-                      if (widget.onDeposit != null)
-                        _shortcut(
-                          Icons.south_west_rounded,
-                          localizations.walletDepositsTab,
-                          widget.onDeposit!,
-                        ),
-                      if (widget.onWithdraw != null)
-                        _shortcut(
-                          Icons.north_east_rounded,
-                          'Withdraw',
-                          widget.onWithdraw!,
-                        ),
-                      if (widget.onTransactions != null)
-                        _shortcut(
-                          Icons.receipt_long_outlined,
-                          localizations.walletTransactionsTab,
-                          widget.onTransactions!,
-                        ),
-                      if (widget.onGameHistory != null)
-                        _shortcut(
-                          Icons.sports_esports_outlined,
-                          localizations.gameHistoryTitle,
-                          widget.onGameHistory!,
-                        ),
-                      if (widget.onMessages != null)
-                        _shortcut(
-                          Icons.mail_outline_rounded,
-                          localizations.messagesTitle,
-                          widget.onMessages!,
-                        ),
-                      if (widget.onSupport != null)
-                        _shortcut(
-                          Icons.support_agent_rounded,
-                          localizations.homeSupport,
-                          widget.onSupport!,
-                        ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
-              ],
               OutlinedButton.icon(
                 icon: const Icon(Icons.logout_rounded),
                 onPressed: _logout,
@@ -750,13 +696,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     subtitle: Text(url, maxLines: 1, overflow: TextOverflow.ellipsis),
     trailing: const Icon(Icons.chevron_right_rounded),
     onTap: () => ExternalLink.open(url),
-  );
-
-  Widget _shortcut(IconData icon, String label, VoidCallback onTap) => ListTile(
-    leading: Icon(icon, color: Theme.of(context).colorScheme.primary),
-    title: Text(label),
-    trailing: const Icon(Icons.chevron_right_rounded),
-    onTap: onTap,
   );
 }
 
@@ -829,10 +768,9 @@ class _CalendarPreferenceSelectorState
       final user = await ref
           .read(authRepositoryProvider)
           .updatePreferences(preferredCalendar: value);
-      final applied = await ref.read(authSessionControllerProvider.notifier).updateUser(
-            user,
-            expectedAccessToken: currentSession.accessToken,
-          );
+      final applied = await ref
+          .read(authSessionControllerProvider.notifier)
+          .updateUser(user, expectedAccessToken: currentSession.accessToken);
       if (!applied) return;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
