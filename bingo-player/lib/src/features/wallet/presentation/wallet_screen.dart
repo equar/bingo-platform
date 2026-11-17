@@ -45,6 +45,13 @@ final walletWithdrawalsProvider = FutureProvider.autoDispose
           .getWithdrawals(page: page, size: 10),
     );
 
+final walletTransfersProvider = FutureProvider.autoDispose
+    .family<PageResult<WalletOwnTransfer>, int>(
+      (ref, page) async => ref
+          .read(walletRepositoryProvider)
+          .getOwnTransfers(page: page, size: 10),
+    );
+
 class WalletScreen extends ConsumerStatefulWidget {
   const WalletScreen({super.key, this.initialTab = 0});
 
@@ -954,6 +961,7 @@ class _TransfersPaneState extends ConsumerState<_TransfersPane> {
         _noteController.clear();
       });
       widget.onCompleted();
+      ref.invalidate(walletTransfersProvider);
     } catch (error) {
       if (!mounted) return;
       final parsed = normalizeApiError(error);
@@ -1001,6 +1009,8 @@ class _TransfersPaneState extends ConsumerState<_TransfersPane> {
                 ),
               ),
             ),
+            const SizedBox(height: 16),
+            const _PlayerTransferHistory(),
           ],
         ),
       );
@@ -1109,6 +1119,108 @@ class _TransfersPaneState extends ConsumerState<_TransfersPane> {
                 ],
               ],
             ),
+          ),
+          const SizedBox(height: 16),
+          const _PlayerTransferHistory(),
+        ],
+      ),
+    );
+  }
+}
+
+class _PlayerTransferHistory extends ConsumerStatefulWidget {
+  const _PlayerTransferHistory();
+
+  @override
+  ConsumerState<_PlayerTransferHistory> createState() =>
+      _PlayerTransferHistoryState();
+}
+
+class _PlayerTransferHistoryState
+    extends ConsumerState<_PlayerTransferHistory> {
+  int _page = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context)!;
+    final history = ref.watch(walletTransfersProvider(_page));
+    return SectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            localizations.transferHistoryTitle,
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 8),
+          history.when(
+            loading: () => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Center(child: Text(localizations.loading)),
+            ),
+            error: (error, stack) => Text(
+              userFacingApiError(error, localizations) ??
+                  localizations.errorGeneric,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+            data: (result) {
+              if (result.content.isEmpty && _page == 0) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Text(localizations.transferHistoryEmpty),
+                );
+              }
+              return Column(
+                children: [
+                  for (final transfer in result.content)
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(
+                        Icons.north_east_rounded,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      title: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '${transfer.amount} ${transfer.currency}',
+                              style: Theme.of(context).textTheme.titleSmall,
+                            ),
+                          ),
+                          Text(
+                            transfer.status,
+                            style: Theme.of(context).textTheme.labelSmall,
+                          ),
+                        ],
+                      ),
+                      subtitle: Text(
+                        '${localizations.recipientPhoneLabel}: ${transfer.recipientPhoneNumber}\n${DateFormat.yMMMd().add_jm().format(transfer.createdAt.toLocal())}',
+                      ),
+                    ),
+                  if (result.totalPages > 1)
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        IconButton(
+                          tooltip: localizations.previous,
+                          onPressed: _page > 0
+                              ? () => setState(() => _page--)
+                              : null,
+                          icon: const Icon(Icons.chevron_left),
+                        ),
+                        Text('${_page + 1} / ${result.totalPages}'),
+                        IconButton(
+                          tooltip: localizations.next,
+                          onPressed: _page + 1 < result.totalPages
+                              ? () => setState(() => _page++)
+                              : null,
+                          icon: const Icon(Icons.chevron_right),
+                        ),
+                      ],
+                    ),
+                ],
+              );
+            },
           ),
         ],
       ),

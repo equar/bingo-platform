@@ -192,6 +192,42 @@ class WalletTransferResponse {
   }
 }
 
+class WalletOwnTransfer {
+  const WalletOwnTransfer({
+    required this.id,
+    required this.operationId,
+    required this.recipientPhoneNumber,
+    required this.amount,
+    required this.currency,
+    required this.status,
+    required this.createdAt,
+    this.completedAt,
+  });
+
+  final int id;
+  final String operationId;
+  final String recipientPhoneNumber;
+  final num amount;
+  final String currency;
+  final String status;
+  final DateTime createdAt;
+  final DateTime? completedAt;
+
+  factory WalletOwnTransfer.fromJson(Map<String, dynamic> json) =>
+      WalletOwnTransfer(
+        id: (json['id'] as num?)?.toInt() ?? 0,
+        operationId: json['operationId']?.toString() ?? '',
+        recipientPhoneNumber: json['recipientPhoneNumber']?.toString() ?? '',
+        amount: json['amount'] as num? ?? 0,
+        currency: json['currency']?.toString() ?? '',
+        status: json['status']?.toString() ?? '',
+        createdAt:
+            DateTime.tryParse(json['createdAt']?.toString() ?? '') ??
+            DateTime.fromMillisecondsSinceEpoch(0),
+        completedAt: DateTime.tryParse(json['completedAt']?.toString() ?? ''),
+      );
+}
+
 class PaymentInstructions {
   const PaymentInstructions({
     required this.providerName,

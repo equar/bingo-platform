@@ -15,7 +15,7 @@ public interface WalletTransferRepository extends JpaRepository<WalletTransfer, 
 
     Optional<WalletTransfer> findByOperationId(String operationId);
 
-    Page<WalletTransfer> findBySenderIdOrderByCreatedAtDesc(Long senderId, Pageable pageable);
+    Page<WalletTransfer> findBySenderIdOrderByCreatedAtDescIdDesc(Long senderId, Pageable pageable);
 
     Page<WalletTransfer> findByRecipientIdOrderByCreatedAtDesc(Long recipientId, Pageable pageable);
 

@@ -1,12 +1,13 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { type PropsWithChildren } from "react";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { walletTransferDetail, walletTransfers } from "../../api/admin";
 import i18n from "../../i18n";
 import { WalletTransfersPage } from "./WalletTransfersPage";
+import { WalletTransferDetailPage } from "./WalletTransferDetailPage";
 
 vi.mock("../../api/admin", () => ({ walletTransferDetail: vi.fn(), walletTransfers: vi.fn() }));
 
@@ -17,7 +18,12 @@ function createWrapper({ children }: PropsWithChildren) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return (
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter>{children}</MemoryRouter>
+      <MemoryRouter initialEntries={["/wallet/transfers"]}>
+        <Routes>
+          <Route path="/wallet/transfers" element={children} />
+          <Route path="/wallet/transfers/:transferId" element={<WalletTransferDetailPage />} />
+        </Routes>
+      </MemoryRouter>
     </QueryClientProvider>
   );
 }
@@ -102,11 +108,18 @@ describe("WalletTransfersPage", () => {
     render(<WalletTransfersPage />, { wrapper: createWrapper });
 
     const row = await screen.findByTestId("wallet-transfer-row-24");
-    expect(screen.getByText("Shared ticket funds")).toBeInTheDocument();
-    await user.click(row);
+    expect(screen.queryByText("Shared ticket funds")).not.toBeInTheDocument();
+    expect(screen.getByText("Sender")).toBeInTheDocument();
+    expect(screen.getByText("Receiver")).toBeInTheDocument();
+    expect(within(row).getByText("251911000012")).toBeInTheDocument();
+    expect(within(row).getByText("251911000018")).toBeInTheDocument();
+    expect(row).not.toHaveTextContent("#24");
+    expect(row).not.toHaveTextContent("#12");
+    expect(row).not.toHaveTextContent("#18");
+    await user.click(within(row).getByRole("button", { name: "View details for transfer 24" }));
 
-    expect(screen.getByText("Transfer detail")).toBeInTheDocument();
-    expect(screen.getByText("Operation: transfer-operation-24")).toBeInTheDocument();
+    expect(await screen.findByText("Transfer details")).toBeInTheDocument();
+    expect(screen.getByText("transfer-operation-24")).toBeInTheDocument();
     expect(await screen.findByText("Wallet transfer debit")).toBeInTheDocument();
     expect(walletTransferDetailMock).toHaveBeenCalledWith(24);
     expect(walletTransfersMock).toHaveBeenCalledWith(undefined, undefined, undefined, undefined, 0, 20);
@@ -117,11 +130,10 @@ describe("WalletTransfersPage", () => {
     walletTransferDetailMock.mockRejectedValue(new Error("SQL host and query text"));
     render(<WalletTransfersPage />, { wrapper: createWrapper });
 
-    await user.click(await screen.findByTestId("wallet-transfer-row-24"));
+    const row = await screen.findByTestId("wallet-transfer-row-24");
+    await user.click(within(row).getByRole("button", { name: "View details for transfer 24" }));
 
-    expect(await screen.findByTestId("wallet-transfer-detail-error")).toHaveTextContent(
-      "Transfer details could not be loaded. Please try again.",
-    );
+    expect(await screen.findByText("Transfer details could not be loaded. Please try again.")).toBeInTheDocument();
     expect(screen.queryByText("SQL host and query text")).not.toBeInTheDocument();
   });
 

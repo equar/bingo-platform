@@ -256,13 +256,7 @@ void main() {
       await tester.ensureVisible(transferTab);
       await tester.tap(transferTab);
       await tester.pumpAndSettle();
-      final submitTransfer = find.byKey(
-        const ValueKey('wallet-open-transfer-form-button'),
-      );
-      await tester.ensureVisible(submitTransfer);
-      await tester.tap(submitTransfer);
-      await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text(l.lookupRecipient));
+      expect(find.text(l.transferHistoryTitle), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );
@@ -281,6 +275,10 @@ void main() {
     await tester.ensureVisible(find.text(l.walletTransfersTab));
     await tester.tap(find.text(l.walletTransfersTab));
     await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.text('Your transfers'), findsOneWidget);
+    expect(find.textContaining('251992030395'), findsOneWidget);
+    expect(find.text('25 ETB'), findsOneWidget);
     await tester.tap(
       find.byKey(const ValueKey('wallet-open-transfer-form-button')),
     );
@@ -328,6 +326,30 @@ class _TransferConfirmationRepository extends WalletRepository {
   _TransferConfirmationRepository() : super(WalletApi(Dio()));
 
   var transferCalls = 0;
+
+  @override
+  Future<PageResult<WalletOwnTransfer>> getOwnTransfers({
+    required int page,
+    required int size,
+  }) async => PageResult(
+    content: [
+      WalletOwnTransfer(
+        id: 3,
+        operationId: 'wallet-transfer-3',
+        recipientPhoneNumber: '251992030395',
+        amount: 25,
+        currency: 'ETB',
+        status: 'COMPLETED',
+        createdAt: DateTime.utc(2026, 11, 17, 11),
+      ),
+    ],
+    page: 0,
+    size: 10,
+    totalElements: 1,
+    totalPages: 1,
+    first: true,
+    last: true,
+  );
 
   @override
   Future<WalletRecipientLookup> lookupRecipient(String phoneNumber) async =>

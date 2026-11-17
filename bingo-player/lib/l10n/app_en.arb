@@ -225,6 +225,8 @@
   "promotionalRewardTransactionLabel": "Promotional reward",
   "walletDepositsTab": "Deposits",
   "walletTransfersTab": "Transfers",
+  "transferHistoryTitle": "Your transfers",
+  "transferHistoryEmpty": "You haven't sent any transfers yet.",
   "transactionsTitle": "Transactions",
   "depositsTitle": "Deposits",
   "transactionHistoryEmpty": "No wallet transactions yet.",

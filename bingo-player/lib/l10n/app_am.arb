@@ -225,6 +225,8 @@
   "promotionalRewardTransactionLabel": "የዘመቻ ሽልማት",
   "walletDepositsTab": "ተቀማጮች",
   "walletTransfersTab": "ዝውውሮች",
+  "transferHistoryTitle": "የእርስዎ ዝውውሮች",
+  "transferHistoryEmpty": "እስካሁን ምንም ዝውውር አልላኩም።",
   "transactionsTitle": "ተግባሮች",
   "depositsTitle": "ተቀማጮች",
   "transactionHistoryEmpty": "እስካሁን የቦርሳ ተግባር የለም።",

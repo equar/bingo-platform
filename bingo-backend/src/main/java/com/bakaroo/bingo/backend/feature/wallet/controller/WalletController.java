@@ -8,6 +8,7 @@ import com.bakaroo.bingo.backend.feature.wallet.dto.DepositClaimResponse;
 import com.bakaroo.bingo.backend.feature.wallet.dto.WalletBalanceResponse;
 import com.bakaroo.bingo.backend.feature.wallet.dto.WalletRecipientLookupResponse;
 import com.bakaroo.bingo.backend.feature.wallet.dto.WalletTransferRequest;
+import com.bakaroo.bingo.backend.feature.wallet.dto.WalletOwnTransferResponse;
 import com.bakaroo.bingo.backend.feature.wallet.dto.WalletTransferResponse;
 import com.bakaroo.bingo.backend.feature.wallet.dto.WalletTransactionResponse;
 import com.bakaroo.bingo.backend.feature.wallet.dto.WithdrawalRequestDto;
@@ -87,6 +88,12 @@ public class WalletController {
     @GetMapping("/transfers/recipient")
     public WalletRecipientLookupResponse lookupRecipient(@RequestParam String phoneNumber) {
         return walletTransferService.lookupRecipient(phoneNumber);
+    }
+
+    @GetMapping("/transfers")
+    public PageResponse<WalletOwnTransferResponse> transfers(@AuthenticationPrincipal BingoUserPrincipal principal,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return PageResponse.from(walletTransferService.getOwnTransfers(principal, pageable));
     }
 
     @PostMapping("/transfers")
