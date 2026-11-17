@@ -128,6 +128,10 @@
   "supportSubmitted": "Your support request was sent.",
   "roomsTitle": "Rooms",
   "liveGameTitle": "Live game",
+  "prizeLabel": "Prize",
+  "yourTicketsLabel": "Your Tickets",
+  "gameInProgress": "In Progress",
+  "rulesButton": "Rules",
   "sessionStatusLabel": "Session status",
   "ticketCountLabel": "Tickets",
   "drawCountLabel": "Draws",
@@ -265,7 +269,7 @@
   "pinMustDiffer": "Choose a PIN different from your current PIN.",
   "pinConfirmationMismatch": "The PINs do not match.",
   "profileLanguagePreference": "Language preference",
-  "profileLanguagePreferenceDescription": "Choose English or Amharic. Your choice is saved to your account.",
+  "profileLanguagePreferenceDescription": "Choose English, Amharic, or Tigrinya. Your choice is saved to your account.",
   "profileRefresh": "Refresh profile",
   "profileLoadError": "Couldn't refresh your profile. Check your connection and try again.",
   "logout": "Logout",
@@ -445,7 +449,7 @@
   "celebrationWinningTickets": "{count, plural, one {1 Winning Ticket!} other {{count} Winning Tickets!}}",
   "celebrationCongratulations": "Congratulations! You won",
   "celebrationTotal": "Total winnings",
-  "celebrationTicket": "Ticket #{id}",
+  "celebrationPrize": "Prize {number}",
   "celebrationTicketsWon": "{won} of {total} tickets won",
   "@celebrationWinningTickets": {
     "placeholders": {
@@ -454,9 +458,9 @@
       }
     }
   },
-  "@celebrationTicket": {
+  "@celebrationPrize": {
     "placeholders": {
-      "id": {
+      "number": {
         "type": "int"
       }
     }

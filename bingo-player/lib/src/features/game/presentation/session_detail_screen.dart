@@ -10,6 +10,7 @@ import 'package:bingo_player/src/core/config/app_config.dart';
 import 'package:bingo_player/src/core/device/screen_awake.dart';
 import 'package:bingo_player/src/core/storage/player_preferences.dart';
 import 'package:bingo_player/src/core/widgets/app_status_view.dart';
+import 'package:bingo_player/src/core/widgets/purchase_progress_dialog.dart';
 import 'package:bingo_player/src/core/widgets/section_card.dart';
 import 'package:bingo_player/src/features/auth/data/auth_session_controller.dart';
 import 'package:bingo_player/src/features/game/application/live_game_controller.dart';
@@ -137,75 +138,153 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen>
         .playerTicketPurchasesEnabled;
     final session = state.session ?? widget.session;
     final isPreGame = session.state == 'DRAFT' || session.state == 'OPEN';
+    final connectionLabel = state.isTerminalSession
+        ? localizations.liveConnectionFinished
+        : state.connectionState == LiveGameConnectionState.connected
+        ? localizations.gameInProgress
+        : _connectionLabel(state.connectionState, localizations);
+    final connectionColor = state.isTerminalSession
+        ? Theme.of(context).colorScheme.onSurfaceVariant
+        : state.connectionState == LiveGameConnectionState.connected
+        ? const Color(0xFF36C86A)
+        : Theme.of(context).colorScheme.tertiary;
     unawaited(_syncScreenAwake(_isLiveGame(session)));
+
+    void showSettings() {
+      showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        showDragHandle: true,
+        builder: (context) => _GameSettingsSheet(
+          sessionId: widget.session.id,
+          selectedTicketId: state.selectedTicket?.id,
+        ),
+      );
+    }
+
+    void showDetails() {
+      showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        showDragHandle: true,
+        builder: (context) => FractionallySizedBox(
+          heightFactor: .8,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                _SessionSummaryCard(
+                  session: session,
+                  state: state,
+                  controller: controller,
+                  localizations: localizations,
+                  purchasesEnabled: purchasesEnabled,
+                ),
+                const SizedBox(height: 16),
+                _GameRulesCard(session: session),
+                _ClaimHistoryCard(state: state, localizations: localizations),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(localizations.claimSettlementUnavailableBody),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(localizations.liveGameTitle),
+        title: isPreGame
+            ? Text(localizations.liveGameTitle)
+            : SizedBox(
+                width: 120,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(localizations.liveGameTitle),
+                    ),
+                    const SizedBox(height: 2),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.circle, size: 8, color: connectionColor),
+                          const SizedBox(width: 5),
+                          Text(
+                            connectionLabel,
+                            style: Theme.of(context).textTheme.labelSmall
+                                ?.copyWith(
+                                  color: Colors.white70,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
         actions: [
           if (!isPreGame)
-            IconButton(
-              key: const ValueKey('live-game-settings'),
-              tooltip: localizations.gameSettingsTitle,
-              icon: const Icon(Icons.tune),
-              onPressed: () => showModalBottomSheet<void>(
-                context: context,
-                isScrollControlled: true,
-                useSafeArea: true,
-                showDragHandle: true,
-                builder: (context) => _GameSettingsSheet(
-                  sessionId: widget.session.id,
-                  selectedTicketId: state.selectedTicket?.id,
-                ),
-              ),
-            ),
-          if (!isPreGame)
-            IconButton(
+            PopupMenuButton<String>(
               key: const ValueKey('live-game-details'),
-              tooltip: localizations.liveGameDetails,
               icon: const Icon(Icons.info_outline),
-              onPressed: () => showModalBottomSheet<void>(
-                context: context,
-                isScrollControlled: true,
-                useSafeArea: true,
-                showDragHandle: true,
-                builder: (context) => FractionallySizedBox(
-                  heightFactor: .8,
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        _SessionSummaryCard(
-                          session: session,
-                          state: state,
-                          controller: controller,
-                          localizations: localizations,
-                          purchasesEnabled: purchasesEnabled,
-                        ),
-                        const SizedBox(height: 16),
-                        _GameRulesCard(session: session),
-                        _ClaimHistoryCard(
-                          state: state,
-                          localizations: localizations,
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Text(
-                            localizations.claimSettlementUnavailableBody,
-                          ),
-                        ),
-                      ],
-                    ),
+              tooltip: localizations.liveGameDetails,
+              onSelected: (action) {
+                if (action == 'details') {
+                  showDetails();
+                } else if (action == 'settings') {
+                  showSettings();
+                } else if (action == 'refresh') {
+                  unawaited(controller.refresh());
+                }
+              },
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  value: 'details',
+                  child: Row(
+                    children: [
+                      const Icon(Icons.info_outline),
+                      const SizedBox(width: 12),
+                      Text(localizations.liveGameDetails),
+                    ],
                   ),
                 ),
-              ),
+                PopupMenuItem(
+                  value: 'settings',
+                  child: Row(
+                    children: [
+                      const Icon(Icons.tune),
+                      const SizedBox(width: 12),
+                      Text(localizations.gameSettingsTitle),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'refresh',
+                  child: Row(
+                    children: [
+                      const Icon(Icons.refresh),
+                      const SizedBox(width: 12),
+                      Text(localizations.refresh),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          _ConnectionChip(state: state, localizations: localizations),
-          IconButton(
-            tooltip: localizations.refresh,
-            onPressed: controller.refresh,
-            icon: const Icon(Icons.refresh),
-          ),
+          if (isPreGame)
+            IconButton(
+              tooltip: localizations.refresh,
+              onPressed: controller.refresh,
+              icon: const Icon(Icons.refresh),
+            ),
         ],
       ),
       body: ResponsiveContent(
@@ -799,29 +878,35 @@ class _GameSettingsSheet extends ConsumerWidget {
                 ),
             ],
           ),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text(strings.selectionColor),
-            trailing: Wrap(
-              spacing: 0,
-              children: [
-                for (
-                  var i = 0;
-                  i < PlayerPreferences.selectionColors.length;
-                  i++
-                )
-                  IconButton(
-                    tooltip: strings.selectionColorOption(i + 1),
-                    onPressed: () => settings.setSelectionColor(i),
-                    icon: Icon(
-                      preferences.selectionColorIndex == i
-                          ? Icons.radio_button_checked
-                          : Icons.circle,
-                      color: PlayerPreferences.selectionColors[i],
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                strings.selectionColor,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 4,
+                children: [
+                  for (
+                    var i = 0;
+                    i < PlayerPreferences.selectionColors.length;
+                    i++
+                  )
+                    IconButton(
+                      tooltip: strings.selectionColorOption(i + 1),
+                      onPressed: () => settings.setSelectionColor(i),
+                      icon: Icon(
+                        preferences.selectionColorIndex == i
+                            ? Icons.radio_button_checked
+                            : Icons.circle,
+                        color: PlayerPreferences.selectionColors[i],
+                      ),
                     ),
-                  ),
-              ],
-            ),
+                ],
+              ),
+            ],
           ),
           OutlinedButton.icon(
             onPressed: () async {
@@ -872,10 +957,14 @@ class _GameRulesCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final prize = session.configuredPrizes.fold<num>(
-      0,
-      (total, item) => total + item.amount,
-    );
+    final prizes = session.configuredPrizes.isEmpty
+        ? '—'
+        : session.configuredPrizes
+              .map(
+                (prize) =>
+                    '${prize.prizeType.replaceAll('_', ' ')}: ${prize.amount} ${session.currency}',
+              )
+              .join(' · ');
     return SectionCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -886,7 +975,6 @@ class _GameRulesCard extends StatelessWidget {
             spacing: 8,
             runSpacing: 8,
             children: [
-              _RuleMetric(label: 'Prize', value: '$prize ${session.currency}'),
               _RuleMetric(
                 label: 'Ticket',
                 value: '${session.ticketPrice} ${session.currency}',
@@ -897,6 +985,8 @@ class _GameRulesCard extends StatelessWidget {
               ),
             ],
           ),
+          const SizedBox(height: 12),
+          Text('Prizes: $prizes', style: theme.textTheme.bodyMedium),
           const SizedBox(height: 16),
           Text('How to play', style: theme.textTheme.titleMedium),
           const SizedBox(height: 6),
@@ -1034,16 +1124,24 @@ class _SessionSummaryCard extends ConsumerWidget {
       ),
     );
     if (selectedQuantity != null && context.mounted) {
-      final result = await controller.purchaseTickets(selectedQuantity);
+      final result = await runWithProgressDialog(
+        context: context,
+        message: localizations.loading,
+        operation: () async {
+          final result = await controller.purchaseTickets(selectedQuantity);
+          final purchased = result.purchasedCount;
+          if (purchased > 0 || result.error?.outcomeUnknown == true) {
+            try {
+              await ref.read(walletRepositoryProvider).getBalance();
+            } catch (_) {
+              // Wallet screens fetch a fresh balance when opened.
+            }
+          }
+          return result;
+        },
+      );
       final purchased = result.purchasedCount;
       final purchaseError = result.error;
-      if (purchased > 0 || purchaseError?.outcomeUnknown == true) {
-        try {
-          await ref.read(walletRepositoryProvider).getBalance();
-        } catch (_) {
-          // Wallet screens fetch a fresh balance when opened.
-        }
-      }
       if (!context.mounted) {
         return;
       }
@@ -1266,79 +1364,80 @@ class _TicketsCard extends ConsumerWidget {
         : _visibleTickets(allTickets, preferences, state);
     final selectedTicket = state.selectedTicket;
 
-    return SectionCard(
+    final content = Column(
       key: const ValueKey('live-tickets'),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (tickets.isEmpty)
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (tickets.isEmpty)
+          AppStatusView(
+            title: localizations.noTicketsPurchasedTitle,
+            message: localizations.noTicketsPurchasedBody,
+          )
+        else ...[
+          if (boardTickets.isEmpty)
             AppStatusView(
-              title: localizations.noTicketsPurchasedTitle,
-              message: localizations.noTicketsPurchasedBody,
+              title: localizations.selectMultipleCards,
+              message: localizations.selectMultipleCardsDescription,
             )
-          else ...[
-            if (boardTickets.isEmpty)
-              AppStatusView(
-                title: localizations.selectMultipleCards,
-                message: localizations.selectMultipleCardsDescription,
-              )
-            else if (selectedTicket != null) ...[
-              if (showAllTickets)
-                GridView.builder(
-                  key: const ValueKey('multi-ticket-board'),
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: boardTickets.length,
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: boardTickets.length == 1 ? 1 : 2,
-                    crossAxisSpacing: 8,
-                    mainAxisSpacing: 8,
-                    childAspectRatio: 5 / 7,
-                  ),
-                  itemBuilder: (context, index) => _TicketGridCard(
-                    ticket: boardTickets[index],
+          else if (selectedTicket != null) ...[
+            if (showAllTickets)
+              GridView.builder(
+                key: const ValueKey('multi-ticket-board'),
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: boardTickets.length,
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: boardTickets.length == 1 ? 1 : 2,
+                  crossAxisSpacing: 8,
+                  mainAxisSpacing: 8,
+                  childAspectRatio: 1.15,
+                ),
+                itemBuilder: (context, index) {
+                  final ticket = boardTickets[index];
+                  return _TicketGridCard(
+                    ticket: ticket,
                     calledNumbers: state.calledNumbers,
                     state: state,
                     localizations: localizations,
-                    onTap: () =>
-                        controller.selectTicketById(boardTickets[index].id),
-                  ),
-                )
-              else
-                _TicketGridCard(
-                  ticket: selectedTicket,
-                  calledNumbers: state.calledNumbers,
-                  state: state,
-                  localizations: localizations,
-                ),
-            ],
-            if (!showAllTickets &&
-                (state.canPageBackTickets || state.canPageForwardTickets))
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  TextButton(
-                    onPressed: state.canPageBackTickets
-                        ? () => controller.selectTicketPage(
-                            state.ticketPageIndex - 1,
-                          )
-                        : null,
-                    child: Text(localizations.previous),
-                  ),
-                  TextButton(
-                    onPressed: state.canPageForwardTickets
-                        ? () => controller.selectTicketPage(
-                            state.ticketPageIndex + 1,
-                          )
-                        : null,
-                    child: Text(localizations.next),
-                  ),
-                ],
+                    onTap: () => controller.selectTicketById(ticket.id),
+                  );
+                },
+              )
+            else
+              _TicketGridCard(
+                ticket: selectedTicket,
+                calledNumbers: state.calledNumbers,
+                state: state,
+                localizations: localizations,
               ),
           ],
+          if (!showAllTickets &&
+              (state.canPageBackTickets || state.canPageForwardTickets))
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                TextButton(
+                  onPressed: state.canPageBackTickets
+                      ? () => controller.selectTicketPage(
+                          state.ticketPageIndex - 1,
+                        )
+                      : null,
+                  child: Text(localizations.previous),
+                ),
+                TextButton(
+                  onPressed: state.canPageForwardTickets
+                      ? () => controller.selectTicketPage(
+                          state.ticketPageIndex + 1,
+                        )
+                      : null,
+                  child: Text(localizations.next),
+                ),
+              ],
+            ),
         ],
-      ),
+      ],
     );
+    return showAllTickets ? content : SectionCard(child: content);
   }
 }
 
@@ -1616,26 +1715,57 @@ class _TicketGridCard extends ConsumerWidget {
         ),
       ),
     );
+    final isSelected = state.selectedTicket?.id == ticket.id;
     return GestureDetector(
       onTap: onTap,
       child: AspectRatio(
         key: ValueKey('live-ticket-grid-${ticket.id}'),
-        aspectRatio: 5 / 7,
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  if (ticket.eligibleClaimPatterns.isNotEmpty) ...[
-                    Icon(Icons.emoji_events, size: 16, color: colors.primary),
-                  ],
-                ],
+        aspectRatio: 1.15,
+        child: Container(
+          key: ValueKey('live-ticket-card-${ticket.id}'),
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            color: colors.surface,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: colors.outlineVariant),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(
+                  alpha: Theme.of(context).brightness == Brightness.dark
+                      ? .14
+                      : .07,
+                ),
+                blurRadius: 8,
+                offset: const Offset(0, 3),
               ),
-            ),
-            Expanded(child: grid),
-          ],
+            ],
+          ),
+          padding: const EdgeInsets.all(6),
+          child: Column(
+            children: [
+              SizedBox(
+                height: 18,
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: ticket.eligibleClaimPatterns.isNotEmpty
+                      ? Icon(
+                          Icons.emoji_events,
+                          size: 16,
+                          color: colors.primary,
+                        )
+                      : isSelected
+                      ? const Icon(
+                          Icons.check_circle,
+                          size: 18,
+                          color: Color(0xFF36C86A),
+                        )
+                      : null,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Expanded(child: grid),
+            ],
+          ),
         ),
       ),
     );

@@ -22,6 +22,8 @@ void main() {
     expect(find.text('QA Scheduled Session'), findsOneWidget);
     expect(find.byKey(const ValueKey('session-details-12')), findsOneWidget);
     expect(find.byKey(const ValueKey('buy-tickets-12')), findsOneWidget);
+    expect(find.text('Game patterns: LINE'), findsOneWidget);
+    expect(find.text('Prize: LINE 100 ETB'), findsOneWidget);
   });
 
   testWidgets('drawing sessions provide a live-game entry action', (
@@ -51,10 +53,7 @@ void main() {
     final repository = _LobbyRepository(sessionState: 'OPEN');
     final navigatorObserver = _RecordingNavigatorObserver();
     await tester.pumpWidget(
-      _app(
-        repository,
-        navigatorObserver: navigatorObserver,
-      ),
+      _app(repository, navigatorObserver: navigatorObserver),
     );
     await tester.pumpAndSettle();
     await _openUpcomingGames(tester);
@@ -63,10 +62,7 @@ void main() {
 
     expect(navigatorObserver.pushes, hasLength(2));
     expect(navigatorObserver.pushes.last.isCurrent, isTrue);
-    expect(
-      find.byType(GameRulesScreen, skipOffstage: false),
-      findsOneWidget,
-    );
+    expect(find.byType(GameRulesScreen, skipOffstage: false), findsOneWidget);
     expect(find.text('Game Rules'), findsOneWidget);
     expect(find.text('General Game Rule'), findsOneWidget);
 
@@ -284,9 +280,7 @@ Widget _app(
   NavigatorObserver? navigatorObserver,
   Widget home = const LobbyScreen(),
 }) => ProviderScope(
-  overrides: [
-    lobbyRepositoryProvider.overrideWithValue(repository),
-  ],
+  overrides: [lobbyRepositoryProvider.overrideWithValue(repository)],
   child: MaterialApp(
     navigatorObservers: [if (navigatorObserver != null) navigatorObserver],
     localizationsDelegates: const [
@@ -363,6 +357,13 @@ class _LobbyRepository extends LobbyRepository {
       createdAt: DateTime.utc(2029),
       updatedAt: DateTime.utc(2029),
       configuredPatterns: const ['LINE'],
+      configuredPrizes: const [
+        BingoPrizeConfig(
+          prizeType: 'LINE',
+          amount: 100,
+          settlementPath: 'WALLET',
+        ),
+      ],
     ),
   ];
 }

@@ -70,11 +70,21 @@ void main() {
       );
     });
 
+    test('Tigrinya month and era', () {
+      expect(
+        EthiopianDateTime.date(DateTime.utc(2024, 9, 11), languageCode: 'ti'),
+        '1 መስከረም 2017 ዓ.ም.',
+      );
+    });
+
     test(
       'honors explicit Gregorian and language-based automatic preferences',
       () {
         EthiopianDateTime.preferredCalendar = 'GREGORIAN';
-        expect(EthiopianDateTime.date(DateTime.utc(2024, 9, 11)), '11 Sep 2024');
+        expect(
+          EthiopianDateTime.date(DateTime.utc(2024, 9, 11)),
+          '11 Sep 2024',
+        );
         EthiopianDateTime.preferredCalendar = 'AUTO';
         expect(
           EthiopianDateTime.date(DateTime.utc(2024, 9, 11), languageCode: 'am'),
@@ -122,6 +132,23 @@ void main() {
           languageCode: 'am',
         ),
         '1:30 ሌሊት',
+      );
+    });
+
+    test('Tigrinya periods', () {
+      expect(
+        EthiopianDateTime.time(
+          DateTime.utc(2024, 9, 11, 4, 30),
+          languageCode: 'ti',
+        ),
+        '1:30 መዓልቲ',
+      );
+      expect(
+        EthiopianDateTime.time(
+          DateTime.utc(2024, 9, 11, 16, 30),
+          languageCode: 'ti',
+        ),
+        '1:30 ለይቲ',
       );
     });
   });
