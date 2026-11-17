@@ -57,7 +57,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -80,6 +79,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -413,7 +413,7 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
         }
 
         @Test
-        void verifiedDepositPostsBalancedJournalOnceWithSupportVerification() {
+        void playerReferenceMatchPostsBalancedJournalOnceWithSupportVerification() {
                 User verifier = financeUser("0911000103", Set.of(UserRole.SUPPORT));
                 BingoUserPrincipal playerPrincipal = new BingoUserPrincipal(playerUser);
                 IdempotentResult<DepositClaimResponse> submitted = walletService.submitDeposit(playerPrincipal,
@@ -421,27 +421,11 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
                                 "verified-deposit");
                 Long depositId = submitted.body().id();
 
-                jdbcTemplate.update("""
-                                insert into float_receiving_bank_accounts
-                                (bank_name, account_number_ciphertext, masked_account_number, account_holder_name,
-                                 currency, active, player_deposits_enabled, created_by_user_id, updated_by_user_id,
-                                 created_at, updated_at)
-                                values ('QA Synthetic Bank', 'local-test-ciphertext', '****2002', 'QA Account',
-                                 'ETB', true, true, ?, ?, current_timestamp(6), current_timestamp(6))
-                                """, adminUser.getId(), adminUser.getId());
-                Long bankAccountId = jdbcTemplate.queryForObject(
-                                "select id from float_receiving_bank_accounts where masked_account_number='****2002'",
-                                Long.class);
-                jdbcTemplate.update("""
-                                insert into float_bank_statement_entries
-                                (receiving_bank_account_id, transaction_reference, amount, currency, transaction_date,
-                                 settlement_state, source, synthetic, recorded_by_user_id, recorded_at)
-                                values (?, 'TBR-VERIFIED-001', 60.00, 'ETB', ?, 'SETTLED',
-                                 'SYNTHETIC_QA_BANK_STATEMENT', true, ?, current_timestamp(6))
-                                """, bankAccountId, LocalDate.now(), verifier.getId());
                 var verification = depositFinancialService.verify(depositId, new BingoUserPrincipal(verifier),
-                                new DepositVerificationRequest("TBR-VERIFIED-001"));
+                                new DepositVerificationRequest("tbr-verified-001"));
                 assertEquals("MATCHED", verification.outcome());
+                assertNull(verification.statementEntryId());
+                assertEquals("PLAYER_REFERENCE_MATCH", verification.evidenceSource());
                 assertEquals(DepositClaimStatus.PENDING,
                                 depositClaimRepository.findById(depositId).orElseThrow().getStatus());
                 IdempotentResult<DepositClaimResponse> approved = depositFinancialService.approve(depositId,
@@ -470,21 +454,9 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
         }
 
         @Test
-        void duplicateEvidenceAndAmountMismatchNeverCreateDepositPostings() {
+        void mismatchedPlayerReferencesNeverCreateDepositPostings() {
                 User verifier = financeUser("0911000103", Set.of(UserRole.SUPPORT));
                 User approver = financeUser("0911000104", Set.of(UserRole.ADMIN));
-                Long bankAccountId;
-                jdbcTemplate.update("""
-                                insert into float_receiving_bank_accounts
-                                (bank_name, account_number_ciphertext, masked_account_number, account_holder_name,
-                                 currency, active, player_deposits_enabled, created_by_user_id, updated_by_user_id,
-                                 created_at, updated_at)
-                                values ('QA Synthetic Bank', 'local-test-ciphertext', '****2002', 'QA Account',
-                                 'ETB', true, true, ?, ?, current_timestamp(6), current_timestamp(6))
-                                """, adminUser.getId(), adminUser.getId());
-                bankAccountId = jdbcTemplate.queryForObject(
-                                "select id from float_receiving_bank_accounts where masked_account_number='****2002'",
-                                Long.class);
 
                 Long firstId = walletService.submitDeposit(new BingoUserPrincipal(playerUser),
                                 new DepositClaimRequest(new BigDecimal("2.50"), "ETB", "TBR-DUPLICATE-EVIDENCE"),
@@ -492,13 +464,6 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
                 Long secondId = walletService.submitDeposit(new BingoUserPrincipal(playerUser),
                                 new DepositClaimRequest(new BigDecimal("2.50"), "ETB", "TBR-DUPLICATE-EVIDENCE-2"),
                                 "duplicate-evidence-second").body().id();
-                jdbcTemplate.update("""
-                                insert into float_bank_statement_entries
-                                (receiving_bank_account_id, transaction_reference, amount, currency, transaction_date,
-                                 settlement_state, source, synthetic, recorded_by_user_id, recorded_at)
-                                values (?, 'TBR-DUPLICATE-EVIDENCE', 2.50, 'ETB', ?, 'SETTLED',
-                                 'SYNTHETIC_QA_BANK_STATEMENT', true, ?, current_timestamp(6))
-                                """, bankAccountId, LocalDate.now(), verifier.getId());
                 assertEquals("MATCHED", depositFinancialService.verify(firstId, new BingoUserPrincipal(verifier),
                                 new DepositVerificationRequest("TBR-DUPLICATE-EVIDENCE")).outcome());
                 var duplicateEvidence = depositFinancialService.verify(secondId, new BingoUserPrincipal(verifier),
@@ -510,15 +475,8 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
                 Long mismatchId = walletService.submitDeposit(new BingoUserPrincipal(playerUser),
                                 new DepositClaimRequest(new BigDecimal("3.00"), "ETB", "TBR-AMOUNT-MISMATCH"),
                                 "amount-mismatch-deposit").body().id();
-                jdbcTemplate.update("""
-                                insert into float_bank_statement_entries
-                                (receiving_bank_account_id, transaction_reference, amount, currency, transaction_date,
-                                 settlement_state, source, synthetic, recorded_by_user_id, recorded_at)
-                                values (?, 'TBR-AMOUNT-MISMATCH', 2.99, 'ETB', ?, 'SETTLED',
-                                 'SYNTHETIC_QA_BANK_STATEMENT', true, ?, current_timestamp(6))
-                                """, bankAccountId, LocalDate.now(), verifier.getId());
-                assertEquals("AMOUNT_MISMATCH", depositFinancialService.verify(mismatchId,
-                                new BingoUserPrincipal(verifier), new DepositVerificationRequest("TBR-AMOUNT-MISMATCH"))
+                assertEquals("REFERENCE_MISMATCH", depositFinancialService.verify(mismatchId,
+                                new BingoUserPrincipal(verifier), new DepositVerificationRequest("TBR-AMOUNT-OTHER"))
                                 .outcome());
                 assertEquals(DepositClaimStatus.PENDING,
                                 depositClaimRepository.findById(mismatchId).orElseThrow().getStatus());
@@ -526,7 +484,7 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
                                 com.bakaroo.bingo.backend.common.exception.ConflictException.class,
                                 () -> depositFinancialService.approve(mismatchId, new BingoUserPrincipal(approver),
                                                 "Receipt does not match cleared funds", "approve-mismatch"));
-                assertEquals("DEPOSIT_NOT_VERIFIED", mismatchApproval.getCode());
+                assertEquals("DEPOSIT_VERIFICATION_REQUIRED", mismatchApproval.getCode());
                 assertEquals(new BigDecimal("0.00"),
                                 walletRepository.findByOwnerId(playerUser.getId()).orElseThrow()
                                                 .getAvailableBalance());

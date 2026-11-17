@@ -298,7 +298,7 @@ export function DepositsPage() {
                         display="block"
                         color="warning.main"
                       >
-                        {t("Awaiting independent bank verification")}
+                        {t("Awaiting payment reference verification")}
                       </Typography>
                     ) : null}
                     {deposit.verifiedBy != null ? (
@@ -333,7 +333,7 @@ export function DepositsPage() {
                           title={
                             deposit.verifiedBy == null
                               ? t(
-                                  "A matched bank verification is required before approval.",
+                                  "A matching player-submitted payment reference is required before approval.",
                                 )
                               : !canApproveDeposits
                                 ? t(

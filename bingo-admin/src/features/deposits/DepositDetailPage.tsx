@@ -106,7 +106,7 @@ export function DepositDetailPage() {
         <Stack spacing={2}>
           <Box>
             <Typography variant="h6">{canAdminReview ? t("Review") : t("Deposit actions")}</Typography>
-            <Typography variant="body2" color="text.secondary">{canAdminReview ? t("Review the rejection against the full payment reference. A match will credit the deposit.") : t("Verify deposit")}</Typography>
+            <Typography variant="body2" color="text.secondary">{canAdminReview ? t("Review the rejection against the full payment reference. A match will credit the deposit.") : t("Enter the same payment reference submitted by the player. A match will credit the deposit.")}</Typography>
           </Box>
           {(canAdminReview || (canSupportReview && open)) ? <>
             <TextField label={t("Full payment reference")} value={reference} onChange={(e) => setReference(e.target.value)} autoComplete="off" required fullWidth />
