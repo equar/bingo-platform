@@ -146,6 +146,21 @@ class TicketRanking {
     return _minimum(grid, called, shapes);
   }
 
+  static Set<int> oneAwayNumbers(
+    List<List<int>> grid,
+    Set<int> called,
+    String pattern,
+  ) {
+    if (remainingCells(grid, called, pattern) != 1) return const {};
+    return {
+      for (final number in grid.expand((row) => row))
+        if (number != 0 &&
+            !called.contains(number) &&
+            remainingCells(grid, {...called, number}, pattern) == 0)
+          number,
+    };
+  }
+
   static List<TicketRank> rank({
     required List<TicketResponse> tickets,
     required Set<int> called,

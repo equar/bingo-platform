@@ -42,6 +42,34 @@ void main() {
       );
     });
 
+    test('identifies the uncalled number that completes a pattern', () {
+      final ticket = _ticket();
+
+      expect(
+        TicketRanking.oneAwayNumbers(ticket.grid, {
+          1,
+          6,
+          11,
+          16,
+        }, 'VERTICAL_LINE'),
+        {21},
+      );
+      expect(
+        TicketRanking.oneAwayNumbers(ticket.grid, {1, 6, 11}, 'VERTICAL_LINE'),
+        isEmpty,
+      );
+      expect(
+        TicketRanking.oneAwayNumbers(ticket.grid, {
+          1,
+          6,
+          11,
+          16,
+          21,
+        }, 'VERTICAL_LINE'),
+        isEmpty,
+      );
+    });
+
     test('matches every supported server pattern placement', () {
       final ticket = _ticket();
       final cases = <(String, String)>[
