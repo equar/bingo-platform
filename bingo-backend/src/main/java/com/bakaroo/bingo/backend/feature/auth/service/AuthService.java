@@ -110,6 +110,15 @@ public class AuthService {
 
     @Transactional
     public AuthResponse login(LoginRequest request) {
+        return login(request, false);
+    }
+
+    @Transactional
+    public AuthResponse replacePlayerSession(LoginRequest request) {
+        return login(request, true);
+    }
+
+    private AuthResponse login(LoginRequest request, boolean replaceActiveSession) {
         String normalizedPhone = phoneNormalizer.normalize(request.phoneNumber());
         throttleService.requireAccountAllowed("player", normalizedPhone);
         var player = userRepository.findByNormalizedPhoneAndRole(normalizedPhone, UserRole.PLAYER);
@@ -139,7 +148,8 @@ public class AuthService {
         User user = userRepository.findByIdForUpdate(principal.getUser().getId())
                 .orElseThrow(() -> new NotFoundException("USER_NOT_FOUND", "User account not found"));
         Instant now = Instant.now();
-        if (user.getActivePlayerSessionId() != null
+        if (!replaceActiveSession
+                && user.getActivePlayerSessionId() != null
                 && user.getActivePlayerSessionExpiresAt() != null
                 && user.getActivePlayerSessionExpiresAt().isAfter(now)) {
             throw new ConflictException("PLAYER_ALREADY_LOGGED_IN",

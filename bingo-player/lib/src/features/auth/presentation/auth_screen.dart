@@ -37,6 +37,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   bool _registerMode = false;
   bool _showPin = false;
   bool _busy = false;
+  bool _showReplaceSession = false;
   String? _errorMessage;
   ApiError? _apiError;
   bool _suspensionDialogOpen = false;
@@ -134,6 +135,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       _busy = true;
       _errorMessage = null;
       _apiError = null;
+      _showReplaceSession = false;
     });
 
     try {
@@ -169,6 +171,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       }
       setState(() {
         _apiError = parsed;
+        _showReplaceSession = !_registerMode &&
+            parsed.code == 'PLAYER_ALREADY_LOGGED_IN';
         _errorMessage = parsed.cancelled
             ? null
             : parsed.userMessage(localizations);
@@ -177,6 +181,36 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       if (mounted) {
         setState(() => _busy = false);
       }
+    }
+  }
+
+  Future<void> _replacePlayerSession() async {
+    if (_busy || !_formKey.currentState!.validate()) return;
+    final localizations = AppLocalizations.of(context)!;
+    setState(() {
+      _busy = true;
+      _errorMessage = null;
+      _apiError = null;
+      _showReplaceSession = false;
+    });
+    try {
+      final response = await ref.read(authRepositoryProvider).replacePlayerSession(
+        LoginRequest(
+          phoneNumber: _phoneController.text.trim(),
+          password: _pinController.text,
+        ),
+      );
+      await ref.read(authSessionControllerProvider.notifier).setSession(response);
+    } catch (error) {
+      if (!mounted) return;
+      final parsed = normalizeApiError(error);
+      setState(() {
+        _apiError = parsed;
+        _showReplaceSession = parsed.code == 'PLAYER_ALREADY_LOGGED_IN';
+        _errorMessage = parsed.cancelled ? null : parsed.userMessage(localizations);
+      });
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -384,6 +418,15 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                               style: TextStyle(
                                 color: Theme.of(context).colorScheme.error,
                               ),
+                            ),
+                          ],
+                          if (_showReplaceSession) ...[
+                            const SizedBox(height: 10),
+                            OutlinedButton.icon(
+                              key: const ValueKey('replace-player-session-button'),
+                              onPressed: _busy ? null : _replacePlayerSession,
+                              icon: const Icon(Icons.devices_rounded),
+                              label: Text(localizations.signOutOtherDevice),
                             ),
                           ],
                           const SizedBox(height: 16),

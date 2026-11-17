@@ -108,6 +108,7 @@
   "displayNameRequired": "የሚታይ ስም ያስገቡ።",
   "invalidPhone": "ትክክለኛ ስልክ ቁጥር ያስገቡ።",
   "signIn": "ግባ",
+  "signOutOtherDevice": "ከሌላው መሣሪያ ውጣና እዚህ ግባ",
   "createAccount": "መለያ ፍጠር",
   "switchToRegister": "መለያ የለዎትም? ይመዝገቡ",
   "switchToLogin": "መለያ አለዎት? ይግቡ",

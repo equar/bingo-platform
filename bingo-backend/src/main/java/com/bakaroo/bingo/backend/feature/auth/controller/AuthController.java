@@ -46,6 +46,13 @@ public class AuthController {
         return authService.login(request);
     }
 
+    @PostMapping("/login/replace-session")
+    @Operation(summary = "Sign in and replace the existing player device session")
+    @SecurityRequirements
+    public AuthResponse replacePlayerSession(@Valid @RequestBody LoginRequest request) {
+        return authService.replacePlayerSession(request);
+    }
+
     @GetMapping("/me")
     public MeResponse me(@AuthenticationPrincipal BingoUserPrincipal principal) {
         return authService.me(principal.getUser().getId());

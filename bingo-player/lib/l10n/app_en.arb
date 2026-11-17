@@ -108,6 +108,7 @@
   "displayNameRequired": "Enter a display name.",
   "invalidPhone": "Enter a valid phone number.",
   "signIn": "Sign in",
+  "signOutOtherDevice": "Sign out the other device and sign in here",
   "createAccount": "Create account",
   "switchToRegister": "Need an account? Register",
   "switchToLogin": "Already have an account? Sign in",
