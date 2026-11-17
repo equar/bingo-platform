@@ -234,7 +234,7 @@ public class SignupRewardService {
         SignupRewardPolicy policy = policyRepository.findById(policyId)
                 .orElseThrow(() -> new NotFoundException("SIGNUP_REWARD_POLICY_NOT_FOUND",
                         "Signup reward policy not found"));
-        if (enabled && !policy.isEnabled()) {
+        if (enabled) {
             validateCampaignNotExpired(policy.getEffectiveUntil());
             validateNoEnabledCampaignOverlap(policy.getTriggerType(), policy.getEffectiveFrom(),
                     policy.getEffectiveUntil(), policy.getId());
@@ -407,7 +407,7 @@ public class SignupRewardService {
 
     private void validateNoEnabledCampaignOverlap(SignupRewardPolicy.TriggerType triggerType,
             Instant effectiveFrom, Instant effectiveUntil, Long excludedPolicyId) {
-        boolean overlaps = policyRepository.findAllByTriggerTypeOrderByCreatedAtDescIdDesc(triggerType).stream()
+        boolean overlaps = policyRepository.findAllByTriggerTypeOrderByCreatedAtDescIdDescForUpdate(triggerType).stream()
                 .filter(SignupRewardPolicy::isEnabled)
                 .filter(policy -> !Objects.equals(policy.getId(), excludedPolicyId))
                 .anyMatch(policy ->

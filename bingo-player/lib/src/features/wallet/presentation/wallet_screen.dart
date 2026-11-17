@@ -11,6 +11,7 @@ import 'package:bingo_player/src/core/widgets/section_card.dart';
 import 'package:bingo_player/src/features/wallet/data/wallet_repository.dart';
 import 'package:bingo_player/src/features/wallet/domain/wallet_models.dart';
 import 'package:bingo_player/src/features/wallet/presentation/wallet_transaction_labels.dart';
+import 'package:bingo_player/src/features/auth/data/auth_repository.dart';
 import 'package:bingo_player/src/features/auth/data/auth_session_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -109,6 +110,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
     if (isVisible && !_isWalletVisible) {
       _isWalletVisible = true;
       _refreshWalletData();
+      unawaited(_refreshCurrentProfile());
     } else if (!isVisible) {
       _isWalletVisible = false;
     }
@@ -219,6 +221,19 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
     ref.invalidate(walletTransactionsProvider(_transactionPage));
     ref.invalidate(walletDepositsProvider(_depositPage));
     ref.invalidate(walletWithdrawalsProvider(0));
+  }
+
+  Future<void> _refreshCurrentProfile() async {
+    final session = ref.read(authSessionControllerProvider).session;
+    if (session == null) return;
+    try {
+      final profile = await ref.read(authRepositoryProvider).me();
+      if (!mounted) return;
+      await ref.read(authSessionControllerProvider.notifier).updateUser(
+        profile,
+        expectedAccessToken: session.accessToken,
+      );
+    } catch (_) {}
   }
 
   @override
@@ -1268,7 +1283,7 @@ class _WalletBalanceBanner extends StatelessWidget {
   static double heightFor({
     required double textScale,
     required bool hasReferralCode,
-  }) => max(76.0, 60 * textScale + 12) + (hasReferralCode ? 17 * textScale : 0);
+  }) => max(84.0, 68 * textScale + 12) + (hasReferralCode ? 24 * textScale : 0);
 
   @override
   Widget build(BuildContext context) {

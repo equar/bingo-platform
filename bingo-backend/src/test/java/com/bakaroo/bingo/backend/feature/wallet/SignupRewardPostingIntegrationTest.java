@@ -300,8 +300,7 @@ class SignupRewardPostingIntegrationTest extends MySqlIntegrationTest {
 
         User referred = userRepository.findByNormalizedPhone(phoneNormalizer.normalize(REGISTER_PHONE)).orElseThrow();
         assertEquals(player.getId(), referred.getReferredBy().getId());
-        assertTrue(referred.getReferralCode().matches("B[0-9A-F]{20}"));
-        assertTrue(referred.getReferralCode().length() <= 24);
+        assertTrue(referred.getReferralCode().matches("[A-Z0-9]{6}"));
         var referralGrant = grantRepository.findAll().stream()
                 .filter(grant -> grant.getPolicy().getId().equals(referralPolicy.getId()))
                 .filter(grant -> grant.getPlayer().getId().equals(player.getId()))

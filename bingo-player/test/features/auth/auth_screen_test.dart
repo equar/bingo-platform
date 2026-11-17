@@ -117,10 +117,16 @@ void main() {
   ) async {
     await mount(t, TestAuthRepository());
 
-    expect(find.byKey(const ValueKey('player-language-selector')), findsNothing);
+    expect(
+      find.byKey(const ValueKey('player-language-selector')),
+      findsNothing,
+    );
 
     await tapKey(t, 'auth-toggle-button');
-    expect(find.byKey(const ValueKey('player-language-selector')), findsNothing);
+    expect(
+      find.byKey(const ValueKey('player-language-selector')),
+      findsNothing,
+    );
   });
 
   testWidgets('signed-out suspended users see the support notice', (t) async {
@@ -233,14 +239,58 @@ void main() {
       );
       await t.enterText(
         find.byKey(const ValueKey('auth-referral-code-field')),
-        'B123456789ABC',
+        'B12345',
       );
       await tapKey(t, 'auth-submit-button');
       expect(repo.registrations.single.displayName, 'Bingo player');
-      expect(repo.registrations.single.referralCode, 'B123456789ABC');
+      expect(repo.registrations.single.referralCode, 'B12345');
       expect(repo.logins, isEmpty);
     },
   );
+  testWidgets('registration inputs enforce referral, phone, and PIN limits', (
+    t,
+  ) async {
+    await mount(t, TestAuthRepository());
+    await tapKey(t, 'auth-toggle-button');
+    await t.enterText(
+      find.byKey(const ValueKey('auth-referral-code-field')),
+      'AB12CD345',
+    );
+    await t.enterText(
+      find.byKey(const ValueKey('auth-phone-field')),
+      '09a123456789',
+    );
+    await t.enterText(
+      find.byKey(const ValueKey('auth-password-field')),
+      '12a3456789',
+    );
+
+    expect(
+      t
+          .widget<TextFormField>(
+            find.byKey(const ValueKey('auth-referral-code-field')),
+          )
+          .controller!
+          .text,
+      'AB12CD',
+    );
+    expect(
+      t
+          .widget<TextFormField>(find.byKey(const ValueKey('auth-phone-field')))
+          .controller!
+          .text,
+      '0912345678',
+    );
+    expect(
+      t
+          .widget<TextFormField>(
+            find.byKey(const ValueKey('auth-password-field')),
+          )
+          .controller!
+          .text,
+      '123456',
+    );
+  });
   testWidgets('pending login disables fields and prevents duplicate submit', (
     t,
   ) async {

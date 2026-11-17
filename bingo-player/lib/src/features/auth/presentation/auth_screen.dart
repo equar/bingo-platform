@@ -7,6 +7,7 @@ import 'package:bingo_player/src/features/auth/data/auth_models.dart';
 import 'package:bingo_player/src/features/auth/data/auth_repository.dart';
 import 'package:bingo_player/src/features/auth/data/auth_session_controller.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -334,7 +335,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                               controller: _referralCodeController,
                               enabled: !_busy,
                               textCapitalization: TextCapitalization.characters,
-                              maxLength: 24,
+                              maxLength: 6,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.allow(
+                                  RegExp('[a-zA-Z0-9]'),
+                                ),
+                              ],
                               decoration: InputDecoration(labelText: localizations.referralCodeOptional),
                             ),
                             const SizedBox(height: 12),
@@ -345,7 +351,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                             enabled: !_busy,
                             textInputAction: TextInputAction.next,
                             keyboardType: TextInputType.phone,
-                            maxLength: 30,
+                            maxLength: 10,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
                             onChanged: (_) {
                               _phoneEdited = true;
                               _clearStaleErrors();
@@ -375,6 +384,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                             enabled: !_busy,
                             obscureText: !_showPin,
                             keyboardType: TextInputType.number,
+                            maxLength: 6,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
                             textInputAction: TextInputAction.done,
                             onChanged: (_) => _clearStaleErrors(),
                             onFieldSubmitted: (_) => _submit(),
@@ -490,19 +503,5 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
 }
 
 bool _isValidEthiopianPhone(String value) {
-  var compact = value.replaceAll(RegExp(r'[\s\-().]'), '');
-  if (!RegExp(r'^\+?[0-9]+$').hasMatch(compact)) return false;
-  if (compact.startsWith('+')) compact = compact.substring(1);
-
-  String localNumber;
-  if (compact.length == 12 && compact.startsWith('251')) {
-    localNumber = compact.substring(3);
-  } else if (compact.length == 10 && compact.startsWith('0')) {
-    localNumber = compact.substring(1);
-  } else if (compact.length == 9) {
-    localNumber = compact;
-  } else {
-    return false;
-  }
-  return localNumber.startsWith('9') || localNumber.startsWith('7');
+  return RegExp(r'^0[79][0-9]{8}$').hasMatch(value);
 }
