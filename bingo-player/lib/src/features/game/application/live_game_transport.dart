@@ -20,7 +20,22 @@ abstract class LiveGameTransport {
   Future<void> disconnect();
 }
 
-class StompLiveGameTransport implements LiveGameTransport {
+abstract class LobbySessionUpdatesTransport {
+  bool get isConnected;
+
+  Future<void> connectToSessionUpdates({
+    required Uri uri,
+    required String accessToken,
+    required void Function() onSessionChanged,
+    required void Function(Object error) onError,
+    required void Function() onDisconnected,
+  });
+
+  Future<void> disconnect();
+}
+
+class StompLiveGameTransport
+    implements LiveGameTransport, LobbySessionUpdatesTransport {
   StompLiveGameTransport({
     this.heartbeatOutgoing = const Duration(seconds: 10),
     this.heartbeatIncoming = const Duration(seconds: 10),
@@ -47,6 +62,7 @@ class StompLiveGameTransport implements LiveGameTransport {
   bool _failureReported = false;
   final StringBuffer _frameBuffer = StringBuffer();
   void Function(LiveDrawEvent event)? _onDraw;
+  void Function()? _onSessionChanged;
   void Function(Object error)? _onError;
   void Function()? _onDisconnected;
   int? _sessionId;
@@ -66,10 +82,43 @@ class StompLiveGameTransport implements LiveGameTransport {
     required void Function(LiveDrawEvent event) onDraw,
     required void Function(Object error) onError,
     required void Function() onDisconnected,
+  }) => _connect(
+    uri: uri,
+    accessToken: accessToken,
+    sessionId: sessionId,
+    onDraw: onDraw,
+    onError: onError,
+    onDisconnected: onDisconnected,
+  );
+
+  @override
+  Future<void> connectToSessionUpdates({
+    required Uri uri,
+    required String accessToken,
+    required void Function() onSessionChanged,
+    required void Function(Object error) onError,
+    required void Function() onDisconnected,
+  }) => _connect(
+    uri: uri,
+    accessToken: accessToken,
+    onSessionChanged: onSessionChanged,
+    onError: onError,
+    onDisconnected: onDisconnected,
+  );
+
+  Future<void> _connect({
+    required Uri uri,
+    required String accessToken,
+    int? sessionId,
+    void Function(LiveDrawEvent event)? onDraw,
+    void Function()? onSessionChanged,
+    required void Function(Object error) onError,
+    required void Function() onDisconnected,
   }) async {
     await disconnect();
     _sessionId = sessionId;
     _onDraw = onDraw;
+    _onSessionChanged = onSessionChanged;
     _onError = onError;
     _onDisconnected = onDisconnected;
     _connected = false;
@@ -127,6 +176,10 @@ class StompLiveGameTransport implements LiveGameTransport {
       _stopHeartbeat();
       _connected = false;
       _sessionId = null;
+      _onDraw = null;
+      _onSessionChanged = null;
+      _onError = null;
+      _onDisconnected = null;
       _connectCompleter = null;
       return;
     }
@@ -149,6 +202,10 @@ class StompLiveGameTransport implements LiveGameTransport {
       _subscription = null;
       _channel = null;
       _sessionId = null;
+      _onDraw = null;
+      _onSessionChanged = null;
+      _onError = null;
+      _onDisconnected = null;
       _connectCompleter = null;
       try {
         await subscription?.cancel();
@@ -195,12 +252,24 @@ class StompLiveGameTransport implements LiveGameTransport {
               'ack': 'auto',
             });
           }
+          if (_onSessionChanged != null) {
+            _sendFrame('SUBSCRIBE', {
+              'id': 'sessions',
+              'destination': '/topic/sessions',
+              'ack': 'auto',
+            });
+          }
           final completer = _connectCompleter;
           if (completer != null && !completer.isCompleted) {
             completer.complete();
           }
           break;
         case 'MESSAGE':
+          if (frame.headers['destination'] == '/topic/sessions' ||
+              (_onDraw == null && _onSessionChanged != null)) {
+            _onSessionChanged?.call();
+            break;
+          }
           final decoded = jsonDecode(frame.body) as Map<String, dynamic>;
           _onDraw?.call(LiveDrawEvent.fromJson(decoded));
           break;

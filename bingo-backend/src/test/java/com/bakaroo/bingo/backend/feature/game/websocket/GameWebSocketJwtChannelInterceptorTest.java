@@ -98,6 +98,19 @@ class GameWebSocketJwtChannelInterceptorTest {
     }
 
     @Test
+    void allowsAuthenticatedSubscriptionToPublicSessionStateUpdates() {
+        var principal = new BingoUserPrincipal(admin);
+        var auth = org.springframework.security.authentication.UsernamePasswordAuthenticationToken.authenticated(principal, null, principal.getAuthorities());
+        var accessor = StompHeaderAccessor.create(StompCommand.SUBSCRIBE);
+        accessor.setDestination("/topic/sessions");
+        accessor.setUser(auth);
+        var message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
+
+        assertThat(interceptor.preSend(message, null)).isSameAs(message);
+        org.mockito.Mockito.verifyNoInteractions(gameAccess);
+    }
+
+    @Test
     void rejectsAnonymousAndWildcardSubscriptions() {
         var accessor = StompHeaderAccessor.create(StompCommand.SUBSCRIBE);
         accessor.setDestination("/topic/**");
