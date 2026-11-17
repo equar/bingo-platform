@@ -1,9 +1,28 @@
+import 'dart:convert';
+import 'dart:io';
 import 'dart:ui' show Locale;
 
 import 'package:bingo_player/l10n/app_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('Tigrinya catalog has every English message key', () {
+    final english = jsonDecode(
+      File('lib/l10n/app_en.arb').readAsStringSync(),
+    ) as Map<String, dynamic>;
+    final tigrinya = jsonDecode(
+      File('lib/l10n/app_ti.arb').readAsStringSync(),
+    ) as Map<String, dynamic>;
+    final englishMessageKeys = english.keys
+        .where((key) => !key.startsWith('@'))
+        .toSet();
+    final tigrinyaMessageKeys = tigrinya.keys
+        .where((key) => !key.startsWith('@'))
+        .toSet();
+
+    expect(tigrinyaMessageKeys, equals(englishMessageKeys));
+  });
+
   test('wallet and claim labels are translated in Amharic', () async {
     final english = await AppLocalizations.delegate.load(const Locale('en'));
     final amharic = await AppLocalizations.delegate.load(const Locale('am'));
