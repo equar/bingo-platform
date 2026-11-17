@@ -10,6 +10,7 @@ import {
   currentWalletTransferSettings,
   promotionalRewardCampaigns,
   promotionalRewardGrants,
+  setWalletTransferPolicyStatus,
   walletTransferSettingsHistory,
 } from "../../api/admin";
 import { SignupRewardGrantsPage } from "./SignupRewardGrantsPage";
@@ -23,6 +24,7 @@ vi.mock("../../api/admin", () => ({
   promotionalRewardGrants: vi.fn(),
   awardPromotionalReward: vi.fn(),
   saveWalletTransferSettings: vi.fn(),
+  setWalletTransferPolicyStatus: vi.fn(),
   setSignupRewardPolicyStatus: vi.fn(),
   walletTransferSettingsHistory: vi.fn(),
 }));
@@ -33,6 +35,7 @@ const currentTransferSettingsMock = vi.mocked(currentWalletTransferSettings);
 const campaignsMock = vi.mocked(promotionalRewardCampaigns);
 const grantsMock = vi.mocked(promotionalRewardGrants);
 const transferHistoryMock = vi.mocked(walletTransferSettingsHistory);
+const transferStatusMock = vi.mocked(setWalletTransferPolicyStatus);
 
 function createWrapper({ children }: PropsWithChildren) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -72,7 +75,7 @@ describe("WalletPoliciesPage", () => {
       updatedAt: "2026-10-01T00:00:00Z", activeNow: true,
     });
     currentTransferSettingsMock.mockResolvedValue({
-      id: 2, enabled: true, maxSingleTransferAmount: "100.00", dailyOutgoingLimitAmount: "500.00",
+      id: 2, enabled: true, maxSingleTransferAmount: "100.00", periodOutgoingLimitAmount: "500.00", limitPeriod: "DAILY",
       currency: "ETB", effectiveFrom: "2026-10-01T00:00:00Z", effectiveUntil: null,
       changedByUserId: 2, reason: null, createdAt: "2026-10-01T00:00:00Z",
       updatedAt: "2026-10-01T00:00:00Z", activeNow: true,
@@ -101,6 +104,55 @@ describe("WalletPoliciesPage", () => {
     render(<SignupRewardGrantsPage />, { wrapper: createWrapper });
     expect(await screen.findByRole("heading", { name: "Promotional reward grants" })).toBeInTheDocument();
     expect(grantsMock).toHaveBeenCalledWith(0, 20, undefined);
+  });
+
+  it("configures transfer status and a calendar reset period without effective dates", async () => {
+    const user = userEvent.setup();
+    renderAt("/wallet/transfer-policy");
+    await screen.findByRole("heading", { name: "Transfer policy" });
+    await user.click(screen.getByRole("button", { name: "Add transfer policy" }));
+    expect(await screen.findByRole("heading", { name: "Add transfer policy" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Status")).toBeInTheDocument();
+    expect(screen.getByLabelText("Limit reset period")).toBeInTheDocument();
+    expect(screen.getByLabelText("Outgoing limit per period")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Effective from")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Effective until")).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+    await user.click(screen.getByLabelText("Limit reset period"));
+    expect(await screen.findByRole("option", { name: "Biweekly" })).toBeInTheDocument();
+  });
+
+  it("updates a transfer policy status without creating a policy", async () => {
+    transferHistoryMock.mockResolvedValue({
+      content: [{
+        id: 17,
+        enabled: true,
+        activeNow: true,
+        maxSingleTransferAmount: "100.00",
+        periodOutgoingLimitAmount: "500.00",
+        limitPeriod: "DAILY",
+        currency: "ETB",
+        effectiveFrom: "2026-10-01T00:00:00Z",
+        effectiveUntil: null,
+        changedByUserId: 2,
+        reason: null,
+        createdAt: "2026-10-01T00:00:00Z",
+        updatedAt: "2026-10-01T00:00:00Z",
+      }],
+      page: 0,
+      size: 20,
+      totalElements: 1,
+      totalPages: 1,
+      first: true,
+      last: true,
+    });
+    const user = userEvent.setup();
+    renderAt("/wallet/transfer-policy");
+    await user.click(await screen.findByRole("button", { name: "Make inactive" }));
+    expect(await screen.findByRole("heading", { name: "Deactivate transfer policy?" })).toBeInTheDocument();
+    expect(transferStatusMock).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Make inactive" }));
+    await waitFor(() => expect(transferStatusMock).toHaveBeenCalledWith(17, false));
   });
 
   it("defaults a new campaign to today and accepts an inclusive same-day end date", async () => {

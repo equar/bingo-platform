@@ -1,6 +1,7 @@
 package com.bakaroo.bingo.backend.feature.wallet.repository;
 
 import com.bakaroo.bingo.backend.feature.wallet.entity.WalletTransferPolicy;
+import com.bakaroo.bingo.backend.feature.wallet.entity.WalletTransferLimitPeriod;
 import java.math.BigDecimal;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
@@ -10,6 +11,10 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface WalletTransferPolicyRepository extends JpaRepository<WalletTransferPolicy, Long> {
+
+    boolean existsByEnabledTrueAndLimitPeriod(WalletTransferLimitPeriod limitPeriod);
+
+    boolean existsByEnabledTrueAndLimitPeriodAndIdNot(WalletTransferLimitPeriod limitPeriod, Long id);
 
     Optional<WalletTransferPolicy> findFirstByOrderByCreatedAtDescIdDesc();
 
@@ -22,7 +27,7 @@ public interface WalletTransferPolicyRepository extends JpaRepository<WalletTran
                     or lower(p.currency) like concat('%', :search, '%')
                     or lower(coalesce(p.reason, '')) like concat('%', :search, '%')
                     or (:amount is not null and (p.maxSingleTransferAmount = :amount
-                        or p.dailyOutgoingLimitAmount = :amount)))
+                        or p.periodOutgoingLimitAmount = :amount)))
             """)
     Page<WalletTransferPolicy> searchHistory(@Param("search") String search,
             @Param("enabled") Boolean enabled,

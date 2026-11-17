@@ -83,6 +83,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -807,6 +808,58 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
                                 .orElseThrow().getAvailableBalance());
                 assertEquals(new BigDecimal("0.00"), walletRepository.findByOwnerId(recipient.getId())
                                 .orElseThrow().getAvailableBalance());
+        }
+
+        @Test
+        void onlyOneTransferPolicyPerResetPeriodCanBeActive() throws Exception {
+                String adminToken = adminLoginToken("admin@example.com", "AdminPass123!");
+                Instant now = Instant.now();
+                String dailyPolicy = objectMapper.writeValueAsString(Map.of(
+                                "enabled", true,
+                                "maxSingleTransferAmount", new BigDecimal("100.00"),
+                                "periodOutgoingLimitAmount", new BigDecimal("500.00"),
+                                "limitPeriod", "DAILY",
+                                "currency", "ETB",
+                                "effectiveFrom", now.toString()));
+
+                mockMvc.perform(post("/api/v1/admin/wallet/transfers/settings")
+                                .header("Authorization", "Bearer " + adminToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(dailyPolicy))
+                                .andExpect(status().isConflict())
+                                .andExpect(jsonPath("$.code").value("WALLET_TRANSFER_POLICY_ALREADY_ACTIVE"))
+                                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString(
+                                                "Make it inactive before creating or activating another policy")));
+                assertEquals(1L, walletTransferPolicyRepository.count());
+
+                String weeklyPolicy = objectMapper.writeValueAsString(Map.of(
+                                "enabled", true,
+                                "maxSingleTransferAmount", new BigDecimal("100.00"),
+                                "periodOutgoingLimitAmount", new BigDecimal("500.00"),
+                                "limitPeriod", "WEEKLY",
+                                "currency", "ETB",
+                                "effectiveFrom", now.toString()));
+                mockMvc.perform(post("/api/v1/admin/wallet/transfers/settings")
+                                .header("Authorization", "Bearer " + adminToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(weeklyPolicy))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.limitPeriod").value("WEEKLY"));
+
+                WalletTransferPolicy inactiveDailyPolicy = walletTransferPolicyRepository.save(
+                                WalletTransferPolicy.create(false, new BigDecimal("100.00"),
+                                                new BigDecimal("500.00"),
+                                                com.bakaroo.bingo.backend.feature.wallet.entity.WalletTransferLimitPeriod.DAILY,
+                                                "ETB", now, null, adminUser, null, now));
+                mockMvc.perform(put("/api/v1/admin/wallet/transfers/settings/{policyId}/status",
+                                inactiveDailyPolicy.getId())
+                                .header("Authorization", "Bearer " + adminToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"enabled\":true}"))
+                                .andExpect(status().isConflict())
+                                .andExpect(jsonPath("$.code").value("WALLET_TRANSFER_POLICY_ALREADY_ACTIVE"));
+                assertTrue(!walletTransferPolicyRepository.findById(inactiveDailyPolicy.getId())
+                                .orElseThrow().isEnabled());
         }
 
         @Test

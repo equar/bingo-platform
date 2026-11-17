@@ -14,6 +14,7 @@ import 'package:bingo_player/src/features/wallet/presentation/wallet_transaction
 import 'package:bingo_player/src/features/auth/data/auth_repository.dart';
 import 'package:bingo_player/src/features/auth/data/auth_session_controller.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
@@ -1121,11 +1122,9 @@ class _TransactionsPane extends StatelessWidget {
                   final campaignReward = isWalletCampaignReward(
                     entry.transactionType,
                   );
-                  final bucketSummary =
-                      entry.transferableBalanceAfter != null ||
-                          entry.promotionalBalanceAfter != null
-                      ? '\n${localizations.walletTransferableBalanceLabel}: ${entry.transferableBalanceAfter ?? entry.balanceAfter} · ${localizations.walletPromotionalShortLabel}: ${entry.promotionalBalanceAfter ?? 0}'
-                      : '';
+                  final transactionDate = DateFormat.yMMMd()
+                      .add_jm()
+                      .format(entry.createdAt.toLocal());
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: SectionCard(
@@ -1140,16 +1139,10 @@ class _TransactionsPane extends StatelessWidget {
                                 )
                               : '${walletTransactionTypeLabel(localizations, entry.transactionType)} • ${entry.amount} ${entry.currency}',
                         ),
-                        subtitle: campaignReward
-                            ? null
-                            : Text(
-                                '${entry.note ?? entry.operationId}$bucketSummary',
-                              ),
-                        isThreeLine:
-                            !campaignReward && bucketSummary.isNotEmpty,
-                        trailing: campaignReward
-                            ? null
-                            : Text('${entry.balanceAfter}'),
+                        subtitle: Text(
+                          '${entry.amount} ${entry.currency} · $transactionDate',
+                        ),
+                        trailing: Text('${entry.balanceAfter}'),
                       ),
                     ),
                   );

@@ -5,6 +5,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import {
   Alert,
   Box,
+  Button,
   Card,
   CardContent,
   Chip,
@@ -140,75 +141,124 @@ export function WalletTransfersPage() {
           }}
         />
 
-        <Stack direction={{ xs: "column", lg: "row" }} spacing={2}>
-          <TextField
-            label={t("Search sender, recipient, note, or operation")}
-            value={query}
-            onChange={(event) => {
-              setQuery(event.target.value);
-              setPage(0);
-              setSelectedId(null);
-            }}
-            fullWidth
-          />
-          <TextField
-            select
-            label={t("Status")}
-            value={status}
-            onChange={(event) => {
-              setStatus(event.target.value);
-              setPage(0);
-              setSelectedId(null);
-            }}
-            sx={{ minWidth: { xs: "100%", lg: 180 } }}
-          >
-            <MenuItem value="">{t("All statuses")}</MenuItem>
-            <MenuItem value="COMPLETED">{t("Completed")}</MenuItem>
-            <MenuItem value="FAILED">{t("Failed")}</MenuItem>
-          </TextField>
-          <TextField
-            label={t("Sender phone")}
-            value={senderPhone}
-            onChange={(event) => {
-              setSenderPhone(event.target.value);
-              setPage(0);
-              setSelectedId(null);
-            }}
-            fullWidth
-          />
-          <TextField
-            label={t("Recipient phone")}
-            value={recipientPhone}
-            onChange={(event) => {
-              setRecipientPhone(event.target.value);
-              setPage(0);
-              setSelectedId(null);
-            }}
-            fullWidth
-          />
-        </Stack>
+        <Card elevation={0} sx={{ border: 1, borderColor: "divider" }}>
+          <CardContent>
+            <Stack spacing={2}>
+              <Stack
+                direction={{ xs: "column", sm: "row" }}
+                justifyContent="space-between"
+                alignItems={{ xs: "flex-start", sm: "center" }}
+                gap={1}
+              >
+                <Box>
+                  <Typography variant="h6">{t("Find transfers")}</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {t("Narrow the history by participant, operation, or status.")}
+                  </Typography>
+                </Box>
+              </Stack>
+              <Grid container spacing={2}>
+                <Grid item xs={12} md={6} lg={5}>
+                  <TextField
+                    label={t("Search sender, recipient, note, or operation")}
+                    value={query}
+                    onChange={(event) => {
+                      setQuery(event.target.value);
+                      setPage(0);
+                      setSelectedId(null);
+                    }}
+                    fullWidth
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6} md={3} lg={2}>
+                  <TextField
+                    select
+                    label={t("Status")}
+                    value={status}
+                    onChange={(event) => {
+                      setStatus(event.target.value);
+                      setPage(0);
+                      setSelectedId(null);
+                    }}
+                    fullWidth
+                  >
+                    <MenuItem value="">{t("All statuses")}</MenuItem>
+                    <MenuItem value="COMPLETED">{t("Completed")}</MenuItem>
+                    <MenuItem value="FAILED">{t("Failed")}</MenuItem>
+                  </TextField>
+                </Grid>
+                <Grid item xs={12} sm={6} md={3} lg={2}>
+                  <TextField
+                    label={t("Sender phone")}
+                    value={senderPhone}
+                    onChange={(event) => {
+                      setSenderPhone(event.target.value);
+                      setPage(0);
+                      setSelectedId(null);
+                    }}
+                    fullWidth
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6} md={3} lg={3}>
+                  <TextField
+                    label={t("Recipient phone")}
+                    value={recipientPhone}
+                    onChange={(event) => {
+                      setRecipientPhone(event.target.value);
+                      setPage(0);
+                      setSelectedId(null);
+                    }}
+                    fullWidth
+                  />
+                </Grid>
+              </Grid>
+            </Stack>
+          </CardContent>
+        </Card>
 
         {transfersQuery.isFetching && !transfersQuery.isLoading ? (
           <Alert severity="info">{t("Updating transfer results...")}</Alert>
         ) : null}
 
         <Grid container spacing={2}>
-          <Grid item xs={12} lg={7}>
+          <Grid item xs={12}>
+            <Stack
+              direction={{ xs: "column", sm: "row" }}
+              justifyContent="space-between"
+              alignItems={{ xs: "flex-start", sm: "center" }}
+              gap={1}
+            >
+              <Box>
+                <Typography variant="h6">{t("Transfers")}</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {t("Select a transfer to review its wallet ledger entries.")}
+                </Typography>
+              </Box>
+              <Chip
+                variant="outlined"
+                label={t("{{count}} matching transfers", {
+                  count: transfersQuery.data?.totalElements ?? 0,
+                })}
+              />
+            </Stack>
             <Box
               sx={{
                 overflowX: "auto",
                 border: 1,
                 borderColor: "divider",
-                borderRadius: 1,
+                borderRadius: 2,
+                mt: 1.5,
               }}
             >
               <Table size="small" aria-label={t("wallet transfers table")}>
                 <TableHead>
                   <TableRow>
-                    <TableCell>{t("Sender / recipient")}</TableCell>
+                    <TableCell>{t("Transfer")}</TableCell>
+                    <TableCell>{t("Operation")}</TableCell>
                     <TableCell align="right">{t("Amount")}</TableCell>
                     <TableCell>{t("Status")}</TableCell>
                     <TableCell>{t("Created")}</TableCell>
+                    <TableCell align="right">{t("Actions")}</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -237,18 +287,25 @@ export function WalletTransfersPage() {
                       sx={{ cursor: "pointer" }}
                       data-testid={`wallet-transfer-row-${transfer.id}`}
                     >
-                      <TableCell>
+                      <TableCell sx={{ minWidth: 210 }}>
                         <Stack spacing={0.25}>
                           <Typography fontWeight={600}>
                             {transfer.senderPhoneNumber}
                           </Typography>
                           <Typography variant="body2" color="text.secondary">
-                            {t("To")} {transfer.recipientPhoneNumber}
+                            {t("To {{recipient}}", {
+                              recipient: transfer.recipientPhoneNumber,
+                            })}
                           </Typography>
                           <Typography variant="caption" color="text.secondary">
                             {transfer.note ?? t("No note")}
                           </Typography>
                         </Stack>
+                      </TableCell>
+                      <TableCell sx={{ minWidth: 140 }}>
+                        <Typography variant="body2" noWrap title={transfer.operationId}>
+                          {transfer.operationId}
+                        </Typography>
                       </TableCell>
                       <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>
                         {transfer.amount} {transfer.currency}
@@ -257,17 +314,31 @@ export function WalletTransfersPage() {
                         <Chip
                           label={translateAdminStatus(transfer.status, t)}
                           size="small"
+                          color={transfer.status === "FAILED" ? "error" : "success"}
                         />
                       </TableCell>
                       <TableCell sx={{ whiteSpace: "nowrap" }}>
                         {formatEthiopianDateTime(transfer.createdAt)}
+                      </TableCell>
+                      <TableCell align="right">
+                        <Button
+                          size="small"
+                          aria-label={t("View details for transfer {{id}}", { id: transfer.id })}
+                          aria-pressed={selectedId === transfer.id}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setSelectedId(transfer.id);
+                          }}
+                        >
+                          {t("View details")}
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}
                   {transfersQuery.data &&
                   transfersQuery.data.content.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={4}>
+                      <TableCell colSpan={6}>
                         <Alert severity="info">
                           {t(
                             "No transfers match the current search and filters.",
@@ -297,7 +368,7 @@ export function WalletTransfersPage() {
               rowsPerPageOptions={[10, 20, 50]}
             />
           </Grid>
-          <Grid item xs={12} lg={5}>
+          <Grid item xs={12} sx={{ display: selectedId === null ? "none" : undefined }}>
             <Card
               elevation={0}
               sx={{
@@ -335,10 +406,15 @@ export function WalletTransfersPage() {
                       <Typography variant="h6">
                         {t("Transfer detail")}
                       </Typography>
-                      <ListRefreshButton
-                        refreshing={transferDetailQuery.isFetching}
-                        onRefresh={() => transferDetailQuery.refetch()}
-                      />
+                      <Stack direction="row" spacing={1}>
+                        <ListRefreshButton
+                          refreshing={transferDetailQuery.isFetching}
+                          onRefresh={() => transferDetailQuery.refetch()}
+                        />
+                        <Button size="small" onClick={() => setSelectedId(null)}>
+                          {t("Close details")}
+                        </Button>
+                      </Stack>
                     </Stack>
                     {transferDetailQuery.isRefetchError ? (
                       <ListRefreshError

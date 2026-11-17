@@ -9,6 +9,7 @@ import com.bakaroo.bingo.backend.common.money.MoneyValues;
 import com.bakaroo.bingo.backend.common.request.RequestHashService;
 import com.bakaroo.bingo.backend.feature.auth.service.BingoUserPrincipal;
 import com.bakaroo.bingo.backend.feature.auth.service.EthiopianPhoneNormalizer;
+import com.bakaroo.bingo.backend.feature.config.BusinessProperties;
 import com.bakaroo.bingo.backend.feature.user.entity.User;
 import com.bakaroo.bingo.backend.feature.user.entity.UserRole;
 import com.bakaroo.bingo.backend.feature.user.repository.UserRepository;
@@ -25,6 +26,7 @@ import com.bakaroo.bingo.backend.feature.wallet.entity.Wallet;
 import com.bakaroo.bingo.backend.feature.wallet.entity.WalletTransaction;
 import com.bakaroo.bingo.backend.feature.wallet.entity.WalletTransactionType;
 import com.bakaroo.bingo.backend.feature.wallet.entity.WalletTransfer;
+import com.bakaroo.bingo.backend.feature.wallet.entity.WalletTransferLimitPeriod;
 import com.bakaroo.bingo.backend.feature.wallet.entity.WalletTransferPolicy;
 import com.bakaroo.bingo.backend.feature.wallet.entity.WalletTransferStatus;
 import com.bakaroo.bingo.backend.feature.wallet.repository.WalletRepository;
@@ -57,6 +59,7 @@ public class WalletTransferService {
     private final IdempotencyService idempotencyService;
     private final RequestHashService requestHashService;
     private final ObjectMapper objectMapper;
+    private final BusinessProperties businessProperties;
 
     public WalletTransferService(UserRepository userRepository,
             WalletRepository walletRepository,
@@ -67,7 +70,8 @@ public class WalletTransferService {
             EthiopianPhoneNormalizer phoneNormalizer,
             IdempotencyService idempotencyService,
             RequestHashService requestHashService,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            BusinessProperties businessProperties) {
         this.userRepository = userRepository;
         this.walletRepository = walletRepository;
         this.walletTransactionRepository = walletTransactionRepository;
@@ -78,6 +82,7 @@ public class WalletTransferService {
         this.idempotencyService = idempotencyService;
         this.requestHashService = requestHashService;
         this.objectMapper = objectMapper;
+        this.businessProperties = businessProperties;
     }
 
     @Transactional(readOnly = true)
@@ -158,10 +163,14 @@ public class WalletTransferService {
     public WalletTransferSettingsResponse saveSettings(BingoUserPrincipal principal,
             WalletTransferSettingsRequest request) {
         requireAdmin(principal);
+        if (request.enabled()) {
+            ensureNoActivePolicyForPeriod(request.limitPeriod(), null);
+        }
         WalletTransferPolicy policy = policyRepository.save(WalletTransferPolicy.create(
                 request.enabled(),
                 MoneyValues.money(request.maxSingleTransferAmount()),
-                MoneyValues.money(request.dailyOutgoingLimitAmount()),
+                MoneyValues.money(request.periodOutgoingLimitAmount()),
+                request.limitPeriod(),
                 request.currency().toUpperCase(),
                 request.effectiveFrom(),
                 request.effectiveUntil(),
@@ -169,6 +178,31 @@ public class WalletTransferService {
                 request.reason(),
                 Instant.now()));
         return toSettingsResponse(policy);
+    }
+
+    @Transactional
+    public WalletTransferSettingsResponse setPolicyStatus(BingoUserPrincipal principal, Long policyId,
+            boolean enabled) {
+        requireAdmin(principal);
+        WalletTransferPolicy policy = policyRepository.findById(policyId)
+                .orElseThrow(() -> new NotFoundException("WALLET_TRANSFER_POLICY_NOT_FOUND",
+                        "Wallet transfer policy not found"));
+        if (enabled) {
+            ensureNoActivePolicyForPeriod(policy.getLimitPeriod(), policy.getId());
+        }
+        policy.setEnabled(enabled);
+        policy.setChangedBy(principal.getUser());
+        return toSettingsResponse(policy);
+    }
+
+    private void ensureNoActivePolicyForPeriod(WalletTransferLimitPeriod limitPeriod, Long excludedPolicyId) {
+        boolean anotherActivePolicy = excludedPolicyId == null
+                ? policyRepository.existsByEnabledTrueAndLimitPeriod(limitPeriod)
+                : policyRepository.existsByEnabledTrueAndLimitPeriodAndIdNot(limitPeriod, excludedPolicyId);
+        if (anotherActivePolicy) {
+            throw new ConflictException("WALLET_TRANSFER_POLICY_ALREADY_ACTIVE",
+                    "An active transfer policy already exists for this reset period. Make it inactive before creating or activating another policy.");
+        }
     }
 
     @Transactional(readOnly = true)
@@ -208,12 +242,15 @@ public class WalletTransferService {
         Wallet recipientWallet = ensureWallet(recipient);
 
         Instant now = Instant.now();
-        if (policy.getDailyOutgoingLimitAmount().compareTo(BigDecimal.ZERO) > 0) {
-            BigDecimal sentSince = walletTransferRepository.sumSentAmountSince(sender.getId(), now.minusSeconds(86_400),
+        if (policy.getPeriodOutgoingLimitAmount().compareTo(BigDecimal.ZERO) > 0) {
+            Instant periodStart = policy.getLimitPeriod().startOfPeriod(now, businessProperties.zoneId());
+            BigDecimal sentSince = walletTransferRepository.sumSentAmountSince(sender.getId(), periodStart,
                     WalletTransferStatus.COMPLETED);
-            if (sentSince.add(amount).compareTo(policy.getDailyOutgoingLimitAmount()) > 0) {
-                throw new BadRequestException("DAILY_TRANSFER_LIMIT_EXCEEDED",
-                        "You have exceeded the configured daily outgoing transfer limit");
+            if (sentSince.add(amount).compareTo(policy.getPeriodOutgoingLimitAmount()) > 0) {
+                String errorCode = policy.getLimitPeriod() == WalletTransferLimitPeriod.DAILY
+                        ? "DAILY_TRANSFER_LIMIT_EXCEEDED" : "PERIOD_TRANSFER_LIMIT_EXCEEDED";
+                throw new BadRequestException(errorCode,
+                        "You have exceeded the configured outgoing transfer limit for this period");
             }
         }
 
@@ -335,7 +372,8 @@ public class WalletTransferService {
     private WalletTransferSettingsResponse toSettingsResponse(WalletTransferPolicy policy) {
         Instant now = Instant.now();
         return new WalletTransferSettingsResponse(policy.getId(), policy.isEnabled(),
-                policy.getMaxSingleTransferAmount(), policy.getDailyOutgoingLimitAmount(), policy.getCurrency(),
+                policy.getMaxSingleTransferAmount(), policy.getPeriodOutgoingLimitAmount(), policy.getLimitPeriod(),
+                policy.getCurrency(),
                 policy.getEffectiveFrom(), policy.getEffectiveUntil(),
                 policy.getChangedBy() == null ? null : policy.getChangedBy().getId(), policy.getReason(),
                 policy.getCreatedAt(), policy.getUpdatedAt(), policy.isEnabled()

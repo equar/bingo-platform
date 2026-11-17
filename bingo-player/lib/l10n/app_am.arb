@@ -83,7 +83,7 @@
   "errorClosedTicket": "ይህ የድጋፍ ጥያቄ ተዘግቷል እና ከእንግዲህ ሊቀየር አይችልም።",
   "errorSelfTransfer": "ወደ ራስዎ መለያ ገንዘብ ማስተላለፍ አይችሉም።",
   "errorTransferLimit": "ይህ ዝውውር ከተፈቀደው ገደብ በላይ ነው።",
-  "errorDailyTransferLimit": "የዕለቱን የዝውውር ገደብ ደርሰዋል።",
+  "errorDailyTransferLimit": "ለዚህ ጊዜ የዝውውር ገደብ ደርሰዋል።",
   "errorTransferUnavailable": "ዝውውሮች ለጊዜው አይገኙም። እባክዎ በኋላ ይሞክሩ።",
   "errorReference": "ማጣቀሻ: {reference}",
   "@errorReference": {

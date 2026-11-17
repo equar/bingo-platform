@@ -880,7 +880,8 @@ export interface WalletTransferSettingsResponse {
   id: number;
   enabled: boolean;
   maxSingleTransferAmount: string;
-  dailyOutgoingLimitAmount: string;
+  periodOutgoingLimitAmount: string;
+  limitPeriod: "DAILY" | "WEEKLY" | "BIWEEKLY" | "MONTHLY";
   currency: string;
   effectiveFrom: string;
   effectiveUntil: string | null;
@@ -894,7 +895,8 @@ export interface WalletTransferSettingsResponse {
 export interface WalletTransferSettingsRequest {
   enabled: boolean;
   maxSingleTransferAmount: number;
-  dailyOutgoingLimitAmount: number;
+  periodOutgoingLimitAmount: number;
+  limitPeriod: "DAILY" | "WEEKLY" | "BIWEEKLY" | "MONTHLY";
   currency: string;
   effectiveFrom: string;
   effectiveUntil?: string | null;
@@ -1488,6 +1490,14 @@ export async function walletTransferSettingsHistory(page = 0, size = 20, query?:
 
 export async function saveWalletTransferSettings(request: WalletTransferSettingsRequest) {
   const { data } = await http.post<WalletTransferSettingsResponse>('/api/v1/admin/wallet/transfers/settings', request);
+  return data;
+}
+
+export async function setWalletTransferPolicyStatus(policyId: number, enabled: boolean) {
+  const { data } = await http.put<WalletTransferSettingsResponse>(
+    `/api/v1/admin/wallet/transfers/settings/${policyId}/status`,
+    { enabled },
+  );
   return data;
 }
 

@@ -6,6 +6,7 @@ import com.bakaroo.bingo.backend.feature.wallet.dto.WalletTransferResponse;
 import com.bakaroo.bingo.backend.feature.wallet.dto.WalletTransferDetailResponse;
 import com.bakaroo.bingo.backend.feature.wallet.dto.WalletTransferSettingsRequest;
 import com.bakaroo.bingo.backend.feature.wallet.dto.WalletTransferSettingsResponse;
+import com.bakaroo.bingo.backend.feature.wallet.dto.WalletTransferPolicyStatusRequest;
 import com.bakaroo.bingo.backend.feature.wallet.entity.WalletTransferStatus;
 import com.bakaroo.bingo.backend.feature.wallet.service.WalletTransferService;
 import jakarta.validation.Valid;
@@ -16,6 +17,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -52,6 +54,13 @@ public class AdminWalletTransferController {
     public WalletTransferSettingsResponse updateSettings(@AuthenticationPrincipal BingoUserPrincipal principal,
             @Valid @RequestBody WalletTransferSettingsRequest request) {
         return walletTransferService.saveSettings(principal, request);
+    }
+
+    @PutMapping("/settings/{policyId}/status")
+    @PreAuthorize("hasRole('ADMIN')")
+    public WalletTransferSettingsResponse updateTransferPolicyStatus(@AuthenticationPrincipal BingoUserPrincipal principal,
+            @PathVariable Long policyId, @RequestBody WalletTransferPolicyStatusRequest request) {
+        return walletTransferService.setPolicyStatus(principal, policyId, request.enabled());
     }
 
     @GetMapping

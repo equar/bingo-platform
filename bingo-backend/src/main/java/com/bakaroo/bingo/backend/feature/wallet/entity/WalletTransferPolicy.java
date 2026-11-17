@@ -12,6 +12,8 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import java.math.BigDecimal;
 import java.time.Instant;
 
@@ -29,8 +31,12 @@ public class WalletTransferPolicy {
     @Column(name = "max_single_transfer_amount", nullable = false, precision = 19, scale = 2)
     private BigDecimal maxSingleTransferAmount;
 
-    @Column(name = "daily_outgoing_limit_amount", nullable = false, precision = 19, scale = 2)
-    private BigDecimal dailyOutgoingLimitAmount;
+    @Column(name = "period_outgoing_limit_amount", nullable = false, precision = 19, scale = 2)
+    private BigDecimal periodOutgoingLimitAmount;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "limit_period", nullable = false, length = 16)
+    private WalletTransferLimitPeriod limitPeriod;
 
     @Column(name = "currency", nullable = false, length = 3)
     private String currency;
@@ -59,7 +65,8 @@ public class WalletTransferPolicy {
 
     public static WalletTransferPolicy create(boolean enabled,
             BigDecimal maxSingleTransferAmount,
-            BigDecimal dailyOutgoingLimitAmount,
+            BigDecimal periodOutgoingLimitAmount,
+            WalletTransferLimitPeriod limitPeriod,
             String currency,
             Instant effectiveFrom,
             Instant effectiveUntil,
@@ -69,7 +76,8 @@ public class WalletTransferPolicy {
         WalletTransferPolicy policy = new WalletTransferPolicy();
         policy.enabled = enabled;
         policy.maxSingleTransferAmount = maxSingleTransferAmount;
-        policy.dailyOutgoingLimitAmount = dailyOutgoingLimitAmount;
+        policy.periodOutgoingLimitAmount = periodOutgoingLimitAmount;
+        policy.limitPeriod = limitPeriod;
         policy.currency = currency;
         policy.effectiveFrom = effectiveFrom;
         policy.effectiveUntil = effectiveUntil;
@@ -78,6 +86,19 @@ public class WalletTransferPolicy {
         policy.createdAt = now;
         policy.updatedAt = now;
         return policy;
+    }
+
+    public static WalletTransferPolicy create(boolean enabled,
+            BigDecimal maxSingleTransferAmount,
+            BigDecimal periodOutgoingLimitAmount,
+            String currency,
+            Instant effectiveFrom,
+            Instant effectiveUntil,
+            User changedBy,
+            String reason,
+            Instant now) {
+        return create(enabled, maxSingleTransferAmount, periodOutgoingLimitAmount, WalletTransferLimitPeriod.DAILY,
+                currency, effectiveFrom, effectiveUntil, changedBy, reason, now);
     }
 
     @PrePersist
@@ -94,6 +115,14 @@ public class WalletTransferPolicy {
         updatedAt = Instant.now();
     }
 
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
+
+    public void setChangedBy(User changedBy) {
+        this.changedBy = changedBy;
+    }
+
     public Long getId() {
         return id;
     }
@@ -106,8 +135,12 @@ public class WalletTransferPolicy {
         return maxSingleTransferAmount;
     }
 
-    public BigDecimal getDailyOutgoingLimitAmount() {
-        return dailyOutgoingLimitAmount;
+    public BigDecimal getPeriodOutgoingLimitAmount() {
+        return periodOutgoingLimitAmount;
+    }
+
+    public WalletTransferLimitPeriod getLimitPeriod() {
+        return limitPeriod;
     }
 
     public String getCurrency() {
