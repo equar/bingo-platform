@@ -42,6 +42,7 @@ describe("SessionTicketsPage", () => {
           endedAt: null,
           ticketPrice: "10.00",
           currency: "ETB",
+          sessionCapacity: 100,
           ticketCount: 18,
           drawCount: 0,
           winClaimCount: 0,

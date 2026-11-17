@@ -11,8 +11,10 @@ import 'package:bingo_player/src/core/widgets/section_card.dart';
 import 'package:bingo_player/src/features/wallet/data/wallet_repository.dart';
 import 'package:bingo_player/src/features/wallet/domain/wallet_models.dart';
 import 'package:bingo_player/src/features/wallet/presentation/wallet_transaction_labels.dart';
+import 'package:bingo_player/src/features/auth/data/auth_repository.dart';
 import 'package:bingo_player/src/features/auth/data/auth_session_controller.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
@@ -109,6 +111,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
     if (isVisible && !_isWalletVisible) {
       _isWalletVisible = true;
       _refreshWalletData();
+      unawaited(_refreshCurrentProfile());
     } else if (!isVisible) {
       _isWalletVisible = false;
     }
@@ -219,6 +222,18 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
     ref.invalidate(walletTransactionsProvider(_transactionPage));
     ref.invalidate(walletDepositsProvider(_depositPage));
     ref.invalidate(walletWithdrawalsProvider(0));
+  }
+
+  Future<void> _refreshCurrentProfile() async {
+    final session = ref.read(authSessionControllerProvider).session;
+    if (session == null) return;
+    try {
+      final profile = await ref.read(authRepositoryProvider).me();
+      if (!mounted) return;
+      await ref
+          .read(authSessionControllerProvider.notifier)
+          .updateUser(profile, expectedAccessToken: session.accessToken);
+    } catch (_) {}
   }
 
   @override
@@ -869,6 +884,46 @@ class _TransfersPaneState extends ConsumerState<_TransfersPane> {
       _transferIdempotencyKey = const Uuid().v4();
     }
     final request = _pendingTransfer!;
+    final recipient = _recipient!;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(AppLocalizations.of(context)!.sendTransfer),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(AppLocalizations.of(context)!.recipientPreviewTitle),
+            const SizedBox(height: 8),
+            Text(recipient.displayName),
+            Text(recipient.normalizedPhone),
+            const SizedBox(height: 12),
+            Text('${request.amount} ${request.currency}'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(AppLocalizations.of(context)!.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(AppLocalizations.of(context)!.confirm),
+          ),
+        ],
+      ),
+    );
+    if (!mounted) return;
+    if (confirmed != true) {
+      if (!_transferOutcomeUnknown) {
+        setState(() {
+          _pendingTransfer = null;
+          _transferIdempotencyKey = null;
+        });
+      }
+      return;
+    }
+
     final idempotencyKey = _transferIdempotencyKey ?? const Uuid().v4();
 
     setState(() {
@@ -1104,23 +1159,29 @@ class _TransactionsPane extends StatelessWidget {
                 itemCount: result.content.length,
                 itemBuilder: (context, index) {
                   final entry = result.content[index];
-                  final bucketSummary =
-                      entry.transferableBalanceAfter != null ||
-                          entry.promotionalBalanceAfter != null
-                      ? '\n${localizations.walletTransferableBalanceLabel}: ${entry.transferableBalanceAfter ?? entry.balanceAfter} · ${localizations.walletPromotionalShortLabel}: ${entry.promotionalBalanceAfter ?? 0}'
-                      : '';
+                  final campaignReward = isWalletCampaignReward(
+                    entry.transactionType,
+                  );
+                  final transactionDate = DateFormat.yMMMd().add_jm().format(
+                    entry.createdAt.toLocal(),
+                  );
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: SectionCard(
                       padding: const EdgeInsets.all(12),
                       child: ListTile(
                         title: Text(
-                          '${walletTransactionTypeLabel(localizations, entry.transactionType)} • ${entry.amount} ${entry.currency}',
+                          campaignReward
+                              ? walletTransactionCampaignName(
+                                  localizations,
+                                  entry.transactionType,
+                                  entry.note,
+                                )
+                              : '${walletTransactionTypeLabel(localizations, entry.transactionType)} • ${entry.amount} ${entry.currency}',
                         ),
                         subtitle: Text(
-                          '${entry.note ?? entry.operationId}$bucketSummary',
+                          '${entry.amount} ${entry.currency} · $transactionDate',
                         ),
-                        isThreeLine: bucketSummary.isNotEmpty,
                         trailing: Text('${entry.balanceAfter}'),
                       ),
                     ),
@@ -1212,7 +1273,7 @@ class _DepositsPane extends StatelessWidget {
                           '${entry.submittedCashAmount} ${entry.currency}',
                         ),
                         subtitle: Text(
-                          '${entry.normalizedTelebirrReference}\n${entry.status}',
+                          '${entry.normalizedTelebirrReference}\n${entry.displayStatus}',
                         ),
                         isThreeLine: true,
                         trailing: Text(
@@ -1268,7 +1329,7 @@ class _WalletBalanceBanner extends StatelessWidget {
   static double heightFor({
     required double textScale,
     required bool hasReferralCode,
-  }) => max(76.0, 60 * textScale + 12) + (hasReferralCode ? 17 * textScale : 0);
+  }) => max(84.0, 68 * textScale + 12) + (hasReferralCode ? 24 * textScale : 0);
 
   @override
   Widget build(BuildContext context) {

@@ -4,9 +4,11 @@ import com.bakaroo.bingo.backend.feature.wallet.entity.SignupRewardPolicy;
 import java.util.Optional;
 import java.util.List;
 import java.math.BigDecimal;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -18,6 +20,11 @@ public interface SignupRewardPolicyRepository extends JpaRepository<SignupReward
             SignupRewardPolicy.TriggerType triggerType);
 
     List<SignupRewardPolicy> findAllByTriggerTypeOrderByCreatedAtDescIdDesc(SignupRewardPolicy.TriggerType triggerType);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select p from SignupRewardPolicy p where p.triggerType = :triggerType order by p.createdAt desc, p.id desc")
+    List<SignupRewardPolicy> findAllByTriggerTypeOrderByCreatedAtDescIdDescForUpdate(
+            @Param("triggerType") SignupRewardPolicy.TriggerType triggerType);
 
     List<SignupRewardPolicy> findAllByEnabledTrueOrderByCreatedAtDesc();
 

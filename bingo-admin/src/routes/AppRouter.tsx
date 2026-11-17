@@ -163,7 +163,8 @@ export function AppRouter() {
               <Route path="wallet" element={<WalletHomeRedirect />} />
               <Route path="wallet/transfers" element={<WalletTransfersPage />} />
               <Route path="wallet/withdrawals" element={<WalletWithdrawalsPage />} />
-              <Route path="wallet/signup-reward-grants" element={<SignupRewardGrantsPage />} />
+              <Route path="wallet/promotional-reward-grants" element={<SignupRewardGrantsPage />} />
+              <Route path="wallet/signup-reward-grants" element={<Navigate to="/wallet/promotional-reward-grants" replace />} />
             </Route>
             <Route element={<ProtectedRoute allowedRoles={["ADMIN"]} />}>
               <Route path="player-app" element={<PlayerAppPage />} />
@@ -176,8 +177,10 @@ export function AppRouter() {
               <Route path="rooms/:roomId/edit" element={<RoomsPage />} />
               <Route path="claims" element={<ClaimsPage />} />
               <Route path="prize-entitlements" element={<PrizeEntitlementsPage />} />
-              <Route path="wallet/signup-reward" element={<WalletPoliciesPage />} />
-              <Route path="wallet/signup-reward/new" element={<WalletPoliciesPage />} />
+              <Route path="wallet/promotional-reward" element={<WalletPoliciesPage />} />
+              <Route path="wallet/promotional-reward/new" element={<WalletPoliciesPage />} />
+              <Route path="wallet/signup-reward" element={<Navigate to="/wallet/promotional-reward" replace />} />
+              <Route path="wallet/signup-reward/new" element={<Navigate to="/wallet/promotional-reward/new" replace />} />
               <Route path="wallet/transfer-policy" element={<WalletPoliciesPage />} />
               <Route path="wallet/transfer-policy/new" element={<WalletPoliciesPage />} />
             </Route>
@@ -196,5 +199,5 @@ function RoleHomeRedirect() {
 function WalletHomeRedirect() {
   const session = useSession();
   const supportOnly = session?.user.roles.includes("SUPPORT") && !session.user.roles.includes("ADMIN");
-  return <Navigate to={supportOnly ? "/wallet/transfers" : "/wallet/signup-reward"} replace />;
+  return <Navigate to={supportOnly ? "/wallet/transfers" : "/wallet/promotional-reward"} replace />;
 }

@@ -1,21 +1,21 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { type PropsWithChildren } from "react";
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { deposits, verifyDeposit } from "../../api/admin";
+import { deposits } from "../../api/admin";
 import { clearSession, writeSession } from "../../api/session";
 import i18n from "../../i18n";
 import { DepositsPage } from "./DepositsPage";
 
 vi.mock("../../api/admin", () => ({
+  approveDeposit: vi.fn(),
   deposits: vi.fn(),
-  verifyDeposit: vi.fn(),
+  rejectDeposit: vi.fn(),
 }));
 
 const depositsMock = vi.mocked(deposits);
-const verifyDepositMock = vi.mocked(verifyDeposit);
 
 function depositResponse(status = "PENDING") {
   return {
@@ -36,8 +36,8 @@ function depositResponse(status = "PENDING") {
         reviewedBy: null,
         reviewedAt: null,
         reviewNote: null,
-        verifiedBy: status === "VERIFIED" ? 4 : null,
-        verifiedAt: status === "VERIFIED" ? "2026-10-20T15:08:22Z" : null,
+        verifiedBy: null,
+        verifiedAt: null,
         paymentInstructions: null,
       },
     ],
@@ -72,6 +72,20 @@ function createWrapper({ children }: PropsWithChildren) {
   return (
     <QueryClientProvider client={queryClient}>
       <MemoryRouter>{children}</MemoryRouter>
+    </QueryClientProvider>
+  );
+}
+
+function createDepositRoutesWrapper({ children }: PropsWithChildren) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return (
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={["/deposits"]}>
+        <Routes>
+          <Route path="/deposits" element={children} />
+          <Route path="/deposits/:depositId" element={<div data-testid="deposit-detail-route" />} />
+        </Routes>
+      </MemoryRouter>
     </QueryClientProvider>
   );
 }
@@ -120,45 +134,31 @@ describe("DepositsPage", () => {
 
     expect(screen.getByText("****8842")).toBeInTheDocument();
     expect(screen.getByTestId("deposit-verify-32")).toBeInTheDocument();
-    expect(screen.queryByTestId("deposit-review-32")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("deposit-reject-32")).not.toBeInTheDocument();
   });
 
-  it("verifies deposits using the bank statement transaction reference", async () => {
-    writeSessionWithRoles(["SUPPORT"]);
-    verifyDepositMock.mockReset().mockResolvedValue({
-      id: 8,
-      depositClaimId: 32,
-      statementEntryId: 91,
-      receivingBankAccountId: 1,
-      transactionReference: "BANK-REF-32",
-      amount: "100.00",
-      currency: "ETB",
-      transactionDate: "2026-10-20",
-      outcome: "MATCHED",
-      evidenceSource: "BANK_STATEMENT",
-      synthetic: false,
-      reviewerUserId: 5,
-      createdAt: "2026-10-20T15:08:22Z",
-    });
+  it("displays only canonical deposit statuses", async () => {
+    depositsMock.mockResolvedValue(depositResponse("PENDING"));
     const user = userEvent.setup();
     render(<DepositsPage />, { wrapper: createWrapper });
 
-    await user.click(await screen.findByTestId("deposit-verify-32"));
-    const dialog = await screen.findByRole("dialog");
-    const verifyButton = within(dialog).getByRole("button", { name: "Verify" });
-    expect(verifyButton).toBeDisabled();
-    await user.type(
-      within(dialog).getByRole("textbox", {
-        name: "Bank statement payment reference",
-      }),
-      "BANK-REF-32",
-    );
-    expect(verifyButton).toBeEnabled();
-    await user.click(verifyButton);
+    expect(await screen.findByText("PENDING")).toBeInTheDocument();
+    expect(screen.queryByText("VERIFIED")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("combobox", { name: "Status" }));
 
-    await waitFor(() =>
-      expect(verifyDepositMock).toHaveBeenCalledWith(32, "BANK-REF-32"),
-    );
+    expect(
+      screen.getAllByRole("option").map((option) => option.textContent),
+    ).toEqual(["All statuses", "PENDING", "APPROVED", "REJECTED"]);
+  });
+
+  it("routes support to deposit details for verification and review actions", async () => {
+    writeSessionWithRoles(["SUPPORT"]);
+    const user = userEvent.setup();
+    render(<DepositsPage />, { wrapper: createDepositRoutesWrapper });
+
+    await user.click(await screen.findByTestId("deposit-verify-32"));
+    expect(await screen.findByTestId("deposit-detail-route")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Reject" })).not.toBeInTheDocument();
   });
 
   it("lets administrators inspect rejected deposits as read-only records", async () => {
@@ -195,7 +195,7 @@ describe("DepositsPage", () => {
     await waitFor(() => expect(depositsMock).toHaveBeenLastCalledWith(0, 20, "TXN", undefined));
 
     await user.click(screen.getByRole("combobox", { name: "Status" }));
-    await user.click(await screen.findByRole("option", { name: "Approved" }));
+    await user.click(await screen.findByRole("option", { name: "APPROVED" }));
     await waitFor(() => expect(depositsMock).toHaveBeenLastCalledWith(0, 20, "TXN", "APPROVED"));
   });
 

@@ -83,7 +83,7 @@
   "errorClosedTicket": "This support ticket is closed and can no longer be changed.",
   "errorSelfTransfer": "You can’t transfer money to your own account.",
   "errorTransferLimit": "This transfer is above the allowed limit.",
-  "errorDailyTransferLimit": "You have reached the daily transfer limit.",
+  "errorDailyTransferLimit": "You have reached the outgoing transfer limit for this period.",
   "errorTransferUnavailable": "Transfers are temporarily unavailable. Please try again later.",
   "errorReference": "Reference: {reference}",
   "@errorReference": {
@@ -108,6 +108,7 @@
   "displayNameRequired": "Enter a display name.",
   "invalidPhone": "Enter a valid phone number.",
   "signIn": "Sign in",
+  "signOutOtherDevice": "Sign out the other device and sign in here",
   "createAccount": "Create account",
   "switchToRegister": "Need an account? Register",
   "switchToLogin": "Already have an account? Sign in",

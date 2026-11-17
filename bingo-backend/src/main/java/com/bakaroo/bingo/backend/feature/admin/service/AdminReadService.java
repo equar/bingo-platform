@@ -383,6 +383,7 @@ public class AdminReadService {
                                 session.getSessionName(), session.getState(), session.getScheduledStartAt(),
                                 session.getStartedAt(),
                                 session.getEndedAt(), session.getTicketPriceSnapshot(), session.getCurrencySnapshot(),
+                                session.getSessionCapacitySnapshot(),
                                 ticketRepository.countBySessionId(session.getId()),
                                 drawEventRepository.countBySessionId(session.getId()),
                                 winClaimRepository.countBySessionId(session.getId()),

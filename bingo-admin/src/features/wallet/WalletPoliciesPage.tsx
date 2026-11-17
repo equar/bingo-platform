@@ -3,7 +3,6 @@ import {
   ethiopianDateInputToGregorianDate,
   formatEthiopianDateInput,
   formatEthiopianDate,
-  formatEthiopianDateTime,
 } from "../../utils/ethiopianDateTime";
 import { useTranslation } from "react-i18next";
 import { useEffect, useState } from "react";
@@ -17,7 +16,6 @@ import {
   Chip,
   Grid,
   Stack,
-  Switch,
   Table,
   TableBody,
   TableCell,
@@ -25,7 +23,6 @@ import {
   TableRow,
   TextField,
   Typography,
-  FormControlLabel,
   FormControl,
   InputLabel,
   MenuItem,
@@ -39,7 +36,9 @@ import {
   createPromotionalRewardCampaign,
   setSignupRewardPolicyStatus,
   saveWalletTransferSettings,
+  setWalletTransferPolicyStatus,
   walletTransferSettingsHistory,
+  type WalletTransferSettingsResponse,
 } from "../../api/admin";
 import { getUserFacingErrorMessage } from "../../api/types";
 import { StatusState } from "../../components/StatusState";
@@ -48,7 +47,7 @@ import { EthiopianDatePicker } from "../../components/EthiopianDatePicker";
 import { AdminTablePagination } from "../../components/AdminTablePagination";
 import { usePrivateListSearch } from "../../components/usePrivateListSearch";
 import { useListSessionState } from "../../components/useListSessionState";
-import { translateAdminStatus } from "../../i18n";
+import { ConfirmDialog } from "../../components/ConfirmDialog";
 import {
   campaignEndExclusiveIso,
   campaignStartIso,
@@ -56,17 +55,6 @@ import {
   isValidCampaignDateRange as isValidRewardDateRange,
   todayCampaignDateValue as getTodayDateValue,
 } from "./campaignDates";
-
-function toLocalInputValue(isoString: string | null | undefined) {
-  if (!isoString) return "";
-  const date = new Date(isoString);
-  const pad = (value: number) => String(value).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-}
-
-function toIsoValue(localValue: string) {
-  return localValue ? new Date(localValue).toISOString() : "";
-}
 
 function isValidRewardAmount(value: string | number) {
   const amount = String(value).trim();
@@ -78,56 +66,6 @@ function formatPolicyDate(value: string | null, inclusiveEnd = false) {
   return dateValue ? formatEthiopianDate(`${dateValue}T12:00:00Z`) : "";
 }
 
-function getMinimumEffectiveDateTime() {
-  const date = new Date();
-  date.setSeconds(0, 0);
-  date.setMinutes(date.getMinutes() + 1);
-  return toLocalInputValue(date.toISOString());
-}
-
-function getMinimumEffectiveUntil(effectiveFrom: string) {
-  const minimumFromNow = getMinimumEffectiveDateTime();
-  if (!effectiveFrom) return minimumFromNow;
-
-  const afterEffectiveFrom = new Date(effectiveFrom);
-  if (Number.isNaN(afterEffectiveFrom.getTime())) return minimumFromNow;
-  afterEffectiveFrom.setMinutes(afterEffectiveFrom.getMinutes() + 1);
-  const minimumAfterFrom = toLocalInputValue(afterEffectiveFrom.toISOString());
-  return minimumAfterFrom > minimumFromNow ? minimumAfterFrom : minimumFromNow;
-}
-
-function isValidPolicyDateRange(effectiveFrom: string, effectiveUntil: string) {
-  if (!effectiveFrom || effectiveFrom < getMinimumEffectiveDateTime())
-    return false;
-  return (
-    !effectiveUntil || effectiveUntil >= getMinimumEffectiveUntil(effectiveFrom)
-  );
-}
-
-function getPolicyStatus(
-  enabled: boolean,
-  activeNow: boolean,
-  effectiveFrom: string,
-  effectiveUntil: string | null,
-) {
-  if (!enabled) return "DISABLED";
-  if (activeNow) return "ACTIVE";
-  const now = Date.now();
-  if (new Date(effectiveFrom).getTime() > now) return "SCHEDULED";
-  if (effectiveUntil && new Date(effectiveUntil).getTime() <= now)
-    return "EXPIRED";
-  return "INACTIVE";
-}
-
-function getPolicyStatusColor(
-  status: string,
-): "success" | "info" | "warning" | "default" {
-  if (status === "ACTIVE") return "success";
-  if (status === "SCHEDULED") return "info";
-  if (status === "EXPIRED") return "warning";
-  return "default";
-}
-
 export function WalletPoliciesPage() {
   const { t } = useTranslation();
   const calendarPreference = currentCalendarPreference();
@@ -136,7 +74,7 @@ export function WalletPoliciesPage() {
   const navigate = useNavigate();
   const isTransferPolicy = location.pathname.startsWith("/wallet/transfer-policy");
   const isCreatePage = location.pathname.endsWith("/new");
-  const listPath = isTransferPolicy ? "/wallet/transfer-policy" : "/wallet/signup-reward";
+  const listPath = isTransferPolicy ? "/wallet/transfer-policy" : "/wallet/promotional-reward";
   const [rewardSearch, setRewardSearch] = usePrivateListSearch(
     "signup-reward-history",
   );
@@ -155,6 +93,15 @@ export function WalletPoliciesPage() {
     "wallet-policy-history:page",
     0,
   );
+  const [pendingRewardStatus, setPendingRewardStatus] = useState<{
+    policyId: number;
+    campaignName: string;
+    enabled: boolean;
+  } | null>(null);
+  const [pendingTransferStatus, setPendingTransferStatus] = useState<{
+    entry: WalletTransferSettingsResponse;
+    enabled: boolean;
+  } | null>(null);
   useEffect(() => {
     setHistoryPage(0);
   }, [isTransferPolicy, setHistoryPage]);
@@ -206,16 +153,13 @@ export function WalletPoliciesPage() {
     currency: "ETB",
     effectiveFrom: "",
     effectiveUntil: "",
-    reason: "",
   });
   const [transferDraft, setTransferDraft] = useState({
     enabled: false,
+    limitPeriod: "DAILY" as "DAILY" | "WEEKLY" | "BIWEEKLY" | "MONTHLY",
     maxSingleTransferAmount: "0",
-    dailyOutgoingLimitAmount: "0",
+    periodOutgoingLimitAmount: "0",
     currency: "ETB",
-    effectiveFrom: "",
-    effectiveUntil: "",
-    reason: "",
   });
 
   useEffect(() => {
@@ -244,36 +188,18 @@ export function WalletPoliciesPage() {
           savedEffectiveUntil && savedEffectiveUntil >= effectiveFrom
             ? savedEffectiveUntil
             : "",
-        reason: rewardQuery.data.reason ?? "",
       });
     }
   }, [rewardQuery.data]);
 
   useEffect(() => {
     if (transferQuery.data) {
-      const defaultEffectiveFrom = getMinimumEffectiveDateTime();
-      const savedEffectiveFrom = toLocalInputValue(
-        transferQuery.data.effectiveFrom,
-      );
-      const effectiveFrom =
-        savedEffectiveFrom >= defaultEffectiveFrom
-          ? savedEffectiveFrom
-          : defaultEffectiveFrom;
-      const savedEffectiveUntil = toLocalInputValue(
-        transferQuery.data.effectiveUntil,
-      );
       setTransferDraft({
         enabled: transferQuery.data.enabled,
+        limitPeriod: transferQuery.data.limitPeriod ?? "DAILY",
         maxSingleTransferAmount: transferQuery.data.maxSingleTransferAmount,
-        dailyOutgoingLimitAmount: transferQuery.data.dailyOutgoingLimitAmount,
+        periodOutgoingLimitAmount: transferQuery.data.periodOutgoingLimitAmount,
         currency: transferQuery.data.currency,
-        effectiveFrom,
-        effectiveUntil:
-          savedEffectiveUntil &&
-          savedEffectiveUntil >= getMinimumEffectiveUntil(effectiveFrom)
-            ? savedEffectiveUntil
-            : "",
-        reason: transferQuery.data.reason ?? "",
       });
     }
   }, [transferQuery.data]);
@@ -291,7 +217,6 @@ export function WalletPoliciesPage() {
         effectiveUntil: rewardDraft.effectiveUntil
           ? campaignEndExclusiveIso(rewardDraft.effectiveUntil)
           : null,
-        reason: rewardDraft.reason || null,
       }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["wallet-policies"] });
@@ -304,15 +229,13 @@ export function WalletPoliciesPage() {
       saveWalletTransferSettings({
         enabled: transferDraft.enabled,
         maxSingleTransferAmount: Number(transferDraft.maxSingleTransferAmount),
-        dailyOutgoingLimitAmount: Number(
-          transferDraft.dailyOutgoingLimitAmount,
+        periodOutgoingLimitAmount: Number(
+          transferDraft.periodOutgoingLimitAmount,
         ),
+        limitPeriod: transferDraft.limitPeriod,
         currency: transferDraft.currency,
-        effectiveFrom: toIsoValue(transferDraft.effectiveFrom),
-        effectiveUntil: transferDraft.effectiveUntil
-          ? toIsoValue(transferDraft.effectiveUntil)
-          : null,
-        reason: transferDraft.reason || null,
+        effectiveFrom: new Date().toISOString(),
+        effectiveUntil: null,
       }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["wallet-policies"] });
@@ -330,6 +253,16 @@ export function WalletPoliciesPage() {
     }) => setSignupRewardPolicyStatus(policyId, enabled),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["wallet-policies"] });
+      setPendingRewardStatus(null);
+    },
+  });
+
+  const transferStatusMutation = useMutation({
+    mutationFn: (request: { entry: WalletTransferSettingsResponse; enabled: boolean }) =>
+      setWalletTransferPolicyStatus(request.entry.id, request.enabled),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["wallet-policies"] });
+      setPendingTransferStatus(null);
     },
   });
 
@@ -408,7 +341,7 @@ export function WalletPoliciesPage() {
         description={
           isCreatePage ? undefined : isTransferPolicy
             ? t(
-                "Controls the player-to-player transfer limit and daily outgoing cap.",
+                "Controls the player-to-player transfer limit and resettable outgoing cap.",
               )
             : t(
                 "Configure signup, referral, and verified wallet credit bonus campaigns.",
@@ -553,21 +486,6 @@ export function WalletPoliciesPage() {
                         />
                       )}
                     </Grid>
-                    <Grid item xs={12}>
-                      <TextField
-                        label={t("Reason")}
-                        value={rewardDraft.reason}
-                        onChange={(event) =>
-                          setRewardDraft({
-                            ...rewardDraft,
-                            reason: event.target.value,
-                          })
-                        }
-                        fullWidth
-                        multiline
-                        minRows={2}
-                      />
-                    </Grid>
                   </Grid>
                   <Stack direction="row" spacing={1}>
                     <Button
@@ -618,21 +536,43 @@ export function WalletPoliciesPage() {
             >
               <CardContent>
                 <Stack spacing={2}>
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        checked={transferDraft.enabled}
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        select
+                        label={t("Status")}
+                        value={transferDraft.enabled ? "ACTIVE" : "INACTIVE"}
                         onChange={(event) =>
                           setTransferDraft({
                             ...transferDraft,
-                            enabled: event.target.checked,
+                            enabled: event.target.value === "ACTIVE",
                           })
                         }
-                      />
-                    }
-                    label={transferDraft.enabled ? t("Enabled") : t("Disabled")}
-                  />
-                  <Grid container spacing={2}>
+                        fullWidth
+                      >
+                        <MenuItem value="ACTIVE">{t("Active")}</MenuItem>
+                        <MenuItem value="INACTIVE">{t("Inactive")}</MenuItem>
+                      </TextField>
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        select
+                        label={t("Limit reset period")}
+                        value={transferDraft.limitPeriod}
+                        onChange={(event) =>
+                          setTransferDraft({
+                            ...transferDraft,
+                            limitPeriod: event.target.value as typeof transferDraft.limitPeriod,
+                          })
+                        }
+                        fullWidth
+                      >
+                        <MenuItem value="DAILY">{t("Daily")}</MenuItem>
+                        <MenuItem value="WEEKLY">{t("Weekly")}</MenuItem>
+                        <MenuItem value="BIWEEKLY">{t("Biweekly")}</MenuItem>
+                        <MenuItem value="MONTHLY">{t("Monthly")}</MenuItem>
+                      </TextField>
+                    </Grid>
                     <Grid item xs={12} sm={6}>
                       <TextField
                         label={t("Max single transfer")}
@@ -649,13 +589,13 @@ export function WalletPoliciesPage() {
                     </Grid>
                     <Grid item xs={12} sm={6}>
                       <TextField
-                        label={t("Daily outgoing limit")}
+                        label={t("Outgoing limit per period")}
                         type="number"
-                        value={transferDraft.dailyOutgoingLimitAmount}
+                        value={transferDraft.periodOutgoingLimitAmount}
                         onChange={(event) =>
                           setTransferDraft({
                             ...transferDraft,
-                            dailyOutgoingLimitAmount: event.target.value,
+                            periodOutgoingLimitAmount: event.target.value,
                           })
                         }
                         fullWidth
@@ -674,72 +614,17 @@ export function WalletPoliciesPage() {
                         fullWidth
                       />
                     </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <TextField
-                        label={t("Effective from")}
-                        type="datetime-local"
-                        value={transferDraft.effectiveFrom}
-                        onChange={(event) =>
-                          setTransferDraft({
-                            ...transferDraft,
-                            effectiveFrom: event.target.value,
-                          })
-                        }
-                        inputProps={{ min: getMinimumEffectiveDateTime() }}
-                        fullWidth
-                        InputLabelProps={{ shrink: true }}
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <TextField
-                        label={t("Effective until")}
-                        type="datetime-local"
-                        value={transferDraft.effectiveUntil}
-                        onChange={(event) =>
-                          setTransferDraft({
-                            ...transferDraft,
-                            effectiveUntil: event.target.value,
-                          })
-                        }
-                        inputProps={{
-                          min: getMinimumEffectiveUntil(
-                            transferDraft.effectiveFrom,
-                          ),
-                        }}
-                        helperText={t(
-                          "Leave blank for no expiry. If set, the end time must be in the future.",
-                        )}
-                        fullWidth
-                        InputLabelProps={{ shrink: true }}
-                      />
-                    </Grid>
-                    <Grid item xs={12}>
-                      <TextField
-                        label={t("Reason")}
-                        value={transferDraft.reason}
-                        onChange={(event) =>
-                          setTransferDraft({
-                            ...transferDraft,
-                            reason: event.target.value,
-                          })
-                        }
-                        fullWidth
-                        multiline
-                        minRows={2}
-                      />
-                    </Grid>
                   </Grid>
+                  <Typography variant="body2" color="text.secondary">
+                    {t(
+                      "Outgoing usage resets at the beginning of the selected period.",
+                    )}
+                  </Typography>
                   <Stack direction="row" spacing={1}>
                     <Button
                       variant="contained"
                       onClick={() => saveTransferMutation.mutate()}
-                      disabled={
-                        saveTransferMutation.isPending ||
-                        !isValidPolicyDateRange(
-                          transferDraft.effectiveFrom,
-                          transferDraft.effectiveUntil,
-                        )
-                      }
+                      disabled={saveTransferMutation.isPending}
                     >
                       {t("Save transfer policy")}
                     </Button>
@@ -791,7 +676,7 @@ export function WalletPoliciesPage() {
                   sx={{ mb: 2 }}
                 >
                   <TextField
-                    label={t("Search amount, currency, or reason")}
+                    label={t("Search amount or currency")}
                     value={transferQueryText}
                     onChange={(event) => {
                       setTransferQueryText(event.target.value);
@@ -826,67 +711,60 @@ export function WalletPoliciesPage() {
                   <Table size="small" aria-label={t("Transfer policy history")}>
                     <TableHead>
                       <TableRow>
+                        <TableCell>{t("Reset period")}</TableCell>
                         <TableCell>{t("Status")}</TableCell>
                         <TableCell align="right">
                           {t("Max single transfer")}
                         </TableCell>
                         <TableCell align="right">
-                          {t("Daily outgoing limit")}
+                          {t("Outgoing limit per period")}
                         </TableCell>
                         <TableCell>{t("Currency")}</TableCell>
-                        <TableCell>{t("Effective from")}</TableCell>
-                        <TableCell>{t("Effective until")}</TableCell>
-                        <TableCell>{t("Reason")}</TableCell>
+                        <TableCell>{t("Actions")}</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
                       {transferHistory.map((entry) => (
                         <TableRow key={entry.id} hover>
                           <TableCell>
+                            {t(entry.limitPeriod[0] + entry.limitPeriod.slice(1).toLowerCase())}
+                          </TableCell>
+                          <TableCell>
                             <Chip
-                              label={translateAdminStatus(
-                                getPolicyStatus(
-                                  entry.enabled,
-                                  entry.activeNow,
-                                  entry.effectiveFrom,
-                                  entry.effectiveUntil,
-                                ),
-                                t,
-                              )}
+                              label={t(entry.enabled && entry.activeNow ? "Active" : "Inactive")}
                               size="small"
-                              color={getPolicyStatusColor(
-                                getPolicyStatus(
-                                  entry.enabled,
-                                  entry.activeNow,
-                                  entry.effectiveFrom,
-                                  entry.effectiveUntil,
-                                ),
-                              )}
+                              color={entry.enabled && entry.activeNow ? "success" : "default"}
                             />
                           </TableCell>
                           <TableCell align="right">
                             {entry.maxSingleTransferAmount}
                           </TableCell>
                           <TableCell align="right">
-                            {entry.dailyOutgoingLimitAmount}
+                            {entry.periodOutgoingLimitAmount}
                           </TableCell>
                           <TableCell>{entry.currency}</TableCell>
                           <TableCell>
-                            {formatEthiopianDateTime(entry.effectiveFrom)}
+                            <Button
+                              size="small"
+                              disabled={transferStatusMutation.isPending}
+                              onClick={() => {
+                                transferStatusMutation.reset();
+                                setPendingTransferStatus({
+                                  entry,
+                                  enabled: !entry.enabled,
+                                });
+                              }}
+                            >
+                              {t(entry.enabled ? "Make inactive" : "Make active")}
+                            </Button>
                           </TableCell>
-                          <TableCell>
-                            {entry.effectiveUntil
-                              ? formatEthiopianDateTime(entry.effectiveUntil)
-                              : t("No expiry")}
-                          </TableCell>
-                          <TableCell>{entry.reason ?? t("n/a")}</TableCell>
                         </TableRow>
                       ))}
                       {!transferHistoryQuery.isLoading &&
                       !transferHistoryQuery.error &&
                       transferHistory.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={7}>
+                          <TableCell colSpan={6}>
                             {t("No transfer policy history yet.")}
                           </TableCell>
                         </TableRow>
@@ -925,7 +803,7 @@ export function WalletPoliciesPage() {
                   sx={{ mb: 2 }}
                 >
                   <TextField
-                    label={t("Search amount, currency, or reason")}
+                    label={t("Search amount or currency")}
                     value={rewardSearch}
                     onChange={(event) => {
                       setRewardSearch(event.target.value);
@@ -956,14 +834,6 @@ export function WalletPoliciesPage() {
                     )}
                   </Alert>
                 ) : null}
-                {rewardStatusMutation.error ? (
-                  <Alert severity="error" sx={{ mb: 1 }}>
-                    {t(
-                      getUserFacingErrorMessage(rewardStatusMutation.error) ??
-                        "Something went wrong. Please try again.",
-                    )}
-                  </Alert>
-                ) : null}
                 <Box sx={{ overflowX: "auto" }}>
                   <Table size="small" aria-label={t("Reward history")}>
                     <TableHead>
@@ -977,7 +847,6 @@ export function WalletPoliciesPage() {
                         <TableCell>{t("Currency")}</TableCell>
                         <TableCell>{t("Effective from")}</TableCell>
                         <TableCell>{t("Effective until")}</TableCell>
-                        <TableCell>{t("Reason")}</TableCell>
                         <TableCell>{t("Actions")}</TableCell>
                       </TableRow>
                     </TableHead>
@@ -1012,17 +881,19 @@ export function WalletPoliciesPage() {
                               ? formatPolicyDate(entry.effectiveUntil, true)
                               : t("No expiry")}
                           </TableCell>
-                          <TableCell>{entry.reason ?? t("n/a")}</TableCell>
                           <TableCell>
                             <Button
                               size="small"
+                              color={entry.enabled ? "warning" : "success"}
                               disabled={rewardStatusMutation.isPending}
-                              onClick={() =>
-                                rewardStatusMutation.mutate({
+                              onClick={() => {
+                                rewardStatusMutation.reset();
+                                setPendingRewardStatus({
                                   policyId: entry.id!,
+                                  campaignName: entry.name,
                                   enabled: !entry.enabled,
-                                })
-                              }
+                                });
+                              }}
                             >
                               {entry.enabled
                                 ? t("Make inactive")
@@ -1035,7 +906,7 @@ export function WalletPoliciesPage() {
                       !rewardHistoryQuery.error &&
                       rewardHistory.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={9}>
+                          <TableCell colSpan={8}>
                             {t("No promotional campaigns yet.")}
                           </TableCell>
                         </TableRow>
@@ -1057,6 +928,85 @@ export function WalletPoliciesPage() {
             </Card>
           </Grid>
         </Grid>
+      ) : null}
+      {!isCreatePage && !isTransferPolicy ? (
+        <ConfirmDialog
+          open={pendingRewardStatus !== null}
+          title={
+            pendingRewardStatus?.enabled
+              ? t("Activate campaign?")
+              : t("Deactivate campaign?")
+          }
+          description={
+            pendingRewardStatus?.enabled
+              ? t("Make {{campaignName}} active?", {
+                  campaignName: pendingRewardStatus.campaignName,
+                })
+              : t("Make {{campaignName}} inactive?", {
+                  campaignName: pendingRewardStatus?.campaignName ?? "",
+                })
+          }
+          confirmLabel={
+            pendingRewardStatus?.enabled ? t("Make active") : t("Make inactive")
+          }
+          cancelLabel={t("Cancel")}
+          confirming={rewardStatusMutation.isPending}
+          error={
+            rewardStatusMutation.error
+              ? getUserFacingErrorMessage(rewardStatusMutation.error)
+              : undefined
+          }
+          onCancel={() => {
+            setPendingRewardStatus(null);
+            rewardStatusMutation.reset();
+          }}
+          onConfirm={() => {
+            if (pendingRewardStatus) {
+              rewardStatusMutation.mutate({
+                policyId: pendingRewardStatus.policyId,
+                enabled: pendingRewardStatus.enabled,
+              });
+            }
+          }}
+        />
+      ) : null}
+      {!isCreatePage && isTransferPolicy ? (
+        <ConfirmDialog
+          open={pendingTransferStatus !== null}
+          title={
+            pendingTransferStatus?.enabled
+              ? t("Activate transfer policy?")
+              : t("Deactivate transfer policy?")
+          }
+          description={
+            pendingTransferStatus?.enabled
+              ? t("Only one transfer policy can be active for each reset period. If another {{period}} policy is active, make it inactive before activating this one.", {
+                  period: pendingTransferStatus.entry.limitPeriod.toLowerCase(),
+                })
+              : t("Make this {{period}} transfer policy inactive?", {
+                  period: pendingTransferStatus?.entry.limitPeriod.toLowerCase() ?? "",
+                })
+          }
+          confirmLabel={
+            pendingTransferStatus?.enabled ? t("Make active") : t("Make inactive")
+          }
+          cancelLabel={t("Cancel")}
+          confirming={transferStatusMutation.isPending}
+          error={
+            transferStatusMutation.error
+              ? getUserFacingErrorMessage(transferStatusMutation.error)
+              : undefined
+          }
+          onCancel={() => {
+            setPendingTransferStatus(null);
+            transferStatusMutation.reset();
+          }}
+          onConfirm={() => {
+            if (pendingTransferStatus) {
+              transferStatusMutation.mutate(pendingTransferStatus);
+            }
+          }}
+        />
       ) : null}
     </Stack>
   );

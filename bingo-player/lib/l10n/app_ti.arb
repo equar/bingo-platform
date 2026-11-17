@@ -144,6 +144,7 @@
   "displayNameRequired": "ስም ምርኢት ኣእቱ።",
   "invalidPhone": "ቅኑዕ ቁጽሪ ተሌፎን ኣእቱ።",
   "signIn": "እቶ",
+  "signOutOtherDevice": "ካብ ካልእ መሳርሒ ውጻእ እሞ ኣብዚ እቶ",
   "createAccount": "ሕሳብ ፍጠር",
   "switchToRegister": "ሕሳብ የብልካን? ተመዝገብ",
   "switchToLogin": "ድሮ ሕሳብ ኣለካ? እቶ",

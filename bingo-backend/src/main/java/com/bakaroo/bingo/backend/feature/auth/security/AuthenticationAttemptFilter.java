@@ -25,6 +25,7 @@ public class AuthenticationAttemptFilter extends OncePerRequestFilter {
 
     private static final Set<String> LOGIN_PATHS = Set.of(
             "/api/v1/auth/login",
+            "/api/v1/auth/login/replace-session",
             "/api/v1/admin/login",
             "/api/v1/agent/login");
 

@@ -19,6 +19,18 @@ class AuthApi {
     }
   }
 
+  Future<AuthResponse> replacePlayerSession(LoginRequest request) async {
+    try {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '/api/v1/auth/login/replace-session',
+        data: request.toJson(),
+      );
+      return AuthResponse.fromJson(response.data ?? const <String, dynamic>{});
+    } on DioException catch (error) {
+      throw mapDioError(error);
+    }
+  }
+
   Future<void> logout() async {
     try {
       await _dio.post<void>('/api/v1/auth/logout');

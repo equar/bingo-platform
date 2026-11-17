@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:bingo_player/l10n/app_localizations.dart';
 import 'package:bingo_player/src/core/network/api_error.dart';
 import 'package:bingo_player/src/core/widgets/section_card.dart';
@@ -7,6 +5,7 @@ import 'package:bingo_player/src/features/auth/data/auth_models.dart';
 import 'package:bingo_player/src/features/auth/data/auth_repository.dart';
 import 'package:bingo_player/src/features/auth/data/auth_session_controller.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -37,6 +36,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   bool _registerMode = false;
   bool _showPin = false;
   bool _busy = false;
+  bool _showReplaceSession = false;
   String? _errorMessage;
   ApiError? _apiError;
   bool _suspensionDialogOpen = false;
@@ -134,6 +134,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       _busy = true;
       _errorMessage = null;
       _apiError = null;
+      _showReplaceSession = false;
     });
 
     try {
@@ -144,7 +145,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       final requestPhone = _phoneController.text.trim();
       final pin = _pinController.text;
       if (!_registerMode) {
-        unawaited(_saveLastLoginPhone(requestPhone));
+        await _saveLastLoginPhone(requestPhone);
       }
       final authResponse = _registerMode
           ? await repository.register(
@@ -169,6 +170,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       }
       setState(() {
         _apiError = parsed;
+        _showReplaceSession =
+            !_registerMode && parsed.code == 'PLAYER_ALREADY_LOGGED_IN';
         _errorMessage = parsed.cancelled
             ? null
             : parsed.userMessage(localizations);
@@ -177,6 +180,43 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       if (mounted) {
         setState(() => _busy = false);
       }
+    }
+  }
+
+  Future<void> _replacePlayerSession() async {
+    if (_busy || !_formKey.currentState!.validate()) return;
+    final localizations = AppLocalizations.of(context)!;
+    setState(() {
+      _busy = true;
+      _errorMessage = null;
+      _apiError = null;
+      _showReplaceSession = false;
+    });
+    try {
+      await _saveLastLoginPhone(_phoneController.text.trim());
+      final response = await ref
+          .read(authRepositoryProvider)
+          .replacePlayerSession(
+            LoginRequest(
+              phoneNumber: _phoneController.text.trim(),
+              password: _pinController.text,
+            ),
+          );
+      await ref
+          .read(authSessionControllerProvider.notifier)
+          .setSession(response);
+    } catch (error) {
+      if (!mounted) return;
+      final parsed = normalizeApiError(error);
+      setState(() {
+        _apiError = parsed;
+        _showReplaceSession = parsed.code == 'PLAYER_ALREADY_LOGGED_IN';
+        _errorMessage = parsed.cancelled
+            ? null
+            : parsed.userMessage(localizations);
+      });
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -300,8 +340,15 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                               controller: _referralCodeController,
                               enabled: !_busy,
                               textCapitalization: TextCapitalization.characters,
-                              maxLength: 24,
-                              decoration: InputDecoration(labelText: localizations.referralCodeOptional),
+                              maxLength: 6,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.allow(
+                                  RegExp('[a-zA-Z0-9]'),
+                                ),
+                              ],
+                              decoration: InputDecoration(
+                                labelText: localizations.referralCodeOptional,
+                              ),
                             ),
                             const SizedBox(height: 12),
                           ],
@@ -311,7 +358,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                             enabled: !_busy,
                             textInputAction: TextInputAction.next,
                             keyboardType: TextInputType.phone,
-                            maxLength: 30,
+                            maxLength: 10,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
                             onChanged: (_) {
                               _phoneEdited = true;
                               _clearStaleErrors();
@@ -341,6 +391,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                             enabled: !_busy,
                             obscureText: !_showPin,
                             keyboardType: TextInputType.number,
+                            maxLength: 6,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
                             textInputAction: TextInputAction.done,
                             onChanged: (_) => _clearStaleErrors(),
                             onFieldSubmitted: (_) => _submit(),
@@ -384,6 +438,17 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                               style: TextStyle(
                                 color: Theme.of(context).colorScheme.error,
                               ),
+                            ),
+                          ],
+                          if (_showReplaceSession) ...[
+                            const SizedBox(height: 10),
+                            OutlinedButton.icon(
+                              key: const ValueKey(
+                                'replace-player-session-button',
+                              ),
+                              onPressed: _busy ? null : _replacePlayerSession,
+                              icon: const Icon(Icons.devices_rounded),
+                              label: Text(localizations.signOutOtherDevice),
                             ),
                           ],
                           const SizedBox(height: 16),
@@ -447,19 +512,5 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
 }
 
 bool _isValidEthiopianPhone(String value) {
-  var compact = value.replaceAll(RegExp(r'[\s\-().]'), '');
-  if (!RegExp(r'^\+?[0-9]+$').hasMatch(compact)) return false;
-  if (compact.startsWith('+')) compact = compact.substring(1);
-
-  String localNumber;
-  if (compact.length == 12 && compact.startsWith('251')) {
-    localNumber = compact.substring(3);
-  } else if (compact.length == 10 && compact.startsWith('0')) {
-    localNumber = compact.substring(1);
-  } else if (compact.length == 9) {
-    localNumber = compact;
-  } else {
-    return false;
-  }
-  return localNumber.startsWith('9') || localNumber.startsWith('7');
+  return RegExp(r'^0[79][0-9]{8}$').hasMatch(value);
 }
