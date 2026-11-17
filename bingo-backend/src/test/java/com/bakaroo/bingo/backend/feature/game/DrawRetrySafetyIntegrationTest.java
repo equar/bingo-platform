@@ -80,6 +80,7 @@ class DrawRetrySafetyIntegrationTest extends MySqlIntegrationTest {
 
 
     private static final Duration DRAW_INTERVAL = Duration.ofSeconds(10);
+    private static final Duration MAX_RANDOM_DRAW_DELAY = Duration.ofSeconds(20);
     private static final Duration DRAW_DUE_MARGIN = Duration.ofSeconds(1);
 
     @Autowired
@@ -275,7 +276,7 @@ class DrawRetrySafetyIntegrationTest extends MySqlIntegrationTest {
     private void waitUntilDue(Instant startedAt) throws InterruptedException {
         long waitMillis = Duration.between(
                 Instant.now(),
-                startedAt.plus(DRAW_INTERVAL).plus(DRAW_DUE_MARGIN)).toMillis();
+                startedAt.plus(DRAW_INTERVAL).plus(MAX_RANDOM_DRAW_DELAY).plus(DRAW_DUE_MARGIN)).toMillis();
         if (waitMillis > 0) {
             Thread.sleep(waitMillis);
         }

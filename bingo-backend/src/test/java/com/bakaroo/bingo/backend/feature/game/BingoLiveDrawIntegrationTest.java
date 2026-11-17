@@ -308,7 +308,7 @@ class BingoLiveDrawIntegrationTest extends MySqlIntegrationTest {
         @Test
         void competingWorkersPersistOnlyOneDraw() {
                 GameSession session = startedSession("Concurrency Room");
-                Instant dueTime = session.getStartedAt().plus(gameProperties.drawInterval()).plusSeconds(1);
+                Instant dueTime = session.getStartedAt().plus(gameProperties.drawInterval()).plusSeconds(21);
 
                 var first = CompletableFuture
                                 .supplyAsync(() -> gameLiveDrawService.advanceSessionDrawIfDue(session.getId(),
@@ -331,7 +331,7 @@ class BingoLiveDrawIntegrationTest extends MySqlIntegrationTest {
         @Test
         void competingAdminAutomaticTriggersPersistOnlyOneDueDraw() {
                 GameSession session = startedSession("Concurrent Admin Draw Room");
-                Instant dueStart = Instant.now().minus(gameProperties.drawInterval()).minusSeconds(1);
+                Instant dueStart = Instant.now().minus(gameProperties.drawInterval()).minusSeconds(21);
                 jdbcTemplate.update("update bingo_sessions set started_at = ? where id = ?",
                                 Timestamp.from(dueStart), session.getId());
                 Instant requestTime = Instant.now();
@@ -475,7 +475,7 @@ class BingoLiveDrawIntegrationTest extends MySqlIntegrationTest {
                                 "select count(*) from audit_log_entries where actor_user_id = ? and target_id = ? and action = 'UPDATE_SESSION_STATE' and json_unquote(json_extract(metadata_json, '$.outcome')) = 'SUCCESS'",
                                 Long.class, adminUser.getId(), session.id()));
 
-                Instant dueStart = Instant.now().minus(gameProperties.drawInterval()).minusSeconds(1);
+                Instant dueStart = Instant.now().minus(gameProperties.drawInterval()).minusSeconds(21);
                 jdbcTemplate.update("update bingo_sessions set started_at = ? where id = ?",
                                 Timestamp.from(dueStart), session.id());
                 String drawResponseJson = mockMvc.perform(post(drawPath)
@@ -497,7 +497,7 @@ class BingoLiveDrawIntegrationTest extends MySqlIntegrationTest {
         @Test
         void drawAndSessionTransitionRollbackTogether() {
                 GameSession session = startedSession("Draw Rollback Room");
-                Instant dueTime = session.getStartedAt().plus(gameProperties.drawInterval()).plusSeconds(1);
+                Instant dueTime = session.getStartedAt().plus(gameProperties.drawInterval()).plusSeconds(21);
                 TransactionTemplate transaction = new TransactionTemplate(transactionManager);
 
                 assertThrows(IllegalStateException.class, () -> transaction.execute(status -> {
@@ -531,14 +531,14 @@ class BingoLiveDrawIntegrationTest extends MySqlIntegrationTest {
         @Test
         void restartRecoveryReplayAndExhaustionAreHandled() throws Exception {
                 GameSession session = startedSession("Replay Room");
-                Instant recoveredStart = Instant.now().minus(gameProperties.drawInterval()).minusSeconds(1);
+                Instant recoveredStart = Instant.now().minus(gameProperties.drawInterval()).minusSeconds(21);
                 jdbcTemplate.update("update bingo_sessions set started_at = ? where id = ?",
                                 Timestamp.from(recoveredStart), session.getId());
                 new GameLiveDrawScheduler(gameLiveDrawService).recoverOnStartup();
                 var recoveredDraw = drawEventRepository.findTopBySessionIdOrderBySequenceNoDesc(session.getId())
                                 .orElseThrow();
                 assertEquals(1, recoveredDraw.getSequenceNo());
-                Instant dueTime = recoveredDraw.getDrawnAt().plus(gameProperties.drawInterval()).plusSeconds(1);
+                Instant dueTime = recoveredDraw.getDrawnAt().plus(gameProperties.drawInterval()).plusSeconds(21);
 
                 List<Integer> numbers = new ArrayList<>();
                 Set<Integer> uniqueNumbers = new HashSet<>();
@@ -546,7 +546,7 @@ class BingoLiveDrawIntegrationTest extends MySqlIntegrationTest {
                 uniqueNumbers.add(recoveredDraw.getNumberDrawn());
                 for (int index = 1; index < 75; index++) {
                         DrawEventResponse draw = gameLiveDrawService.advanceSessionDrawIfDue(session.getId(),
-                                        dueTime.plus(gameProperties.drawInterval().multipliedBy(index - 1)))
+                                        dueTime.plusSeconds(31L * (index - 1)))
                                         .orElseThrow();
                         numbers.add(draw.numberDrawn());
                         uniqueNumbers.add(draw.numberDrawn());
@@ -585,7 +585,7 @@ class BingoLiveDrawIntegrationTest extends MySqlIntegrationTest {
                 GameSession session = startedSession("Socket Room");
                 String token = loginToken("0911000202", "123456");
                 assertTrue(token.startsWith("eyJ"));
-                Instant dueTime = session.getStartedAt().plus(gameProperties.drawInterval()).plusSeconds(1);
+                Instant dueTime = session.getStartedAt().plus(gameProperties.drawInterval()).plusSeconds(21);
                 gameLiveDrawService.advanceSessionDrawIfDue(session.getId(), dueTime);
 
                 assertFalse(recordingSimpMessagingTemplate.getRecordedMessages().isEmpty());
