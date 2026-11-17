@@ -884,6 +884,46 @@ class _TransfersPaneState extends ConsumerState<_TransfersPane> {
       _transferIdempotencyKey = const Uuid().v4();
     }
     final request = _pendingTransfer!;
+    final recipient = _recipient!;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(AppLocalizations.of(context)!.sendTransfer),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(AppLocalizations.of(context)!.recipientPreviewTitle),
+            const SizedBox(height: 8),
+            Text(recipient.displayName),
+            Text(recipient.normalizedPhone),
+            const SizedBox(height: 12),
+            Text('${request.amount} ${request.currency}'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(AppLocalizations.of(context)!.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(AppLocalizations.of(context)!.confirm),
+          ),
+        ],
+      ),
+    );
+    if (!mounted) return;
+    if (confirmed != true) {
+      if (!_transferOutcomeUnknown) {
+        setState(() {
+          _pendingTransfer = null;
+          _transferIdempotencyKey = null;
+        });
+      }
+      return;
+    }
+
     final idempotencyKey = _transferIdempotencyKey ?? const Uuid().v4();
 
     setState(() {
@@ -1122,9 +1162,9 @@ class _TransactionsPane extends StatelessWidget {
                   final campaignReward = isWalletCampaignReward(
                     entry.transactionType,
                   );
-                  final transactionDate = DateFormat.yMMMd()
-                      .add_jm()
-                      .format(entry.createdAt.toLocal());
+                  final transactionDate = DateFormat.yMMMd().add_jm().format(
+                    entry.createdAt.toLocal(),
+                  );
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: SectionCard(

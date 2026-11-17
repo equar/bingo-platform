@@ -1,5 +1,7 @@
 import 'package:bingo_player/src/core/models/page_result.dart';
 import 'package:bingo_player/src/features/wallet/domain/wallet_models.dart';
+import 'package:bingo_player/src/features/wallet/data/wallet_api.dart';
+import 'package:bingo_player/src/features/wallet/data/wallet_repository.dart';
 import 'package:bingo_player/src/features/wallet/presentation/wallet_screen.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
@@ -16,16 +18,20 @@ import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:dio/dio.dart';
 
 const previewDirectory = String.fromEnvironment('UI_PREVIEW_DIR');
 
 Widget harness({
   Widget? home,
+  WalletRepository? walletRepository,
   double scale = 1,
   Locale locale = const Locale('en'),
   double keyboard = 0,
 }) => ProviderScope(
   overrides: [
+    if (walletRepository != null)
+      walletRepositoryProvider.overrideWithValue(walletRepository),
     lobbyRoomsProvider.overrideWith((ref) async => []),
     walletBalanceProvider.overrideWith(
       (ref) async => WalletBalance.fromJson({
@@ -261,6 +267,40 @@ void main() {
     },
   );
 
+  testWidgets('transfer requires confirmation before submitting', (
+    tester,
+  ) async {
+    viewport(tester, const Size(400, 800));
+    final repository = _TransferConfirmationRepository();
+    await tester.pumpWidget(
+      harness(home: const WalletScreen(), walletRepository: repository),
+    );
+    await tester.pumpAndSettle();
+    final context = tester.element(find.byType(WalletScreen));
+    final l = AppLocalizations.of(context)!;
+    await tester.ensureVisible(find.text(l.walletTransfersTab));
+    await tester.tap(find.text(l.walletTransfersTab));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('wallet-open-transfer-form-button')),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).at(0), '0992030395');
+    await tester.enterText(find.byType(TextField).at(1), '50');
+    await tester.tap(find.text(l.lookupRecipient));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(l.sendTransfer));
+    await tester.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(find.text('Mulugeta Recipient'), findsNWidgets(2));
+    expect(find.text('251992030395'), findsNWidgets(2));
+    expect(find.text('50 ETB'), findsOneWidget);
+    expect(repository.transferCalls, 0);
+    await tester.tap(find.text(l.confirm));
+    await tester.pumpAndSettle();
+    expect(repository.transferCalls, 1);
+  });
+
   testWidgets('deposit form remains usable above a keyboard on a small phone', (
     tester,
   ) async {
@@ -282,4 +322,27 @@ void main() {
     );
     expect(tester.takeException(), isNull);
   });
+}
+
+class _TransferConfirmationRepository extends WalletRepository {
+  _TransferConfirmationRepository() : super(WalletApi(Dio()));
+
+  var transferCalls = 0;
+
+  @override
+  Future<WalletRecipientLookup> lookupRecipient(String phoneNumber) async =>
+      const WalletRecipientLookup(
+        userId: 7,
+        displayName: 'Mulugeta Recipient',
+        normalizedPhone: '251992030395',
+      );
+
+  @override
+  Future<WalletTransferResponse> submitTransfer(
+    WalletTransferRequest request,
+    String idempotencyKey,
+  ) async {
+    transferCalls++;
+    throw Exception('Transfer API should not be called before confirmation.');
+  }
 }

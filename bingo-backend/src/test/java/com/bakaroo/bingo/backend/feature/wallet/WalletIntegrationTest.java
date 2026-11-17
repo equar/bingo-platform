@@ -311,7 +311,7 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(new DepositReviewRequest("Verified"))))
                                 .andExpect(status().isConflict())
-                                .andExpect(jsonPath("$.code").value("DEPOSIT_NOT_VERIFIED"));
+                                .andExpect(jsonPath("$.code").value("DEPOSIT_VERIFICATION_REQUIRED"));
 
                 mockMvc.perform(get("/api/v1/wallet/balance")
                                 .header("Authorization", "Bearer " + playerToken))
@@ -751,6 +751,9 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
                                 passwordEncoder.encode("123456"), AccountStatus.ACTIVE,
                                 Set.of(UserRole.PLAYER), Instant.now()));
                 walletService.createWalletIfMissing(recipient);
+                var existingPolicies = walletTransferPolicyRepository.findAll();
+                existingPolicies.forEach(policy -> policy.setEnabled(false));
+                walletTransferPolicyRepository.saveAll(existingPolicies);
                 var request = objectMapper.writeValueAsString(
                                 new com.bakaroo.bingo.backend.feature.wallet.dto.WalletTransferRequest(
                                                 "0911000104", new BigDecimal("1.00"), "ETB", "Policy regression"));
