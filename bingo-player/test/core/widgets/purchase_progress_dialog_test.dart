@@ -41,4 +41,51 @@ void main() {
     expect(find.byType(CircularProgressIndicator), findsNothing);
     expect(find.text('Processing purchase...'), findsNothing);
   });
+
+  testWidgets('dismisses progress when the caller unmounts', (tester) async {
+    final operation = Completer<void>();
+    late Future<void> pendingOperation;
+    late StateSetter update;
+    var showCaller = true;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: StatefulBuilder(
+          builder: (context, setState) {
+            update = setState;
+            return Scaffold(
+              body: showCaller
+                  ? Builder(
+                      builder: (context) => TextButton(
+                        onPressed: () {
+                          pendingOperation = runWithProgressDialog<void>(
+                            context: context,
+                            message: 'Processing purchase...',
+                            operation: () => operation.future,
+                          );
+                        },
+                        child: const Text('Purchase'),
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+            );
+          },
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Purchase'));
+    await tester.pump();
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+    update(() => showCaller = false);
+    await tester.pump();
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+    operation.complete();
+    await pendingOperation;
+    await tester.pumpAndSettle();
+
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+  });
 }

@@ -8,35 +8,36 @@ Future<T> runWithProgressDialog<T>({
   required Future<T> Function() operation,
 }) async {
   final navigator = Navigator.of(context, rootNavigator: true);
-  unawaited(
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => PopScope(
-        canPop: false,
-        child: AlertDialog(
-          content: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-              const SizedBox(width: 16),
-              Flexible(child: Text(message)),
-            ],
-          ),
+  final route = DialogRoute<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (context) => PopScope(
+      canPop: false,
+      child: AlertDialog(
+        content: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            const SizedBox(width: 16),
+            Flexible(child: Text(message)),
+          ],
         ),
       ),
-    ).then<void>((_) {}),
+    ),
+  );
+  unawaited(
+    navigator.push<void>(route).then<void>((_) {}),
   );
 
   try {
     return await operation();
   } finally {
-    if (context.mounted && navigator.mounted && navigator.canPop()) {
-      navigator.pop();
+    if (navigator.mounted && route.isActive) {
+      navigator.removeRoute(route);
     }
   }
 }
