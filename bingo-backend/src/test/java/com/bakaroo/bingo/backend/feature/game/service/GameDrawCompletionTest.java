@@ -9,7 +9,6 @@ import com.bakaroo.bingo.backend.feature.game.websocket.GameSessionStateChangedE
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.*;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.*;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -80,21 +79,34 @@ class GameDrawCompletionTest {
         verify(events).publishEvent(new GameSessionStateChangedEvent(42L, GameSessionState.CLOSED));
     }
 
-    @Test void eachDrawWaitsForTenBaseSecondsAndTenToTwentyRandomSeconds() {
-        game.setStartedAt(now.minusSeconds(19));
-        AtomicReference<DrawEvent> lastDraw = new AtomicReference<>();
+    @Test void drawsEveryTenSecondsAndWaitsTwentySecondsAfterEveryTenthDraw() {
+        game.setStartedAt(now);
+        List<DrawEvent> savedDraws = new ArrayList<>();
         when(draws.findTopBySessionIdOrderBySequenceNoDesc(42L))
-                .thenAnswer(invocation -> Optional.ofNullable(lastDraw.get()));
+                .thenAnswer(invocation -> savedDraws.isEmpty()
+                        ? Optional.empty()
+                        : Optional.of(savedDraws.getLast()));
+        when(draws.countBySessionId(42L)).thenAnswer(invocation -> (long) savedDraws.size());
         when(draws.save(any(DrawEvent.class))).thenAnswer(invocation -> {
             DrawEvent draw = invocation.getArgument(0);
-            lastDraw.set(draw);
+            savedDraws.add(draw);
             return draw;
         });
 
-        assertTrue(service.advanceSessionDrawIfDue(42L, now).isEmpty());
-        assertTrue(service.advanceSessionDrawIfDue(42L, now.plusSeconds(11)).isPresent());
-        assertTrue(service.advanceSessionDrawIfDue(42L, now.plusSeconds(30)).isEmpty());
-        assertTrue(service.advanceSessionDrawIfDue(42L, now.plusSeconds(41)).isPresent());
-        verify(draws, times(2)).save(any(DrawEvent.class));
+        Instant dueAt = now.plusSeconds(10);
+        for (int sequenceNo = 1; sequenceNo <= 10; sequenceNo++) {
+            assertTrue(service.advanceSessionDrawIfDue(42L, dueAt).isPresent());
+            dueAt = dueAt.plusSeconds(10);
+        }
+
+        assertTrue(service.advanceSessionDrawIfDue(42L, dueAt.minusSeconds(1)).isEmpty());
+        assertTrue(service.advanceSessionDrawIfDue(42L, dueAt).isEmpty());
+        var eleventhDraw = service.advanceSessionDrawIfDue(42L, dueAt.plusSeconds(10));
+        assertTrue(eleventhDraw.isPresent());
+        assertEquals(11, savedDraws.getLast().getSequenceNo());
+
+        assertTrue(service.advanceSessionDrawIfDue(
+                42L, savedDraws.getLast().getDrawnAt().plusSeconds(10)).isPresent());
+        assertEquals(12, savedDraws.getLast().getSequenceNo());
     }
 }
