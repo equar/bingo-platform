@@ -12,6 +12,7 @@ import 'package:bingo_player/src/features/wallet/data/wallet_repository.dart';
 import 'package:bingo_player/src/features/wallet/domain/wallet_models.dart';
 import 'package:bingo_player/src/features/wallet/presentation/wallet_transaction_labels.dart';
 import 'package:bingo_player/src/features/auth/data/auth_repository.dart';
+import 'package:bingo_player/src/features/auth/data/auth_models.dart';
 import 'package:bingo_player/src/features/auth/data/auth_session_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -529,6 +530,12 @@ class _WithdrawalsPaneState extends ConsumerState<_WithdrawalsPane> {
   bool _showForm = false;
   String? _error;
   int _page = 0;
+
+  void _populateTelebirrDetails(UserProfile? user) {
+    if (_type != 'TELEBIRR' || user == null) return;
+    _name.text = user.displayName;
+    _phone.text = user.phoneNumber;
+  }
   @override
   void dispose() {
     _amount.dispose();
@@ -591,6 +598,8 @@ class _WithdrawalsPaneState extends ConsumerState<_WithdrawalsPane> {
   @override
   Widget build(BuildContext context) {
     final async = ref.watch(walletWithdrawalsProvider(_page));
+    final user = ref.watch(authSessionControllerProvider).session?.user;
+    _populateTelebirrDetails(user);
     return ListView(
       padding: const EdgeInsets.all(12),
       children: [
@@ -600,7 +609,10 @@ class _WithdrawalsPaneState extends ConsumerState<_WithdrawalsPane> {
               width: double.infinity,
               child: FilledButton.icon(
                 key: const ValueKey('wallet-open-withdrawal-form-button'),
-                onPressed: () => setState(() => _showForm = true),
+                onPressed: () => setState(() {
+                  _populateTelebirrDetails(user);
+                  _showForm = true;
+                }),
                 icon: const Icon(Icons.north_east_rounded),
                 label: const Text('Submit withdrawal request'),
               ),
@@ -636,7 +648,10 @@ class _WithdrawalsPaneState extends ConsumerState<_WithdrawalsPane> {
                     ],
                     onChanged: _busy
                         ? null
-                        : (v) => setState(() => _type = v ?? 'TELEBIRR'),
+                        : (v) => setState(() {
+                            _type = v ?? 'TELEBIRR';
+                            _populateTelebirrDetails(user);
+                          }),
                   ),
                   TextFormField(
                     controller: _amount,
@@ -655,6 +670,7 @@ class _WithdrawalsPaneState extends ConsumerState<_WithdrawalsPane> {
                   ),
                   TextFormField(
                     controller: _name,
+                    readOnly: _type == 'TELEBIRR',
                     decoration: const InputDecoration(
                       labelText: 'Account holder name',
                     ),
@@ -664,6 +680,7 @@ class _WithdrawalsPaneState extends ConsumerState<_WithdrawalsPane> {
                   if (_type == 'TELEBIRR')
                     TextFormField(
                       controller: _phone,
+                      readOnly: true,
                       decoration: const InputDecoration(
                         labelText: 'Telebirr phone number',
                       ),
