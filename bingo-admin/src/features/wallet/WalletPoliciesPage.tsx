@@ -48,7 +48,6 @@ import { AdminTablePagination } from "../../components/AdminTablePagination";
 import { usePrivateListSearch } from "../../components/usePrivateListSearch";
 import { useListSessionState } from "../../components/useListSessionState";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
-import { translateAdminStatus } from "../../i18n";
 import {
   campaignEndExclusiveIso,
   campaignStartIso,
@@ -65,30 +64,6 @@ function isValidRewardAmount(value: string | number) {
 function formatPolicyDate(value: string | null, inclusiveEnd = false) {
   const dateValue = toLocalDateValue(value, inclusiveEnd);
   return dateValue ? formatEthiopianDate(`${dateValue}T12:00:00Z`) : "";
-}
-
-function getPolicyStatus(
-  enabled: boolean,
-  activeNow: boolean,
-  effectiveFrom: string,
-  effectiveUntil: string | null,
-) {
-  if (!enabled) return "DISABLED";
-  if (activeNow) return "ACTIVE";
-  const now = Date.now();
-  if (new Date(effectiveFrom).getTime() > now) return "SCHEDULED";
-  if (effectiveUntil && new Date(effectiveUntil).getTime() <= now)
-    return "EXPIRED";
-  return "INACTIVE";
-}
-
-function getPolicyStatusColor(
-  status: string,
-): "success" | "info" | "warning" | "default" {
-  if (status === "ACTIVE") return "success";
-  if (status === "SCHEDULED") return "info";
-  if (status === "EXPIRED") return "warning";
-  return "default";
 }
 
 export function WalletPoliciesPage() {

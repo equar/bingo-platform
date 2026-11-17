@@ -3,6 +3,7 @@ package com.bakaroo.bingo.backend.feature.wallet.repository;
 import com.bakaroo.bingo.backend.feature.wallet.entity.WalletTransferPolicy;
 import com.bakaroo.bingo.backend.feature.wallet.entity.WalletTransferLimitPeriod;
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -17,6 +18,8 @@ public interface WalletTransferPolicyRepository extends JpaRepository<WalletTran
     boolean existsByEnabledTrueAndLimitPeriodAndIdNot(WalletTransferLimitPeriod limitPeriod, Long id);
 
     Optional<WalletTransferPolicy> findFirstByOrderByCreatedAtDescIdDesc();
+
+    List<WalletTransferPolicy> findAllByEnabledTrueOrderByCreatedAtDescIdDesc();
 
     Page<WalletTransferPolicy> findAllByOrderByCreatedAtDescIdDesc(Pageable pageable);
 

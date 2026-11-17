@@ -788,8 +788,8 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
                                 .header("Authorization", "Bearer " + senderToken)
                                 .header("Idempotency-Key", "policy-expired")
                                 .contentType(MediaType.APPLICATION_JSON).content(request))
-                                .andExpect(status().isBadRequest())
-                                .andExpect(jsonPath("$.code").value("TRANSFER_POLICY_INACTIVE"));
+                                .andExpect(status().isConflict())
+                                .andExpect(jsonPath("$.code").value("INSUFFICIENT_BALANCE"));
 
                 walletTransferPolicyRepository.save(WalletTransferPolicy.create(true,
                                 BigDecimal.ZERO, new BigDecimal("500.00"), "ETB",
@@ -860,6 +860,53 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
                                 .andExpect(jsonPath("$.code").value("WALLET_TRANSFER_POLICY_ALREADY_ACTIVE"));
                 assertTrue(!walletTransferPolicyRepository.findById(inactiveDailyPolicy.getId())
                                 .orElseThrow().isEnabled());
+        }
+
+        @Test
+        void playerTransferUsesEveryActiveResetPeriodAndIgnoresEffectiveDates() throws Exception {
+                String senderToken = loginToken("0911000102", "123456");
+                User recipient = userRepository.save(User.create(
+                                phoneNormalizer.normalize("0911000106"), "Period Policy Recipient",
+                                passwordEncoder.encode("123456"), AccountStatus.ACTIVE,
+                                Set.of(UserRole.PLAYER), Instant.now()));
+                walletService.createWalletIfMissing(recipient);
+
+                Wallet senderWallet = walletRepository.findByOwnerId(playerUser.getId()).orElseThrow();
+                senderWallet.setAvailableBalance(new BigDecimal("100.00"));
+                walletRepository.save(senderWallet);
+
+                Instant now = Instant.now();
+                walletTransferPolicyRepository.save(WalletTransferPolicy.create(true,
+                                new BigDecimal("100.00"), new BigDecimal("40.00"),
+                                com.bakaroo.bingo.backend.feature.wallet.entity.WalletTransferLimitPeriod.WEEKLY,
+                                "ETB", now.minusSeconds(7200), now.minusSeconds(3600), adminUser,
+                                "Weekly reset cap", now));
+
+                var firstTransfer = new com.bakaroo.bingo.backend.feature.wallet.dto.WalletTransferRequest(
+                                "0911000106", new BigDecimal("30.00"), "ETB", "Weekly policy transfer");
+                mockMvc.perform(post("/api/v1/wallet/transfers")
+                                .header("Authorization", "Bearer " + senderToken)
+                                .header("Idempotency-Key", "weekly-period-transfer-1")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(firstTransfer)))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.amount").value(30.00));
+
+                var overLimitTransfer = new com.bakaroo.bingo.backend.feature.wallet.dto.WalletTransferRequest(
+                                "0911000106", new BigDecimal("20.00"), "ETB", "Exceeds weekly cap");
+                mockMvc.perform(post("/api/v1/wallet/transfers")
+                                .header("Authorization", "Bearer " + senderToken)
+                                .header("Idempotency-Key", "weekly-period-transfer-2")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(overLimitTransfer)))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.code").value("PERIOD_TRANSFER_LIMIT_EXCEEDED"));
+
+                assertEquals(new BigDecimal("70.00"),
+                                walletRepository.findByOwnerId(playerUser.getId()).orElseThrow().getAvailableBalance());
+                assertEquals(new BigDecimal("30.00"),
+                                walletRepository.findByOwnerId(recipient.getId()).orElseThrow().getAvailableBalance());
+                assertEquals(1L, walletTransferRepository.count());
         }
 
         @Test
