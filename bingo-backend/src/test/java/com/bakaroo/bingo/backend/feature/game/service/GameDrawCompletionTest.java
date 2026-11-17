@@ -9,6 +9,7 @@ import com.bakaroo.bingo.backend.feature.game.websocket.GameSessionStateChangedE
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.*;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.*;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -77,5 +78,23 @@ class GameDrawCompletionTest {
                 new GameWinnerService.Winners(1, List.of(10L)));
         assertTrue(service.advanceSessionDrawIfDue(42L,now).isEmpty());
         verify(events).publishEvent(new GameSessionStateChangedEvent(42L, GameSessionState.CLOSED));
+    }
+
+    @Test void eachDrawWaitsForTenBaseSecondsAndTenToTwentyRandomSeconds() {
+        game.setStartedAt(now.minusSeconds(19));
+        AtomicReference<DrawEvent> lastDraw = new AtomicReference<>();
+        when(draws.findTopBySessionIdOrderBySequenceNoDesc(42L))
+                .thenAnswer(invocation -> Optional.ofNullable(lastDraw.get()));
+        when(draws.save(any(DrawEvent.class))).thenAnswer(invocation -> {
+            DrawEvent draw = invocation.getArgument(0);
+            lastDraw.set(draw);
+            return draw;
+        });
+
+        assertTrue(service.advanceSessionDrawIfDue(42L, now).isEmpty());
+        assertTrue(service.advanceSessionDrawIfDue(42L, now.plusSeconds(11)).isPresent());
+        assertTrue(service.advanceSessionDrawIfDue(42L, now.plusSeconds(30)).isEmpty());
+        assertTrue(service.advanceSessionDrawIfDue(42L, now.plusSeconds(41)).isPresent());
+        verify(draws, times(2)).save(any(DrawEvent.class));
     }
 }

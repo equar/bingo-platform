@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.SplittableRandom;
 import java.util.stream.IntStream;
 import java.security.SecureRandom;
 import org.springframework.context.ApplicationEventPublisher;
@@ -130,7 +131,7 @@ public class GameLiveDrawService {
         Instant anchor = drawEventRepository.findTopBySessionIdOrderBySequenceNoDesc(sessionId)
                 .map(DrawEvent::getDrawnAt)
                 .orElse(session.getStartedAt());
-        if (anchor != null && anchor.plus(gameProperties.drawInterval()).isAfter(now)) {
+        if (anchor != null && nextDrawDueAt(sessionId, anchor).isAfter(now)) {
             return Optional.empty();
         }
 
@@ -168,6 +169,13 @@ public class GameLiveDrawService {
         applicationEventPublisher.publishEvent(new GameDrawRecordedEvent(response));
         publishStateChangeIfNeeded(session, initialState);
         return Optional.of(response);
+    }
+
+    private Instant nextDrawDueAt(Long sessionId, Instant anchor) {
+        // Keep the jitter stable across scheduler checks for the same draw interval.
+        long seed = sessionId * 31 + anchor.hashCode();
+        long additionalDelaySeconds = new SplittableRandom(seed).nextInt(10, 21);
+        return anchor.plus(gameProperties.drawInterval()).plusSeconds(additionalDelaySeconds);
     }
 
     private void publishStateChangeIfNeeded(GameSession session, GameSessionState initialState) {
