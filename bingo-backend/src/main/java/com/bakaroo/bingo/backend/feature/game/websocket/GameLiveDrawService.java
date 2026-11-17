@@ -14,13 +14,13 @@ import com.bakaroo.bingo.backend.feature.game.entity.GameSessionState;
 import com.bakaroo.bingo.backend.feature.game.repository.DrawEventRepository;
 import com.bakaroo.bingo.backend.feature.game.repository.GameSessionRepository;
 import com.bakaroo.bingo.backend.feature.user.entity.User;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.SplittableRandom;
 import java.util.stream.IntStream;
 import java.security.SecureRandom;
 import org.springframework.context.ApplicationEventPublisher;
@@ -128,10 +128,13 @@ public class GameLiveDrawService {
             return Optional.empty();
         }
 
-        Instant anchor = drawEventRepository.findTopBySessionIdOrderBySequenceNoDesc(sessionId)
-                .map(DrawEvent::getDrawnAt)
-                .orElse(session.getStartedAt());
-        if (anchor != null && nextDrawDueAt(sessionId, anchor).isAfter(now)) {
+        Optional<DrawEvent> lastDraw = drawEventRepository.findTopBySessionIdOrderBySequenceNoDesc(sessionId);
+        Instant anchor = lastDraw.map(DrawEvent::getDrawnAt).orElse(session.getStartedAt());
+        Duration drawInterval = gameProperties.drawInterval();
+        if (lastDraw.filter(draw -> draw.getSequenceNo() % 10 == 0).isPresent()) {
+            drawInterval = Duration.ofSeconds(20);
+        }
+        if (anchor != null && anchor.plus(drawInterval).isAfter(now)) {
             return Optional.empty();
         }
 
@@ -169,13 +172,6 @@ public class GameLiveDrawService {
         applicationEventPublisher.publishEvent(new GameDrawRecordedEvent(response));
         publishStateChangeIfNeeded(session, initialState);
         return Optional.of(response);
-    }
-
-    private Instant nextDrawDueAt(Long sessionId, Instant anchor) {
-        // Keep the jitter stable across scheduler checks for the same draw interval.
-        long seed = sessionId * 31 + anchor.hashCode();
-        long additionalDelaySeconds = new SplittableRandom(seed).nextInt(10, 21);
-        return anchor.plus(gameProperties.drawInterval()).plusSeconds(additionalDelaySeconds);
     }
 
     private void publishStateChangeIfNeeded(GameSession session, GameSessionState initialState) {

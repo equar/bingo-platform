@@ -126,9 +126,9 @@ publish authoritative game events; authenticated, subscribe-only access and
 the origin allowlist are enforced by the backend. Authenticated players can
 also subscribe to `/topic/sessions` for committed session state changes; each
 event contains the `sessionId` and new `state`, allowing clients to refresh the
-public session list without polling. Automatic draws wait 10 seconds plus a
-per-draw randomized 10-20-second pause (20-30 seconds total); scheduler checks
-run every second to honor that timing.
+public session list without polling. Automatic draws are 10 seconds apart;
+after every tenth draw, the next interval is 20 seconds, then 10-second
+intervals resume. Scheduler checks run every second to honor that timing.
 
 ## Security and operations
 
