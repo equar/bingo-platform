@@ -267,6 +267,24 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
+  testWidgets('selected eligible ticket keeps its trophy indicator', (
+    tester,
+  ) async {
+    await mount(tester);
+
+    final card = find.byKey(const ValueKey('live-ticket-card-101'));
+    expect(
+      find.descendant(of: card, matching: find.byIcon(Icons.emoji_events)),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: card, matching: find.byIcon(Icons.check_circle)),
+      findsNothing,
+    );
+
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   for (final (locale, size) in [
     (const Locale('en'), const Size(320, 800)),
     (const Locale('am'), const Size(320, 800)),

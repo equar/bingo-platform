@@ -1747,17 +1747,17 @@ class _TicketGridCard extends ConsumerWidget {
                 height: 18,
                 child: Align(
                   alignment: Alignment.centerRight,
-                  child: isSelected
-                      ? const Icon(
-                          Icons.check_circle,
-                          size: 18,
-                          color: Color(0xFF36C86A),
-                        )
-                      : ticket.eligibleClaimPatterns.isNotEmpty
+                  child: ticket.eligibleClaimPatterns.isNotEmpty
                       ? Icon(
                           Icons.emoji_events,
                           size: 16,
                           color: colors.primary,
+                        )
+                      : isSelected
+                      ? const Icon(
+                          Icons.check_circle,
+                          size: 18,
+                          color: Color(0xFF36C86A),
                         )
                       : null,
                 ),
