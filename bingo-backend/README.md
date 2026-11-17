@@ -123,7 +123,10 @@ before delivery. Clients deduplicate by `id` or `sequenceNo` and recover missed
 events with
 `GET /api/v1/sessions/{sessionId}/draws?afterSequence={n}`. Clients must not
 publish authoritative game events; authenticated, subscribe-only access and
-the origin allowlist are enforced by the backend.
+the origin allowlist are enforced by the backend. Authenticated players can
+also subscribe to `/topic/sessions` for committed session state changes; each
+event contains the `sessionId` and new `state`, allowing clients to refresh the
+public session list without polling.
 
 ## Security and operations
 

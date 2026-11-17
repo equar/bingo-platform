@@ -40,9 +40,14 @@ public class GameWebSocketJwtChannelInterceptor implements ChannelInterceptor {
         }
         if (StompCommand.SUBSCRIBE.equals(accessor.getCommand())) {
             String destination = accessor.getDestination();
-            if (destination == null || !destination.matches("/topic/session/[0-9]+/draws")
-                    || !(accessor.getUser() instanceof Authentication auth)
+            if (!(accessor.getUser() instanceof Authentication auth)
                     || !(auth.getPrincipal() instanceof BingoUserPrincipal principal)) {
+                throw new IllegalArgumentException("Unsupported or unauthenticated subscription");
+            }
+            if ("/topic/sessions".equals(destination)) {
+                return message;
+            }
+            if (destination == null || !destination.matches("/topic/session/[0-9]+/draws")) {
                 throw new IllegalArgumentException("Unsupported or unauthenticated subscription");
             }
             Long sessionId = Long.valueOf(destination.split("/")[3]);

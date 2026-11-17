@@ -5,6 +5,7 @@ import com.bakaroo.bingo.backend.feature.game.config.GameProperties;
 import com.bakaroo.bingo.backend.feature.game.entity.*;
 import com.bakaroo.bingo.backend.feature.game.repository.*;
 import com.bakaroo.bingo.backend.feature.game.websocket.GameLiveDrawService;
+import com.bakaroo.bingo.backend.feature.game.websocket.GameSessionStateChangedEvent;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.*;
 import java.util.*;
@@ -21,6 +22,7 @@ class GameDrawCompletionTest {
     DrawEventRepository draws = mock(DrawEventRepository.class);
     GameWinnerService winners = mock(GameWinnerService.class);
     GameSession game = new GameSession();
+    ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
     Instant now = Instant.parse("2026-11-12T05:00:00Z");
     GameLiveDrawService service;
     @BeforeEach void setup() {
@@ -37,7 +39,7 @@ class GameDrawCompletionTest {
         var properties = mock(GameProperties.class);
         when(properties.drawInterval()).thenReturn(Duration.ofSeconds(10));
         service = new GameLiveDrawService(sessions, draws, properties,
-                mock(ApplicationEventPublisher.class), mock(AuditLogService.class), manager,
+                events, mock(AuditLogService.class), manager,
                 winners, new GameSnapshotMapper(new ObjectMapper()), mock(RoomSessionCadenceService.class));
     }
     @Test void lineOnlyClosesOnWinningCallAndDoesNotDrawAgain() {
@@ -62,5 +64,18 @@ class GameDrawCompletionTest {
     @Test void noWinnerKeepsDrawing() {
         assertTrue(service.advanceSessionDrawIfDue(42L,now).isPresent());
         assertEquals(GameSessionState.DRAWING,game.getState());
+    }
+
+    @Test void firstDrawPublishesTheDrawingStateChange() {
+        game.setState(GameSessionState.STARTED);
+        assertTrue(service.advanceSessionDrawIfDue(42L,now).isPresent());
+        verify(events).publishEvent(new GameSessionStateChangedEvent(42L, GameSessionState.DRAWING));
+    }
+
+    @Test void completionPublishesTheClosedStateChange() {
+        when(winners.winners(42L, BingoPatternType.LINE)).thenReturn(
+                new GameWinnerService.Winners(1, List.of(10L)));
+        assertTrue(service.advanceSessionDrawIfDue(42L,now).isEmpty());
+        verify(events).publishEvent(new GameSessionStateChangedEvent(42L, GameSessionState.CLOSED));
     }
 }

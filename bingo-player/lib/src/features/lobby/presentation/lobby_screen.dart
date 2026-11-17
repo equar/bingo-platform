@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bingo_player/src/core/localization/ethiopian_date_time.dart';
 import 'package:bingo_player/src/features/support/presentation/support_shortcut.dart';
 import 'package:bingo_player/src/core/widgets/responsive_content.dart';
@@ -10,7 +12,9 @@ import 'package:bingo_player/src/features/lobby/domain/lobby_models.dart';
 import 'package:bingo_player/src/features/game/presentation/session_detail_screen.dart';
 import 'package:bingo_player/src/features/lobby/presentation/ticket_preview_screen.dart';
 import 'package:bingo_player/src/core/config/app_config.dart';
+import 'package:bingo_player/src/features/auth/data/auth_session_controller.dart';
 import 'package:bingo_player/src/features/game/application/live_game_controller.dart';
+import 'package:bingo_player/src/features/game/application/live_game_transport.dart';
 import 'package:bingo_player/src/features/game/data/game_repository.dart';
 import 'package:bingo_player/src/features/wallet/data/wallet_repository.dart';
 import 'package:bingo_player/src/features/wallet/presentation/wallet_screen.dart';
@@ -27,6 +31,11 @@ final activeSessionsProvider = FutureProvider.autoDispose<List<GameSession>>((
   return ref.read(lobbyRepositoryProvider).getSessions();
 });
 
+final lobbySessionUpdatesTransportProvider =
+    Provider<LobbySessionUpdatesTransport>((ref) {
+      return StompLiveGameTransport();
+    });
+
 final roomDetailsProvider = FutureProvider.autoDispose.family<BingoRoom, int>((
   ref,
   roomId,
@@ -39,11 +48,169 @@ final roomSessionsProvider = FutureProvider.autoDispose
       return ref.read(lobbyRepositoryProvider).getRoomSessions(roomId);
     });
 
-class LobbyScreen extends ConsumerWidget {
+class LobbyScreen extends ConsumerStatefulWidget {
   const LobbyScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<LobbyScreen> createState() => _LobbyScreenState();
+}
+
+class _LobbyScreenState extends ConsumerState<LobbyScreen>
+    with WidgetsBindingObserver {
+  late final LobbySessionUpdatesTransport _sessionUpdatesTransport;
+  ProviderSubscription<AuthSessionState>? _authSessionSubscription;
+  Timer? _reconnectTimer;
+  bool _isLobbyVisible = false;
+  bool _isAppActive = true;
+  bool _connecting = false;
+  int _reconnectAttempts = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _sessionUpdatesTransport = ref.read(lobbySessionUpdatesTransportProvider);
+    _authSessionSubscription = ref.listenManual(authSessionControllerProvider, (
+      _,
+      next,
+    ) {
+      if (next.isAuthenticated) {
+        _connectSessionUpdates();
+      } else {
+        unawaited(_disconnectSessionUpdates());
+      }
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final isVisible = TickerMode.valuesOf(context).enabled;
+    if (_isLobbyVisible == isVisible) return;
+    _isLobbyVisible = isVisible;
+    if (_isLobbyVisible && _isAppActive) {
+      _refreshSessions();
+      _connectSessionUpdates();
+    } else {
+      unawaited(_disconnectSessionUpdates());
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _isAppActive = state == AppLifecycleState.resumed;
+    if (_isAppActive && _isLobbyVisible) {
+      _refreshSessions();
+      _connectSessionUpdates();
+    } else {
+      unawaited(_disconnectSessionUpdates());
+    }
+  }
+
+  void _refreshSessions() {
+    if (!mounted || !_isAppActive || !_isLobbyVisible) return;
+    ref.invalidate(activeSessionsProvider);
+  }
+
+  void _connectSessionUpdates() {
+    if (!mounted ||
+        !_isAppActive ||
+        !_isLobbyVisible ||
+        _connecting ||
+        _sessionUpdatesTransport.isConnected) {
+      return;
+    }
+    final authSession = ref.read(authSessionControllerProvider).session;
+    if (authSession == null || authSession.isExpired) return;
+    final uri = ref.read(appConfigProvider).liveGameWebSocketUri;
+    if (uri == null) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: StateError('The live-game WebSocket URL is unavailable.'),
+          library: 'bingo_player',
+          context: ErrorDescription('connecting to lobby session updates'),
+        ),
+      );
+      return;
+    }
+
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
+    _connecting = true;
+    unawaited(
+      _sessionUpdatesTransport
+          .connectToSessionUpdates(
+            uri: uri,
+            accessToken: authSession.accessToken,
+            onSessionChanged: _refreshSessions,
+            onError: _scheduleReconnect,
+            onDisconnected: _scheduleReconnect,
+          )
+          .then((_) {
+            if (!mounted) return;
+            _reconnectAttempts = 0;
+            _refreshSessions();
+          })
+          .catchError((Object error, StackTrace stackTrace) {
+            _scheduleReconnect(error);
+          })
+          .whenComplete(() {
+            _connecting = false;
+          }),
+    );
+  }
+
+  void _scheduleReconnect([Object? error]) {
+    if (!mounted ||
+        !_isAppActive ||
+        !_isLobbyVisible ||
+        _reconnectTimer != null) {
+      return;
+    }
+    if (error != null) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          library: 'bingo_player',
+          context: ErrorDescription('connecting to lobby session updates'),
+        ),
+      );
+    }
+    final delaySeconds = 1 << _reconnectAttempts.clamp(0, 4).toInt();
+    _reconnectAttempts++;
+    _reconnectTimer = Timer(Duration(seconds: delaySeconds), () {
+      _reconnectTimer = null;
+      _connectSessionUpdates();
+    });
+  }
+
+  Future<void> _disconnectSessionUpdates() async {
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
+    try {
+      await _sessionUpdatesTransport.disconnect();
+    } catch (error, stackTrace) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stackTrace,
+          library: 'bingo_player',
+          context: ErrorDescription('disconnecting lobby session updates'),
+        ),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _authSessionSubscription?.close();
+    unawaited(_disconnectSessionUpdates());
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context)!;
     final sessionsAsync = ref.watch(activeSessionsProvider);
     final purchasesEnabled = ref
@@ -75,7 +242,7 @@ class LobbyScreen extends ConsumerWidget {
         ),
         body: ResponsiveContent(
           child: sessionsAsync.when(
-            skipLoadingOnRefresh: false,
+            skipLoadingOnRefresh: sessionsAsync.hasValue,
             loading: () => Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,

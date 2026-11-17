@@ -117,11 +117,13 @@ public class GameLiveDrawService {
             }
             return Optional.empty();
         }
+        GameSessionState initialState = session.getState();
 
         // The session lock serializes completion with claims and further draws.
         // Also catches a previously completed game after a scheduler restart.
         if (configuredPatternsComplete(session)) {
             closeFinishedSession(session, now);
+            publishStateChangeIfNeeded(session, initialState);
             return Optional.empty();
         }
 
@@ -135,6 +137,7 @@ public class GameLiveDrawService {
         List<Integer> remainingNumbers = remainingNumbers(sessionId);
         if (remainingNumbers.isEmpty()) {
             closeFinishedSession(session, now);
+            publishStateChangeIfNeeded(session, initialState);
             return Optional.empty();
         }
 
@@ -163,7 +166,15 @@ public class GameLiveDrawService {
                         "sequenceNo", draw.getSequenceNo(),
                         "numberDrawn", draw.getNumberDrawn()));
         applicationEventPublisher.publishEvent(new GameDrawRecordedEvent(response));
+        publishStateChangeIfNeeded(session, initialState);
         return Optional.of(response);
+    }
+
+    private void publishStateChangeIfNeeded(GameSession session, GameSessionState initialState) {
+        if (session.getState() != initialState) {
+            applicationEventPublisher.publishEvent(
+                    new GameSessionStateChangedEvent(session.getId(), session.getState()));
+        }
     }
 
     private boolean configuredPatternsComplete(GameSession session) {
