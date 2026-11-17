@@ -22,7 +22,9 @@ class WalletBalance {
       availableBalance: json['availableBalance'] as num? ?? 0,
       promotionalBalance: json['promotionalBalance'] as num? ?? 0,
       totalBalance: json['totalBalance'] as num? ?? 0,
-      updatedAt: DateTime.tryParse(json['updatedAt']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0),
+      updatedAt:
+          DateTime.tryParse(json['updatedAt']?.toString() ?? '') ??
+          DateTime.fromMillisecondsSinceEpoch(0),
     );
   }
 }
@@ -78,13 +80,19 @@ class WalletTransaction {
       referenceType: json['referenceType']?.toString(),
       referenceId: (json['referenceId'] as num?)?.toInt(),
       note: json['note']?.toString(),
-      createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0),
+      createdAt:
+          DateTime.tryParse(json['createdAt']?.toString() ?? '') ??
+          DateTime.fromMillisecondsSinceEpoch(0),
     );
   }
 }
 
 class WalletRecipientLookup {
-  const WalletRecipientLookup({required this.userId, required this.displayName, required this.normalizedPhone});
+  const WalletRecipientLookup({
+    required this.userId,
+    required this.displayName,
+    required this.normalizedPhone,
+  });
 
   final int userId;
   final String displayName;
@@ -100,7 +108,12 @@ class WalletRecipientLookup {
 }
 
 class WalletTransferRequest {
-  const WalletTransferRequest({required this.recipientPhoneNumber, required this.amount, required this.currency, this.note});
+  const WalletTransferRequest({
+    required this.recipientPhoneNumber,
+    required this.amount,
+    required this.currency,
+    this.note,
+  });
 
   final String recipientPhoneNumber;
   final num amount;
@@ -108,11 +121,11 @@ class WalletTransferRequest {
   final String? note;
 
   Map<String, dynamic> toJson() => {
-        'recipientPhoneNumber': recipientPhoneNumber,
-        'amount': amount,
-        'currency': currency,
-        'note': note,
-      };
+    'recipientPhoneNumber': recipientPhoneNumber,
+    'amount': amount,
+    'currency': currency,
+    'note': note,
+  };
 }
 
 class WalletTransferResponse {
@@ -170,7 +183,9 @@ class WalletTransferResponse {
       recipientBalanceBefore: json['recipientBalanceBefore'] as num? ?? 0,
       recipientBalanceAfter: json['recipientBalanceAfter'] as num? ?? 0,
       note: json['note']?.toString(),
-      createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0),
+      createdAt:
+          DateTime.tryParse(json['createdAt']?.toString() ?? '') ??
+          DateTime.fromMillisecondsSinceEpoch(0),
       completedAt: DateTime.tryParse(json['completedAt']?.toString() ?? ''),
       failureReason: json['failureReason']?.toString(),
     );
@@ -178,7 +193,12 @@ class WalletTransferResponse {
 }
 
 class PaymentInstructions {
-  const PaymentInstructions({required this.providerName, required this.businessAccount, required this.paymentInstructions, required this.currency});
+  const PaymentInstructions({
+    required this.providerName,
+    required this.businessAccount,
+    required this.paymentInstructions,
+    required this.currency,
+  });
 
   final String providerName;
   final String businessAccount;
@@ -228,6 +248,9 @@ class DepositClaim {
   final String? reviewNote;
   final PaymentInstructions? paymentInstructions;
 
+  String get displayStatus =>
+      status == 'APPROVED' || status == 'REJECTED' ? status : 'PENDING';
+
   factory DepositClaim.fromJson(Map<String, dynamic> json) {
     return DepositClaim(
       id: (json['id'] as num?)?.toInt() ?? 0,
@@ -237,39 +260,111 @@ class DepositClaim {
       currency: json['currency']?.toString() ?? '',
       conversionRateSnapshot: json['conversionRateSnapshot'] as num? ?? 0,
       calculatedCreditAmount: json['calculatedCreditAmount'] as num? ?? 0,
-      normalizedTelebirrReference: json['normalizedTelebirrReference']?.toString() ?? '',
+      normalizedTelebirrReference:
+          json['normalizedTelebirrReference']?.toString() ?? '',
       status: json['status']?.toString() ?? '',
-      submittedAt: DateTime.tryParse(json['submittedAt']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0),
+      submittedAt:
+          DateTime.tryParse(json['submittedAt']?.toString() ?? '') ??
+          DateTime.fromMillisecondsSinceEpoch(0),
       reviewedBy: (json['reviewedBy'] as num?)?.toInt(),
       reviewedAt: DateTime.tryParse(json['reviewedAt']?.toString() ?? ''),
       reviewNote: json['reviewNote']?.toString(),
-      paymentInstructions: json['paymentInstructions'] is Map ? PaymentInstructions.fromJson(Map<String, dynamic>.from(json['paymentInstructions'] as Map)) : null,
+      paymentInstructions: json['paymentInstructions'] is Map
+          ? PaymentInstructions.fromJson(
+              Map<String, dynamic>.from(json['paymentInstructions'] as Map),
+            )
+          : null,
     );
   }
 }
 
 class DepositRequest {
-  const DepositRequest({required this.submittedCashAmount, required this.currency, required this.telebirrReference});
+  const DepositRequest({
+    required this.submittedCashAmount,
+    required this.currency,
+    required this.telebirrReference,
+  });
 
   final num submittedCashAmount;
   final String currency;
   final String telebirrReference;
 
   Map<String, dynamic> toJson() => {
-        'submittedCashAmount': submittedCashAmount,
-        'currency': currency,
-        'telebirrReference': telebirrReference,
-      };
+    'submittedCashAmount': submittedCashAmount,
+    'currency': currency,
+    'telebirrReference': telebirrReference,
+  };
 }
 
 class WithdrawalRequest {
-  const WithdrawalRequest({required this.amount, required this.currency, required this.destinationType, required this.accountName, this.phoneNumber, this.bankName, this.accountNumber});
-  final num amount; final String currency; final String destinationType; final String accountName; final String? phoneNumber; final String? bankName; final String? accountNumber;
-  Map<String, dynamic> toJson() => {'amount': amount, 'currency': currency, 'destinationType': destinationType, 'accountName': accountName, 'phoneNumber': phoneNumber, 'bankName': bankName, 'accountNumber': accountNumber};
+  const WithdrawalRequest({
+    required this.amount,
+    required this.currency,
+    required this.destinationType,
+    required this.accountName,
+    this.phoneNumber,
+    this.bankName,
+    this.accountNumber,
+  });
+  final num amount;
+  final String currency;
+  final String destinationType;
+  final String accountName;
+  final String? phoneNumber;
+  final String? bankName;
+  final String? accountNumber;
+  Map<String, dynamic> toJson() => {
+    'amount': amount,
+    'currency': currency,
+    'destinationType': destinationType,
+    'accountName': accountName,
+    'phoneNumber': phoneNumber,
+    'bankName': bankName,
+    'accountNumber': accountNumber,
+  };
 }
 
 class WalletWithdrawal {
-  const WalletWithdrawal({required this.id,required this.amount,required this.currency,required this.destinationType,required this.accountName,required this.status,required this.createdAt,this.phoneNumber,this.bankName,this.accountNumber,this.transferReference,this.reviewNote});
-  final int id; final num amount; final String currency; final String destinationType; final String accountName; final String status; final DateTime createdAt; final String? phoneNumber; final String? bankName; final String? accountNumber; final String? transferReference; final String? reviewNote;
-  factory WalletWithdrawal.fromJson(Map<String,dynamic> j)=>WalletWithdrawal(id:(j['id'] as num?)?.toInt()??0,amount:j['amount'] as num? ?? 0,currency:j['currency']?.toString()??'',destinationType:j['destinationType']?.toString()??'',accountName:j['accountName']?.toString()??'',status:j['status']?.toString()??'',createdAt:DateTime.tryParse(j['createdAt']?.toString()??'')??DateTime.fromMillisecondsSinceEpoch(0),phoneNumber:j['phoneNumber']?.toString(),bankName:j['bankName']?.toString(),accountNumber:j['accountNumber']?.toString(),transferReference:j['transferReference']?.toString(),reviewNote:j['reviewNote']?.toString());
+  const WalletWithdrawal({
+    required this.id,
+    required this.amount,
+    required this.currency,
+    required this.destinationType,
+    required this.accountName,
+    required this.status,
+    required this.createdAt,
+    this.phoneNumber,
+    this.bankName,
+    this.accountNumber,
+    this.transferReference,
+    this.reviewNote,
+  });
+  final int id;
+  final num amount;
+  final String currency;
+  final String destinationType;
+  final String accountName;
+  final String status;
+  final DateTime createdAt;
+  final String? phoneNumber;
+  final String? bankName;
+  final String? accountNumber;
+  final String? transferReference;
+  final String? reviewNote;
+  factory WalletWithdrawal.fromJson(Map<String, dynamic> j) => WalletWithdrawal(
+    id: (j['id'] as num?)?.toInt() ?? 0,
+    amount: j['amount'] as num? ?? 0,
+    currency: j['currency']?.toString() ?? '',
+    destinationType: j['destinationType']?.toString() ?? '',
+    accountName: j['accountName']?.toString() ?? '',
+    status: j['status']?.toString() ?? '',
+    createdAt:
+        DateTime.tryParse(j['createdAt']?.toString() ?? '') ??
+        DateTime.fromMillisecondsSinceEpoch(0),
+    phoneNumber: j['phoneNumber']?.toString(),
+    bankName: j['bankName']?.toString(),
+    accountNumber: j['accountNumber']?.toString(),
+    transferReference: j['transferReference']?.toString(),
+    reviewNote: j['reviewNote']?.toString(),
+  );
 }

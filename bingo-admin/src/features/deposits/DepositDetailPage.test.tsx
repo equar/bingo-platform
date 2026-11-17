@@ -38,8 +38,8 @@ function depositResponse(status = "PENDING") {
     reviewedBy: null,
     reviewedAt: null,
     reviewNote: null,
-    verifiedBy: status === "VERIFIED" ? 4 : null,
-    verifiedAt: status === "VERIFIED" ? "2026-10-20T15:08:22Z" : null,
+    verifiedBy: null,
+    verifiedAt: null,
     paymentInstructions: null,
   } as Awaited<ReturnType<typeof deposit>>;
 }

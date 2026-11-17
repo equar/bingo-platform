@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:bingo_player/l10n/app_localizations.dart';
 import 'package:bingo_player/src/core/network/api_error.dart';
 import 'package:bingo_player/src/core/widgets/section_card.dart';
@@ -147,7 +145,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       final requestPhone = _phoneController.text.trim();
       final pin = _pinController.text;
       if (!_registerMode) {
-        unawaited(_saveLastLoginPhone(requestPhone));
+        await _saveLastLoginPhone(requestPhone);
       }
       final authResponse = _registerMode
           ? await repository.register(
@@ -172,8 +170,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       }
       setState(() {
         _apiError = parsed;
-        _showReplaceSession = !_registerMode &&
-            parsed.code == 'PLAYER_ALREADY_LOGGED_IN';
+        _showReplaceSession =
+            !_registerMode && parsed.code == 'PLAYER_ALREADY_LOGGED_IN';
         _errorMessage = parsed.cancelled
             ? null
             : parsed.userMessage(localizations);
@@ -195,20 +193,27 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       _showReplaceSession = false;
     });
     try {
-      final response = await ref.read(authRepositoryProvider).replacePlayerSession(
-        LoginRequest(
-          phoneNumber: _phoneController.text.trim(),
-          password: _pinController.text,
-        ),
-      );
-      await ref.read(authSessionControllerProvider.notifier).setSession(response);
+      await _saveLastLoginPhone(_phoneController.text.trim());
+      final response = await ref
+          .read(authRepositoryProvider)
+          .replacePlayerSession(
+            LoginRequest(
+              phoneNumber: _phoneController.text.trim(),
+              password: _pinController.text,
+            ),
+          );
+      await ref
+          .read(authSessionControllerProvider.notifier)
+          .setSession(response);
     } catch (error) {
       if (!mounted) return;
       final parsed = normalizeApiError(error);
       setState(() {
         _apiError = parsed;
         _showReplaceSession = parsed.code == 'PLAYER_ALREADY_LOGGED_IN';
-        _errorMessage = parsed.cancelled ? null : parsed.userMessage(localizations);
+        _errorMessage = parsed.cancelled
+            ? null
+            : parsed.userMessage(localizations);
       });
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -341,7 +346,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                                   RegExp('[a-zA-Z0-9]'),
                                 ),
                               ],
-                              decoration: InputDecoration(labelText: localizations.referralCodeOptional),
+                              decoration: InputDecoration(
+                                labelText: localizations.referralCodeOptional,
+                              ),
                             ),
                             const SizedBox(height: 12),
                           ],
@@ -436,7 +443,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                           if (_showReplaceSession) ...[
                             const SizedBox(height: 10),
                             OutlinedButton.icon(
-                              key: const ValueKey('replace-player-session-button'),
+                              key: const ValueKey(
+                                'replace-player-session-button',
+                              ),
                               onPressed: _busy ? null : _replacePlayerSession,
                               icon: const Icon(Icons.devices_rounded),
                               label: Text(localizations.signOutOtherDevice),

@@ -229,10 +229,9 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
     try {
       final profile = await ref.read(authRepositoryProvider).me();
       if (!mounted) return;
-      await ref.read(authSessionControllerProvider.notifier).updateUser(
-        profile,
-        expectedAccessToken: session.accessToken,
-      );
+      await ref
+          .read(authSessionControllerProvider.notifier)
+          .updateUser(profile, expectedAccessToken: session.accessToken);
     } catch (_) {}
   }
 
@@ -1119,6 +1118,9 @@ class _TransactionsPane extends StatelessWidget {
                 itemCount: result.content.length,
                 itemBuilder: (context, index) {
                   final entry = result.content[index];
+                  final campaignReward = isWalletCampaignReward(
+                    entry.transactionType,
+                  );
                   final bucketSummary =
                       entry.transferableBalanceAfter != null ||
                           entry.promotionalBalanceAfter != null
@@ -1130,13 +1132,24 @@ class _TransactionsPane extends StatelessWidget {
                       padding: const EdgeInsets.all(12),
                       child: ListTile(
                         title: Text(
-                          '${walletTransactionTypeLabel(localizations, entry.transactionType)} • ${entry.amount} ${entry.currency}',
+                          campaignReward
+                              ? walletTransactionCampaignName(
+                                  localizations,
+                                  entry.transactionType,
+                                  entry.note,
+                                )
+                              : '${walletTransactionTypeLabel(localizations, entry.transactionType)} • ${entry.amount} ${entry.currency}',
                         ),
-                        subtitle: Text(
-                          '${entry.note ?? entry.operationId}$bucketSummary',
-                        ),
-                        isThreeLine: bucketSummary.isNotEmpty,
-                        trailing: Text('${entry.balanceAfter}'),
+                        subtitle: campaignReward
+                            ? null
+                            : Text(
+                                '${entry.note ?? entry.operationId}$bucketSummary',
+                              ),
+                        isThreeLine:
+                            !campaignReward && bucketSummary.isNotEmpty,
+                        trailing: campaignReward
+                            ? null
+                            : Text('${entry.balanceAfter}'),
                       ),
                     ),
                   );
@@ -1227,7 +1240,7 @@ class _DepositsPane extends StatelessWidget {
                           '${entry.submittedCashAmount} ${entry.currency}',
                         ),
                         subtitle: Text(
-                          '${entry.normalizedTelebirrReference}\n${entry.status}',
+                          '${entry.normalizedTelebirrReference}\n${entry.displayStatus}',
                         ),
                         isThreeLine: true,
                         trailing: Text(

@@ -12,6 +12,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class MemoryStorage extends SessionStorage {
   @override
@@ -112,6 +113,27 @@ Future<void> fill(WidgetTester t) async {
 }
 
 void main() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+
+  testWidgets('remembers the most recently used sign-in phone', (t) async {
+    final repo = TestAuthRepository();
+    await mount(t, repo);
+    await t.enterText(
+      find.byKey(const ValueKey('auth-phone-field')),
+      '0912345678',
+    );
+    await t.enterText(
+      find.byKey(const ValueKey('auth-password-field')),
+      '123456',
+    );
+    await tapKey(t, 'auth-submit-button');
+
+    final preferences = await SharedPreferences.getInstance();
+    expect(preferences.getString('player.last_login_phone'), '0912345678');
+  });
+
   testWidgets('language preference is available only after signing in', (
     t,
   ) async {

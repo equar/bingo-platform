@@ -122,10 +122,7 @@ public class DepositFinancialService {
             throw new ConflictException("DEPOSIT_SELF_VERIFICATION_DENIED",
                     "A player cannot verify their own deposit");
         }
-        if (!adminReview && claim.getStatus() != DepositClaimStatus.PENDING
-                && claim.getStatus() != DepositClaimStatus.AWAITING_VERIFICATION
-                && claim.getStatus() != DepositClaimStatus.VERIFIED
-                && claim.getStatus() != DepositClaimStatus.VERIFICATION_EXCEPTION) {
+        if (!adminReview && claim.getStatus() != DepositClaimStatus.PENDING) {
             throw new ConflictException("DEPOSIT_NOT_VERIFIABLE", "Only unposted deposit claims can be verified");
         }
 
@@ -160,7 +157,6 @@ public class DepositFinancialService {
 
         Instant now = Instant.now();
         if ("MATCHED".equals(outcome)) {
-            claim.setStatus(DepositClaimStatus.VERIFIED);
             if (reusedMatchedEvidence) {
                 DepositVerificationResponse existing = toVerification(verificationId);
                 User originalVerifier = users.findById(existing.verifierUserId())
@@ -172,8 +168,7 @@ public class DepositFinancialService {
                 claim.setVerifiedBy(verifier);
                 claim.setVerifiedAt(now);
             }
-        } else if (!adminReview) {
-            claim.setStatus(DepositClaimStatus.VERIFICATION_EXCEPTION);
+        } else {
             claim.setVerifiedBy(null);
             claim.setVerifiedAt(null);
         }
@@ -203,13 +198,15 @@ public class DepositFinancialService {
                         requireExistingPosting(depositId);
                         return toDepositResponse(claim);
                     }
-                    if (claim.getStatus() != DepositClaimStatus.VERIFIED) {
+                    if (claim.getStatus() != DepositClaimStatus.PENDING
+                            && claim.getStatus() != DepositClaimStatus.REJECTED) {
                         throw new ConflictException("DEPOSIT_NOT_VERIFIED",
                                 "An unverified deposit cannot be approved or credited");
                     }
 
                     DepositVerificationResponse verification = latestVerification(depositId);
                     if (!"MATCHED".equals(verification.outcome())
+                            || claim.getVerifiedBy() == null
                             || !claim.getVerifiedBy().getId().equals(verification.verifierUserId())) {
                         throw new ConflictException("DEPOSIT_VERIFICATION_REQUIRED",
                                 "A current matched bank verification is required before approval");
@@ -226,12 +223,16 @@ public class DepositFinancialService {
                         throw new ConflictException("DEPOSIT_VERIFIER_NOT_AUTHORIZED",
                                 "The verifying user is no longer an authorized staff member");
                     }
-                    boolean supportPosting = approver.hasRole(UserRole.SUPPORT)
-                            && verifier.hasRole(UserRole.SUPPORT);
-                    boolean adminCorrection = approver.hasRole(UserRole.ADMIN)
+                    boolean supportPosting = claim.getStatus() == DepositClaimStatus.PENDING
+                            && approver.hasRole(UserRole.SUPPORT) && verifier.hasRole(UserRole.SUPPORT);
+                    boolean adminPosting = claim.getStatus() == DepositClaimStatus.PENDING
+                            && approver.hasRole(UserRole.ADMIN) && verifier.hasRole(UserRole.SUPPORT)
+                            && !approver.getId().equals(verifier.getId());
+                    boolean adminCorrection = claim.getStatus() == DepositClaimStatus.REJECTED
+                            && approver.hasRole(UserRole.ADMIN)
                             && (verifier.hasRole(UserRole.ADMIN) || verifier.hasRole(UserRole.SUPPORT))
                             && claim.getReviewNote() != null && !claim.getReviewNote().isBlank();
-                    if (!supportPosting && !adminCorrection) {
+                    if (!supportPosting && !adminPosting && !adminCorrection) {
                         throw new ConflictException("DEPOSIT_REVIEW_NOT_AUTHORIZED",
                                 "Support can post matched deposits; administrators can only approve their own matched review of a support rejection");
                     }

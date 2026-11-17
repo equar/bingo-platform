@@ -36,6 +36,21 @@ public interface DepositClaimRepository extends JpaRepository<DepositClaim, Long
     Page<DepositClaim> searchAdminDeposits(@Param("status") DepositClaimStatus status,
             @Param("search") String search, @Param("referenceId") Long referenceId, Pageable pageable);
 
+    @Query("""
+            select d from DepositClaim d
+            where d.status not in (com.bakaroo.bingo.backend.feature.wallet.entity.DepositClaimStatus.APPROVED,
+                                   com.bakaroo.bingo.backend.feature.wallet.entity.DepositClaimStatus.REJECTED)
+                and (:search is null
+                    or lower(d.normalizedTelebirrReference) like concat('%', :search, '%')
+                    or lower(d.operationId) like concat('%', :search, '%')
+                    or lower(d.player.displayName) like concat('%', :search, '%')
+                    or lower(d.player.normalizedPhone) like concat('%', :search, '%'))
+                and (:referenceId is null or d.id = :referenceId or d.player.id = :referenceId)
+            order by d.submittedAt desc, d.id desc
+            """)
+    Page<DepositClaim> searchPendingAdminDeposits(@Param("search") String search,
+            @Param("referenceId") Long referenceId, Pageable pageable);
+
     boolean existsByNormalizedTelebirrReference(String normalizedTelebirrReference);
 
     Optional<DepositClaim> findByNormalizedTelebirrReference(String normalizedTelebirrReference);

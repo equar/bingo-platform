@@ -442,6 +442,8 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
                 var verification = depositFinancialService.verify(depositId, new BingoUserPrincipal(verifier),
                                 new DepositVerificationRequest("TBR-VERIFIED-001"));
                 assertEquals("MATCHED", verification.outcome());
+                assertEquals(DepositClaimStatus.PENDING,
+                                depositClaimRepository.findById(depositId).orElseThrow().getStatus());
                 IdempotentResult<DepositClaimResponse> approved = depositFinancialService.approve(depositId,
                                 new BingoUserPrincipal(verifier), "QA synthetic approval", "approve-verified-1");
                 assertEquals("APPROVED", approved.body().status());
@@ -502,7 +504,7 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
                 var duplicateEvidence = depositFinancialService.verify(secondId, new BingoUserPrincipal(verifier),
                                 new DepositVerificationRequest("TBR-DUPLICATE-EVIDENCE"));
                 assertEquals("REFERENCE_MISMATCH", duplicateEvidence.outcome());
-                assertEquals(DepositClaimStatus.VERIFICATION_EXCEPTION,
+                assertEquals(DepositClaimStatus.PENDING,
                                 depositClaimRepository.findById(secondId).orElseThrow().getStatus());
 
                 Long mismatchId = walletService.submitDeposit(new BingoUserPrincipal(playerUser),
@@ -518,7 +520,7 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
                 assertEquals("AMOUNT_MISMATCH", depositFinancialService.verify(mismatchId,
                                 new BingoUserPrincipal(verifier), new DepositVerificationRequest("TBR-AMOUNT-MISMATCH"))
                                 .outcome());
-                assertEquals(DepositClaimStatus.VERIFICATION_EXCEPTION,
+                assertEquals(DepositClaimStatus.PENDING,
                                 depositClaimRepository.findById(mismatchId).orElseThrow().getStatus());
                 var mismatchApproval = org.junit.jupiter.api.Assertions.assertThrows(
                                 com.bakaroo.bingo.backend.common.exception.ConflictException.class,
