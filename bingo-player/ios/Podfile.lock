@@ -42,6 +42,6 @@ SPEC CHECKSUMS:
   shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb
   wakelock_plus: e29112ab3ef0b318e58cfa5c32326458be66b556
 
-PODFILE CHECKSUM: 5defecbcf82fa1d0dbaca6b6dc4ea6be3fc49ed3
+PODFILE CHECKSUM: 8b3023fe8333fdacf40fc442be699824ce70e80e
 
 COCOAPODS: 1.16.2
