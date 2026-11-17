@@ -235,6 +235,47 @@ void main() {
     },
   );
 
+  testWidgets('flashes the last number needed for a configured line', (
+    tester,
+  ) async {
+    final controller = await mount(
+      tester,
+      count: 0,
+      brightness: Brightness.dark,
+    );
+    controller.state = state(0).copyWith(
+      draws: [
+        for (var number = 1; number <= 4; number++)
+          LiveDrawEvent(
+            sessionId: 42,
+            sequenceNo: number,
+            numberDrawn: number,
+            drawnAt: DateTime.utc(2026, 11, 11),
+          ),
+      ],
+    );
+    await tester.pump();
+
+    final nearWinCell = find.byKey(const ValueKey('ticket-one-away-101-5'));
+    expect(nearWinCell, findsOneWidget);
+    expect(find.byKey(const ValueKey('ticket-one-away-101-16')), findsNothing);
+    BoxDecoration cellBackground() =>
+        tester
+                .widget<AnimatedContainer>(
+                  find.descendant(
+                    of: nearWinCell,
+                    matching: find.byType(AnimatedContainer),
+                  ),
+                )
+                .decoration!
+            as BoxDecoration;
+    final initialColor = cellBackground().color;
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(cellBackground().color, isNot(initialColor));
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('live layout gives the ticket cards more space', (tester) async {
     await mount(tester, ownedCount: 5);
 
