@@ -139,7 +139,7 @@ class WinnerCelebrationDialog extends StatelessWidget {
                                   const SizedBox(width: 10),
                                   Expanded(
                                     child: Text(
-                                      l.celebrationTicket(tickets[index].id),
+                                      l.celebrationPrize(index + 1),
                                       style: TextStyle(
                                         color: colors.onSurface,
                                         fontSize: 16,

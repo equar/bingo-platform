@@ -33,13 +33,25 @@
   "supportTitle": "ቲኬታት ደገፍ",
   "roomsTitle": "ክፍልታት",
   "liveGameTitle": "ቀጥታ ጸወታ",
+  "prizeLabel": "ሽልማት",
+  "celebrationPrize": "ሽልማት {number}",
+  "@celebrationPrize": {
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "yourTicketsLabel": "ትኬታትካ",
+  "gameInProgress": "ኣብ ምስራሕ ላይ",
+  "rulesButton": "ሕግታት",
   "liveGamesTab": "ቀጥታ ጸወታታት",
   "upcomingGamesTab": "ዝመጽኡ ጸወታታት",
   "previousGamesTab": "ዝሓለፉ ጸወታታት",
   "noUpcomingGames": "ዝመጽኡ ጸወታታት ኣይተመደቡን።",
   "profileTitle": "መግለጺ",
   "profileLanguagePreference": "ምርጫ ቋንቋ",
-  "profileLanguagePreferenceDescription": "እንግሊዝኛ ወይ ኣማርኛ ምረጽ። ምርጫኻ ኣብ ሕሳብካ ይዕቀብ።",
+  "profileLanguagePreferenceDescription": "እንግሊዝኛ፣ ኣማርኛ ወይ ትግርኛ ምረጽ። ምርጫኻ ኣብ ሕሳብካ ይዕቀብ።",
   "logout": "ውጻእ",
   "refresh": "ኣሐድስ",
   "homeTitle": "ገዛ",

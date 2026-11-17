@@ -29,11 +29,17 @@ class LanguageSelector extends ConsumerWidget {
             value: const Locale('am'),
             child: Text(localizations.languageAmharic),
           ),
+          DropdownMenuItem(
+            value: const Locale('ti'),
+            child: Text(localizations.languageTigrinya),
+          ),
         ],
         onChanged: (nextLocale) async {
           if (nextLocale == null) return;
           try {
-            final currentSession = ref.read(authSessionControllerProvider).session;
+            final currentSession = ref
+                .read(authSessionControllerProvider)
+                .session;
             if (currentSession != null) {
               final user = await ref
                   .read(authRepositoryProvider)
@@ -42,7 +48,10 @@ class LanguageSelector extends ConsumerWidget {
                   );
               final applied = await ref
                   .read(authSessionControllerProvider.notifier)
-                  .updateUser(user, expectedAccessToken: currentSession.accessToken);
+                  .updateUser(
+                    user,
+                    expectedAccessToken: currentSession.accessToken,
+                  );
               if (!applied) return;
             }
             await ref

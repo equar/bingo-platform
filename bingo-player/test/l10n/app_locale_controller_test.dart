@@ -1,6 +1,7 @@
 import 'package:bingo_player/l10n/app_localizations.dart';
 import 'package:bingo_player/src/core/localization/app_locale_controller.dart';
 import 'package:bingo_player/src/core/localization/language_selector.dart';
+import 'package:bingo_player/src/core/localization/player_localization_delegates.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -22,6 +23,17 @@ void main() {
     controller.dispose();
   });
 
+  test('restores a saved Tigrinya preference', () async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setString('player.locale', 'ti');
+    final controller = AppLocaleController(preferences: preferences);
+
+    await controller.ready;
+
+    expect(controller.state, const Locale('ti'));
+    controller.dispose();
+  });
+
   test('restores and persists the selected language', () async {
     final preferences = await SharedPreferences.getInstance();
     await preferences.setString('player.locale', 'am');
@@ -29,6 +41,10 @@ void main() {
     final controller = AppLocaleController(preferences: preferences);
     await controller.ready;
     expect(controller.state, const Locale('am'));
+
+    await controller.setLocale(const Locale('ti'));
+    expect(preferences.getString('player.locale'), 'ti');
+    expect(controller.state, const Locale('ti'));
 
     await controller.setLocale(const Locale('en'));
     expect(preferences.getString('player.locale'), 'en');
@@ -71,6 +87,20 @@ void main() {
           .text,
       'keep this',
     );
+
+    await tester.tap(find.byKey(const ValueKey('player-language-selector')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ትግርኛ').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('ኣዳራሽ'), findsOneWidget);
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const ValueKey('locale-test-input')))
+          .controller!
+          .text,
+      'keep this',
+    );
   });
 }
 
@@ -81,7 +111,7 @@ class _LocalizedTestApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return MaterialApp(
       locale: ref.watch(appLocaleControllerProvider),
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: playerLocalizationDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       home: const _LocalizedTestScreen(),
     );

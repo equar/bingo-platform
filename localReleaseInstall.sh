@@ -9,15 +9,83 @@ IOS_APP="$APP_DIR/build/ios/iphonesimulator/Runner.app"
 ANDROID_PACKAGE="com.bakaroo.bingo_app"
 IOS_BUNDLE_ID="com.bakaroo.bingo.bingoApp"
 TARGET_PLATFORM="${1:-both}"
+API_HOST="api.bingo.bakaroo.com"
+ANDROID_EMULATOR_DNS_SERVERS="${ANDROID_EMULATOR_DNS_SERVERS:-8.8.8.8,1.1.1.1}"
 
 usage() {
   echo "Usage: $(basename "$0") {android|ios|both}" >&2
+  echo "Android emulator DNS fallback: ANDROID_EMULATOR_DNS_SERVERS (default: 8.8.8.8,1.1.1.1)" >&2
 }
 
 require_command() {
   if ! command -v "$1" >/dev/null 2>&1; then
     echo "ERROR: Required command '$1' is not available on PATH." >&2
     exit 1
+  fi
+}
+
+android_api_dns_fails() {
+  local serial="$1"
+  local output
+  output="$(adb -s "$serial" shell ping -c 1 -W 2 "$API_HOST" </dev/null 2>&1 || true)"
+  grep -Eiq 'unknown host|name or service not known|temporary failure in name resolution|bad address' <<<"$output"
+}
+
+emulator_binary() {
+  local sdk="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-$HOME/Library/Android/sdk}}"
+  if [[ -x "$sdk/emulator/emulator" ]]; then
+    printf '%s\n' "$sdk/emulator/emulator"
+  elif command -v emulator >/dev/null 2>&1; then
+    command -v emulator
+  else
+    return 1
+  fi
+}
+
+refresh_emulator_dns() {
+  local serial="$1"
+  local avd_name port emulator_bin state
+  avd_name="$(adb -s "$serial" shell getprop ro.boot.qemu.avd_name </dev/null 2>/dev/null | tr -d '\r')"
+  port="${serial#emulator-}"
+  if [[ -z "$avd_name" || ! "$port" =~ ^[0-9]+$ ]]; then
+    echo "ERROR: Cannot safely identify Android emulator $serial for a DNS refresh." >&2
+    return 1
+  fi
+  if ! emulator_bin="$(emulator_binary)"; then
+    echo "ERROR: Android emulator DNS lookup failed on $serial and the emulator executable was not found." >&2
+    return 1
+  fi
+
+  echo "Android emulator $serial cannot resolve $API_HOST; restarting $avd_name with DNS servers $ANDROID_EMULATOR_DNS_SERVERS..."
+  adb -s "$serial" emu kill >/dev/null
+  for _ in {1..30}; do
+    state="$(adb -s "$serial" get-state 2>/dev/null || true)"
+    [[ "$state" != "device" ]] && break
+    sleep 1
+  done
+  state="$(adb -s "$serial" get-state 2>/dev/null || true)"
+  if [[ "$state" == "device" ]]; then
+    echo "ERROR: Android emulator $serial did not stop; refusing to start a second instance." >&2
+    return 1
+  fi
+
+  "$emulator_bin" -avd "$avd_name" -port "$port" \
+    -dns-server "$ANDROID_EMULATOR_DNS_SERVERS" -no-snapshot-load \
+    </dev/null >/dev/null 2>&1 &
+
+  for _ in {1..120}; do
+    state="$(adb -s "$serial" shell getprop sys.boot_completed </dev/null 2>/dev/null | tr -d '\r' || true)"
+    [[ "$state" == "1" ]] && break
+    sleep 2
+  done
+  state="$(adb -s "$serial" shell getprop sys.boot_completed </dev/null 2>/dev/null | tr -d '\r' || true)"
+  if [[ "$state" != "1" ]]; then
+    echo "ERROR: Android emulator $serial did not finish booting after the DNS refresh." >&2
+    return 1
+  fi
+  if android_api_dns_fails "$serial"; then
+    echo "ERROR: Android emulator $serial still cannot resolve $API_HOST. This network may block public DNS; configure Android Private DNS or the network's DNS resolver." >&2
+    return 1
   fi
 }
 
@@ -65,6 +133,7 @@ fi
 
 android_devices=()
 android_device_types=()
+android_unauthorized_devices=()
 android_device_count=0
 android_emulator_count=0
 android_physical_device_count=0
@@ -80,6 +149,10 @@ if [[ "$install_android" == true ]]; then
       ((android_physical_device_count += 1))
     fi
   done < <(adb devices | awk '$2 == "device" { print $1 }')
+
+  while IFS= read -r serial; do
+    android_unauthorized_devices+=("$serial")
+  done < <(adb devices | awk '$2 == "unauthorized" { print $1 }')
 fi
 
 ios_devices=()
@@ -98,6 +171,10 @@ if [[ "$install_android" == true && $android_device_count == 0 ]]; then
   echo "ERROR: No booted Android emulators or attached physical Android devices were found." >&2
   exit 1
 fi
+if [[ "$install_android" == true && ${#android_unauthorized_devices[@]} -gt 0 ]]; then
+  echo "ERROR: Android device(s) require USB debugging authorization: ${android_unauthorized_devices[*]}. Unlock the phone and accept its USB debugging prompt; no installation was attempted." >&2
+  exit 1
+fi
 if [[ "$install_ios" == true && $ios_device_count == 0 ]]; then
   echo "ERROR: No booted iOS simulators were found." >&2
   exit 1
@@ -107,6 +184,15 @@ echo "Installing for $TARGET_PLATFORM: discovered $android_emulator_count booted
 if [[ "$install_android" == true ]]; then
   for index in "${!android_devices[@]}"; do
     echo "  Android ${android_device_types[$index]}: ${android_devices[$index]}"
+    serial="${android_devices[$index]}"
+    if android_api_dns_fails "$serial"; then
+      if [[ "${android_device_types[$index]}" == "emulator" ]]; then
+        refresh_emulator_dns "$serial"
+      else
+        echo "ERROR: Physical Android device $serial cannot resolve $API_HOST. Check its current Wi-Fi DNS or configure Android Private DNS." >&2
+        exit 1
+      fi
+    fi
   done
 fi
 if [[ "$install_ios" == true ]]; then
@@ -134,6 +220,10 @@ if [[ "$install_android" == true ]]; then
       printf '%s\n' "$install_output"
     elif grep -Fq 'INSTALL_FAILED_UPDATE_INCOMPATIBLE' <<<"$install_output"; then
       printf '%s\n' "$install_output" >&2
+      if [[ "$device_type" == "physical device" ]]; then
+        failures+=("Android $serial: update blocked by incompatible signature; existing app was left installed")
+        continue
+      fi
       echo "Replacing incompatible prior signature on $serial for $ANDROID_PACKAGE..." >&2
       if ! adb -s "$serial" uninstall "$ANDROID_PACKAGE" ||
         ! adb -s "$serial" install "$ANDROID_APK"; then
@@ -145,7 +235,8 @@ if [[ "$install_android" == true ]]; then
       failures+=("Android $serial: installation failed")
       continue
     fi
-    if ! adb -s "$serial" shell am start -n "$ANDROID_PACKAGE/$ANDROID_PACKAGE.MainActivity" >/dev/null; then
+    if [[ "$device_type" != "physical device" ]] &&
+      ! adb -s "$serial" shell am start -n "$ANDROID_PACKAGE/$ANDROID_PACKAGE.MainActivity" >/dev/null; then
       failures+=("Android $serial: app launch failed")
       continue
     fi

@@ -3,6 +3,7 @@ import 'package:bingo_player/src/features/support/presentation/support_shortcut.
 import 'package:bingo_player/src/core/widgets/responsive_content.dart';
 import 'package:bingo_player/l10n/app_localizations.dart';
 import 'package:bingo_player/src/core/widgets/app_status_view.dart';
+import 'package:bingo_player/src/core/widgets/purchase_progress_dialog.dart';
 import 'package:bingo_player/src/core/widgets/section_card.dart';
 import 'package:bingo_player/src/features/lobby/data/lobby_repository.dart';
 import 'package:bingo_player/src/features/lobby/domain/lobby_models.dart';
@@ -190,9 +191,10 @@ class _SessionList extends StatelessWidget {
               itemCount: sessions.length,
               itemBuilder: (context, index) {
                 final session = sessions[index];
-                final isLive = const {'STARTED', 'DRAWING'}.contains(
-                  session.state.toUpperCase(),
-                );
+                final isLive = const {
+                  'STARTED',
+                  'DRAWING',
+                }.contains(session.state.toUpperCase());
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: SectionCard(
@@ -206,21 +208,31 @@ class _SessionList extends StatelessWidget {
                         Text(session.roomName),
                         const SizedBox(height: 8),
                         Wrap(
-                          spacing: 16,
+                          spacing: 12,
+                          runSpacing: 4,
                           children: [
-                            _InfoChip(
-                              label: localizations.sessionStatusLabel,
-                              value: session.state,
+                            Text(
+                              '${localizations.sessionStatusLabel}: ${session.state}',
+                              style: Theme.of(context).textTheme.bodySmall,
                             ),
-                            _InfoChip(
-                              label: localizations.roomPriceLabel,
-                              value:
-                                  '${session.ticketPrice} ${session.currency}',
+                            Text(
+                              '${localizations.roomPriceLabel}: ${session.ticketPrice} ${session.currency}',
+                              style: Theme.of(context).textTheme.bodySmall,
                             ),
-                            _InfoChip(
-                              label: localizations.availableSeatsLabel,
-                              value: session.availableSeats.toString(),
+                            Text(
+                              '${localizations.availableSeatsLabel}: ${session.availableSeats}',
+                              style: Theme.of(context).textTheme.bodySmall,
                             ),
+                            if (onBuy != null) ...[
+                              Text(
+                                '${localizations.gamePatterns}: ${session.configuredPatterns.isEmpty ? localizations.ticketPatternsUnavailable : session.configuredPatterns.map((pattern) => pattern.replaceAll('_', ' ')).join(', ')}',
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                              Text(
+                                '${localizations.prizeLabel}: ${session.configuredPrizes.isEmpty ? '—' : session.configuredPrizes.map((prize) => '${prize.prizeType.replaceAll('_', ' ')} ${prize.amount} ${session.currency}').join(' · ')}',
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ],
                           ],
                         ),
                         const SizedBox(height: 10),
@@ -231,8 +243,7 @@ class _SessionList extends StatelessWidget {
                                 key: ValueKey('session-details-${session.id}'),
                                 onPressed: () => Navigator.of(context).push(
                                   MaterialPageRoute<void>(
-                                    builder: (_) =>
-                                        const GameRulesScreen(),
+                                    builder: (_) => const GameRulesScreen(),
                                   ),
                                 ),
                                 child: Text(localizations.gameRules),
@@ -256,14 +267,12 @@ class _SessionList extends StatelessWidget {
                               Expanded(
                                 child: FilledButton.icon(
                                   key: ValueKey('live-game-${session.id}'),
-                                  onPressed: () =>
-                                      Navigator.of(context).push(
-                                        MaterialPageRoute<void>(
-                                          builder: (_) => SessionDetailScreen(
-                                            session: session,
-                                          ),
-                                        ),
-                                      ),
+                                  onPressed: () => Navigator.of(context).push(
+                                    MaterialPageRoute<void>(
+                                      builder: (_) =>
+                                          SessionDetailScreen(session: session),
+                                    ),
+                                  ),
                                   icon: const Icon(
                                     Icons.sports_esports_outlined,
                                   ),
@@ -370,38 +379,43 @@ Future<void> _buyTickets(
   );
   if (selected == null || !context.mounted) return;
   try {
-    final wallet = await ref.read(walletRepositoryProvider).getBalance();
-    final total = session.ticketPrice * selected;
-    if (wallet.totalBalance < total) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              localizations.insufficientTicketBalance(
-                total.toStringAsFixed(2),
-                session.currency,
-              ),
+    final result = await runWithProgressDialog<PurchaseFlowResult?>(
+      context: context,
+      message: localizations.loading,
+      operation: () async {
+        final wallet = await ref.read(walletRepositoryProvider).getBalance();
+        final total = session.ticketPrice * selected;
+        if (wallet.totalBalance < total) return null;
+        final controllerSubscription = ref.listenManual(
+          liveGameControllerProvider(session.id),
+          (_, _) {},
+        );
+        try {
+          return await ref
+              .read(liveGameControllerProvider(session.id).notifier)
+              .purchaseTickets(selected);
+        } finally {
+          controllerSubscription.close();
+        }
+      },
+    );
+    if (!context.mounted) return;
+    if (result == null) {
+      final total = session.ticketPrice * selected;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            localizations.insufficientTicketBalance(
+              total.toStringAsFixed(2),
+              session.currency,
             ),
           ),
-        );
-      }
+        ),
+      );
       return;
-    }
-    final controllerSubscription = ref.listenManual(
-      liveGameControllerProvider(session.id),
-      (_, _) {},
-    );
-    final PurchaseFlowResult result;
-    try {
-      result = await ref
-          .read(liveGameControllerProvider(session.id).notifier)
-          .purchaseTickets(selected);
-    } finally {
-      controllerSubscription.close();
     }
     ref.invalidate(walletBalanceProvider);
     ref.invalidate(activeSessionsProvider);
-    if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
@@ -646,30 +660,5 @@ class _DetailLine extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.only(top: 8),
     child: Text('$label: $value'),
-  );
-}
-
-class _InfoChip extends StatelessWidget {
-  const _InfoChip({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-    decoration: BoxDecoration(
-      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      borderRadius: BorderRadius.circular(12),
-    ),
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: Theme.of(context).textTheme.bodySmall),
-        const SizedBox(height: 3),
-        Text(value, style: Theme.of(context).textTheme.titleSmall),
-      ],
-    ),
   );
 }

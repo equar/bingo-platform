@@ -138,8 +138,13 @@ describe("SessionDetailPage automatic draws", () => {
     );
 
     expect(await screen.findByTestId("draw-history")).toBeInTheDocument();
-    expect(screen.getByTestId("draw-history-chip-1")).toHaveTextContent("#1 · 57");
-    expect(screen.getByTestId("draw-history-chip-2")).toHaveTextContent("#2 · 14");
+    expect(screen.getByTestId("draw-history-chip-1")).toHaveTextContent("#1");
+    expect(screen.getByTestId("draw-history-chip-2")).toHaveTextContent("#2");
+    expect(screen.getByTestId("draw-history-number-1")).toHaveTextContent("57");
+    expect(screen.getByTestId("draw-history-number-2")).toHaveTextContent("14");
+    expect(screen.getByTestId("draw-history-number-1")).toHaveStyle({
+      fontWeight: "800",
+    });
     expect(screen.queryByText("draw-op-41")).not.toBeInTheDocument();
   });
 
