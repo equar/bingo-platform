@@ -101,10 +101,10 @@ describe("ProtectedRoute", () => {
     });
 
     render(
-      <MemoryRouter initialEntries={["/wallet/signup-reward-grants"]}>
+      <MemoryRouter initialEntries={["/wallet/promotional-reward-grants"]}>
         <Routes>
           <Route element={<ProtectedRoute allowedRoles={["ADMIN", "SUPPORT"]} />}>
-            <Route path="/wallet/signup-reward-grants" element={<div>promotional reward grants page</div>} />
+            <Route path="/wallet/promotional-reward-grants" element={<div>promotional reward grants page</div>} />
           </Route>
         </Routes>
       </MemoryRouter>,

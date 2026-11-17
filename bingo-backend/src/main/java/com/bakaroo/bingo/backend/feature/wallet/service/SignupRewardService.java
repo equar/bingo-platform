@@ -205,6 +205,10 @@ public class SignupRewardService {
             throw new BadRequestException("INVALID_SIGNUP_REWARD_DATES",
                     "Effective until must be later than effective from");
         }
+        if (request.enabled()) {
+            validateNoEnabledCampaignOverlap(SignupRewardPolicy.TriggerType.SIGNUP,
+                    request.effectiveFrom(), request.effectiveUntil(), null);
+        }
         validateCampaignStartDate(request.effectiveFrom());
         String currency = request.currency().trim().toUpperCase(Locale.ROOT);
         if (!walletProperties.currency().equalsIgnoreCase(currency)) {
@@ -230,6 +234,11 @@ public class SignupRewardService {
         SignupRewardPolicy policy = policyRepository.findById(policyId)
                 .orElseThrow(() -> new NotFoundException("SIGNUP_REWARD_POLICY_NOT_FOUND",
                         "Signup reward policy not found"));
+        if (enabled) {
+            validateCampaignNotExpired(policy.getEffectiveUntil());
+            validateNoEnabledCampaignOverlap(policy.getTriggerType(), policy.getEffectiveFrom(),
+                    policy.getEffectiveUntil(), policy.getId());
+        }
         policy.setEnabled(enabled);
         policy.setChangedBy(principal.getUser());
         return toSettingsResponse(policy);
@@ -264,6 +273,10 @@ public class SignupRewardService {
                 throw new BadRequestException("INVALID_WALLET_CREDIT_THRESHOLD", "Wallet credit reward needs a positive credit threshold");
         } else if (request.thresholdAmount() != null) {
             throw new BadRequestException("UNEXPECTED_WALLET_CREDIT_THRESHOLD", "Only wallet credit campaigns accept a threshold");
+        }
+        if (request.enabled()) {
+            validateNoEnabledCampaignOverlap(request.triggerType(), request.effectiveFrom(),
+                    request.effectiveUntil(), null);
         }
         SignupRewardPolicy campaign = policyRepository.save(SignupRewardPolicy.create(name,
                 request.triggerType(), request.enabled(), MoneyValues.money(request.rewardAmount()),
@@ -342,6 +355,14 @@ public class SignupRewardService {
             throw new BadRequestException("CAMPAIGN_START_IN_PAST", "Campaign start cannot be before the current Addis Ababa business date");
     }
 
+    private void validateCampaignNotExpired(Instant effectiveUntil) {
+        Instant businessDayStart = LocalDate.now(CAMPAIGN_ZONE).atStartOfDay(CAMPAIGN_ZONE).toInstant();
+        if (effectiveUntil != null && !effectiveUntil.isAfter(businessDayStart)) {
+            throw new BadRequestException("PROMOTIONAL_REWARD_CAMPAIGN_EXPIRED",
+                    "Today's date is past the campaign effective-until date. Update the dates before making it active.");
+        }
+    }
+
     private Optional<SignupRewardPolicy> activeCampaign(SignupRewardPolicy.TriggerType triggerType, Instant at) {
         return policyRepository.findAllByTriggerTypeOrderByCreatedAtDescIdDesc(triggerType).stream()
                 .filter(policy -> policy.isEnabled() && isActive(policy, at))
@@ -382,6 +403,21 @@ public class SignupRewardService {
     private boolean isActive(SignupRewardPolicy policy, Instant now) {
         return !now.isBefore(policy.getEffectiveFrom())
                 && (policy.getEffectiveUntil() == null || now.isBefore(policy.getEffectiveUntil()));
+    }
+
+    private void validateNoEnabledCampaignOverlap(SignupRewardPolicy.TriggerType triggerType,
+            Instant effectiveFrom, Instant effectiveUntil, Long excludedPolicyId) {
+        boolean overlaps = policyRepository.findAllByTriggerTypeOrderByCreatedAtDescIdDescForUpdate(triggerType).stream()
+                .filter(SignupRewardPolicy::isEnabled)
+                .filter(policy -> !Objects.equals(policy.getId(), excludedPolicyId))
+                .anyMatch(policy ->
+                        (effectiveUntil == null || policy.getEffectiveFrom().isBefore(effectiveUntil))
+                                && (policy.getEffectiveUntil() == null
+                                        || effectiveFrom.isBefore(policy.getEffectiveUntil())));
+        if (overlaps) {
+            throw new ConflictException("PROMOTIONAL_REWARD_CAMPAIGN_DATE_OVERLAP",
+                    "An active campaign of this type already overlaps these dates. Make the existing campaign inactive before creating or activating this one.");
+        }
     }
 
     private String rewardDescription(SignupRewardPolicy campaign) {

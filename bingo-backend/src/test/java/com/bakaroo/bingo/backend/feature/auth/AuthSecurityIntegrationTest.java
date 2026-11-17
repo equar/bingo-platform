@@ -316,6 +316,32 @@ class AuthSecurityIntegrationTest extends MySqlIntegrationTest {
         }
 
         @Test
+        void playerCanExplicitlyReplaceAnInaccessibleDeviceSession() throws Exception {
+                String request = objectMapper.writeValueAsString(new LoginRequest("0911000004", "123456"));
+                String firstToken = objectMapper.readTree(mockMvc.perform(post("/api/v1/auth/login")
+                                .contentType(MediaType.APPLICATION_JSON).content(request))
+                                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString())
+                                .path("accessToken").asText();
+
+                mockMvc.perform(post("/api/v1/auth/login")
+                                .contentType(MediaType.APPLICATION_JSON).content(request))
+                                .andExpect(status().isConflict())
+                                .andExpect(jsonPath("$.code").value("PLAYER_ALREADY_LOGGED_IN"));
+
+                String replacementToken = objectMapper.readTree(mockMvc.perform(
+                                post("/api/v1/auth/login/replace-session")
+                                        .contentType(MediaType.APPLICATION_JSON).content(request))
+                                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString())
+                                .path("accessToken").asText();
+
+                mockMvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer " + firstToken))
+                                .andExpect(status().isUnauthorized())
+                                .andExpect(jsonPath("$.code").value("PLAYER_SESSION_REPLACED"));
+                mockMvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer " + replacementToken))
+                                .andExpect(status().isOk());
+        }
+
+        @Test
         void invalidRegistrationInputsAreRejectedWithoutPartialAccounts() throws Exception {
                 mockMvc.perform(post("/api/v1/auth/register")
                                 .contentType(MediaType.APPLICATION_JSON)

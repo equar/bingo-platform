@@ -9,7 +9,6 @@ import { useSession } from "../../api/session";
 import { AdminPageHeader } from "../../components/AdminPageHeader";
 import { AdminTablePage } from "../../components/AdminTablePage";
 import { StatusState } from "../../components/StatusState";
-import { translateAdminStatus } from "../../i18n";
 import { useIdempotencyKey } from "../common/useIdempotencyKey";
 import { formatDualCalendarDateTime } from "../../utils/ethiopianDateTime";
 
@@ -56,9 +55,9 @@ export function DepositDetailPage() {
   if (detail.isLoading) return <StatusState title={t("Loading deposits")} loading message={t("Fetching deposit queue")} />;
   if (detail.error || !detail.data) return <StatusState title={t("Unable to load deposits")} message={t(getUserFacingErrorMessage(detail.error) ?? "Something went wrong. Please try again.")} actionLabel={t("Retry")} onAction={() => detail.refetch()} />;
   const d = detail.data;
-  const open = ["PENDING", "AWAITING_VERIFICATION", "VERIFICATION_EXCEPTION"].includes(d.status);
+  const open = d.status === "PENDING";
   const canAdminReview = isAdmin && d.status === "REJECTED";
-  const canSupportReview = isSupport && ["PENDING", "AWAITING_VERIFICATION", "VERIFIED", "VERIFICATION_EXCEPTION"].includes(d.status);
+  const canSupportReview = isSupport && d.status === "PENDING";
   const anyError = verifyMutation.error ?? rejectMutation.error;
 
   const details: Array<[string, string]> = [
@@ -88,7 +87,7 @@ export function DepositDetailPage() {
       <Paper variant="outlined" sx={{ p: { xs: 2, sm: 2.5 }, minWidth: 0 }}>
         <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={2} sx={{ mb: 2 }}>
           <Typography variant="h6">{t("Deposit details")}</Typography>
-          <Chip label={translateAdminStatus(d.status, t)} size="small" color={d.status === "VERIFIED" ? "success" : ["PENDING", "AWAITING_VERIFICATION", "VERIFICATION_EXCEPTION"].includes(d.status) ? "warning" : "default"} />
+          <Chip label={d.status} size="small" color={d.status === "PENDING" ? "warning" : d.status === "APPROVED" ? "success" : "default"} />
         </Stack>
         <Divider sx={{ mb: 2 }} />
         <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))" }, columnGap: 3, rowGap: 1.75 }}>
@@ -107,7 +106,7 @@ export function DepositDetailPage() {
         <Stack spacing={2}>
           <Box>
             <Typography variant="h6">{canAdminReview ? t("Review") : t("Deposit actions")}</Typography>
-            <Typography variant="body2" color="text.secondary">{canAdminReview ? t("Review the rejection against the full payment reference. A match will credit the deposit.") : t("Verify deposit")}</Typography>
+            <Typography variant="body2" color="text.secondary">{canAdminReview ? t("Review the rejection against the full payment reference. A match will credit the deposit.") : t("Enter the same payment reference submitted by the player. A match will credit the deposit.")}</Typography>
           </Box>
           {(canAdminReview || (canSupportReview && open)) ? <>
             <TextField label={t("Full payment reference")} value={reference} onChange={(e) => setReference(e.target.value)} autoComplete="off" required fullWidth />
@@ -123,7 +122,6 @@ export function DepositDetailPage() {
             </TextField>
             <Button color="error" variant="outlined" disabled={!reason || rejectMutation.isPending} onClick={() => { idempotency.resetKey(); rejectMutation.mutate(); }} fullWidth>{t("Reject")}</Button>
           </> : null}
-          {canSupportReview && d.status === "VERIFIED" ? <Button variant="contained" disabled={verifyMutation.isPending} onClick={async () => { idempotency.resetKey(); await approveDeposit(id, { reviewNote: "SUPPORT_REFERENCE_MATCHED", idempotencyKey: idempotency.getKey() }); await refresh(); }} fullWidth>{t("Deposit")}</Button> : null}
         </Stack>
       </Paper> : null}
     </Box>

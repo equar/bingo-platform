@@ -11,51 +11,13 @@ class HomeScreen extends StatelessWidget {
   const HomeScreen({
     super.key,
     required this.onGames,
-    required this.onWallet,
-    required this.onProfile,
+    required this.onOpenMenu,
     required this.onSupport,
   });
 
   final VoidCallback onGames;
-  final VoidCallback onWallet;
-  final VoidCallback onProfile;
+  final VoidCallback onOpenMenu;
   final VoidCallback onSupport;
-
-  void _menu(BuildContext context) {
-    final l = AppLocalizations.of(context)!;
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (sheetContext) => SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              for (final item in [
-                (Icons.grid_view_rounded, l.homeGames, onGames),
-                (Icons.account_balance_wallet_outlined, l.homeWallet, onWallet),
-                (Icons.support_agent_outlined, l.homeSupport, onSupport),
-                (Icons.person_outline_rounded, l.homeProfile, onProfile),
-              ])
-                ListTile(
-                  key: item.$2 == l.homeSupport
-                      ? const ValueKey('support-tab')
-                      : null,
-                  leading: Icon(item.$1, color: bingoBlue),
-                  title: Text(item.$2),
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () {
-                    Navigator.pop(sheetContext);
-                    item.$3();
-                  },
-                ),
-              const SizedBox(height: 12),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -93,7 +55,7 @@ class HomeScreen extends StatelessWidget {
                             IconButton(
                               key: const ValueKey('home-menu'),
                               tooltip: l.homeMenu,
-                              onPressed: () => _menu(context),
+                              onPressed: onOpenMenu,
                               color: Colors.white,
                               icon: const Icon(Icons.menu_rounded, size: 28),
                             ),

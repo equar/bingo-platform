@@ -83,7 +83,7 @@
   "errorClosedTicket": "ይህ የድጋፍ ጥያቄ ተዘግቷል እና ከእንግዲህ ሊቀየር አይችልም።",
   "errorSelfTransfer": "ወደ ራስዎ መለያ ገንዘብ ማስተላለፍ አይችሉም።",
   "errorTransferLimit": "ይህ ዝውውር ከተፈቀደው ገደብ በላይ ነው።",
-  "errorDailyTransferLimit": "የዕለቱን የዝውውር ገደብ ደርሰዋል።",
+  "errorDailyTransferLimit": "ለዚህ ጊዜ የዝውውር ገደብ ደርሰዋል።",
   "errorTransferUnavailable": "ዝውውሮች ለጊዜው አይገኙም። እባክዎ በኋላ ይሞክሩ።",
   "errorReference": "ማጣቀሻ: {reference}",
   "@errorReference": {
@@ -108,6 +108,7 @@
   "displayNameRequired": "የሚታይ ስም ያስገቡ።",
   "invalidPhone": "ትክክለኛ ስልክ ቁጥር ያስገቡ።",
   "signIn": "ግባ",
+  "signOutOtherDevice": "ከሌላው መሣሪያ ውጣና እዚህ ግባ",
   "createAccount": "መለያ ፍጠር",
   "switchToRegister": "መለያ የለዎትም? ይመዝገቡ",
   "switchToLogin": "መለያ አለዎት? ይግቡ",

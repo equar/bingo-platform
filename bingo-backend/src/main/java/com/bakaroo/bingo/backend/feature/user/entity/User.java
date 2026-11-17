@@ -16,9 +16,9 @@ import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.LinkedHashSet;
-import java.util.Locale;
 import java.util.Set;
 
 @Entity
@@ -27,6 +27,9 @@ import java.util.Set;
 })
 public class User {
 
+    private static final String REFERRAL_CODE_CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    private static final SecureRandom REFERRAL_CODE_RANDOM = new SecureRandom();
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -34,7 +37,7 @@ public class User {
     @Column(name = "normalized_phone", length = 32)
     private String normalizedPhone;
 
-    @Column(name = "referral_code", nullable = false, length = 24, unique = true)
+    @Column(name = "referral_code", nullable = false, length = 6, unique = true)
     private String referralCode;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -163,8 +166,11 @@ public class User {
     }
 
     public static String newReferralCode() {
-        return "B" + java.util.UUID.randomUUID().toString().replace("-", "")
-                .substring(0, 20).toUpperCase(Locale.ROOT);
+        StringBuilder code = new StringBuilder(6);
+        for (int index = 0; index < 6; index++) {
+            code.append(REFERRAL_CODE_CHARACTERS.charAt(REFERRAL_CODE_RANDOM.nextInt(REFERRAL_CODE_CHARACTERS.length())));
+        }
+        return code.toString();
     }
 
     @PreUpdate

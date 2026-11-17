@@ -250,10 +250,10 @@ test('player and agent search, pending status, details, and policy reads stay co
 
   await page.goto('/wallet/transfer-policy');
   const transferBefore = await adminGet(page, '/api/v1/admin/wallet/transfers/settings');
-  await expect(page.getByLabel('Max single transfer')).toHaveValue(String(transferBefore.maxSingleTransferAmount));
-  await expect(page.getByLabel('Daily outgoing limit')).toHaveValue(String(transferBefore.dailyOutgoingLimitAmount));
+  await expect(page.getByRole('columnheader', { name: 'Outgoing limit per period' })).toBeVisible();
+  await expect(page.getByRole('cell', { name: String(transferBefore.periodOutgoingLimitAmount), exact: true }).first()).toBeVisible();
   await page.reload();
-  await expect(page.getByLabel('Max single transfer')).toHaveValue(String(transferBefore.maxSingleTransferAmount));
+  await expect(page.getByRole('cell', { name: String(transferBefore.periodOutgoingLimitAmount), exact: true }).first()).toBeVisible();
 
   await mkdir(evidenceDir, { recursive: true });
   await page.screenshot({ path: path.join(evidenceDir, 'module-02-transfer-policy-read.png'), fullPage: true });

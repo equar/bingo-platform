@@ -1,0 +1,6 @@
+{
+    "cmake.sourceDirectory": "${workspaceFolder}/bingo-agent/windows",
+    "java.autobuild.enabled": true,
+    "java.configuration.updateBuildConfiguration": "automatic",
+    "java.import.maven.enabled": true
+}

@@ -125,8 +125,9 @@ public class WalletService {
                 referenceId = null;
             }
         }
-        Page<DepositClaim> page = depositClaimRepository.searchAdminDeposits(status, normalizedQuery, referenceId,
-                pageable);
+        Page<DepositClaim> page = status == DepositClaimStatus.PENDING
+                ? depositClaimRepository.searchPendingAdminDeposits(normalizedQuery, referenceId, pageable)
+                : depositClaimRepository.searchAdminDeposits(status, normalizedQuery, referenceId, pageable);
         return page.map(this::toDepositResponse);
     }
 
@@ -226,10 +227,7 @@ public class WalletService {
                     DepositClaim claim = depositClaimRepository.findByIdForUpdate(depositId)
                             .orElseThrow(() -> new NotFoundException("DEPOSIT_NOT_FOUND", "Deposit claim not found"));
 
-                    if (claim.getStatus() != DepositClaimStatus.PENDING
-                            && claim.getStatus() != DepositClaimStatus.AWAITING_VERIFICATION
-                            && claim.getStatus() != DepositClaimStatus.VERIFIED
-                            && claim.getStatus() != DepositClaimStatus.VERIFICATION_EXCEPTION) {
+                    if (claim.getStatus() != DepositClaimStatus.PENDING) {
                         throw new ConflictException("DEPOSIT_ALREADY_REVIEWED",
                                 "Only an unposted deposit claim can be rejected");
                     }

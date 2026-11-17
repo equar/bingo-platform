@@ -11,3 +11,20 @@ String walletTransactionTypeLabel(
     _ => transactionType,
   };
 }
+
+String walletTransactionCampaignName(
+  AppLocalizations localizations,
+  String transactionType,
+  String? note,
+) {
+  if (!transactionType.endsWith('_REWARD_CREDIT')) {
+    return walletTransactionTypeLabel(localizations, transactionType);
+  }
+  final campaignName = note?.split(RegExp(r'\s+[—–-]\s+')).first.trim();
+  return campaignName == null || campaignName.isEmpty
+      ? walletTransactionTypeLabel(localizations, transactionType)
+      : campaignName;
+}
+
+bool isWalletCampaignReward(String transactionType) =>
+    transactionType.endsWith('_REWARD_CREDIT');

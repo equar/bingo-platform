@@ -7,7 +7,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Alert,
   Box,
@@ -33,7 +33,6 @@ import {
   approveDeposit,
   deposits,
   rejectDeposit,
-  verifyDeposit,
 } from "../../api/admin";
 import { getUserFacingErrorMessage, parseApiError } from "../../api/types";
 import { StatusState } from "../../components/StatusState";
@@ -42,19 +41,20 @@ import { AdminTablePage } from "../../components/AdminTablePage";
 import { AdminPageHeader } from "../../components/AdminPageHeader";
 import { usePrivateListSearch } from "../../components/usePrivateListSearch";
 import { useListSessionState } from "../../components/useListSessionState";
-import { translateAdminStatus } from "../../i18n";
 import { useSession } from "../../api/session";
 import { useIdempotencyKey } from "../common/useIdempotencyKey";
 
 const statusOptions = [
   "PENDING",
-  "AWAITING_VERIFICATION",
-  "VERIFIED",
-  "VERIFICATION_EXCEPTION",
   "APPROVED",
   "REJECTED",
 ] as const;
 const finalDepositStatuses = new Set(["APPROVED", "REJECTED"]);
+const pendingDepositStatuses = new Set(["PENDING"]);
+
+function displayedDepositStatus(status: string): string {
+  return status === "APPROVED" || status === "REJECTED" ? status : "PENDING";
+}
 
 function maskPaymentReference(reference: string): string {
   const visibleSuffix = reference.slice(-4);
@@ -63,6 +63,7 @@ function maskPaymentReference(reference: string): string {
 
 export function DepositsPage() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const authSession = useSession();
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
@@ -93,17 +94,11 @@ export function DepositsPage() {
   const [comment, setComment] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [mode, setMode] = useState<"APPROVE" | "REJECT">("APPROVE");
-  const [verificationDepositId, setVerificationDepositId] = useState<
-    number | null
-  >(null);
-  const [paymentReference, setPaymentReference] = useState("");
-  const [verificationOpen, setVerificationOpen] = useState(false);
   const idempotency = useIdempotencyKey();
   const isAdmin = authSession?.user.roles.includes("ADMIN") ?? false;
   const canApproveDeposits = isAdmin;
   const canVerifyDeposits =
     !isAdmin && (authSession?.user.roles.includes("SUPPORT") ?? false);
-  const canRejectDeposits = canApproveDeposits || canVerifyDeposits;
   const displayPaymentReference = (reference: string) =>
     canVerifyDeposits ? maskPaymentReference(reference) : reference;
 
@@ -146,26 +141,6 @@ export function DepositsPage() {
   const actionOutcomeUnknown =
     actionMutation.isError &&
     parseApiError(actionMutation.error).outcomeUnknown;
-  const verificationMutation = useMutation({
-    mutationFn: () => {
-      const reference = paymentReference.trim();
-      if (
-        verificationDepositId == null ||
-        reference.length === 0 ||
-        reference.length > 120
-      ) {
-        throw new Error("A valid bank statement payment reference is required");
-      }
-      return verifyDeposit(verificationDepositId, reference);
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["deposits"] });
-      await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-      setVerificationOpen(false);
-      setVerificationDepositId(null);
-      setPaymentReference("");
-    },
-  });
   if (depositsQuery.isLoading) {
     return (
       <StatusState
@@ -227,7 +202,7 @@ export function DepositsPage() {
             <MenuItem value="">{t("All statuses")}</MenuItem>
             {statusOptions.map((option) => (
               <MenuItem key={option} value={option}>
-                {translateAdminStatus(option, t)}
+                {option}
               </MenuItem>
             ))}
           </TextField>
@@ -307,28 +282,23 @@ export function DepositsPage() {
                   </TableCell>
                   <TableCell>
                     <Chip
-                      label={translateAdminStatus(deposit.status, t)}
+                      label={displayedDepositStatus(deposit.status)}
                       color={
-                        deposit.status === "PENDING" ||
-                        deposit.status === "VERIFICATION_EXCEPTION"
+                        pendingDepositStatuses.has(deposit.status)
                           ? "warning"
-                          : deposit.status === "VERIFIED"
+                          : deposit.status === "APPROVED"
                             ? "success"
                             : "default"
                       }
                       size="small"
                     />
-                    {[
-                      "PENDING",
-                      "AWAITING_VERIFICATION",
-                      "VERIFICATION_EXCEPTION",
-                    ].includes(deposit.status) ? (
+                    {deposit.status === "PENDING" && deposit.verifiedBy == null ? (
                       <Typography
                         variant="caption"
                         display="block"
                         color="warning.main"
                       >
-                        {t("Awaiting independent bank verification")}
+                        {t("Awaiting payment reference verification")}
                       </Typography>
                     ) : null}
                     {deposit.verifiedBy != null ? (
@@ -354,16 +324,16 @@ export function DepositsPage() {
                     >
                       {finalDepositStatuses.has(deposit.status) ? (
                         <Button size="small" disabled>
-                          {translateAdminStatus(deposit.status, t)}
+                          {deposit.status}
                         </Button>
                       ) : null}
                       {canApproveDeposits &&
                       !finalDepositStatuses.has(deposit.status) ? (
                         <Tooltip
                           title={
-                            deposit.status !== "VERIFIED"
+                            deposit.verifiedBy == null
                               ? t(
-                                  "A matched bank verification is required before approval.",
+                                  "A matching player-submitted payment reference is required before approval.",
                                 )
                               : !canApproveDeposits
                                 ? t(
@@ -382,7 +352,8 @@ export function DepositsPage() {
                               size="small"
                               variant="contained"
                               disabled={
-                                deposit.status !== "VERIFIED" ||
+                                deposit.status !== "PENDING" ||
+                                deposit.verifiedBy == null ||
                                 !canApproveDeposits ||
                                 deposit.verifiedBy === authSession?.user.id
                               }
@@ -400,57 +371,37 @@ export function DepositsPage() {
                           </span>
                         </Tooltip>
                       ) : null}
-                      {canVerifyDeposits &&
-                      [
-                        "PENDING",
-                        "AWAITING_VERIFICATION",
-                        "VERIFIED",
-                        "VERIFICATION_EXCEPTION",
-                      ].includes(deposit.status) ? (
+                      {canVerifyDeposits && deposit.status === "PENDING" ? (
                         <Button
                           data-testid={`deposit-verify-${deposit.id}`}
                           size="small"
                           variant="outlined"
-                          onClick={() => {
-                            verificationMutation.reset();
-                            setVerificationDepositId(deposit.id);
-                            setPaymentReference("");
-                            setVerificationOpen(true);
-                          }}
+                          onClick={() => navigate(`/deposits/${deposit.id}`)}
                         >
-                          {t("Verify")}
+                          {t("Verify deposit")}
                         </Button>
                       ) : null}
-                      <Button
-                        data-testid={`deposit-reject-${deposit.id}`}
-                        size="small"
-                        variant="outlined"
-                        sx={{
-                          display:
-                            finalDepositStatuses.has(deposit.status) ||
-                            !canRejectDeposits
-                              ? "none"
-                              : undefined,
-                        }}
-                        disabled={
-                          ![
-                            "PENDING",
-                            "AWAITING_VERIFICATION",
-                            "VERIFIED",
-                            "VERIFICATION_EXCEPTION",
-                          ].includes(deposit.status)
-                        }
-                        onClick={() => {
-                          idempotency.resetKey();
-                          actionMutation.reset();
-                          setComment("");
-                          setMode("REJECT");
-                          setSelectedId(deposit.id);
-                          setConfirmOpen(true);
-                        }}
-                      >
-                        {t("Reject")}
-                      </Button>
+                      {canApproveDeposits &&
+                      !finalDepositStatuses.has(deposit.status) ? (
+                        <Button
+                          data-testid={`deposit-reject-${deposit.id}`}
+                          size="small"
+                          variant="outlined"
+                          disabled={
+                            deposit.status !== "PENDING"
+                          }
+                          onClick={() => {
+                            idempotency.resetKey();
+                            actionMutation.reset();
+                            setComment("");
+                            setMode("REJECT");
+                            setSelectedId(deposit.id);
+                            setConfirmOpen(true);
+                          }}
+                        >
+                          {t("Reject")}
+                        </Button>
+                      ) : null}
                     </Stack>
                   </TableCell>
                 </TableRow>
@@ -497,7 +448,7 @@ export function DepositsPage() {
             {detailsDeposit ? (
               <Stack spacing={1.5} sx={{ pt: 1 }}>
                 {[
-                  [t("Status"), translateAdminStatus(detailsDeposit.status, t)],
+                  [t("Status"), displayedDepositStatus(detailsDeposit.status)],
                   [t("Operation ID"), detailsDeposit.operationId],
                   [
                     t("Player"),
@@ -573,7 +524,7 @@ export function DepositsPage() {
             {detailsDeposit &&
             finalDepositStatuses.has(detailsDeposit.status) ? (
               <Button disabled>
-                {translateAdminStatus(detailsDeposit.status, t)}
+                {displayedDepositStatus(detailsDeposit.status)}
               </Button>
             ) : null}
             {detailsDeposit &&
@@ -583,7 +534,8 @@ export function DepositsPage() {
                 <Button
                   variant="contained"
                   disabled={
-                    detailsDeposit.status !== "VERIFIED" ||
+                    detailsDeposit.status !== "PENDING" ||
+                    detailsDeposit.verifiedBy == null ||
                     detailsDeposit.verifiedBy === authSession?.user.id
                   }
                   onClick={() => {
@@ -601,12 +553,7 @@ export function DepositsPage() {
                 <Button
                   color="error"
                   disabled={
-                    ![
-                      "PENDING",
-                      "AWAITING_VERIFICATION",
-                      "VERIFIED",
-                      "VERIFICATION_EXCEPTION",
-                    ].includes(detailsDeposit.status)
+                    detailsDeposit.status !== "PENDING"
                   }
                   onClick={() => {
                     idempotency.resetKey();
@@ -626,50 +573,16 @@ export function DepositsPage() {
             !canApproveDeposits &&
             canVerifyDeposits &&
             !finalDepositStatuses.has(detailsDeposit.status) ? (
-              <>
-                <Button
-                  variant="contained"
-                  disabled={
-                    ![
-                      "PENDING",
-                      "AWAITING_VERIFICATION",
-                      "VERIFIED",
-                      "VERIFICATION_EXCEPTION",
-                    ].includes(detailsDeposit.status)
-                  }
-                  onClick={() => {
-                    verificationMutation.reset();
-                    setVerificationDepositId(detailsDeposit.id);
-                    setPaymentReference("");
-                    setDetailsDeposit(null);
-                    setVerificationOpen(true);
-                  }}
-                >
-                  {t("Verify")}
-                </Button>
-                <Button
-                  color="error"
-                  disabled={
-                    ![
-                      "PENDING",
-                      "AWAITING_VERIFICATION",
-                      "VERIFIED",
-                      "VERIFICATION_EXCEPTION",
-                    ].includes(detailsDeposit.status)
-                  }
-                  onClick={() => {
-                    idempotency.resetKey();
-                    actionMutation.reset();
-                    setComment("");
-                    setMode("REJECT");
-                    setSelectedId(detailsDeposit.id);
-                    setDetailsDeposit(null);
-                    setConfirmOpen(true);
-                  }}
-                >
-                  {t("Reject")}
-                </Button>
-              </>
+              <Button
+                variant="contained"
+                onClick={() => {
+                  const depositId = detailsDeposit.id;
+                  setDetailsDeposit(null);
+                  navigate(`/deposits/${depositId}`);
+                }}
+              >
+                {t("Verify deposit")}
+              </Button>
             ) : null}
             <Button onClick={() => setDetailsDeposit(null)}>
               {t("Close")}
@@ -729,60 +642,6 @@ export function DepositsPage() {
                 : mode === "APPROVE"
                   ? t("Approve")
                   : t("Reject")}
-            </Button>
-          </DialogActions>
-        </Dialog>
-        <Dialog
-          open={verificationOpen}
-          onClose={() =>
-            !verificationMutation.isPending && setVerificationOpen(false)
-          }
-          fullWidth
-          maxWidth="sm"
-        >
-          <DialogTitle>{t("Verify deposit")}</DialogTitle>
-          <DialogContent>
-            <Stack spacing={2} sx={{ pt: 1 }}>
-              {verificationMutation.isError ? (
-                <Alert severity="error">
-                  {t(
-                    getUserFacingErrorMessage(verificationMutation.error) ??
-                      "Something went wrong. Please try again.",
-                  )}
-                </Alert>
-              ) : null}
-              <Typography variant="body2" color="text.secondary">
-                {t(
-                  "Match this deposit against an independent bank statement entry using its transaction reference.",
-                )}
-              </Typography>
-              <TextField
-                label={t("Bank statement payment reference")}
-                value={paymentReference}
-                onChange={(event) => setPaymentReference(event.target.value)}
-                inputProps={{ maxLength: 120 }}
-                fullWidth
-                required
-              />
-            </Stack>
-          </DialogContent>
-          <DialogActions>
-            <Button
-              onClick={() => setVerificationOpen(false)}
-              disabled={verificationMutation.isPending}
-            >
-              {t("Cancel")}
-            </Button>
-            <Button
-              variant="contained"
-              onClick={() => verificationMutation.mutate()}
-              disabled={
-                verificationMutation.isPending ||
-                paymentReference.trim().length === 0 ||
-                paymentReference.trim().length > 120
-              }
-            >
-              {t("Verify")}
             </Button>
           </DialogActions>
         </Dialog>

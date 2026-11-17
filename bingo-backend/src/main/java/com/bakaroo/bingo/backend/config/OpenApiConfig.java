@@ -22,6 +22,7 @@ public class OpenApiConfig {
             "/",
             "/api/v1/auth/register",
             "/api/v1/auth/login",
+            "/api/v1/auth/login/replace-session",
             "/api/v1/admin/login",
             "/api/v1/agent/login");
 

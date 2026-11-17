@@ -10,6 +10,7 @@ import {
   currentWalletTransferSettings,
   promotionalRewardCampaigns,
   promotionalRewardGrants,
+  setWalletTransferPolicyStatus,
   walletTransferSettingsHistory,
 } from "../../api/admin";
 import { SignupRewardGrantsPage } from "./SignupRewardGrantsPage";
@@ -23,6 +24,7 @@ vi.mock("../../api/admin", () => ({
   promotionalRewardGrants: vi.fn(),
   awardPromotionalReward: vi.fn(),
   saveWalletTransferSettings: vi.fn(),
+  setWalletTransferPolicyStatus: vi.fn(),
   setSignupRewardPolicyStatus: vi.fn(),
   walletTransferSettingsHistory: vi.fn(),
 }));
@@ -33,6 +35,7 @@ const currentTransferSettingsMock = vi.mocked(currentWalletTransferSettings);
 const campaignsMock = vi.mocked(promotionalRewardCampaigns);
 const grantsMock = vi.mocked(promotionalRewardGrants);
 const transferHistoryMock = vi.mocked(walletTransferSettingsHistory);
+const transferStatusMock = vi.mocked(setWalletTransferPolicyStatus);
 
 function createWrapper({ children }: PropsWithChildren) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -72,7 +75,7 @@ describe("WalletPoliciesPage", () => {
       updatedAt: "2026-10-01T00:00:00Z", activeNow: true,
     });
     currentTransferSettingsMock.mockResolvedValue({
-      id: 2, enabled: true, maxSingleTransferAmount: "100.00", dailyOutgoingLimitAmount: "500.00",
+      id: 2, enabled: true, maxSingleTransferAmount: "100.00", periodOutgoingLimitAmount: "500.00", limitPeriod: "DAILY",
       currency: "ETB", effectiveFrom: "2026-10-01T00:00:00Z", effectiveUntil: null,
       changedByUserId: 2, reason: null, createdAt: "2026-10-01T00:00:00Z",
       updatedAt: "2026-10-01T00:00:00Z", activeNow: true,
@@ -83,7 +86,7 @@ describe("WalletPoliciesPage", () => {
   });
 
   it("loads the campaign list for the promotional rewards route and transfer history for its route", async () => {
-    const { unmount } = renderAt("/wallet/signup-reward");
+    const { unmount } = renderAt("/wallet/promotional-reward");
     expect(await screen.findByRole("heading", { name: "Promotional rewards" })).toBeInTheDocument();
     expect(currentSignupSettingsMock).toHaveBeenCalledOnce();
     expect(campaignsMock).toHaveBeenCalledWith(0, 20, undefined, undefined);
@@ -103,16 +106,65 @@ describe("WalletPoliciesPage", () => {
     expect(grantsMock).toHaveBeenCalledWith(0, 20, undefined);
   });
 
+  it("configures transfer status and a calendar reset period without effective dates", async () => {
+    const user = userEvent.setup();
+    renderAt("/wallet/transfer-policy");
+    await screen.findByRole("heading", { name: "Transfer policy" });
+    await user.click(screen.getByRole("button", { name: "Add transfer policy" }));
+    expect(await screen.findByRole("heading", { name: "Add transfer policy" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Status")).toBeInTheDocument();
+    expect(screen.getByLabelText("Limit reset period")).toBeInTheDocument();
+    expect(screen.getByLabelText("Outgoing limit per period")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Effective from")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Effective until")).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+    await user.click(screen.getByLabelText("Limit reset period"));
+    expect(await screen.findByRole("option", { name: "Biweekly" })).toBeInTheDocument();
+  });
+
+  it("updates a transfer policy status without creating a policy", async () => {
+    transferHistoryMock.mockResolvedValue({
+      content: [{
+        id: 17,
+        enabled: true,
+        activeNow: true,
+        maxSingleTransferAmount: "100.00",
+        periodOutgoingLimitAmount: "500.00",
+        limitPeriod: "DAILY",
+        currency: "ETB",
+        effectiveFrom: "2026-10-01T00:00:00Z",
+        effectiveUntil: null,
+        changedByUserId: 2,
+        reason: null,
+        createdAt: "2026-10-01T00:00:00Z",
+        updatedAt: "2026-10-01T00:00:00Z",
+      }],
+      page: 0,
+      size: 20,
+      totalElements: 1,
+      totalPages: 1,
+      first: true,
+      last: true,
+    });
+    const user = userEvent.setup();
+    renderAt("/wallet/transfer-policy");
+    await user.click(await screen.findByRole("button", { name: "Make inactive" }));
+    expect(await screen.findByRole("heading", { name: "Deactivate transfer policy?" })).toBeInTheDocument();
+    expect(transferStatusMock).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Make inactive" }));
+    await waitFor(() => expect(transferStatusMock).toHaveBeenCalledWith(17, false));
+  });
+
   it("defaults a new campaign to today and accepts an inclusive same-day end date", async () => {
     currentSignupSettingsMock.mockResolvedValue({
       id: null, enabled: false, rewardAmount: "0.00", currency: "ETB", effectiveFrom: "1970-01-01T00:00:00Z",
       effectiveUntil: null, changedByUserId: null, reason: null, createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(), activeNow: false,
     });
-    renderAt("/wallet/signup-reward");
+    renderAt("/wallet/promotional-reward");
     await screen.findByRole("heading", { name: "Promotional rewards" });
     await userEvent.setup().click(screen.getByRole("button", { name: "Add promotional campaign" }));
-    expect(screen.getByTestId("current-location")).toHaveTextContent("/wallet/signup-reward/new");
+    expect(screen.getByTestId("current-location")).toHaveTextContent("/wallet/promotional-reward/new");
     expect(screen.getByRole("heading", { name: "Add promotional campaign" })).toBeInTheDocument();
     const from = screen.getByLabelText("Effective from") as HTMLInputElement;
     const until = screen.getByLabelText("Effective until") as HTMLInputElement;
@@ -127,7 +179,7 @@ describe("WalletPoliciesPage", () => {
 
   it("matches backend money precision and keeps the supported campaign currency fixed", async () => {
     const user = userEvent.setup();
-    renderAt("/wallet/signup-reward");
+    renderAt("/wallet/promotional-reward");
     await screen.findByRole("heading", { name: "Promotional rewards" });
     await user.click(screen.getByRole("button", { name: "Add promotional campaign" }));
     const amount = screen.getByLabelText("Reward amount");
@@ -143,7 +195,7 @@ describe("WalletPoliciesPage", () => {
 
   it("offers the three supported reward types and requires a threshold for wallet credit rewards", async () => {
     const user = userEvent.setup();
-    renderAt("/wallet/signup-reward");
+    renderAt("/wallet/promotional-reward");
     await screen.findByRole("heading", { name: "Promotional rewards" });
     await user.click(screen.getByRole("button", { name: "Add promotional campaign" }));
     await user.click(screen.getByLabelText("Campaign name"));
@@ -165,7 +217,7 @@ describe("WalletPoliciesPage", () => {
       id: 1, enabled: false, rewardAmount: "25.00", currency: "ETB", effectiveFrom: yesterday,
       effectiveUntil: yesterday, changedByUserId: 2, reason: null, createdAt: yesterday, updatedAt: yesterday, activeNow: false,
     });
-    renderAt("/wallet/signup-reward");
+    renderAt("/wallet/promotional-reward");
     await screen.findByRole("heading", { name: "Promotional rewards" });
     await userEvent.setup().click(screen.getByRole("button", { name: "Add promotional campaign" }));
     const from = screen.getByLabelText("Effective from") as HTMLInputElement;
@@ -179,7 +231,7 @@ describe("WalletPoliciesPage", () => {
     createCampaignMock.mockRejectedValue({
       response: { status: 400, data: { code: "VALIDATION_ERROR", message: "Internal validation detail" } },
     });
-    renderAt("/wallet/signup-reward");
+    renderAt("/wallet/promotional-reward");
     await screen.findByRole("heading", { name: "Promotional rewards" });
     await user.click(screen.getByRole("button", { name: "Add promotional campaign" }));
     fireEvent.change(screen.getByLabelText("Reward amount"), { target: { value: "25.00" } });

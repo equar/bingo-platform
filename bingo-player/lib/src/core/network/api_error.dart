@@ -120,7 +120,8 @@ class ApiError implements Exception {
     if (code == 'TRANSFER_LIMIT_EXCEEDED') {
       return localizations.errorTransferLimit;
     }
-    if (code == 'DAILY_TRANSFER_LIMIT_EXCEEDED') {
+    if (code == 'DAILY_TRANSFER_LIMIT_EXCEEDED' ||
+        code == 'PERIOD_TRANSFER_LIMIT_EXCEEDED') {
       return localizations.errorDailyTransferLimit;
     }
     if (code == 'TRANSFERS_DISABLED' || code == 'TRANSFER_POLICY_INACTIVE') {
