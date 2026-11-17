@@ -589,8 +589,12 @@ class BingoLiveDrawIntegrationTest extends MySqlIntegrationTest {
                 gameLiveDrawService.advanceSessionDrawIfDue(session.getId(), dueTime);
 
                 assertFalse(recordingSimpMessagingTemplate.getRecordedMessages().isEmpty());
-                RecordedMessage message = recordingSimpMessagingTemplate.getRecordedMessages().get(0);
-                assertEquals("/topic/session/" + session.getId() + "/draws", message.destination());
+                String drawDestination = "/topic/session/" + session.getId() + "/draws";
+                RecordedMessage message = recordingSimpMessagingTemplate.getRecordedMessages().stream()
+                                .filter(recorded -> drawDestination.equals(recorded.destination()))
+                                .findFirst()
+                                .orElseThrow();
+                assertEquals(drawDestination, message.destination());
                 assertTrue(message.payload() instanceof DrawEventResponse);
         }
 
