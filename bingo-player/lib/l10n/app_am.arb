@@ -127,6 +127,10 @@
   "supportSubmitted": "የድጋፍ ጥያቄዎ ተልኳል።",
   "roomsTitle": "ክፍሎች",
   "liveGameTitle": "የቀጥታ ጨዋታ",
+  "prizeLabel": "ሽልማት",
+  "yourTicketsLabel": "የእርስዎ ቲኬቶች",
+  "gameInProgress": "በሂደት ላይ",
+  "rulesButton": "ደንቦች",
   "sessionStatusLabel": "የሴሽን ሁኔታ",
   "ticketCountLabel": "ቲኬቶች",
   "drawCountLabel": "መዝገቦች",
@@ -444,7 +448,7 @@
   "celebrationWinningTickets": "{count} አሸናፊ ቲኬቶች!",
   "celebrationCongratulations": "እንኳን ደስ አለዎት! አሸንፈዋል",
   "celebrationTotal": "ጠቅላላ ሽልማት",
-  "celebrationTicket": "ቲኬት #{id}",
+  "celebrationPrize": "ሽልማት {number}",
   "celebrationTicketsWon": "ከ{total} ቲኬቶች {won} አሸንፈዋል",
   "@celebrationWinningTickets": {
     "placeholders": {
@@ -453,9 +457,9 @@
       }
     }
   },
-  "@celebrationTicket": {
+  "@celebrationPrize": {
     "placeholders": {
-      "id": {
+      "number": {
         "type": "int"
       }
     }

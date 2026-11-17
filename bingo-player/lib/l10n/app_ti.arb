@@ -33,6 +33,18 @@
   "supportTitle": "ቲኬታት ደገፍ",
   "roomsTitle": "ክፍልታት",
   "liveGameTitle": "ቀጥታ ጸወታ",
+  "prizeLabel": "ሽልማት",
+  "celebrationPrize": "ሽልማት {number}",
+  "@celebrationPrize": {
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "yourTicketsLabel": "ትኬታትካ",
+  "gameInProgress": "ኣብ ምስራሕ ላይ",
+  "rulesButton": "ሕግታት",
   "liveGamesTab": "ቀጥታ ጸወታታት",
   "upcomingGamesTab": "ዝመጽኡ ጸወታታት",
   "previousGamesTab": "ዝሓለፉ ጸወታታት",

@@ -127,6 +127,10 @@
   "supportSubmitted": "Your support request was sent.",
   "roomsTitle": "Rooms",
   "liveGameTitle": "Live game",
+  "prizeLabel": "Prize",
+  "yourTicketsLabel": "Your Tickets",
+  "gameInProgress": "In Progress",
+  "rulesButton": "Rules",
   "sessionStatusLabel": "Session status",
   "ticketCountLabel": "Tickets",
   "drawCountLabel": "Draws",
@@ -444,7 +448,7 @@
   "celebrationWinningTickets": "{count, plural, one {1 Winning Ticket!} other {{count} Winning Tickets!}}",
   "celebrationCongratulations": "Congratulations! You won",
   "celebrationTotal": "Total winnings",
-  "celebrationTicket": "Ticket #{id}",
+  "celebrationPrize": "Prize {number}",
   "celebrationTicketsWon": "{won} of {total} tickets won",
   "@celebrationWinningTickets": {
     "placeholders": {
@@ -453,9 +457,9 @@
       }
     }
   },
-  "@celebrationTicket": {
+  "@celebrationPrize": {
     "placeholders": {
-      "id": {
+      "number": {
         "type": "int"
       }
     }

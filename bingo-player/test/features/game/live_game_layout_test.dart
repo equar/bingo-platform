@@ -38,6 +38,11 @@ GameSession game({String status = 'DRAWING'}) => GameSession(
   configuredPatterns: const ['LINE'],
   configuredPrizes: const [
     BingoPrizeConfig(prizeType: 'LINE', amount: 100, settlementPath: 'WALLET'),
+    BingoPrizeConfig(
+      prizeType: 'FULL_HOUSE',
+      amount: 1600,
+      settlementPath: 'WALLET',
+    ),
   ],
   createdAt: DateTime.utc(2026, 11, 11),
   updatedAt: DateTime.utc(2026, 11, 11),
@@ -230,6 +235,37 @@ void main() {
     },
   );
 
+  testWidgets('live layout gives the ticket cards more space', (tester) async {
+    await mount(tester, ownedCount: 5);
+
+    expect(find.byKey(const ValueKey('live-session-overview')), findsNothing);
+    expect(find.byKey(const ValueKey('live-session-prize')), findsNothing);
+    expect(find.byKey(const ValueKey('live-your-ticket-count')), findsNothing);
+    expect(find.textContaining('Ticket '), findsNothing);
+    expect(find.byKey(const ValueKey('live-ticket-card-101')), findsOneWidget);
+    expect(find.byKey(const ValueKey('live-game-rules')), findsOneWidget);
+    expect(find.byKey(const ValueKey('current-call-area')), findsOneWidget);
+    expect(find.byKey(const ValueKey('view-all-calls')), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget.key is ValueKey<String> &&
+            (widget.key! as ValueKey<String>).value.startsWith('recent-call-'),
+      ),
+      findsNothing,
+    );
+    await tester.tap(find.byKey(const ValueKey('live-game-rules')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    expect(find.text('Game details & rules'), findsOneWidget);
+    expect(
+      find.text('Prizes: LINE: 100 ETB · FULL HOUSE: 1600 ETB'),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   for (final (locale, size) in [
     (const Locale('en'), const Size(320, 800)),
     (const Locale('am'), const Size(320, 800)),
@@ -415,9 +451,14 @@ void main() {
       contains('1'),
     );
 
-    await tester.tap(find.byKey(const ValueKey('live-game-settings')));
+    await tester.tap(find.byKey(const ValueKey('live-game-details')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
+    await tester.tap(find.text('Game Settings'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    final selectionColorTitle = find.text('Selection Color');
+    expect(tester.getSize(selectionColorTitle).height, lessThan(40));
     final resetButton = find.widgetWithText(
       OutlinedButton,
       'Reset/Clear Marked Numbers',
@@ -595,6 +636,10 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('3 Winning Tickets!'), findsOneWidget);
+      expect(find.text('Prize 1'), findsOneWidget);
+      expect(find.text('Prize 2'), findsOneWidget);
+      expect(find.text('Prize 3'), findsOneWidget);
+      expect(find.text('Ticket #1042'), findsNothing);
       expect(find.text('200 ETB'), findsNWidgets(3));
       expect(find.text('600 ETB'), findsNWidgets(2));
       expect(find.text('3 of 5 tickets won'), findsOneWidget);
@@ -735,6 +780,9 @@ void main() {
     );
     expect(find.text('Main Hall'), findsNothing);
     await tester.tap(find.byKey(const ValueKey('live-game-details')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.tap(find.text('Game details'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.textContaining('Main Hall'), findsWidgets);

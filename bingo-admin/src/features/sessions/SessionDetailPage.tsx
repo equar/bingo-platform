@@ -486,7 +486,45 @@ export function SessionDetailPage() {
                         data-testid={`draw-history-chip-${draw.sequenceNo}`}
                         variant="outlined"
                         size="small"
-                        label={`${t("#")}${draw.sequenceNo} ${t("·")} ${draw.numberDrawn}`}
+                        sx={{
+                          bgcolor: "success.light",
+                          borderColor: "success.main",
+                          "& .MuiChip-label": { px: 1 },
+                        }}
+                        label={
+                          <Box
+                            component="span"
+                            sx={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 0.5,
+                            }}
+                          >
+                            <Typography
+                              component="span"
+                              variant="caption"
+                              sx={{ color: "text.secondary", fontWeight: 700 }}
+                            >
+                              {t("#")}
+                              {draw.sequenceNo}
+                            </Typography>
+                            <Typography
+                              component="span"
+                              variant="caption"
+                              sx={{ color: "text.secondary" }}
+                            >
+                              {t("·")}
+                            </Typography>
+                            <Typography
+                              component="span"
+                              data-testid={`draw-history-number-${draw.sequenceNo}`}
+                              variant="body2"
+                              sx={{ color: "success.dark", fontWeight: 800 }}
+                            >
+                              {draw.numberDrawn}
+                            </Typography>
+                          </Box>
+                        }
                         title={formatEthiopianDateTime(draw.drawnAt)}
                       />
                     ))}
