@@ -4,16 +4,18 @@ import { cleanup, render, screen, waitFor, within } from "@testing-library/react
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { deposits, verifyDeposit } from "../../api/admin";
+import { approveDeposit, deposits, verifyDeposit } from "../../api/admin";
 import { clearSession, writeSession } from "../../api/session";
 import i18n from "../../i18n";
 import { DepositsPage } from "./DepositsPage";
 
 vi.mock("../../api/admin", () => ({
+  approveDeposit: vi.fn(),
   deposits: vi.fn(),
   verifyDeposit: vi.fn(),
 }));
 
+const approveDepositMock = vi.mocked(approveDeposit);
 const depositsMock = vi.mocked(deposits);
 const verifyDepositMock = vi.mocked(verifyDeposit);
 
@@ -125,6 +127,7 @@ describe("DepositsPage", () => {
 
   it("verifies deposits using the bank statement transaction reference", async () => {
     writeSessionWithRoles(["SUPPORT"]);
+    approveDepositMock.mockReset().mockResolvedValue({} as never);
     verifyDepositMock.mockReset().mockResolvedValue({
       id: 8,
       depositClaimId: 32,
@@ -145,7 +148,7 @@ describe("DepositsPage", () => {
 
     await user.click(await screen.findByTestId("deposit-verify-32"));
     const dialog = await screen.findByRole("dialog");
-    const verifyButton = within(dialog).getByRole("button", { name: "Verify" });
+    const verifyButton = within(dialog).getByRole("button", { name: "Verify and deposit" });
     expect(verifyButton).toBeDisabled();
     await user.type(
       within(dialog).getByRole("textbox", {
@@ -159,6 +162,35 @@ describe("DepositsPage", () => {
     await waitFor(() =>
       expect(verifyDepositMock).toHaveBeenCalledWith(32, "BANK-REF-32"),
     );
+    expect(approveDepositMock).toHaveBeenCalledWith(32, {
+      reviewNote: "SUPPORT_REFERENCE_MATCHED",
+      idempotencyKey: expect.any(String),
+    });
+  });
+
+  it("does not approve deposits when the bank reference does not match", async () => {
+    writeSessionWithRoles(["SUPPORT"]);
+    approveDepositMock.mockReset();
+    verifyDepositMock.mockReset().mockResolvedValue({ outcome: "AMOUNT_MISMATCH" } as never);
+    const user = userEvent.setup();
+    render(<DepositsPage />, { wrapper: createWrapper });
+
+    await user.click(await screen.findByTestId("deposit-verify-32"));
+    const dialog = await screen.findByRole("dialog");
+    await user.type(
+      within(dialog).getByRole("textbox", {
+        name: "Bank statement payment reference",
+      }),
+      "BANK-REF-32",
+    );
+    await user.click(
+      within(dialog).getByRole("button", { name: "Verify and deposit" }),
+    );
+
+    await waitFor(() =>
+      expect(verifyDepositMock).toHaveBeenCalledWith(32, "BANK-REF-32"),
+    );
+    expect(approveDepositMock).not.toHaveBeenCalled();
   });
 
   it("lets administrators inspect rejected deposits as read-only records", async () => {

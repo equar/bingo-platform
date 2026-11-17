@@ -147,7 +147,7 @@ export function DepositsPage() {
     actionMutation.isError &&
     parseApiError(actionMutation.error).outcomeUnknown;
   const verificationMutation = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
       const reference = paymentReference.trim();
       if (
         verificationDepositId == null ||
@@ -156,11 +156,19 @@ export function DepositsPage() {
       ) {
         throw new Error("A valid bank statement payment reference is required");
       }
-      return verifyDeposit(verificationDepositId, reference);
+      const verification = await verifyDeposit(verificationDepositId, reference);
+      if (verification.outcome === "MATCHED") {
+        await approveDeposit(verificationDepositId, {
+          reviewNote: "SUPPORT_REFERENCE_MATCHED",
+          idempotencyKey: idempotency.getKey(),
+        });
+      }
+      return verification;
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["deposits"] });
       await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      idempotency.resetKey();
       setVerificationOpen(false);
       setVerificationDepositId(null);
       setPaymentReference("");
@@ -413,6 +421,7 @@ export function DepositsPage() {
                           variant="outlined"
                           onClick={() => {
                             verificationMutation.reset();
+                            idempotency.resetKey();
                             setVerificationDepositId(deposit.id);
                             setPaymentReference("");
                             setVerificationOpen(true);
@@ -639,6 +648,7 @@ export function DepositsPage() {
                   }
                   onClick={() => {
                     verificationMutation.reset();
+                          idempotency.resetKey();
                     setVerificationDepositId(detailsDeposit.id);
                     setPaymentReference("");
                     setDetailsDeposit(null);
@@ -782,7 +792,7 @@ export function DepositsPage() {
                 paymentReference.trim().length > 120
               }
             >
-              {t("Verify")}
+              {t("Verify and deposit")}
             </Button>
           </DialogActions>
         </Dialog>
