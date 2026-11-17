@@ -196,22 +196,6 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen>
       );
     }
 
-    void showRules() {
-      showModalBottomSheet<void>(
-        context: context,
-        isScrollControlled: true,
-        useSafeArea: true,
-        showDragHandle: true,
-        builder: (context) => FractionallySizedBox(
-          heightFactor: .8,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: _GameRulesCard(session: session),
-          ),
-        ),
-      );
-    }
-
     return Scaffold(
       appBar: AppBar(
         title: isPreGame
@@ -295,22 +279,7 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen>
                 ),
               ],
             ),
-          if (!isPreGame)
-            TextButton(
-              key: const ValueKey('live-game-rules'),
-              onPressed: showRules,
-              style: TextButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: const Color(0xFF081D46),
-                minimumSize: const Size(0, 40),
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-              ),
-              child: Text(localizations.rulesButton),
-            )
-          else
+          if (isPreGame)
             IconButton(
               tooltip: localizations.refresh,
               onPressed: controller.refresh,

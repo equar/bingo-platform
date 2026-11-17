@@ -243,7 +243,7 @@ void main() {
     expect(find.byKey(const ValueKey('live-your-ticket-count')), findsNothing);
     expect(find.textContaining('Ticket '), findsNothing);
     expect(find.byKey(const ValueKey('live-ticket-card-101')), findsOneWidget);
-    expect(find.byKey(const ValueKey('live-game-rules')), findsOneWidget);
+    expect(find.byKey(const ValueKey('live-game-rules')), findsNothing);
     expect(find.byKey(const ValueKey('current-call-area')), findsOneWidget);
     expect(find.byKey(const ValueKey('view-all-calls')), findsOneWidget);
     expect(
@@ -254,10 +254,11 @@ void main() {
       ),
       findsNothing,
     );
-    await tester.tap(find.byKey(const ValueKey('live-game-rules')));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 350));
-    expect(find.text('Game details & rules'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('live-game-details')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Game details').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Game details & rules'), findsNWidgets(2));
     expect(
       find.text('Prizes: LINE: 100 ETB · FULL HOUSE: 1600 ETB'),
       findsOneWidget,
