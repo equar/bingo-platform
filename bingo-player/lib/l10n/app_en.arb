@@ -268,7 +268,7 @@
   "pinMustDiffer": "Choose a PIN different from your current PIN.",
   "pinConfirmationMismatch": "The PINs do not match.",
   "profileLanguagePreference": "Language preference",
-  "profileLanguagePreferenceDescription": "Choose English or Amharic. Your choice is saved to your account.",
+  "profileLanguagePreferenceDescription": "Choose English, Amharic, or Tigrinya. Your choice is saved to your account.",
   "profileRefresh": "Refresh profile",
   "profileLoadError": "Couldn't refresh your profile. Check your connection and try again.",
   "logout": "Logout",

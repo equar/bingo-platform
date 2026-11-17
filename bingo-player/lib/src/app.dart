@@ -4,12 +4,12 @@ import 'package:bingo_player/src/core/theme/app_theme.dart';
 import 'package:bingo_player/src/core/widgets/responsive_content.dart';
 import 'package:bingo_player/src/core/config/app_config.dart';
 import 'package:bingo_player/src/core/localization/app_locale_controller.dart';
+import 'package:bingo_player/src/core/localization/player_localization_delegates.dart';
 import 'package:bingo_player/src/core/storage/session_storage.dart';
 import 'package:bingo_player/src/core/storage/player_preferences.dart';
 import 'package:bingo_player/src/features/auth/presentation/auth_gate.dart';
 import 'package:bingo_player/src/features/auth/data/auth_session_controller.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bingo_player/l10n/app_localizations.dart';
 
@@ -40,7 +40,7 @@ class _BingoAppView extends ConsumerWidget {
     ref.watch(sessionStorageProvider);
     ref.listen(authSessionControllerProvider, (previous, next) {
       final language = next.session?.user.preferredLanguage;
-      if ((language == 'en' || language == 'am') &&
+      if ((language == 'en' || language == 'am' || language == 'ti') &&
           language != previous?.session?.user.preferredLanguage) {
         unawaited(
           ref
@@ -65,12 +65,7 @@ class _BingoAppView extends ConsumerWidget {
           child: ResponsiveContent(maxWidth: 1200, child: child!),
         ),
       ),
-      localizationsDelegates: const [
-        AppLocalizations.delegate,
-        GlobalMaterialLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-      ],
+      localizationsDelegates: playerLocalizationDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       home: !appConfig.isValid
           ? _MissingConfigView(problem: appConfig.problem!)

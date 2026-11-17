@@ -268,7 +268,7 @@
   "pinMustDiffer": "ከአሁኑ ፒን የተለየ ፒን ይምረጡ።",
   "pinConfirmationMismatch": "ፒኖቹ አይዛመዱም።",
   "profileLanguagePreference": "የቋንቋ ምርጫ",
-  "profileLanguagePreferenceDescription": "እንግሊዝኛ ወይም አማርኛ ይምረጡ። ምርጫዎ በመለያዎ ላይ ይቀመጣል።",
+  "profileLanguagePreferenceDescription": "እንግሊዝኛ፣ አማርኛ ወይም ትግርኛ ይምረጡ። ምርጫዎ በመለያዎ ላይ ይቀመጣል።",
   "profileRefresh": "መገለጫን አድስ",
   "profileLoadError": "መገለጫዎን ማደስ አልተቻለም። የበይነመረብ ግንኙነትዎን ያረጋግጡና እንደገና ይሞክሩ።",
   "logout": "ውጣ",

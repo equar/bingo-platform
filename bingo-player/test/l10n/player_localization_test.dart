@@ -35,4 +35,15 @@ void main() {
       expect(amharicLabel, isNot(englishLabel));
     }
   });
+
+  test(
+    'Tigrinya is available with localized language and lobby labels',
+    () async {
+      final tigrinya = await AppLocalizations.delegate.load(const Locale('ti'));
+
+      expect(tigrinya.languageTigrinya, 'ትግርኛ');
+      expect(tigrinya.homeLobby, 'ኣዳራሽ');
+      expect(tigrinya.profileLanguagePreferenceDescription, contains('ትግርኛ'));
+    },
+  );
 }
