@@ -536,6 +536,7 @@ class _WithdrawalsPaneState extends ConsumerState<_WithdrawalsPane> {
     _name.text = user.displayName;
     _phone.text = user.phoneNumber;
   }
+
   @override
   void dispose() {
     _amount.dispose();
@@ -1312,9 +1313,9 @@ class _TransactionsPane extends StatelessWidget {
                           ),
                           child: Icon(
                             outgoing
-                                ? Icons.arrow_upward_rounded
+                                ? Icons.north_east_rounded
                                 : incoming
-                                ? Icons.arrow_downward_rounded
+                                ? Icons.south_west_rounded
                                 : Icons.swap_horiz_rounded,
                             color: directionColor,
                           ),
