@@ -12,7 +12,9 @@ import UIKit
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
-    let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "ExternalLinkHandler")
+    guard let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "ExternalLinkHandler") else {
+      fatalError("Unable to register the external link handler.")
+    }
     let channel = FlutterMethodChannel(name: "bingo_player/external_links", binaryMessenger: registrar.messenger())
     channel.setMethodCallHandler { call, result in
       if call.method == "getInstallReferralCode" {

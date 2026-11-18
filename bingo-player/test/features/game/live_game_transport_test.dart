@@ -142,6 +142,48 @@ void main() {
       expect(transport.isConnected, isFalse);
     },
   );
+
+  test('subscribes to session updates and reports status messages', () async {
+    final subscriptionObserved = Completer<void>();
+    final sessionChanged = Completer<void>();
+    late WebSocket peer;
+    final server = await _startServer((socket) {
+      peer = socket;
+      socket.listen((dynamic message) {
+        final text = message.toString();
+        if (text.startsWith('CONNECT\n')) {
+          socket.add('CONNECTED\nversion:1.2\nheart-beat:0,0\n\n\u0000');
+        } else if (text.contains('destination:/topic/sessions')) {
+          subscriptionObserved.complete();
+        }
+      });
+    });
+    final transport = StompLiveGameTransport(
+      heartbeatOutgoing: Duration.zero,
+      heartbeatIncoming: Duration.zero,
+      connectTimeout: const Duration(seconds: 2),
+    );
+    addTearDown(() async {
+      await transport.disconnect();
+      await server.close();
+    });
+
+    await transport.connectToSessionUpdates(
+      uri: server.uri,
+      accessToken: 'test-token',
+      onSessionChanged: sessionChanged.complete,
+      onError: (error) => fail('Unexpected transport error: $error'),
+      onDisconnected: () {},
+    );
+    await subscriptionObserved.future.timeout(const Duration(seconds: 2));
+    peer.add(
+      'MESSAGE\ndestination:/topic/sessions\ncontent-type:application/json\n\n'
+      '{"sessionId":42,"state":"STARTED"}\u0000',
+    );
+
+    await sessionChanged.future.timeout(const Duration(seconds: 2));
+    expect(transport.isConnected, isTrue);
+  });
 }
 
 Future<_LocalWebSocketServer> _startServer(

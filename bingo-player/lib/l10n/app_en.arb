@@ -453,6 +453,7 @@
     }
   },
   "ticketDidNotWin": "This ticket did not win this game.",
+  "oneAwayFromWinHint": "One number away from completing a winning pattern.",
   "celebrationBingo": "BINGO!",
   "celebrationWinningTickets": "{count, plural, one {1 Winning Ticket!} other {{count} Winning Tickets!}}",
   "celebrationCongratulations": "Congratulations! You won",

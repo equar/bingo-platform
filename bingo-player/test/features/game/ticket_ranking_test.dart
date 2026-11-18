@@ -42,6 +42,73 @@ void main() {
       );
     });
 
+    test('identifies the uncalled number that completes a pattern', () {
+      final ticket = _ticket();
+
+      expect(
+        TicketRanking.oneAwayNumbers(ticket.grid, {
+          1,
+          6,
+          11,
+          16,
+        }, 'VERTICAL_LINE'),
+        {21},
+      );
+      expect(
+        TicketRanking.oneAwayNumbers(ticket.grid, {1, 6, 11}, 'VERTICAL_LINE'),
+        isEmpty,
+      );
+      expect(
+        TicketRanking.oneAwayNumbers(ticket.grid, {
+          1,
+          6,
+          11,
+          16,
+          21,
+        }, 'VERTICAL_LINE'),
+        isEmpty,
+      );
+    });
+
+    test('requires both diagonals for a DIAGONAL_LINES near win', () {
+      final ticket = _ticket();
+
+      expect(
+        TicketRanking.oneAwayNumbers(ticket.grid, {
+          1,
+          7,
+          19,
+          25,
+          5,
+          9,
+          17,
+        }, 'DIAGONAL_LINES'),
+        {21},
+      );
+    });
+
+    test('uses the server BIG_Z placement for a near win', () {
+      final ticket = _ticket();
+
+      expect(
+        TicketRanking.oneAwayNumbers(ticket.grid, {
+          1,
+          2,
+          3,
+          4,
+          5,
+          10,
+          18,
+          21,
+          22,
+          23,
+          24,
+          25,
+        }, 'BIG_Z'),
+        {14},
+      );
+    });
+
     test('matches every supported server pattern placement', () {
       final ticket = _ticket();
       final cases = <(String, String)>[

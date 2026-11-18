@@ -7,17 +7,20 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('Tigrinya catalog has every English message key', () {
-    final english =
-        jsonDecode(File('lib/l10n/app_en.arb').readAsStringSync())
-            as Map<String, dynamic>;
-    final tigrinya =
-        jsonDecode(File('lib/l10n/app_ti.arb').readAsStringSync())
-            as Map<String, dynamic>;
-    final missingKeys = english.keys
-        .where((key) => !key.startsWith('@') && !tigrinya.containsKey(key))
-        .toList();
+    final english = jsonDecode(
+      File('lib/l10n/app_en.arb').readAsStringSync(),
+    ) as Map<String, dynamic>;
+    final tigrinya = jsonDecode(
+      File('lib/l10n/app_ti.arb').readAsStringSync(),
+    ) as Map<String, dynamic>;
+    final englishMessageKeys = english.keys
+        .where((key) => !key.startsWith('@'))
+        .toSet();
+    final tigrinyaMessageKeys = tigrinya.keys
+        .where((key) => !key.startsWith('@'))
+        .toSet();
 
-    expect(missingKeys, isEmpty, reason: 'Missing Tigrinya message keys');
+    expect(tigrinyaMessageKeys, equals(englishMessageKeys));
   });
 
   test('wallet and claim labels are translated in Amharic', () async {

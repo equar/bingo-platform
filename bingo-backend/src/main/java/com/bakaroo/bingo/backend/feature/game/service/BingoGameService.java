@@ -48,6 +48,7 @@ import com.bakaroo.bingo.backend.feature.game.repository.PrizeEntitlementReposit
 import com.bakaroo.bingo.backend.feature.game.repository.TicketRepository;
 import com.bakaroo.bingo.backend.feature.game.repository.WinClaimRepository;
 import com.bakaroo.bingo.backend.feature.game.websocket.GameLiveDrawService;
+import com.bakaroo.bingo.backend.feature.game.websocket.GameSessionStateChangedEvent;
 import com.bakaroo.bingo.backend.feature.user.entity.User;
 import com.bakaroo.bingo.backend.feature.user.entity.UserRole;
 import com.bakaroo.bingo.backend.feature.user.repository.UserRepository;
@@ -70,6 +71,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -110,6 +112,7 @@ public class BingoGameService {
     private final GameWinnerService winners;
     private final com.bakaroo.bingo.backend.feature.game.config.GamePolicyProperties policy;
     private final RoomSessionCadenceService roomSessionCadence;
+    private final ApplicationEventPublisher applicationEventPublisher;
 
     public BingoGameService(BingoRoomRepository bingoRoomRepository,
             GameSessionRepository gameSessionRepository,
@@ -125,6 +128,7 @@ public class BingoGameService {
             IdempotencyService idempotencyService,
             RequestHashService requestHashService,
             ObjectMapper objectMapper,
+            ApplicationEventPublisher applicationEventPublisher,
             GameLiveDrawService gameLiveDrawService,
             com.bakaroo.bingo.backend.feature.community.service.GameAccessService gameAccess,
             GameFundingService funding, GameWinnerService winners, GameRefundService refunds,
@@ -152,6 +156,7 @@ public class BingoGameService {
         this.idempotencyService = idempotencyService;
         this.requestHashService = requestHashService;
         this.objectMapper = objectMapper;
+        this.applicationEventPublisher = applicationEventPublisher;
         this.gameLiveDrawService = gameLiveDrawService;
         this.winClaimSessionValidator = new WinClaimSessionValidator();
     }
@@ -508,6 +513,8 @@ public class BingoGameService {
         if (next == GameSessionState.CLOSED) {
             roomSessionCadence.scheduleAfterSuccessfulCompletion(session, session.getEndedAt());
         }
+        applicationEventPublisher.publishEvent(
+                new GameSessionStateChangedEvent(sessionId, session.getState()));
         return toSessionResponse(session);
     }
 

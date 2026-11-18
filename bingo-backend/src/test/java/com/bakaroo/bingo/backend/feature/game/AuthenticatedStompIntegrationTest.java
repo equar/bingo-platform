@@ -18,6 +18,7 @@ import com.bakaroo.bingo.backend.feature.game.entity.GameSessionState;
 import com.bakaroo.bingo.backend.feature.game.entity.PrizeSettlementPath;
 import com.bakaroo.bingo.backend.feature.game.service.BingoGameService;
 import com.bakaroo.bingo.backend.feature.game.websocket.GameLiveDrawService;
+import com.bakaroo.bingo.backend.feature.game.websocket.GameSessionStateChangedEvent;
 import com.bakaroo.bingo.backend.feature.user.entity.AccountStatus;
 import com.bakaroo.bingo.backend.feature.user.entity.User;
 import com.bakaroo.bingo.backend.feature.user.entity.UserRole;
@@ -145,9 +146,6 @@ class AuthenticatedStompIntegrationTest extends MySqlIntegrationTest {
         bingoGameService.updateSessionState(
                 session.id(),
                 new GameSessionStateUpdateRequest(GameSessionState.OPEN));
-        bingoGameService.updateSessionState(
-                session.id(),
-                new GameSessionStateUpdateRequest(GameSessionState.STARTED));
         sessionId = session.id();
     }
 
@@ -162,16 +160,30 @@ class AuthenticatedStompIntegrationTest extends MySqlIntegrationTest {
     void authenticatedClientReceivesOrderedDrawsAndReplaysMissedSequenceAfterReconnect() throws Exception {
         String token = loginToken();
         List<DrawEventResponse> received = new CopyOnWriteArrayList<>();
+        List<GameSessionStateChangedEvent> receivedStates = new CopyOnWriteArrayList<>();
         CountDownLatch firstDraw = new CountDownLatch(1);
+        CountDownLatch startedState = new CountDownLatch(1);
+        CountDownLatch drawingState = new CountDownLatch(1);
         WebSocketStompClient client = createClient();
         StompSession session = connect(client, token);
         String destination = "/topic/session/" + sessionId + "/draws";
         session.subscribe(destination, drawHandler(received, firstDraw));
+        session.subscribe("/topic/sessions",
+                sessionStateHandler(receivedStates, startedState, drawingState));
         Thread.sleep(250);
+
+        bingoGameService.updateSessionState(
+                sessionId,
+                new GameSessionStateUpdateRequest(GameSessionState.STARTED));
+        assertTrue(startedState.await(10, TimeUnit.SECONDS));
 
         Instant firstDue = Instant.now().plusSeconds(30);
         gameLiveDrawService.advanceSessionDrawIfDue(sessionId, firstDue).orElseThrow();
         assertTrue(firstDraw.await(10, TimeUnit.SECONDS));
+        assertTrue(drawingState.await(10, TimeUnit.SECONDS));
+        assertEquals(
+                List.of(GameSessionState.STARTED, GameSessionState.DRAWING),
+                receivedStates.stream().map(GameSessionStateChangedEvent::state).toList());
         assertEquals(1, received.get(0).sequenceNo());
 
         session.disconnect();
@@ -220,6 +232,26 @@ class AuthenticatedStompIntegrationTest extends MySqlIntegrationTest {
             public void handleFrame(StompHeaders headers, Object payload) {
                 received.add((DrawEventResponse) payload);
                 latch.countDown();
+            }
+        };
+    }
+
+    private StompFrameHandler sessionStateHandler(
+            List<GameSessionStateChangedEvent> received,
+            CountDownLatch started,
+            CountDownLatch drawing) {
+        return new StompFrameHandler() {
+            @Override
+            public java.lang.reflect.Type getPayloadType(StompHeaders headers) {
+                return GameSessionStateChangedEvent.class;
+            }
+
+            @Override
+            public void handleFrame(StompHeaders headers, Object payload) {
+                GameSessionStateChangedEvent event = (GameSessionStateChangedEvent) payload;
+                received.add(event);
+                if (event.state() == GameSessionState.STARTED) started.countDown();
+                if (event.state() == GameSessionState.DRAWING) drawing.countDown();
             }
         };
     }

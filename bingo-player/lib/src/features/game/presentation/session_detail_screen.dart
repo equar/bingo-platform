@@ -1622,7 +1622,7 @@ const _sortPatternGroups = <String, List<String>>{
   ],
 };
 
-class _TicketGridCard extends ConsumerWidget {
+class _TicketGridCard extends ConsumerStatefulWidget {
   const _TicketGridCard({
     required this.ticket,
     required this.calledNumbers,
@@ -1638,10 +1638,70 @@ class _TicketGridCard extends ConsumerWidget {
   final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_TicketGridCard> createState() => _TicketGridCardState();
+}
+
+class _TicketGridCardState extends ConsumerState<_TicketGridCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulseController = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 800),
+  );
+
+  Set<int> get _oneAwayNumbers {
+    final session = widget.state.session;
+    if (session == null ||
+        (session.state != 'STARTED' && session.state != 'DRAWING')) {
+      return const {};
+    }
+
+    final called = widget.calledNumbers.toSet();
+    return {
+      for (final pattern in session.configuredPatterns)
+        ...TicketRanking.oneAwayNumbers(widget.ticket.grid, called, pattern),
+    };
+  }
+
+  void _syncPulseAnimation() {
+    final shouldAnimate =
+        _oneAwayNumbers.isNotEmpty && !MediaQuery.disableAnimationsOf(context);
+    if (shouldAnimate && !_pulseController.isAnimating) {
+      _pulseController.repeat(reverse: true);
+    } else if (!shouldAnimate && _pulseController.isAnimating) {
+      _pulseController
+        ..stop()
+        ..value = 0;
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncPulseAnimation();
+  }
+
+  @override
+  void didUpdateWidget(covariant _TicketGridCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _syncPulseAnimation();
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final preferences = ref.watch(playerPreferencesProvider);
+    final ticket = widget.ticket;
+    final calledNumbers = widget.calledNumbers;
+    final state = widget.state;
+    final localizations = widget.localizations;
     final latestCalled = calledNumbers.isEmpty ? null : calledNumbers.last;
     final colors = Theme.of(context).colorScheme;
+    final oneAwayNumbers = _oneAwayNumbers;
     final grid = LayoutBuilder(
       builder: (context, constraints) => Container(
         clipBehavior: Clip.hardEdge,
@@ -1691,7 +1751,9 @@ class _TicketGridCard extends ConsumerWidget {
                           .manualMarksForTicket(ticket.id)
                           .contains(value));
             final isLatest = isCalled && value == latestCalled;
-            return _TicketCell(
+            final isOneAway = oneAwayNumbers.contains(value);
+
+            Widget buildCell(double? oneAwayPulse) => _TicketCell(
               key: ValueKey('ticket-cell-$ticketRow-$column'),
               value: value,
               columnLetter: const ['B', 'I', 'N', 'G', 'O'][column],
@@ -1702,6 +1764,7 @@ class _TicketGridCard extends ConsumerWidget {
               localizations: localizations,
               markColor: PlayerPreferences
                   .selectionColors[preferences.selectionColorIndex],
+              oneAwayPulse: oneAwayPulse,
               onTap:
                   !preferences.autoMark &&
                       !isFree &&
@@ -1711,13 +1774,24 @@ class _TicketGridCard extends ConsumerWidget {
                         .toggleManualMark(ticket.id, value)
                   : null,
             );
+
+            if (!isOneAway) return buildCell(null);
+            return AnimatedBuilder(
+              key: ValueKey('ticket-one-away-${ticket.id}-$value'),
+              animation: _pulseController,
+              builder: (context, _) => buildCell(
+                MediaQuery.disableAnimationsOf(context)
+                    ? 0
+                    : Curves.easeInOut.transform(_pulseController.value),
+              ),
+            );
           },
         ),
       ),
     );
     final isSelected = state.selectedTicket?.id == ticket.id;
     return GestureDetector(
-      onTap: onTap,
+      onTap: widget.onTap,
       child: AspectRatio(
         key: ValueKey('live-ticket-grid-${ticket.id}'),
         aspectRatio: 1.15,
@@ -2096,6 +2170,7 @@ class _TicketCell extends StatelessWidget {
     required this.border,
     required this.localizations,
     required this.markColor,
+    this.oneAwayPulse,
     this.onTap,
   });
 
@@ -2107,18 +2182,18 @@ class _TicketCell extends StatelessWidget {
   final Border border;
   final AppLocalizations localizations;
   final Color markColor;
+  final double? oneAwayPulse;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
+    final pulse = oneAwayPulse;
     final background = isCalled
         ? markColor.withValues(alpha: isLatest ? 0.95 : 0.72)
         : isLatest
         ? colors.primaryContainer
-        : isCalled
-        ? colors.secondaryContainer
         : isDarkTheme
         ? Colors.white
         : colors.surface;
@@ -2131,14 +2206,24 @@ class _TicketCell extends StatelessWidget {
         : colors.onSurface;
 
     return Semantics(
-      label: '$columnLetter ${isFree ? localizations.freeCenterLabel : value}',
+      label: oneAwayPulse == null
+          ? '$columnLetter ${isFree ? localizations.freeCenterLabel : value}'
+          : '$columnLetter $value, ${localizations.oneAwayFromWinHint}',
       selected: isCalled && !isFree,
       child: ExcludeSemantics(
         child: AnimatedContainer(
-          duration: MediaQuery.disableAnimationsOf(context)
+          duration: pulse != null || MediaQuery.disableAnimationsOf(context)
               ? Duration.zero
               : const Duration(milliseconds: 180),
           decoration: BoxDecoration(color: background, border: border),
+          foregroundDecoration: pulse == null
+              ? null
+              : BoxDecoration(
+                  border: Border.all(
+                    color: Color.lerp(colors.tertiary, colors.primary, pulse)!,
+                    width: 2,
+                  ),
+                ),
           child: InkWell(
             onTap: onTap,
             child: Stack(

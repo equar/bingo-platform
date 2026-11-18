@@ -14,6 +14,7 @@ import com.bakaroo.bingo.backend.feature.game.entity.GameSessionState;
 import com.bakaroo.bingo.backend.feature.game.repository.DrawEventRepository;
 import com.bakaroo.bingo.backend.feature.game.repository.GameSessionRepository;
 import com.bakaroo.bingo.backend.feature.user.entity.User;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -117,24 +118,30 @@ public class GameLiveDrawService {
             }
             return Optional.empty();
         }
+        GameSessionState initialState = session.getState();
 
         // The session lock serializes completion with claims and further draws.
         // Also catches a previously completed game after a scheduler restart.
         if (configuredPatternsComplete(session)) {
             closeFinishedSession(session, now);
+            publishStateChangeIfNeeded(session, initialState);
             return Optional.empty();
         }
 
-        Instant anchor = drawEventRepository.findTopBySessionIdOrderBySequenceNoDesc(sessionId)
-                .map(DrawEvent::getDrawnAt)
-                .orElse(session.getStartedAt());
-        if (anchor != null && anchor.plus(gameProperties.drawInterval()).isAfter(now)) {
+        Optional<DrawEvent> lastDraw = drawEventRepository.findTopBySessionIdOrderBySequenceNoDesc(sessionId);
+        Instant anchor = lastDraw.map(DrawEvent::getDrawnAt).orElse(session.getStartedAt());
+        Duration drawInterval = gameProperties.drawInterval();
+        if (lastDraw.filter(draw -> draw.getSequenceNo() % 10 == 0).isPresent()) {
+            drawInterval = Duration.ofSeconds(20);
+        }
+        if (anchor != null && anchor.plus(drawInterval).isAfter(now)) {
             return Optional.empty();
         }
 
         List<Integer> remainingNumbers = remainingNumbers(sessionId);
         if (remainingNumbers.isEmpty()) {
             closeFinishedSession(session, now);
+            publishStateChangeIfNeeded(session, initialState);
             return Optional.empty();
         }
 
@@ -163,7 +170,15 @@ public class GameLiveDrawService {
                         "sequenceNo", draw.getSequenceNo(),
                         "numberDrawn", draw.getNumberDrawn()));
         applicationEventPublisher.publishEvent(new GameDrawRecordedEvent(response));
+        publishStateChangeIfNeeded(session, initialState);
         return Optional.of(response);
+    }
+
+    private void publishStateChangeIfNeeded(GameSession session, GameSessionState initialState) {
+        if (session.getState() != initialState) {
+            applicationEventPublisher.publishEvent(
+                    new GameSessionStateChangedEvent(session.getId(), session.getState()));
+        }
     }
 
     private boolean configuredPatternsComplete(GameSession session) {

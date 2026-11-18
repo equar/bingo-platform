@@ -5,6 +5,11 @@ import 'package:bingo_player/src/features/lobby/data/lobby_api.dart';
 import 'package:bingo_player/src/features/lobby/data/lobby_repository.dart';
 import 'package:bingo_player/src/features/lobby/domain/lobby_models.dart';
 import 'package:bingo_player/src/features/lobby/presentation/lobby_screen.dart';
+import 'package:bingo_player/src/features/auth/data/auth_models.dart';
+import 'package:bingo_player/src/features/auth/data/auth_session_controller.dart';
+import 'package:bingo_player/src/core/storage/session_storage.dart';
+import 'package:bingo_player/src/core/config/app_config.dart';
+import 'package:bingo_player/src/features/game/application/live_game_transport.dart';
 import 'package:bingo_player/src/features/lobby/presentation/ticket_preview_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
@@ -36,6 +41,27 @@ void main() {
     expect(find.text('QA Scheduled Session'), findsOneWidget);
     expect(find.byKey(const ValueKey('live-game-12')), findsOneWidget);
     expect(find.byKey(const ValueKey('buy-tickets-12')), findsNothing);
+  });
+
+  testWidgets('newly started sessions appear after a WebSocket update', (
+    tester,
+  ) async {
+    final repository = _LobbyRepository(sessionState: 'OPEN');
+    final transport = _FakeLobbySessionUpdatesTransport();
+    await tester.pumpWidget(
+      _app(repository, authenticated: true, sessionUpdatesTransport: transport),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('No games are live right now.'), findsOneWidget);
+    expect(transport.isConnected, isTrue);
+
+    repository.sessionState = 'STARTED';
+    transport.emitSessionChanged();
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('live-game-12')), findsOneWidget);
+    expect(repository.sessionRequests, greaterThan(1));
   });
 
   testWidgets('cancelled sessions are shown as not playable', (tester) async {
@@ -279,8 +305,26 @@ Widget _app(
   _LobbyRepository repository, {
   NavigatorObserver? navigatorObserver,
   Widget home = const LobbyScreen(),
+  bool authenticated = false,
+  LobbySessionUpdatesTransport? sessionUpdatesTransport,
 }) => ProviderScope(
-  overrides: [lobbyRepositoryProvider.overrideWithValue(repository)],
+  overrides: [
+    lobbyRepositoryProvider.overrideWithValue(repository),
+    appConfigProvider.overrideWithValue(
+      const AppConfig(
+        apiBaseUrl: 'http://localhost:8080',
+        apiBaseUrlLabel: 'test',
+      ),
+    ),
+    if (authenticated)
+      authSessionControllerProvider.overrideWith(
+        (ref) => _AuthenticatedAuthSessionController(),
+      ),
+    if (sessionUpdatesTransport != null)
+      lobbySessionUpdatesTransportProvider.overrideWithValue(
+        sessionUpdatesTransport,
+      ),
+  ],
   child: MaterialApp(
     navigatorObservers: [if (navigatorObserver != null) navigatorObserver],
     localizationsDelegates: const [
@@ -313,7 +357,7 @@ class _LobbyRepository extends LobbyRepository {
   bool failPreview;
   bool failSessions;
   final bool emptySessions;
-  final String sessionState;
+  String sessionState;
   final DateTime? endedAt;
   final int? claimWindowSeconds;
   Completer<List<GameSession>>? pendingSessions;
@@ -389,6 +433,55 @@ final _room = BingoRoom(
 
 class _UnusedLobbyApi extends LobbyApi {
   _UnusedLobbyApi() : super(Dio());
+}
+
+class _FakeLobbySessionUpdatesTransport
+    implements LobbySessionUpdatesTransport {
+  @override
+  bool isConnected = false;
+  void Function()? _onSessionChanged;
+
+  @override
+  Future<void> connectToSessionUpdates({
+    required Uri uri,
+    required String accessToken,
+    required void Function() onSessionChanged,
+    required void Function(Object error) onError,
+    required void Function() onDisconnected,
+  }) async {
+    _onSessionChanged = onSessionChanged;
+    isConnected = true;
+  }
+
+  @override
+  Future<void> disconnect() async {
+    isConnected = false;
+    _onSessionChanged = null;
+  }
+
+  void emitSessionChanged() => _onSessionChanged?.call();
+}
+
+class _AuthenticatedAuthSessionController extends AuthSessionController {
+  _AuthenticatedAuthSessionController()
+    : super(const SessionStorage(), restoreOnInit: false) {
+    state = AuthSessionState(
+      isLoading: false,
+      session: AuthSession(
+        accessToken: 'test-token',
+        expiresAt: DateTime.now().toUtc().add(const Duration(hours: 1)),
+        user: UserProfile(
+          id: 1,
+          displayName: 'Player',
+          phoneNumber: '+251900000000',
+          roles: const ['PLAYER'],
+          status: 'ACTIVE',
+          createdAt: DateTime.utc(2029),
+          updatedAt: DateTime.utc(2029),
+        ),
+      ),
+    );
+  }
 }
 
 class _RecordingNavigatorObserver extends NavigatorObserver {

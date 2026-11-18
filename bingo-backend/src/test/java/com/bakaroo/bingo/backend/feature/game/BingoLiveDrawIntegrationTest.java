@@ -538,7 +538,7 @@ class BingoLiveDrawIntegrationTest extends MySqlIntegrationTest {
                 var recoveredDraw = drawEventRepository.findTopBySessionIdOrderBySequenceNoDesc(session.getId())
                                 .orElseThrow();
                 assertEquals(1, recoveredDraw.getSequenceNo());
-                Instant dueTime = recoveredDraw.getDrawnAt().plus(gameProperties.drawInterval()).plusSeconds(1);
+                Instant nextDueAt = recoveredDraw.getDrawnAt().plus(gameProperties.drawInterval()).plusSeconds(1);
 
                 List<Integer> numbers = new ArrayList<>();
                 Set<Integer> uniqueNumbers = new HashSet<>();
@@ -546,10 +546,14 @@ class BingoLiveDrawIntegrationTest extends MySqlIntegrationTest {
                 uniqueNumbers.add(recoveredDraw.getNumberDrawn());
                 for (int index = 1; index < 75; index++) {
                         DrawEventResponse draw = gameLiveDrawService.advanceSessionDrawIfDue(session.getId(),
-                                        dueTime.plus(gameProperties.drawInterval().multipliedBy(index - 1)))
+                                        nextDueAt)
                                         .orElseThrow();
                         numbers.add(draw.numberDrawn());
                         uniqueNumbers.add(draw.numberDrawn());
+                        Duration interval = draw.sequenceNo() % 10 == 0
+                                        ? Duration.ofSeconds(20)
+                                        : gameProperties.drawInterval();
+                        nextDueAt = draw.drawnAt().plus(interval).plusSeconds(1);
                 }
 
                 assertEquals(75, numbers.size());
@@ -562,7 +566,7 @@ class BingoLiveDrawIntegrationTest extends MySqlIntegrationTest {
                 assertEquals(GameSessionState.CLOSED,
                                 gameSessionRepository.findById(session.getId()).orElseThrow().getState());
                 assertFalse(gameLiveDrawService
-                                .advanceSessionDrawIfDue(session.getId(), dueTime.plus(Duration.ofDays(1)))
+                                .advanceSessionDrawIfDue(session.getId(), nextDueAt.plus(Duration.ofDays(1)))
                                 .isPresent());
 
                 String replay = mockMvc.perform(get("/api/v1/sessions/" + session.getId() + "/draws")
@@ -589,8 +593,12 @@ class BingoLiveDrawIntegrationTest extends MySqlIntegrationTest {
                 gameLiveDrawService.advanceSessionDrawIfDue(session.getId(), dueTime);
 
                 assertFalse(recordingSimpMessagingTemplate.getRecordedMessages().isEmpty());
-                RecordedMessage message = recordingSimpMessagingTemplate.getRecordedMessages().get(0);
-                assertEquals("/topic/session/" + session.getId() + "/draws", message.destination());
+                String drawDestination = "/topic/session/" + session.getId() + "/draws";
+                RecordedMessage message = recordingSimpMessagingTemplate.getRecordedMessages().stream()
+                                .filter(recorded -> drawDestination.equals(recorded.destination()))
+                                .findFirst()
+                                .orElseThrow();
+                assertEquals(drawDestination, message.destination());
                 assertTrue(message.payload() instanceof DrawEventResponse);
         }
 

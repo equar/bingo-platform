@@ -1,11 +1,79 @@
 {
   "@@locale": "ti",
   "appTitle": "Sunset Bingo",
+  "referralCodeOptional": "ናይ ዕድመ ኮድ (ምርጫዊ)",
+  "yourReferralCode": "ናይ ዕድመ ኮድካ",
+  "patternLine": "መስመር",
+  "patternTwoLines": "ክልተ መስመራት",
+  "patternFullHouse": "ምሉእ ካርድ",
+  "patternFourCorners": "ኣርባዕተ ኩርናዓት",
+  "patternPostageStamp": "ማሕተም ፖስታ",
+  "patternXShape": "ቅርጺ X",
+  "patternTShape": "ቅርጺ T",
+  "patternLShape": "ቅርጺ L",
+  "patternOuterFrame": "ደጋዊ ፍሬም",
+  "patternToGo": "{pattern} · {count} ተሪፉ",
+  "@patternToGo": {
+    "placeholders": {
+      "pattern": {},
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "patternWaitingForServer": "ቅርጺ ተማሊኡ · ካብ ጸወታ ምርግጋጽ ይጽበ",
+  "prizeClosed": "ሽልማት ተዓጽዩ",
+  "selectionColorOption": "ሕብሪ ምርጫ {index}",
+  "@selectionColorOption": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
+  },
+  "claimReviewTitle": "{count} ብቑዕ ቲኬት ገምግም",
+  "@claimReviewTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "claimReviewHint": "ጥርዓኑ ብውልቂ ንምግምጋምን ንምልኣኽን ቲኬት ምረጽ።",
+  "clearManualMarksConfirm": "ኣብዚ ጸወታ ኣብ ቲኬታት ብኢድካ ምልክት ዝገበርካሎም ኩሎም ቁጽርታት ክትድምስሶም ትደሊ? ሓደስቲ ጻውዒታት ግን ባዕሎም ክምልከቱ እዮም።",
+  "ticketsPurchasedCount": "{count} ቲኬት ተገዚኡ።",
+  "@ticketsPurchasedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "resolvePurchase": "ኩነታት ግዢ ብውሑስ መንገዲ ኣረጋግጽ",
+  "purchaseQuantityLabel": "{count} ቲኬት",
+  "@purchaseQuantityLabel": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "purchaseTotalLabel": "ጠቕላላ፦ {amount} {currency}",
+  "@purchaseTotalLabel": {
+    "placeholders": {
+      "amount": {},
+      "currency": {}
+    }
+  },
   "languageSelectorLabel": "ቋንቋ ምረጽ",
   "languageEnglish": "እንግሊዝኛ",
   "languageAmharic": "ኣማርኛ",
   "languageTigrinya": "ትግርኛ",
   "languagePreferenceSaveFailed": "ምርጫ ቋንቋኻ ምዕቃብ ኣይተኻእለን።",
+  "missingApiBaseUrlTitle": "መሰረታዊ URL ናይ API የለን",
+  "missingApiBaseUrlBody": "እቲ ክላይንት ኣብ ጀርባ ዘሎ ሰርቨር ክረክብ ኣፕሊኬሽኑ ብ --dart-define=API_BASE_URL=... ኣበግሶ።",
+  "invalidApiBaseUrlTitle": "መሰረታዊ URL ናይ API ቅኑዕ ኣይኮነን",
+  "invalidApiBaseUrlBody": "API_BASE_URL ናብ ምሉእ http:// ወይ https:// origin ኣቐምጦ። ንቀጥታ ዝስላሕ ስእሊ ክትቅይር፡ WS_BASE_URL ናብ ws:// ወይ wss:// endpoint ኣቐምጦ። ኣብ ከባቢ ምርመራ ጥራይ HTTP/WS ተጠቐም፤ profileን releaseን HTTPS/WSS ይጠልቡ፡ loopback URL ኣይቅበሉን።",
   "loading": "ይጽዕን ኣሎ...",
   "retry": "ደጊምካ ፈትን",
   "errorGeneric": "ገለ ጸገም ተፈጢሩ።",
@@ -13,8 +81,59 @@
   "errorPlayerAlreadyLoggedIn": "እዚ ኣካውንት ኣብ ካልእ መሳርሒ ንጡፍ እዩ። በቲ ካልእ መሳርሒ ወጺእካ ድሕሪኡ እንደገና ፈትን።",
   "errorPermissionDenied": "ነዚ ተግባር ክትፍጽም ፍቓድ የብልካን።",
   "errorNoConnection": "ምስ ኢንተርነት ምትእስሳር ኣይተኻእለን። ምትእስሳርካ ኣረጋግጽን እንደገና ፈትንን።",
+  "errorServiceUnavailable": "እቲ ኣገልግሎት ንግዚኡ ኣይርከብን። በጃኻ ጸኒሕካ እንደገና ፈትን።",
+  "errorItemMissing": "እዚ ኣቕሓ ደጊም ኣይርከብን። ኣሐድስካ እንደገና ፈትን።",
+  "errorValidation": "ነቶም ብሕብሪ ዝተሓብሩ ቦታታት ኣረጋግጽን እንደገና ፈትንን።",
+  "errorInsufficientBalance": "ነዚ ምስርሕ እኹል ቀሪ ሒሳብ የብልካን።",
+  "errorGameClosed": "እዚ ጸወታ ተዓጽዩ ኣሎ። በጃኻ ካልእ ጸወታ ምረጽ።",
+  "errorTransactionUnknown": "ኩነታት እቲ ምስርሕ ከነረጋግጽ ኣይከኣልናን። ደጊምካ ቅድሚ ምፍታንካ ታሪኽ ምስርሓትካ ኣረጋግጽ።",
+  "errorAccountCreation": "በዚ ሓበሬታ ሕሳብ ክንፈጥር ኣይከኣልናን። ሓበሬታኻ ኣረጋግጽ ወይ እቶ።",
+  "errorInvalidPhone": "ቅኑዕ ቁጽሪ ተሌፎን ኣእቱ።",
+  "errorInvalidPin": "ቅኑዕ PIN ኣእቱ።",
+  "errorDuplicateReference": "እዚ መወከሲ ድሮ ተላኢኹ ኣሎ። ታሪኽ ምስርሓትካ ኣረጋግጽ።",
+  "errorTooManyAttempts": "ብዙሕ ጊዜ ፈቲንካ። በጃኻ ቁሩብ ተጸበ እሞ እንደገና ፈትን።",
+  "errorInvalidAmount": "ቅኑዕ መጠን ገንዘብ ኣእቱ።",
+  "errorInvalidReference": "ቅኑዕ መወከሲ ምስርሕ ኣእቱ።",
+  "errorGameNotOpen": "እዚ ጸወታ ንጻውዒታት ሕጂ ክፉት ኣይኮነን።",
+  "errorGameFull": "እዚ ጸወታ ምሉእ እዩ። ካልእ ጸወታ ምረጽ።",
+  "errorPlayerTicketLimitReached": "ኣብዚ ክፍለ ጊዜ ክትገዝኦ ዝኽእል ደረት ቲኬት በጺሕካ።",
+  "ticketLimitReachedTitle": "ደረት ቲኬት በጺሑ",
+  "ticketLimitReachedBody": "ኣብዚ ክፍለ ጊዜ ክሳብ {maxTickets} ቲኬታት ክትገዝእ ትኽእል።",
+  "@ticketLimitReachedBody": {
+    "placeholders": {
+      "maxTickets": {
+        "type": "int"
+      }
+    }
+  },
+  "ticketsSoldOutTitle": "ቲኬታት ተወዲኦም",
+  "ticketsSoldOutBody": "ኩሎም ቲኬታት ናይዚ ክፍለ ጊዜ ተሸይጦም።",
+  "errorDepositVerificationRequired": "እዚ ተቐማጢ ገንዘብ ቅድሚ ምጽዳቑ ብናጻ ክረጋገጽ ኣለዎ።",
+  "errorFinanceSeparation": "ካልእ ፍቓድ ዘለዎ ናይ ፋይናንስ ተጠቃሚ ነዚ ሕቶ ክግምግሞ ኣለዎ።",
+  "errorAgentApprovalRequired": "እዚ ወኪል ቅድሚ እዚ ተግባር ምፍጻሙ ክጸድቕ ኣለዎ።",
+  "errorAgentInactive": "እዚ ኣካውንት ወኪል ንጡፍ ኣይኮነን።",
+  "errorAgentFloatIneligible": "እዚ ወኪል ናይ መጀመርታ ጥረ ገንዘብ ክቕበል ብቑዕ ኣይኮነን።",
+  "errorTopUpNotVerified": "እዚ ሕቶ ቅድሚ ምምዝጋቡ ብናጻ ክረጋገጽ ኣለዎ።",
+  "errorPayoutSettled": "እዚ ክፍሊት ድሮ ተፈጺሙ ኣሎ። ሓድሽ ኩነታት ንምርኣይ ኣሐድስ።",
+  "errorAlreadyReviewed": "እዚ ሕቶ ድሮ ተገምጊሙ ኣሎ። ሓድሽ ኩነታት ንምርኣይ ኣሐድስ።",
+  "errorClosedTicket": "እዚ ናይ ደገፍ ቲኬት ተዓጽዩ እዩ፡ ደጊም ክቕየር ኣይክእልን።",
+  "errorSelfTransfer": "ናብ ናይ ባዕልኻ ሕሳብ ገንዘብ ከተመሓላልፍ ኣይትኽእልን።",
+  "errorTransferLimit": "እዚ ምምሕልላፍ ካብ ዝተፈቕደ ደረት ይሓልፍ።",
+  "errorDailyTransferLimit": "ናይ መዓልቲ ደረት ምምሕልላፍ በጺሕካ።",
+  "errorTransferUnavailable": "ምምሕልላፍ ገንዘብ ንግዚኡ ኣይርከብን። በጃኻ ጸኒሕካ እንደገና ፈትን።",
+  "errorReference": "መወከሲ፦ {reference}",
+  "@errorReference": {
+    "placeholders": {
+      "reference": {
+        "type": "String"
+      }
+    }
+  },
+  "emptyState": "ሓንቲ ኣይተረኽበን።",
   "loginTitle": "እቶ",
   "registerTitle": "ሕሳብ ፍጠር",
+  "loginSubtitle": "ቁጽሪ ተሌፎንካን ሽዱሽተ ኣሃዝ ዘለዎ PINን ተጠቐም።",
+  "registerSubtitle": "ብስም ምርኢት ሕሳብ ተጻዋታይ ፍጠር።",
   "phoneLabel": "ቁጽሪ ተሌፎን",
   "passwordLabel": "ፒን",
   "displayNameLabel": "ስም ምርኢት",
@@ -27,14 +146,358 @@
   "signIn": "እቶ",
   "signOutOtherDevice": "ካብ ካልእ መሳርሒ ውጻእ እሞ ኣብዚ እቶ",
   "createAccount": "ሕሳብ ፍጠር",
+  "switchToRegister": "ሕሳብ የብልካን? ተመዝገብ",
+  "switchToLogin": "ድሮ ሕሳብ ኣለካ? እቶ",
   "homeLobby": "ኣዳራሽ",
   "homeWallet": "ቦርሳ ገንዘብ",
   "homeSupport": "ደገፍ",
   "homeProfile": "መግለጺ",
   "supportTitle": "ቲኬታት ደገፍ",
+  "supportIntro": "ሕቶ ፍጠር፡ ካብ ጉጅለ ደገፍ ዝመጹ ሓደስቲ ሓበሬታታት ድማ ተኸታተል።",
+  "supportCreateTicket": "ሓድሽ ሕቶ ደገፍ",
+  "supportSubject": "ኣርእስቲ",
+  "supportDescription": "እቲ ጸገም ግለጽ",
+  "supportCategory": "ምድብ",
+  "supportPriority": "ቀዳምነት",
+  "supportSubmit": "ሕቶ ስደድ",
+  "supportEmpty": "ገና ሕቶ ደገፍ የብልካን።",
+  "supportSubmitted": "ሕቶ ደገፍካ ተላኢኹ።",
   "roomsTitle": "ክፍልታት",
   "liveGameTitle": "ቀጥታ ጸወታ",
   "prizeLabel": "ሽልማት",
+  "yourTicketsLabel": "ትኬታትካ",
+  "gameInProgress": "ኣብ ምስራሕ ላይ",
+  "rulesButton": "ሕግታት",
+  "sessionStatusLabel": "ኩነታት ክፍለ ጊዜ",
+  "ticketCountLabel": "ቲኬታት",
+  "drawCountLabel": "ጻውዒታት",
+  "calledNumbersTitle": "ዝተጸውዑ ቁጽርታት",
+  "myTicketsTitle": "ቲኬታተይ",
+  "claimHistoryTitle": "ታሪኽ ጥርዓናት",
+  "claimPatternLabel": "ቅርጺ ጥርዓን",
+  "claimSettlementLabel": "ክፍሊት ሽልማት",
+  "claimSettlementUnavailableBody": "ክፍሊት ዝተፈቕደሎም ሽልማታት፡ ክፍሊት ምስ ዝነቅል፡ ብዝተዳለወ ቦርሳ ወይ ብወኪል ገንዘብ ይኽፈሉ። ብዛዕባ ዝተደናጐየ ክፍሊት ንደገፍ ተወከስ።",
+  "claimSubmitted": "ጥርዓን ተላኢኹ።",
+  "submitClaim": "ጥርዓን ኣቕርብ",
+  "previous": "ዝሓለፈ",
+  "next": "ዝቕጽል",
+  "ticketPageLabel": "ገጽ ቲኬት",
+  "liveConnectionConnecting": "ይገናኝ ኣሎ...",
+  "liveConnectionConnected": "ቀጥታ",
+  "liveConnectionReconnecting": "ዳግማይ ይገናኝ ኣሎ...",
+  "liveConnectionPaused": "ደው ኢሉ",
+  "liveConnectionDisconnected": "ተበቲኹ",
+  "liveConnectionExpired": "ክፍለ ጊዜ ግዜኡ ኣብቂዑ",
+  "liveConnectionFinished": "ተወዲኡ",
+  "freeCenterLabel": "ነጻ",
+  "claimPatternPending": "ገና ይግምገም ኣሎ",
+  "claimPatternApproved": "ጸዲቑ",
+  "claimPatternRejected": "ተነጺጉ",
+  "claimPatternFailed": "ምርግጋጽ ሰርቨር ኣይሰርሐን",
+  "sessionTimesTitle": "ግዜታት ክፍለ ጊዜ",
+  "sessionGapTitle": "ዝርዝር ክፍለ ጊዜ ኣይርከብን",
+  "sessionGapBody": "እቲ ናይ ጀርባ ኣገልግሎት ገና ንህዝቢ ዝቐርብ ዝርዝር ክፍለ ጊዜታት ኣየቕርብን። ዝርዝር ክፍለ ጊዜ ንምኽፋት መለለዪ ክፍለ ጊዜ ኣእቱ።",
+  "roomPriceLabel": "ዋጋ",
+  "roomStatusActive": "ንጡፍ",
+  "roomStatusInactive": "ዘይንጡፍ",
+  "roomCapacityLabel": "ዓቕሚ",
+  "availableSeatsLabel": "ዝርከቡ መቐመጢታት",
+  "roomScheduleLabel": "መደብ",
+  "roomPlayersLabel": "ብዝሒ ተጻወትቲ ብሰርቨር",
+  "playerCountUnavailable": "ብናይ ሕጂ ውዕል ኣይርከብን",
+  "roomDetails": "ዝርዝር ክፍሊ",
+  "gameRules": "ሕግታት ጸወታ",
+  "roomSessions": "ክፍለ ጊዜታት",
+  "sessionsEmpty": "ንዚ ክፍሊ ክፍለ ጊዜታት ገና የለዉን።",
+  "lobbyEmptyTitle": "ክፍልታት ኣይርከቡን",
+  "lobbyEmptyBody": "ንዝተመደቡ ጸወታታት ደሓር እንደገና ኣረጋግጽ።",
+  "liveGamesTab": "ቀጥታ ጸወታታት",
+  "upcomingGamesTab": "ዝመጽኡ ጸወታታት",
+  "previousGamesTab": "ዝሓለፉ ጸወታታት",
+  "noLiveGames": "ኣብዚ እዋን ቀጥታ ጸወታ የለን።",
+  "noUpcomingGames": "ዝመጽኡ ጸወታታት ኣይተመደቡን።",
+  "noPreviousGames": "ዝተወድኡ ወይ ዝተሰረዙ ጸወታታት ገና የለዉን።",
+  "buyTicketsButton": "ቲኬታት ግዛእ",
+  "insufficientTicketBalance": "ነዞም ቲኬታት ንምግዛእ {amount} {currency} ክህልወካ ኣለዎ።",
+  "@insufficientTicketBalance": {
+    "placeholders": {
+      "amount": {},
+      "currency": {}
+    }
+  },
+  "lobbyLoadError": "ክፍልታት ክጽዕን ኣይከኣለን። ምትእስሳርካ ኣረጋግጽ እሞ እንደገና ፈትን።",
+  "roomDetailsLoadError": "ዝርዝር ክፍሊ ክጽዕን ኣይከኣለን። ምትእስሳርካ ኣረጋግጽ እሞ እንደገና ፈትን።",
+  "sessionsLoadError": "ክፍለ ጊዜታት ክጽዕኑ ኣይከኣሉን። ምትእስሳርካ ኣረጋግጽ እሞ እንደገና ፈትን።",
+  "sessionSchedule": "ዝተመደበ መጀመርታ (UTC)",
+  "gamePatterns": "ቅርጽታት ጸወታ",
+  "sessionStatus": "ኩነታት፦ {state}",
+  "@sessionStatus": {
+    "placeholders": {
+      "state": {
+        "type": "String"
+      }
+    }
+  },
+  "sessionUnavailable": "ክጻወት ኣይከኣልን፦ {state}",
+  "@sessionUnavailable": {
+    "placeholders": {
+      "state": {
+        "type": "String"
+      }
+    }
+  },
+  "enterSessionIdLabel": "መለለዪ ክፍለ ጊዜ",
+  "loadSession": "ክፍለ ጊዜ ጽዓን",
+  "sessionIdRequired": "መለለዪ ክፍለ ጊዜ ኣእቱ።",
+  "purchaseTicket": "ቲኬት ግዛእ",
+  "purchaseTicketTitle": "ግዢ ቲኬት ኣረጋግጽ",
+  "purchaseTicketBody": "እዚ ግዢ ዳግማይ ምፍታን ደጋጋሚ ቲኬታት ከይፈጥር መፍትሕ መከላኸሊ ይጥቀም።",
+  "confirm": "ኣረጋግጽ",
+  "cancel": "ሰርዝ",
+  "purchaseSuccess": "ግዢ ቲኬት ተዛዚሙ።",
+  "balanceTitle": "ቀሪ ሒሳብ",
+  "balanceDisclaimer": "ዘይጸደቑ ተቐማጢ ገንዘባት ክሳብ ዝጸድቑ ክትጥቀመሎም ኣይትኽእልን።",
+  "currentBalance": "ጠቕላላ ቀሪ ሒሳብ (ዝተገደበ ገንዘብ ይርከቦ)",
+  "availableBalanceLabel": "ዝርከብ ጥረ ገንዘብ",
+  "promotionalBalanceLabel": "ናይ ምልላይ ቀሪ ሒሳብ",
+  "promotionalBalanceRestrictionHelp": "ንምግዛእ ቲኬታት ቢንጎ ጥራይ ይጠቅም። ክተመሓላልፎ ወይ ክትወስዶ ኣይትኽእልን።",
+  "walletTransactionsTab": "ምስርሓት",
+  "signupRewardTransactionLabel": "ሽልማት ምዝገባ",
+  "promotionalRewardTransactionLabel": "ሽልማት ምልላይ",
+  "walletDepositsTab": "ተቐማጢ ገንዘብ",
+  "walletTransfersTab": "ምምሕልላፍ",
+  "transactionsTitle": "ምስርሓት",
+  "depositsTitle": "ተቐማጢ ገንዘባት",
+  "transactionHistoryEmpty": "ገና ኣብ ቦርሳ ምስርሓት የለን።",
+  "depositHistoryEmpty": "ገና ተቐማጢ ገንዘብ የለን።",
+  "walletPageLabel": "ገጽ",
+  "walletTransferableBalanceLabel": "ክመሓላለፍ ዝኽእል",
+  "walletPromotionalShortLabel": "ምልላይ",
+  "sendMoneyTitle": "ገንዘብ ስደድ",
+  "submitTransfer": "ምምሕልላፍ ኣቕርብ",
+  "recipientPhoneLabel": "ቁጽሪ ተሌፎን ተቐባሊ",
+  "transferNoteOptionalLabel": "መዘኻኸሪ (ምርጫዊ)",
+  "lookupRecipient": "ተቐባሊ ድለ",
+  "lookingUpRecipient": "ይደሊ ኣሎ...",
+  "sendTransfer": "ገንዘብ ስደድ",
+  "sendingTransfer": "ይሰድድ ኣሎ...",
+  "recipientPreviewTitle": "ቅድመ ርእይቶ ተቐባሊ",
+  "lookupRecipientHint": "ቅድሚ ምስዳድካ ተቐባሊ ንምርግጋጽ ቁጽሪ ተሌፎን ድለ።",
+  "recipientPhoneRequired": "ተቐባሊ ንምድላይ ቁጽሪ ተሌፎን ኣእቱ።",
+  "lookupRecipientFirst": "ቅድሚኡ ተቐባሊ ድለ።",
+  "transferAmountInvalid": "ቅኑዕ መጠን ገንዘብ ምምሕልላፍ ኣእቱ።",
+  "transferSubmitted": "ምምሕልላፍ ተላኢኹ።",
+  "drawSnapshotLabel": "ስእሊ ጻውዒት",
+  "calledNumbersLabel": "ዝተጸውዑ ቁጽርታት",
+  "serverValidationLabel": "ምርግጋጽ ሰርቨር",
+  "reviewNoteLabel": "መዘኻኸሪ ገምጋም",
+  "amountLabel": "መጠን",
+  "telebirrReferenceLabel": "መወከሲ Telebirr",
+  "currencyLabel": "ባጤራ",
+  "submitDeposit": "ተቐማጢ ገንዘብ ኣቕርብ",
+  "depositAmountPositive": "ካብ ዜሮ ዝዓቢ መጠን ገንዘብ ኣእቱ።",
+  "telebirrInstructionsTitle": "መምርሒ Telebirr",
+  "telebirrInstructionsBody": "ካብ ምላሽ ናይ ጀርባ ኣገልግሎት ዝተዋህበ ዝርዝር ኣቕራቢ ተጠቐም፡ ኣብ ደረሰኝ ክፍሊት ከምዘሎ ድማ መወከሲ ብልክዕ ኣእቱ።",
+  "profileTitle": "መግለጺ",
+  "changePinTitle": "PIN ቀይር",
+  "changePinDescription": "ንምእታው እትጥቀመሉ ሽዱሽተ ኣሃዝ ዘለዎ PIN ኣሐድስ።",
+  "currentPinLabel": "ናይ ሕጂ PIN",
+  "newPinLabel": "ሓድሽ PIN",
+  "confirmNewPinLabel": "ሓድሽ PIN ኣረጋግጽ",
+  "changePinAction": "PIN ኣሐድስ",
+  "pinChanged": "PINካ ተቐይሩ።",
+  "currentPinIncorrect": "ናይ ሕጂ PIN ቅኑዕ ኣይኮነን።",
+  "pinMustDiffer": "ካብ ናይ ሕጂ PINካ ዝተፈልየ PIN ምረጽ።",
+  "pinConfirmationMismatch": "PINታት ኣይሰማምዑን።",
+  "profileLanguagePreference": "ምርጫ ቋንቋ",
+  "profileLanguagePreferenceDescription": "እንግሊዝኛ፣ ኣማርኛ ወይ ትግርኛ ምረጽ። ምርጫኻ ኣብ ሕሳብካ ይዕቀብ።",
+  "profileRefresh": "መግለጺ ኣሐድስ",
+  "profileLoadError": "መግለጺኻ ክነሐድስ ኣይከኣልናን። ምትእስሳርካ ኣረጋግጽ እሞ እንደገና ፈትን።",
+  "logout": "ውጻእ",
+  "profileMemberSince": "ኣባል ካብ",
+  "profileRoles": "ተራታት",
+  "statusPending": "ብጽበት ላይ",
+  "statusApproved": "ጸዲቑ",
+  "statusRejected": "ተነጺጉ",
+  "statusOpen": "ክፉት",
+  "statusInProgress": "ይካየድ ኣሎ",
+  "statusWaiting": "ካብ ዓሚል ይጽበ",
+  "statusResolved": "ተፈቲሑ",
+  "statusClosed": "ተዓጽዩ",
+  "sessionExpired": "ክፍለ ጊዜኻ ኣብቂዑ። በጃኻ እንደገና እቶ።",
+  "sessionStorageUnavailable": "ውሑስ መኽዘን መሳርሒ ኣይርከብን። በጃኻ እንደገና እቶ።",
+  "contractGapTitle": "ክፍተት ውዕል ሰርቨር",
+  "contractGapBody": "እቲ ናይ ሕጂ API እቲ UI ከርእዮ ዝኽእል ኩሉ ገና ኣየቕርብን። እቲ ኣፕ ናይ ሓቂ ሓበሬታ ጥራይ ከርኢ፡ ዘይተሸፈነ ነገር ድማ ብንጹር ክገልጽ እዩ።",
+  "noTicketsPurchasedTitle": "ነዚ ጸወታ ቲኬት የብልካን",
+  "noTicketsPurchasedBody": "ነዚ ጸወታ እትገዝኦም ቲኬታት ኣብዚ ክረኣዩ እዮም።",
+  "noClaimsForGame": "ነዚ ጸወታ ጥርዓን ኣየቕረብካን።",
+  "ticketPreviewButton": "ሓበሬታ ቲኬት",
+  "ticketPreviewTitle": "ሓበሬታ ቲኬት",
+  "ticketPreviewLoadError": "ሓበሬታ ቲኬት ክጽዕን ኣይከኣለን። ምትእስሳርካ ኣረጋግጽ እሞ እንደገና ፈትን።",
+  "ticketAvailabilityLabel": "ዝርከቡ መቐመጢታት",
+  "ticketPatternsUnavailable": "ዝተዳለወ ቅርጺ የለን",
+  "ticketCardModel": "ቅርጺ ካርድ",
+  "ticketGeneratedAtPurchase": "ቲኬት ክግዛእ ከሎ ብሰርቨር ብዘይተመርጸ መንገዲ ካርድ ይፍጠር። እዚ ቅርጺ ካርድ እዩ፡ ዝተመደበ ቲኬት ኣይኮነን። ካርድ ኣብዚ ክትመርጽ ወይ ክትሕዝ ኣይትኽእልን።",
+  "ticketFreeCenter": "እቲ ማእከላይ ሳጹን ነጻ እዩ።",
+  "ticketEligibilityTitle": "ተሳትፎ ክፍለ ጊዜ",
+  "ticketRoomInactive": "እዚ ክፍሊ ንጡፍ ኣይኮነን። ቲኬታት ኣይርከቡን።",
+  "ticketSessionIneligible": "እዚ ክፍለ ጊዜ ንሽያጥ ቲኬት ክፉት ኣይኮነን ({state})።",
+  "@ticketSessionIneligible": {
+    "placeholders": {
+      "state": {
+        "type": "String"
+      }
+    }
+  },
+  "ticketSessionFull": "ኣብዚ ክፍለ ጊዜ መቐመጢ ኣይተረፈን።",
+  "ticketSessionAvailable": "እዚ ክፍለ ጊዜ ክፉት እዩ፡ መቐመጢታት ድማ ኣለዉ። ብዝሒ ክቕየር ይኽእል።",
+  "ticketPurchaseDisabledBody": "ኣብዚ ናይ QA ቅድመ ርእይቶ ግዢ ተኣጊዱ ኣሎ። ቲኬት ኣይክፍጠርን፡ ካብ ቦርሳኻ ገንዘብ ኣይክኽፈልን።",
+  "refresh": "ኣሐድስ",
+  "homeTitle": "ገዛ",
+  "homeGames": "ጸወታታት",
+  "homeMenu": "ምናሌ ክፈት",
+  "homePlayBingo": "ቢንጎ ተጻወት",
+  "homeLiveGames": "ቀጥታ ጸወታታት",
+  "homeLiveGamesBody": "ምስ ካልኦት ተጻወት",
+  "homePrivateGame": "ውልቃዊ ጸወታ",
+  "homeDailyChallenge": "ናይ መዓልቲ ዕማም",
+  "homeLeaderboard": "ደረጃ ተጻወትቲ",
+  "homeComingSoon": "ቀረባ ግዜ ክመጽእ እዩ",
+  "homeUpcomingBody": "እዚ ባህሪ ኣብ መንገዲ እዩ። ኣብዚ ሎሚ ዝርከቡ ቀጥታ ክፍልታት ርአን ኣብ ጸወታ ተጸንበርን።",
+  "homeBrowseGames": "ጸወታታት ተዳህስስ",
+  "homePlayAndWin": "ተጻወትን ተዓወትን",
+  "homePlayAndWinBody": "ዝቕጽል ጸወታኻ ኣብዚ ይጅምር።",
+  "privateHomeBody": "ምስ ኣዕሩኽ ተጻወት",
+  "challengeHomeBody": "ናይ መዓልቲ ነጥብታት ኣኽስብ",
+  "leaderboardHomeBody": "ላዕለዎት ተጻወትቲ ርአ",
+  "privateIntro": "ካብ ዝተፈቕደ ክፍሊ ቢንጎ ንግብዣ ጥራይ ዝኸውን ክፍሊ ፍጠር፡ ወይ ብኮዶም ምስ ኣዕሩኽ ተጸንበር። ዋጋ ቲኬትን ሕግታት ሽልማትን ከም ዘለዉ ይቕጽሉ።",
+  "privateCreate": "ጸወታ ፍጠር",
+  "privateJoin": "ብኮድ ተጸንበር",
+  "privateEmpty": "ውልቃዊ ጸወታታትካ ኣብዚ ክረኣዩ እዮም። ሓደ ፍጠር ወይ ካብ ዓርኪ ዕድመ ሕተት።",
+  "privateAgentReference": "ቲኬት ንምርካብ እዚ መወከሲ ክፍለ ጊዜ ምስ ወኪልካ ኣካፍል። ቅድሚኡ ኣብቲ ክፍሊ ክትጽንበር ኣለካ።",
+  "privateRulesFixed": "ኣካያዲ ዋጋ ቲኬት፡ ቅርጽታት፡ ሽልማታት ወይ ዝተጸውዑ ቁጽርታት ክቕይር ኣይክእልን። ውልቃዊ ጸወታታት ነጥብታት ዕማም ወይ ደረጃ ኣየኽስቡን።",
+  "privateOpenRoom": "ክፍሊን ቲኬታትን ክፈት",
+  "privateStartHelp": "እንተወሓደ ክልተ ኣባላት ቲኬት ምስ ዝህልዎም ኣካያዲ ክጅምር ይኽእል። ምስ ጀመረ ጻውዒታት ባዕሎም ይካየዱ።",
+  "privateInvite": "ዕድመ ፍጠር",
+  "privateStart": "ጸወታ ጀምር",
+  "privateCancel": "ጸወታ ሰርዝ",
+  "privateRotateWarning": "ሓድሽ ኮድ ክትፈጥር? ዝኾነ ቅድሚኡ ዝነበረ ኮድ ዕድመ ደጊም ኣይሰርሕን። ድሮ ዝተጸንበሩ ኣባላት ግን ተበጻሕነቶም ይቕጽል።",
+  "privateCancelWarning": "ዘይጀመሩን ቲኬት ዘይተሸጠሎምን ጸወታታት ጥራይ ክስረዙ ይኽእሉ። ገንዘብ ኣብ ዝኣተዎ ጸወታ ብዛዕባ ክስረዝ ንደገፍ ተወከስ።",
+  "privateInviteHelp": "ነዚ ኮድ ብምስጢር ቅዳሕካ ኣካፍሎ። ኣብ 24 ሰዓታት ወይ ጸወታ ክሳብ ዝጅምር ይውዳእ። ድሕሪኡ ካልእ ኮድ ክትፈጥር ትኽእል።",
+  "privateCode": "ኮድ ዕድመ",
+  "privateName": "ስም ጸወታ",
+  "privateTemplate": "ሕግታት ክፍሊ",
+  "privateTemplateHelp": "ውልቃዊ ጸወታኻ ካብ ኣየናይ ክፍሊ ሕግታት ቲኬትን ሽልማትን ክወርስ ምረጽ።",
+  "privateStartsIn": "ዝተመደበ መጀመርታ ኣብ",
+  "communitySession": "ክፍለ ጊዜ",
+  "communityBack": "ተመለስ",
+  "communityContinue": "ቀጽል",
+  "communityCopy": "ቅዳሕ",
+  "communityCopied": "ተቐዲሑ",
+  "communityMinutes": "ደቓይቕ",
+  "communitySave": "ዓቅብ",
+  "communityPoints": "ነጥብታት",
+  "challengeResets": "ኣብዚ እዋን እዚ ይሕደስ",
+  "challengeRules": "ዝተዛዘሙ ህዝባዊ ጸወታታት ጥራይ ይቑጸሩ። ነፍሲ ወከፍ ሽልማት ኣብ መዓልቲ ሓደ ጊዜ ጥራይ ክውሰድ ይከኣል። ነጥብታት ገንዘባዊ ዋጋ የብሎምን፡ ቀሪ ሒሳብካ ኣይቅይሩን።",
+  "challengeFinish": "ጸወታ ዛዝም",
+  "challengeFinishBody": "ሎሚ ዝውዳእ ሓደ ህዝባዊ ክፍለ ጊዜ ቲኬት ሒዝካ ተዛዝሞ።",
+  "challengeExplore": "ክፍልታት ዳህስስ",
+  "challengeExploreBody": "ሎሚ ኣብ ክልተ ዝተፈላለዩ ክፍልታት ህዝባዊ ክፍለ ጊዜታት ዛዝም። ተወሳኺ ቲኬታት ተወሳኺ ምዕባለ ኣይህቡን።",
+  "challengeBingo": "ብዝተረጋገጸ ቢንጎ",
+  "challengeBingoBody": "ኣብ ህዝባዊ ጸወታ ሎሚ ተዛዚሙ፡ ሎሚ ቅድሚ ምውዳኡ ብሰርቨር ዝተረጋገጸ ዓወት ቢንጎኻ ኣጽድቕ።",
+  "challengeClaimed": "ተወሲዱ",
+  "challengeClaim": "ነጥብታት ውሰድ",
+  "leaderboardPeriod": "እዋን ደረጃ",
+  "leaderboardDaily": "ሎሚ",
+  "leaderboardWeekly": "እዚ ሰሙን",
+  "leaderboardAllTime": "ኩሉ ግዜ",
+  "leaderboardRules": "ደረጃታት ኣብ ዝተወሰዱ ነጥብታት ዕማም ይምርኮሱ፡ ኣብ ወጻኢ ወይ ቀሪ ሒሳብ ኣይኮኑን። ማዕረ ነጥቢ ዘለዎም ሓደ ደረጃ ይህልዎም። ሰሙናዊ ደረጃ ሰኑይ ኣብ ናይ ንግዲ እዋን ይጅምር።",
+  "leaderboardYourRank": "ደረጃኻ",
+  "leaderboardVisible": "ህዝባዊ ስም መለለዪኻ ኣብ ደረጃ ይረአ።",
+  "leaderboardHidden": "ንስኻ ብሕታዊ ኢኻ። ኣብ ደረጃ ክትረአ ኣፍቅድ።",
+  "leaderboardProfile": "ህዝባዊ መግለጺ ደረጃ",
+  "leaderboardEmpty": "ገና ህዝባዊ ነጥቢ የለን። ናይ መዓልቲ ዕማም ዛዚምካ ብምውሳድ ጀምር።",
+  "leaderboardYou": "ንስኻ",
+  "leaderboardPrivacy": "ዝመረጽካዮ ስም መለለዪን ነጥብታትን ጥራይ እዮም ህዝባዊ። ቁጽሪ ተሌፎንካ ወይ ውልቃዊ ሓበሬታ ኣይትጠቐም። ነጥብታትካ ከይጠፍኡ ኣብ ዝኾነ እዋን መግለጺኻ ክትሓብእ ትኽእል።",
+  "leaderboardAlias": "ህዝባዊ ስም መለለዪ (ምርጫዊ)",
+  "leaderboardOptIn": "ኣብ ደረጃ ኣርእየኒ",
+  "showPin": "PIN ኣርኢ",
+  "hidePin": "PIN ሓብእ",
+  "errorAccountSuspended": "ሕሳብካ ተኣጊዱ ኣሎ። በጃኻ ንጉጅለ ደገፍ Sunset Bingo ብ 0956047345 ተወከስ።",
+  "earliestSplitRule": "ነፍሲ ወከፍ ቅርጺ ቀዳሞት ቲኬታት ዝመልኡ ቋሚ ገንዘብ ሽልማት ይካፈሉ። ኣብ ሓደ ጻውዒት ማዕረ እንተዓዊቶም እቲ ገንዘብ ይካፈል፤ ዝተረፈ ሳንቲም ብቅደም ተኸተል ግዢ ቲኬት ይኽፈል። ንነፍሲ ወከፍ ቲኬትን ቅርጽን ሓደ ሽልማት ጥራይ። ጸወታ ምስ ጀመረ ሽያጥ ይዕጾ።",
+  "gameClaimWindow": "ድሕሪ ጸወታ ምውድኡ ኣብ {hours} ሰዓታት ውሽጢ ጥርዓን ኣቕርብ።",
+  "@gameClaimWindow": {
+    "placeholders": {
+      "hours": {
+        "type": "String"
+      }
+    }
+  },
+  "errorClaimWindowExpired": "ግዜ ጥርዓን ናይዚ ጸወታ ኣብቂዑ።",
+  "errorNotEarliestWinner": "እዚ ቲኬት ነቲ ቅርጺ ኣብ ቀዳማይ ጻውዒቱ ኣይመልአን።",
+  "errorTicketPrizeAwarded": "እዚ ቲኬት ንዚ ቅርጺ ድሮ ሽልማት ተቐቢሉ ኣሎ።",
+  "errorGameFunding": "እዚ ጸወታ ክጅምር ተወሳኺ ዝተኸፍለ ሽያጥ ቲኬት የድልዮ።",
+  "prizePaid": "ተኸፊሉ",
+  "prizeAwaitingPayment": "ክፍሊት ይጽበ ኣሎ",
+  "prizeCashCode": "ኮድ ክፍሊት ጥረ ገንዘብ ወኪል",
+  "currentNumber": "ናይ ሕጂ ቁጽሪ",
+  "recentCalls": "ቀረባ ጻውዒታት",
+  "viewAllCalls": "ኩሎም {count} ጻውዒታት ርአ",
+  "@viewAllCalls": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "closeCallHistory": "ታሪኽ ጻውዒት ዕጸ",
+  "waitingForFirstCall": "ቀዳማይ ጻውዒት ይጽበ ኣሎ",
+  "waitingForNextCall": "ዝቕጽል ጻውዒት ይጽበ ኣሎ",
+  "nextCallEstimate": "ዝቕጽል ጻውዒት ኣብ ገምጋም {seconds} ሰከንድ ክመጽእ እዩ",
+  "@nextCallEstimate": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "ticketPosition": "{current} ካብ {total}",
+  "@ticketPosition": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "claimAlreadySubmitted": "ጥርዓንካ ድሮ ተላኢኹ ኣሎ።",
+  "liveGameDetails": "ዝርዝር ጸወታ",
+  "claimDialogDismiss": "ጽቡቕ",
+  "winningTicketReady": "{pattern} ተዓዊትካ! ሽልማትካ ሕተት።",
+  "@winningTicketReady": {
+    "placeholders": {
+      "pattern": {
+        "type": "String"
+      }
+    }
+  },
+  "claimWaitingForWin": "ንምሕታት ሽልማት እቲ ዝዕወት ቅርጺ ምልኣእ ኣለካ።",
+  "errorClaimPatternIncomplete": "እዚ ቲኬት እቲ ዝዕወት ቅርጺ ኣየማልአን።",
+  "ticketDidNotWin": "እዚ ቲኬት ኣብዚ ጸወታ ኣይተዓወተን።",
+  "oneAwayFromWinHint": "እቲ ዝዕወት ቅርጺ ንምምላእ ሓደ ቁጽሪ ጥራይ ይተርፍ።",
+  "celebrationBingo": "BINGO!",
+  "celebrationWinningTickets": "{count, plural, one {1 ዝተዓወተ ቲኬት!} other {{count} ዝተዓወቱ ቲኬታት!}}",
+  "@celebrationWinningTickets": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "celebrationCongratulations": "እንቋዕ ሓጎሰካ! ተዓዊትካ",
+  "celebrationTotal": "ጠቕላላ ዓወት",
   "celebrationPrize": "ሽልማት {number}",
   "@celebrationPrize": {
     "placeholders": {
@@ -43,23 +506,93 @@
       }
     }
   },
-  "yourTicketsLabel": "ትኬታትካ",
-  "gameInProgress": "ኣብ ምስራሕ ላይ",
-  "rulesButton": "ሕግታት",
-  "liveGamesTab": "ቀጥታ ጸወታታት",
-  "upcomingGamesTab": "ዝመጽኡ ጸወታታት",
-  "previousGamesTab": "ዝሓለፉ ጸወታታት",
-  "noUpcomingGames": "ዝመጽኡ ጸወታታት ኣይተመደቡን።",
-  "profileTitle": "መግለጺ",
-  "profileLanguagePreference": "ምርጫ ቋንቋ",
-  "profileLanguagePreferenceDescription": "እንግሊዝኛ፣ ኣማርኛ ወይ ትግርኛ ምረጽ። ምርጫኻ ኣብ ሕሳብካ ይዕቀብ።",
-  "logout": "ውጻእ",
-  "refresh": "ኣሐድስ",
-  "homeTitle": "ገዛ",
-  "homeGames": "ጸወታታት",
-  "homeMenu": "ምናሌ ክፈት",
-  "homePlayBingo": "ቢንጎ ተጻወት",
-  "cancel": "ሰርዝ",
+  "celebrationTicketsWon": "{won} ካብ {total} ቲኬታት ተዓዊቶም",
+  "@celebrationTicketsWon": {
+    "placeholders": {
+      "won": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "accountBalance": "ሕሳብ · {phone}",
+  "@accountBalance": {
+    "placeholders": {
+      "phone": {
+        "type": "String"
+      }
+    }
+  },
+  "totalBalance": "ጠቕላላ ቀሪ ሒሳብ",
+  "withdrawableBalance": "ክውሰድ ዝኽእል",
+  "contactUs": "ርኸቡና",
+  "termsAndConditions": "ውዕላትን ቅድመ ኩነታትን",
+  "phoneLabelWithNumbers": "ተሌፎን፦ {numbers}",
+  "@phoneLabelWithNumbers": {
+    "placeholders": {
+      "numbers": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsTitle": "ቅጥዕታት",
+  "themeTitle": "መልክዕ",
+  "themeLight": "ብሩህ",
+  "themeDark": "ጸሊም",
+  "themeSystem": "ስርዓት",
+  "soundTitle": "ድምጺ",
+  "soundDescription": "ቁጽሪ ክጽዋዕ ከሎ ሓጺር ድምጺ ኣጽምዕ።",
+  "notificationsTitle": "መዘኻኸሪታት ጸወታ",
+  "notificationsDescription": "ኣብዚ መሳርሒ ብዛዕባ ኣየኖት ቀጥታ ፍጻመታት ጸወታ መዘኻኸሪ ክመጸካ ምረጽ።",
+  "notificationFrequencyTitle": "መዘኻኸሪ ስደደለይ",
+  "notificationFrequencyDescription": "እቲ ኣፕ ክፉት ኣብ ዝኾነሉ እዋን ጥራይ መዘኻኸሪታት ይመጹ።",
+  "notificationEveryCall": "ኣብ ነፍሲ ወከፍ ዝተጸውዐ ቁጽሪ",
+  "notificationMyCard": "ቁጽሪ ኣብ ካርደይ ኣብ ዝርከበሉ ግዜ",
+  "notificationWin": "ካርድ ሽልማት ክሓትት ኣብ ዝኽእለሉ ግዜ",
+  "winningNotificationAlert": "ሓደ ካብ ካርድታትካ ሽልማት ክሓትት ድሉው እዩ።",
+  "newCalledNumberAlert": "ቁጽሪ ቢንጎ {number} ተጸዊዑ።",
+  "@newCalledNumberAlert": {
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "messagesTitle": "መልእኽትታት",
+  "messagesLoadError": "መልእኽትታት ክጽዕኑ ኣይከኣሉን።",
+  "messagesEmpty": "ገና መልእኽቲ የብልካን።",
+  "gameHistoryTitle": "ታሪኽ ጸወታ",
+  "gameHistoryLoadError": "ታሪኽ ጸወታ ክጽዕን ኣይከኣለን።",
+  "gameHistoryEmpty": "ገና ዝተወድኡ ጸወታታት የለዉን።",
+  "selectMultipleCards": "ብዙሓት ካርድታት ምረጽ",
+  "selectMultipleCardsDescription": "ንሰሌዳኻ ብዙሓት ቲኬታት ምረጽ።",
+  "sortCards": "ካርድታት ሰርዕ",
+  "sortCardsChooseThree": "ክሳብ 3 ቅርጽታት ካርድ ምረጽ",
+  "resetMarkedNumbers": "ምልክት ዝተገብረሎም ቁጽርታት ዳግም ኣቐምጥ/ኣጽርይ",
+  "clearManualMarksDescription": "ኣብ ኩሎም ቲኬታት ዝገበርካዮ ኢዳዊ ምልክታት ኣጽርይ።",
+  "autoMarkNumbers": "ዝተጸውዑ ቁጽርታት ባዕሉ ምልክት ግበር",
+  "autoMarkNumbersDescription": "ነፍሲ ወከፍ ዝተጸውዐ ቁጽሪ ኣብ ካርድታትካ ምልክት ግበረሉ።",
+  "hideUnregisteredCards": "ዘይተመዝገቡ ካርድታት ሓብእ",
+  "hideUnregisteredCardsDescription": "ብዙሓት ካርድታት ምስ ዝምረጹ፡ ነቶም ንሰሌዳኻ ዝተመርጹ ቲኬታት ጥራይ ኣርኢ።",
+  "selectionColor": "ሕብሪ ምርጫ",
+  "gameSettingsTitle": "ቅጥዕታት ጸወታ",
+  "unregisteredCard": "ዘይተመዝገበ ካርድ",
+  "missedCallCount": "ኣብ ካርድታትካ ዘለዉ {count} ዝተጸውዑ ቁጽርታት ምልክት የድልዮም።",
+  "@missedCallCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "markCalledNumbers": "ኩሎም ምልክት ግበር",
+  "playerStatisticsTitle": "ስታቲስቲክስ ጸወታኻ",
+  "gamesPlayed": "ዝተጻወትካዮም ጸወታታት",
+  "ticketsPlayed": "ዝተጠቐምካሎም ቲኬታት",
+  "winningGames": "ዝተዓወትካሎም ጸወታታት",
+  "prizesWon": "ዝተዓወትካዮም ሽልማታት",
   "profileCalendarPreference": "ምርጫ ዓውደ ኣዋርሕ",
   "calendarAutomatic": "ብቋንቋ መሰረት ባዕሉ ይወሰን",
   "calendarEthiopian": "ኢትዮጵያዊ",
