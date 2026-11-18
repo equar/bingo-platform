@@ -60,6 +60,22 @@
 			},
 			"isBackground": true,
 			"problemMatcher": []
+		},
+		{
+			"label": "Verify before push",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				"${workspaceFolder}\\scripts\\hooks\\Invoke-BingoGitChecks.ps1",
+				"-Mode",
+				"Manual"
+			],
+			"options": { "cwd": "${workspaceFolder}" },
+			"problemMatcher": []
 		}
 	]
 }

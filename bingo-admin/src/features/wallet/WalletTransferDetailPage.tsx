@@ -35,8 +35,8 @@ export function WalletTransferDetailPage() {
   const { transfer, ledgerEntries } = detailQuery.data;
   const details: Array<[string, string]> = [
     [t("Operation"), transfer.operationId],
-    [t("Sender"), `#${transfer.senderId} · ${transfer.senderPhoneNumber}`],
-    [t("Receiver"), `#${transfer.recipientId} · ${transfer.recipientPhoneNumber}`],
+    [t("Sender"), `${detailQuery.data.senderDisplayName} · ${transfer.senderPhoneNumber}`],
+    [t("Receiver"), `${detailQuery.data.recipientDisplayName} · ${transfer.recipientPhoneNumber}`],
     [t("Amount"), `${transfer.amount} ${transfer.currency}`],
     [t("Status"), translateAdminStatus(transfer.status, t)],
     [t("Created"), formatEthiopianDateTime(transfer.createdAt)],
@@ -80,7 +80,7 @@ export function WalletTransferDetailPage() {
                   <TableCell>{t("Entry")}</TableCell><TableCell>{t("Wallet owner")}</TableCell><TableCell>{t("Type")}</TableCell><TableCell align="right">{t("Amount")}</TableCell><TableCell>{t("Balance before → after")}</TableCell>
                 </TableRow></TableHead>
                 <TableBody>{ledgerEntries.map((entry) => <TableRow key={entry.id} data-testid={`wallet-transfer-ledger-${entry.id}`}>
-                  <TableCell>{entry.id}</TableCell><TableCell>{entry.walletOwnerId}</TableCell><TableCell>{translateAdminValue(entry.transactionType, t)}</TableCell><TableCell align="right">{entry.amount} {entry.currency}</TableCell><TableCell>{entry.balanceBefore} → {entry.balanceAfter}</TableCell>
+                  <TableCell>{entry.id}</TableCell><TableCell>{entry.walletOwnerDisplayName}</TableCell><TableCell>{translateAdminValue(entry.transactionType, t)}</TableCell><TableCell align="right">{entry.amount} {entry.currency}</TableCell><TableCell>{entry.balanceBefore} → {entry.balanceAfter}</TableCell>
                 </TableRow>)}</TableBody>
               </Table>
             </Box> : <Alert severity="warning" data-testid="wallet-transfer-ledger-missing">{t("No linked wallet ledger entries were found for this transfer.")}</Alert>}

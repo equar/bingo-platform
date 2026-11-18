@@ -1032,7 +1032,11 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
                                 .andExpect(jsonPath("$.transfer.currency").value("ETB"))
                                 .andExpect(jsonPath("$.transfer.senderId").value(playerUser.getId()))
                                 .andExpect(jsonPath("$.transfer.recipientId").value(recipient.getId()))
+                                .andExpect(jsonPath("$.senderDisplayName").value("Player User"))
+                                .andExpect(jsonPath("$.recipientDisplayName").value("Recipient User"))
                                 .andExpect(jsonPath("$.ledgerEntries.length()").value(2))
+                                .andExpect(jsonPath("$.ledgerEntries[0].walletOwnerDisplayName").value("Player User"))
+                                .andExpect(jsonPath("$.ledgerEntries[1].walletOwnerDisplayName").value("Recipient User"))
                                 .andExpect(jsonPath("$.ledgerEntries[0].referenceType").value("WALLET_TRANSFER"))
                                 .andExpect(jsonPath("$.ledgerEntries[0].referenceId").value(transferId))
                                 .andReturn().getResponse().getContentAsString();

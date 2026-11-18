@@ -30,14 +30,8 @@ jobs:
       - name: Install cfn-lint
         run: python -m pip install cfn-lint
 
-      - name: Lint Lightsail CloudFormation
-        run: cfn-lint deployment/aws/lightsail-stack.yaml
-
-      - name: Check remote deployment script syntax
-        run: |
-          bash -n deployment/lightsail/deploy-release.sh
-          for script in deployment/aws/*.sh; do bash -n "$script"; done
-          python -m py_compile deployment/aws/bootstrap-github-actions-config.py deployment/aws/validate-config.py
+      - name: Lint infrastructure and deployment scripts
+        run: node scripts/ci/run-component-checks.mjs infrastructure --ci
 
       - name: Validate rendered Nginx configuration
         shell: bash

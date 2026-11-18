@@ -7,6 +7,7 @@ public record WalletTransferLedgerEntryResponse(
         Long id,
         Long walletId,
         Long walletOwnerId,
+        String walletOwnerDisplayName,
         String operationId,
         String transactionType,
         BigDecimal amount,

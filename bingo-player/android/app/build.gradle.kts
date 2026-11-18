@@ -63,6 +63,10 @@ android {
     }
 }
 
+dependencies {
+    implementation("com.android.installreferrer:installreferrer:2.2")
+}
+
 kotlin {
     compilerOptions {
         jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17

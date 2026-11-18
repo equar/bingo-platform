@@ -1291,6 +1291,13 @@ class _TransactionsPane extends StatelessWidget {
                   final campaignReward = isWalletCampaignReward(
                     entry.transactionType,
                   );
+                  final outgoing = entry.transactionType.endsWith('_DEBIT');
+                  final incoming = entry.transactionType.endsWith('_CREDIT');
+                  final directionColor = outgoing
+                      ? Colors.red.shade700
+                      : incoming
+                      ? Colors.green.shade700
+                      : Theme.of(context).colorScheme.secondary;
                   final transactionDate = DateFormat.yMMMd().add_jm().format(
                     entry.createdAt.toLocal(),
                   );
@@ -1299,6 +1306,19 @@ class _TransactionsPane extends StatelessWidget {
                     child: SectionCard(
                       padding: const EdgeInsets.all(12),
                       child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: directionColor.withValues(
+                            alpha: 0.12,
+                          ),
+                          child: Icon(
+                            outgoing
+                                ? Icons.arrow_upward_rounded
+                                : incoming
+                                ? Icons.arrow_downward_rounded
+                                : Icons.swap_horiz_rounded,
+                            color: directionColor,
+                          ),
+                        ),
                         title: Text(
                           campaignReward
                               ? walletTransactionCampaignName(

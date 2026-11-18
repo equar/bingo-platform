@@ -36,6 +36,8 @@ describe("WalletTransfersPage", () => {
     walletTransfersMock.mockReset();
     walletTransferDetailMock.mockReset();
     walletTransferDetailMock.mockResolvedValue({
+      senderDisplayName: "Mekdes Sender",
+      recipientDisplayName: "Abebe Receiver",
       transfer: {
         id: 24,
         operationId: "transfer-operation-24",
@@ -60,6 +62,7 @@ describe("WalletTransfersPage", () => {
           id: 51,
           walletId: 12,
           walletOwnerId: 12,
+          walletOwnerDisplayName: "Mekdes Sender",
           operationId: "transfer-operation-24",
           transactionType: "WALLET_TRANSFER_DEBIT",
           amount: "25.00",
@@ -122,6 +125,9 @@ describe("WalletTransfersPage", () => {
     expect(screen.getByText("transfer-operation-24")).toBeInTheDocument();
     expect(await screen.findByText("Wallet transfer debit")).toBeInTheDocument();
     expect(walletTransferDetailMock).toHaveBeenCalledWith(24);
+    expect(await screen.findByText("Mekdes Sender · 251911000012")).toBeInTheDocument();
+    expect(screen.getByText("Abebe Receiver · 251911000018")).toBeInTheDocument();
+    expect(screen.getByText("Mekdes Sender", { exact: true })).toBeInTheDocument();
     expect(walletTransfersMock).toHaveBeenCalledWith(undefined, undefined, undefined, undefined, 0, 20);
   });
 

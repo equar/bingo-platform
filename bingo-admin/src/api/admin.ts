@@ -805,6 +805,7 @@ export interface WalletTransferLedgerEntryResponse {
   id: number;
   walletId: number;
   walletOwnerId: number;
+  walletOwnerDisplayName: string;
   operationId: string;
   transactionType: string;
   amount: string;
@@ -818,6 +819,8 @@ export interface WalletTransferLedgerEntryResponse {
 
 export interface WalletTransferDetailResponse {
   transfer: WalletTransferResponse;
+  senderDisplayName: string;
+  recipientDisplayName: string;
   ledgerEntries: WalletTransferLedgerEntryResponse[];
 }
 

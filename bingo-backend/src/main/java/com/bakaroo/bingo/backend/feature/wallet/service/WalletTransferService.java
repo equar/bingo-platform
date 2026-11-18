@@ -228,12 +228,17 @@ public class WalletTransferService {
                 .stream()
                 .map(transaction -> new WalletTransferLedgerEntryResponse(
                         transaction.getId(), transaction.getWallet().getId(),
-                        transaction.getWallet().getOwner().getId(), transaction.getOperationId(),
+                        transaction.getWallet().getOwner().getId(),
+                        transaction.getWallet().getOwner().getDisplayName(), transaction.getOperationId(),
                         transaction.getTransactionType().name(), transaction.getAmount(),
                         transaction.getBalanceBefore(), transaction.getBalanceAfter(), transaction.getCurrency(),
                         transaction.getReferenceType(), transaction.getReferenceId(), transaction.getCreatedAt()))
                 .toList();
-        return new WalletTransferDetailResponse(toTransferResponse(transfer), ledgerEntries);
+        return new WalletTransferDetailResponse(
+                toTransferResponse(transfer),
+                transfer.getSender().getDisplayName(),
+                transfer.getRecipient().getDisplayName(),
+                ledgerEntries);
     }
 
     private WalletTransferResponse executeTransfer(User sender,

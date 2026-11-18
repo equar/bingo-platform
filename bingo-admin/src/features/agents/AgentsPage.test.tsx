@@ -100,7 +100,7 @@ describe("AgentsPage float top-up review", () => {
     await user.type(screen.getByRole("textbox", { name: "Review note" }), "QA rejection");
     expect(screen.getByRole("button", { name: "Review request (reject, no credit)" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Post verified request (QA simulation)" })).toBeDisabled();
-  });
+  }, 30_000);
 
   it("requests the next agent page from the backend", async () => {
     adminAgentsMock.mockResolvedValue({

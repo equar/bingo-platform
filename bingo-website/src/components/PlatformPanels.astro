@@ -37,7 +37,11 @@ const platformPanels: PlatformPanel[] = [
         <p class="platform-card__label">{platform.label}</p>
         <h3>{platform.title}</h3>
         {platform.availability === "released" && platform.url ? (
-          <a class="platform-link" href={platform.url}>Download now</a>
+          <a
+            class="platform-link"
+            href={platform.url}
+            data-platform-download={platform.icon === "android" ? "android" : "ios"}
+          >Download now</a>
         ) : (
           <div class="state-chip">Coming soon</div>
         )}
