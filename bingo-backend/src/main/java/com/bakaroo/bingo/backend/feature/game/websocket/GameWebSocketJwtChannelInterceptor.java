@@ -3,6 +3,7 @@ package com.bakaroo.bingo.backend.feature.game.websocket;
 import com.bakaroo.bingo.backend.feature.auth.service.BingoUserDetailsService;
 import com.bakaroo.bingo.backend.feature.auth.service.BingoUserPrincipal;
 import com.bakaroo.bingo.backend.feature.auth.service.JwtService;
+import com.bakaroo.bingo.backend.feature.user.entity.UserRole;
 import java.util.List;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
@@ -68,7 +69,14 @@ public class GameWebSocketJwtChannelInterceptor implements ChannelInterceptor {
         String token = authorization.substring(7);
         Long userId = jwtService.extractUserId(token);
         BingoUserPrincipal principal = userDetailsService.loadById(userId);
-        if (!jwtService.isTokenValidForUser(token, principal.getUser().getId()) || !principal.isEnabled()) {
+        boolean validToken = jwtService.isTokenValidForUser(token, principal.getUser().getId(),
+                principal.getUser().getSecurityTokenVersion());
+        if (validToken && principal.getUser().hasRole(UserRole.PLAYER)) {
+            String tokenSessionId = jwtService.extractPlayerSessionId(token);
+            validToken = tokenSessionId != null
+                    && tokenSessionId.equals(principal.getUser().getActivePlayerSessionId());
+        }
+        if (!validToken || !principal.isEnabled() || !principal.isAccountNonLocked()) {
             throw new IllegalArgumentException("Invalid websocket token");
         }
 

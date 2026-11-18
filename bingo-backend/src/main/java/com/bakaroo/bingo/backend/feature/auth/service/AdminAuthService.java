@@ -87,6 +87,7 @@ public class AdminAuthService {
                 .orElseThrow(() -> new BadCredentialsException("Activation link is invalid or expired"));
 
         user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
+        user.revokeSecurityTokens();
         user.setStatus(AccountStatus.ACTIVE);
         user.setUpdatedByDisplayName(user.getDisplayName());
         user.completePasswordChange();
@@ -105,14 +106,20 @@ public class AdminAuthService {
                 .orElseThrow(() -> new BadCredentialsException("Password reset link is invalid or expired"));
 
         user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
+        user.revokeSecurityTokens();
         user.setUpdatedByDisplayName(user.getDisplayName());
         user.completePasswordChange();
         userRepository.save(user);
     }
 
     @Transactional
-    public void changePassword(Long userId, ChangePasswordRequest request) {
-        User user = userRepository.findById(userId)
+    public void changePassword(BingoUserPrincipal principal, ChangePasswordRequest request) {
+        User actor = principal.getUser();
+        if (!actor.isActive() || !(actor.hasRole(UserRole.ADMIN) || actor.hasRole(UserRole.SUPPORT))) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "An active admin or support account is required to change this password");
+        }
+        User user = userRepository.findByIdForUpdate(actor.getId())
                 .orElseThrow(() -> new NotFoundException("USER_NOT_FOUND", "User account not found"));
 
         if (!passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
@@ -124,6 +131,7 @@ public class AdminAuthService {
         }
 
         user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
+        user.revokeSecurityTokens();
         user.setUpdatedByDisplayName(user.getDisplayName());
         user.completePasswordChange();
         userRepository.save(user);

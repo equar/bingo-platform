@@ -24,7 +24,7 @@ class JwtSuspensionTest {
         ReflectionTestUtils.setField(player, "id", 4L);
         when(jwt.extractUserId("token")).thenReturn(4L);
         when(users.loadById(4L)).thenReturn(new BingoUserPrincipal(player));
-        when(jwt.isTokenValidForUser("token", 4L)).thenReturn(true);
+        when(jwt.isTokenValidForUser("token", 4L, 0L)).thenReturn(true);
         var filter = new JwtAuthenticationFilter(jwt, users, new ObjectMapper().findAndRegisterModules());
         var request = new MockHttpServletRequest("GET", "/api/v1/auth/me");
         request.addHeader("Authorization", "Bearer token");
@@ -36,7 +36,7 @@ class JwtSuspensionTest {
         assertTrue(response.getContentAsString().contains("0956047345"));
         verifyNoInteractions(chain);
 
-        when(jwt.isTokenValidForUser("token", 4L)).thenReturn(false);
+        when(jwt.isTokenValidForUser("token", 4L, 0L)).thenReturn(false);
         var invalidResponse = new MockHttpServletResponse();
         filter.doFilter(request, invalidResponse, chain);
         assertFalse(invalidResponse.getContentAsString().contains("ACCOUNT_SUSPENDED"));

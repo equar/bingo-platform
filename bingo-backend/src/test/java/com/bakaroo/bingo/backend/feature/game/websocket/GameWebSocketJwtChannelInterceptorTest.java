@@ -82,6 +82,17 @@ class GameWebSocketJwtChannelInterceptorTest {
         Message<byte[]> message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
         assertThrows(IllegalArgumentException.class, () -> interceptor.preSend(message, null));
     }
+
+    @Test
+    void rejectsARevokedTokenOnWebsocketConnect() {
+        String token = jwtService.generateToken(admin);
+        admin.revokeSecurityTokens();
+        StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.CONNECT);
+        accessor.addNativeHeader("Authorization", "Bearer " + token);
+        Message<byte[]> message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
+
+        assertThrows(IllegalArgumentException.class, () -> interceptor.preSend(message, null));
+    }
     @Test
     void checksAuthoritativeMembershipForEverySessionSubscription() {
         var principal = new BingoUserPrincipal(admin);

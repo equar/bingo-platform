@@ -45,7 +45,7 @@ class JwtTemporaryPasswordAccessTest {
         ReflectionTestUtils.setField(user, "id", 42L);
         user.requirePasswordChangeUntil(Instant.now().plusSeconds(3600));
         when(jwt.extractUserId("token")).thenReturn(42L);
-        when(jwt.isTokenValidForUser("token", 42L)).thenReturn(true);
+        when(jwt.isTokenValidForUser("token", 42L, 0L)).thenReturn(true);
         when(details.loadById(42L)).thenReturn(new BingoUserPrincipal(user));
         JwtAuthenticationFilter filter = new JwtAuthenticationFilter(jwt, details, new ObjectMapper().findAndRegisterModules());
         MockHttpServletRequest request = new MockHttpServletRequest(method, path);

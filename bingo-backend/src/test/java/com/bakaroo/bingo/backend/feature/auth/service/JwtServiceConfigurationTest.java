@@ -10,6 +10,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.Set;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
@@ -57,6 +58,42 @@ class JwtServiceConfigurationTest {
                             Base64.getUrlDecoder().decode(token.split("\\.")[0]),
                             StandardCharsets.UTF_8);
                     assertThat(header).contains("\"alg\":\"HS256\"");
+                });
+    }
+
+    @Test
+    void tokenVersionRevokesPreviouslyIssuedTokens() {
+        contextRunner.withPropertyValues("app.security.jwt.secret=01234567890123456789012345678901")
+                .run(context -> {
+                    JwtService jwtService = context.getBean(JwtService.class);
+                    User user = User.create("251911000001", "Test user", "hash", AccountStatus.ACTIVE,
+                            Set.of(UserRole.ADMIN), Instant.now());
+                    ReflectionTestUtils.setField(user, "id", 41L);
+
+                    String token = jwtService.generateToken(user);
+                    assertThat(jwtService.isTokenValidForUser(token, 41L, user.getSecurityTokenVersion())).isTrue();
+
+                    user.revokeSecurityTokens();
+
+                    assertThat(jwtService.isTokenValidForUser(token, 41L, user.getSecurityTokenVersion())).isFalse();
+                });
+    }
+
+    @Test
+    void agentTokensRemainValidUntilTheirUserTokenVersionIsRevoked() {
+        contextRunner.withPropertyValues("app.security.jwt.secret=01234567890123456789012345678901")
+                .run(context -> {
+                    JwtService jwtService = context.getBean(JwtService.class);
+                    User agent = User.create("251911000002", "Test agent", "hash", AccountStatus.ACTIVE,
+                            Set.of(UserRole.AGENT), Instant.now());
+                    ReflectionTestUtils.setField(agent, "id", 42L);
+
+                    String token = jwtService.generateToken(agent);
+                    assertThat(jwtService.isTokenValidForUser(token, 42L, agent.getSecurityTokenVersion())).isTrue();
+
+                    agent.revokeSecurityTokens();
+
+                    assertThat(jwtService.isTokenValidForUser(token, 42L, agent.getSecurityTokenVersion())).isFalse();
                 });
     }
 
