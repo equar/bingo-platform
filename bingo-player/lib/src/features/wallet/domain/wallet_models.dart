@@ -46,6 +46,7 @@ class WalletTransaction {
     this.referenceType,
     this.referenceId,
     this.note,
+    this.metadataJson,
   });
 
   final int id;
@@ -62,6 +63,7 @@ class WalletTransaction {
   final String? referenceType;
   final int? referenceId;
   final String? note;
+  final String? metadataJson;
   final DateTime createdAt;
 
   factory WalletTransaction.fromJson(Map<String, dynamic> json) {
@@ -80,6 +82,7 @@ class WalletTransaction {
       referenceType: json['referenceType']?.toString(),
       referenceId: (json['referenceId'] as num?)?.toInt(),
       note: json['note']?.toString(),
+      metadataJson: json['metadataJson']?.toString(),
       createdAt:
           DateTime.tryParse(json['createdAt']?.toString() ?? '') ??
           DateTime.fromMillisecondsSinceEpoch(0),
