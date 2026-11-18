@@ -2,6 +2,8 @@ import 'package:bingo_player/src/core/localization/ethiopian_date_time.dart';
 import 'package:bingo_player/src/core/network/api_provider.dart';
 import 'package:bingo_player/src/features/player_content/domain/player_content_models.dart';
 import 'package:bingo_player/src/features/game/data/game_api_provider.dart';
+import 'package:bingo_player/src/features/lobby/data/lobby_repository.dart';
+import 'package:bingo_player/src/features/game/presentation/session_detail_screen.dart';
 import 'package:bingo_player/src/features/game/domain/live_game_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,7 +17,30 @@ class GameHistoryScreen extends ConsumerStatefulWidget {
 }
 
 class _GameHistoryScreenState extends ConsumerState<GameHistoryScreen> {
-  late final _history = _loadHistoryAndClaims();
+  late final Future<
+    ({List<PlayerGameHistoryItem> entries, List<WinClaimRecord> claims})
+  >
+  _history = _loadHistoryAndClaims();
+
+  Future<void> _openGame(PlayerGameHistoryItem entry) async {
+    final l = AppLocalizations.of(context)!;
+    try {
+      final session = await ref
+          .read(lobbyRepositoryProvider)
+          .getSession(entry.sessionId);
+      if (!mounted) return;
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (_) => SessionDetailScreen(session: session),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l.errorGeneric)));
+    }
+  }
 
   Future<({List<PlayerGameHistoryItem> entries, List<WinClaimRecord> claims})>
   _loadHistoryAndClaims() async {
@@ -136,7 +161,8 @@ class _GameHistoryScreenState extends ConsumerState<GameHistoryScreen> {
                   '${entry.roomName} · ${entry.ticketCode}\n${EthiopianDateTime.date(entry.purchasedAt, languageCode: Localizations.localeOf(context).languageCode)}',
                 ),
                 isThreeLine: true,
-                trailing: Text(entry.sessionState),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () => _openGame(entry),
               ),
             );
           },

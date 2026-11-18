@@ -1327,7 +1327,10 @@ class _TransactionsPane extends StatelessWidget {
                                   entry.transactionType,
                                   entry.note,
                                 )
-                              : '${walletTransactionTypeLabel(localizations, entry.transactionType)} • ${entry.amount} ${entry.currency}',
+                              : walletTransactionDisplayLabel(
+                                  localizations,
+                                  entry,
+                                ),
                         ),
                         subtitle: Text(
                           '${entry.amount} ${entry.currency} · $transactionDate',

@@ -392,6 +392,8 @@ public class WalletTransferService {
                     "transferId", transfer.getId(),
                     "senderId", sender.getId(),
                     "recipientId", recipient.getId(),
+                    "senderName", sender.getDisplayName(),
+                    "recipientName", recipient.getDisplayName(),
                     "senderPhone", sender.getNormalizedPhone(),
                     "recipientPhone", recipient.getNormalizedPhone()));
         } catch (Exception exception) {
