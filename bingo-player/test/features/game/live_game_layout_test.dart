@@ -123,6 +123,7 @@ Future<LiveGameController> mount(
   double scale = 1,
   Brightness brightness = Brightness.light,
   int ownedCount = 1,
+  bool disableAnimations = false,
 }) async {
   tester.view.devicePixelRatio = 1;
   tester.view.physicalSize = size;
@@ -160,9 +161,10 @@ Future<LiveGameController> mount(
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           builder: (context, child) => MediaQuery(
-            data: MediaQuery.of(
-              context,
-            ).copyWith(textScaler: TextScaler.linear(scale)),
+            data: MediaQuery.of(context).copyWith(
+              textScaler: TextScaler.linear(scale),
+              disableAnimations: disableAnimations,
+            ),
             child: child!,
           ),
           home: SessionDetailScreen(session: game()),
@@ -238,6 +240,7 @@ void main() {
   testWidgets('flashes the last number needed for a configured line', (
     tester,
   ) async {
+    final semantics = tester.ensureSemantics();
     final controller = await mount(
       tester,
       count: 0,
@@ -259,7 +262,12 @@ void main() {
     final nearWinCell = find.byKey(const ValueKey('ticket-one-away-101-5'));
     expect(nearWinCell, findsOneWidget);
     expect(find.byKey(const ValueKey('ticket-one-away-101-16')), findsNothing);
-    BoxDecoration cellBackground() =>
+    final cell = find.byKey(const ValueKey('ticket-cell-4-0'));
+    expect(
+      tester.getSemantics(cell).label,
+      'B 5, One number away from completing a winning pattern.',
+    );
+    BoxDecoration cellForeground() =>
         tester
                 .widget<AnimatedContainer>(
                   find.descendant(
@@ -267,12 +275,72 @@ void main() {
                     matching: find.byType(AnimatedContainer),
                   ),
                 )
-                .decoration!
+                .foregroundDecoration!
             as BoxDecoration;
-    final initialColor = cellBackground().color;
+    Color? cellBackground() =>
+        (tester
+                    .widget<AnimatedContainer>(
+                      find.descendant(
+                        of: nearWinCell,
+                        matching: find.byType(AnimatedContainer),
+                      ),
+                    )
+                    .decoration!
+                as BoxDecoration)
+            .color;
+    final initialBorderColor = cellForeground().border!.top.color;
+    final initialBackgroundColor = cellBackground();
+    final initialTextColor = tester
+        .widget<Text>(
+          find.descendant(of: nearWinCell, matching: find.text('5')),
+        )
+        .style!
+        .color;
     await tester.pump(const Duration(milliseconds: 400));
-    expect(cellBackground().color, isNot(initialColor));
+    expect(cellForeground().border!.top.color, isNot(initialBorderColor));
+    expect(cellBackground(), initialBackgroundColor);
+    expect(
+      tester
+          .widget<Text>(
+            find.descendant(of: nearWinCell, matching: find.text('5')),
+          )
+          .style!
+          .color,
+      initialTextColor,
+    );
     expect(tester.takeException(), isNull);
+    semantics.dispose();
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('one-away screen-reader hint remains with reduced motion', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    final controller = await mount(
+      tester,
+      count: 0,
+      brightness: Brightness.dark,
+      disableAnimations: true,
+    );
+    controller.state = state(0).copyWith(
+      draws: [
+        for (var number = 1; number <= 4; number++)
+          LiveDrawEvent(
+            sessionId: 42,
+            sequenceNo: number,
+            numberDrawn: number,
+            drawnAt: DateTime.utc(2026, 11, 11),
+          ),
+      ],
+    );
+    await tester.pump();
+
+    expect(
+      tester.getSemantics(find.byKey(const ValueKey('ticket-cell-4-0'))).label,
+      'B 5, One number away from completing a winning pattern.',
+    );
+    semantics.dispose();
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
