@@ -97,6 +97,9 @@ public class User {
     @Column(name = "active_player_session_expires_at")
     private Instant activePlayerSessionExpiresAt;
 
+    @Column(name = "security_token_version", nullable = false)
+    private long securityTokenVersion;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "player_verification_status", nullable = false, length = 30)
     private PlayerVerificationStatus playerVerificationStatus = PlayerVerificationStatus.NOT_REVIEWED;
@@ -344,6 +347,12 @@ public class User {
     public void clearPlayerSession() {
         this.activePlayerSessionId = null;
         this.activePlayerSessionExpiresAt = null;
+    }
+
+    public long getSecurityTokenVersion() { return securityTokenVersion; }
+
+    public void revokeSecurityTokens() {
+        securityTokenVersion = Math.incrementExact(securityTokenVersion);
     }
 
     public PlayerVerificationStatus getPlayerVerificationStatus() {

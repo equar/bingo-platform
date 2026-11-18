@@ -281,7 +281,8 @@ class GameOperationalReadinessIntegrationTest extends MySqlIntegrationTest {
         assertEquals("TICKET_PRIZE_ALREADY_AWARDED", assertThrows(ConflictException.class, () -> claim(ticket, one)).getCode());
     }
 
-    @Test void configuredMarginAndCostReserveAreEnforcedAndSnapshotted() {
+    @Test @org.springframework.security.test.context.support.WithMockUser(roles = "ADMIN")
+    void configuredMarginAndCostReserveAreEnforcedAndSnapshotted() {
         buy(one);
         GameSession game = sessions.findById(session).orElseThrow();
         assertEquals(1000, game.getMinimumHouseMarginBps());
@@ -298,7 +299,8 @@ class GameOperationalReadinessIntegrationTest extends MySqlIntegrationTest {
         return agent;
     }
 
-    @Test void agentCashUsesTheSameWinnerFundingAndExactlyOnceControls() {
+    @Test @org.springframework.security.test.context.support.WithMockUser(roles = "ADMIN")
+    void agentCashUsesTheSameWinnerFundingAndExactlyOnceControls() {
         session = games.createSession(room, request(null, List.of(new BingoPrizeConfigRequest(BingoPatternType.LINE,
                 new BigDecimal("10.01"), PrizeSettlementPath.AGENT_CASH)))).id();
         User agent = sellingAgent(); Long ticket = buy(one); state(GameSessionState.STARTED); calls(75); approve(claim(ticket, one).id());
@@ -317,7 +319,8 @@ class GameOperationalReadinessIntegrationTest extends MySqlIntegrationTest {
         assertNull(games.getMyWinClaims(new BingoUserPrincipal(one), org.springframework.data.domain.Pageable.unpaged()).getContent().getFirst().payoutCode());
     }
 
-    @Test void agentSalesCountCashAndCommissionAndCancellationRefundsThePlayer() {
+    @Test @org.springframework.security.test.context.support.WithMockUser(roles = "AGENT")
+    void agentSalesCountCashAndCommissionAndCancellationRefundsThePlayer() {
         User agent = sellingAgent();
         int version = commissionRules.findAll().stream().mapToInt(com.bakaroo.bingo.backend.feature.agent.entity.CommissionRule::getVersionNumber).max().orElse(0) + 1;
         commissionRules.save(com.bakaroo.bingo.backend.feature.agent.entity.CommissionRule.create(version, 500, true, Instant.now().minusSeconds(60)));

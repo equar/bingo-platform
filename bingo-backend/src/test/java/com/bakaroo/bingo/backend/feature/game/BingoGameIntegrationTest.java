@@ -1051,6 +1051,7 @@ class BingoGameIntegrationTest extends MySqlIntegrationTest {
         }
 
         @Test
+        @org.springframework.security.test.context.support.WithMockUser(roles = "ADMIN")
         void roomChangesDoNotRewriteHistoricalSessionRulesOrTicketPrice() {
                 var room = bingoGameService.createRoom(roomRequest("Historical snapshot room", 5, 2, true));
                 var session = bingoGameService.createSession(room.id(), sessionRequest(GameSessionState.DRAFT));

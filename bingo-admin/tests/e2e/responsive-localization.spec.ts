@@ -92,7 +92,7 @@ test("keeps the player table scroll inside its container at mobile widths in bot
     await route.fulfill({ status: 404, contentType: "application/json", body: "{}" });
   });
   await page.addInitScript(() => {
-    localStorage.setItem("bingo-admin-session", JSON.stringify({
+    sessionStorage.setItem("bingo-admin-session", JSON.stringify({
       accessToken: "responsive-test-token",
       tokenType: "Bearer",
       user: {
@@ -120,7 +120,7 @@ test("keeps the player table scroll inside its container at mobile widths in bot
       await page.getByRole("button", { name: "Save", exact: true }).click();
       await expect(page.getByText("የቋንቋ ምርጫዎ ተቀምጧል።")).toBeVisible();
       await expect.poll(() => page.evaluate(() => {
-        const session = window.localStorage.getItem("bingo-admin-session");
+        const session = window.sessionStorage.getItem("bingo-admin-session");
         return session ? (JSON.parse(session) as { user?: { preferredLanguage?: string } }).user?.preferredLanguage : null;
       })).toBe("am");
       await page.goto("/players");

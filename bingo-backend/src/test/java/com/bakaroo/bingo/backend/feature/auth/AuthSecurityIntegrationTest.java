@@ -257,6 +257,9 @@ class AuthSecurityIntegrationTest extends MySqlIntegrationTest {
                 mockMvc.perform(post("/api/v1/auth/logout")
                                 .header("Authorization", "Bearer " + registrationToken))
                                 .andExpect(status().isNoContent());
+                mockMvc.perform(get("/api/v1/auth/me")
+                                .header("Authorization", "Bearer " + registrationToken))
+                                .andExpect(status().isUnauthorized());
 
                 String loginResponse = mockMvc.perform(post("/api/v1/auth/login")
                                 .contentType(MediaType.APPLICATION_JSON)

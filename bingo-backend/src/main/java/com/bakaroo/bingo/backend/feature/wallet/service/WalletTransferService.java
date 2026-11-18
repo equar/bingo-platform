@@ -18,6 +18,7 @@ import com.bakaroo.bingo.backend.feature.wallet.dto.SignupRewardSettingsResponse
 import com.bakaroo.bingo.backend.feature.wallet.dto.WalletRecipientLookupResponse;
 import com.bakaroo.bingo.backend.feature.wallet.dto.WalletTransferRequest;
 import com.bakaroo.bingo.backend.feature.wallet.dto.WalletTransferResponse;
+import com.bakaroo.bingo.backend.feature.wallet.dto.WalletOwnTransferResponse;
 import com.bakaroo.bingo.backend.feature.wallet.dto.WalletTransferDetailResponse;
 import com.bakaroo.bingo.backend.feature.wallet.dto.WalletTransferLedgerEntryResponse;
 import com.bakaroo.bingo.backend.feature.wallet.dto.WalletTransferSettingsRequest;
@@ -90,6 +91,16 @@ public class WalletTransferService {
         User recipient = findPlayerByPhone(phoneNumber);
         return new WalletRecipientLookupResponse(recipient.getId(), recipient.getDisplayName(),
                 recipient.getNormalizedPhone());
+    }
+
+    @Transactional(readOnly = true)
+    public Page<WalletOwnTransferResponse> getOwnTransfers(BingoUserPrincipal principal, Pageable pageable) {
+        User sender = requirePlayer(principal);
+        return walletTransferRepository.findBySenderIdOrderByCreatedAtDescIdDesc(sender.getId(), pageable)
+                .map(transfer -> new WalletOwnTransferResponse(
+                        transfer.getId(), transfer.getOperationId(), transfer.getRecipientPhoneSnapshot(),
+                        transfer.getAmount(), transfer.getCurrency(), transfer.getStatus(),
+                        transfer.getCreatedAt(), transfer.getCompletedAt()));
     }
 
     @Transactional
@@ -217,12 +228,17 @@ public class WalletTransferService {
                 .stream()
                 .map(transaction -> new WalletTransferLedgerEntryResponse(
                         transaction.getId(), transaction.getWallet().getId(),
-                        transaction.getWallet().getOwner().getId(), transaction.getOperationId(),
+                        transaction.getWallet().getOwner().getId(),
+                        transaction.getWallet().getOwner().getDisplayName(), transaction.getOperationId(),
                         transaction.getTransactionType().name(), transaction.getAmount(),
                         transaction.getBalanceBefore(), transaction.getBalanceAfter(), transaction.getCurrency(),
                         transaction.getReferenceType(), transaction.getReferenceId(), transaction.getCreatedAt()))
                 .toList();
-        return new WalletTransferDetailResponse(toTransferResponse(transfer), ledgerEntries);
+        return new WalletTransferDetailResponse(
+                toTransferResponse(transfer),
+                transfer.getSender().getDisplayName(),
+                transfer.getRecipient().getDisplayName(),
+                ledgerEntries);
     }
 
     private WalletTransferResponse executeTransfer(User sender,

@@ -5,7 +5,7 @@ $repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $backendRoot = Join-Path $repoRoot 'bingo-backend'
 $environmentFile = Join-Path $backendRoot '.env.maven-test'
 $settingsFile = Join-Path $env:USERPROFILE '.m2\settings.xml'
-$requiredSchemaVersion = '40'
+$requiredSchemaVersion = '52'
 
 if (-not (Test-Path -LiteralPath $environmentFile -PathType Leaf)) {
     throw 'Missing bingo-backend/.env.maven-test. Copy the approved example and populate it through the DBA secret-handling procedure.'
@@ -89,7 +89,7 @@ LIMIT 1
         if ($identity.Count -ne 5 -or $identity[0] -cne 'bingo_qa_maven_test' -or
             $identity[1] -cne 'bingo_qa_maven_runner@127.0.0.1' -or $identity[2] -cne '3306' -or
             $identity[3] -cne $requiredSchemaVersion -or $identity[4] -cne '0') {
-            throw 'Database identity or migration history does not match the approved V40 disposable test schema; refusing writes.'
+            throw 'Database identity or migration history does not match the current V52 disposable test schema; refusing writes.'
         }
     } finally {
         if ($null -eq $previousMysqlPwd) {

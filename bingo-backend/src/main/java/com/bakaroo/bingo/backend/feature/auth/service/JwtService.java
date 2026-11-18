@@ -40,6 +40,7 @@ public class JwtService {
                 .issuedAt(Date.from(issuedAt))
                 .expiration(Date.from(expiresAt))
                 .claim("uid", user.getId())
+                .claim("tokenVersion", user.getSecurityTokenVersion())
                 .claim("roles", user.getRoles().stream().map(Enum::name).toList());
         if (playerSessionId != null) builder.claim("sid", playerSessionId);
         return builder.signWith(secretKey, Jwts.SIG.HS256).compact();
@@ -69,10 +70,12 @@ public class JwtService {
         return subject.equals(claims.getSubject()) && claims.getExpiration().after(new Date());
     }
 
-    public boolean isTokenValidForUser(String token, Long userId) {
+    public boolean isTokenValidForUser(String token, Long userId, long currentTokenVersion) {
         Claims claims = parseClaims(token);
         Object tokenUserId = claims.get("uid");
+        Object tokenVersion = claims.get("tokenVersion");
         return userId != null && tokenUserId instanceof Number number && userId.longValue() == number.longValue()
+                && tokenVersion instanceof Number version && currentTokenVersion == version.longValue()
                 && claims.getExpiration().after(new Date());
     }
 

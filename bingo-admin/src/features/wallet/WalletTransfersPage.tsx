@@ -1,6 +1,7 @@
 import { formatEthiopianDateTime } from "../../utils/ethiopianDateTime";
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import {
   Alert,
@@ -36,6 +37,7 @@ import { translateAdminStatus } from "../../i18n";
 
 export function WalletTransfersPage() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [query, setQuery] = usePrivateListSearch("wallet-transfers");
   const [status, setStatus] = useListSessionState(
     "wallet-transfers:status",
@@ -86,7 +88,6 @@ export function WalletTransfersPage() {
   });
 
   const selectedTransfer = transferDetailQuery.data?.transfer ?? null;
-
   const refreshTransfers = async () => {
     const refreshed = await transfersQuery.refetch();
     if (selectedId === null) return refreshed;
@@ -141,7 +142,7 @@ export function WalletTransfersPage() {
           }}
         />
 
-        <Card elevation={0} sx={{ border: 1, borderColor: "divider" }}>
+        <Card elevation={0} sx={{ border: 1, borderColor: "divider", borderRadius: 2 }}>
           <CardContent>
             <Stack spacing={2}>
               <Stack
@@ -151,7 +152,7 @@ export function WalletTransfersPage() {
                 gap={1}
               >
                 <Box>
-                  <Typography variant="h6">{t("Find transfers")}</Typography>
+                  <Typography variant="h6">{t("Search and filter")}</Typography>
                   <Typography variant="body2" color="text.secondary">
                     {t("Narrow the history by participant, operation, or status.")}
                   </Typography>
@@ -229,17 +230,8 @@ export function WalletTransfersPage() {
               gap={1}
             >
               <Box>
-                <Typography variant="h6">{t("Transfers")}</Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {t("Select a transfer to review its wallet ledger entries.")}
-                </Typography>
+            <Typography variant="h6">{t("Transfer activity")}</Typography>
               </Box>
-              <Chip
-                variant="outlined"
-                label={t("{{count}} matching transfers", {
-                  count: transfersQuery.data?.totalElements ?? 0,
-                })}
-              />
             </Stack>
             <Box
               sx={{
@@ -250,14 +242,15 @@ export function WalletTransfersPage() {
                 mt: 1.5,
               }}
             >
-              <Table size="small" aria-label={t("wallet transfers table")}>
+                <Table size="medium" aria-label={t("wallet transfers table")}>
                 <TableHead>
                   <TableRow>
                     <TableCell>{t("Transfer")}</TableCell>
-                    <TableCell>{t("Operation")}</TableCell>
+                      <TableCell>{t("Sender")}</TableCell>
+                      <TableCell>{t("Receiver")}</TableCell>
                     <TableCell align="right">{t("Amount")}</TableCell>
                     <TableCell>{t("Status")}</TableCell>
-                    <TableCell>{t("Created")}</TableCell>
+                      <TableCell>{t("Date")}</TableCell>
                     <TableCell align="right">{t("Actions")}</TableCell>
                   </TableRow>
                 </TableHead>
@@ -277,35 +270,36 @@ export function WalletTransfersPage() {
                         },
                       )}
                       aria-pressed={selectedId === transfer.id}
-                      onClick={() => setSelectedId(transfer.id)}
+                      onClick={() => navigate(`/wallet/transfers/${transfer.id}`)}
                       onKeyDown={(event) => {
                         if (event.key === "Enter" || event.key === " ") {
                           event.preventDefault();
-                          setSelectedId(transfer.id);
+                          navigate(`/wallet/transfers/${transfer.id}`);
                         }
                       }}
                       sx={{ cursor: "pointer" }}
                       data-testid={`wallet-transfer-row-${transfer.id}`}
                     >
-                      <TableCell sx={{ minWidth: 210 }}>
+                      <TableCell sx={{ minWidth: 170 }}>
                         <Stack spacing={0.25}>
-                          <Typography fontWeight={600}>
-                            {transfer.senderPhoneNumber}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            {t("To {{recipient}}", {
-                              recipient: transfer.recipientPhoneNumber,
-                            })}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {transfer.note ?? t("No note")}
+                          <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: "anywhere" }}>
+                            {transfer.operationId}
                           </Typography>
                         </Stack>
                       </TableCell>
-                      <TableCell sx={{ minWidth: 140 }}>
-                        <Typography variant="body2" noWrap title={transfer.operationId}>
-                          {transfer.operationId}
-                        </Typography>
+                      <TableCell sx={{ minWidth: 150 }}>
+                        <Stack spacing={0.25}>
+                          <Typography variant="body2" color="text.secondary">
+                            {transfer.senderPhoneNumber}
+                          </Typography>
+                        </Stack>
+                      </TableCell>
+                      <TableCell sx={{ minWidth: 150 }}>
+                        <Stack spacing={0.25}>
+                          <Typography variant="body2" color="text.secondary">
+                            {transfer.recipientPhoneNumber}
+                          </Typography>
+                        </Stack>
                       </TableCell>
                       <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>
                         {transfer.amount} {transfer.currency}
@@ -327,7 +321,7 @@ export function WalletTransfersPage() {
                           aria-pressed={selectedId === transfer.id}
                           onClick={(event) => {
                             event.stopPropagation();
-                            setSelectedId(transfer.id);
+                            navigate(`/wallet/transfers/${transfer.id}`);
                           }}
                         >
                           {t("View details")}
@@ -338,7 +332,7 @@ export function WalletTransfersPage() {
                   {transfersQuery.data &&
                   transfersQuery.data.content.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6}>
+                      <TableCell colSpan={7}>
                         <Alert severity="info">
                           {t(
                             "No transfers match the current search and filters.",

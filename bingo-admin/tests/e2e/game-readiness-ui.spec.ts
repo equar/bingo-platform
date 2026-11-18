@@ -7,7 +7,7 @@ test('existing admin lifecycle presents funding, rules, review and wallet settle
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.addInitScript(() => {
-    localStorage.setItem('bingo-admin-session', JSON.stringify({ accessToken: 'synthetic-ui-token', tokenType: 'Bearer', user: {
+    sessionStorage.setItem('bingo-admin-session', JSON.stringify({ accessToken: 'synthetic-ui-token', tokenType: 'Bearer', user: {
       id: 1, displayName: 'Test administrator', email: 'admin@example.test', phoneNumber: null,
       roles: ['ADMIN'], status: 'ACTIVE', preferredLanguage: 'en', createdAt: '2026-11-11', updatedAt: '2026-11-11',
     } }));

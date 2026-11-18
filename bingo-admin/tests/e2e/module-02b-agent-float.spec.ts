@@ -59,7 +59,7 @@ test('manual transfer is independently verified, separately approved, and posted
 
   await loginAdmin(page);
   const adminToken = await page.evaluate(() =>
-    (JSON.parse(localStorage.getItem('bingo-admin-session') ?? '{}') as { accessToken: string }).accessToken,
+    (JSON.parse(sessionStorage.getItem('bingo-admin-session') ?? '{}') as { accessToken: string }).accessToken,
   );
   expect(adminToken).toBeTruthy();
   const findRequest = async (status: string) => {
@@ -186,7 +186,7 @@ test('manual transfer is independently verified, separately approved, and posted
     currentStatus = 'VERIFIED';
   } else {
     const verifierToken = await reviewerPage.evaluate(() =>
-      (JSON.parse(localStorage.getItem('bingo-admin-session') ?? '{}') as { accessToken: string }).accessToken,
+      (JSON.parse(sessionStorage.getItem('bingo-admin-session') ?? '{}') as { accessToken: string }).accessToken,
     );
     const historyResponse = await reviewerPage.request.get(
       `${backend}/api/v1/admin/agents/float-top-up-requests/${requestId}/verifications`,
@@ -208,7 +208,7 @@ test('manual transfer is independently verified, separately approved, and posted
 
   const forbiddenPost = await reviewerPage.request.post(
     `${backend}/api/v1/admin/agents/float-top-up-requests/${requestId}/post`,
-    { headers: { Authorization: `Bearer ${await reviewerPage.evaluate(() => (JSON.parse(localStorage.getItem('bingo-admin-session') ?? '{}') as { accessToken: string }).accessToken)}` }, data: { approve: true, reviewNote: 'Verifier may not approve own verification' } },
+    { headers: { Authorization: `Bearer ${await reviewerPage.evaluate(() => (JSON.parse(sessionStorage.getItem('bingo-admin-session') ?? '{}') as { accessToken: string }).accessToken)}` }, data: { approve: true, reviewNote: 'Verifier may not approve own verification' } },
   );
   expect(forbiddenPost.status()).toBe(403);
   if (currentStatus === 'VERIFIED') {
@@ -244,7 +244,7 @@ test('manual transfer is independently verified, separately approved, and posted
   } else {
     const alreadyPostedResponse = await approverPage.request.post(
       `${backend}/api/v1/admin/agents/float-top-up-requests/${requestId}/post`,
-      { headers: { Authorization: `Bearer ${await approverPage.evaluate(() => (JSON.parse(localStorage.getItem('bingo-admin-session') ?? '{}') as { accessToken: string }).accessToken)}` }, data: { approve: true, reviewNote: 'Repeat the already posted QA request idempotently.' } },
+      { headers: { Authorization: `Bearer ${await approverPage.evaluate(() => (JSON.parse(sessionStorage.getItem('bingo-admin-session') ?? '{}') as { accessToken: string }).accessToken)}` }, data: { approve: true, reviewNote: 'Repeat the already posted QA request idempotently.' } },
     );
     expect(alreadyPostedResponse.status()).toBe(200);
     posted = await alreadyPostedResponse.json() as typeof posted;
@@ -254,7 +254,7 @@ test('manual transfer is independently verified, separately approved, and posted
   expect(Number(posted.availableBalance)).toBeGreaterThan(0);
 
   const approverToken = await approverPage.evaluate(() =>
-    (JSON.parse(localStorage.getItem('bingo-admin-session') ?? '{}') as { accessToken: string }).accessToken,
+    (JSON.parse(sessionStorage.getItem('bingo-admin-session') ?? '{}') as { accessToken: string }).accessToken,
   );
   const repeatedPost = await approverPage.request.post(`${backend}/api/v1/admin/agents/float-top-up-requests/${requestId}/post`, {
     headers: { Authorization: `Bearer ${approverToken}` },

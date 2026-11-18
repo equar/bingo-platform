@@ -37,7 +37,7 @@ test('A01/A08/A09/A10/A16/A17: login, refresh persistence, logout, protected rou
   const auth = await loginResponse.json();
   await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
 
-  const session = await page.evaluate(() => localStorage.getItem('bingo-admin-session'));
+  const session = await page.evaluate(() => sessionStorage.getItem('bingo-admin-session'));
   expect(session).toBeTruthy();
   expect(session).not.toContain(adminPassword);
   expect(await page.evaluate(() => sessionStorage.length)).toBe(0);
@@ -49,7 +49,7 @@ test('A01/A08/A09/A10/A16/A17: login, refresh persistence, logout, protected rou
   await page.getByText(auth.user.displayName, { exact: true }).click();
   await page.getByRole('menuitem', { name: 'Logout' }).click();
   await expect(page).toHaveURL(/\/login$/);
-  expect(await page.evaluate(() => localStorage.getItem('bingo-admin-session'))).toBeNull();
+  expect(await page.evaluate(() => sessionStorage.getItem('bingo-admin-session'))).toBeNull();
   await page.goto('/players');
   await expect(page).toHaveURL(/\/login$/);
   await page.goBack();
@@ -115,7 +115,7 @@ test('A13/A14: protected URL requires authentication and player role is denied a
   });
   expect(login.status()).toBe(200);
   const auth = await login.json();
-  await page.evaluate((value) => localStorage.setItem('bingo-admin-session', JSON.stringify({
+  await page.evaluate((value) => sessionStorage.setItem('bingo-admin-session', JSON.stringify({
     accessToken: value.accessToken,
     tokenType: value.tokenType,
     user: value.user,
@@ -140,7 +140,7 @@ test('A15: login network failure is surfaced and the same screen recovers', asyn
 
 test('A12: invalid admin token returns the browser to login', async ({ page }) => {
   await page.goto('/login');
-  await page.evaluate(() => localStorage.setItem('bingo-admin-session', JSON.stringify({
+  await page.evaluate(() => sessionStorage.setItem('bingo-admin-session', JSON.stringify({
     accessToken: 'not-a-valid-jwt',
     tokenType: 'Bearer',
     user: { id: 1, displayName: 'QA Admin', roles: ['ADMIN'], status: 'ACTIVE' },
@@ -151,5 +151,5 @@ test('A12: invalid admin token returns the browser to login', async ({ page }) =
   await page.goto('/dashboard');
   expect((await protectedResponse).status()).toBe(401);
   await expect(page).toHaveURL(/\/login$/);
-  expect(await page.evaluate(() => localStorage.getItem('bingo-admin-session'))).toBeNull();
+  expect(await page.evaluate(() => sessionStorage.getItem('bingo-admin-session'))).toBeNull();
 });

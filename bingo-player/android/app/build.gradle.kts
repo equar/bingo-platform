@@ -1,4 +1,5 @@
 import java.util.Properties
+import com.android.build.api.dsl.ApplicationExtension
 
 plugins {
     id("com.android.application")
@@ -13,8 +14,25 @@ val releaseKeystoreProperties = Properties().apply {
         releaseKeystorePropertiesFile.inputStream().use { load(it) }
     }
 }
+val hasReleaseSigning = releaseKeystorePropertiesFile.exists() &&
+    listOf("storeFile", "storePassword", "keyAlias", "keyPassword").all {
+        !releaseKeystoreProperties.getProperty(it).isNullOrBlank()
+    } && releaseKeystoreProperties.getProperty("storeFile")?.let { file(it).isFile } == true
+val allowDebugSigningForValidation = providers.gradleProperty("allowDebugSigningForValidation")
+    .map(String::toBoolean)
+    .getOrElse(false)
+val requestsReleaseArtifact = gradle.startParameter.taskNames.any { task ->
+    task.substringAfterLast(':') in setOf("bundleRelease", "assembleRelease", "packageRelease")
+}
 
-android {
+if (requestsReleaseArtifact && !hasReleaseSigning && !allowDebugSigningForValidation) {
+    throw GradleException(
+        "A signed Player release artifact requires android/key.properties with an existing keystore and all four signing values. " +
+            "Debug signing is available only for non-publishing CI validation via -PallowDebugSigningForValidation=true."
+    )
+}
+
+extensions.configure<ApplicationExtension> {
     namespace = "com.bakaroo.bingo_app"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
@@ -54,13 +72,19 @@ android {
 
     buildTypes {
         release {
-            signingConfig = if (releaseKeystorePropertiesFile.exists()) {
+            signingConfig = if (hasReleaseSigning) {
                 signingConfigs.getByName("release")
-            } else {
+            } else if (allowDebugSigningForValidation) {
                 signingConfigs.getByName("debug")
+            } else {
+                null
             }
         }
     }
+}
+
+dependencies {
+    implementation("com.android.installreferrer:installreferrer:2.2")
 }
 
 kotlin {

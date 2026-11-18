@@ -17,7 +17,7 @@ import {
 describe("Ethiopian date-time formatting", () => {
   beforeEach(async () => {
     await i18n.changeLanguage("en");
-    window.localStorage.setItem("bingo-admin-session", JSON.stringify({ user: { preferredLanguage: "am", preferredCalendar: "AUTO" } }));
+    window.sessionStorage.setItem("bingo-admin-session", JSON.stringify({ user: { preferredLanguage: "am", preferredCalendar: "AUTO" } }));
   });
 
   it("resolves automatic calendars and explicit overrides", () => {

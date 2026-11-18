@@ -1,5 +1,6 @@
 import 'package:bingo_player/l10n/app_localizations.dart';
 import 'package:bingo_player/src/core/network/api_error.dart';
+import 'package:bingo_player/src/core/platform/referral_invite.dart';
 import 'package:bingo_player/src/core/widgets/section_card.dart';
 import 'package:bingo_player/src/features/auth/data/auth_models.dart';
 import 'package:bingo_player/src/features/auth/data/auth_repository.dart';
@@ -46,7 +47,17 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   void initState() {
     super.initState();
     _restoreLastLoginPhone();
+    _restoreReferralCode();
     if (widget.accountSuspended) _scheduleSuspensionDialog();
+  }
+
+  Future<void> _restoreReferralCode() async {
+    final code = await ReferralInvite.pendingCode();
+    if (!mounted || code == null || _referralCodeController.text.isNotEmpty) {
+      return;
+    }
+    _referralCodeController.text = code;
+    setState(() {});
   }
 
   Future<void> _restoreLastLoginPhone() async {

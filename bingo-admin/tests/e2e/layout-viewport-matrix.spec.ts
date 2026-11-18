@@ -77,7 +77,7 @@ test("Admin routes fit the viewport matrix with mocked API data", async ({ page 
     });
   });
   await page.addInitScript(({ user }) => {
-    if (!localStorage.getItem("bingo-admin-session")) localStorage.setItem("bingo-admin-session", JSON.stringify({
+    if (!sessionStorage.getItem("bingo-admin-session")) sessionStorage.setItem("bingo-admin-session", JSON.stringify({
       accessToken: "mocked-layout-verification-token",
       tokenType: "Bearer",
       user: { ...user, preferredLanguage: "en" },
@@ -118,8 +118,8 @@ test("Admin routes fit the viewport matrix with mocked API data", async ({ page 
   preferredLanguage = "am";
   await page.goto("/profile");
   await page.evaluate(() => {
-    const session = JSON.parse(localStorage.getItem("bingo-admin-session") ?? "{}") as { user?: Record<string, unknown> };
-    localStorage.setItem("bingo-admin-session", JSON.stringify({ ...session, user: { ...session.user, preferredLanguage: "am" } }));
+    const session = JSON.parse(sessionStorage.getItem("bingo-admin-session") ?? "{}") as { user?: Record<string, unknown> };
+    sessionStorage.setItem("bingo-admin-session", JSON.stringify({ ...session, user: { ...session.user, preferredLanguage: "am" } }));
   });
   for (const width of [768, 390]) {
     await page.setViewportSize({ width, height: width === 768 ? 1024 : 844 });
@@ -200,7 +200,7 @@ test("room confirmation dialog stays inside desktop, mobile, and zoom-equivalent
     }
   });
   await page.addInitScript(({ user }) => {
-    localStorage.setItem("bingo-admin-session", JSON.stringify({
+    sessionStorage.setItem("bingo-admin-session", JSON.stringify({
       accessToken: "mocked-dialog-layout-token", tokenType: "Bearer", user: { ...user, preferredLanguage: "en" },
     }));
   }, { user: adminUser });

@@ -77,6 +77,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.transaction.annotation.Transactional;
@@ -248,12 +249,14 @@ public class BingoGameService {
     }
 
     @Transactional(readOnly = true)
+    @PreAuthorize("hasAnyRole('ADMIN','AGENT')")
     public GameSessionResponse getSession(Long sessionId) {
         GameSession session = requireSession(sessionId);
         return toSessionResponse(session);
     }
 
     @Transactional(readOnly = true)
+    @PreAuthorize("hasRole('ADMIN')")
     public TicketResponse getAdminTicket(Long ticketId) {
         Ticket ticket = ticketRepository.findById(ticketId)
                 .orElseThrow(() -> new NotFoundException("TICKET_NOT_FOUND", "Ticket not found"));
@@ -261,6 +264,7 @@ public class BingoGameService {
     }
 
     @Transactional(readOnly = true)
+    @PreAuthorize("hasRole('ADMIN')")
     public WinClaimResponse getAdminWinClaim(Long claimId) {
         WinClaim claim = winClaimRepository.findById(claimId)
                 .orElseThrow(() -> new NotFoundException("WIN_CLAIM_NOT_FOUND", "Win claim not found"));
@@ -285,12 +289,14 @@ public class BingoGameService {
     }
 
     @Transactional(readOnly = true)
+    @PreAuthorize("hasAnyRole('ADMIN','SUPPORT')")
     public Page<TicketResponse> getAdminPlayerTickets(Long playerId, Pageable pageable) {
         return ticketRepository.findByOwnerIdOrderByPurchasedAtDesc(playerId, pageable)
                 .map(this::toTicketResponse);
     }
 
     @Transactional(readOnly = true)
+    @PreAuthorize("hasAnyRole('ADMIN','SUPPORT')")
     public Page<SessionTicketLookupResponse> getAdminSessionTickets(Long sessionId, String query, Pageable pageable) {
         if (!gameSessionRepository.existsById(sessionId)) {
             throw new NotFoundException("SESSION_NOT_FOUND", "Session not found");
@@ -323,6 +329,7 @@ public class BingoGameService {
     }
 
     @Transactional(readOnly = true)
+    @PreAuthorize("hasRole('ADMIN')")
     public Page<WinClaimResponse> getAdminPlayerWinClaims(Long playerId, Pageable pageable) {
         return winClaimRepository.findByClaimantIdOrderByCreatedAtDesc(playerId, pageable)
                 .map(this::toWinClaimResponse);
@@ -708,6 +715,7 @@ public class BingoGameService {
     }
 
     @Transactional(readOnly = true)
+    @PreAuthorize("hasRole('ADMIN')")
     public Page<WinClaimResponse> getAdminWinClaims(String query, WinClaimStatus status, BingoPatternType pattern,
             Boolean validationPassed, Pageable pageable) {
         String search = query == null || query.isBlank() ? null : query.trim().toLowerCase(Locale.ROOT);

@@ -87,11 +87,13 @@ public class AdminGameController {
     }
 
     @GetMapping("/sessions/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public GameSessionResponse session(@PathVariable Long id) {
         return bingoGameService.getSession(id);
     }
 
     @GetMapping("/tickets/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public TicketResponse ticket(@PathVariable Long id) {
         return bingoGameService.getAdminTicket(id);
     }

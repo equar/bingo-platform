@@ -36,7 +36,7 @@ function createWrapper({ children }: PropsWithChildren) {
 describe("SessionCreatePage", () => {
   afterEach(async () => {
     cleanup();
-    window.localStorage.removeItem("bingo-admin-session");
+    window.sessionStorage.removeItem("bingo-admin-session");
     await i18n.changeLanguage("en");
   });
 
@@ -139,7 +139,7 @@ describe("SessionCreatePage", () => {
   });
 
   it("uses an Ethiopian calendar picker for the scheduled date", async () => {
-    window.localStorage.setItem("bingo-admin-session", JSON.stringify({ user: { preferredLanguage: "en", preferredCalendar: "ETHIOPIAN" } }));
+    window.sessionStorage.setItem("bingo-admin-session", JSON.stringify({ user: { preferredLanguage: "en", preferredCalendar: "ETHIOPIAN" } }));
     const user = userEvent.setup();
     render(<SessionCreatePage />, { wrapper: createWrapper });
 
@@ -155,7 +155,7 @@ describe("SessionCreatePage", () => {
   });
 
   it("uses a Gregorian date input when the preference resolves to Gregorian", async () => {
-    window.localStorage.setItem("bingo-admin-session", JSON.stringify({ user: { preferredLanguage: "en", preferredCalendar: "GREGORIAN" } }));
+    window.sessionStorage.setItem("bingo-admin-session", JSON.stringify({ user: { preferredLanguage: "en", preferredCalendar: "GREGORIAN" } }));
     expect(currentCalendarPreference()).toBe("GREGORIAN");
     const user = userEvent.setup();
     render(<SessionCreatePage />, { wrapper: createWrapper });

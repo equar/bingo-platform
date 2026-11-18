@@ -56,7 +56,7 @@ test("all Admin routes render within the shared shell without touching applicati
     }
   });
   await page.addInitScript(({ user }) => {
-    localStorage.setItem("bingo-admin-session", JSON.stringify({
+    sessionStorage.setItem("bingo-admin-session", JSON.stringify({
       accessToken: "mocked-design-system-token",
       tokenType: "Bearer",
       user,

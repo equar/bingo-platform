@@ -51,6 +51,6 @@ public class AdminAuthController {
     public void changePassword(
             @AuthenticationPrincipal BingoUserPrincipal principal,
             @Valid @RequestBody ChangePasswordRequest request) {
-        adminAuthService.changePassword(principal.getUser().getId(), request);
+        adminAuthService.changePassword(principal, request);
     }
 }
