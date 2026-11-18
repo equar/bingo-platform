@@ -87,9 +87,16 @@ function runMobile(app) {
   run('flutter', ['analyze'], cwd);
   run('flutter', ['test'], cwd);
   if (app === 'bingo-player' && actualVersion === '3.47.7') {
+    const validationJavaOptions = [
+      process.env.JAVA_TOOL_OPTIONS,
+      '-Dorg.gradle.project.allowDebugSigningForValidation=true',
+    ].filter(Boolean).join(' ');
     run('flutter', ['build', 'appbundle', '--release', '--dart-define=API_BASE_URL=https://api.example.invalid'], cwd, {
       ...process.env,
       ORG_GRADLE_PROJECT_allowDebugSigningForValidation: 'true',
+      // Flutter on Windows can drop ORG_GRADLE_PROJECT_* before launching Gradle.
+      // Keep the same CI-only validation property available as a JVM project property.
+      JAVA_TOOL_OPTIONS: validationJavaOptions,
       MOBILE_API_BASE_URL: 'https://api.example.invalid',
     });
   }

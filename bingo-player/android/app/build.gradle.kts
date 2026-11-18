@@ -1,4 +1,5 @@
 import java.util.Properties
+import com.android.build.api.dsl.ApplicationExtension
 
 plugins {
     id("com.android.application")
@@ -31,7 +32,7 @@ if (requestsReleaseArtifact && !hasReleaseSigning && !allowDebugSigningForValida
     )
 }
 
-android {
+extensions.configure<ApplicationExtension> {
     namespace = "com.bakaroo.bingo_app"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
@@ -75,6 +76,8 @@ android {
                 signingConfigs.getByName("release")
             } else if (allowDebugSigningForValidation) {
                 signingConfigs.getByName("debug")
+            } else {
+                null
             }
         }
     }

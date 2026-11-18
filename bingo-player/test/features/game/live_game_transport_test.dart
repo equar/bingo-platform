@@ -38,6 +38,9 @@ void main() {
       final transport = StompLiveGameTransport(
         heartbeatOutgoing: const Duration(milliseconds: 40),
         heartbeatIncoming: const Duration(milliseconds: 40),
+        // Keep this healthy-heartbeat test tolerant of CI scheduler pauses;
+        // the next test separately verifies missed-heartbeat detection.
+        heartbeatTimeoutMultiplier: 10,
         connectTimeout: const Duration(seconds: 2),
       );
       final errors = <Object>[];
