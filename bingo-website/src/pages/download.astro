@@ -17,6 +17,11 @@ const path = "/download/";
     <p class="page-intro">The Android and iPhone apps are being prepared. When a release is ready, its official download link will appear on this page.</p>
   </section>
 
+  <section class="panel" data-referral-banner hidden aria-live="polite">
+    <h2>You've been invited</h2>
+    <p>Use referral code <strong data-referral-code></strong> when you register in Sunset Bingo.</p>
+  </section>
+
   <section class="download-grid">
     <article class="download-panel surface">
       <div class="download-state surface-inset">
@@ -37,3 +42,27 @@ const path = "/download/";
     <article class="panel"><h2>Need help?</h2><p>Having trouble with an official release or unsure whether a link is genuine?</p><a class="text-button" href="/help/">Visit help and support</a></article>
   </section>
 </BaseLayout>
+
+<script>
+  const referralCode = new URLSearchParams(window.location.search).get("ref")?.trim();
+  if (referralCode && /^[A-Za-z0-9]{6}$/.test(referralCode)) {
+    const banner = document.querySelector<HTMLElement>("[data-referral-banner]");
+    const code = document.querySelector<HTMLElement>("[data-referral-code]");
+    if (banner && code) {
+      code.textContent = referralCode.toUpperCase();
+      banner.hidden = false;
+    }
+
+    const androidLink = document.querySelector<HTMLAnchorElement>(
+      'a[data-platform-download="android"]',
+    );
+    if (androidLink) {
+      const storeUrl = new URL(androidLink.href);
+      storeUrl.searchParams.set(
+        "referrer",
+        new URLSearchParams({ referral_code: referralCode.toUpperCase() }).toString(),
+      );
+      androidLink.href = storeUrl.toString();
+    }
+  }
+</script>

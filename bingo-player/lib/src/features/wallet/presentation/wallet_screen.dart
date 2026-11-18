@@ -12,6 +12,7 @@ import 'package:bingo_player/src/features/wallet/data/wallet_repository.dart';
 import 'package:bingo_player/src/features/wallet/domain/wallet_models.dart';
 import 'package:bingo_player/src/features/wallet/presentation/wallet_transaction_labels.dart';
 import 'package:bingo_player/src/features/auth/data/auth_repository.dart';
+import 'package:bingo_player/src/features/auth/data/auth_models.dart';
 import 'package:bingo_player/src/features/auth/data/auth_session_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -43,6 +44,13 @@ final walletWithdrawalsProvider = FutureProvider.autoDispose
       (ref, page) async => ref
           .read(walletRepositoryProvider)
           .getWithdrawals(page: page, size: 10),
+    );
+
+final walletTransfersProvider = FutureProvider.autoDispose
+    .family<PageResult<WalletOwnTransfer>, int>(
+      (ref, page) async => ref
+          .read(walletRepositoryProvider)
+          .getOwnTransfers(page: page, size: 10),
     );
 
 class WalletScreen extends ConsumerStatefulWidget {
@@ -522,6 +530,13 @@ class _WithdrawalsPaneState extends ConsumerState<_WithdrawalsPane> {
   bool _showForm = false;
   String? _error;
   int _page = 0;
+
+  void _populateTelebirrDetails(UserProfile? user) {
+    if (_type != 'TELEBIRR' || user == null) return;
+    _name.text = user.displayName;
+    _phone.text = user.phoneNumber;
+  }
+
   @override
   void dispose() {
     _amount.dispose();
@@ -584,6 +599,8 @@ class _WithdrawalsPaneState extends ConsumerState<_WithdrawalsPane> {
   @override
   Widget build(BuildContext context) {
     final async = ref.watch(walletWithdrawalsProvider(_page));
+    final user = ref.watch(authSessionControllerProvider).session?.user;
+    _populateTelebirrDetails(user);
     return ListView(
       padding: const EdgeInsets.all(12),
       children: [
@@ -593,7 +610,10 @@ class _WithdrawalsPaneState extends ConsumerState<_WithdrawalsPane> {
               width: double.infinity,
               child: FilledButton.icon(
                 key: const ValueKey('wallet-open-withdrawal-form-button'),
-                onPressed: () => setState(() => _showForm = true),
+                onPressed: () => setState(() {
+                  _populateTelebirrDetails(user);
+                  _showForm = true;
+                }),
                 icon: const Icon(Icons.north_east_rounded),
                 label: const Text('Submit withdrawal request'),
               ),
@@ -629,7 +649,10 @@ class _WithdrawalsPaneState extends ConsumerState<_WithdrawalsPane> {
                     ],
                     onChanged: _busy
                         ? null
-                        : (v) => setState(() => _type = v ?? 'TELEBIRR'),
+                        : (v) => setState(() {
+                            _type = v ?? 'TELEBIRR';
+                            _populateTelebirrDetails(user);
+                          }),
                   ),
                   TextFormField(
                     controller: _amount,
@@ -648,6 +671,7 @@ class _WithdrawalsPaneState extends ConsumerState<_WithdrawalsPane> {
                   ),
                   TextFormField(
                     controller: _name,
+                    readOnly: _type == 'TELEBIRR',
                     decoration: const InputDecoration(
                       labelText: 'Account holder name',
                     ),
@@ -657,6 +681,7 @@ class _WithdrawalsPaneState extends ConsumerState<_WithdrawalsPane> {
                   if (_type == 'TELEBIRR')
                     TextFormField(
                       controller: _phone,
+                      readOnly: true,
                       decoration: const InputDecoration(
                         labelText: 'Telebirr phone number',
                       ),
@@ -954,6 +979,7 @@ class _TransfersPaneState extends ConsumerState<_TransfersPane> {
         _noteController.clear();
       });
       widget.onCompleted();
+      ref.invalidate(walletTransfersProvider);
     } catch (error) {
       if (!mounted) return;
       final parsed = normalizeApiError(error);
@@ -1001,6 +1027,8 @@ class _TransfersPaneState extends ConsumerState<_TransfersPane> {
                 ),
               ),
             ),
+            const SizedBox(height: 16),
+            const _PlayerTransferHistory(),
           ],
         ),
       );
@@ -1110,6 +1138,108 @@ class _TransfersPaneState extends ConsumerState<_TransfersPane> {
               ],
             ),
           ),
+          const SizedBox(height: 16),
+          const _PlayerTransferHistory(),
+        ],
+      ),
+    );
+  }
+}
+
+class _PlayerTransferHistory extends ConsumerStatefulWidget {
+  const _PlayerTransferHistory();
+
+  @override
+  ConsumerState<_PlayerTransferHistory> createState() =>
+      _PlayerTransferHistoryState();
+}
+
+class _PlayerTransferHistoryState
+    extends ConsumerState<_PlayerTransferHistory> {
+  int _page = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context)!;
+    final history = ref.watch(walletTransfersProvider(_page));
+    return SectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            localizations.transferHistoryTitle,
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 8),
+          history.when(
+            loading: () => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Center(child: Text(localizations.loading)),
+            ),
+            error: (error, stack) => Text(
+              userFacingApiError(error, localizations) ??
+                  localizations.errorGeneric,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+            data: (result) {
+              if (result.content.isEmpty && _page == 0) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Text(localizations.transferHistoryEmpty),
+                );
+              }
+              return Column(
+                children: [
+                  for (final transfer in result.content)
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(
+                        Icons.north_east_rounded,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      title: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '${transfer.amount} ${transfer.currency}',
+                              style: Theme.of(context).textTheme.titleSmall,
+                            ),
+                          ),
+                          Text(
+                            transfer.status,
+                            style: Theme.of(context).textTheme.labelSmall,
+                          ),
+                        ],
+                      ),
+                      subtitle: Text(
+                        '${localizations.recipientPhoneLabel}: ${transfer.recipientPhoneNumber}\n${DateFormat.yMMMd().add_jm().format(transfer.createdAt.toLocal())}',
+                      ),
+                    ),
+                  if (result.totalPages > 1)
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        IconButton(
+                          tooltip: localizations.previous,
+                          onPressed: _page > 0
+                              ? () => setState(() => _page--)
+                              : null,
+                          icon: const Icon(Icons.chevron_left),
+                        ),
+                        Text('${_page + 1} / ${result.totalPages}'),
+                        IconButton(
+                          tooltip: localizations.next,
+                          onPressed: _page + 1 < result.totalPages
+                              ? () => setState(() => _page++)
+                              : null,
+                          icon: const Icon(Icons.chevron_right),
+                        ),
+                      ],
+                    ),
+                ],
+              );
+            },
+          ),
         ],
       ),
     );
@@ -1162,6 +1292,13 @@ class _TransactionsPane extends StatelessWidget {
                   final campaignReward = isWalletCampaignReward(
                     entry.transactionType,
                   );
+                  final outgoing = entry.transactionType.endsWith('_DEBIT');
+                  final incoming = entry.transactionType.endsWith('_CREDIT');
+                  final directionColor = outgoing
+                      ? Colors.red.shade700
+                      : incoming
+                      ? Colors.green.shade700
+                      : Theme.of(context).colorScheme.secondary;
                   final transactionDate = DateFormat.yMMMd().add_jm().format(
                     entry.createdAt.toLocal(),
                   );
@@ -1170,6 +1307,19 @@ class _TransactionsPane extends StatelessWidget {
                     child: SectionCard(
                       padding: const EdgeInsets.all(12),
                       child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: directionColor.withValues(
+                            alpha: 0.12,
+                          ),
+                          child: Icon(
+                            outgoing
+                                ? Icons.north_east_rounded
+                                : incoming
+                                ? Icons.south_west_rounded
+                                : Icons.swap_horiz_rounded,
+                            color: directionColor,
+                          ),
+                        ),
                         title: Text(
                           campaignReward
                               ? walletTransactionCampaignName(

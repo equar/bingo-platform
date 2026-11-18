@@ -8,27 +8,44 @@ class WalletApi {
   final Dio _dio;
 
   Future<WalletBalance> getBalance() async {
-    final response = await _dio.get<Map<String, dynamic>>('/api/v1/wallet/balance');
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/v1/wallet/balance',
+    );
     return WalletBalance.fromJson(response.data ?? const <String, dynamic>{});
   }
 
-  Future<PageResult<WalletTransaction>> getTransactions({required int page, required int size}) async {
+  Future<PageResult<WalletTransaction>> getTransactions({
+    required int page,
+    required int size,
+  }) async {
     final response = await _dio.get<Map<String, dynamic>>(
       '/api/v1/wallet/transactions',
       queryParameters: {'page': page, 'size': size},
     );
-    return PageResult.fromJson(response.data ?? const <String, dynamic>{}, WalletTransaction.fromJson);
+    return PageResult.fromJson(
+      response.data ?? const <String, dynamic>{},
+      WalletTransaction.fromJson,
+    );
   }
 
-  Future<PageResult<DepositClaim>> getDeposits({required int page, required int size}) async {
+  Future<PageResult<DepositClaim>> getDeposits({
+    required int page,
+    required int size,
+  }) async {
     final response = await _dio.get<Map<String, dynamic>>(
       '/api/v1/wallet/deposits',
       queryParameters: {'page': page, 'size': size},
     );
-    return PageResult.fromJson(response.data ?? const <String, dynamic>{}, DepositClaim.fromJson);
+    return PageResult.fromJson(
+      response.data ?? const <String, dynamic>{},
+      DepositClaim.fromJson,
+    );
   }
 
-  Future<DepositClaim> submitDeposit(DepositRequest request, String idempotencyKey) async {
+  Future<DepositClaim> submitDeposit(
+    DepositRequest request,
+    String idempotencyKey,
+  ) async {
     final response = await _dio.post<Map<String, dynamic>>(
       '/api/v1/wallet/deposits',
       data: request.toJson(),
@@ -42,24 +59,62 @@ class WalletApi {
       '/api/v1/wallet/transfers/recipient',
       queryParameters: {'phoneNumber': phoneNumber},
     );
-    return WalletRecipientLookup.fromJson(response.data ?? const <String, dynamic>{});
+    return WalletRecipientLookup.fromJson(
+      response.data ?? const <String, dynamic>{},
+    );
   }
 
-  Future<WalletTransferResponse> submitTransfer(WalletTransferRequest request, String idempotencyKey) async {
+  Future<WalletTransferResponse> submitTransfer(
+    WalletTransferRequest request,
+    String idempotencyKey,
+  ) async {
     final response = await _dio.post<Map<String, dynamic>>(
       '/api/v1/wallet/transfers',
       data: request.toJson(),
       options: Options(headers: {'Idempotency-Key': idempotencyKey}),
     );
-    return WalletTransferResponse.fromJson(response.data ?? const <String, dynamic>{});
+    return WalletTransferResponse.fromJson(
+      response.data ?? const <String, dynamic>{},
+    );
   }
 
-  Future<PageResult<WalletWithdrawal>> getWithdrawals({required int page, required int size}) async {
-    final response = await _dio.get<Map<String,dynamic>>('/api/v1/wallet/withdrawals', queryParameters: {'page':page,'size':size});
-    return PageResult.fromJson(response.data ?? const {}, WalletWithdrawal.fromJson);
+  Future<PageResult<WalletOwnTransfer>> getOwnTransfers({
+    required int page,
+    required int size,
+  }) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/v1/wallet/transfers',
+      queryParameters: {'page': page, 'size': size},
+    );
+    return PageResult.fromJson(
+      response.data ?? const <String, dynamic>{},
+      WalletOwnTransfer.fromJson,
+    );
   }
-  Future<WalletWithdrawal> submitWithdrawal(WithdrawalRequest request,String key) async {
-    final response=await _dio.post<Map<String,dynamic>>('/api/v1/wallet/withdrawals',data:request.toJson(),options:Options(headers:{'Idempotency-Key':key}));
+
+  Future<PageResult<WalletWithdrawal>> getWithdrawals({
+    required int page,
+    required int size,
+  }) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/v1/wallet/withdrawals',
+      queryParameters: {'page': page, 'size': size},
+    );
+    return PageResult.fromJson(
+      response.data ?? const {},
+      WalletWithdrawal.fromJson,
+    );
+  }
+
+  Future<WalletWithdrawal> submitWithdrawal(
+    WithdrawalRequest request,
+    String key,
+  ) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/api/v1/wallet/withdrawals',
+      data: request.toJson(),
+      options: Options(headers: {'Idempotency-Key': key}),
+    );
     return WalletWithdrawal.fromJson(response.data ?? const {});
   }
 }

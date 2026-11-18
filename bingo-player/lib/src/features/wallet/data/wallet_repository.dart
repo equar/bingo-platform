@@ -15,20 +15,40 @@ class WalletRepository {
 
   Future<WalletBalance> getBalance() => _api.getBalance();
 
-  Future<PageResult<WalletTransaction>> getTransactions({required int page, required int size}) =>
-      _api.getTransactions(page: page, size: size);
+  Future<PageResult<WalletTransaction>> getTransactions({
+    required int page,
+    required int size,
+  }) => _api.getTransactions(page: page, size: size);
 
-  Future<PageResult<DepositClaim>> getDeposits({required int page, required int size}) =>
-      _api.getDeposits(page: page, size: size);
+  Future<PageResult<DepositClaim>> getDeposits({
+    required int page,
+    required int size,
+  }) => _api.getDeposits(page: page, size: size);
 
-  Future<DepositClaim> submitDeposit(DepositRequest request, String idempotencyKey) =>
-      _api.submitDeposit(request, idempotencyKey);
+  Future<DepositClaim> submitDeposit(
+    DepositRequest request,
+    String idempotencyKey,
+  ) => _api.submitDeposit(request, idempotencyKey);
 
-    Future<WalletRecipientLookup> lookupRecipient(String phoneNumber) => _api.lookupRecipient(phoneNumber);
+  Future<WalletRecipientLookup> lookupRecipient(String phoneNumber) =>
+      _api.lookupRecipient(phoneNumber);
 
-    Future<WalletTransferResponse> submitTransfer(WalletTransferRequest request, String idempotencyKey) =>
-      _api.submitTransfer(request, idempotencyKey);
+  Future<WalletTransferResponse> submitTransfer(
+    WalletTransferRequest request,
+    String idempotencyKey,
+  ) => _api.submitTransfer(request, idempotencyKey);
 
-  Future<PageResult<WalletWithdrawal>> getWithdrawals({required int page, required int size}) => _api.getWithdrawals(page: page, size: size);
-  Future<WalletWithdrawal> submitWithdrawal(WithdrawalRequest request,String key) => _api.submitWithdrawal(request,key);
+  Future<PageResult<WalletOwnTransfer>> getOwnTransfers({
+    required int page,
+    required int size,
+  }) => _api.getOwnTransfers(page: page, size: size);
+
+  Future<PageResult<WalletWithdrawal>> getWithdrawals({
+    required int page,
+    required int size,
+  }) => _api.getWithdrawals(page: page, size: size);
+  Future<WalletWithdrawal> submitWithdrawal(
+    WithdrawalRequest request,
+    String key,
+  ) => _api.submitWithdrawal(request, key);
 }

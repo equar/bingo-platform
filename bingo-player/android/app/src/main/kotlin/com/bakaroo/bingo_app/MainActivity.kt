@@ -4,6 +4,7 @@ import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import android.content.Intent
+import android.content.ActivityNotFoundException
 import android.Manifest
 import android.app.Notification
 import android.app.NotificationChannel
@@ -12,6 +13,8 @@ import android.app.PendingIntent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.net.Uri
+import com.android.installreferrer.api.InstallReferrerClient
+import com.android.installreferrer.api.InstallReferrerStateListener
 import android.media.AudioManager
 import android.media.ToneGenerator
 import android.os.Handler
@@ -27,20 +30,38 @@ class MainActivity : FlutterActivity() {
         super.configureFlutterEngine(flutterEngine)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "bingo_player/external_links")
             .setMethodCallHandler { call, result ->
-                if (call.method != "open") {
-                    result.notImplemented()
-                    return@setMethodCallHandler
-                }
-                val uri = (call.arguments as? String)?.let(Uri::parse)
-                if (uri == null || uri.scheme !in listOf("https", "http")) {
-                    result.error("invalid_url", "Only HTTP and HTTPS links can be opened.", null)
-                    return@setMethodCallHandler
-                }
-                try {
-                    startActivity(Intent(Intent.ACTION_VIEW, uri))
-                    result.success(null)
-                } catch (_: Exception) {
-                    result.error("open_failed", "No app can open this link.", null)
+                when (call.method) {
+                    "open" -> {
+                        val uri = (call.arguments as? String)?.let(Uri::parse)
+                        if (uri == null || uri.scheme !in listOf("https", "http")) {
+                            result.error("invalid_url", "Only HTTP and HTTPS links can be opened.", null)
+                            return@setMethodCallHandler
+                        }
+                        try {
+                            startActivity(Intent(Intent.ACTION_VIEW, uri))
+                            result.success(null)
+                        } catch (_: ActivityNotFoundException) {
+                            result.error("open_failed", "No app can open this link.", null)
+                        }
+                    }
+                    "share" -> {
+                        val args = call.arguments as? Map<*, *>
+                        val text = args?.get("text")?.toString().orEmpty()
+                        val subject = args?.get("subject")?.toString().orEmpty()
+                        if (text.isBlank()) {
+                            result.error("invalid_message", "Share text is required.", null)
+                        } else {
+                            val intent = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_TEXT, text)
+                                putExtra(Intent.EXTRA_SUBJECT, subject)
+                            }
+                            startActivity(Intent.createChooser(intent, subject))
+                            result.success(null)
+                        }
+                    }
+                    "getInstallReferralCode" -> readInstallReferralCode(result)
+                    else -> result.notImplemented()
                 }
             }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "bingo_player/notifications")
@@ -78,6 +99,40 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+    }
+
+    private fun readInstallReferralCode(result: MethodChannel.Result) {
+        val client = InstallReferrerClient.newBuilder(this).build()
+        try {
+            client.startConnection(object : InstallReferrerStateListener {
+                override fun onInstallReferrerSetupFinished(responseCode: Int) {
+                    if (responseCode != InstallReferrerClient.InstallReferrerResponse.OK) {
+                        client.endConnection()
+                        result.success(null)
+                        return
+                    }
+                    try {
+                        val referrer = client.installReferrer.installReferrer
+                        val code = Uri.parse("https://bingo.bakaroo.com/?$referrer")
+                            .getQueryParameter("referral_code")
+                            ?.takeIf { it.matches(Regex("^[A-Za-z0-9]{6}$")) }
+                        client.endConnection()
+                        result.success(code)
+                    } catch (_: Exception) {
+                        client.endConnection()
+                        result.success(null)
+                    }
+                }
+
+                override fun onInstallReferrerServiceDisconnected() {
+                    client.endConnection()
+                    result.success(null)
+                }
+            })
+        } catch (_: Exception) {
+            client.endConnection()
+            result.success(null)
+        }
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {

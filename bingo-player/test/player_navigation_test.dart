@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:bingo_player/l10n/app_localizations.dart';
+import 'package:bingo_player/src/core/models/page_result.dart';
 import 'package:bingo_player/src/core/theme/app_theme.dart';
 import 'package:bingo_player/src/core/config/app_config.dart';
 import 'package:bingo_player/src/core/network/api_provider.dart';
@@ -327,4 +328,18 @@ class _UnusedWalletRepository extends WalletRepository {
     'promotionalBalance': 20,
     'totalBalance': 1220,
   });
+
+  @override
+  Future<PageResult<WalletOwnTransfer>> getOwnTransfers({
+    required int page,
+    required int size,
+  }) async => const PageResult(
+    content: [],
+    page: 0,
+    size: 10,
+    totalElements: 0,
+    totalPages: 0,
+    first: true,
+    last: true,
+  );
 }

@@ -979,6 +979,20 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
                                 .andExpect(jsonPath("$.totalElements").value(1))
                                 .andExpect(jsonPath("$.content[0].transactionType").value("WALLET_TRANSFER_CREDIT"))
                                 .andExpect(jsonPath("$.content[0].referenceId").value(transferId));
+                mockMvc.perform(get("/api/v1/wallet/transfers")
+                                .header("Authorization", "Bearer " + senderToken))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.totalElements").value(1))
+                                .andExpect(jsonPath("$.content[0].id").value(transferId))
+                                .andExpect(jsonPath("$.content[0].operationId").value(operationId))
+                                .andExpect(jsonPath("$.content[0].recipientPhoneNumber").value("251911000104"))
+                                .andExpect(jsonPath("$.content[0].amount").value(30.00))
+                                .andExpect(jsonPath("$.content[0].status").value("COMPLETED"))
+                                .andExpect(jsonPath("$.content[0].recipientBalanceAfter").doesNotExist());
+                mockMvc.perform(get("/api/v1/wallet/transfers")
+                                .header("Authorization", "Bearer " + recipientToken))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.totalElements").value(0));
                 mockMvc.perform(get("/api/v1/admin/wallet/transfers")
                                 .header("Authorization", "Bearer " + adminToken)
                                 .param("query", operationId)
@@ -1018,7 +1032,11 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
                                 .andExpect(jsonPath("$.transfer.currency").value("ETB"))
                                 .andExpect(jsonPath("$.transfer.senderId").value(playerUser.getId()))
                                 .andExpect(jsonPath("$.transfer.recipientId").value(recipient.getId()))
+                                .andExpect(jsonPath("$.senderDisplayName").value("Player User"))
+                                .andExpect(jsonPath("$.recipientDisplayName").value("Recipient User"))
                                 .andExpect(jsonPath("$.ledgerEntries.length()").value(2))
+                                .andExpect(jsonPath("$.ledgerEntries[0].walletOwnerDisplayName").value("Player User"))
+                                .andExpect(jsonPath("$.ledgerEntries[1].walletOwnerDisplayName").value("Recipient User"))
                                 .andExpect(jsonPath("$.ledgerEntries[0].referenceType").value("WALLET_TRANSFER"))
                                 .andExpect(jsonPath("$.ledgerEntries[0].referenceId").value(transferId))
                                 .andReturn().getResponse().getContentAsString();

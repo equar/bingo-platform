@@ -8,7 +8,7 @@ and live game events.
 ## Prerequisites
 
 - Java 25+ and Maven 3.9+
-- Node.js 22.13+ and npm for the Admin app
+- Node.js 22.13.0 and npm for Admin and website CI checks
 - Flutter 3.41.0+ and Dart 3.11.0+ for Player and Agent
 - Visual Studio 2022 Build Tools with **Desktop development with C++** and a Windows 10/11 SDK for Windows desktop builds
 - Android Studio and an Android SDK for Android emulators
@@ -89,6 +89,48 @@ $env:ANDROID_USER_HOME = Join-Path $env:USERPROFILE '.android'
 $env:ANDROID_EMULATOR_HOME = $env:ANDROID_USER_HOME
 $env:ANDROID_AVD_HOME = Join-Path $env:ANDROID_USER_HOME 'avd'
 ```
+
+## Local Git checks on Windows
+
+Install this clone's Git hooks from PowerShell:
+
+```powershell
+.\scripts\Install-BingoGitHooks.ps1
+```
+
+The installer uses an existing `core.hooksPath` when configured and preserves
+existing pre-commit/pre-push hooks as chained backups. Re-run it to refresh the
+wrappers. Pre-commit checks staged Admin JavaScript/TypeScript lint and staged
+Player/Agent Dart formatting against the staged blob, without formatting or
+staging files. Pre-push checks outgoing commits in an isolated Git worktree;
+first pushes with no known base conservatively check every CI-covered component
+in the outgoing tree. Failures show the component, command, output, and rerun
+command, and block the commit or push.
+
+Run validation manually:
+
+```powershell
+.\scripts\hooks\Invoke-BingoGitChecks.ps1 -Mode Manual
+```
+
+The same entry point is available in VS Code under **Tasks: Run Task → Verify
+before push**. It validates committed changes against the configured upstream,
+or the whole current commit when no upstream is available.
+
+The Admin, website, backend, Player, Agent, and infrastructure checks are
+shared with their GitHub Actions workflows. Backend integration tests run
+locally only when `bingo-backend/.env.maven-test` has the approved loopback
+`bingo_qa_maven_test` URL and scoped `bingo_qa_maven_runner` account; the
+backend test guard verifies database identity and grants before tests run.
+Without that isolated configuration, local checks compile/package the backend
+and report that database tests remain in CI. The rendered Nginx check, GitHub
+deployment/release steps requiring credentials or permissions, and the second
+Flutter version in the mobile CI matrix remain CI-only.
+
+The recent mobile Actions failure was the Player localization test for missing
+Tigrinya message keys. The local Player/Agent check runs `flutter test`, so the
+same localization test failure blocks the push when it is present in the
+outgoing commit; the matrix's other Flutter SDK version remains CI-only.
 
 Persist those Android values with the same user-level API when running as the
 normal Windows developer account:

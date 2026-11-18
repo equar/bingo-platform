@@ -65,7 +65,7 @@ jobs:
 
       - name: Run Maven verify and OpenAPI contract check against MySQL
         working-directory: bingo-backend
-        run: mvn -q verify
+        run: node ../scripts/ci/run-component-checks.mjs backend --ci
 
       - name: Upload backend test reports
         if: always()
@@ -108,21 +108,7 @@ jobs:
 
       - name: Lint admin source
         working-directory: bingo-admin
-        run: npm run lint
-
-      - name: Run admin tests with coverage
-        working-directory: bingo-admin
-        run: |
-          mkdir -p test-results
-          npm run test:coverage -- --maxWorkers=1 --reporter=junit --outputFile=test-results/vitest-junit.xml
-
-      - name: Run TypeScript check
-        working-directory: bingo-admin
-        run: npx tsc -b --pretty false
-
-      - name: Build admin bundle
-        working-directory: bingo-admin
-        run: npm run build
+        run: node ../scripts/ci/run-component-checks.mjs admin --ci
 
       - name: Upload admin test results
         if: always()
@@ -169,14 +155,4 @@ jobs:
 
       - name: Check website
         working-directory: bingo-website
-        run: npm run check
-
-      - name: Validate website links
-        working-directory: bingo-website
-        run: npm run validate:links
-
-      - name: Build website
-        working-directory: bingo-website
-        env:
-          PUBLIC_SITE_URL: https://example.invalid
-        run: npm run build
+        run: node ../scripts/ci/run-component-checks.mjs website --ci

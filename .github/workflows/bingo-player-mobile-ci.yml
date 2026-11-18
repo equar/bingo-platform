@@ -41,19 +41,5 @@ jobs:
           flutter-version: ${{ matrix.flutter_version }}
           channel: stable
 
-      - name: Install dependencies
-        # Flutter SDKs pin different intl versions, so resolve against each matrix SDK.
-        run: flutter pub get
-
-      - name: Generate localizations
-        run: flutter gen-l10n
-
-      - name: Analyze the app
-        run: flutter analyze
-
-      - name: Run widget tests
-        run: flutter test
-
-      - name: Build Android release bundle
-        if: matrix.app == 'bingo-player' && matrix.flutter_version == '3.47.7'
-        run: flutter build appbundle --release --dart-define=API_BASE_URL="${MOBILE_API_BASE_URL}"
+      - name: Validate Flutter app
+        run: node ../scripts/ci/run-component-checks.mjs mobile --ci --app "${{ matrix.app }}" --flutter-version "${{ matrix.flutter_version }}"

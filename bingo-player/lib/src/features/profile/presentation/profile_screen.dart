@@ -5,6 +5,7 @@ import 'package:bingo_player/src/core/network/api_provider.dart';
 import 'package:bingo_player/src/core/network/api_error.dart';
 import 'package:bingo_player/src/core/config/app_config.dart';
 import 'package:bingo_player/src/core/platform/external_link.dart';
+import 'package:bingo_player/src/core/platform/referral_invite.dart';
 import 'package:bingo_player/src/core/platform/player_notifications.dart';
 import 'package:bingo_player/src/core/storage/player_preferences.dart';
 import 'package:bingo_player/src/core/widgets/responsive_content.dart';
@@ -533,6 +534,53 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     Text(
                       '${localizations.profileMemberSince}: ${EthiopianDateTime.date(profile.createdAt, languageCode: Localizations.localeOf(context).languageCode)}',
                     ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              SectionCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      localizations.inviteFriendsTitle,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 6),
+                    Text(localizations.inviteFriendsDescription),
+                    if (profile.referralCode.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      SelectableText(
+                        '${localizations.yourReferralCode}: ${profile.referralCode}',
+                        key: const ValueKey('profile-referral-code'),
+                      ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          key: const ValueKey('profile-share-referral'),
+                          onPressed: () async {
+                            final message = localizations.inviteFriendsMessage(
+                              profile.referralCode,
+                              ReferralInvite.link(profile.referralCode),
+                            );
+                            final shared = await ReferralInvite.share(
+                              message,
+                              localizations.inviteFriendsTitle,
+                            );
+                            if (!shared && context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(localizations.inviteCopied),
+                                ),
+                              );
+                            }
+                          },
+                          icon: const Icon(Icons.share_rounded),
+                          label: Text(localizations.shareInvitation),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
