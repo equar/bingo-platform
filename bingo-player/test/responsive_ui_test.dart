@@ -183,7 +183,9 @@ void main() {
   testWidgets('home uses light status icons over its navy header', (
     tester,
   ) async {
-    viewport(tester, const Size(390, 844));
+    viewport(tester, const Size(390, 680));
+    tester.view.viewPadding = const FakeViewPadding(top: 24);
+    addTearDown(tester.view.resetViewPadding);
     await tester.pumpWidget(harness());
     await tester.pumpAndSettle();
 
@@ -191,7 +193,26 @@ void main() {
       find.byType(AnnotatedRegion<SystemUiOverlayStyle>),
     );
     expect(region.value.statusBarIconBrightness, Brightness.light);
-    expect(region.value.statusBarColor, Colors.transparent);
+    expect(region.value.statusBarColor, const Color(0xFF081D46));
+    expect(
+      find.byKey(const ValueKey('home-status-bar-backdrop')),
+      findsOneWidget,
+    );
+    await tester.drag(
+      find.byKey(const ValueKey('home-scroll')),
+      const Offset(0, -500),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .getTopLeft(find.byKey(const ValueKey('home-header-background')))
+          .dy,
+      lessThan(0),
+    );
+    expect(
+      find.byKey(const ValueKey('home-status-bar-backdrop')),
+      findsOneWidget,
+    );
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
