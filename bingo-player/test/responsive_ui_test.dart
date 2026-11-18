@@ -180,6 +180,21 @@ void main() {
     }
   }
 
+  testWidgets('home uses light status icons over its navy header', (
+    tester,
+  ) async {
+    viewport(tester, const Size(390, 844));
+    await tester.pumpWidget(harness());
+    await tester.pumpAndSettle();
+
+    final region = tester.widget<AnnotatedRegion<SystemUiOverlayStyle>>(
+      find.byType(AnnotatedRegion<SystemUiOverlayStyle>),
+    );
+    expect(region.value.statusBarIconBrightness, Brightness.light);
+    expect(region.value.statusBarColor, Colors.transparent);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('Amharic home fits a narrow phone at large text', (tester) async {
     viewport(tester, const Size(320, 568));
     await tester.pumpWidget(harness(scale: 2, locale: const Locale('am')));

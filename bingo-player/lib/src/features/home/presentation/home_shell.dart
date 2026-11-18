@@ -186,10 +186,14 @@ class _HomeShellState extends State<HomeShell> {
         final wide =
             constraints.maxWidth >= 840 && constraints.maxHeight >= 480;
         final isDark = Theme.of(context).brightness == Brightness.dark;
+        final isHomeRoot =
+            _index == 0 && !(_navigatorKeys[0].currentState?.canPop() ?? false);
         final page = _pages();
         return AnnotatedRegion<SystemUiOverlayStyle>(
           value:
-              (isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark)
+              (isDark || isHomeRoot
+                      ? SystemUiOverlayStyle.light
+                      : SystemUiOverlayStyle.dark)
                   .copyWith(statusBarColor: Colors.transparent),
           child: Scaffold(
             body: wide
