@@ -163,7 +163,7 @@ async function dashboardLayout(page: import("@playwright/test").Page) {
 test("renders mocked dashboard data and responsive navigation in English and Amharic", async ({ page }, testInfo) => {
   await mockAdminApi(page);
   await page.addInitScript(({ user }) => {
-    localStorage.setItem("bingo-admin-session", JSON.stringify({
+    sessionStorage.setItem("bingo-admin-session", JSON.stringify({
       accessToken: "mocked-visual-test-token",
       tokenType: "Bearer",
       user,
@@ -279,7 +279,7 @@ test("renders mocked dashboard data and responsive navigation in English and Amh
   await switchToEnglish(page);
   await page.goto("/deposits?status=PENDING");
   await expect(page.getByRole("heading", { name: "Deposits", exact: true })).toBeVisible();
-  expect(await page.evaluate(() => localStorage.getItem("bingo-admin-session"))).toContain("mocked-visual-test-token");
+  expect(await page.evaluate(() => sessionStorage.getItem("bingo-admin-session"))).toContain("mocked-visual-test-token");
   await expect.poll(() => page.url()).toContain("/deposits?status=PENDING");
   await expect(page.getByRole("combobox", { name: "Status" })).toHaveText("Pending");
 });
@@ -302,7 +302,7 @@ test("shows mocked zero and empty states without inventing list data", async ({ 
     auditLogs: pageResponse,
   });
   await page.addInitScript(({ user }) => {
-    localStorage.setItem("bingo-admin-session", JSON.stringify({
+    sessionStorage.setItem("bingo-admin-session", JSON.stringify({
       accessToken: "mocked-empty-test-token",
       tokenType: "Bearer",
       user,
@@ -321,7 +321,7 @@ test("shows a mocked metrics error with a retry instead of a zero-filled dashboa
   let allowMetrics = false;
   await mockAdminApi(page, { metricsUnavailable: () => !allowMetrics });
   await page.addInitScript(({ user }) => {
-    localStorage.setItem("bingo-admin-session", JSON.stringify({
+    sessionStorage.setItem("bingo-admin-session", JSON.stringify({
       accessToken: "mocked-error-test-token",
       tokenType: "Bearer",
       user,
@@ -347,7 +347,7 @@ test("keeps long ETB totals readable without page overflow (mocked)", async ({ p
     },
   });
   await page.addInitScript(({ user }) => {
-    localStorage.setItem("bingo-admin-session", JSON.stringify({
+    sessionStorage.setItem("bingo-admin-session", JSON.stringify({
       accessToken: "mocked-long-amounts-token",
       tokenType: "Bearer",
       user,

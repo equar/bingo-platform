@@ -52,7 +52,7 @@ test("refresh reloads the current paginated list on desktop and narrow layouts",
     await route.fulfill({ status: 404, json: { message: "No QA fixture" } });
   });
   await page.addInitScript(() => {
-    localStorage.setItem("bingo-admin-session", JSON.stringify({
+    sessionStorage.setItem("bingo-admin-session", JSON.stringify({
       accessToken: "synthetic-browser-test-token", tokenType: "Bearer",
       user: { id: 9001, displayName: "Visual QA Admin", roles: ["ADMIN"] },
     }));
@@ -112,7 +112,7 @@ test("independent refresh actions on Agents reload only their own lists", async 
     }
   });
   await page.addInitScript(() => {
-    localStorage.setItem("bingo-admin-session", JSON.stringify({
+    sessionStorage.setItem("bingo-admin-session", JSON.stringify({
       accessToken: "synthetic-browser-test-token", tokenType: "Bearer",
       user: { id: 9001, displayName: "Visual QA Admin", roles: ["ADMIN"] },
     }));

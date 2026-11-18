@@ -37,7 +37,7 @@ async function clickAndConfirm(row: Locator, action: string, page: Page) {
 test('sessions page supports creation, search, filters, details, state changes, and empty results', async ({ page }) => {
   await login(page);
   const accessToken = await page.evaluate(() => {
-    const session = JSON.parse(localStorage.getItem('bingo-admin-session') ?? '{}');
+    const session = JSON.parse(sessionStorage.getItem('bingo-admin-session') ?? '{}');
     return session.accessToken as string;
   });
   expect(accessToken).toBeTruthy();

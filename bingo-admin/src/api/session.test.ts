@@ -21,7 +21,7 @@ function buildSession(overrides: { accessToken?: string; preferredLanguage?: str
 
 describe('session helpers', () => {
   afterEach(async () => {
-    window.localStorage.clear();
+    window.sessionStorage.clear();
     vi.restoreAllMocks();
     await i18n.changeLanguage('en');
   });
@@ -34,6 +34,21 @@ describe('session helpers', () => {
 
     clearSession();
     expect(readSession()).toBeNull();
+  });
+
+  it('does not persist Admin tokens in localStorage', () => {
+    writeSession(buildSession());
+    expect(window.localStorage.getItem('bingo-admin-session')).toBeNull();
+    expect(window.sessionStorage.getItem('bingo-admin-session')).not.toBeNull();
+  });
+
+  it('migrates a prior persistent session to tab storage and removes its localStorage copy', () => {
+    const session = buildSession();
+    window.localStorage.setItem('bingo-admin-session', JSON.stringify(session));
+
+    expect(readSession()).toEqual(session);
+    expect(window.localStorage.getItem('bingo-admin-session')).toBeNull();
+    expect(window.sessionStorage.getItem('bingo-admin-session')).not.toBeNull();
   });
 
   it('clears potentially personal list searches when the admin session ends', () => {

@@ -10,7 +10,7 @@ test('P17: admin restricts a registered player and protected wallet access is de
   const backend = qaBaseUrls().backend;
 
   await loginAdmin(page);
-  const adminSession = await page.evaluate(() => JSON.parse(localStorage.getItem('bingo-admin-session') ?? '{}'));
+  const adminSession = await page.evaluate(() => JSON.parse(sessionStorage.getItem('bingo-admin-session') ?? '{}'));
   await page.goto('/players');
   const search = page.getByRole('textbox', { name: 'Search by name, email, or phone' });
   await search.fill(phone);

@@ -9,7 +9,7 @@ const evidenceDir = path.resolve(process.cwd(), '../docs/qa/evidence');
 
 async function tokenFromBrowser(page: Page) {
   return page.evaluate(() => {
-    const value = localStorage.getItem('bingo-admin-session');
+    const value = sessionStorage.getItem('bingo-admin-session');
     return value ? (JSON.parse(value) as { accessToken: string }).accessToken : '';
   });
 }
@@ -91,7 +91,7 @@ test('dashboard loading state resolves from the actual metrics endpoint', async 
   });
   expect(loginResponse.ok()).toBeTruthy();
   const session = await loginResponse.json();
-  await page.addInitScript((value) => localStorage.setItem('bingo-admin-session', JSON.stringify(value)), session);
+  await page.addInitScript((value) => sessionStorage.setItem('bingo-admin-session', JSON.stringify(value)), session);
   await page.route('**/api/v1/admin/dashboard/metrics', async (route) => {
     await new Promise((resolve) => setTimeout(resolve, 500));
     await route.continue();
@@ -110,7 +110,7 @@ test('dashboard displays API failure and recovers on retry', async ({ page, requ
   });
   expect(loginResponse.ok()).toBeTruthy();
   const session = await loginResponse.json();
-  await page.addInitScript((value) => localStorage.setItem('bingo-admin-session', JSON.stringify(value)), session);
+  await page.addInitScript((value) => sessionStorage.setItem('bingo-admin-session', JSON.stringify(value)), session);
   await page.route('**/api/v1/admin/dashboard/metrics', (route) => route.fulfill({
     status: 503,
     contentType: 'application/json',

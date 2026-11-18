@@ -29,7 +29,7 @@ function db(sql: string): string {
 }
 
 async function token(page: Page): Promise<string> {
-  return page.evaluate(() => JSON.parse(localStorage.getItem('bingo-admin-session') ?? '{}').accessToken as string);
+  return page.evaluate(() => JSON.parse(sessionStorage.getItem('bingo-admin-session') ?? '{}').accessToken as string);
 }
 
 async function adminApi(page: Page, method: string, route: string, data?: unknown) {

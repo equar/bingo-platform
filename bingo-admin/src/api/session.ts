@@ -32,7 +32,15 @@ function emitChange() {
 }
 
 export function readSession(): AdminAuthSession | null {
-  const raw = window.localStorage.getItem(SESSION_KEY);
+  let raw = window.sessionStorage.getItem(SESSION_KEY);
+  if (raw === null) {
+    // Migrate sessions created by older builds, then remove the persistent token copy.
+    raw = window.localStorage.getItem(SESSION_KEY);
+    if (raw !== null) {
+      window.sessionStorage.setItem(SESSION_KEY, raw);
+      window.localStorage.removeItem(SESSION_KEY);
+    }
+  }
   if (raw === cachedSessionRaw) {
     return cachedSessionValue;
   }
@@ -53,7 +61,8 @@ export function readSession(): AdminAuthSession | null {
 }
 
 export function writeSession(session: AdminAuthSession): void {
-  window.localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  window.sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  window.localStorage.removeItem(SESSION_KEY);
   cachedSessionRaw = JSON.stringify(session);
   cachedSessionValue = session;
   sessionExpiredPending = false;
@@ -63,6 +72,7 @@ export function writeSession(session: AdminAuthSession): void {
 }
 
 export function clearSession(options: { expired?: boolean } = {}): void {
+  window.sessionStorage.removeItem(SESSION_KEY);
   window.localStorage.removeItem(SESSION_KEY);
   for (let index = window.sessionStorage.length - 1; index >= 0; index -= 1) {
     const key = window.sessionStorage.key(index);
@@ -83,24 +93,12 @@ export function consumeSessionExpired(): boolean {
   return expired;
 }
 
-// Keep the active language in sync when another tab signs in or out.
-if (typeof window !== "undefined") {
-  window.addEventListener("storage", (event) => {
-    if (event.key === null || event.key === SESSION_KEY) {
-      const session = readSession();
-      applyLanguage(session ? resolvePreferredLanguage(session.user.preferredLanguage) : DEFAULT_LANGUAGE);
-    }
-  });
-}
-
 export function useSession(): AdminAuthSession | null {
   return useSyncExternalStore(
     (onStoreChange) => {
       window.addEventListener(SESSION_EVENT, onStoreChange);
-      window.addEventListener('storage', onStoreChange);
       return () => {
         window.removeEventListener(SESSION_EVENT, onStoreChange);
-        window.removeEventListener('storage', onStoreChange);
       };
     },
     readSession,

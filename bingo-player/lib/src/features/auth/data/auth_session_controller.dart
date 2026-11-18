@@ -130,6 +130,14 @@ class AuthSessionController extends StateNotifier<AuthSessionState> {
     state = AuthSessionState(isLoading: false, errorMessage: reason);
   }
 
+  Future<void> logout(Future<void> Function() revokeRemoteSession) async {
+    try {
+      await revokeRemoteSession();
+    } finally {
+      await clearSession();
+    }
+  }
+
   Future<bool> updateUser(
     UserProfile user, {
     required String expectedAccessToken,
