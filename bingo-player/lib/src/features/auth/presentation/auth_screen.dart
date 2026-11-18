@@ -247,7 +247,11 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     final passwordError =
         fieldErrorMessage(_apiError, 'password', localizations) ??
         fieldErrorMessage(_apiError, 'pin', localizations);
-    const authLabelStyle = TextStyle(color: Colors.black);
+    final authLabelStyle = TextStyle(
+      color: Theme.of(context).brightness == Brightness.dark
+          ? Theme.of(context).colorScheme.onSurface
+          : Colors.black,
+    );
     return Scaffold(
       body: SafeArea(
         child: Center(

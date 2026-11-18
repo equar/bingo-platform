@@ -3,6 +3,7 @@ import 'package:bingo_player/src/core/network/api_error.dart';
 
 import 'package:bingo_player/l10n/app_localizations.dart';
 import 'package:bingo_player/src/core/storage/session_storage.dart';
+import 'package:bingo_player/src/core/theme/app_theme.dart';
 import 'package:bingo_player/src/features/auth/data/auth_api.dart';
 import 'package:bingo_player/src/features/auth/data/auth_models.dart';
 import 'package:bingo_player/src/features/auth/data/auth_repository.dart';
@@ -61,6 +62,7 @@ Future<ProviderContainer> mount(
   bool suspended = false,
   bool narrow = false,
   Locale locale = const Locale('en'),
+  Brightness brightness = Brightness.light,
 }) async {
   t.view.physicalSize = narrow ? const Size(320, 640) : const Size(500, 1000);
   t.view.devicePixelRatio = 1;
@@ -77,6 +79,7 @@ Future<ProviderContainer> mount(
     UncontrolledProviderScope(
       container: container,
       child: MaterialApp(
+        theme: buildAppTheme(brightness: brightness),
         locale: locale,
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
@@ -276,6 +279,40 @@ void main() {
     expectBlackLabel('auth-referral-code-field');
     expectBlackLabel('auth-phone-field');
     expectBlackLabel('auth-password-field');
+  });
+
+  testWidgets('auth labels use on-surface color in dark mode', (t) async {
+    await mount(t, TestAuthRepository(), brightness: Brightness.dark);
+
+    final phoneField = find.byKey(const ValueKey('auth-phone-field'));
+    final expectedColor = Theme.of(t.element(phoneField)).colorScheme.onSurface;
+    for (final key in ['auth-phone-field', 'auth-password-field']) {
+      final field = find.byKey(ValueKey(key));
+      final decoration = t
+          .widget<InputDecorator>(
+            find.descendant(of: field, matching: find.byType(InputDecorator)),
+          )
+          .decoration;
+      expect(decoration.labelStyle?.color, expectedColor);
+      expect(decoration.floatingLabelStyle?.color, expectedColor);
+    }
+
+    await tapKey(t, 'auth-toggle-button');
+    for (final key in [
+      'auth-display-name-field',
+      'auth-referral-code-field',
+      'auth-phone-field',
+      'auth-password-field',
+    ]) {
+      final field = find.byKey(ValueKey(key));
+      final decoration = t
+          .widget<InputDecorator>(
+            find.descendant(of: field, matching: find.byType(InputDecorator)),
+          )
+          .decoration;
+      expect(decoration.labelStyle?.color, expectedColor);
+      expect(decoration.floatingLabelStyle?.color, expectedColor);
+    }
   });
 
   testWidgets(

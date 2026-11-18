@@ -319,17 +319,22 @@ class _HomeFeatureGrid extends StatelessWidget {
       final rows = (children.length + columns - 1) ~/ columns;
       final rowSpacing = (rows - 1) * 12;
       final availableCardHeight = (constraints.maxHeight - rowSpacing) / rows;
+      final minimumGridHeight = rows * 140 + rowSpacing;
+      final needsScroll =
+          fillSpace &&
+          constraints.hasBoundedHeight &&
+          constraints.maxHeight < minimumGridHeight;
       final cardHeight = availableCardHeight < 140
           ? 140.0
           : availableCardHeight;
-      return Wrap(
+      final grid = Wrap(
         spacing: 12,
         runSpacing: 12,
         children: [
           for (final child in children)
             SizedBox(
               width: width,
-              child: fillSpace && constraints.hasBoundedHeight
+              child: fillSpace && constraints.hasBoundedHeight && !needsScroll
                   ? SizedBox(height: cardHeight, child: child)
                   : ConstrainedBox(
                       constraints: const BoxConstraints(minHeight: 140),
@@ -338,6 +343,12 @@ class _HomeFeatureGrid extends StatelessWidget {
             ),
         ],
       );
+      return needsScroll
+          ? SingleChildScrollView(
+              key: const ValueKey('home-feature-scroll'),
+              child: grid,
+            )
+          : grid;
     },
   );
 }

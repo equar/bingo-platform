@@ -162,6 +162,23 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('feature grid scrolls when the banner leaves too little room', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 680);
+    tester.view.devicePixelRatio = 1;
+    tester.view.viewPadding = const FakeViewPadding(top: 80);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetViewPadding);
+
+    await tester.pumpWidget(_home(onGames: () {}));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('home-feature-scroll')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   for (final size in [const Size(390, 844), const Size(1024, 768)]) {
     testWidgets(
       'home expands feature cards to fill ${size.width.toInt()}x${size.height.toInt()}',
