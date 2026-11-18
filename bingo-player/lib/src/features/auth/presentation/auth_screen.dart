@@ -236,6 +236,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     final passwordError =
         fieldErrorMessage(_apiError, 'password', localizations) ??
         fieldErrorMessage(_apiError, 'pin', localizations);
+    const authLabelStyle = TextStyle(color: Colors.black);
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -247,50 +248,47 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Container(
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [Color(0xFF0B2B5B), Color(0xFF081D46)],
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(24),
+                    child: AspectRatio(
+                      key: const ValueKey('auth-hero-header'),
+                      aspectRatio: 1,
+                      child: Image.asset(
+                        'assets/images/bingo-ethiopia-hero.png',
+                        key: const ValueKey('auth-hero-image'),
+                        fit: BoxFit.cover,
+                        excludeFromSemantics: true,
                       ),
-                      borderRadius: BorderRadius.circular(24),
                     ),
+                  ),
+                  const SizedBox(height: 16),
+                  Padding(
+                    key: const ValueKey('auth-hero-copy'),
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
                     child: Column(
                       children: [
-                        ClipRRect(
-                          borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(24),
-                          ),
-                          child: Image.asset(
-                            'assets/images/bingo-ethiopia-hero.png',
-                            width: double.infinity,
-                            fit: BoxFit.fitWidth,
-                            excludeFromSemantics: true,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
                         Text(
                           _registerMode
                               ? localizations.registerTitle
                               : localizations.loginTitle,
                           textAlign: TextAlign.center,
-                          style: Theme.of(
-                            context,
-                          ).textTheme.titleLarge?.copyWith(color: Colors.white),
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(
+                                color: Theme.of(context).colorScheme.onSurface,
+                              ),
                         ),
                         const SizedBox(height: 4),
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
-                          child: Text(
-                            _registerMode
-                                ? localizations.registerSubtitle
-                                : localizations.loginSubtitle,
-                            textAlign: TextAlign.center,
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(color: Colors.white70),
-                          ),
+                        Text(
+                          _registerMode
+                              ? localizations.registerSubtitle
+                              : localizations.loginSubtitle,
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
                         ),
                       ],
                     ),
@@ -327,6 +325,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                                   Icons.person_outline_rounded,
                                 ),
                                 labelText: localizations.displayNameLabel,
+                                labelStyle: authLabelStyle,
+                                floatingLabelStyle: authLabelStyle,
                                 errorText: displayNameError,
                               ),
                               validator: (value) =>
@@ -348,6 +348,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                               ],
                               decoration: InputDecoration(
                                 labelText: localizations.referralCodeOptional,
+                                labelStyle: authLabelStyle,
+                                floatingLabelStyle: authLabelStyle,
                               ),
                             ),
                             const SizedBox(height: 12),
@@ -371,6 +373,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                             decoration: InputDecoration(
                               prefixIcon: const Icon(Icons.phone_outlined),
                               labelText: localizations.phoneLabel,
+                              labelStyle: authLabelStyle,
+                              floatingLabelStyle: authLabelStyle,
                               errorText: phoneError,
                             ),
                             validator: (value) {
@@ -400,6 +404,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                             onFieldSubmitted: (_) => _submit(),
                             decoration: InputDecoration(
                               labelText: localizations.passwordLabel,
+                              labelStyle: authLabelStyle,
+                              floatingLabelStyle: authLabelStyle,
                               errorText: passwordError,
                               suffixIcon: IconButton(
                                 key: const ValueKey('auth-pin-visibility'),

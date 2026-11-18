@@ -134,6 +134,44 @@ void main() {
     expect(preferences.getString('player.last_login_phone'), '0912345678');
   });
 
+  testWidgets('login and registration copy sits below the hero image', (
+    t,
+  ) async {
+    await mount(t, TestAuthRepository());
+
+    expect(
+      t.getSize(find.byKey(const ValueKey('auth-hero-image'))),
+      t.getSize(find.byKey(const ValueKey('auth-hero-header'))),
+    );
+    final heroHeader = find.byKey(const ValueKey('auth-hero-header'));
+    final heroCopy = find.byKey(const ValueKey('auth-hero-copy'));
+    expect(
+      find.descendant(of: heroHeader, matching: find.text('Sign in')),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: heroCopy, matching: find.text('Sign in')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: heroCopy,
+        matching: find.text('Use your phone number and six-digit PIN.'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      t.getTopLeft(heroCopy).dy,
+      greaterThanOrEqualTo(t.getBottomLeft(heroHeader).dy),
+    );
+
+    await tapKey(t, 'auth-toggle-button');
+    expect(
+      find.descendant(of: heroCopy, matching: find.text('Create account')),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('language preference is available only after signing in', (
     t,
   ) async {
@@ -215,6 +253,31 @@ void main() {
     expect(repo.logins, isEmpty);
     expect(find.text('PIN must be exactly 6 digits.'), findsOneWidget);
   });
+
+  testWidgets('login and registration field labels are black', (t) async {
+    await mount(t, TestAuthRepository());
+
+    void expectBlackLabel(String key) {
+      final field = find.byKey(ValueKey(key));
+      final decoration = t
+          .widget<InputDecorator>(
+            find.descendant(of: field, matching: find.byType(InputDecorator)),
+          )
+          .decoration;
+      expect(decoration.labelStyle?.color, Colors.black);
+      expect(decoration.floatingLabelStyle?.color, Colors.black);
+    }
+
+    expectBlackLabel('auth-phone-field');
+    expectBlackLabel('auth-password-field');
+
+    await tapKey(t, 'auth-toggle-button');
+    expectBlackLabel('auth-display-name-field');
+    expectBlackLabel('auth-referral-code-field');
+    expectBlackLabel('auth-phone-field');
+    expectBlackLabel('auth-password-field');
+  });
+
   testWidgets(
     'login submits unchanged credentials and creates the player session',
     (t) async {
