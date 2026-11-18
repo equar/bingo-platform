@@ -12,7 +12,7 @@ async function signInAgent(request: APIRequestContext, phone: string, password: 
 }
 
 async function findAgent(page: import('@playwright/test').Page, phone: string) {
-  const session = await page.evaluate(() => JSON.parse(localStorage.getItem('bingo-admin-session') ?? '{}') as { accessToken: string });
+  const session = await page.evaluate(() => JSON.parse(sessionStorage.getItem('bingo-admin-session') ?? '{}') as { accessToken: string });
   const response = await page.request.get(`${qaBaseUrls().backend}/api/v1/admin/agents?page=0&size=100`, {
     headers: { Authorization: `Bearer ${session.accessToken}` },
   });

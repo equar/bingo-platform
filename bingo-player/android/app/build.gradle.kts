@@ -13,6 +13,23 @@ val releaseKeystoreProperties = Properties().apply {
         releaseKeystorePropertiesFile.inputStream().use { load(it) }
     }
 }
+val hasReleaseSigning = releaseKeystorePropertiesFile.exists() &&
+    listOf("storeFile", "storePassword", "keyAlias", "keyPassword").all {
+        !releaseKeystoreProperties.getProperty(it).isNullOrBlank()
+    } && releaseKeystoreProperties.getProperty("storeFile")?.let { file(it).isFile } == true
+val allowDebugSigningForValidation = providers.gradleProperty("allowDebugSigningForValidation")
+    .map(String::toBoolean)
+    .getOrElse(false)
+val requestsReleaseArtifact = gradle.startParameter.taskNames.any { task ->
+    task.substringAfterLast(':') in setOf("bundleRelease", "assembleRelease", "packageRelease")
+}
+
+if (requestsReleaseArtifact && !hasReleaseSigning && !allowDebugSigningForValidation) {
+    throw GradleException(
+        "A signed Player release artifact requires android/key.properties with an existing keystore and all four signing values. " +
+            "Debug signing is available only for non-publishing CI validation via -PallowDebugSigningForValidation=true."
+    )
+}
 
 android {
     namespace = "com.bakaroo.bingo_app"
@@ -54,9 +71,9 @@ android {
 
     buildTypes {
         release {
-            signingConfig = if (releaseKeystorePropertiesFile.exists()) {
+            signingConfig = if (hasReleaseSigning) {
                 signingConfigs.getByName("release")
-            } else {
+            } else if (allowDebugSigningForValidation) {
                 signingConfigs.getByName("debug")
             }
         }

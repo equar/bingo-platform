@@ -89,6 +89,7 @@ function runMobile(app) {
   if (app === 'bingo-player' && actualVersion === '3.47.7') {
     run('flutter', ['build', 'appbundle', '--release', '--dart-define=API_BASE_URL=https://api.example.invalid'], cwd, {
       ...process.env,
+      ORG_GRADLE_PROJECT_allowDebugSigningForValidation: 'true',
       MOBILE_API_BASE_URL: 'https://api.example.invalid',
     });
   }

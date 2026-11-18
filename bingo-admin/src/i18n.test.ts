@@ -4,6 +4,7 @@ import i18n, { resolvePreferredLanguage, translateAdminStatus, translateAdminVal
 describe("Admin translations", () => {
   afterEach(async () => {
     window.localStorage.clear();
+    window.sessionStorage.clear();
     vi.resetModules();
     await i18n.changeLanguage("en");
   });
@@ -50,7 +51,7 @@ describe("Admin translations", () => {
 
   it("initializes with the signed-in account's cached preference to avoid a language flash", async () => {
     vi.resetModules();
-    window.localStorage.setItem(
+    window.sessionStorage.setItem(
       "bingo-admin-session",
       JSON.stringify({
         accessToken: "token",
@@ -64,7 +65,7 @@ describe("Admin translations", () => {
 
   it("falls back to English when the cached preference is unsupported", async () => {
     vi.resetModules();
-    window.localStorage.setItem(
+    window.sessionStorage.setItem(
       "bingo-admin-session",
       JSON.stringify({
         accessToken: "token",

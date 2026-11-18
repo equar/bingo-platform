@@ -72,7 +72,7 @@ async function signInFinanceUser(
 
 async function adminToken(page: Page) {
   return page.evaluate(() => {
-    const stored = localStorage.getItem('bingo-admin-session');
+    const stored = sessionStorage.getItem('bingo-admin-session');
     return stored ? (JSON.parse(stored) as { accessToken: string }).accessToken : '';
   });
 }

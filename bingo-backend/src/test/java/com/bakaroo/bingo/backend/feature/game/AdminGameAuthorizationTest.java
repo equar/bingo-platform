@@ -96,6 +96,26 @@ class AdminGameAuthorizationTest {
         verify(tickets, never()).findById(23L);
     }
 
+    @Test
+    void playerCannotReadAdminGameRecordsAtApiOrServiceBoundaries() {
+        authenticate("ROLE_PLAYER");
+        AdminGameController controller = context.getBean(AdminGameController.class);
+        BingoGameService service = context.getBean(BingoGameService.class);
+        GameSessionRepository sessions = context.getBean(GameSessionRepository.class);
+        TicketRepository tickets = context.getBean(TicketRepository.class);
+
+        assertThatThrownBy(() -> controller.session(17L)).isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> controller.ticket(23L)).isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> service.getSession(17L)).isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> service.getAdminTicket(23L)).isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> service.getAdminPlayerTickets(88L, Pageable.unpaged()))
+                .isInstanceOf(AccessDeniedException.class);
+
+        verify(sessions, never()).findById(17L);
+        verify(tickets, never()).findById(23L);
+        verify(tickets, never()).findByOwnerIdOrderByPurchasedAtDesc(88L, Pageable.unpaged());
+    }
+
     private static void authenticate(String authority) {
         var authentication = UsernamePasswordAuthenticationToken.authenticated("test", null,
                 List.of(new SimpleGrantedAuthority(authority)));
