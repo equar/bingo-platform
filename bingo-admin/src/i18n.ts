@@ -21,7 +21,7 @@ export function resolvePreferredLanguage(value: unknown): SupportedLanguage {
 // Browser language and shared global storage are intentionally ignored.
 function getInitialLanguage(): SupportedLanguage {
   try {
-    const raw = window.localStorage.getItem(sessionStorageKey);
+    const raw = window.sessionStorage.getItem(sessionStorageKey);
     if (!raw) {
       return DEFAULT_LANGUAGE;
     }

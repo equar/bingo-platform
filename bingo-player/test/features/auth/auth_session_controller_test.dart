@@ -4,6 +4,18 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('clears the local session when server logout fails', () async {
+    final storage = _MemorySessionStorage();
+    final controller = AuthSessionController(storage, restoreOnInit: false);
+    await controller.logout(() async {
+      throw StateError('Network unavailable');
+    }).catchError((_) {});
+
+    expect(storage.cleared, isTrue);
+    expect(controller.state.isAuthenticated, isFalse);
+    controller.dispose();
+  });
+
   test('shows a recoverable sign-in state when secure storage cannot be read', () async {
     final originalOnError = FlutterError.onError;
     addTearDown(() => FlutterError.onError = originalOnError);
@@ -20,6 +32,15 @@ void main() {
     expect(controller.state.errorMessage, 'SESSION_STORAGE_UNAVAILABLE');
     controller.dispose();
   });
+}
+
+class _MemorySessionStorage extends SessionStorage {
+  bool cleared = false;
+
+  @override
+  Future<void> clear() async {
+    cleared = true;
+  }
 }
 
 class _FailingReadSessionStorage extends SessionStorage {

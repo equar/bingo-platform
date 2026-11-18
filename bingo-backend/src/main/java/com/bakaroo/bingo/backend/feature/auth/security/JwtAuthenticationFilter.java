@@ -54,7 +54,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             try {
                 Long userId = jwtService.extractUserId(token);
                 BingoUserPrincipal principal = userDetailsService.loadById(userId);
-                boolean validToken = jwtService.isTokenValidForUser(token, principal.getUser().getId());
+                boolean validToken = jwtService.isTokenValidForUser(token, principal.getUser().getId(),
+                        principal.getUser().getSecurityTokenVersion());
                 if (validToken && principal.getUser().hasRole(com.bakaroo.bingo.backend.feature.user.entity.UserRole.PLAYER)) {
                     String tokenSessionId = jwtService.extractPlayerSessionId(token);
                     replacedPlayerSession = tokenSessionId == null

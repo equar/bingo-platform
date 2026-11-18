@@ -10,7 +10,7 @@ test('Admin login readiness and retained Agent states', async ({ page }) => {
   await loginAdmin(page);
 
   const session = await page.evaluate(() => {
-    return JSON.parse(localStorage.getItem('bingo-admin-session') ?? '{}') as { accessToken?: string };
+    return JSON.parse(sessionStorage.getItem('bingo-admin-session') ?? '{}') as { accessToken?: string };
   });
   expect(session.accessToken).toBeTruthy();
   const response = await page.request.get(

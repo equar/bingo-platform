@@ -64,7 +64,7 @@ public class AuthController {
         String authorization = request.getHeader(HttpHeaders.AUTHORIZATION);
         String token = authorization != null && authorization.startsWith("Bearer ")
                 ? authorization.substring(7) : null;
-        authService.logout(principal.getUser().getId(), token == null ? null : authService.sessionId(token));
+        authService.logout(principal, token == null ? null : authService.sessionId(token));
         return ResponseEntity.noContent().build();
     }
 }

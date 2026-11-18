@@ -113,14 +113,15 @@ class AdminAuthServiceTest {
 
     @Test
     void changePasswordValidatesCurrentPasswordAndPersistsNewHash() {
-        when(userRepository.findById(11L)).thenReturn(Optional.of(admin));
+        when(userRepository.findByIdForUpdate(11L)).thenReturn(Optional.of(admin));
         when(passwordEncoder.matches("OldPass123!", admin.getPasswordHash())).thenReturn(true);
         when(passwordEncoder.encode("NewPass123!")).thenReturn("new-hash");
         admin.requirePasswordChangeUntil(Instant.now().plusSeconds(3600));
 
-        service.changePassword(11L, new ChangePasswordRequest("OldPass123!", "NewPass123!"));
+        service.changePassword(new BingoUserPrincipal(admin), new ChangePasswordRequest("OldPass123!", "NewPass123!"));
 
         assertThat(admin.getPasswordHash()).isEqualTo("new-hash");
+        assertThat(admin.getSecurityTokenVersion()).isEqualTo(1L);
         assertFalse(admin.isMustChangePassword());
         assertThat(admin.getTemporaryPasswordExpiresAt()).isNull();
         verify(userRepository).save(admin);
@@ -178,19 +179,26 @@ class AdminAuthServiceTest {
 
     @Test
     void changePasswordRejectsReusingCurrentPassword() {
-        when(userRepository.findById(11L)).thenReturn(Optional.of(admin));
+        when(userRepository.findByIdForUpdate(11L)).thenReturn(Optional.of(admin));
         when(passwordEncoder.matches("OldPass123!", admin.getPasswordHash())).thenReturn(true);
 
         assertThrows(ConflictException.class,
-                () -> service.changePassword(11L, new ChangePasswordRequest("OldPass123!", "OldPass123!")));
+                () -> service.changePassword(new BingoUserPrincipal(admin), new ChangePasswordRequest("OldPass123!", "OldPass123!")));
     }
 
     @Test
     void changePasswordRejectsIncorrectCurrentPassword() {
-        when(userRepository.findById(11L)).thenReturn(Optional.of(admin));
+        when(userRepository.findByIdForUpdate(11L)).thenReturn(Optional.of(admin));
         when(passwordEncoder.matches("WrongPass!", admin.getPasswordHash())).thenReturn(false);
 
         assertThrows(BadCredentialsException.class,
-                () -> service.changePassword(11L, new ChangePasswordRequest("WrongPass!", "NewPass123!")));
+                () -> service.changePassword(new BingoUserPrincipal(admin), new ChangePasswordRequest("WrongPass!", "NewPass123!")));
+    }
+
+    @Test
+    void changePasswordServiceRejectsNonStaffPrincipal() {
+        assertThrows(org.springframework.security.access.AccessDeniedException.class,
+                () -> service.changePassword(new BingoUserPrincipal(player),
+                        new ChangePasswordRequest("OldPass123!", "NewPass123!")));
     }
 }

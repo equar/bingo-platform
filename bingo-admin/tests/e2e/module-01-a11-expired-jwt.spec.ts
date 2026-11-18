@@ -41,7 +41,7 @@ test('A11: a real expired signed JWT clears the browser session and requires a f
   page.on('request', (request) => {
     if (request.url().includes('/api/v1/admin/')) protectedRequests.push(new URL(request.url()).pathname);
   });
-  await page.evaluate(({ token, user }) => localStorage.setItem('bingo-admin-session', JSON.stringify({
+  await page.evaluate(({ token, user }) => sessionStorage.setItem('bingo-admin-session', JSON.stringify({
     accessToken: token,
     tokenType: 'Bearer',
     user,
@@ -57,7 +57,7 @@ test('A11: a real expired signed JWT clears the browser session and requires a f
   expect(responseBody.status).toBe(401);
   await expect(page).toHaveURL(/\/login$/);
   await expect(page.getByLabel('Email address')).toBeVisible();
-  expect(await page.evaluate(() => localStorage.getItem('bingo-admin-session'))).toBeNull();
+  expect(await page.evaluate(() => sessionStorage.getItem('bingo-admin-session'))).toBeNull();
   await expect(page.getByRole('heading', { name: 'Players' })).toHaveCount(0);
   await page.screenshot({ path: path.join(evidenceDirectory, 'module-01-admin-expired-session.png'), fullPage: true });
 

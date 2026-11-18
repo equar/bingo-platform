@@ -12,7 +12,7 @@ type AgentSummary = {
 
 async function findAgent(page: import('@playwright/test').Page, phone: string): Promise<AgentSummary> {
   const session = await page.evaluate(() => {
-    return JSON.parse(localStorage.getItem('bingo-admin-session') ?? '{}') as { accessToken?: string };
+    return JSON.parse(sessionStorage.getItem('bingo-admin-session') ?? '{}') as { accessToken?: string };
   });
   if (!session.accessToken) {
     throw new Error('Authenticated Admin session is unavailable.');

@@ -164,9 +164,10 @@ public class AuthService {
     }
 
     @Transactional
-    public void logout(Long userId, String sessionId) {
-        User user = userRepository.findByIdForUpdate(userId)
+    public void logout(BingoUserPrincipal principal, String sessionId) {
+        User user = userRepository.findByIdForUpdate(principal.getUser().getId())
                 .orElseThrow(() -> new NotFoundException("USER_NOT_FOUND", "User account not found"));
+        user.revokeSecurityTokens();
         if (sessionId != null && sessionId.equals(user.getActivePlayerSessionId())) {
             user.clearPlayerSession();
         }
@@ -196,6 +197,7 @@ public class AuthService {
             throw new ConflictException("PIN_REUSE_NOT_ALLOWED", "Choose a PIN different from the current PIN");
         }
         user.setPasswordHash(passwordEncoder.encode(request.newPin()));
+        user.revokeSecurityTokens();
         userRepository.save(user);
         throttleService.clearAccountAttempts("player", user.getNormalizedPhone());
     }

@@ -30,7 +30,7 @@ function persistentSnapshot() {
 }
 
 async function adminToken(page: Page): Promise<string> {
-  return page.evaluate(() => JSON.parse(localStorage.getItem('bingo-admin-session') ?? '{}').accessToken as string);
+  return page.evaluate(() => JSON.parse(sessionStorage.getItem('bingo-admin-session') ?? '{}').accessToken as string);
 }
 
 async function capture(page: Page, name: string) {

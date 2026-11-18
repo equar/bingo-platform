@@ -74,8 +74,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   Future<void> _logout() async {
     try {
-      await ref.read(authRepositoryProvider).logout();
-      await ref.read(authSessionControllerProvider.notifier).clearSession();
+      await ref
+          .read(authSessionControllerProvider.notifier)
+          .logout(() => ref.read(authRepositoryProvider).logout());
     } catch (error) {
       if (!mounted) return;
       final message = normalizeApiError(

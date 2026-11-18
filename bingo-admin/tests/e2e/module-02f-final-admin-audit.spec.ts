@@ -76,7 +76,7 @@ test('A01-A05: create and activate a synthetic admin, then suspend it through th
   let suspended = false;
   try {
   await loginAdmin(page);
-  mainAdminToken = await page.evaluate(() => JSON.parse(localStorage.getItem('bingo-admin-session') ?? '{}').accessToken as string);
+  mainAdminToken = await page.evaluate(() => JSON.parse(sessionStorage.getItem('bingo-admin-session') ?? '{}').accessToken as string);
   await page.goto('/admin-users');
   await expect(page.getByRole('heading', { name: 'Admin Users' })).toBeVisible();
   await page.getByRole('button', { name: 'Create admin user' }).click();
@@ -174,7 +174,7 @@ test('A01-A05: create and activate a synthetic admin, then suspend it through th
     const suspendedLogin = await adminPage.request.post(`${backend}/api/v1/admin/login`, { data: { email, password: activationPassword } });
     expect(suspendedLogin.status()).toBe(401);
     const audit = await adminPage.request.get(`${backend}/api/v1/admin/audit-logs?page=0&size=100`, {
-      headers: { Authorization: `Bearer ${await adminPage.evaluate(() => JSON.parse(localStorage.getItem('bingo-admin-session') ?? '{}').accessToken as string)}` },
+      headers: { Authorization: `Bearer ${await adminPage.evaluate(() => JSON.parse(sessionStorage.getItem('bingo-admin-session') ?? '{}').accessToken as string)}` },
     });
     expect(audit.status()).toBe(200);
     expect((await audit.json()).content.some((entry: { targetId: number }) => entry.targetId === user.id)).toBeTruthy();
@@ -210,7 +210,7 @@ test('A11-A14: SUPPORT users reach only support pages and their privileges stop 
   const supportConsoleErrors: string[] = [];
   try {
     await loginAdmin(page);
-    mainAdminToken = await page.evaluate(() => JSON.parse(localStorage.getItem('bingo-admin-session') ?? '{}').accessToken as string);
+    mainAdminToken = await page.evaluate(() => JSON.parse(sessionStorage.getItem('bingo-admin-session') ?? '{}').accessToken as string);
     await page.goto('/admin-users');
     await page.getByRole('button', { name: 'Create admin user' }).click();
     const dialog = page.getByRole('dialog');
@@ -266,7 +266,7 @@ test('A11-A14: SUPPORT users reach only support pages and their privileges stop 
     await expect(supportPage.getByRole('heading', { name: 'Support tickets' })).toBeVisible();
     await expect(supportPage.getByRole('link', { name: 'Support' })).toBeVisible();
     await expect(supportPage.getByRole('link', { name: 'Players' })).toHaveCount(0);
-    const supportToken = await supportPage.evaluate(() => JSON.parse(localStorage.getItem('bingo-admin-session') ?? '{}').accessToken as string);
+    const supportToken = await supportPage.evaluate(() => JSON.parse(sessionStorage.getItem('bingo-admin-session') ?? '{}').accessToken as string);
     const supportHeaders = { Authorization: `Bearer ${supportToken}` };
     expect((await supportPage.request.get(`${backend}/api/v1/admin/support/tickets`, { headers: supportHeaders })).status()).toBe(200);
     expect((await supportPage.request.get(`${backend}/api/v1/admin/users`, { headers: supportHeaders })).status()).toBe(403);

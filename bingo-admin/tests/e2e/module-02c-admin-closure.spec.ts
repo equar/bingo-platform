@@ -71,7 +71,7 @@ test('dashboard metrics endpoint is admin-only and live metrics render in the da
 
   await loginAdmin(page);
   const token = await page.evaluate(() => {
-    const session = localStorage.getItem('bingo-admin-session');
+    const session = sessionStorage.getItem('bingo-admin-session');
     return session ? (JSON.parse(session) as { accessToken: string }).accessToken : '';
   });
   const metricsResponse = await page.request.get(`${backend}/api/v1/admin/dashboard/metrics`, {

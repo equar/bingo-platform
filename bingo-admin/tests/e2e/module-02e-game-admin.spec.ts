@@ -23,7 +23,7 @@ test.afterEach(() => {
 });
 
 async function token(page: Page) {
-  return page.evaluate(() => JSON.parse(localStorage.getItem('bingo-admin-session') ?? '{}').accessToken as string);
+  return page.evaluate(() => JSON.parse(sessionStorage.getItem('bingo-admin-session') ?? '{}').accessToken as string);
 }
 
 async function screenshot(page: Page, name: string) {

@@ -61,7 +61,7 @@ export function resolveEffectiveCalendar(language: unknown, preference: unknown)
 
 export function currentCalendarPreference(): "ETHIOPIAN" | "GREGORIAN" {
   try {
-    const raw = window.localStorage.getItem("bingo-admin-session");
+    const raw = window.sessionStorage.getItem("bingo-admin-session");
     const user = raw ? (JSON.parse(raw) as { user?: { preferredLanguage?: unknown; preferredCalendar?: unknown } }).user : undefined;
     return resolveEffectiveCalendar(user?.preferredLanguage ?? i18n.resolvedLanguage, user?.preferredCalendar);
   } catch { return resolveEffectiveCalendar(i18n.resolvedLanguage, "AUTO"); }
