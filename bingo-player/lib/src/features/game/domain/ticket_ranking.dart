@@ -77,7 +77,10 @@ class TicketRanking {
       return _minimum(grid, called, lines.skip(5).take(5));
     }
     if (pattern == 'DIAGONAL_LINES') {
-      return _minimum(grid, called, lines.skip(10));
+      return _needed(grid, called, {
+        for (var index = 0; index < 5; index++) (index, index),
+        for (var index = 0; index < 5; index++) (index, 4 - index),
+      });
     }
     if (pattern == 'LINE_TOUCHING_FREE') {
       return _minimum(
@@ -300,7 +303,7 @@ class TicketRanking {
   static final List<Set<(int, int)>> _bigZ = [
     {
       for (var column = 0; column < 5; column++) (0, column),
-      for (var index = 1; index < 4; index++) (index, 4 - index),
+      for (var row = 1; row < 4; row++) (row, 5 - row),
       for (var column = 0; column < 5; column++) (4, column),
     },
   ];

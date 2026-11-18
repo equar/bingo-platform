@@ -2190,27 +2190,25 @@ class _TicketCell extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
     final pulse = oneAwayPulse;
-    final background = pulse == null
-        ? isCalled
-              ? markColor.withValues(alpha: isLatest ? 0.95 : 0.72)
-              : isLatest
-              ? colors.primaryContainer
-              : isDarkTheme
-              ? Colors.white
-              : colors.surface
-        : Color.lerp(colors.tertiaryContainer, colors.tertiary, pulse)!;
-    final numberColor = pulse == null
-        ? isLatest
-              ? Colors.white
-              : isCalled
-              ? colors.onSecondaryContainer
-              : isDarkTheme
-              ? colors.surface
-              : colors.onSurface
-        : Color.lerp(colors.onTertiaryContainer, colors.onTertiary, pulse)!;
+    final background = isCalled
+        ? markColor.withValues(alpha: isLatest ? 0.95 : 0.72)
+        : isLatest
+        ? colors.primaryContainer
+        : isDarkTheme
+        ? Colors.white
+        : colors.surface;
+    final numberColor = isLatest
+        ? Colors.white
+        : isCalled
+        ? colors.onSecondaryContainer
+        : isDarkTheme
+        ? colors.surface
+        : colors.onSurface;
 
     return Semantics(
-      label: '$columnLetter ${isFree ? localizations.freeCenterLabel : value}',
+      label: oneAwayPulse == null
+          ? '$columnLetter ${isFree ? localizations.freeCenterLabel : value}'
+          : '$columnLetter $value, ${localizations.oneAwayFromWinHint}',
       selected: isCalled && !isFree,
       child: ExcludeSemantics(
         child: AnimatedContainer(

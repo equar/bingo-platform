@@ -486,6 +486,7 @@
   "claimWaitingForWin": "ንምሕታት ሽልማት እቲ ዝዕወት ቅርጺ ምልኣእ ኣለካ።",
   "errorClaimPatternIncomplete": "እዚ ቲኬት እቲ ዝዕወት ቅርጺ ኣየማልአን።",
   "ticketDidNotWin": "እዚ ቲኬት ኣብዚ ጸወታ ኣይተዓወተን።",
+  "oneAwayFromWinHint": "እቲ ዝዕወት ቅርጺ ንምምላእ ሓደ ቁጽሪ ጥራይ ይተርፍ።",
   "celebrationBingo": "BINGO!",
   "celebrationWinningTickets": "{count, plural, one {1 ዝተዓወተ ቲኬት!} other {{count} ዝተዓወቱ ቲኬታት!}}",
   "@celebrationWinningTickets": {

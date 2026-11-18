@@ -445,6 +445,7 @@
     }
   },
   "ticketDidNotWin": "ይህ ቲኬት በዚህ ጨዋታ አላሸነፈም።",
+  "oneAwayFromWinHint": "የማሸነፊያ ቅርጽን ለማጠናቀቅ አንድ ቁጥር ብቻ ይቀራል።",
   "celebrationBingo": "ቢንጎ!",
   "celebrationWinningTickets": "{count} አሸናፊ ቲኬቶች!",
   "celebrationCongratulations": "እንኳን ደስ አለዎት! አሸንፈዋል",
