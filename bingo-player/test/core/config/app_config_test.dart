@@ -85,6 +85,32 @@ void main() {
     }
   });
 
+  test('allows release HTTP only for the explicitly enabled test API', () {
+    const config = AppConfig(
+      apiBaseUrl: 'http://api.test.bingo.bakaroo.com',
+      apiBaseUrlLabel: 'API_BASE_URL',
+      isProduction: true,
+      allowInsecureTestApi: true,
+    );
+
+    expect(config.isValid, isTrue);
+    expect(
+      config.liveGameWebSocketUri,
+      Uri.parse('ws://api.test.bingo.bakaroo.com/ws'),
+    );
+  });
+
+  test('does not allow release HTTP for other hosts even with test flag', () {
+    const config = AppConfig(
+      apiBaseUrl: 'http://api.example.com',
+      apiBaseUrlLabel: 'API_BASE_URL',
+      isProduction: true,
+      allowInsecureTestApi: true,
+    );
+
+    expect(config.problem, ApiBaseUrlProblem.productionRequiresHttps);
+  });
+
   test('derives a secure WebSocket URI for production HTTPS', () {
     const config = AppConfig(
       apiBaseUrl: 'https://api.example.com:8443/api',

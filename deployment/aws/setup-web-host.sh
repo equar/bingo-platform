@@ -5,7 +5,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SITE_DOMAIN="${SITE_DOMAIN:-bingo.bakaroo.com}"
 ADMIN_DOMAIN="${ADMIN_DOMAIN:-admin.bingo.bakaroo.com}"
 API_DOMAIN="${API_DOMAIN:-api.bingo.bakaroo.com}"
-export SITE_DOMAIN ADMIN_DOMAIN API_DOMAIN
+API_PORT="${API_PORT:-8081}"
+export SITE_DOMAIN ADMIN_DOMAIN API_DOMAIN API_PORT
 [[ "$EUID" -eq 0 ]] || { echo 'Run setup-web-host.sh as root' >&2; exit 1; }
 for command in certbot nginx envsubst curl python3; do
   command -v "$command" >/dev/null || { echo "Missing prerequisite: $command" >&2; exit 1; }
@@ -15,6 +16,8 @@ import os,re
 hosts=[os.environ[k] for k in ('SITE_DOMAIN','ADMIN_DOMAIN','API_DOMAIN')]
 if len(set(hosts)) != 3 or not all(re.fullmatch(r'[a-z0-9]+(?:[.-][a-z0-9]+)*',h) for h in hosts):
     raise SystemExit('Provide three distinct valid DNS hostnames')
+if not re.fullmatch(r'[0-9]{4,5}', os.environ['API_PORT']) or not 1024 <= int(os.environ['API_PORT']) <= 65535:
+    raise SystemExit('API_PORT must be a valid port between 1024 and 65535')
 PY
 work="$(mktemp -d)"
 config=/etc/nginx/sites-available/bingo.conf
@@ -58,7 +61,7 @@ certbot certonly --non-interactive --webroot -w /var/www/letsencrypt \
   --cert-name bingo-platform --keep-until-expiring \
   -d "$SITE_DOMAIN" -d "$ADMIN_DOMAIN" -d "$API_DOMAIN" \
   --deploy-hook 'nginx -t && systemctl reload nginx'
-envsubst '${SITE_DOMAIN} ${ADMIN_DOMAIN} ${API_DOMAIN}' \
+envsubst '${SITE_DOMAIN} ${ADMIN_DOMAIN} ${API_DOMAIN} ${API_PORT}' \
   < "$SCRIPT_DIR/nginx-bingo.conf.template" > "$work/https.conf"
 install -m 644 "$work/https.conf" "$config"
 nginx -t

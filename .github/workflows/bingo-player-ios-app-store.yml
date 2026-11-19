@@ -41,13 +41,11 @@ jobs:
         shell: bash
         working-directory: bingo-player
     env:
-      MOBILE_API_BASE_URL: ${{ inputs.mobile_api_base_url || vars.BINGO_MOBILE_API_BASE_URL }}
-      IOS_BUNDLE_ID: ${{ vars.BINGO_IOS_BUNDLE_ID }}
+      MOBILE_API_BASE_URL: ${{ inputs.mobile_api_base_url }}
+      IOS_BUNDLE_ID: ${{ vars.IOS_BUNDLE_ID }}
       IOS_BUILD_NUMBER: ${{ inputs.ios_build_number }}
       IOS_AUTOMATIC_RELEASE: ${{ inputs.ios_automatic_release }}
-      APP_STORE_CONNECT_KEY_ID: ${{ secrets.BINGO_APP_STORE_CONNECT_KEY_ID }}
-      APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.BINGO_APP_STORE_CONNECT_ISSUER_ID }}
-      APP_STORE_CONNECT_PRIVATE_KEY_BASE64: ${{ secrets.BINGO_APP_STORE_CONNECT_PRIVATE_KEY_BASE64 }}
+      APPSTORE_DEPLOYER_KEY: ${{ secrets.APPSTORE_DEPLOYER_KEY }}
       RELEASE_NOTES: ${{ inputs.release_notes }}
     steps:
       - name: Check out repository
@@ -74,15 +72,7 @@ jobs:
         run: |
           set -euo pipefail
           umask 077
-
-          if [[ -z "${APP_STORE_CONNECT_KEY_ID:-}" || -z "${APP_STORE_CONNECT_ISSUER_ID:-}" || -z "${APP_STORE_CONNECT_PRIVATE_KEY_BASE64:-}" ]]; then
-            echo 'ERROR: App Store Connect API key secrets are required.' >&2
-            exit 1
-          fi
-
-          PRIVATE_KEY_PATH="$RUNNER_TEMP/app-store-connect.p8"
-          printf '%s' "$APP_STORE_CONNECT_PRIVATE_KEY_BASE64" | base64 -d > "$PRIVATE_KEY_PATH"
-          printf 'APP_STORE_CONNECT_PRIVATE_KEY_PATH=%s\n' "$PRIVATE_KEY_PATH" >> "$GITHUB_ENV"
+          python3 ../deployment/mobile/prepare-store-credentials.py appstore
 
       - name: Install Fastlane
         run: sudo gem install fastlane -v 2.241.1 --no-document

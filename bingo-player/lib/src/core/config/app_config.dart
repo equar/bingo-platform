@@ -11,6 +11,7 @@ class AppConfig {
     required this.apiBaseUrlLabel,
     String webSocketBaseUrl = '',
     this.isProduction = false,
+    this.allowInsecureTestApi = false,
     this.playerTicketPurchasesEnabled = false,
   }) : _apiBaseUrl = apiBaseUrl,
        _webSocketBaseUrl = webSocketBaseUrl;
@@ -21,6 +22,9 @@ class AppConfig {
         apiBaseUrlLabel: 'API_BASE_URL',
         webSocketBaseUrl: const String.fromEnvironment('WS_BASE_URL'),
         isProduction: !kDebugMode,
+        allowInsecureTestApi: const bool.fromEnvironment(
+          'BINGO_TEST_ALLOW_INSECURE_HTTP',
+        ),
         playerTicketPurchasesEnabled: const bool.fromEnvironment(
           'BINGO_PLAYER_PURCHASES_ENABLED',
           defaultValue: true,
@@ -31,6 +35,7 @@ class AppConfig {
   final String _webSocketBaseUrl;
   final String apiBaseUrlLabel;
   final bool isProduction;
+  final bool allowInsecureTestApi;
   final bool playerTicketPurchasesEnabled;
 
   String get apiBaseUrl => _apiBaseUrl.trim();
@@ -53,7 +58,7 @@ class AppConfig {
     if (isProduction && _isLoopback(uri.host)) {
       return ApiBaseUrlProblem.productionLoopback;
     }
-    if (isProduction && uri.scheme != 'https') {
+    if (isProduction && uri.scheme != 'https' && !_isTestApiHttp(uri)) {
       return ApiBaseUrlProblem.productionRequiresHttps;
     }
 
@@ -69,7 +74,9 @@ class AppConfig {
       if (isProduction && _isLoopback(webSocketUri.host)) {
         return ApiBaseUrlProblem.productionLoopback;
       }
-      if (isProduction && webSocketUri.scheme != 'wss') {
+      if (isProduction &&
+          webSocketUri.scheme != 'wss' &&
+          !_isTestApiWebSocket(webSocketUri)) {
         return ApiBaseUrlProblem.productionRequiresHttps;
       }
     }
@@ -116,6 +123,16 @@ class AppConfig {
         normalizedHost == '0.0.0.0' ||
         normalizedHost == '10.0.2.2';
   }
+
+  bool _isTestApiHttp(Uri uri) =>
+      allowInsecureTestApi &&
+      uri.scheme == 'http' &&
+      uri.host.toLowerCase() == 'api.test.bingo.bakaroo.com';
+
+  bool _isTestApiWebSocket(Uri uri) =>
+      allowInsecureTestApi &&
+      uri.scheme == 'ws' &&
+      uri.host.toLowerCase() == 'api.test.bingo.bakaroo.com';
 }
 
 enum ApiBaseUrlProblem {

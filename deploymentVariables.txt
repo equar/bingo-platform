@@ -1,0 +1,155 @@
+# Deployment variables and secrets
+
+GitHub secrets are write-only. This inventory records names, scope, and
+provenance without exposing secret contents. The current workflow deploys a
+merged `develop` branch to `test` and `release` to `production`; database name,
+port, TLS mode, and backend port are selected by the workflow.
+
+## Required GitHub Environments
+
+Create `test` and `production` under Repository Settings → Environments before
+deploying. The workflow requires environment-scoped `DEPLOY_HOST`,
+`DEPLOY_USER`, and `DEPLOY_SSH_KEY_B64`; it will fail before SSH if they are
+missing. Production should require an approval reviewer.
+
+The current GitHub CLI identity lacks repository-admin permission to create
+environments. Consequently, the existing production runtime variables are
+still at repository scope until an administrator creates the environments and
+migrates them. The current environment list contains only `bingo-backend-production`
+and `copilot`; the unused secret was removed from the former. Do not deploy
+until `test` and `production` exist and their settings are configured. The
+former `LIGHTSAIL_*` deployment secrets are no longer consumed.
+
+| Setting | Test | Production | GitHub type |
+|---|---|---|---|
+| `DEPLOY_HOST` | Terraform output `web_static_ip` | Production host address | Environment variable |
+| `DEPLOY_USER` | `ubuntu` | Deployment account on the production host | Environment variable |
+| `DEPLOY_SSH_KEY_B64` | Private key matching `env/test.tfvars` `ssh_public_key` | Private key authorized on the production host | Environment secret |
+| `MYSQL_HOST` | `127.0.0.1` | Managed database endpoint | Environment variable |
+| `MYSQL_USER` | Test app database user | Production app database user | Environment variable |
+| `MYSQL_PASSWORD` | Password for the local test DB user | Password for the production DB user | Environment secret |
+| `JWT_SECRET` | Test-only signing secret | Production signing secret | Environment secret |
+| `BINGO_FLOAT_BANK_ENCRYPTION_KEY` | Test-only 32-byte key | Production 32-byte key; preserve it for encrypted data | Environment secret |
+| `APP_EMAIL_PROVIDER` | `graph` or `smtp` | `graph` or `smtp` | Environment variable |
+| `APP_EMAIL_FROM` | Authorized sender mailbox | Authorized sender mailbox | Environment variable |
+| `MICROSOFT_GRAPH_TENANT_ID` | Entra tenant ID | Entra tenant ID | Environment secret; required for Graph |
+| `MICROSOFT_GRAPH_CLIENT_ID` | Entra app/client ID | Entra app/client ID | Environment secret; required for Graph |
+| `MICROSOFT_GRAPH_CLIENT_SECRET` | Entra app secret | Entra app secret | Environment secret; required for Graph |
+| `SPRING_MAIL_USERNAME`, `SPRING_MAIL_PASSWORD` | SMTP credentials | SMTP credentials | Environment secrets; required for SMTP |
+| `VITE_API_BASE_URL` | `http://api.test.bingo.bakaroo.com` | `https://api.bingo.bakaroo.com` | Environment variable |
+| `ADMIN_PUBLIC_URL` | `http://admin.test.bingo.bakaroo.com` | `https://admin.bingo.bakaroo.com` | Environment variable |
+| `PUBLIC_SITE_URL` | `http://test.bingo.bakaroo.com` | `https://bingo.bakaroo.com` | Environment variable |
+| `CORS_ALLOWED_ORIGINS`, `WEBSOCKET_ALLOWED_ORIGINS` | Test Admin and site HTTP origins | Production Admin and site HTTPS origins | Environment variables |
+| `ADMIN_ACCOUNT_ACTIVATION_URL` | `http://admin.test.bingo.bakaroo.com/activate-account` | `https://admin.bingo.bakaroo.com/activate-account` | Environment variable |
+| `PUBLIC_SITE_INDEXABLE` | `false` | `false` unless intentionally changed | Environment variable |
+| `APP_GAME_PAYOUTS_ENABLED` | Forced to `false` by workflow | Current setting is `true` | Environment variable |
+
+Other environment variables accepted by the deployment importer are listed in
+`deployment/aws/github-actions.env.example`. Optional bootstrap settings must
+remain disabled except during an explicitly approved first-admin setup.
+
+## Repository variables
+
+| Name | Current value | Source / use |
+|---|---|---|
+| `ANDROID_PACKAGE_NAME` | `com.bakaroo.bingo_app` | Must match `applicationId` in `bingo-player/android/app/build.gradle.kts` and the Play Console app. |
+| `IOS_BUNDLE_ID` | `com.bakaroo.bingo.bingoApp` | Must match the player Xcode project and App Store Connect app. |
+| `APP_EMAIL_PROVIDER` | `graph` | Currently still repository-scoped; move to both environments during setup. |
+| `APP_EMAIL_FROM` | `noreply@bakaroo.com` | Currently still repository-scoped; move to both environments during setup. |
+| `APP_GAME_PAYOUTS_ENABLED` | `true` | Currently still repository-scoped; test workflow explicitly disables payouts. Set production explicitly in the environment. |
+| `MYSQL_HOST` | `ls-41ea007ed29139da07498f907108ea79cf96270d.ctik86ceiuss.us-east-2.rds.amazonaws.com` | Existing production endpoint; move to the `production` environment. |
+| `MYSQL_USER` | `dbmasteruser` | Existing production DB user; move to `production` and prefer a least-privilege app account when available. |
+| `ADMIN_ACCOUNT_ACTIVATION_URL` | `https://admin.bingo.bakaroo.com/activate-account` | Existing production URL; move to `production`. |
+| `ADMIN_PUBLIC_URL` | `https://admin.bingo.bakaroo.com` | Existing production URL; move to `production`. |
+| `CORS_ALLOWED_ORIGINS`, `WEBSOCKET_ALLOWED_ORIGINS` | Production Admin and site HTTPS origins | Existing production allowlists; move to `production`. |
+| `VITE_API_BASE_URL` | `https://api.bingo.bakaroo.com` | Existing production API origin; move to `production`. |
+| `PUBLIC_SITE_URL` | `https://bingo.bakaroo.com` | Existing production site origin; move to `production`. |
+| `PUBLIC_SITE_INDEXABLE` | `false` | Existing production setting; move to `production`. |
+| `SPRING_MAIL_HOST`, `SPRING_MAIL_PORT` | `smtp.office365.com`, `587` | Optional in Graph mode; move to the environment if SMTP is used. |
+
+Removed repository variables were unused, duplicated, or fixed by the workflow:
+old `BINGO_*` host/service settings, duplicate email-from names,
+`MICROSOFT_GRAPH_SCOPES`, workflow-fixed database/schema/port values, and
+mobile API/rollout fallbacks.
+
+## Repository mobile-release secrets
+
+| Secret | Status / source |
+|---|---|
+| `BINGO_ANDROID_KEYSTORE_BASE64` | Configured, hidden; Android upload keystore from `deployment/mobile/signing/bingo-app.jks`. |
+| `BINGO_ANDROID_KEYSTORE_PASSWORD` | Configured, hidden; `storePassword` in the ignored `bingo-app.json` metadata. |
+| `BINGO_ANDROID_KEY_ALIAS` | Configured, hidden; `keyAlias` in `bingo-app.json`. |
+| `BINGO_ANDROID_KEY_PASSWORD` | Configured, hidden; `keyPassword` in `bingo-app.json`. |
+| `GOOGLE_PLAY_JSON` | Configured, hidden; raw service-account JSON from Google Cloud with Android Publisher access in Play Console. |
+| `APPSTORE_DEPLOYER_KEY` | Currently `temp`; replace with the App Store Connect JSON credential bundle described in `deployment/mobile/README.md`. |
+| `BINGO_IOS_DISTRIBUTION_CERTIFICATE_BASE64` | Configured, hidden; Apple Distribution `.p12` certificate. |
+| `BINGO_IOS_DISTRIBUTION_CERTIFICATE_PASSWORD` | Configured, hidden; password for the `.p12` file. |
+| `BINGO_IOS_PROVISIONING_PROFILE_BASE64` | Configured, hidden; App Store provisioning profile for `IOS_BUNDLE_ID`. |
+| `BINGO_IOS_KEYCHAIN_PASSWORD` | Configured, hidden; ephemeral CI keychain password. |
+
+Store workflows take `mobile_api_base_url` as a manual input: internal Android
+and TestFlight default to the test API; production Android and App Store
+submission default to the public HTTPS API. Production rollout is a workflow
+input with default `0.10`.
+
+The old `BINGO_APP_STORE_CONNECT_*` secrets are no longer consumed. GitHub
+secret values cannot be copied or renamed through the CLI; create the
+`APPSTORE_DEPLOYER_KEY` bundle from a current App Store Connect API key, then
+delete the old secrets. Create/revoke API keys in App Store Connect as needed.
+
+## Backend secret status
+
+The canonical backend runtime secrets are `MYSQL_PASSWORD`, `JWT_SECRET`,
+`BINGO_FLOAT_BANK_ENCRYPTION_KEY`, and the selected email provider credentials.
+They are currently configured at repository scope; set separate values in
+both GitHub Environments. `SPRING_MAIL_PASSWORD` is not currently configured;
+it is required only when SMTP is selected.
+
+| Existing secret name | State |
+|---|---|
+| `LIGHTSAIL_HOST`, `LIGHTSAIL_USER`, `LIGHTSAIL_SSH_KEY_B64` | Configured but no longer consumed. Recreate host/user as environment variables and the key as `DEPLOY_SSH_KEY_B64`; retain these old values until the replacement environments work. |
+| `BINGO_APP_STORE_CONNECT_KEY_ID`, `BINGO_APP_STORE_CONNECT_ISSUER_ID`, `BINGO_APP_STORE_CONNECT_PRIVATE_KEY_BASE64` | Configured but no longer consumed. Replace with a valid `APPSTORE_DEPLOYER_KEY` bundle, then delete these names. |
+| `DEPLOY_SSH_KEY_B64` | Not configured; required separately in each deployment environment. |
+| `ADMIN_BOOTSTRAP_PASSWORD` | Not configured; only required during an explicitly approved one-time bootstrap. |
+
+The duplicate `GRAPH_*`, `BINGO_GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64`,
+`PLAYSTORE_DEPLOYER_KEY`, `BINGO_SSH_KEY_B64`, and old backend environment-file
+secrets have been removed. The active code and workflows contain no fallback to
+those names.
+
+## Setup commands
+
+Create a dedicated unencrypted SSH key pair and install its public key on the
+corresponding host:
+
+```bash
+ssh-keygen -t ed25519 -f ~/.ssh/bingo-deploy -C bingo-deploy
+base64 -i ~/.ssh/bingo-deploy | tr -d '\n' | gh secret set DEPLOY_SSH_KEY_B64 --repo equar/bingo-platform --env test
+```
+
+Use the test `web_static_ip` output as `DEPLOY_HOST`; set production host and
+user values from the production server configuration. Configure each
+environment at Repository Settings → Environments before setting secrets.
+
+Create an encryption key once per environment and preserve a secure backup:
+
+```bash
+openssl rand -base64 32
+openssl rand -hex 32
+```
+
+The first command produces a 32-byte bank-encryption key; the second produces
+a 32-byte JWT secret. Do not reuse the production values in test. Use the
+environment importer after creating both environments:
+
+```bash
+GH_ENVIRONMENT=test bash deployment/aws/bootstrap-github-actions-config.sh deployment/aws/github-actions-test.env
+GH_ENVIRONMENT=production bash deployment/aws/bootstrap-github-actions-config.sh deployment/aws/github-actions-prod.env
+```
+
+For store credentials, upload the Google service-account JSON with
+`gh secret set GOOGLE_PLAY_JSON < /path/to/google-play-service-account.json`.
+Generate the App Store Connect bundle as described in
+`deployment/mobile/README.md` and upload it with
+`gh secret set APPSTORE_DEPLOYER_KEY < /path/to/appstore-deployer-key.json`.
+Do not print secrets, commit credential files, or place real values in examples.

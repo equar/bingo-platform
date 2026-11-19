@@ -16,13 +16,15 @@ from urllib.parse import urlparse
 value = sys.argv[1].strip()
 parsed = urlparse(value)
 
-if parsed.scheme != 'https':
-    raise SystemExit('ERROR: API base URL must use https.')
-
 if not parsed.hostname:
     raise SystemExit('ERROR: API base URL must include a host.')
 
 hostname = parsed.hostname.lower()
+if parsed.scheme != 'https' and not (
+    parsed.scheme == 'http' and hostname == 'api.test.bingo.bakaroo.com'
+):
+    raise SystemExit('ERROR: API base URL must use https, except for the HTTP-only test API host.')
+
 blocked_hosts = {
     'localhost',
     'host.docker.internal',

@@ -28,8 +28,10 @@ class HomeScreen extends StatelessWidget {
         final contentWidth = constraints.maxWidth >= 640
             ? 560.0
             : constraints.maxWidth - 40;
+        final minimumViewportHeight =
+            680 + MediaQuery.viewPaddingOf(context).top;
         final fillsViewport =
-            constraints.maxHeight >= 680 &&
+            constraints.maxHeight >= minimumViewportHeight &&
             contentWidth >= 300 &&
             MediaQuery.textScalerOf(context).scale(14) <= 18;
 

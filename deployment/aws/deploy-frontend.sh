@@ -10,6 +10,16 @@ case "${1:-all}" in
   *) echo 'Usage: deploy-frontend.sh [all|admin|website]' >&2; exit 1 ;;
 esac
 : "${VITE_API_BASE_URL:?Set VITE_API_BASE_URL}"
+allow_http="${ALLOW_INSECURE_HTTP:-false}"
+deployment_environment="${DEPLOY_ENVIRONMENT:-prod}"
+if [[ "$allow_http" != true && "$allow_http" != false ]]; then
+  echo 'ALLOW_INSECURE_HTTP must be true or false.' >&2
+  exit 1
+fi
+if [[ "$allow_http" == true && "$deployment_environment" != test ]]; then
+  echo 'HTTP is allowed only when DEPLOY_ENVIRONMENT is test.' >&2
+  exit 1
+fi
 urls=()
 for app in "${apps[@]}"; do
   if [[ "$app" == admin ]]; then
@@ -20,10 +30,23 @@ for app in "${apps[@]}"; do
     urls+=("$PUBLIC_SITE_URL")
   fi
 done
-# Verify HTTPS before replacing static files; the web host setup is a prerequisite.
+# Verify each public endpoint before replacing static files.
 for url in "${urls[@]}" "$VITE_API_BASE_URL"; do
+  case "$url" in
+    https://*) ;;
+    http://*)
+      if [[ "$allow_http" != true ]]; then
+        echo "HTTP is allowed only for the test deployment: $url" >&2
+        exit 1
+      fi
+      ;;
+    *)
+      echo "URL must use HTTPS or test-only HTTP: $url" >&2
+      exit 1
+      ;;
+  esac
   if ! curl --silent --show-error --max-time 30 --output /dev/null "$url/"; then
-    echo "HTTPS preflight failed for $url. Run deployment/aws/setup-web-host.sh on the host to configure Bingo's certificate and virtual hosts." >&2
+    echo "URL preflight failed for $url; verify the host and Nginx virtual host." >&2
     exit 1
   fi
 done

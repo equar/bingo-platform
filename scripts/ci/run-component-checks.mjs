@@ -130,12 +130,10 @@ function runBackend() {
 }
 
 function runInfrastructure() {
-  requireTool('python', 'Install Python 3.12 and run `python -m pip install cfn-lint`.');
-  requireTool('cfn-lint', 'Run `python -m pip install cfn-lint`.');
-  run('cfn-lint', ['deployment/aws/lightsail-stack.yaml'], repoRoot);
-  run('python', ['-m', 'py_compile', 'deployment/aws/bootstrap-github-actions-config.py', 'deployment/aws/validate-config.py'], repoRoot);
+  requireTool('python3', 'Install Python 3.12.');
+  run('python3', ['-m', 'py_compile', 'deployment/aws/bootstrap-github-actions-config.py', 'deployment/aws/validate-config.py', 'deployment/mobile/prepare-store-credentials.py'], repoRoot);
+  run('python3', ['-m', 'unittest', 'discover', '-s', 'deployment/mobile', '-p', 'test_prepare_store_credentials.py'], repoRoot);
   const bash = process.env.BINGO_BASH || 'bash';
-  run(bash, ['-n', 'deployment/lightsail/deploy-release.sh'], repoRoot);
   for (const item of fs.readdirSync(path.join(repoRoot, 'deployment/aws')).filter((name) => name.endsWith('.sh'))) {
     run(bash, ['-n', `deployment/aws/${item}`], repoRoot);
   }

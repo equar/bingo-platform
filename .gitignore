@@ -110,3 +110,5 @@ key.properties
 *.mobileprovision
 /deployment/mobile/signing/
 /deployment/mobile/artifacts/
+/deployment/aws/github-actions.env
+/deployment/aws/github-actions-*.env

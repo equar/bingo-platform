@@ -19,9 +19,9 @@ public class EmailProviderConfiguration {
     @Bean
     @ConditionalOnProperty(name = "app.email.provider", havingValue = "graph")
     JavaMailSender graphMailSender(
-            @Value("${MICROSOFT_GRAPH_TENANT_ID:${GRAPH_TENANT_ID:}}") String tenant,
-            @Value("${MICROSOFT_GRAPH_CLIENT_ID:${GRAPH_CLIENT_ID:}}") String clientId,
-            @Value("${MICROSOFT_GRAPH_CLIENT_SECRET:${GRAPH_CLIENT_SECRET:}}") String clientSecret,
+            @Value("${MICROSOFT_GRAPH_TENANT_ID:}") String tenant,
+            @Value("${MICROSOFT_GRAPH_CLIENT_ID:}") String clientId,
+            @Value("${MICROSOFT_GRAPH_CLIENT_SECRET:}") String clientSecret,
             @Value("${app.email.from:}") String sender) {
         return new GraphMailSender(HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build(),
                 tenant, clientId, clientSecret, sender);

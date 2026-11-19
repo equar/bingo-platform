@@ -9,10 +9,10 @@ on:
         required: false
         default: TestFlight release
       mobile_api_base_url:
-        description: Public HTTPS API base URL for the release build
+        description: Test API base URL; HTTP is allowed only for the configured test host
         type: string
         required: true
-        default: https://api.bingo.bakaroo.com
+        default: http://api.test.bingo.bakaroo.com
 
 permissions:
   contents: read
@@ -31,12 +31,10 @@ jobs:
         shell: bash
         working-directory: bingo-player
     env:
-      MOBILE_API_BASE_URL: ${{ inputs.mobile_api_base_url || vars.BINGO_MOBILE_API_BASE_URL }}
-      IOS_BUNDLE_ID: ${{ vars.BINGO_IOS_BUNDLE_ID }}
+      MOBILE_API_BASE_URL: ${{ inputs.mobile_api_base_url }}
+      IOS_BUNDLE_ID: ${{ vars.IOS_BUNDLE_ID }}
       RELEASE_NOTES: ${{ inputs.release_notes }}
-      APP_STORE_CONNECT_KEY_ID: ${{ secrets.BINGO_APP_STORE_CONNECT_KEY_ID }}
-      APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.BINGO_APP_STORE_CONNECT_ISSUER_ID }}
-      APP_STORE_CONNECT_PRIVATE_KEY_BASE64: ${{ secrets.BINGO_APP_STORE_CONNECT_PRIVATE_KEY_BASE64 }}
+      APPSTORE_DEPLOYER_KEY: ${{ secrets.APPSTORE_DEPLOYER_KEY }}
       IOS_DISTRIBUTION_CERTIFICATE_BASE64: ${{ secrets.BINGO_IOS_DISTRIBUTION_CERTIFICATE_BASE64 }}
       IOS_DISTRIBUTION_CERTIFICATE_PASSWORD: ${{ secrets.BINGO_IOS_DISTRIBUTION_CERTIFICATE_PASSWORD }}
       IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.BINGO_IOS_PROVISIONING_PROFILE_BASE64 }}
@@ -67,11 +65,6 @@ jobs:
           set -euo pipefail
           umask 077
 
-          if [[ -z "${APP_STORE_CONNECT_KEY_ID:-}" || -z "${APP_STORE_CONNECT_ISSUER_ID:-}" || -z "${APP_STORE_CONNECT_PRIVATE_KEY_BASE64:-}" ]]; then
-            echo 'ERROR: App Store Connect API key secrets are required.' >&2
-            exit 1
-          fi
-
           if [[ -z "${IOS_DISTRIBUTION_CERTIFICATE_BASE64:-}" || -z "${IOS_DISTRIBUTION_CERTIFICATE_PASSWORD:-}" || -z "${IOS_PROVISIONING_PROFILE_BASE64:-}" || -z "${IOS_KEYCHAIN_PASSWORD:-}" ]]; then
             echo 'ERROR: iOS signing secrets are required.' >&2
             exit 1
@@ -81,11 +74,9 @@ jobs:
           KEYCHAIN_PATH="$RUNNER_TEMP/$KEYCHAIN_NAME"
           CERTIFICATE_PATH="$RUNNER_TEMP/bingo-distribution-cert.p12"
           PROFILE_PATH="$RUNNER_TEMP/bingo-profile.mobileprovision"
-          PRIVATE_KEY_PATH="$RUNNER_TEMP/app-store-connect.p8"
-
           printf '%s' "$IOS_DISTRIBUTION_CERTIFICATE_BASE64" | base64 -d > "$CERTIFICATE_PATH"
           printf '%s' "$IOS_PROVISIONING_PROFILE_BASE64" | base64 -d > "$PROFILE_PATH"
-          printf '%s' "$APP_STORE_CONNECT_PRIVATE_KEY_BASE64" | base64 -d > "$PRIVATE_KEY_PATH"
+          python3 ../deployment/mobile/prepare-store-credentials.py appstore
 
           security create-keychain -p "$IOS_KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security default-keychain -s "$KEYCHAIN_PATH"
@@ -97,14 +88,13 @@ jobs:
           mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
           cp "$PROFILE_PATH" "$HOME/Library/MobileDevice/Provisioning Profiles/bingo.mobileprovision"
 
-          printf 'APP_STORE_CONNECT_PRIVATE_KEY_PATH=%s\n' "$PRIVATE_KEY_PATH" >> "$GITHUB_ENV"
           printf 'IOS_IPA_PATH=%s\n' "$PWD/build/ios/ipa" >> "$GITHUB_ENV"
 
       - name: Install Flutter dependencies
         run: flutter pub get
 
       - name: Build the iOS IPA
-        run: flutter build ipa --release --dart-define=API_BASE_URL="${MOBILE_API_BASE_URL}"
+        run: flutter build ipa --release --dart-define=API_BASE_URL="${MOBILE_API_BASE_URL}" --dart-define=BINGO_TEST_ALLOW_INSECURE_HTTP=true
 
       - name: Capture the built IPA path
         run: |

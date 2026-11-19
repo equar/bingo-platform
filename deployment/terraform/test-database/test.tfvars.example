@@ -1,0 +1,4 @@
+environment          = "test"
+mysql_endpoint       = "existing-test-mysql.example.amazonaws.com:3306"
+mysql_admin_username = "database_admin"
+# Supply this as TF_VAR_mysql_admin_password instead of committing it.

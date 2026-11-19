@@ -67,7 +67,7 @@ Production device validation remains separate from local analysis/widget tests.
 Do not run financial integration scenarios against the production database
 merely to test a package build.
 
-The checked-in iOS bundle IDs are `com.equar.bingo.bingoApp` (player) and
+The checked-in iOS bundle IDs are `com.bakaroo.bingo.bingoApp` (player) and
 `com.equar.bingo.bingoAgent` (agent). Create their Apple profiles accordingly,
 or update the Xcode bundle IDs and export profile mappings together.
 The local Xcode installation currently requires its licence to be reviewed
@@ -163,17 +163,41 @@ wallet, prize, and bingo policies before public release.
 
 **Google Play**
 
-1. Create the Play Console app with the package name configured by
-   `BINGO_ANDROID_PACKAGE_NAME`.
+1. Create the Play Console app with the package name configured by the
+   `ANDROID_PACKAGE_NAME` repository variable. It must match Android's
+   `applicationId`.
 2. Enable Play App Signing and configure the corresponding upload keystore.
 3. Create a service account with the required Play Console permissions.
-4. Confirm the internal testing track, release notes, and testers.
+4. Save the downloaded service-account JSON as the `GOOGLE_PLAY_JSON`
+   repository secret:
+
+   ```bash
+   gh secret set GOOGLE_PLAY_JSON < /path/to/google-play-service-account.json
+   ```
+
+5. Confirm the internal testing track, release notes, and testers.
 
 **Apple**
 
-1. Create the App Store Connect app using `BINGO_IOS_BUNDLE_ID`.
-2. Create an App Store Connect API key and configure its key ID, issuer ID, and
-   private key.
+1. Create the App Store Connect app using the `IOS_BUNDLE_ID` repository
+   variable.
+2. Create an App Store Connect API key. Store one JSON credential bundle as
+   `APPSTORE_DEPLOYER_KEY` with `key_id`, `issuer_id`, and `private_key` fields;
+   the private key is the downloaded `.p8` contents:
+
+   ```json
+   {
+     "key_id": "KEY_ID_FROM_APP_STORE_CONNECT",
+     "issuer_id": "ISSUER_ID_FROM_APP_STORE_CONNECT",
+     "private_key": "-----BEGIN PRIVATE KEY-----\\n...\\n-----END PRIVATE KEY-----"
+   }
+   ```
+
+   Save it as a local, ignored file and upload it without printing it:
+
+   ```bash
+   gh secret set APPSTORE_DEPLOYER_KEY < /path/to/appstore-deployer-key.json
+   ```
 3. Create the distribution certificate and provisioning profile for the
    configured bundle ID/team.
 4. Configure TestFlight access and App Review notes.
@@ -193,10 +217,8 @@ wallet, prize, and bingo policies before public release.
 
 Repository variables:
 
-- `BINGO_MOBILE_API_BASE_URL`
-- `BINGO_ANDROID_PACKAGE_NAME`
-- `BINGO_IOS_BUNDLE_ID`
-- `BINGO_ANDROID_PRODUCTION_ROLLOUT`
+- `ANDROID_PACKAGE_NAME`
+- `IOS_BUNDLE_ID`
 
 Repository secrets:
 
@@ -204,14 +226,18 @@ Repository secrets:
 - `BINGO_ANDROID_KEYSTORE_PASSWORD`
 - `BINGO_ANDROID_KEY_ALIAS`
 - `BINGO_ANDROID_KEY_PASSWORD`
-- `BINGO_GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64`
-- `BINGO_APP_STORE_CONNECT_KEY_ID`
-- `BINGO_APP_STORE_CONNECT_ISSUER_ID`
-- `BINGO_APP_STORE_CONNECT_PRIVATE_KEY_BASE64`
+- `GOOGLE_PLAY_JSON`
+- `APPSTORE_DEPLOYER_KEY`
 - `BINGO_IOS_DISTRIBUTION_CERTIFICATE_BASE64`
 - `BINGO_IOS_DISTRIBUTION_CERTIFICATE_PASSWORD`
 - `BINGO_IOS_PROVISIONING_PROFILE_BASE64`
 - `BINGO_IOS_KEYCHAIN_PASSWORD`
+
+`APPSTORE_DEPLOYER_KEY` is currently a `temp` placeholder and must be replaced
+with the JSON bundle before either iOS store workflow runs. The Android store
+workflows use only `GOOGLE_PLAY_JSON` containing raw JSON. The
+`mobile_api_base_url` and rollout values are workflow-dispatch inputs, with
+test/production defaults, not repository variables.
 
 Production promotion/submission use the `bingo-app-android-production` and
 `bingo-app-ios-production` GitHub environments; require reviewers in repository

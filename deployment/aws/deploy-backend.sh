@@ -5,8 +5,29 @@ python3 "$ROOT/deployment/aws/validate-config.py"
 : "${SERVER:?Set SERVER to user@host}"
 : "${SSH_KEY:?Set SSH_KEY}"
 [[ -f "$SSH_KEY" ]] || { echo 'SSH key not found' >&2; exit 1; }
-export MYSQL_DATABASE=bingo SPRING_PROFILES_ACTIVE=prod SERVER_PORT=8081
+DEPLOY_ENVIRONMENT="${DEPLOY_ENVIRONMENT:-prod}"
+case "$DEPLOY_ENVIRONMENT" in
+  test) expected_database=bingotest; expected_port=8091; expected_ssl_mode=DISABLED; allow_public_key_retrieval=true ;;
+  prod) expected_database=bingo; expected_port=8081; expected_ssl_mode=VERIFY_IDENTITY; allow_public_key_retrieval=false ;;
+  *) echo 'DEPLOY_ENVIRONMENT must be test or prod.' >&2; exit 64 ;;
+esac
+if [[ -n "${MYSQL_DATABASE:-}" && "$MYSQL_DATABASE" != "$expected_database" ]]; then
+  echo "MYSQL_DATABASE must be $expected_database for the $DEPLOY_ENVIRONMENT deployment." >&2
+  exit 1
+fi
+if [[ -n "${SERVER_PORT:-}" && "$SERVER_PORT" != "$expected_port" ]]; then
+  echo "SERVER_PORT must be $expected_port for the $DEPLOY_ENVIRONMENT deployment." >&2
+  exit 1
+fi
+export DEPLOY_ENVIRONMENT MYSQL_DATABASE="$expected_database"
+export SPRING_PROFILES_ACTIVE=prod SERVER_PORT="$expected_port"
+export MYSQL_SSL_MODE="$expected_ssl_mode"
+export MYSQL_ALLOW_PUBLIC_KEY_RETRIEVAL="$allow_public_key_retrieval"
 export SPRING_JPA_HIBERNATE_DDL_AUTO=validate
+if [[ "$DEPLOY_ENVIRONMENT" == test && "${MYSQL_HOST:-}" != 127.0.0.1 ]]; then
+  echo 'Test deployments must use the provisioned local MySQL server at 127.0.0.1.' >&2
+  exit 1
+fi
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 umask 077
@@ -15,16 +36,14 @@ import os, sys, base64
 required=['MYSQL_HOST','MYSQL_USER','MYSQL_PASSWORD','JWT_SECRET','CORS_ALLOWED_ORIGINS','WEBSOCKET_ALLOWED_ORIGINS','ADMIN_ACCOUNT_ACTIVATION_URL','BINGO_FLOAT_BANK_ENCRYPTION_KEY']
 settings={k:os.environ.get(k,'') for k in required}
 missing=[k for k,v in settings.items() if not v or v.startswith(('REPLACE_','YOUR_'))]
-if missing: raise SystemExit('Missing production settings: '+', '.join(missing))
+if missing: raise SystemExit('Missing '+os.environ['DEPLOY_ENVIRONMENT']+' deployment settings: '+', '.join(missing))
 if len(settings['JWT_SECRET']) < 32: raise SystemExit('JWT_SECRET must contain at least 32 characters')
 try:
     if len(base64.b64decode(settings['BINGO_FLOAT_BANK_ENCRYPTION_KEY'],validate=True)) != 32: raise ValueError()
 except Exception: raise SystemExit('BINGO_FLOAT_BANK_ENCRYPTION_KEY must be Base64 encoding of 32 bytes')
-defaults={'APP_EMAIL_PROVIDER':'smtp','APP_EMAIL_FROM':'','MICROSOFT_GRAPH_TENANT_ID':'','MICROSOFT_GRAPH_CLIENT_ID':'','MICROSOFT_GRAPH_CLIENT_SECRET':'','SPRING_MAIL_USERNAME':'','SPRING_MAIL_PASSWORD':'','MYSQL_PORT':'3306','MYSQL_DATABASE':'bingo','SPRING_PROFILES_ACTIVE':'prod','BINGO_ENV_IMPORT':'','SERVER_PORT':'8081','SERVER_ADDRESS':'127.0.0.1','SPRING_JPA_HIBERNATE_DDL_AUTO':'validate','JWT_ACCESS_TOKEN_TTL_SECONDS':'3600','SPRING_MAIL_HOST':'smtp.gmail.com','SPRING_MAIL_PORT':'587','APP_DEV_SEED_ENABLED':'false','APP_BUSINESS_TIMEZONE':'Africa/Addis_Ababa','ADMIN_EMAIL_BOOTSTRAP_ENABLED':'false','ADMIN_BOOTSTRAP_EMAILS':'','ADMIN_BOOTSTRAP_ENABLED':'false','ADMIN_BOOTSTRAP_PHONE':'','ADMIN_BOOTSTRAP_NAME':'','ADMIN_BOOTSTRAP_EMAIL':'','ADMIN_BOOTSTRAP_PASSWORD':'','APP_GAME_PAYOUTS_ENABLED':'false'}
-fixed={'BINGO_ENV_IMPORT','MYSQL_DATABASE','SPRING_PROFILES_ACTIVE','SERVER_PORT','SERVER_ADDRESS','SPRING_JPA_HIBERNATE_DDL_AUTO','APP_DEV_SEED_ENABLED'}
+defaults={'APP_EMAIL_PROVIDER':os.environ.get('APP_EMAIL_PROVIDER', ''),'APP_EMAIL_FROM':'','MICROSOFT_GRAPH_TENANT_ID':'','MICROSOFT_GRAPH_CLIENT_ID':'','MICROSOFT_GRAPH_CLIENT_SECRET':'','SPRING_MAIL_USERNAME':'','SPRING_MAIL_PASSWORD':'','MYSQL_PORT':'3306','MYSQL_DATABASE':os.environ['MYSQL_DATABASE'],'MYSQL_SSL_MODE':os.environ['MYSQL_SSL_MODE'],'MYSQL_ALLOW_PUBLIC_KEY_RETRIEVAL':os.environ['MYSQL_ALLOW_PUBLIC_KEY_RETRIEVAL'],'JAVA_TOOL_OPTIONS':os.environ.get('JAVA_TOOL_OPTIONS') or ('-Xms128m -Xmx384m' if os.environ['DEPLOY_ENVIRONMENT'] == 'test' else '-Xms512m -Xmx1g'),'SPRING_PROFILES_ACTIVE':'prod','BINGO_ENV_IMPORT':'','SERVER_PORT':os.environ['SERVER_PORT'],'SERVER_ADDRESS':'127.0.0.1','SPRING_JPA_HIBERNATE_DDL_AUTO':'validate','JWT_ACCESS_TOKEN_TTL_SECONDS':'3600','SPRING_MAIL_HOST':'smtp.gmail.com','SPRING_MAIL_PORT':'587','APP_DEV_SEED_ENABLED':'false','APP_BUSINESS_TIMEZONE':'Africa/Addis_Ababa','ADMIN_EMAIL_BOOTSTRAP_ENABLED':'false','ADMIN_BOOTSTRAP_EMAILS':'','ADMIN_BOOTSTRAP_ENABLED':'false','ADMIN_BOOTSTRAP_PHONE':'','ADMIN_BOOTSTRAP_NAME':'','ADMIN_BOOTSTRAP_EMAIL':'','ADMIN_BOOTSTRAP_PASSWORD':'','APP_GAME_PAYOUTS_ENABLED':'false'}
+fixed={'BINGO_ENV_IMPORT','MYSQL_DATABASE','MYSQL_SSL_MODE','MYSQL_ALLOW_PUBLIC_KEY_RETRIEVAL','SPRING_PROFILES_ACTIVE','SERVER_PORT','SERVER_ADDRESS','SPRING_JPA_HIBERNATE_DDL_AUTO','APP_DEV_SEED_ENABLED'}
 for k,v in defaults.items(): settings[k]=v if k in fixed else os.environ.get(k) or v
-for suffix in ('TENANT_ID', 'CLIENT_ID', 'CLIENT_SECRET'):
-    settings['MICROSOFT_GRAPH_' + suffix] = os.environ.get('MICROSOFT_GRAPH_' + suffix) or os.environ.get('GRAPH_' + suffix) or ''
 for k in ['APP_PAYMENT_PROVIDER_NAME','APP_PAYMENT_BUSINESS_ACCOUNT','APP_PAYMENT_INSTRUCTIONS']:
     if os.environ.get(k): settings[k]=os.environ[k]
 with open(sys.argv[1],'w') as f:
@@ -55,13 +74,20 @@ cleanup() {
 }
 trap cleanup EXIT
 scp -i "$SSH_KEY" "$jar" "$SERVER:$remote/backend.jar"
-scp -i "$SSH_KEY" "$work/backend.env" "$ROOT/deployment/aws/bingo-backend.service" "$ROOT/deployment/aws/setup-rds-truststore.sh" "$SERVER:$remote/"
-ssh -i "$SSH_KEY" "$SERVER" "sudo -n bash -s -- '$remote'" <<'REMOTE'
+scp -i "$SSH_KEY" "$work/backend.env" "$ROOT/deployment/aws/bingo-backend.service" "$ROOT/deployment/aws/setup-rds-truststore.sh" "$ROOT/deployment/aws/ensure-test-database.py" "$SERVER:$remote/"
+ssh -i "$SSH_KEY" "$SERVER" "sudo -n bash -s -- '$remote' '$SERVER_PORT'" <<'REMOTE'
 set -euo pipefail
 incoming="$1"
+server_port="$2"
+[[ "$server_port" =~ ^[0-9]{4,5}$ ]] || { echo 'Invalid backend health-check port' >&2; exit 1; }
 java -version
 [[ "$(java -version 2>&1)" == *'"25'* ]] || { echo 'Java 25 is required' >&2; exit 1; }
 bash "$incoming/setup-rds-truststore.sh"
+if [[ "$server_port" == 8091 ]]; then
+  [[ -f /etc/bingo-environment && "$(cat /etc/bingo-environment)" == test ]] ||
+    { echo 'Refusing local test database setup on a non-test host.' >&2; exit 1; }
+  python3 "$incoming/ensure-test-database.py" "$incoming/backend.env"
+fi
 id bingo >/dev/null 2>&1 || useradd --system --home /opt/bingo --shell /usr/sbin/nologin bingo
 install -d -o bingo -g bingo -m 755 /opt/bingo /opt/bingo/logs
 # Keep relative config imports away from the root-only systemd environment file.
@@ -90,9 +116,17 @@ if missing:
     raise SystemExit('Current backend environment is missing database settings: ' + ', '.join(missing))
 
 environment = os.environ | {'MYSQL_PWD': settings['MYSQL_PASSWORD']}
+ssl_mode = settings.get('MYSQL_SSL_MODE', 'VERIFY_IDENTITY')
+if ssl_mode not in ('DISABLED', 'VERIFY_IDENTITY'):
+    raise SystemExit('Unsupported MYSQL_SSL_MODE in the current backend environment.')
+ssl_arguments = ['--ssl-mode=' + ssl_mode]
+if ssl_mode == 'VERIFY_IDENTITY':
+    ssl_arguments.append('--ssl-ca=/etc/bingo/database-ca-bundle.pem')
+else:
+    ssl_arguments.append('--get-server-public-key')
 base = [
     'mysql', '--batch', '--skip-column-names', '--protocol=TCP',
-    '--ssl-mode=VERIFY_IDENTITY', '--ssl-ca=/etc/bingo/database-ca-bundle.pem',
+    *ssl_arguments,
     '--host', settings['MYSQL_HOST'], '--port', settings['MYSQL_PORT'],
     '--user', settings['MYSQL_USER'], '--database', settings['MYSQL_DATABASE'],
 ]
@@ -140,9 +174,17 @@ if missing:
     raise SystemExit('Current backend environment is missing database settings: ' + ', '.join(missing))
 
 environment = os.environ | {'MYSQL_PWD': settings['MYSQL_PASSWORD']}
+ssl_mode = settings.get('MYSQL_SSL_MODE', 'VERIFY_IDENTITY')
+if ssl_mode not in ('DISABLED', 'VERIFY_IDENTITY'):
+    raise SystemExit('Unsupported MYSQL_SSL_MODE in the current backend environment.')
+ssl_arguments = ['--ssl-mode=' + ssl_mode]
+if ssl_mode == 'VERIFY_IDENTITY':
+    ssl_arguments.append('--ssl-ca=/etc/bingo/database-ca-bundle.pem')
+else:
+    ssl_arguments.append('--get-server-public-key')
 base = [
     'mysql', '--batch', '--skip-column-names', '--protocol=TCP',
-    '--ssl-mode=VERIFY_IDENTITY', '--ssl-ca=/etc/bingo/database-ca-bundle.pem',
+    *ssl_arguments,
     '--host', settings['MYSQL_HOST'], '--port', settings['MYSQL_PORT'],
     '--user', settings['MYSQL_USER'], '--database', settings['MYSQL_DATABASE'],
 ]
@@ -201,9 +243,17 @@ if missing:
     raise SystemExit('Current backend environment is missing database settings: ' + ', '.join(missing))
 
 environment = os.environ | {'MYSQL_PWD': settings['MYSQL_PASSWORD']}
+ssl_mode = settings.get('MYSQL_SSL_MODE', 'VERIFY_IDENTITY')
+if ssl_mode not in ('DISABLED', 'VERIFY_IDENTITY'):
+    raise SystemExit('Unsupported MYSQL_SSL_MODE in the current backend environment.')
+ssl_arguments = ['--ssl-mode=' + ssl_mode]
+if ssl_mode == 'VERIFY_IDENTITY':
+    ssl_arguments.append('--ssl-ca=/etc/bingo/database-ca-bundle.pem')
+else:
+    ssl_arguments.append('--get-server-public-key')
 base = [
     'mysql', '--batch', '--skip-column-names', '--protocol=TCP',
-    '--ssl-mode=VERIFY_IDENTITY', '--ssl-ca=/etc/bingo/database-ca-bundle.pem',
+    *ssl_arguments,
     '--host', settings['MYSQL_HOST'], '--port', settings['MYSQL_PORT'],
     '--user', settings['MYSQL_USER'], '--database', settings['MYSQL_DATABASE'],
 ]
@@ -276,7 +326,7 @@ PY
 )"
   schema_version_before_deploy="$(read_flyway_schema_version)"
   if (( schema_version_before_deploy > candidate_schema_version )); then
-    echo "Refusing deployment: production schema is at Flyway V$schema_version_before_deploy, but the candidate JAR only includes migrations through V$candidate_schema_version." >&2
+    echo "Refusing deployment: target schema is at Flyway V$schema_version_before_deploy, but the candidate JAR only includes migrations through V$candidate_schema_version." >&2
     echo 'Deploy a backend artifact that includes the current migration history before replacing the running service.' >&2
     exit 1
   fi
@@ -284,7 +334,7 @@ fi
 
 previous_backend_healthy=false
 if systemctl is-active --quiet bingo-backend &&
-   curl -fsS --max-time 3 http://127.0.0.1:8081/actuator/health 2>/dev/null | grep -q '"status":"UP"'; then
+   curl -fsS --max-time 3 "http://127.0.0.1:$server_port/actuator/health" 2>/dev/null | grep -q '"status":"UP"'; then
   previous_backend_healthy=true
 fi
 # Keep a complete previous application/config pair. Flyway changes are not reversed.
@@ -324,7 +374,7 @@ systemctl daemon-reload
 systemctl enable bingo-backend
 systemctl restart bingo-backend
 for attempt in $(seq 1 60); do
-  if curl -fsS --max-time 3 http://127.0.0.1:8081/actuator/health 2>/dev/null | grep -q '"status":"UP"'; then
+  if curl -fsS --max-time 3 "http://127.0.0.1:$server_port/actuator/health" 2>/dev/null | grep -q '"status":"UP"'; then
     echo 'Bingo backend healthy'
     exit 0
   fi

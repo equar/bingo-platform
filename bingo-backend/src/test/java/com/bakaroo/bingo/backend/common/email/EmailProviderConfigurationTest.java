@@ -23,13 +23,21 @@ class EmailProviderConfigurationTest {
     }
 
     @Test
-    void graphWorksWithoutSmtpAndAcceptsExistingCredentialAliases() {
+    void graphWorksWithoutSmtpWithCanonicalCredentials() {
         context.withPropertyValues("app.email.provider=graph", "app.email.from=apps@bakaroo.com",
-                "GRAPH_TENANT_ID=tenant.example", "GRAPH_CLIENT_ID=id", "GRAPH_CLIENT_SECRET=secret")
+                "MICROSOFT_GRAPH_TENANT_ID=tenant.example", "MICROSOFT_GRAPH_CLIENT_ID=id",
+                "MICROSOFT_GRAPH_CLIENT_SECRET=secret")
                 .run(ctx -> {
                     assertThat(ctx).hasNotFailed().hasSingleBean(JavaMailSender.class);
                     assertThat(ctx.getBean(JavaMailSender.class)).isInstanceOf(GraphMailSender.class);
                 });
+    }
+
+    @Test
+    void graphDoesNotAcceptLegacyCredentialAliases() {
+        context.withPropertyValues("app.email.provider=graph", "app.email.from=apps@bakaroo.com",
+                "GRAPH_TENANT_ID=tenant.example", "GRAPH_CLIENT_ID=id", "GRAPH_CLIENT_SECRET=secret")
+                .run(ctx -> assertThat(ctx).hasFailed());
     }
 
     @Test
