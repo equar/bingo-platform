@@ -240,7 +240,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen>
                   builder: (_) => const GameHistoryScreen(),
                 ),
               ),
-              icon: const Icon(Icons.confirmation_num_outlined),
+              icon: const Icon(Icons.sports_esports_outlined),
             ),
             IconButton(
               key: const ValueKey('lobby-refresh-button'),
@@ -602,6 +602,13 @@ Future<void> _buyTickets(
         ),
       ),
     );
+    if (result.purchasedCount > 0 && context.mounted) {
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (_) => SessionDetailScreen(session: session),
+        ),
+      );
+    }
   } catch (_) {
     if (context.mounted) {
       ScaffoldMessenger.of(

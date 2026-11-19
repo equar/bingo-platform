@@ -75,6 +75,7 @@ class AuthApi {
   Future<UserProfile> updatePreferences({
     String? preferredLanguage,
     String? preferredCalendar,
+    bool? autoMarkCalledNumbers,
   }) async {
     try {
       final response = await _dio.put<Map<String, dynamic>>(
@@ -82,6 +83,8 @@ class AuthApi {
         data: {
           if (preferredLanguage != null) 'preferredLanguage': preferredLanguage,
           if (preferredCalendar != null) 'preferredCalendar': preferredCalendar,
+          if (autoMarkCalledNumbers != null)
+            'autoMarkCalledNumbers': autoMarkCalledNumbers,
         },
       );
       return UserProfile.fromJson(

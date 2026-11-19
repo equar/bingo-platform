@@ -212,6 +212,9 @@ public class AuthService {
         }
         if (request.preferredLanguage() != null) user.setPreferredLanguage(request.preferredLanguage());
         if (request.preferredCalendar() != null) user.setPreferredCalendar(request.preferredCalendar());
+        if (request.autoMarkCalledNumbers() != null) {
+            user.setAutoMarkCalledNumbers(request.autoMarkCalledNumbers());
+        }
         return new MeResponse(toProfile(userRepository.save(user)));
     }
 
@@ -260,7 +263,8 @@ public class AuthService {
                 user.isMustChangePassword(),
                 UserLanguages.resolve(user.getPreferredLanguage()),
                 user.getReferralCode(),
-                user.getPreferredCalendar() == null ? "AUTO" : user.getPreferredCalendar());
+                user.getPreferredCalendar() == null ? "AUTO" : user.getPreferredCalendar(),
+                user.isAutoMarkCalledNumbers());
     }
 
     private boolean isDuplicatePhoneConstraint(Throwable failure) {

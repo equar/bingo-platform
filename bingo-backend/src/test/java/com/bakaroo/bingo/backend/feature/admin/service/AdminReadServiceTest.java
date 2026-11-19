@@ -39,6 +39,7 @@ import com.bakaroo.bingo.backend.feature.game.repository.GameSessionRepository;
 import com.bakaroo.bingo.backend.feature.game.repository.PrizeEntitlementRepository;
 import com.bakaroo.bingo.backend.feature.game.repository.TicketRepository;
 import com.bakaroo.bingo.backend.feature.game.repository.WinClaimRepository;
+import com.bakaroo.bingo.backend.feature.game.service.GameSnapshotMapper;
 import com.bakaroo.bingo.backend.feature.support.entity.SupportTicket;
 import com.bakaroo.bingo.backend.feature.support.entity.SupportTicketCategory;
 import com.bakaroo.bingo.backend.feature.support.entity.SupportLinkedEntityType;
@@ -128,7 +129,7 @@ class AdminReadServiceTest {
                 drawEventRepository, gameSessionRepository, agentRepository, agentFloatRepository,
                 agentFloatTransactionRepository, floatTopUpRequestRepository, payoutVerificationRecordRepository,
                 winClaimRepository, prizeEntitlementRepository, supportTicketRepository, auditLogRepository,
-                businessProperties);
+                businessProperties, new GameSnapshotMapper(new com.fasterxml.jackson.databind.ObjectMapper()));
 
         Instant now = Instant.parse("2026-01-01T00:00:00Z");
         player = User.create("251911000001", "Player One", "pw", AccountStatus.ACTIVE, Set.of(UserRole.PLAYER), now);
@@ -163,6 +164,7 @@ class AdminReadServiceTest {
         session.setScheduledStartAt(now.plusSeconds(3600));
         session.setStartedAt(now.plusSeconds(3600));
         session.setTicketPriceSnapshot(new BigDecimal("5.00"));
+        session.setPrizesSnapshotJson("[]");
         session.setCurrencySnapshot("ETB");
 
         supportTicket = SupportTicket.create(player, "Need help", "Body", SupportTicketCategory.WALLET,

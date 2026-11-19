@@ -28,16 +28,7 @@ public interface GameSessionRepository extends JpaRepository<GameSession, Long> 
                                 and (:upcoming is null
                                         or (:upcoming = true and s.scheduledStartAt >= :now)
                                         or (:upcoming = false and s.scheduledStartAt < :now))
-                        order by case
-                                        when s.state = com.bakaroo.bingo.backend.feature.game.entity.GameSessionState.DRAFT then 0
-                                        when s.state = com.bakaroo.bingo.backend.feature.game.entity.GameSessionState.OPEN then 1
-                                        when s.state = com.bakaroo.bingo.backend.feature.game.entity.GameSessionState.STARTED then 2
-                                        when s.state = com.bakaroo.bingo.backend.feature.game.entity.GameSessionState.DRAWING then 3
-                                        when s.state = com.bakaroo.bingo.backend.feature.game.entity.GameSessionState.CLOSED then 4
-                                        when s.state = com.bakaroo.bingo.backend.feature.game.entity.GameSessionState.SETTLED then 5
-                                        when s.state = com.bakaroo.bingo.backend.feature.game.entity.GameSessionState.CANCELLED then 6
-                                        else 7
-                                end asc, s.scheduledStartAt asc, s.id asc
+                        order by s.scheduledStartAt desc, s.id desc
                         """)
         Page<GameSession> searchAdminSessions(@Param("query") String query, @Param("sessionId") Long sessionId,
                         @Param("state") GameSessionState state, @Param("roomId") Long roomId,

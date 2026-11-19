@@ -88,6 +88,19 @@ class _GameHistoryScreenState extends ConsumerState<GameHistoryScreen> {
             child: Text(AppLocalizations.of(context)!.gameHistoryEmpty),
           );
         }
+        final activeGames = <int, List<PlayerGameHistoryItem>>{};
+        final historyEntries = <PlayerGameHistoryItem>[];
+        for (final entry in entries) {
+          if (const {
+            'OPEN',
+            'STARTED',
+            'DRAWING',
+          }.contains(entry.sessionState.toUpperCase())) {
+            activeGames.putIfAbsent(entry.sessionId, () => []).add(entry);
+          } else {
+            historyEntries.add(entry);
+          }
+        }
         final wonSessions = claims
             .where((claim) => claim.serverValidationPassed)
             .map((claim) => claim.sessionId)
@@ -99,78 +112,115 @@ class _GameHistoryScreenState extends ConsumerState<GameHistoryScreen> {
             .where((claim) => claim.prizeCurrency?.isNotEmpty == true)
             .map((claim) => claim.prizeCurrency!)
             .firstOrNull;
-        return ListView.separated(
+        final completedGames = historyEntries
+            .map((entry) => entry.sessionId)
+            .toSet();
+        return ListView(
           padding: const EdgeInsets.all(16),
-          itemCount: entries.length + 1,
-          separatorBuilder: (_, _) => const SizedBox(height: 8),
-          itemBuilder: (context, index) {
-            if (index == 0) {
-              final games = entries.map((entry) => entry.sessionId).toSet();
-              return Card(
-                key: const ValueKey('player-game-statistics'),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        l.playerStatisticsTitle,
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 20,
-                        runSpacing: 12,
-                        children: [
-                          _StatValue(
-                            label: l.gamesPlayed,
-                            value: '${games.length}',
-                          ),
-                          _StatValue(
-                            label: l.ticketsPlayed,
-                            value: '${entries.length}',
-                          ),
-                          _StatValue(
-                            label: l.winningGames,
-                            value: '${wonSessions.length}',
-                          ),
-                          _StatValue(
-                            label: l.prizesWon,
-                            value:
-                                '${winnings.toStringAsFixed(2)} ${currency ?? ''}',
-                          ),
-                        ],
-                      ),
-                    ],
+          children: [
+            Card(
+              key: const ValueKey('player-game-statistics'),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l.playerStatisticsTitle,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 20,
+                      runSpacing: 12,
+                      children: [
+                        _StatValue(
+                          label: l.gamesPlayed,
+                          value: '${completedGames.length}',
+                        ),
+                        _StatValue(
+                          label: l.ticketsPlayed,
+                          value: '${historyEntries.length}',
+                        ),
+                        _StatValue(
+                          label: l.winningGames,
+                          value: '${wonSessions.length}',
+                        ),
+                        _StatValue(
+                          label: l.prizesWon,
+                          value:
+                              '${winnings.toStringAsFixed(2)} ${currency ?? ''}',
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (activeGames.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Text(
+                l.myActiveGamesTitle,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 8),
+              for (final gameEntries in activeGames.values) ...[
+                Card(
+                  child: ListTile(
+                    leading: const CircleAvatar(
+                      child: Icon(Icons.sports_esports_outlined),
+                    ),
+                    title: Text(
+                      gameEntries.first.sessionName.isEmpty
+                          ? gameEntries.first.roomName
+                          : gameEntries.first.sessionName,
+                    ),
+                    subtitle: Text(
+                      '${gameEntries.first.roomName}\n'
+                      '${l.sessionStatusLabel}: '
+                      '${_localizedSessionState(l, gameEntries.first.sessionState)} · '
+                      '${l.ticketCountLabel}: ${gameEntries.length}',
+                    ),
+                    isThreeLine: true,
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                    onTap: () => _openGame(gameEntries.first),
                   ),
                 ),
-              );
-            }
-            final entry = entries[index - 1];
-            return Card(
-              child: ListTile(
-                leading: const CircleAvatar(
-                  child: Icon(Icons.sports_esports_outlined),
+                const SizedBox(height: 8),
+              ],
+            ],
+            for (final entry in historyEntries)
+              Card(
+                child: ListTile(
+                  leading: const CircleAvatar(
+                    child: Icon(Icons.sports_esports_outlined),
+                  ),
+                  title: Text(
+                    entry.sessionName.isEmpty
+                        ? entry.roomName
+                        : entry.sessionName,
+                  ),
+                  subtitle: Text(
+                    '${entry.roomName} · ${entry.ticketCode}\n${EthiopianDateTime.date(entry.purchasedAt, languageCode: Localizations.localeOf(context).languageCode)}',
+                  ),
+                  isThreeLine: true,
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => _openGame(entry),
                 ),
-                title: Text(
-                  entry.sessionName.isEmpty
-                      ? entry.roomName
-                      : entry.sessionName,
-                ),
-                subtitle: Text(
-                  '${entry.roomName} · ${entry.ticketCode}\n${EthiopianDateTime.date(entry.purchasedAt, languageCode: Localizations.localeOf(context).languageCode)}',
-                ),
-                isThreeLine: true,
-                trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: () => _openGame(entry),
               ),
-            );
-          },
+          ],
         );
       },
     ),
   );
 }
+
+String _localizedSessionState(AppLocalizations localizations, String state) =>
+    switch (state.toUpperCase()) {
+      'OPEN' => localizations.upcomingGamesTab,
+      'STARTED' || 'DRAWING' => localizations.liveGamesTab,
+      _ => state,
+    };
 
 class _StatValue extends StatelessWidget {
   const _StatValue({required this.label, required this.value});

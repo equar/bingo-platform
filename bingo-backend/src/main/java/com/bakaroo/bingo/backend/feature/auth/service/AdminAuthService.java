@@ -156,6 +156,7 @@ public class AdminAuthService {
                 user.getUpdatedAt(),
                 user.isMustChangePassword(),
                 UserLanguages.resolve(user.getPreferredLanguage()), user.getReferralCode(),
-                user.getPreferredCalendar() == null ? "AUTO" : user.getPreferredCalendar());
+                user.getPreferredCalendar() == null ? "AUTO" : user.getPreferredCalendar(),
+                user.isAutoMarkCalledNumbers());
     }
 }

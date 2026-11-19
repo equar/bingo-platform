@@ -75,6 +75,7 @@ describe("SessionsPage", () => {
           drawCount: 0,
           winClaimCount: 0,
           supportTicketCount: 0,
+          configuredPrizes: [],
         },
       ],
       page: 0,

@@ -11,6 +11,10 @@ import {
   Alert,
   Button,
   Chip,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  Divider,
   Link,
   MenuItem,
   Paper,
@@ -38,7 +42,7 @@ import { AdminTablePagination } from "../../components/AdminTablePagination";
 import { AdminTablePage } from "../../components/AdminTablePage";
 import { AdminPageHeader } from "../../components/AdminPageHeader";
 import { usePrivateListSearch } from "../../components/usePrivateListSearch";
-import { translateAdminStatus } from "../../i18n";
+import { translateAdminStatus, translateAdminValue } from "../../i18n";
 
 const allowedStates: Record<string, string[]> = {
   DRAFT: ["OPEN", "CANCELLED"],
@@ -110,6 +114,7 @@ export function SessionsPage() {
     nextState: string;
   } | null>(null);
   const [transitionError, setTransitionError] = useState<string | null>(null);
+  const [selectedRoomId, setSelectedRoomId] = useState<number | null>(null);
   const normalizedSearch = search.trim();
   const sessionsQuery = useQuery({
     queryKey: [
@@ -155,6 +160,7 @@ export function SessionsPage() {
   });
 
   const rooms = roomsQuery.data ?? [];
+  const selectedRoom = rooms.find((room) => room.id === selectedRoomId);
   const sessions = sessionsQuery.data?.content ?? [];
 
   if (sessionsQuery.isLoading) {
@@ -286,7 +292,7 @@ export function SessionsPage() {
           <TableContainer component={Paper} variant="outlined">
             <Table
               size="small"
-              sx={{ minWidth: 1050 }}
+              sx={{ minWidth: 1150 }}
               aria-label={t("Sessions")}
             >
               <TableHead>
@@ -294,6 +300,7 @@ export function SessionsPage() {
                   <TableCell>{t("Session")}</TableCell>
                   <TableCell>{t("Room")}</TableCell>
                   <TableCell>{t("Ticket price")}</TableCell>
+                  <TableCell>{t("Prize")}</TableCell>
                   <TableCell>{t("Status")}</TableCell>
                   <TableCell align="right">{t("Tickets")}</TableCell>
                   <TableCell align="right">{t("Capacity")}</TableCell>
@@ -315,9 +322,38 @@ export function SessionsPage() {
                         {session.sessionName}
                       </Link>
                     </TableCell>
-                    <TableCell>{session.roomName}</TableCell>
+                    <TableCell>
+                      <Link
+                        component="button"
+                        type="button"
+                        underline="hover"
+                        onClick={() => setSelectedRoomId(session.roomId)}
+                      >
+                        {session.roomName}
+                      </Link>
+                    </TableCell>
                     <TableCell sx={{ whiteSpace: "nowrap" }}>
                       {session.currency} {session.ticketPrice}
+                    </TableCell>
+                    <TableCell>
+                      <Stack spacing={0.25}>
+                        {(session.configuredPrizes ?? []).length > 0 ? (
+                          (session.configuredPrizes ?? []).map((prize) => (
+                            <Typography
+                              key={prize.prizeType}
+                              variant="body2"
+                              sx={{ whiteSpace: "nowrap" }}
+                            >
+                              {translateAdminValue(prize.prizeType, t)}: {" "}
+                              {prize.amount} {session.currency}
+                            </Typography>
+                          ))
+                        ) : (
+                          <Typography variant="body2" color="text.secondary">
+                            {t("—")}
+                          </Typography>
+                        )}
+                      </Stack>
                     </TableCell>
                     <TableCell>
                       <Chip
@@ -376,6 +412,15 @@ export function SessionsPage() {
                       >
                         <Button
                           component={RouterLink}
+                          to={`/sessions/${session.id}/edit${location.search}`}
+                          size="small"
+                          variant="outlined"
+                          disabled={session.state !== "DRAFT" && session.state !== "OPEN"}
+                        >
+                          {t("Edit")}
+                        </Button>
+                        <Button
+                          component={RouterLink}
                           to={`/session-tickets?sessionId=${session.id}`}
                           size="small"
                           variant="outlined"
@@ -402,7 +447,7 @@ export function SessionsPage() {
                 ))}
                 {sessionsQuery.data && sessions.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={10} align="center" sx={{ py: 4 }}>
+                    <TableCell colSpan={11} align="center" sx={{ py: 4 }}>
                       {t("No sessions match your search and filters.")}
                     </TableCell>
                   </TableRow>
@@ -425,6 +470,83 @@ export function SessionsPage() {
             rowsPerPageOptions={[10, 20, 50]}
           />
         </Stack>
+
+        <Dialog
+          open={selectedRoomId !== null}
+          onClose={() => setSelectedRoomId(null)}
+          fullWidth
+          maxWidth="sm"
+          aria-labelledby="session-room-dialog-title"
+        >
+          <DialogTitle id="session-room-dialog-title">
+            {selectedRoom?.name ?? t("Room information")}
+          </DialogTitle>
+          <DialogContent dividers>
+            {selectedRoom ? (
+              <Stack spacing={1.5}>
+                <Typography color="text.secondary">
+                  {selectedRoom.description || t("No description")}
+                </Typography>
+                <Divider />
+                <Typography>
+                  {t("Ticket price")}: {selectedRoom.ticketPrice}{" "}
+                  {selectedRoom.currency}
+                </Typography>
+                <Typography>
+                  {t("Timezone")}: {selectedRoom.timezone}
+                </Typography>
+                <Typography>
+                  {t("Schedule")}: {translateAdminValue(
+                    selectedRoom.scheduleRule,
+                    t,
+                  )}
+                </Typography>
+                <Typography>
+                  {t("Session capacity")}: {selectedRoom.sessionCapacity}
+                </Typography>
+                <Typography>
+                  {t("Max tickets per player")}: {selectedRoom.maxTicketsPerPlayer}
+                </Typography>
+                <Typography>
+                  {t("Configured patterns")}: {" "}
+                  {selectedRoom.configuredPatterns
+                    .map((pattern) => translateAdminValue(pattern, t))
+                    .join(", ") || t("—")}
+                </Typography>
+                <Typography>
+                  {t("Multiple winners per prize")}: {t(
+                    selectedRoom.allowMultipleWinnersPerPrize ? "Yes" : "No",
+                  )}
+                </Typography>
+                <Typography>
+                  {t("Close ticket sales when session starts")}: {t(
+                    selectedRoom.ticketSalesCloseOnSessionStart ? "Yes" : "No",
+                  )}
+                </Typography>
+                <Stack spacing={0.5}>
+                  <Typography fontWeight={600}>{t("Prizes")}</Typography>
+                  {selectedRoom.configuredPrizes.length > 0 ? (
+                    selectedRoom.configuredPrizes.map((prize) => (
+                      <Typography key={prize.prizeType} color="text.secondary">
+                        {translateAdminValue(prize.prizeType, t)}: {prize.amount}{" "}
+                        {selectedRoom.currency} ·{" "}
+                        {translateAdminValue(prize.settlementPath, t)}
+                      </Typography>
+                    ))
+                  ) : (
+                    <Typography color="text.secondary">{t("—")}</Typography>
+                  )}
+                </Stack>
+              </Stack>
+            ) : roomsQuery.isLoading ? (
+              <Typography>{t("Loading room information")}</Typography>
+            ) : (
+              <Typography color="text.secondary">
+                {t("Room information unavailable.")}
+              </Typography>
+            )}
+          </DialogContent>
+        </Dialog>
 
         <ConfirmDialog
           open={confirmOpen}

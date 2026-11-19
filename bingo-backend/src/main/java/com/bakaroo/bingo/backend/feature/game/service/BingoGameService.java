@@ -18,6 +18,7 @@ import com.bakaroo.bingo.backend.feature.game.dto.GameSessionResponse;
 import com.bakaroo.bingo.backend.feature.game.dto.PlayerRoomResponse;
 import com.bakaroo.bingo.backend.feature.game.dto.PlayerGameSessionResponse;
 import com.bakaroo.bingo.backend.feature.game.dto.GameSessionStateUpdateRequest;
+import com.bakaroo.bingo.backend.feature.game.dto.GameSessionUpdateRequest;
 import com.bakaroo.bingo.backend.feature.game.dto.PrizeEntitlementResponse;
 import com.bakaroo.bingo.backend.feature.game.dto.PrizeEntitlementSettlementRequest;
 import com.bakaroo.bingo.backend.feature.game.dto.TicketPurchaseResponse;
@@ -522,6 +523,32 @@ public class BingoGameService {
         applicationEventPublisher.publishEvent(
                 new GameSessionStateChangedEvent(sessionId, session.getState()));
         return toSessionResponse(session);
+    }
+
+    @Transactional
+    public GameSessionResponse updateSession(Long sessionId, GameSessionUpdateRequest request) {
+        GameSession session = gameSessionRepository.findByIdForUpdate(sessionId)
+                .orElseThrow(() -> new NotFoundException("SESSION_NOT_FOUND", "Game session not found"));
+        GameSessionState current = session.getState();
+        if (current != GameSessionState.DRAFT && current != GameSessionState.OPEN) {
+            throw new ConflictException("SESSION_NOT_EDITABLE", "Only draft or open sessions can be edited");
+        }
+        if (request.state() != current && !(current == GameSessionState.DRAFT
+                && request.state() == GameSessionState.OPEN)) {
+            throw new ConflictException("INVALID_SESSION_STATE_TRANSITION",
+                    "Sessions can only be changed from draft to open while editing");
+        }
+        session.setSessionName(request.sessionName().trim());
+        session.setScheduledStartAt(request.scheduledStartAt());
+        session.setState(request.state());
+        if (request.configuredPrizes() != null) {
+            session.setPatternsSnapshotJson(writePatterns(request.configuredPatterns() != null
+                    ? request.configuredPatterns()
+                    : request.configuredPrizes().stream().map(BingoPrizeConfigRequest::prizeType).toList()));
+            session.setPrizesSnapshotJson(writePrizes(request.configuredPrizes()));
+            validateSessionPrizeConfiguration(session);
+        }
+        return toSessionResponse(gameSessionRepository.saveAndFlush(session));
     }
 
     @Transactional

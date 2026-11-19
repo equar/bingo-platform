@@ -30,8 +30,10 @@ class AuthRepository {
   Future<UserProfile> updatePreferences({
     String? preferredLanguage,
     String? preferredCalendar,
+    bool? autoMarkCalledNumbers,
   }) => _api.updatePreferences(
     preferredLanguage: preferredLanguage,
     preferredCalendar: preferredCalendar,
+    autoMarkCalledNumbers: autoMarkCalledNumbers,
   );
 }

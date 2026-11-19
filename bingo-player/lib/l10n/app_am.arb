@@ -525,7 +525,7 @@
   "messagesTitle": "መልዕክቶች",
   "messagesLoadError": "መልዕክቶችን መጫን አልተቻለም።",
   "messagesEmpty": "እስካሁን መልዕክት የለዎትም።",
-  "gameHistoryTitle": "የእኔ ቲኬቶች",
+  "gameHistoryTitle": "የእኔ ጨዋታዎች እና ቲኬቶች",
   "gameHistoryLoadError": "የጨዋታ ታሪክን መጫን አልተቻለም።",
   "gameHistoryEmpty": "እስካሁን ቲኬት አልገዙም። ለሚመጡ እና በቀጥታ ለሚካሄዱ ጨዋታዎች የገዙት ቲኬቶች እዚህ ይታያሉ።",
   "selectMultipleCards": "ብዙ ካርዶችን ይምረጡ",
@@ -535,7 +535,9 @@
   "resetMarkedNumbers": "የተመረጡ ቁጥሮችን አጽዳ",
   "clearManualMarksDescription": "ከሁሉም ቲኬቶች የእጅ ምልክቶችን አጽዳ።",
   "autoMarkNumbers": "የተጠሩ ቁጥሮችን በራስ-ሰር ምልክት አድርግ",
-  "autoMarkNumbersDescription": "የተጠራውን ቁጥር በካርዶችዎ ላይ ምልክት አድርግ።",
+  "autoMarkNumbersDescription": "ለዚህ ጨዋታ ብቻ ነባሪ ምርጫዎን ይቀይሩ።",
+  "profileAutoMarkDescription": "ለወደፊት ጨዋታዎች ነባሪ ምርጫ። በተጫዋች መለያዎ ይቀመጣል እና በሌሎች መሳሪያዎችዎም ይጠቀማሉ።",
+  "autoMarkPreferenceSaveFailed": "ይህን ምርጫ ማስቀመጥ አልተቻለም። ግንኙነትዎን ያረጋግጡና እንደገና ይሞክሩ።",
   "hideUnregisteredCards": "ያልተመዘገቡ ካርዶችን ደብቅ",
   "hideUnregisteredCardsDescription": "ብዙ ካርድ ሲመርጡ ለቦርድዎ የመረጧቸውን ቲኬቶች ብቻ ያሳዩ።",
   "selectionColor": "የምርጫ ቀለም",
@@ -557,5 +559,8 @@
   "calendarAutoGregorian": "ራስ-ሰር በአሁኑ ጊዜ ጎርጎርያን ቀን መቁጠሪያን ይጠቀማል።",
   "calendarPreferenceSaved": "የቀን መቁጠሪያ ምርጫዎ ተቀምጧል።",
   "calendarPreferenceSaveFailed": "የቀን መቁጠሪያ ምርጫዎን ማስቀመጥ አልተቻለም።",
-  "calendarPreferenceSaving": "የቀን መቁጠሪያ ምርጫ በማስቀመጥ ላይ..."
+  "calendarPreferenceSaving": "የቀን መቁጠሪያ ምርጫ በማስቀመጥ ላይ...",
+  "myActiveGamesTitle": "የሚመጡ እና በቀጥታ የሚካሄዱ ጨዋታዎችዎ",
+  "playingCardsCount": "በአንድ ጊዜ የሚጫወቱት ካርዶች: {count}",
+  "@playingCardsCount": {"placeholders": {"count": {"type": "int"}}}
 }
