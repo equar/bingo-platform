@@ -58,15 +58,16 @@ public interface TicketRepository extends JpaRepository<Ticket, Long> {
                 t.id, t.session.id, t.session.room.name, t.session.sessionName, t.session.state,
                 t.publicTicketCode, t.purchasedAt)
             from Ticket t
-            where t.owner.id = :ownerId and t.session.state in :states
+            where t.owner.id = :ownerId
+                and t.session.state <> com.bakaroo.bingo.backend.feature.game.entity.GameSessionState.DRAFT
             order by t.purchasedAt desc, t.id desc
             """, countQuery = """
             select count(t) from Ticket t
-            where t.owner.id = :ownerId and t.session.state in :states
+            where t.owner.id = :ownerId
+                and t.session.state <> com.bakaroo.bingo.backend.feature.game.entity.GameSessionState.DRAFT
             """)
     Page<PlayerGameHistoryResponse> findPlayerGameHistory(
             @Param("ownerId") Long ownerId,
-            @Param("states") List<GameSessionState> states,
             Pageable pageable);
 
     List<Ticket> findBySessionIdAndOwnerIdOrderByPurchasedAtDesc(Long sessionId, Long ownerId);

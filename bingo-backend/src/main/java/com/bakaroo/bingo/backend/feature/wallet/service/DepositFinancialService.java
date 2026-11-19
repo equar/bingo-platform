@@ -270,7 +270,8 @@ public class DepositFinancialService {
                     transactions.save(WalletTransaction.create(wallet, operationId,
                             WalletTransactionType.DEPOSIT_CREDIT, amount, before, after,
                             wallet.getPromotionalBalance(), wallet.getPromotionalBalance(), wallet.getCurrency(),
-                            "DEPOSIT_CLAIM", claim.getId(), (simulated ? "Simulated QA posting " : "Bank verified deposit ") + postingReference,
+                            "DEPOSIT_CLAIM", claim.getId(), (simulated ? "Simulated QA deposit from " : "Deposit from ")
+                                    + paymentProvider.currentInstructions().providerName(),
                             "{\"journalId\":" + journalId + ",\"simulated\":" + simulated + "}", now));
                     signupRewardService.grantWalletCreditReward(claim.getPlayer());
                     if (adminCorrection) {

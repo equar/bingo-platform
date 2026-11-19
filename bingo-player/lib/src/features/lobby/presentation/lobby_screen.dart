@@ -10,6 +10,7 @@ import 'package:bingo_player/src/core/widgets/section_card.dart';
 import 'package:bingo_player/src/features/lobby/data/lobby_repository.dart';
 import 'package:bingo_player/src/features/lobby/domain/lobby_models.dart';
 import 'package:bingo_player/src/features/game/presentation/session_detail_screen.dart';
+import 'package:bingo_player/src/features/player_content/presentation/game_history_screen.dart';
 import 'package:bingo_player/src/features/lobby/presentation/ticket_preview_screen.dart';
 import 'package:bingo_player/src/core/config/app_config.dart';
 import 'package:bingo_player/src/features/auth/data/auth_session_controller.dart';
@@ -232,6 +233,15 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen>
           ),
           actions: [
             const SupportShortcut(),
+            IconButton(
+              tooltip: localizations.gameHistoryTitle,
+              onPressed: () => Navigator.of(context).push<void>(
+                MaterialPageRoute<void>(
+                  builder: (_) => const GameHistoryScreen(),
+                ),
+              ),
+              icon: const Icon(Icons.confirmation_num_outlined),
+            ),
             IconButton(
               key: const ValueKey('lobby-refresh-button'),
               tooltip: localizations.refresh,

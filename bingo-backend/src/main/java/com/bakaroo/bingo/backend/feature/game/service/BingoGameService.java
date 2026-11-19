@@ -284,8 +284,7 @@ public class BingoGameService {
     @Transactional(readOnly = true)
     public Page<PlayerGameHistoryResponse> getPlayerGameHistory(BingoUserPrincipal principal, Pageable pageable) {
         User player = requirePlayer(principal);
-        return ticketRepository.findPlayerGameHistory(player.getId(),
-                List.of(GameSessionState.CLOSED, GameSessionState.SETTLED, GameSessionState.CANCELLED), pageable);
+        return ticketRepository.findPlayerGameHistory(player.getId(), pageable);
     }
 
     @Transactional(readOnly = true)
@@ -592,7 +591,7 @@ public class BingoGameService {
                             wallet.getCurrency(),
                             "BINGO_TICKET",
                             ticket.getId(),
-                            "Bingo ticket purchase",
+                            session.getSessionName(),
                             ticket.getWalletFundingSnapshotJson(),
                             Instant.now()));
 
