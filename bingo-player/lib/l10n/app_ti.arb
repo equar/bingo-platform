@@ -586,7 +586,9 @@
   "resetMarkedNumbers": "ምልክት ዝተገብረሎም ቁጽርታት ዳግም ኣቐምጥ/ኣጽርይ",
   "clearManualMarksDescription": "ኣብ ኩሎም ቲኬታት ዝገበርካዮ ኢዳዊ ምልክታት ኣጽርይ።",
   "autoMarkNumbers": "ዝተጸውዑ ቁጽርታት ባዕሉ ምልክት ግበር",
-  "autoMarkNumbersDescription": "ነፍሲ ወከፍ ዝተጸውዐ ቁጽሪ ኣብ ካርድታትካ ምልክት ግበረሉ።",
+  "autoMarkNumbersDescription": "ንዛ ጸወታ ጥራይ ነባሪ ምርጫኻ ቀይር።",
+  "profileAutoMarkDescription": "ንመጻኢ ጸወታታት ነባሪ ምርጫ። ኣብ መለያ ተጻዋታይካ ይቕመጥ እና ኣብ ካልኦት መሳርሒታትካ ይጥቀመሉ።",
+  "autoMarkPreferenceSaveFailed": "እዚ ምርጫ ክዕቅብ ኣይከኣለን። ርክብካ ኣረጋግጽ እሞ እንደገና ፈትን።",
   "hideUnregisteredCards": "ዘይተመዝገቡ ካርድታት ሓብእ",
   "hideUnregisteredCardsDescription": "ብዙሓት ካርድታት ምስ ዝምረጹ፡ ነቶም ንሰሌዳኻ ዝተመርጹ ቲኬታት ጥራይ ኣርኢ።",
   "selectionColor": "ሕብሪ ምርጫ",
@@ -965,7 +967,7 @@
   "messagesTitle": "Messages",
   "messagesLoadError": "Unable to load messages.",
   "messagesEmpty": "You have no messages yet.",
-  "gameHistoryTitle": "Game History",
+  "gameHistoryTitle": "ጸወታታተይን ቲኬታተይን",
   "gameHistoryLoadError": "Unable to load game history.",
   "gameHistoryEmpty": "No completed games yet.",
   "selectMultipleCards": "Select Multiple Cards",
@@ -987,5 +989,8 @@
   "gamesPlayed": "Games played",
   "ticketsPlayed": "Tickets played",
   "winningGames": "Winning games",
-  "prizesWon": "Prizes won"
+  "prizesWon": "Prizes won",
+  "myActiveGamesTitle": "እቶም ዝመጹን ቀጻልን ዘለዉ ጸወታታትካ",
+  "playingCardsCount": "ኣብ ቦርድ ዘለዉ ካርድታት: {count}",
+  "@playingCardsCount": {"placeholders": {"count": {"type": "int"}}}
 }

@@ -10,6 +10,7 @@ import com.bakaroo.bingo.backend.feature.game.dto.DrawEventResponse;
 import com.bakaroo.bingo.backend.feature.game.dto.GameSessionRequest;
 import com.bakaroo.bingo.backend.feature.game.dto.GameSessionResponse;
 import com.bakaroo.bingo.backend.feature.game.dto.GameSessionStateUpdateRequest;
+import com.bakaroo.bingo.backend.feature.game.dto.GameSessionUpdateRequest;
 import com.bakaroo.bingo.backend.feature.game.dto.PrizeEntitlementResponse;
 import com.bakaroo.bingo.backend.feature.game.dto.PrizeEntitlementSettlementRequest;
 import com.bakaroo.bingo.backend.feature.game.dto.TicketResponse;
@@ -102,6 +103,13 @@ public class AdminGameController {
     @PreAuthorize("hasRole('ADMIN')")
     public GameSessionResponse createSession(@PathVariable Long id, @Valid @RequestBody GameSessionRequest request) {
         return bingoGameService.createSession(id, request);
+    }
+
+    @PutMapping("/sessions/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public GameSessionResponse updateSession(@PathVariable Long id,
+            @Valid @RequestBody GameSessionUpdateRequest request) {
+        return bingoGameService.updateSession(id, request);
     }
 
     @PutMapping("/sessions/{id}/state")

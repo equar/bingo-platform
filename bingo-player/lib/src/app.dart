@@ -39,6 +39,15 @@ class _BingoAppView extends ConsumerWidget {
     final preferences = ref.watch(playerPreferencesProvider);
     ref.watch(sessionStorageProvider);
     ref.listen(authSessionControllerProvider, (previous, next) {
+      final autoMarkDefault = next.session?.user.autoMarkCalledNumbers;
+      if (autoMarkDefault != null &&
+          autoMarkDefault != previous?.session?.user.autoMarkCalledNumbers) {
+        unawaited(
+          ref
+              .read(playerPreferencesProvider)
+              .applyAutoMarkDefault(autoMarkDefault),
+        );
+      }
       final language = next.session?.user.preferredLanguage;
       if ((language == 'en' || language == 'am' || language == 'ti') &&
           language != previous?.session?.user.preferredLanguage) {

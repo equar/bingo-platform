@@ -17,5 +17,14 @@ public record UserProfileResponse(
         boolean mustChangePassword,
         String preferredLanguage,
         String referralCode,
-        String preferredCalendar) {
+        String preferredCalendar,
+        boolean autoMarkCalledNumbers) {
+
+    public UserProfileResponse(Long id, String displayName, String email, String phoneNumber,
+            Set<UserRole> roles, AccountStatus status, Instant createdAt, Instant updatedAt,
+            boolean mustChangePassword, String preferredLanguage, String referralCode,
+            String preferredCalendar) {
+        this(id, displayName, email, phoneNumber, roles, status, createdAt, updatedAt,
+                mustChangePassword, preferredLanguage, referralCode, preferredCalendar, true);
+    }
 }

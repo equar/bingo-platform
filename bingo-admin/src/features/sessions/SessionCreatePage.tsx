@@ -27,8 +27,25 @@ import {
   currentCalendarPreference,
   type EthiopianTimePeriod,
 } from "../../utils/ethiopianDateTime";
-import { translateAdminStatus } from "../../i18n";
+import { translateAdminStatus, translateAdminValue } from "../../i18n";
 import { getDefaultEthiopianRoomScheduleTime, resolveEthiopianRoomScheduleTime } from "./sessionScheduleTime";
+
+const prizePatterns = [
+  "LINE", "TWO_LINES", "FOUR_CORNERS", "POSTAGE_STAMP", "X_SHAPE",
+  "T_SHAPE", "L_SHAPE", "OUTER_FRAME", "FULL_HOUSE", "HORIZONTAL_LINE",
+  "VERTICAL_LINE", "DIAGONAL_LINES", "LINE_TOUCHING_FREE",
+  "LINE_NOT_TOUCHING_FREE", "NON_CROSSING_LINES", "SQUARE", "RECTANGLE",
+  "SMALL_X", "SMALL_T", "SMALL_CROSS", "BIG_T", "BIG_Z", "BIG_H",
+  "BIG_L", "BIG_U", "HALF_HOUSE", "BIG_O", "CORNER_BALLS",
+] as const;
+type PrizePattern = (typeof prizePatterns)[number];
+type PrizeSettlement = "PLAYER_WALLET" | "AGENT_CASH";
+
+interface PrizeDraft {
+  prizeType: PrizePattern;
+  amount: string;
+  settlementPath: PrizeSettlement;
+}
 
 interface SessionDraft {
   roomId: string;
@@ -36,6 +53,7 @@ interface SessionDraft {
   scheduledDate: string;
   scheduledTime: string;
   state: string;
+  configuredPrizes: PrizeDraft[];
 }
 
 function createInitialDraft(): SessionDraft {
@@ -45,6 +63,7 @@ function createInitialDraft(): SessionDraft {
     scheduledDate: "",
     scheduledTime: "",
     state: "OPEN",
+    configuredPrizes: [],
   };
 }
 
@@ -80,6 +99,12 @@ export function SessionCreatePage() {
         sessionName: body.sessionName,
         scheduledStartAt: resolvedStart.instant.toISOString(),
         state: body.state,
+        configuredPatterns: body.configuredPrizes.map((prize) => prize.prizeType),
+        configuredPrizes: body.configuredPrizes.map((prize) => ({
+          prizeType: prize.prizeType,
+          amount: Number(prize.amount),
+          settlementPath: prize.settlementPath,
+        })),
       });
     },
     onSuccess: async (session) => {
@@ -95,6 +120,14 @@ export function SessionCreatePage() {
     && draft.sessionName.trim().length <= 120
     && draft.scheduledDate
     && draft.scheduledTime
+    && draft.configuredPrizes.length > 0
+    && new Set(draft.configuredPrizes.map((prize) => prize.prizeType)).size ===
+      draft.configuredPrizes.length
+    && draft.configuredPrizes.every(
+      (prize) =>
+        /^\d+(\.\d{1,2})?$/.test(prize.amount) &&
+        Number(prize.amount) >= (selectedRoom?.sessionCapacity ?? 1) / 100,
+    )
     && scheduleTime.instant
     && initialSessionStates.includes(draft.state),
   );
@@ -117,6 +150,32 @@ export function SessionCreatePage() {
       next.period ?? ethiopianTime.period,
     );
     if (localTime) updateDraft({ scheduledTime: localTime });
+  }
+
+  function updatePrize(index: number, next: Partial<PrizeDraft>) {
+    updateDraft({
+      configuredPrizes: draft.configuredPrizes.map((prize, prizeIndex) =>
+        prizeIndex === index ? { ...prize, ...next } : prize,
+      ),
+    });
+  }
+
+  function addPrize() {
+    const nextPattern = prizePatterns.find(
+      (pattern) =>
+        !draft.configuredPrizes.some((prize) => prize.prizeType === pattern),
+    );
+    if (!nextPattern) return;
+    updateDraft({
+      configuredPrizes: [
+        ...draft.configuredPrizes,
+        {
+          prizeType: nextPattern,
+          amount: String(Math.max(1, selectedRoom?.sessionCapacity ?? 100) / 100),
+          settlementPath: "PLAYER_WALLET",
+        },
+      ],
+    });
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -190,8 +249,26 @@ export function SessionCreatePage() {
                       : { scheduledDate: "", scheduledTime: "" };
                     updateDraft({
                       roomId,
-                      scheduledDate: draft.scheduledDate || defaults.scheduledDate,
-                      scheduledTime: draft.scheduledTime || defaults.scheduledTime,
+                      configuredPrizes: room
+                        ? room.configuredPrizes
+                            .filter((prize) =>
+                              prizePatterns.includes(
+                                prize.prizeType as PrizePattern,
+                              ),
+                            )
+                            .map((prize) => ({
+                              prizeType: prize.prizeType as PrizePattern,
+                              amount: String(prize.amount),
+                              settlementPath:
+                                prize.settlementPath === "AGENT_CASH"
+                                  ? "AGENT_CASH"
+                                  : "PLAYER_WALLET",
+                            }))
+                        : [],
+                      scheduledDate:
+                        draft.scheduledDate || defaults.scheduledDate,
+                      scheduledTime:
+                        draft.scheduledTime || defaults.scheduledTime,
                     });
                   }}
                   fullWidth
@@ -306,6 +383,133 @@ export function SessionCreatePage() {
                 </TextField>
               </Grid>
             </Grid>
+
+            {selectedRoom ? (
+              <Stack spacing={1.5}>
+                <Box
+                  display="flex"
+                  alignItems="center"
+                  justifyContent="space-between"
+                  gap={2}
+                  flexWrap="wrap"
+                >
+                  <Box>
+                    <Typography variant="h6">{t("Session prizes")}</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {t(
+                        "Prizes are copied from the room and can be edited for this session.",
+                      )}
+                    </Typography>
+                  </Box>
+                  <Button
+                    size="small"
+                    onClick={addPrize}
+                    disabled={draft.configuredPrizes.length >= prizePatterns.length}
+                  >
+                    {t("Add prize")}
+                  </Button>
+                </Box>
+                {draft.configuredPrizes.map((prize, index) => (
+                  <Paper
+                    key={`${prize.prizeType}-${index}`}
+                    variant="outlined"
+                    sx={{ p: 1.5 }}
+                  >
+                    <Grid container spacing={1.5} alignItems="center">
+                      <Grid item xs={12} sm={4}>
+                        <TextField
+                          select
+                          label={t("Pattern")}
+                          value={prize.prizeType}
+                          onChange={(event) =>
+                            updatePrize(index, {
+                              prizeType: event.target.value as PrizePattern,
+                            })
+                          }
+                          fullWidth
+                        >
+                          {prizePatterns.map((pattern) => (
+                            <MenuItem
+                              key={pattern}
+                              value={pattern}
+                              disabled={draft.configuredPrizes.some(
+                                (other, otherIndex) =>
+                                  otherIndex !== index &&
+                                  other.prizeType === pattern,
+                              )}
+                            >
+                              {translateAdminValue(pattern, t)}
+                            </MenuItem>
+                          ))}
+                        </TextField>
+                      </Grid>
+                      <Grid item xs={12} sm={3}>
+                        <TextField
+                          label={`${t("Prize amount")} (${selectedRoom.currency})`}
+                          type="number"
+                          value={prize.amount}
+                          onChange={(event) =>
+                            updatePrize(index, { amount: event.target.value })
+                          }
+                          inputProps={{
+                            min: selectedRoom.sessionCapacity / 100,
+                            step: 0.01,
+                          }}
+                          error={
+                            !/^\d+(\.\d{1,2})?$/.test(prize.amount) ||
+                            Number(prize.amount) <
+                              selectedRoom.sessionCapacity / 100
+                          }
+                          helperText={t("Minimum {{amount}} {{currency}}", {
+                            amount: (selectedRoom.sessionCapacity / 100).toFixed(
+                              2,
+                            ),
+                            currency: selectedRoom.currency,
+                          })}
+                          fullWidth
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={3}>
+                        <TextField
+                          select
+                          label={t("Settlement")}
+                          value={prize.settlementPath}
+                          onChange={(event) =>
+                            updatePrize(index, {
+                              settlementPath: event.target
+                                .value as PrizeSettlement,
+                            })
+                          }
+                          fullWidth
+                        >
+                          <MenuItem value="PLAYER_WALLET">
+                            {t("Player wallet")}
+                          </MenuItem>
+                          <MenuItem value="AGENT_CASH">
+                            {t("Agent cash")}
+                          </MenuItem>
+                        </TextField>
+                      </Grid>
+                      <Grid item xs={12} sm={2}>
+                        <Button
+                          color="error"
+                          disabled={draft.configuredPrizes.length <= 1}
+                          onClick={() =>
+                            updateDraft({
+                              configuredPrizes: draft.configuredPrizes.filter(
+                                (_, prizeIndex) => prizeIndex !== index,
+                              ),
+                            })
+                          }
+                        >
+                          {t("Remove")}
+                        </Button>
+                      </Grid>
+                    </Grid>
+                  </Paper>
+                ))}
+              </Stack>
+            ) : null}
 
             <Stack direction="row" spacing={1} justifyContent="flex-end">
               <Button onClick={cancelCreation}>

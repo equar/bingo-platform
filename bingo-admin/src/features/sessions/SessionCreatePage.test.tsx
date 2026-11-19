@@ -59,7 +59,9 @@ describe("SessionCreatePage", () => {
         allowMultipleWinnersPerPrize: true,
         active: true,
         configuredPatterns: ["LINE"],
-        configuredPrizes: [],
+        configuredPrizes: [
+          { prizeType: "LINE", amount: 100, settlementPath: "PLAYER_WALLET" },
+        ],
         createdAt: "2026-01-01T00:00:00Z",
         updatedAt: "2026-01-01T00:00:00Z",
       },

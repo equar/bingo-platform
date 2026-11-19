@@ -20,6 +20,7 @@ import com.bakaroo.bingo.backend.feature.game.repository.GameSessionRepository;
 import com.bakaroo.bingo.backend.feature.game.repository.PrizeEntitlementRepository;
 import com.bakaroo.bingo.backend.feature.game.repository.TicketRepository;
 import com.bakaroo.bingo.backend.feature.game.repository.WinClaimRepository;
+import com.bakaroo.bingo.backend.feature.game.service.GameSnapshotMapper;
 import com.bakaroo.bingo.backend.feature.support.entity.SupportTicketStatus;
 import com.bakaroo.bingo.backend.feature.support.entity.SupportLinkedEntityType;
 import com.bakaroo.bingo.backend.feature.support.repository.SupportTicketRepository;
@@ -65,6 +66,7 @@ public class AdminReadService {
         private final SupportTicketRepository supportTicketRepository;
         private final AuditLogRepository auditLogRepository;
         private final BusinessProperties businessProperties;
+        private final GameSnapshotMapper gameSnapshotMapper;
 
         public AdminReadService(UserRepository userRepository,
                         WalletRepository walletRepository,
@@ -82,7 +84,8 @@ public class AdminReadService {
                         PrizeEntitlementRepository prizeEntitlementRepository,
                         SupportTicketRepository supportTicketRepository,
                         AuditLogRepository auditLogRepository,
-                        BusinessProperties businessProperties) {
+                        BusinessProperties businessProperties,
+                        GameSnapshotMapper gameSnapshotMapper) {
                 this.userRepository = userRepository;
                 this.walletRepository = walletRepository;
                 this.walletTransactionRepository = walletTransactionRepository;
@@ -100,6 +103,7 @@ public class AdminReadService {
                 this.supportTicketRepository = supportTicketRepository;
                 this.auditLogRepository = auditLogRepository;
                 this.businessProperties = businessProperties;
+                this.gameSnapshotMapper = gameSnapshotMapper;
         }
 
         public AdminDashboardMetricsResponse dashboardMetrics() {
@@ -388,7 +392,8 @@ public class AdminReadService {
                                 drawEventRepository.countBySessionId(session.getId()),
                                 winClaimRepository.countBySessionId(session.getId()),
                                 supportTicketRepository.countByLinkedEntityTypeAndLinkedEntityId(
-                                                SupportLinkedEntityType.GAME_SESSION, session.getId()));
+                                                SupportLinkedEntityType.GAME_SESSION, session.getId()),
+                                gameSnapshotMapper.readPrizes(session.getPrizesSnapshotJson()));
         }
 
         private Map<Long, Long> countMap(List<Object[]> rows) {

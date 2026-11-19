@@ -33,6 +33,7 @@ class ProfileScreen extends ConsumerStatefulWidget {
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   UserProfile? _serverProfile;
   bool _isRefreshing = true;
+  bool _isSavingAutoMark = false;
   bool _hasRefreshError = false;
   Future<PlayerAppContent>? _contentFuture;
   Future<List<PlayerAnnouncement>>? _bannerSlidesFuture;
@@ -58,6 +59,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     });
     try {
       final profile = await ref.read(authRepositoryProvider).me();
+      if (!mounted) return;
+      await ref
+          .read(playerPreferencesProvider)
+          .applyAutoMarkDefault(profile.autoMarkCalledNumbers);
       if (!mounted) return;
       setState(() {
         _serverProfile = profile;
@@ -85,6 +90,35 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(message)));
+    }
+  }
+
+  Future<void> _saveAutoMarkPreference(bool enabled) async {
+    setState(() => _isSavingAutoMark = true);
+    try {
+      final currentSession = ref.read(authSessionControllerProvider).session;
+      if (currentSession == null) return;
+      final user = await ref
+          .read(authRepositoryProvider)
+          .updatePreferences(autoMarkCalledNumbers: enabled);
+      final applied = await ref
+          .read(authSessionControllerProvider.notifier)
+          .updateUser(user, expectedAccessToken: currentSession.accessToken);
+      if (!applied || !mounted) return;
+      await ref.read(playerPreferencesProvider).applyAutoMarkDefault(enabled);
+      setState(() => _serverProfile = user);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              AppLocalizations.of(context)!.autoMarkPreferenceSaveFailed,
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSavingAutoMark = false);
     }
   }
 
@@ -635,6 +669,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           preferences.setTheme(value.first),
                     ),
                     const SizedBox(height: 8),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(localizations.autoMarkNumbers),
+                      subtitle: Text(localizations.profileAutoMarkDescription),
+                      value: profile.autoMarkCalledNumbers,
+                      onChanged: _isSavingAutoMark
+                          ? null
+                          : _saveAutoMarkPreference,
+                    ),
+                    if (_isSavingAutoMark)
+                      const LinearProgressIndicator(minHeight: 2),
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
                       title: Text(localizations.soundTitle),

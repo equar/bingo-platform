@@ -91,6 +91,9 @@ public class User {
     @Column(name = "preferred_calendar", nullable = false, length = 16)
     private String preferredCalendar = "AUTO";
 
+    @Column(name = "auto_mark_called_numbers", nullable = false)
+    private boolean autoMarkCalledNumbers = true;
+
     @Column(name = "active_player_session_id", length = 36)
     private String activePlayerSessionId;
 
@@ -337,6 +340,10 @@ public class User {
     public String getPreferredCalendar() { return preferredCalendar; }
 
     public void setPreferredCalendar(String preferredCalendar) { this.preferredCalendar = preferredCalendar; }
+    public boolean isAutoMarkCalledNumbers() { return autoMarkCalledNumbers; }
+    public void setAutoMarkCalledNumbers(boolean autoMarkCalledNumbers) {
+        this.autoMarkCalledNumbers = autoMarkCalledNumbers;
+    }
 
     public String getActivePlayerSessionId() { return activePlayerSessionId; }
     public Instant getActivePlayerSessionExpiresAt() { return activePlayerSessionExpiresAt; }
