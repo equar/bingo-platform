@@ -15,6 +15,7 @@ import { currentCalendarPreference, ethiopianDateInputToGregorianDate, formatEth
 import { formatDateTimeLocal, resolveRoomScheduleTime } from "./sessionScheduleTime";
 
 const patterns = ["LINE", "TWO_LINES", "FOUR_CORNERS", "POSTAGE_STAMP", "X_SHAPE", "T_SHAPE", "L_SHAPE", "OUTER_FRAME", "FULL_HOUSE", "HORIZONTAL_LINE", "VERTICAL_LINE", "DIAGONAL_LINES", "LINE_TOUCHING_FREE", "LINE_NOT_TOUCHING_FREE", "NON_CROSSING_LINES", "SQUARE", "RECTANGLE", "SMALL_X", "SMALL_T", "SMALL_CROSS", "BIG_T", "BIG_Z", "BIG_H", "BIG_L", "BIG_U", "HALF_HOUSE", "BIG_O", "CORNER_BALLS"];
+type PrizeDraft = Omit<BingoPatternConfig, "amount"> & { amount: string };
 
 export function SessionEditPage() {
   const { t } = useTranslation();
@@ -31,7 +32,7 @@ export function SessionEditPage() {
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [state, setState] = useState("DRAFT");
-  const [prizes, setPrizes] = useState<BingoPatternConfig[]>([]);
+  const [prizes, setPrizes] = useState<PrizeDraft[]>([]);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -45,7 +46,7 @@ export function SessionEditPage() {
       : local.slice(0, 10));
     setTime(local.slice(11, 16));
     setState(session.state);
-    setPrizes(session.configuredPrizes ?? []);
+    setPrizes((session.configuredPrizes ?? []).map((prize) => ({ ...prize, amount: String(prize.amount) })));
   }, [session, room]);
 
   const start = useMemo(() => {
@@ -93,7 +94,7 @@ export function SessionEditPage() {
     setFormError(null);
     saveMutation.mutate();
   }
-  function changePrize(index: number, changes: Partial<BingoPatternConfig>) {
+  function changePrize(index: number, changes: Partial<PrizeDraft>) {
     setPrizes((current) => current.map((prize, i) => i === index ? { ...prize, ...changes } : prize));
   }
 
