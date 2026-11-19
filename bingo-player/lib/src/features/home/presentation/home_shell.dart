@@ -186,14 +186,22 @@ class _HomeShellState extends State<HomeShell> {
         final wide =
             constraints.maxWidth >= 840 && constraints.maxHeight >= 480;
         final isDark = Theme.of(context).brightness == Brightness.dark;
+        final isHomeRoot =
+            _index == 0 && !(_navigatorKeys[0].currentState?.canPop() ?? false);
         final page = _pages();
         return AnnotatedRegion<SystemUiOverlayStyle>(
           value:
-              (isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark)
-                  .copyWith(statusBarColor: Colors.transparent),
+              (isDark || isHomeRoot
+                      ? SystemUiOverlayStyle.light
+                      : SystemUiOverlayStyle.dark)
+                  .copyWith(
+                    statusBarColor: isHomeRoot ? bingoNavy : Colors.transparent,
+                  ),
           child: Scaffold(
-            body: wide
-                ? Row(
+            body: Stack(
+              children: [
+                if (wide)
+                  Row(
                     children: [
                       SafeArea(
                         child: NavigationRail(
@@ -241,7 +249,23 @@ class _HomeShellState extends State<HomeShell> {
                       Expanded(child: ResponsiveContent(child: page)),
                     ],
                   )
-                : page,
+                else
+                  page,
+                if (isHomeRoot && MediaQuery.viewPaddingOf(context).top > 0)
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: MediaQuery.viewPaddingOf(context).top,
+                    child: const IgnorePointer(
+                      child: ColoredBox(
+                        key: ValueKey('home-status-bar-backdrop'),
+                        color: bingoNavy,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
             bottomNavigationBar: wide
                 ? null
                 : DecoratedBox(

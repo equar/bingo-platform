@@ -80,6 +80,23 @@ class _CommunityRepository extends CommunityRepository {
 }
 
 void main() {
+  testWidgets('navy header background covers the status bar safe area', (
+    tester,
+  ) async {
+    tester.view.viewPadding = const FakeViewPadding(top: 24);
+    addTearDown(tester.view.resetViewPadding);
+    await tester.pumpWidget(_home(onGames: () {}));
+    await tester.pumpAndSettle();
+
+    final header = find.byKey(const ValueKey('home-header-background'));
+    expect(tester.getTopLeft(header).dy, 0);
+    final decoration =
+        tester.widget<Container>(header).decoration! as BoxDecoration;
+    expect(decoration.gradient, isA<LinearGradient>());
+    expect(decoration.borderRadius, isNull);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Play Bingo opens the existing games flow', (tester) async {
     var opened = false;
     await tester.pumpWidget(_home(onGames: () => opened = true));
@@ -140,9 +157,71 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(_home(onGames: () {}, textScale: 1.5));
     await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('home-scroll')), findsOneWidget);
     await tester.ensureVisible(find.text('Play & Win'));
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('feature grid scrolls when the banner leaves too little room', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 680);
+    tester.view.devicePixelRatio = 1;
+    tester.view.viewPadding = const FakeViewPadding(top: 80);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetViewPadding);
+
+    await tester.pumpWidget(_home(onGames: () {}));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('home-feature-scroll')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final size in [const Size(390, 844), const Size(1024, 768)]) {
+    testWidgets(
+      'home expands feature cards to fill ${size.width.toInt()}x${size.height.toInt()}',
+      (tester) async {
+        tester.view.physicalSize = size;
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+
+        await tester.pumpWidget(_home(onGames: () {}));
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const ValueKey('home-scroll')), findsNothing);
+        final liveGamesCard = find
+            .ancestor(
+              of: find.text('Live Games'),
+              matching: find.byType(Material),
+            )
+            .first;
+        expect(tester.getSize(liveGamesCard).height, greaterThan(140));
+        final icon = find.descendant(
+          of: liveGamesCard,
+          matching: find.byIcon(Icons.emoji_events_rounded),
+        );
+        final iconTile = find
+            .ancestor(of: icon, matching: find.byType(Container))
+            .first;
+        final subtitle = find.descendant(
+          of: liveGamesCard,
+          matching: find.text('Play with others'),
+        );
+        final contentCenter =
+            (tester.getTopLeft(iconTile).dy +
+                tester.getBottomRight(subtitle).dy) /
+            2;
+        expect(
+          contentCenter,
+          closeTo(tester.getRect(liveGamesCard).center.dy, 1),
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 
   testWidgets('home cards render with the dark color scheme', (tester) async {
     await tester.pumpWidget(_home(onGames: () {}, brightness: Brightness.dark));
