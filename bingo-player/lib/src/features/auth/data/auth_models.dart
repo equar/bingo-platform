@@ -37,6 +37,7 @@ class UserProfile {
     this.referralCode = '',
     this.preferredLanguage = 'en',
     this.preferredCalendar = 'AUTO',
+    this.autoMarkCalledNumbers = true,
   });
 
   final int id;
@@ -49,6 +50,7 @@ class UserProfile {
   final String referralCode;
   final String preferredLanguage;
   final String preferredCalendar;
+  final bool autoMarkCalledNumbers;
 
   bool get isPlayer => roles.contains('PLAYER');
 
@@ -73,6 +75,7 @@ class UserProfile {
       referralCode: json['referralCode']?.toString() ?? '',
       preferredLanguage: json['preferredLanguage']?.toString() ?? 'en',
       preferredCalendar: json['preferredCalendar']?.toString() ?? 'AUTO',
+      autoMarkCalledNumbers: json['autoMarkCalledNumbers'] != false,
     );
   }
 
@@ -87,6 +90,7 @@ class UserProfile {
     'referralCode': referralCode,
     'preferredLanguage': preferredLanguage,
     'preferredCalendar': preferredCalendar,
+    'autoMarkCalledNumbers': autoMarkCalledNumbers,
   };
 
   String toPersistedJson() => jsonEncode(toJson());

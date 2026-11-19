@@ -281,6 +281,13 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen>
             ),
           if (isPreGame)
             IconButton(
+              key: const ValueKey('pregame-game-settings'),
+              tooltip: localizations.gameSettingsTitle,
+              onPressed: showSettings,
+              icon: const Icon(Icons.tune),
+            ),
+          if (isPreGame)
+            IconButton(
               tooltip: localizations.refresh,
               onPressed: controller.refresh,
               icon: const Icon(Icons.refresh),
@@ -504,7 +511,7 @@ class _LivePlayViewState extends ConsumerState<_LivePlayView>
       });
     }
     final onBoard = _visibleTickets(ticketList, preferences, state);
-    final missedCalls = preferences.autoMark
+    final missedCalls = preferences.autoMarkEnabled
         ? 0
         : _countMissedCalls(onBoard, state.calledNumbers, preferences);
     return SafeArea(
@@ -814,7 +821,7 @@ class _GameSettingsSheet extends ConsumerWidget {
             contentPadding: EdgeInsets.zero,
             title: Text(strings.autoMarkNumbers),
             subtitle: Text(strings.autoMarkNumbersDescription),
-            value: preferences.autoMark,
+            value: preferences.autoMarkEnabled,
             onChanged: settings.setAutoMark,
           ),
           ExpansionTile(
@@ -1189,6 +1196,8 @@ class _SessionSummaryCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final preferences = ref.watch(playerPreferencesProvider);
+    final ownedTicketCount = state.ticketPage?.totalElements ?? 0;
     return SectionCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1224,6 +1233,11 @@ class _SessionSummaryCard extends ConsumerWidget {
                 label: localizations.ticketCountLabel,
                 value: session.ticketCount.toString(),
               ),
+              if (state.ticketPage != null)
+                _InfoChip(
+                  label: localizations.myTicketsTitle,
+                  value: ownedTicketCount.toString(),
+                ),
               _InfoChip(
                 label: localizations.drawCountLabel,
                 value: state.draws.length.toString(),
@@ -1238,6 +1252,17 @@ class _SessionSummaryCard extends ConsumerWidget {
               ),
             ],
           ),
+          if (ownedTicketCount > 0) ...[
+            const SizedBox(height: 4),
+            Text(
+              localizations.playingCardsCount(
+                preferences.cardsOnBoard < ownedTicketCount
+                    ? preferences.cardsOnBoard
+                    : ownedTicketCount,
+              ),
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
           const SizedBox(height: 12),
           if (session.state == 'OPEN')
             FilledButton.icon(
@@ -1744,7 +1769,7 @@ class _TicketGridCardState extends ConsumerState<_TicketGridCard>
             final isFree = value == 0;
             final isCalled =
                 isFree ||
-                (preferences.autoMark
+                (preferences.autoMarkEnabled
                     ? calledNumbers.contains(value) &&
                           !preferences.isAutoMarkCleared(value)
                     : preferences
@@ -1766,7 +1791,7 @@ class _TicketGridCardState extends ConsumerState<_TicketGridCard>
                   .selectionColors[preferences.selectionColorIndex],
               oneAwayPulse: oneAwayPulse,
               onTap:
-                  !preferences.autoMark &&
+                  !preferences.autoMarkEnabled &&
                       !isFree &&
                       calledNumbers.contains(value)
                   ? () => ref

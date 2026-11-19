@@ -26,6 +26,8 @@ class PlayerPreferences extends ChangeNotifier {
 
   ThemeMode themeMode = ThemeMode.system;
   bool autoMark = true;
+  bool? autoMarkOverride;
+  bool get autoMarkEnabled => autoMarkOverride ?? autoMark;
   bool hideUnregisteredCards = false;
   bool soundEnabled = true;
   bool notificationsEnabled = false;
@@ -123,6 +125,7 @@ class PlayerPreferences extends ChangeNotifier {
     final normalized = scope.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
     if (normalized == _scope) return;
     _scope = normalized;
+    autoMarkOverride = null;
     _manualMarks.clear();
     _clearedAutoMarkNumbers = {};
     selectedTicketIds = {};
@@ -191,6 +194,7 @@ class PlayerPreferences extends ChangeNotifier {
   }
 
   Future<void> _loadScopedData(SharedPreferences prefs) async {
+    autoMarkOverride = prefs.getBool('player.autoMarkOverride.$_scope');
     selectedTicketIds =
         (prefs.getStringList('$_selectedTicketsKey$_scope') ?? [])
             .map(int.tryParse)
@@ -290,9 +294,18 @@ class PlayerPreferences extends ChangeNotifier {
     await _save(_themeKey, value.name);
   }
 
-  Future<void> setAutoMark(bool value) async {
+  Future<void> applyAutoMarkDefault(bool value) async {
     autoMark = value;
-    await _save(_autoMarkKey, value);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_autoMarkKey, value);
+    notifyListeners();
+  }
+
+  Future<void> setAutoMark(bool value) async {
+    autoMarkOverride = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('player.autoMarkOverride.$_scope', value);
+    notifyListeners();
   }
 
   Future<void> setHideUnregistered(bool value) async {

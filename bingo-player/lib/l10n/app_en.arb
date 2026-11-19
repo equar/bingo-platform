@@ -525,7 +525,7 @@
   "messagesTitle": "Messages",
   "messagesLoadError": "Unable to load messages.",
   "messagesEmpty": "You have no messages yet.",
-  "gameHistoryTitle": "My Tickets",
+  "gameHistoryTitle": "My games & tickets",
   "gameHistoryLoadError": "Unable to load game history.",
   "gameHistoryEmpty": "You haven't bought any tickets yet. Tickets for upcoming and live games will appear here.",
   "selectMultipleCards": "Select Multiple Cards",
@@ -535,7 +535,9 @@
   "resetMarkedNumbers": "Reset/Clear Marked Numbers",
   "clearManualMarksDescription": "Clear your manual marks from all tickets.",
   "autoMarkNumbers": "Auto-mark called numbers",
-  "autoMarkNumbersDescription": "Mark each called number on your cards.",
+  "autoMarkNumbersDescription": "Override your default for this game only.",
+  "profileAutoMarkDescription": "Default for future games. Saved to your player account and used on your other devices.",
+  "autoMarkPreferenceSaveFailed": "Couldn't save this preference. Check your connection and try again.",
   "hideUnregisteredCards": "Hide unregistered cards",
   "hideUnregisteredCardsDescription": "With multi-select on, show only tickets selected for your board.",
   "selectionColor": "Selection Color",
@@ -557,5 +559,8 @@
   "calendarAutoGregorian": "Automatic currently uses the Gregorian calendar.",
   "calendarPreferenceSaved": "Calendar preference saved.",
   "calendarPreferenceSaveFailed": "Calendar preference could not be saved.",
-  "calendarPreferenceSaving": "Saving calendar preference..."
+  "calendarPreferenceSaving": "Saving calendar preference...",
+  "myActiveGamesTitle": "Your upcoming and live games",
+  "playingCardsCount": "Cards on board: {count}",
+  "@playingCardsCount": {"placeholders": {"count": {"type": "int"}}}
 }

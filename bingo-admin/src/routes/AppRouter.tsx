@@ -46,6 +46,9 @@ const SessionsPage = lazy(() =>
 const SessionCreatePage = lazy(() =>
   import("../features/sessions/SessionCreatePage").then((module) => ({ default: module.SessionCreatePage })),
 );
+const SessionEditPage = lazy(() =>
+  import("../features/sessions/SessionEditPage").then((module) => ({ default: module.SessionEditPage })),
+);
 const SessionDetailPage = lazy(() =>
   import("../features/sessions/SessionDetailPage").then((module) => ({ default: module.SessionDetailPage })),
 );
@@ -156,6 +159,7 @@ export function AppRouter() {
               <Route path="community" element={<CommunityPage />} />
               <Route path="sessions" element={<SessionsPage />} />
               <Route path="sessions/new" element={<SessionCreatePage />} />
+              <Route path="sessions/:sessionId/edit" element={<SessionEditPage />} />
               <Route path="sessions/:sessionId" element={<SessionDetailPage />} />
               <Route path="players" element={<PlayersPage />} />
               <Route path="player-verifications" element={<PlayerVerificationPage />} />

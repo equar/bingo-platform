@@ -230,6 +230,7 @@ export interface AdminSessionSummaryResponse {
   drawCount: number;
   winClaimCount: number;
   supportTicketCount: number;
+  configuredPrizes?: BingoPatternConfig[];
 }
 
 export interface AdminSessionTicketResponse {
@@ -1256,6 +1257,11 @@ export async function sessionDetail(sessionId: number) {
 
 export async function createSession(roomId: number, body: Record<string, unknown>) {
   const { data } = await http.post<GameSessionResponse>(`/api/v1/admin/rooms/${roomId}/sessions`, body);
+  return data;
+}
+
+export async function updateSession(sessionId: number, body: Record<string, unknown>) {
+  const { data } = await http.put<GameSessionResponse>(`/api/v1/admin/sessions/${sessionId}`, body);
   return data;
 }
 
