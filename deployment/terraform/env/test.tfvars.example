@@ -4,7 +4,7 @@ test_root_volume_size_gb = 20
 ssh_public_key          = "ssh-ed25519 REPLACE_WITH_TEST_DEPLOY_PUBLIC_KEY"
 ssh_allowed_cidrs       = ["203.0.113.10/32"]
 
-test_site_domain  = "test.bingo.bakaroo.com"
-test_admin_domain = "admin.test.bingo.bakaroo.com"
-test_api_domain   = "api.test.bingo.bakaroo.com"
+test_site_domain  = "test.bakaroo.com"
+test_admin_domain = "admin.test.bakaroo.com"
+test_api_domain   = "api.test.bakaroo.com"
 route53_zone_id   = ""

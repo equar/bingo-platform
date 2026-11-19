@@ -16,7 +16,7 @@ for key in ('VITE_API_BASE_URL', 'ADMIN_PUBLIC_URL', 'PUBLIC_SITE_URL'):
         raise SystemExit(key + ' must be a public ' + schemes + ' origin without a trailing slash or path')
     origins[key] = value
 expected_hosts = (
-    {'api.test.bingo.bakaroo.com', 'admin.test.bingo.bakaroo.com', 'test.bingo.bakaroo.com'}
+    {'api.test.bakaroo.com', 'admin.test.bakaroo.com', 'test.bakaroo.com'}
     if deployment_environment == 'test'
     else {'api.bingo.bakaroo.com', 'admin.bingo.bakaroo.com', 'bingo.bakaroo.com'}
 )

@@ -6,9 +6,19 @@ on:
       - deployment/aws/**
       - deployment/mobile/prepare-store-credentials.py
       - deployment/mobile/test_prepare_store_credentials.py
+      - deployment/mobile/release_provenance.py
+      - deployment/mobile/test_release_provenance.py
+      - deployment/mobile/test_fastlane_release_policy.rb
       - deployment/terraform/**
       - .github/workflows/deploy.yml
+      - .github/workflows/bingo-player-android-internal-testing.yml
+      - .github/workflows/bingo-player-android-production.yml
+      - .github/workflows/bingo-player-ios-testflight.yml
+      - .github/workflows/bingo-player-ios-app-store.yml
       - .github/workflows/validate-deployment-infrastructure.yml
+      - bingo-player/fastlane/Fastfile
+      - bingo-player/tooling/validate_release_api_base_url.sh
+      - scripts/ci/run-component-checks.mjs
   workflow_dispatch:
 
 permissions:

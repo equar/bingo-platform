@@ -1,13 +1,21 @@
 require 'ipaddr'
 require 'uri'
 
-def validate_release_base_url!(value)
+def validate_release_base_url!(value, allow_test_http: false)
   parsed = URI.parse(value)
 
-  UI.user_error!('API base URL must use https.') unless parsed.scheme == 'https'
   UI.user_error!('API base URL must include a host.') if parsed.host.nil? || parsed.host.empty?
+  UI.user_error!('API base URL must be an origin without a path, query, or fragment.') unless
+    ['', '/'].include?(parsed.path) && parsed.query.nil? && parsed.fragment.nil?
 
   host = parsed.host.downcase
+  allowed_test_http = allow_test_http &&
+    parsed.scheme == 'http' &&
+    host == 'api.test.bakaroo.com' &&
+    [nil, 80].include?(parsed.port)
+  UI.user_error!('API base URL must use HTTPS; HTTP is allowed only for the test API in test upload lanes.') unless
+    parsed.scheme == 'https' || allowed_test_http
+
   blocked_hosts = [
     'localhost',
     'host.docker.internal',
@@ -31,6 +39,16 @@ def validate_release_base_url!(value)
   end
 end
 
+def validate_production_base_url!(value)
+  validate_release_base_url!(value)
+  parsed = URI.parse(value)
+  unless parsed.scheme == 'https' &&
+      parsed.host.downcase == 'api.bingo.bakaroo.com' &&
+      [nil, 443].include?(parsed.port)
+    UI.user_error!('Production releases must use https://api.bingo.bakaroo.com.')
+  end
+end
+
 def ensure_file!(path, description)
   UI.user_error!("#{description} not found at #{path}") unless File.exist?(path)
 end
@@ -40,7 +58,7 @@ default_platform(:android)
 platform :android do
   desc 'Upload a signed Android App Bundle to Google Play internal testing.'
   lane :internal_testing do
-    validate_release_base_url!(ENV.fetch('MOBILE_API_BASE_URL'))
+    validate_release_base_url!(ENV.fetch('MOBILE_API_BASE_URL'), allow_test_http: true)
     ensure_file!(ENV.fetch('ANDROID_AAB_PATH'), 'Android App Bundle')
     ensure_file!(ENV.fetch('GOOGLE_PLAY_JSON_KEY_PATH'), 'Google Play service account key')
 
@@ -62,7 +80,7 @@ platform :android do
 
   desc 'Promote an already tested Android build to production without rebuilding.'
   lane :promote_production do
-    validate_release_base_url!(ENV.fetch('MOBILE_API_BASE_URL'))
+    validate_production_base_url!(ENV.fetch('MOBILE_API_BASE_URL'))
     ensure_file!(ENV.fetch('GOOGLE_PLAY_JSON_KEY_PATH'), 'Google Play service account key')
 
     supply(
@@ -83,7 +101,7 @@ end
 platform :ios do
   desc 'Upload a signed iOS IPA to TestFlight.'
   lane :testflight do
-    validate_release_base_url!(ENV.fetch('MOBILE_API_BASE_URL'))
+    validate_release_base_url!(ENV.fetch('MOBILE_API_BASE_URL'), allow_test_http: true)
     ensure_file!(ENV.fetch('IOS_IPA_PATH'), 'iOS IPA')
     ensure_file!(ENV.fetch('APP_STORE_CONNECT_PRIVATE_KEY_PATH'), 'App Store Connect API key file')
 
@@ -98,6 +116,7 @@ platform :ios do
     upload_to_testflight(
       ipa: ENV.fetch('IOS_IPA_PATH'),
       api_key: api_key,
+      app_identifier: ENV.fetch('IOS_BUNDLE_ID'),
       changelog: ENV.fetch('RELEASE_NOTES', 'TestFlight release'),
       skip_waiting_for_build_processing: false,
       distribute_external: false
@@ -106,7 +125,7 @@ platform :ios do
 
   desc 'Submit a processed TestFlight build for App Store review.'
   lane :app_store_submission do
-    validate_release_base_url!(ENV.fetch('MOBILE_API_BASE_URL'))
+    validate_production_base_url!(ENV.fetch('MOBILE_API_BASE_URL'))
     ensure_file!(ENV.fetch('APP_STORE_CONNECT_PRIVATE_KEY_PATH'), 'App Store Connect API key file')
 
     api_key = app_store_connect_api_key(
@@ -124,6 +143,8 @@ platform :ios do
     deliver(
       api_key: api_key,
       app_identifier: ENV.fetch('IOS_BUNDLE_ID'),
+      app_version: ENV.fetch('IOS_APP_VERSION'),
+      build_number: ios_build_number,
       submit_for_review: true,
       automatic_release: ENV.fetch('IOS_AUTOMATIC_RELEASE', 'false') == 'true',
       skip_binary_upload: true,

@@ -139,13 +139,13 @@ esac
 class DeploymentUrlValidationTest(unittest.TestCase):
     def test_http_origins_are_allowed_only_for_test(self):
         base_env = {
-            'VITE_API_BASE_URL': 'http://api.test.bingo.bakaroo.com',
-            'ADMIN_PUBLIC_URL': 'http://admin.test.bingo.bakaroo.com',
-            'PUBLIC_SITE_URL': 'http://test.bingo.bakaroo.com',
+            'VITE_API_BASE_URL': 'http://api.test.bakaroo.com',
+            'ADMIN_PUBLIC_URL': 'http://admin.test.bakaroo.com',
+            'PUBLIC_SITE_URL': 'http://test.bakaroo.com',
             'PUBLIC_SITE_INDEXABLE': 'false',
-            'CORS_ALLOWED_ORIGINS': 'http://admin.test.bingo.bakaroo.com,http://test.bingo.bakaroo.com',
-            'WEBSOCKET_ALLOWED_ORIGINS': 'http://admin.test.bingo.bakaroo.com,http://test.bingo.bakaroo.com',
-            'ADMIN_ACCOUNT_ACTIVATION_URL': 'http://admin.test.bingo.bakaroo.com/activate-account',
+            'CORS_ALLOWED_ORIGINS': 'http://admin.test.bakaroo.com,http://test.bakaroo.com',
+            'WEBSOCKET_ALLOWED_ORIGINS': 'http://admin.test.bakaroo.com,http://test.bakaroo.com',
+            'ADMIN_ACCOUNT_ACTIVATION_URL': 'http://admin.test.bakaroo.com/activate-account',
             'APP_EMAIL_PROVIDER': 'smtp',
             'SPRING_MAIL_USERNAME': 'test@example.invalid',
         }
@@ -183,13 +183,13 @@ class DeploymentUrlValidationTest(unittest.TestCase):
     def test_email_provider_must_be_explicit_and_graph_aliases_are_rejected(self):
         base_env = {
             'DEPLOY_ENVIRONMENT': 'test',
-            'VITE_API_BASE_URL': 'http://api.test.bingo.bakaroo.com',
-            'ADMIN_PUBLIC_URL': 'http://admin.test.bingo.bakaroo.com',
-            'PUBLIC_SITE_URL': 'http://test.bingo.bakaroo.com',
+            'VITE_API_BASE_URL': 'http://api.test.bakaroo.com',
+            'ADMIN_PUBLIC_URL': 'http://admin.test.bakaroo.com',
+            'PUBLIC_SITE_URL': 'http://test.bakaroo.com',
             'PUBLIC_SITE_INDEXABLE': 'false',
-            'CORS_ALLOWED_ORIGINS': 'http://admin.test.bingo.bakaroo.com,http://test.bingo.bakaroo.com',
-            'WEBSOCKET_ALLOWED_ORIGINS': 'http://admin.test.bingo.bakaroo.com,http://test.bingo.bakaroo.com',
-            'ADMIN_ACCOUNT_ACTIVATION_URL': 'http://admin.test.bingo.bakaroo.com/activate-account',
+            'CORS_ALLOWED_ORIGINS': 'http://admin.test.bakaroo.com,http://test.bakaroo.com',
+            'WEBSOCKET_ALLOWED_ORIGINS': 'http://admin.test.bakaroo.com,http://test.bakaroo.com',
+            'ADMIN_ACCOUNT_ACTIVATION_URL': 'http://admin.test.bakaroo.com/activate-account',
         }
         missing_provider = subprocess.run(
             ['python3', str(AWS / 'validate-config.py')],
@@ -218,16 +218,30 @@ class DeploymentUrlValidationTest(unittest.TestCase):
     def test_mobile_release_url_allows_http_only_for_test_api_host(self):
         validator = ROOT / 'bingo-player/tooling/validate_release_api_base_url.sh'
         accepted = subprocess.run(
-            ['bash', str(validator), 'http://api.test.bingo.bakaroo.com'],
+            ['bash', str(validator), 'http://api.test.bakaroo.com', '--allow-test-http'],
             capture_output=True, text=True,
         )
         self.assertEqual(accepted.returncode, 0, accepted.stderr)
 
+        blocked_without_opt_in = subprocess.run(
+            ['bash', str(validator), 'http://api.test.bakaroo.com'],
+            capture_output=True, text=True,
+        )
+        self.assertNotEqual(blocked_without_opt_in.returncode, 0)
+
         rejected = subprocess.run(
-            ['bash', str(validator), 'http://api.example.invalid'],
+            ['bash', str(validator), 'http://api.example.invalid', '--allow-test-http'],
             capture_output=True, text=True,
         )
         self.assertNotEqual(rejected.returncode, 0)
+
+    def test_test_ec2_bootstrap_reloads_nginx_after_installing_vhosts(self):
+        bootstrap = (
+            ROOT / 'deployment/terraform/templates/test-ec2-bootstrap.sh.tftpl'
+        ).read_text()
+        self.assertLess(bootstrap.index('nginx -t'), bootstrap.index('systemctl reload nginx'))
+        self.assertIn('systemctl enable --now nginx\nsystemctl reload nginx', bootstrap)
+
 class BackendFlywayPreflightTest(unittest.TestCase):
     def test_test_and_production_deployments_use_isolated_schema_and_ports(self):
         source = BACKEND_DEPLOY.read_text()

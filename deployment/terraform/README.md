@@ -40,14 +40,52 @@ Configure these values in `env/test.tfvars`:
 - `ssh_allowed_cidrs`: restrict port 22 to the GitHub runner egress ranges or
   your self-hosted runner/network. Do not use `0.0.0.0/0`.
 - `test_site_domain`, `test_admin_domain`, and `test_api_domain`: three
-  distinct DNS names in the same DNS zone. The examples are placeholders for
-  names you control; all three should resolve to the test Elastic IP.
+  distinct DNS names in the same DNS zone, outside `bingo.bakaroo.com`'s
+  `includeSubDomains` HSTS scope. The examples use names under `bakaroo.com`.
+  Update any existing `env/test.tfvars` that still uses `*.bingo.bakaroo.com`;
+  Terraform rejects those HSTS-covered names. All three resolve to the test
+  Elastic IP.
+- `test_api_domain` is fixed to `api.test.bakaroo.com` because the mobile
+  release HTTP exception is explicitly restricted to that host.
 - `route53_zone_id`: optional public Route 53 zone ID. When set, Terraform
-  creates A records for the three names; otherwise point all three A records
-  to Terraform's `web_static_ip` output yourself (for example, in GoDaddy).
+  creates A records for the three names. Leave it empty to have Terraform
+  create or update the three GoDaddy A records automatically after associating
+  the test Elastic IP.
 
-The test host serves HTTP directly; no DNS propagation or certificate
-provisioning is required before deployment. HTTP exposes credentials, session
+The full input list, defaults, and sources for test and production values are
+in the [deployment variable inventory](../../deploymentVariables.txt#terraform-infrastructure-inputs).
+
+For automatic GoDaddy DNS updates, create a GoDaddy personal access token from
+the [GoDaddy PAT guide](https://developer.godaddy.com/en/docs/api-users/auth/how-to)
+with the `domains.domain:read` and `domains.dns:update` scopes. GoDaddy must
+host the authoritative DNS zone for `bakaroo.com`. Record the token's expiry
+and rotate it before then. Keep the token in the environment of the machine
+running Terraform; it is not a Terraform variable and is not saved in Terraform
+state or plan files. The `provision.sh` wrapper requires
+`GODADDY_PAT` for test applies that use GoDaddy. Python 3 and outbound HTTPS
+access to GoDaddy's API are also required. Terraform plans and destroys do not
+call the API.
+
+In macOS `zsh`, enter the token without putting it in shell history, then run
+the apply:
+
+```zsh
+read -s 'GODADDY_PAT?GoDaddy PAT: '
+export GODADDY_PAT
+./provision.sh test apply
+unset GODADDY_PAT
+```
+
+The updater sets a 600-second TTL and rejects conflicting CNAME/AAAA records.
+On each test apply, Terraform creates or updates the three GoDaddy A records to
+the current Elastic IP. If the IP or a DNS name changes, it syncs the records
+to the new configuration without deleting records during replacement or
+destroy. If `route53_zone_id` is set instead, Terraform uses Route 53 and does
+not call GoDaddy.
+
+The test host serves HTTP directly; no certificate provisioning is required
+before deployment. The test names must remain outside the production HSTS
+scope or browsers may upgrade HTTP requests to HTTPS. HTTP exposes credentials, session
 tokens, and game traffic in plaintext. Use test-only accounts and data, and do
 not use the HTTP test environment over an untrusted network. The backend remains
 unreachable directly: port 8091 is not opened in the EC2 security group.
@@ -68,20 +106,51 @@ file only when an explicit placement is required.
 
 ## Commands
 
+From the repository root, confirm AWS identity and create local tfvars from
+the examples. Replace the sample public key, SSH CIDR, and production bundle
+values before planning:
+
 ```bash
+aws sts get-caller-identity
 cd deployment/terraform
+cp env/test.tfvars.example env/test.tfvars
+cp env/prod.tfvars.example env/prod.tfvars
 ./provision.sh test plan
-./provision.sh test apply
 ./provision.sh prod plan
+```
+
+Review the full plans before applying. Test apply requires `GODADDY_PAT` only
+when GoDaddy is selected. Production plan/apply requires
+`TF_VAR_database_admin_password` in the same shell; use the secure prompt
+commands in the [variable inventory](../../deploymentVariables.txt#handy-setup-and-deployment-commands).
+
+```bash
+./provision.sh test apply
 ./provision.sh prod apply
 ```
 
-`apply` and `destroy` require a typed environment-specific confirmation. When
-`route53_zone_id` is set, Terraform creates the test DNS records; otherwise
-configure the three records in your DNS provider after apply. Backend runtime
-credentials, GitHub deployment credentials, and application releases remain
-explicit follow-up steps. Terraform never stores application or SSH private
-keys in source control.
+`apply` and `destroy` require a typed environment-specific confirmation.
+Terraform manages test DNS through Route 53 when `route53_zone_id` is set, or
+through GoDaddy when it is empty. Backend runtime credentials, GitHub
+deployment credentials, and application releases remain explicit follow-up
+steps. Terraform never stores application or SSH private keys in source
+control.
+
+After apply, retrieve values for GitHub configuration from the matching
+workspace:
+
+```bash
+terraform workspace select test
+terraform output -raw web_static_ip
+terraform output -raw test_ssh_user
+terraform output -raw test_api_base_url
+terraform output -raw test_admin_url
+terraform output -raw test_site_url
+
+terraform workspace select prod
+terraform output -raw web_static_ip
+terraform output -raw database_endpoint
+```
 
 ## Existing AWS MySQL test schema
 

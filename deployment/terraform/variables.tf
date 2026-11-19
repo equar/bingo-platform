@@ -88,27 +88,42 @@ variable "route53_zone_id" {
 
 variable "test_site_domain" {
   type    = string
-  default = "test.bingo.bakaroo.com"
+  default = "test.bakaroo.com"
   validation {
-    condition     = can(regex("^[a-z0-9]+([.-][a-z0-9]+)*$", var.test_site_domain))
-    error_message = "The test_site_domain variable must be a DNS hostname."
+    condition = (
+      can(regex("^[a-z0-9]+([.-][a-z0-9]+)*$", var.test_site_domain)) &&
+      endswith(var.test_site_domain, ".bakaroo.com") &&
+      var.test_site_domain != "bakaroo.com" &&
+      var.test_site_domain != "bingo.bakaroo.com" &&
+      !endswith(var.test_site_domain, ".bingo.bakaroo.com")
+    )
+    error_message = "The test_site_domain must be under bakaroo.com and outside the production HSTS scope."
   }
 }
 
 variable "test_admin_domain" {
   type    = string
-  default = "admin.test.bingo.bakaroo.com"
+  default = "admin.test.bakaroo.com"
   validation {
-    condition     = can(regex("^[a-z0-9]+([.-][a-z0-9]+)*$", var.test_admin_domain))
-    error_message = "The test_admin_domain variable must be a DNS hostname."
+    condition = (
+      can(regex("^[a-z0-9]+([.-][a-z0-9]+)*$", var.test_admin_domain)) &&
+      endswith(var.test_admin_domain, ".bakaroo.com") &&
+      var.test_admin_domain != "bakaroo.com" &&
+      var.test_admin_domain != "bingo.bakaroo.com" &&
+      !endswith(var.test_admin_domain, ".bingo.bakaroo.com")
+    )
+    error_message = "The test_admin_domain must be under bakaroo.com and outside the production HSTS scope."
   }
 }
 
 variable "test_api_domain" {
   type    = string
-  default = "api.test.bingo.bakaroo.com"
+  default = "api.test.bakaroo.com"
   validation {
-    condition     = can(regex("^[a-z0-9]+([.-][a-z0-9]+)*$", var.test_api_domain))
-    error_message = "The test_api_domain variable must be a DNS hostname."
+    condition = (
+      can(regex("^[a-z0-9]+([.-][a-z0-9]+)*$", var.test_api_domain)) &&
+      var.test_api_domain == "api.test.bakaroo.com"
+    )
+    error_message = "The HTTP test API must use api.test.bakaroo.com, outside the production HSTS scope."
   }
 }

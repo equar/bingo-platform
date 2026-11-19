@@ -70,6 +70,7 @@ void main() {
   test('requires HTTPS and rejects loopback hosts in production', () {
     for (final value in [
       'http://api.example.com',
+      'http://api.test.bingo.bakaroo.com',
       'https://localhost:8080',
       'https://127.0.0.1:8080',
       'https://[::1]:8080',
@@ -87,7 +88,7 @@ void main() {
 
   test('allows release HTTP only for the explicitly enabled test API', () {
     const config = AppConfig(
-      apiBaseUrl: 'http://api.test.bingo.bakaroo.com',
+      apiBaseUrl: 'http://api.test.bakaroo.com',
       apiBaseUrlLabel: 'API_BASE_URL',
       isProduction: true,
       allowInsecureTestApi: true,
@@ -96,7 +97,7 @@ void main() {
     expect(config.isValid, isTrue);
     expect(
       config.liveGameWebSocketUri,
-      Uri.parse('ws://api.test.bingo.bakaroo.com/ws'),
+      Uri.parse('ws://api.test.bakaroo.com/ws'),
     );
   });
 

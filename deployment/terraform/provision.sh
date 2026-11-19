@@ -25,6 +25,22 @@ cd "$root"
 terraform init
 terraform workspace select "$environment" 2>/dev/null || terraform workspace new "$environment"
 
+if [[ "$environment" == "test" && "$action" == "apply" ]]; then
+  if grep -Eq '^[[:space:]]*route53_zone_id[[:space:]]*=' "$vars"; then
+    route53_zone_id="$(sed -nE 's/^[[:space:]]*route53_zone_id[[:space:]]*=[[:space:]]*"([^"]*)".*/\1/p' "$vars" | head -n 1)"
+  else
+    route53_zone_id="${TF_VAR_route53_zone_id:-}"
+  fi
+  if [[ -z "$route53_zone_id" && -z "${GODADDY_PAT:-}" ]]; then
+    echo "GODADDY_PAT is required to sync the test DNS records. Export the GoDaddy PAT and retry." >&2
+    exit 1
+  fi
+  if [[ -z "$route53_zone_id" ]] && ! command -v python3 >/dev/null; then
+    echo "Python 3 is required to update GoDaddy DNS records." >&2
+    exit 1
+  fi
+fi
+
 if [[ "$action" == "plan" ]]; then
   terraform plan -var-file="$vars"
   exit 0

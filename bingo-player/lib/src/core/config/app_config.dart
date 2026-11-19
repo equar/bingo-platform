@@ -127,12 +127,12 @@ class AppConfig {
   bool _isTestApiHttp(Uri uri) =>
       allowInsecureTestApi &&
       uri.scheme == 'http' &&
-      uri.host.toLowerCase() == 'api.test.bingo.bakaroo.com';
+      uri.host.toLowerCase() == 'api.test.bakaroo.com';
 
   bool _isTestApiWebSocket(Uri uri) =>
       allowInsecureTestApi &&
       uri.scheme == 'ws' &&
-      uri.host.toLowerCase() == 'api.test.bingo.bakaroo.com';
+      uri.host.toLowerCase() == 'api.test.bakaroo.com';
 }
 
 enum ApiBaseUrlProblem {

@@ -6,6 +6,10 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
+    null = {
+      source  = "hashicorp/null"
+      version = "~> 3.2"
+    }
   }
 }
 
@@ -319,6 +323,35 @@ resource "aws_route53_record" "test_api" {
   type    = "A"
   ttl     = 60
   records = [aws_eip.test[0].public_ip]
+
+  depends_on = [aws_eip_association.test]
+}
+
+resource "null_resource" "godaddy_test_dns" {
+  count = local.is_test && var.route53_zone_id == "" ? 1 : 0
+
+  triggers = {
+    zone         = "bakaroo.com"
+    public_ip    = aws_eip.test[0].public_ip
+    site_domain  = var.test_site_domain
+    admin_domain = var.test_admin_domain
+    api_domain   = var.test_api_domain
+  }
+
+  provisioner "local-exec" {
+    command = "python3 \"${path.module}/scripts/update_godaddy_test_dns.py\" sync"
+    environment = {
+      GODADDY_DNS_ZONE          = self.triggers.zone
+      GODADDY_TEST_PUBLIC_IP    = self.triggers.public_ip
+      GODADDY_TEST_SITE_DOMAIN  = self.triggers.site_domain
+      GODADDY_TEST_ADMIN_DOMAIN = self.triggers.admin_domain
+      GODADDY_TEST_API_DOMAIN   = self.triggers.api_domain
+    }
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
 
   depends_on = [aws_eip_association.test]
 }

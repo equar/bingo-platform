@@ -81,6 +81,7 @@ rm -f /etc/nginx/sites-enabled/default
 ln -sfn /etc/nginx/sites-available/bingo.conf /etc/nginx/sites-enabled/bingo.conf
 nginx -t
 systemctl enable --now nginx
+systemctl reload nginx
 
 echo test > /etc/bingo-environment
 

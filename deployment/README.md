@@ -10,6 +10,33 @@ GitHub Environment with its own host, database connection, secrets, and public
 URLs; production should require an environment reviewer before deployment.
 There is no OIDC deployment role.
 
+For the complete infrastructure, application, and mobile release flows, see
+the [deployment architecture diagram](../.github/modernize/assessment/engines/facts/architecture-diagram.md).
+The [variable inventory](../deploymentVariables.txt) lists each input, where
+to obtain it, how to generate secrets, and the current GitHub configuration
+status.
+
+## Provisioning commands
+
+Infrastructure provisioning is separate from application deployments. From
+the repository root, copy the example files and replace the public-key, CIDR,
+and production bundle placeholders:
+
+```bash
+aws sts get-caller-identity
+cd deployment/terraform
+cp env/test.tfvars.example env/test.tfvars
+cp env/prod.tfvars.example env/prod.tfvars
+./provision.sh test plan
+./provision.sh prod plan
+```
+
+Review each full plan before applying. Test applies use the GoDaddy PAT only
+when `route53_zone_id` is empty; Terraform then syncs the test A records to the
+Elastic IP. Production domain records are configured separately. The
+[Terraform runbook](terraform/README.md) and [variable inventory](../deploymentVariables.txt)
+contain secure secret entry, outputs, and setup commands.
+
 ## Runtime layout and deployment behavior
 
 | Component | Test environment | Production environment |
@@ -59,14 +86,16 @@ ownership, and incident procedures before production use.
 
 ## Server, database, DNS, and HTTP test setup
 
-1. Provision production Lightsail as before. Provision test with
+1. Provision production Lightsail with the production Terraform plan. Provision test with
    `deployment/terraform/provision.sh test apply`; Terraform creates a
    `t3.micro` EC2 host and associates a billable Elastic IP, installs Java 25,
-   Node 22, Nginx, and local MySQL, and creates HTTP-only virtual hosts. For
-   GoDaddy DNS, point `test`, `admin.test`, and `api.test` in the
-   `bingo.bakaroo.com` zone to Terraform's `web_static_ip` output. No TLS
-   certificate is needed for test. Wait for `cloud-init status --wait` and
-   confirm the names resolve before deploying.
+   Node 22, Nginx, and local MySQL, and creates HTTP-only virtual hosts. When
+   GoDaddy is selected, export `GODADDY_PAT` before apply; Terraform creates or
+   updates `test.bakaroo.com`, `admin.test.bakaroo.com`, and
+   `api.test.bakaroo.com` after associating the Elastic IP. With a non-empty
+   `route53_zone_id`, Terraform uses Route 53 instead. No TLS certificate is
+   needed for test. Wait for `cloud-init status --wait` and confirm all three
+   names resolve before deploying.
 2. The test EC2 host creates a local `bingotest` schema and app user on its
    first backend deployment. Test MySQL listens only on loopback; port 3306 is
    not public. Test JDBC disables TLS only for that loopback connection.
@@ -78,8 +107,9 @@ ownership, and incident procedures before production use.
    official AWS database CA bundle. The PEM bundle is used by the deployment
    migration-compatibility preflight; neither file contains an application
    credential.
-3. Point the production `bingo.bakaroo.com`, `admin.bingo.bakaroo.com`, and
-   `api.bingo.bakaroo.com` to the server's static IP. After DNS resolves, copy
+3. Use Terraform's `web_static_ip` output to point production
+   `bingo.bakaroo.com`, `admin.bingo.bakaroo.com`, and
+   `api.bingo.bakaroo.com` to the Lightsail host. After DNS resolves, copy
    `deployment/aws/setup-web-host.sh` and `nginx-bingo.conf.template` to the
    server and run `sudo bash setup-web-host.sh`. The script installs Bingo
    virtual hosts, obtains the `bingo-platform` certificate, validates HTTPS,
@@ -93,7 +123,7 @@ Admin traffic, and WebSocket frames without encryption. Use test-only accounts
 and data; do not use it over untrusted networks. Production deployment remains
 HTTPS-only.
 
-   For manual Nginx setup, render only the three domain variables:
+   For manual Nginx setup, render the three domain and backend-port variables:
 
    ```bash
    export SITE_DOMAIN=bingo.bakaroo.com ADMIN_DOMAIN=admin.bingo.bakaroo.com API_DOMAIN=api.bingo.bakaroo.com API_PORT=8081
@@ -104,7 +134,8 @@ HTTPS-only.
    sudo systemctl reload nginx
    ```
 
-The production deployment scripts do not configure Nginx or certificates.
+The application deployment workflow does not configure production Nginx or
+certificates; initial host setup is a separate operation.
 During initial SSH setup, verify the server host fingerprint out of band;
 `ssh-keyscan` alone does not authenticate the host. The SSH workflow requires
 reachable port 22 and passwordless sudo for the deployment account.
@@ -120,14 +151,32 @@ environment. Set `DEPLOY_SSH_KEY_B64` to the Base64-encoded private key matching
 `bingotest` database user on the EC2 host. Keep that password stable unless
 rotating it manually on the instance.
 
+At this review, only `bingo-backend-production` and `copilot` exist in the
+repository. Create `test` and `production` before application deployment, and
+create `bingo-app-android-production` and `bingo-app-ios-production` with
+required reviewers before mobile production promotion or submission. Do not
+rely on an unprotected or empty environment. See the [complete variable
+inventory](../deploymentVariables.txt) for required values, sources, and the
+current state of repository-level settings.
+
+**Production database gate:** the current repository-level `MYSQL_HOST` points
+to RDS, while the production Terraform stack provisions Lightsail MySQL. The
+application workflow does not migrate data between those databases, and the
+backend deployment script does not create a production application DB user.
+Keep the current production DB target until the intended database, schema, app
+user/grants, credentials, data migration, and rollback plan are verified.
+
 Set test `VITE_API_BASE_URL` to Terraform's `test_api_base_url`,
 `ADMIN_PUBLIC_URL` to `test_admin_url`, and `PUBLIC_SITE_URL` to
 `test_site_url`; set `ADMIN_ACCOUNT_ACTIVATION_URL` to
-`http://admin.test.bingo.bakaroo.com/activate-account` and include
-`http://admin.test.bingo.bakaroo.com` in both CORS variables. Internal Android
+`http://admin.test.bakaroo.com/activate-account` and include
+`http://admin.test.bakaroo.com` in both CORS variables. Internal Android
 testing and TestFlight workflows default to
-`http://api.test.bingo.bakaroo.com`. The internal mobile release workflows
-allow HTTP only for this test API hostname; production keeps HTTPS. Keep the
+`http://api.test.bakaroo.com`. Terraform automatically syncs the three test
+GoDaddy A records to the Elastic IP when `route53_zone_id` is empty; it uses
+Route 53 when that variable is set. The test names are outside the production
+`bingo.bakaroo.com` `includeSubDomains` HSTS scope. The internal mobile release workflows allow
+HTTP only for this test API hostname; production keeps HTTPS. Keep the
 two environments' database, JWT, encryption, email, and SSH credentials isolated. The test
 environment uses the `bingotest` schema and test-only API host; the
 production environment uses `bingo`. Configure production reviewers in
@@ -171,6 +220,8 @@ Environment **variables**:
 |---|---|
 | `DEPLOY_HOST`, `DEPLOY_USER` | Target host address and SSH account; configure separately in each environment |
 | `MYSQL_HOST`, `MYSQL_USER` | Database DNS and application user; the port defaults to `3306` |
+| `APP_EMAIL_PROVIDER`, `APP_EMAIL_FROM` | Required email provider selection and authorized sender mailbox |
+| `ADMIN_EMAIL_BOOTSTRAP_ENABLED`, `ADMIN_BOOTSTRAP_EMAILS` | Optional email-based Admin bootstrap; see the default behavior below |
 | `CORS_ALLOWED_ORIGINS`, `WEBSOCKET_ALLOWED_ORIGINS` | Exact comma-separated browser origins; test uses HTTP, production HTTPS |
 | `ADMIN_ACCOUNT_ACTIVATION_URL` | Production default: `https://admin.bingo.bakaroo.com/activate-account`; test uses its HTTP Admin URL |
 | `ADMIN_BOOTSTRAP_ENABLED` | `false`; enable only for one-time initial Admin setup |
@@ -181,6 +232,15 @@ Environment **variables**:
 | `PUBLIC_ANDROID_AVAILABILITY`, `PUBLIC_ANDROID_URL`, `PUBLIC_IOS_AVAILABILITY`, `PUBLIC_IOS_URL` | Optional public app download state/URLs |
 | `PUBLIC_SUPPORT_EMAIL`, `PUBLIC_SUPPORT_TELEGRAM_URL`, `PUBLIC_SUPPORT_WHATSAPP_URL` | Optional public contact channels |
 | `APP_PAYMENT_PROVIDER_NAME`, `APP_PAYMENT_BUSINESS_ACCOUNT`, `APP_PAYMENT_INSTRUCTIONS` | Public payment instructions; defaults to Telebirr |
+
+`ADMIN_EMAIL_BOOTSTRAP_ENABLED` defaults to `false` in test but `true` in
+production when unset; the production workflow's default recipients are
+`apps@bakaroo.com` and `equarhishe@gmail.com`. Set it explicitly to `false`
+unless those accounts should be created. The separate
+`ADMIN_BOOTSTRAP_ENABLED` path is disabled by default and cannot be enabled at
+the same time. The full source/generation instructions for all variables,
+including optional public-site and SMTP settings, are in
+[`deploymentVariables.txt`](../deploymentVariables.txt).
 
 The production branch uses schema `bingo` and port 8081; the test branch uses
 schema `bingotest` and port 8091. Both use the hardened `prod` Spring profile,
@@ -200,8 +260,9 @@ deployments.
    files first.
 3. Merge an in-repository PR into `develop` to deploy to test. Verify the
    `bingotest` schema and API on port 8091 before promoting `develop` into
-   `release`; that merge deploys to production. Deployments to each environment
-   are serialized independently.
+   `release`. The release-branch push starts the production workflow, which
+   waits for approval through the protected `production` Environment before
+   deploying. Deployments to each environment are serialized independently.
 4. Verify website, Admin login, `/actuator/health`, CORS, authenticated
    WebSockets, email activation, encrypted receiving bank accounts, and
    persistence. Confirm Flyway and application health from sanitized logs.

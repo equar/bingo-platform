@@ -131,12 +131,17 @@ function runBackend() {
 
 function runInfrastructure() {
   requireTool('python3', 'Install Python 3.12.');
-  run('python3', ['-m', 'py_compile', 'deployment/aws/bootstrap-github-actions-config.py', 'deployment/aws/validate-config.py', 'deployment/mobile/prepare-store-credentials.py'], repoRoot);
-  run('python3', ['-m', 'unittest', 'discover', '-s', 'deployment/mobile', '-p', 'test_prepare_store_credentials.py'], repoRoot);
+  run('python3', ['-m', 'py_compile', 'deployment/aws/bootstrap-github-actions-config.py', 'deployment/aws/validate-config.py', 'deployment/mobile/prepare-store-credentials.py', 'deployment/mobile/release_provenance.py', 'deployment/terraform/scripts/update_godaddy_test_dns.py'], repoRoot);
+  run('python3', ['-m', 'unittest', 'discover', '-s', 'deployment/mobile', '-p', 'test_*.py'], repoRoot);
+  run('python3', ['-m', 'unittest', 'discover', '-s', 'deployment/aws/tests', '-p', 'test_*.py'], repoRoot);
+  run('python3', ['deployment/terraform/scripts/test_update_godaddy_test_dns.py'], repoRoot);
+  run('ruby', ['-c', 'bingo-player/fastlane/Fastfile'], repoRoot);
+  run('ruby', ['deployment/mobile/test_fastlane_release_policy.rb'], repoRoot);
   const bash = process.env.BINGO_BASH || 'bash';
   for (const item of fs.readdirSync(path.join(repoRoot, 'deployment/aws')).filter((name) => name.endsWith('.sh'))) {
     run(bash, ['-n', `deployment/aws/${item}`], repoRoot);
   }
+  run(bash, ['-n', 'deployment/terraform/provision.sh'], repoRoot);
   if (process.platform === 'win32') {
     console.log('CI-only check not run locally: rendered Nginx validation requires the Linux nginx/gettext/openssl packages and sudo used by GitHub Actions.');
   }
