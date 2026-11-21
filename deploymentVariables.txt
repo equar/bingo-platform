@@ -8,6 +8,7 @@ are selected by the workflow rather than configured as GitHub variables.
 
 See the [deployment flow diagram](.github/modernize/assessment/engines/facts/architecture-diagram.md)
 and the [deployment runbook](deployment/README.md) for the end-to-end process.
+For the ordered setup checklist, see [deployment-steps.txt](deployment-steps.txt).
 
 ## Required GitHub Environments
 

@@ -14,7 +14,8 @@ For the complete infrastructure, application, and mobile release flows, see
 the [deployment architecture diagram](../.github/modernize/assessment/engines/facts/architecture-diagram.md).
 The [variable inventory](../deploymentVariables.txt) lists each input, where
 to obtain it, how to generate secrets, and the current GitHub configuration
-status.
+status. For the ordered setup from prerequisites through production release,
+follow the [deployment steps](../deployment-steps.txt).
 
 ## Provisioning commands
 
