@@ -1,35 +1,36 @@
 # Email providers
 
 All backend admin emails (bootstrap passwords, account activation links, and
-password reset links) use `APP_EMAIL_PROVIDER`. Supported values are `smtp`
-(default) and `graph`. Unsupported values fail validation and startup. The
-provider is selected on deployment; changing GitHub settings requires another
-deployment to update the running service. There is no automatic provider fallback.
+password reset links) use `APP_EMAIL_PROVIDER`. Supported values are `smtp` and
+`graph`; deployed environments must set the provider explicitly. The local
+application default is `smtp`. Unsupported values fail validation and startup.
+The provider is selected on deployment; changing GitHub settings requires
+another deployment to update the running service. There is no automatic
+provider fallback.
 
 ## Microsoft Graph
 
-Set these repository variables:
+Set these variables in the selected GitHub Environment:
 
 | Variable | Value |
 |---|---|
 | `APP_EMAIL_PROVIDER` | `graph` |
 | `APP_EMAIL_FROM` | The authorized Microsoft 365 sender mailbox, e.g. `noreply@bakaroo.com` |
 
-The workflow reads these repository secrets (existing names are supported):
+Set these environment secrets:
 
-| Preferred secret | Alternative secret |
+| Secret | Source |
 |---|---|
-| `MICROSOFT_GRAPH_TENANT_ID` | `GRAPH_TENANT_ID` |
-| `MICROSOFT_GRAPH_CLIENT_ID` | `GRAPH_CLIENT_ID` |
-| `MICROSOFT_GRAPH_CLIENT_SECRET` | `GRAPH_CLIENT_SECRET` |
+| `MICROSOFT_GRAPH_TENANT_ID` | Microsoft Entra tenant ID |
+| `MICROSOFT_GRAPH_CLIENT_ID` | Entra application/client ID |
+| `MICROSOFT_GRAPH_CLIENT_SECRET` | Entra application client secret |
 
-Preferred nonempty values take precedence over alternatives in the workflow.
 The backend uses the application client credentials flow with the fixed scope
 `https://graph.microsoft.com/.default`, then posts to
 `https://graph.microsoft.com/v1.0/users/{sender}/sendMail`. No SMTP password,
 SMTP login, interactive sign-in, or delegated token is needed in Graph mode.
-Legacy email/Graph enable flags and `MICROSOFT_GRAPH_SCOPES` do not select the
-provider; use `APP_EMAIL_PROVIDER`.
+Only the `MICROSOFT_GRAPH_*` names are supported; set `APP_EMAIL_PROVIDER`
+explicitly in each environment.
 
 The Entra application needs the Microsoft Graph **application** permission
 `Mail.Send` with tenant admin consent (or equivalent Exchange application RBAC),

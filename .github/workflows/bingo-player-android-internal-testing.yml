@@ -9,10 +9,10 @@ on:
         required: false
         default: Internal testing release
       mobile_api_base_url:
-        description: Public HTTPS API base URL for the release build
+        description: Internal test API URL; HTTP is allowed only for api.test.bakaroo.com
         type: string
         required: true
-        default: https://api.bingo.bakaroo.com
+        default: http://api.test.bakaroo.com
 
 permissions:
   contents: read
@@ -31,14 +31,14 @@ jobs:
         shell: bash
         working-directory: bingo-player
     env:
-      MOBILE_API_BASE_URL: ${{ inputs.mobile_api_base_url || vars.BINGO_MOBILE_API_BASE_URL }}
-      ANDROID_PACKAGE_NAME: ${{ vars.BINGO_ANDROID_PACKAGE_NAME }}
+      MOBILE_API_BASE_URL: ${{ inputs.mobile_api_base_url }}
+      ANDROID_PACKAGE_NAME: ${{ vars.ANDROID_PACKAGE_NAME }}
       RELEASE_NOTES: ${{ inputs.release_notes }}
       ANDROID_KEYSTORE_BASE64: ${{ secrets.BINGO_ANDROID_KEYSTORE_BASE64 }}
       ANDROID_KEYSTORE_PASSWORD: ${{ secrets.BINGO_ANDROID_KEYSTORE_PASSWORD }}
       ANDROID_KEY_ALIAS: ${{ secrets.BINGO_ANDROID_KEY_ALIAS }}
       ANDROID_KEY_PASSWORD: ${{ secrets.BINGO_ANDROID_KEY_PASSWORD }}
-      GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64: ${{ secrets.BINGO_GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64 }}
+      GOOGLE_PLAY_JSON: ${{ secrets.GOOGLE_PLAY_JSON }}
     steps:
       - name: Check out repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -57,7 +57,7 @@ jobs:
           channel: stable
 
       - name: Validate release backend URL
-        run: ./tooling/validate_release_api_base_url.sh "$MOBILE_API_BASE_URL"
+        run: ./tooling/validate_release_api_base_url.sh "$MOBILE_API_BASE_URL" --allow-test-http
 
       - name: Prepare Android signing and Play credentials
         run: |
@@ -69,17 +69,11 @@ jobs:
             exit 1
           fi
 
-          if [[ -z "${GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64:-}" ]]; then
-            echo 'ERROR: Google Play service account credentials are required.' >&2
-            exit 1
-          fi
-
           KEYSTORE_PATH="$RUNNER_TEMP/bingo-release.keystore"
-          GOOGLE_PLAY_JSON_PATH="$RUNNER_TEMP/google-play-service-account.json"
           KEY_PROPERTIES_PATH="$PWD/android/key.properties"
 
           printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$KEYSTORE_PATH"
-          printf '%s' "$GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64" | base64 -d > "$GOOGLE_PLAY_JSON_PATH"
+          python3 ../deployment/mobile/prepare-store-credentials.py play
 
           printf 'storeFile=%s\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
             "$KEYSTORE_PATH" \
@@ -88,16 +82,39 @@ jobs:
             "$ANDROID_KEY_PASSWORD" > "$KEY_PROPERTIES_PATH"
 
           printf 'ANDROID_AAB_PATH=%s\n' "$PWD/build/app/outputs/bundle/release/app-release.aab" >> "$GITHUB_ENV"
-          printf 'GOOGLE_PLAY_JSON_KEY_PATH=%s\n' "$GOOGLE_PLAY_JSON_PATH" >> "$GITHUB_ENV"
 
       - name: Install Flutter dependencies
         run: flutter pub get
 
       - name: Build Android app bundle
-        run: flutter build appbundle --release --dart-define=API_BASE_URL="${MOBILE_API_BASE_URL}" --dart-define=BINGO_PLAYER_PURCHASES_ENABLED=true
+        run: |
+          set -euo pipefail
+          RELEASE_BUILD_NUMBER="$(python3 ../deployment/mobile/release_provenance.py build-number --pubspec pubspec.yaml)"
+          RELEASE_APP_VERSION="$(python3 ../deployment/mobile/release_provenance.py app-version --pubspec pubspec.yaml)"
+          echo "RELEASE_BUILD_NUMBER=$RELEASE_BUILD_NUMBER" >> "$GITHUB_ENV"
+          echo "RELEASE_APP_VERSION=$RELEASE_APP_VERSION" >> "$GITHUB_ENV"
+          flutter build appbundle --release --build-name="$RELEASE_APP_VERSION" --build-number="$RELEASE_BUILD_NUMBER" --dart-define=API_BASE_URL="${MOBILE_API_BASE_URL}" --dart-define=BINGO_TEST_ALLOW_INSECURE_HTTP=true --dart-define=BINGO_PLAYER_PURCHASES_ENABLED=true
+
+      - name: Write Android release provenance
+        run: |
+          python3 ../deployment/mobile/release_provenance.py write \
+            --platform android \
+            --build-number "$RELEASE_BUILD_NUMBER" \
+            --app-version "$RELEASE_APP_VERSION" \
+            --application-id "$ANDROID_PACKAGE_NAME" \
+            --api-base-url "$MOBILE_API_BASE_URL" \
+            --output "$RUNNER_TEMP/bingo-release-provenance.json"
 
       - name: Install Fastlane
         run: sudo gem install fastlane -v 2.241.1 --no-document
 
       - name: Upload to Google Play internal testing
         run: fastlane android internal_testing
+
+      - name: Store Android release provenance
+        uses: actions/upload-artifact@v4
+        with:
+          name: bingo-android-release-provenance
+          path: ${{ runner.temp }}/bingo-release-provenance.json
+          if-no-files-found: error
+          retention-days: 90

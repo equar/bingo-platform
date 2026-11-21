@@ -7,16 +7,19 @@ on:
         description: Processed iOS build number to submit for review
         type: string
         required: true
+      ios_app_version:
+        description: Marketing version of the processed iOS build
+        type: string
+        required: true
       release_notes:
         description: Release notes for the App Store submission
         type: string
         required: false
         default: App Store submission release
-      mobile_api_base_url:
-        description: Public HTTPS API base URL for release validation
+      source_workflow_run_id:
+        description: Successful release-branch TestFlight run that uploaded this build
         type: string
         required: true
-        default: https://api.bingo.bakaroo.com
       ios_automatic_release:
         description: Release automatically after App Review approval
         type: boolean
@@ -24,6 +27,7 @@ on:
         default: false
 
 permissions:
+  actions: read
   contents: read
 
 concurrency:
@@ -33,6 +37,7 @@ concurrency:
 jobs:
   submit:
     name: Submit the processed iOS build for App Store review
+    if: github.ref == 'refs/heads/release'
     runs-on: macos-14
     timeout-minutes: 45
     environment: bingo-app-ios-production
@@ -41,13 +46,13 @@ jobs:
         shell: bash
         working-directory: bingo-player
     env:
-      MOBILE_API_BASE_URL: ${{ inputs.mobile_api_base_url || vars.BINGO_MOBILE_API_BASE_URL }}
-      IOS_BUNDLE_ID: ${{ vars.BINGO_IOS_BUNDLE_ID }}
+      MOBILE_API_BASE_URL: https://api.bingo.bakaroo.com
+      IOS_BUNDLE_ID: ${{ vars.IOS_BUNDLE_ID }}
       IOS_BUILD_NUMBER: ${{ inputs.ios_build_number }}
+      IOS_APP_VERSION: ${{ inputs.ios_app_version }}
+      SOURCE_WORKFLOW_RUN_ID: ${{ inputs.source_workflow_run_id }}
       IOS_AUTOMATIC_RELEASE: ${{ inputs.ios_automatic_release }}
-      APP_STORE_CONNECT_KEY_ID: ${{ secrets.BINGO_APP_STORE_CONNECT_KEY_ID }}
-      APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.BINGO_APP_STORE_CONNECT_ISSUER_ID }}
-      APP_STORE_CONNECT_PRIVATE_KEY_BASE64: ${{ secrets.BINGO_APP_STORE_CONNECT_PRIVATE_KEY_BASE64 }}
+      APPSTORE_DEPLOYER_KEY: ${{ secrets.APPSTORE_DEPLOYER_KEY }}
       RELEASE_NOTES: ${{ inputs.release_notes }}
     steps:
       - name: Check out repository
@@ -62,6 +67,28 @@ jobs:
       - name: Validate release backend URL
         run: ./tooling/validate_release_api_base_url.sh "$MOBILE_API_BASE_URL"
 
+      - name: Download iOS build provenance
+        uses: actions/download-artifact@v4
+        with:
+          name: bingo-ios-release-provenance
+          run-id: ${{ inputs.source_workflow_run_id }}
+          github-token: ${{ github.token }}
+          path: bingo-player/release-provenance
+
+      - name: Verify the selected build targets production
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 ../deployment/mobile/release_provenance.py verify \
+            --manifest release-provenance/bingo-release-provenance.json \
+            --platform ios \
+            --build-number "$IOS_BUILD_NUMBER" \
+            --app-version "$IOS_APP_VERSION" \
+            --application-id "$IOS_BUNDLE_ID" \
+            --source-run-id "$SOURCE_WORKFLOW_RUN_ID" \
+            --source-workflow-path .github/workflows/bingo-player-ios-testflight.yml \
+            --source-branch release
+
       - name: Fail fast when the iOS project is missing
         run: |
           set -euo pipefail
@@ -74,15 +101,7 @@ jobs:
         run: |
           set -euo pipefail
           umask 077
-
-          if [[ -z "${APP_STORE_CONNECT_KEY_ID:-}" || -z "${APP_STORE_CONNECT_ISSUER_ID:-}" || -z "${APP_STORE_CONNECT_PRIVATE_KEY_BASE64:-}" ]]; then
-            echo 'ERROR: App Store Connect API key secrets are required.' >&2
-            exit 1
-          fi
-
-          PRIVATE_KEY_PATH="$RUNNER_TEMP/app-store-connect.p8"
-          printf '%s' "$APP_STORE_CONNECT_PRIVATE_KEY_BASE64" | base64 -d > "$PRIVATE_KEY_PATH"
-          printf 'APP_STORE_CONNECT_PRIVATE_KEY_PATH=%s\n' "$PRIVATE_KEY_PATH" >> "$GITHUB_ENV"
+          python3 ../deployment/mobile/prepare-store-credentials.py appstore
 
       - name: Install Fastlane
         run: sudo gem install fastlane -v 2.241.1 --no-document

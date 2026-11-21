@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:bingo_player/src/core/localization/ethiopian_date_time.dart';
+import 'package:bingo_player/src/core/network/api_provider.dart';
 import 'package:bingo_player/src/features/support/presentation/support_shortcut.dart';
 import 'package:bingo_player/src/core/widgets/responsive_content.dart';
 import 'package:bingo_player/l10n/app_localizations.dart';
@@ -30,6 +31,22 @@ final activeSessionsProvider = FutureProvider.autoDispose<List<GameSession>>((
   ref,
 ) {
   return ref.read(lobbyRepositoryProvider).getSessions();
+});
+
+final myGameSessionIdsProvider = FutureProvider.autoDispose<Set<int>>((
+  ref,
+) async {
+  ref.watch(authSessionControllerProvider);
+  final api = ref.read(playerContentApiProvider);
+  final sessionIds = <int>{};
+  var page = 0;
+  while (true) {
+    final result = await api.getGameHistory(page: page, size: 100);
+    sessionIds.addAll(result.content.map((entry) => entry.sessionId));
+    if (result.last || result.content.isEmpty) break;
+    page++;
+  }
+  return sessionIds;
 });
 
 final lobbySessionUpdatesTransportProvider =
@@ -111,6 +128,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen>
   void _refreshSessions() {
     if (!mounted || !_isAppActive || !_isLobbyVisible) return;
     ref.invalidate(activeSessionsProvider);
+    ref.invalidate(myGameSessionIdsProvider);
   }
 
   void _connectSessionUpdates() {
@@ -219,16 +237,15 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen>
         .playerTicketPurchasesEnabled;
 
     return DefaultTabController(
-      length: 3,
+      length: 2,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Bingo'),
           bottom: TabBar(
             isScrollable: true,
             tabs: [
-              Tab(text: localizations.liveGamesTab),
+              Tab(text: localizations.myGamesTab),
               Tab(text: localizations.upcomingGamesTab),
-              Tab(text: localizations.previousGamesTab),
             ],
           ),
           actions: [
@@ -245,7 +262,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen>
             IconButton(
               key: const ValueKey('lobby-refresh-button'),
               tooltip: localizations.refresh,
-              onPressed: () => ref.invalidate(activeSessionsProvider),
+              onPressed: _refreshSessions,
               icon: const Icon(Icons.refresh),
             ),
           ],
@@ -266,25 +283,46 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen>
             error: (error, stack) => AppStatusView(
               title: localizations.errorGeneric,
               message: localizations.lobbyLoadError,
-              onAction: () => ref.invalidate(activeSessionsProvider),
+              onAction: _refreshSessions,
             ),
             data: (sessions) => TabBarView(
               children: [
-                _SessionList(
-                  sessions: sessions
-                      .where(
-                        (s) => const {
-                          'STARTED',
-                          'DRAWING',
-                        }.contains(s.state.toUpperCase()),
-                      )
-                      .toList(),
-                  emptyTitle: localizations.noLiveGames,
-                  emptyBody: localizations.lobbyEmptyBody,
-                  onRefresh: () => ref.invalidate(activeSessionsProvider),
-                  onBuy: null,
-                  purchasesEnabled: purchasesEnabled,
-                ),
+                ref
+                    .watch(myGameSessionIdsProvider)
+                    .when(
+                      loading: () =>
+                          const Center(child: CircularProgressIndicator()),
+                      error: (error, stack) => AppStatusView(
+                        title: localizations.errorGeneric,
+                        message: localizations.gameHistoryLoadError,
+                        onAction: () =>
+                            ref.invalidate(myGameSessionIdsProvider),
+                      ),
+                      data: (ownedIds) => _SessionList(
+                        sessions:
+                            sessions
+                                .where(
+                                  (s) =>
+                                      ownedIds.contains(s.id) &&
+                                      const {
+                                        'OPEN',
+                                        'STARTED',
+                                        'DRAWING',
+                                      }.contains(s.state.toUpperCase()),
+                                )
+                                .toList()
+                              ..sort(
+                                (a, b) => a.scheduledStartAt.compareTo(
+                                  b.scheduledStartAt,
+                                ),
+                              ),
+                        emptyTitle: localizations.noMyGames,
+                        emptyBody: localizations.myGamesEmptyBody,
+                        onRefresh: _refreshSessions,
+                        onBuy: null,
+                        purchasesEnabled: purchasesEnabled,
+                      ),
+                    ),
                 _SessionList(
                   sessions:
                       sessions
@@ -296,29 +334,8 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen>
                         ),
                   emptyTitle: localizations.noUpcomingGames,
                   emptyBody: localizations.lobbyEmptyBody,
-                  onRefresh: () => ref.invalidate(activeSessionsProvider),
+                  onRefresh: _refreshSessions,
                   onBuy: (session) => _buyTickets(context, ref, session),
-                  purchasesEnabled: purchasesEnabled,
-                ),
-                _SessionList(
-                  sessions:
-                      sessions
-                          .where(
-                            (s) => const {
-                              'CLOSED',
-                              'SETTLED',
-                              'CANCELLED',
-                            }.contains(s.state.toUpperCase()),
-                          )
-                          .toList()
-                        ..sort(
-                          (a, b) =>
-                              b.scheduledStartAt.compareTo(a.scheduledStartAt),
-                        ),
-                  emptyTitle: localizations.noPreviousGames,
-                  emptyBody: localizations.lobbyEmptyBody,
-                  onRefresh: () => ref.invalidate(activeSessionsProvider),
-                  onBuy: null,
                   purchasesEnabled: purchasesEnabled,
                 ),
               ],
@@ -383,6 +400,9 @@ class _SessionList extends StatelessWidget {
                           style: Theme.of(context).textTheme.titleLarge,
                         ),
                         Text(session.roomName),
+                        Text(
+                          '${localizations.gameStarts}: ${EthiopianDateTime.dateTime(session.scheduledStartAt, languageCode: Localizations.localeOf(context).languageCode)}',
+                        ),
                         const SizedBox(height: 8),
                         Wrap(
                           spacing: 12,
@@ -439,7 +459,7 @@ class _SessionList extends StatelessWidget {
                                   child: Text(localizations.buyTicketsButton),
                                 ),
                               ),
-                            ] else if (isLive) ...[
+                            ] else ...[
                               const SizedBox(width: 8),
                               Expanded(
                                 child: FilledButton.icon(
@@ -453,7 +473,11 @@ class _SessionList extends StatelessWidget {
                                   icon: const Icon(
                                     Icons.sports_esports_outlined,
                                   ),
-                                  label: Text(localizations.liveGameTitle),
+                                  label: Text(
+                                    isLive
+                                        ? localizations.liveGameTitle
+                                        : localizations.myTicketsTitle,
+                                  ),
                                 ),
                               ),
                             ],
@@ -593,6 +617,7 @@ Future<void> _buyTickets(
     }
     ref.invalidate(walletBalanceProvider);
     ref.invalidate(activeSessionsProvider);
+    ref.invalidate(myGameSessionIdsProvider);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(

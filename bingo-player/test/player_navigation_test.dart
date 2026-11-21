@@ -74,6 +74,7 @@ Widget app({
 }) => ProviderScope(
   overrides: [
     activeSessionsProvider.overrideWith((ref) async => sessions ?? [session]),
+    myGameSessionIdsProvider.overrideWith((ref) async => {session.id}),
     liveGameControllerProvider(
       session.id,
     ).overrideWith((ref) => _liveGameController()),

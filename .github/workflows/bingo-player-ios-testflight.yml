@@ -9,10 +9,10 @@ on:
         required: false
         default: TestFlight release
       mobile_api_base_url:
-        description: Public HTTPS API base URL for the release build
+        description: Internal test API URL; HTTP is allowed only for api.test.bakaroo.com
         type: string
         required: true
-        default: https://api.bingo.bakaroo.com
+        default: http://api.test.bakaroo.com
 
 permissions:
   contents: read
@@ -31,12 +31,10 @@ jobs:
         shell: bash
         working-directory: bingo-player
     env:
-      MOBILE_API_BASE_URL: ${{ inputs.mobile_api_base_url || vars.BINGO_MOBILE_API_BASE_URL }}
-      IOS_BUNDLE_ID: ${{ vars.BINGO_IOS_BUNDLE_ID }}
+      MOBILE_API_BASE_URL: ${{ inputs.mobile_api_base_url }}
+      IOS_BUNDLE_ID: ${{ vars.IOS_BUNDLE_ID }}
       RELEASE_NOTES: ${{ inputs.release_notes }}
-      APP_STORE_CONNECT_KEY_ID: ${{ secrets.BINGO_APP_STORE_CONNECT_KEY_ID }}
-      APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.BINGO_APP_STORE_CONNECT_ISSUER_ID }}
-      APP_STORE_CONNECT_PRIVATE_KEY_BASE64: ${{ secrets.BINGO_APP_STORE_CONNECT_PRIVATE_KEY_BASE64 }}
+      APPSTORE_DEPLOYER_KEY: ${{ secrets.APPSTORE_DEPLOYER_KEY }}
       IOS_DISTRIBUTION_CERTIFICATE_BASE64: ${{ secrets.BINGO_IOS_DISTRIBUTION_CERTIFICATE_BASE64 }}
       IOS_DISTRIBUTION_CERTIFICATE_PASSWORD: ${{ secrets.BINGO_IOS_DISTRIBUTION_CERTIFICATE_PASSWORD }}
       IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.BINGO_IOS_PROVISIONING_PROFILE_BASE64 }}
@@ -52,7 +50,7 @@ jobs:
           channel: stable
 
       - name: Validate release backend URL
-        run: ./tooling/validate_release_api_base_url.sh "$MOBILE_API_BASE_URL"
+        run: ./tooling/validate_release_api_base_url.sh "$MOBILE_API_BASE_URL" --allow-test-http
 
       - name: Fail fast when the iOS project is missing
         run: |
@@ -67,11 +65,6 @@ jobs:
           set -euo pipefail
           umask 077
 
-          if [[ -z "${APP_STORE_CONNECT_KEY_ID:-}" || -z "${APP_STORE_CONNECT_ISSUER_ID:-}" || -z "${APP_STORE_CONNECT_PRIVATE_KEY_BASE64:-}" ]]; then
-            echo 'ERROR: App Store Connect API key secrets are required.' >&2
-            exit 1
-          fi
-
           if [[ -z "${IOS_DISTRIBUTION_CERTIFICATE_BASE64:-}" || -z "${IOS_DISTRIBUTION_CERTIFICATE_PASSWORD:-}" || -z "${IOS_PROVISIONING_PROFILE_BASE64:-}" || -z "${IOS_KEYCHAIN_PASSWORD:-}" ]]; then
             echo 'ERROR: iOS signing secrets are required.' >&2
             exit 1
@@ -81,11 +74,9 @@ jobs:
           KEYCHAIN_PATH="$RUNNER_TEMP/$KEYCHAIN_NAME"
           CERTIFICATE_PATH="$RUNNER_TEMP/bingo-distribution-cert.p12"
           PROFILE_PATH="$RUNNER_TEMP/bingo-profile.mobileprovision"
-          PRIVATE_KEY_PATH="$RUNNER_TEMP/app-store-connect.p8"
-
           printf '%s' "$IOS_DISTRIBUTION_CERTIFICATE_BASE64" | base64 -d > "$CERTIFICATE_PATH"
           printf '%s' "$IOS_PROVISIONING_PROFILE_BASE64" | base64 -d > "$PROFILE_PATH"
-          printf '%s' "$APP_STORE_CONNECT_PRIVATE_KEY_BASE64" | base64 -d > "$PRIVATE_KEY_PATH"
+          python3 ../deployment/mobile/prepare-store-credentials.py appstore
 
           security create-keychain -p "$IOS_KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security default-keychain -s "$KEYCHAIN_PATH"
@@ -97,14 +88,19 @@ jobs:
           mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
           cp "$PROFILE_PATH" "$HOME/Library/MobileDevice/Provisioning Profiles/bingo.mobileprovision"
 
-          printf 'APP_STORE_CONNECT_PRIVATE_KEY_PATH=%s\n' "$PRIVATE_KEY_PATH" >> "$GITHUB_ENV"
           printf 'IOS_IPA_PATH=%s\n' "$PWD/build/ios/ipa" >> "$GITHUB_ENV"
 
       - name: Install Flutter dependencies
         run: flutter pub get
 
       - name: Build the iOS IPA
-        run: flutter build ipa --release --dart-define=API_BASE_URL="${MOBILE_API_BASE_URL}"
+        run: |
+          set -euo pipefail
+          RELEASE_BUILD_NUMBER="$(python3 ../deployment/mobile/release_provenance.py build-number --pubspec pubspec.yaml)"
+          RELEASE_APP_VERSION="$(python3 ../deployment/mobile/release_provenance.py app-version --pubspec pubspec.yaml)"
+          echo "RELEASE_BUILD_NUMBER=$RELEASE_BUILD_NUMBER" >> "$GITHUB_ENV"
+          echo "RELEASE_APP_VERSION=$RELEASE_APP_VERSION" >> "$GITHUB_ENV"
+          flutter build ipa --release --build-name="$RELEASE_APP_VERSION" --build-number="$RELEASE_BUILD_NUMBER" --dart-define=API_BASE_URL="${MOBILE_API_BASE_URL}" --dart-define=BINGO_TEST_ALLOW_INSECURE_HTTP=true
 
       - name: Capture the built IPA path
         run: |
@@ -116,8 +112,26 @@ jobs:
           fi
           printf 'IOS_IPA_PATH=%s\n' "$PWD/$IPA_FILE_PATH" >> "$GITHUB_ENV"
 
+      - name: Write iOS release provenance
+        run: |
+          python3 ../deployment/mobile/release_provenance.py write \
+            --platform ios \
+            --build-number "$RELEASE_BUILD_NUMBER" \
+            --app-version "$RELEASE_APP_VERSION" \
+            --application-id "$IOS_BUNDLE_ID" \
+            --api-base-url "$MOBILE_API_BASE_URL" \
+            --output "$RUNNER_TEMP/bingo-release-provenance.json"
+
       - name: Install Fastlane
         run: sudo gem install fastlane -v 2.241.1 --no-document
 
       - name: Upload to TestFlight
         run: fastlane ios testflight
+
+      - name: Store iOS release provenance
+        uses: actions/upload-artifact@v4
+        with:
+          name: bingo-ios-release-provenance
+          path: ${{ runner.temp }}/bingo-release-provenance.json
+          if-no-files-found: error
+          retention-days: 90

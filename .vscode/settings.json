@@ -2,5 +2,14 @@
     "cmake.sourceDirectory": "${workspaceFolder}/bingo-agent/windows",
     "java.autobuild.enabled": true,
     "java.configuration.updateBuildConfiguration": "automatic",
-    "java.import.maven.enabled": true
+    "java.import.maven.enabled": true,
+    "files.exclude": {
+        "**/.git": true,
+        "**/.svn": true,
+        "**/.hg": true,
+        "**/.jj": true,
+        "**/.DS_Store": true,
+        "**/Thumbs.db": true,
+        ".mule": true
+    }
 }

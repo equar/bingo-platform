@@ -71,7 +71,7 @@ authenticated CLI; do not add real values to repository files.
 ## Deploy and log in
 
 1. Merge the reviewed release through the repository's normal protected PR
-   deployment path. The existing `Build and Deploy Bingo to Lightsail`
+   deployment path. The existing `Build and Deploy Bingo`
    workflow passes the settings to the root-protected runtime environment. The
    bootstrap runs after Flyway migrations.
 2. Open `https://admin.bingo.bakaroo.com` and log in with the configured email

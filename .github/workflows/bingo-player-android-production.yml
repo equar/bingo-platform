@@ -17,13 +17,13 @@ on:
         type: string
         required: false
         default: Production promotion release
-      mobile_api_base_url:
-        description: Public HTTPS API base URL for release validation
+      source_workflow_run_id:
+        description: Successful release-branch Android internal-testing run that uploaded this build
         type: string
         required: true
-        default: https://api.bingo.bakaroo.com
 
 permissions:
+  actions: read
   contents: read
 
 concurrency:
@@ -33,6 +33,7 @@ concurrency:
 jobs:
   promote:
     name: Promote the tested Android build to production
+    if: github.ref == 'refs/heads/release'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: bingo-app-android-production
@@ -41,12 +42,13 @@ jobs:
         shell: bash
         working-directory: bingo-player
     env:
-      MOBILE_API_BASE_URL: ${{ inputs.mobile_api_base_url || vars.BINGO_MOBILE_API_BASE_URL }}
-      ANDROID_PACKAGE_NAME: ${{ vars.BINGO_ANDROID_PACKAGE_NAME }}
+      MOBILE_API_BASE_URL: https://api.bingo.bakaroo.com
+      ANDROID_PACKAGE_NAME: ${{ vars.ANDROID_PACKAGE_NAME }}
       ANDROID_VERSION_CODE: ${{ inputs.android_version_code }}
-      ANDROID_PRODUCTION_ROLLOUT: ${{ inputs.android_production_rollout || vars.BINGO_ANDROID_PRODUCTION_ROLLOUT }}
+      ANDROID_PRODUCTION_ROLLOUT: ${{ inputs.android_production_rollout }}
+      SOURCE_WORKFLOW_RUN_ID: ${{ inputs.source_workflow_run_id }}
       RELEASE_NOTES: ${{ inputs.release_notes }}
-      GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64: ${{ secrets.BINGO_GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64 }}
+      GOOGLE_PLAY_JSON: ${{ secrets.GOOGLE_PLAY_JSON }}
     steps:
       - name: Check out repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -61,6 +63,27 @@ jobs:
       - name: Validate release backend URL
         run: ./tooling/validate_release_api_base_url.sh "$MOBILE_API_BASE_URL"
 
+      - name: Download Android build provenance
+        uses: actions/download-artifact@v4
+        with:
+          name: bingo-android-release-provenance
+          run-id: ${{ inputs.source_workflow_run_id }}
+          github-token: ${{ github.token }}
+          path: bingo-player/release-provenance
+
+      - name: Verify the selected build targets production
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 ../deployment/mobile/release_provenance.py verify \
+            --manifest release-provenance/bingo-release-provenance.json \
+            --platform android \
+            --build-number "$ANDROID_VERSION_CODE" \
+            --application-id "$ANDROID_PACKAGE_NAME" \
+            --source-run-id "$SOURCE_WORKFLOW_RUN_ID" \
+            --source-workflow-path .github/workflows/bingo-player-android-internal-testing.yml \
+            --source-branch release
+
       - name: Prepare Google Play credentials
         run: |
           set -euo pipefail
@@ -71,14 +94,7 @@ jobs:
             exit 1
           fi
 
-          if [[ -z "${GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64:-}" ]]; then
-            echo 'ERROR: Google Play service account credentials are required.' >&2
-            exit 1
-          fi
-
-          GOOGLE_PLAY_JSON_PATH="$RUNNER_TEMP/google-play-service-account.json"
-          printf '%s' "$GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64" | base64 -d > "$GOOGLE_PLAY_JSON_PATH"
-          printf 'GOOGLE_PLAY_JSON_KEY_PATH=%s\n' "$GOOGLE_PLAY_JSON_PATH" >> "$GITHUB_ENV"
+          python3 ../deployment/mobile/prepare-store-credentials.py play
 
       - name: Install Fastlane
         run: sudo gem install fastlane -v 2.241.1 --no-document

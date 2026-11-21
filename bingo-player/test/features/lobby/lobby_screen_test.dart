@@ -9,8 +9,12 @@ import 'package:bingo_player/src/features/auth/data/auth_models.dart';
 import 'package:bingo_player/src/features/auth/data/auth_session_controller.dart';
 import 'package:bingo_player/src/core/storage/session_storage.dart';
 import 'package:bingo_player/src/core/config/app_config.dart';
+import 'package:bingo_player/src/core/models/page_result.dart';
+import 'package:bingo_player/src/core/network/api_provider.dart';
 import 'package:bingo_player/src/features/game/application/live_game_transport.dart';
 import 'package:bingo_player/src/features/lobby/presentation/ticket_preview_screen.dart';
+import 'package:bingo_player/src/features/player_content/data/player_content_api.dart';
+import 'package:bingo_player/src/features/player_content/domain/player_content_models.dart';
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -18,6 +22,82 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('My Games shows owned active games ordered by start time', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1000, 1800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final repository = _LobbyRepository(
+      sessions: [
+        _session(1, 'OPEN', 4),
+        _session(2, 'DRAWING', 1),
+        _session(3, 'OPEN', 2),
+        _session(4, 'STARTED', 3),
+        _session(5, 'SETTLED', 0),
+        _session(6, 'OPEN', 5),
+      ],
+    );
+    final history = _PlayerContentApi([
+      [_historyEntry(1), _historyEntry(2), _historyEntry(2)],
+      [_historyEntry(4), _historyEntry(5)],
+    ]);
+    await tester.pumpWidget(_app(repository, history: history));
+    await tester.pumpAndSettle();
+
+    expect(find.text('My Games'), findsOneWidget);
+    expect(find.text('Previous games'), findsNothing);
+    expect(find.text('Game 2'), findsOneWidget);
+    expect(find.text('Game 4'), findsOneWidget);
+    expect(find.text('Game 1'), findsOneWidget);
+    expect(find.text('Game 3'), findsNothing);
+    expect(find.text('Game 5'), findsNothing);
+    expect(find.text('Game 6'), findsNothing);
+    expect(
+      tester.getTopLeft(find.text('Game 2')).dy,
+      lessThan(tester.getTopLeft(find.text('Game 4')).dy),
+    );
+    expect(
+      tester.getTopLeft(find.text('Game 4')).dy,
+      lessThan(tester.getTopLeft(find.text('Game 1')).dy),
+    );
+    expect(find.byKey(const ValueKey('live-game-1')), findsOneWidget);
+    expect(history.pagesRequested, [0, 1]);
+
+    await _openUpcomingGames(tester);
+    expect(find.text('Game 3'), findsOneWidget);
+    expect(find.text('Game 6'), findsOneWidget);
+  });
+
+  testWidgets('My Games reports ticket loading errors and retries', (
+    tester,
+  ) async {
+    final history = _PlayerContentApi([])..fail = true;
+    await tester.pumpWidget(_app(_LobbyRepository(), history: history));
+    await tester.pumpAndSettle();
+    expect(find.text('Try again'), findsOneWidget);
+    await _openUpcomingGames(tester);
+    expect(find.text('QA Scheduled Session'), findsOneWidget);
+    await tester.tap(find.text('My Games'));
+    await tester.pumpAndSettle();
+    history.fail = false;
+    await tester.tap(find.text('Try again'));
+    await tester.pumpAndSettle();
+    expect(find.text('You have no upcoming or live games.'), findsOneWidget);
+  });
+
+  testWidgets('refresh updates ticket ownership in My Games', (tester) async {
+    final history = _PlayerContentApi([]);
+    await tester.pumpWidget(_app(_LobbyRepository(), history: history));
+    await tester.pumpAndSettle();
+    expect(find.text('You have no upcoming or live games.'), findsOneWidget);
+
+    history.pages.add([_historyEntry(12)]);
+    await tester.tap(find.byKey(const ValueKey('lobby-refresh-button')));
+    await tester.pumpAndSettle();
+    expect(find.text('QA Scheduled Session'), findsOneWidget);
+    expect(find.text('My tickets'), findsOneWidget);
+  });
+
   testWidgets('lobby lists active sessions', (tester) async {
     final repository = _LobbyRepository();
     await tester.pumpWidget(_app(repository));
@@ -53,7 +133,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('No games are live right now.'), findsOneWidget);
+    expect(find.text('QA Scheduled Session'), findsOneWidget);
     expect(transport.isConnected, isTrue);
 
     repository.sessionState = 'STARTED';
@@ -307,9 +387,16 @@ Widget _app(
   Widget home = const LobbyScreen(),
   bool authenticated = false,
   LobbySessionUpdatesTransport? sessionUpdatesTransport,
+  _PlayerContentApi? history,
 }) => ProviderScope(
   overrides: [
     lobbyRepositoryProvider.overrideWithValue(repository),
+    playerContentApiProvider.overrideWithValue(
+      history ??
+          _PlayerContentApi([
+            [_historyEntry(12)],
+          ]),
+    ),
     appConfigProvider.overrideWithValue(
       const AppConfig(
         apiBaseUrl: 'http://localhost:8080',
@@ -352,6 +439,7 @@ class _LobbyRepository extends LobbyRepository {
     this.sessionState = 'OPEN',
     this.endedAt,
     this.claimWindowSeconds,
+    this.sessions,
   }) : super(_UnusedLobbyApi());
 
   bool failPreview;
@@ -360,6 +448,7 @@ class _LobbyRepository extends LobbyRepository {
   String sessionState;
   final DateTime? endedAt;
   final int? claimWindowSeconds;
+  final List<GameSession>? sessions;
   Completer<List<GameSession>>? pendingSessions;
   int sessionRequests = 0;
   int previewRequests = 0;
@@ -369,7 +458,7 @@ class _LobbyRepository extends LobbyRepository {
     sessionRequests++;
     if (pendingSessions != null) return pendingSessions!.future;
     if (failSessions) throw Exception('offline');
-    return emptySessions ? [] : await getRoomSessions(_room.id);
+    return emptySessions ? [] : sessions ?? await getRoomSessions(_room.id);
   }
 
   @override
@@ -410,6 +499,61 @@ class _LobbyRepository extends LobbyRepository {
       ],
     ),
   ];
+}
+
+GameSession _session(int id, String state, int day) => GameSession(
+  id: id,
+  roomId: 6,
+  roomName: 'Room',
+  sessionName: 'Game $id',
+  state: state,
+  scheduledStartAt: DateTime.utc(2030, 1, day + 1),
+  ticketPrice: 1,
+  currency: 'ETB',
+  sessionCapacity: 30,
+  ticketCount: 1,
+  drawCount: 0,
+  createdAt: DateTime.utc(2029),
+  updatedAt: DateTime.utc(2029),
+);
+
+PlayerGameHistoryItem _historyEntry(int sessionId) => PlayerGameHistoryItem(
+  ticketId: sessionId,
+  sessionId: sessionId,
+  roomName: 'Room',
+  sessionName: 'Game $sessionId',
+  sessionState: 'OPEN',
+  ticketCode: 'ticket',
+  purchasedAt: DateTime.utc(2029),
+);
+
+class _PlayerContentApi extends PlayerContentApi {
+  _PlayerContentApi(this.pages) : super(Dio());
+
+  final List<List<PlayerGameHistoryItem>> pages;
+  final List<int> pagesRequested = [];
+  bool fail = false;
+
+  @override
+  Future<PageResult<PlayerGameHistoryItem>> getGameHistory({
+    required int page,
+    required int size,
+  }) async {
+    pagesRequested.add(page);
+    if (fail) throw Exception('offline');
+    final content = page < pages.length
+        ? pages[page]
+        : <PlayerGameHistoryItem>[];
+    return PageResult(
+      content: content,
+      page: page,
+      size: size,
+      totalElements: pages.fold(0, (sum, entries) => sum + entries.length),
+      totalPages: pages.length,
+      first: page == 0,
+      last: page >= pages.length - 1,
+    );
+  }
 }
 
 final _room = BingoRoom(

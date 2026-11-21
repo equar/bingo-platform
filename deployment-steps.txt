@@ -1,0 +1,544 @@
+# Bingo Deployment Steps
+
+This is the ordered setup guide for a new test and production deployment. Keep
+the [deployment variable and secret inventory](./deploymentVariables.txt) open
+while filling in values. The [Mermaid deployment diagrams](./.github/modernize/assessment/engines/facts/architecture-diagram.md)
+show how infrastructure, web application releases, and mobile store releases
+fit together.
+
+## 1. Understand the deployment lanes
+
+- Terraform infrastructure is provisioned manually from a developer/operator
+  machine. The application workflow never runs Terraform.
+- The **Build and Deploy Bingo** GitHub Actions workflow builds changed
+  backend/Admin/website components and deploys them to the host over SSH.
+- A merged in-repository PR to `develop` selects the `test` GitHub Environment.
+  A merged in-repository PR to `release` selects `production`; the production
+  job waits for approval if that Environment has required reviewers.
+- A manual dispatch of the same workflow is available on either branch. Use
+  `target=all` for the first deployment or to reconcile all artifacts.
+- Android Play and iOS TestFlight/App Store workflows are separate manual
+  workflows. A production store release must use a successful `release`-branch
+  candidate and pass the provenance check.
+
+Test is HTTP-only and must use test data and accounts. Production is HTTPS-only.
+The production database decision described in step 8 is currently a hard stop
+for a production application release.
+
+## 2. Confirm access, prerequisites, and policy
+
+Before creating resources, confirm you have:
+
+1. AWS credentials with permission to manage the Terraform resources in the
+   chosen account and region. Verify the identity with
+   `aws sts get-caller-identity`.
+2. Terraform, AWS CLI, GitHub CLI (`gh`), Python 3, OpenSSH, and a GitHub CLI
+   login with repository access. Use `gh auth status` to check GitHub access.
+3. Permission to create GitHub Environments, secrets, variables, branch
+   protection, and required reviewers.
+4. Control of the authoritative DNS zone for `bakaroo.com`, either through
+   GoDaddy or a public Route 53 hosted zone.
+5. A network plan for SSH. The security group/firewall only opens port 22 to
+   `ssh_allowed_cidrs`. Do not use `0.0.0.0/0`. The current deployment job runs
+   on GitHub-hosted `ubuntu-latest`, whose egress IPs are not stable. Either
+   maintain an appropriate GitHub Actions egress allowlist or deliberately
+   move the deployment job to a self-hosted runner with fixed egress before
+   relying on a narrow static CIDR. Include your operator IP as well if you
+   will connect from your workstation to wait for bootstrap or perform host
+   setup.
+6. A decision about the production database before applying production
+   Terraform. The current repository setting points the application at RDS,
+   while production Terraform also provisions a Lightsail MySQL database.
+   The workflow does not migrate data or create the production application
+   account. Applying the production stack without deciding whether that
+   Lightsail database is intended can create a database that the application
+   does not use and still incurs cost.
+
+Review current GitHub settings without reading secret values:
+
+```bash
+gh api repos/equar/bingo-platform/environments --jq '.environments[].name'
+gh variable list --repo equar/bingo-platform
+gh secret list --repo equar/bingo-platform
+```
+
+GitHub does not reveal existing secret contents. Retrieve existing values
+from their approved password manager/source, or rotate them only when that is
+safe. In particular, never replace `BINGO_FLOAT_BANK_ENCRYPTION_KEY` for data
+already encrypted with it, and do not change `MYSQL_PASSWORD` without changing
+the matching database account.
+
+## 3. Protect branches and create GitHub Environments
+
+In the repository settings, verify these settings and create any that are
+missing:
+
+1. Protect `develop` and `release`; require reviewed PRs and the repository's
+   PR-validation checks before merge.
+2. Create application Environments named `test` and `production`.
+3. Add required reviewers to `production`. The approval occurs after a
+   release workflow starts and before its deployment job proceeds.
+4. Create `bingo-app-android-production` and
+   `bingo-app-ios-production` later, before production mobile promotion or
+   submission, and add required reviewers to both.
+
+Do not use the old `bingo-backend-production` Environment for current
+deployments.
+
+## 4. Create deployment SSH keys
+
+Use separate unencrypted keys for test and production. Reuse an existing
+approved pair if its private key is available locally and its public key is
+authorized on the intended host. Otherwise create new pairs. Never overwrite
+an existing key without confirming it is no longer needed. Keep private keys
+private; only public keys go into infrastructure/host authorization.
+
+```bash
+ssh-keygen -t ed25519 -N '' -f ~/.ssh/bingo-test-deploy -C bingo-test-deploy
+ssh-keygen -t ed25519 -N '' -f ~/.ssh/bingo-prod-deploy -C bingo-prod-deploy
+ssh-keygen -y -f ~/.ssh/bingo-test-deploy
+ssh-keygen -y -f ~/.ssh/bingo-prod-deploy
+```
+
+- Put the test public key in `deployment/terraform/env/test.tfvars` as
+  `ssh_public_key`; Terraform installs it on the EC2 instance.
+- Production Terraform does not install this deployment key. Use the Lightsail
+  browser SSH session or the configured Lightsail key pair to add the
+  production public key to the `ubuntu` account's `authorized_keys`, then
+  verify SSH access. The production SSH firewall must allow the actual
+  deployment runner source.
+- Store each Base64 private key as `DEPLOY_SSH_KEY_B64` in the matching GitHub
+  Environment. The configuration importer below accepts this value in its
+  protected local environment file. Do not commit that file or print the key.
+
+## 5. Prepare and apply test infrastructure
+
+From the repository root:
+
+```bash
+aws sts get-caller-identity
+cd deployment/terraform
+cp env/test.tfvars.example env/test.tfvars
+```
+
+Edit `env/test.tfvars` before planning:
+
+- Replace `ssh_public_key` with the test public key.
+- Replace `ssh_allowed_cidrs` with the planned SSH source CIDRs.
+- Keep the three test domains as `test.bakaroo.com`,
+  `admin.test.bakaroo.com`, and `api.test.bakaroo.com`. They must stay outside
+  the production HSTS subtree.
+- Set `route53_zone_id` only if you intend Terraform to use Route 53. Leave it
+  empty for GoDaddy DNS sync.
+- Review region, instance type, volume size, and AWS cost implications.
+
+Plan and review:
+
+```bash
+./provision.sh test plan
+```
+
+The first test apply replaces the old test Lightsail resources in this
+Terraform workspace. Back up any test data you need before applying. If
+GoDaddy is authoritative and `route53_zone_id` is empty, create a GoDaddy PAT
+with `domains.domain:read` and `domains.dns:update`. Keep it only in the local
+shell; it is not a GitHub secret or Terraform variable.
+
+In macOS `zsh`, apply with the token entered without echo:
+
+```zsh
+read -s 'GODADDY_PAT?GoDaddy PAT: '
+export GODADDY_PAT
+./provision.sh test apply
+unset GODADDY_PAT
+```
+
+If Route 53 is selected, omit the token and apply normally:
+
+```bash
+./provision.sh test apply
+```
+
+The wrapper asks for the typed confirmation `test-apply`. GoDaddy mode creates
+or updates the three A records to the current Elastic IP; it never deletes
+records on replacement or destroy. Route 53 mode manages the corresponding
+records in the configured hosted zone.
+
+Retrieve the test outputs:
+
+```bash
+terraform workspace select test
+terraform output -raw web_static_ip
+terraform output -raw test_ssh_user
+terraform output -raw test_api_base_url
+terraform output -raw test_admin_url
+terraform output -raw test_site_url
+```
+
+Wait for first boot and verify DNS before application deployment:
+
+```bash
+ssh -i ~/.ssh/bingo-test-deploy ubuntu@TEST_STATIC_IP 'cloud-init status --wait'
+dig +short test.bakaroo.com
+dig +short admin.test.bakaroo.com
+dig +short api.test.bakaroo.com
+```
+
+Replace `TEST_STATIC_IP` with the Terraform output. All three DNS answers
+should resolve to that IP. The test host's MySQL is local-only; the test API
+and browser traffic use HTTP, so use test-only credentials and data.
+
+## 6. Configure the test GitHub Environment
+
+Return to the repository root first if the shell is still in
+`deployment/terraform`:
+
+```bash
+cd ../..
+```
+
+Create a local configuration file with restrictive permissions. It contains
+secrets in clear text locally; keep it ignored, never commit it, and remove it
+after a successful import:
+
+```bash
+umask 077
+cp deployment/aws/github-actions.env.example deployment/aws/github-actions-test.env
+chmod 600 deployment/aws/github-actions-test.env
+```
+
+Populate the SSH secret in that local file without printing its value:
+
+```bash
+python3 - <<'PY'
+import base64
+from pathlib import Path
+
+env_file = Path("deployment/aws/github-actions-test.env")
+private_key = Path.home() / ".ssh" / "bingo-test-deploy"
+encoded = base64.b64encode(private_key.read_bytes()).decode("ascii")
+text = env_file.read_text()
+text = text.replace(
+    "DEPLOY_SSH_KEY_B64=REPLACE_WITH_BASE64_DEPLOYMENT_PRIVATE_KEY",
+    "DEPLOY_SSH_KEY_B64=" + encoded,
+)
+env_file.write_text(text)
+PY
+```
+
+Fill in the file from the [variable inventory](./deploymentVariables.txt) and
+these test-specific values:
+
+- `DEPLOY_HOST`: test `web_static_ip`.
+- `DEPLOY_USER`: `ubuntu`.
+- `DEPLOY_SSH_KEY_B64`: Base64 of the test private key.
+- `MYSQL_HOST`: `127.0.0.1`.
+- `MYSQL_USER`: choose a test-only application account name. The first backend
+  deployment provisions this account on the test host.
+- `MYSQL_PASSWORD`: choose a test-only password for that account.
+- `VITE_API_BASE_URL`: `http://api.test.bakaroo.com`.
+- `ADMIN_PUBLIC_URL`: `http://admin.test.bakaroo.com`.
+- `PUBLIC_SITE_URL`: `http://test.bakaroo.com`.
+- `ADMIN_ACCOUNT_ACTIVATION_URL`:
+  `http://admin.test.bakaroo.com/activate-account`.
+- `CORS_ALLOWED_ORIGINS` and `WEBSOCKET_ALLOWED_ORIGINS`: exactly
+  `http://admin.test.bakaroo.com,http://test.bakaroo.com` (no path or trailing
+  slash).
+- Select `APP_EMAIL_PROVIDER=graph` or `smtp` and fill only the corresponding
+  credentials. See [email provider setup](./deployment/aws/EMAIL_PROVIDERS.md).
+- Generate a test `JWT_SECRET`. Use an independent test
+  `BINGO_FLOAT_BANK_ENCRYPTION_KEY`; preserve it if any data is encrypted.
+- Keep `ADMIN_BOOTSTRAP_ENABLED=false` and
+  `ADMIN_EMAIL_BOOTSTRAP_ENABLED=false` unless a specific one-time setup has
+  been approved. Keep test payouts disabled.
+
+Clear unused email-provider placeholders and replace every `REPLACE_...`
+entry. The importer rejects files that still contain placeholders.
+
+The secure generation commands and all optional values are in
+[`deploymentVariables.txt`](./deploymentVariables.txt). Import the settings
+to the already-created Environment:
+
+```bash
+GH_ENVIRONMENT=test bash deployment/aws/bootstrap-github-actions-config.sh deployment/aws/github-actions-test.env
+```
+
+The importer validates required settings and sends secrets to GitHub without
+printing their values. The local file contains Base64 private-key text and
+other secrets; it must remain ignored and mode `600`. After confirming the
+Environment is complete, check that settings are scoped correctly:
+
+```bash
+gh variable list --repo equar/bingo-platform --env test
+gh secret list --repo equar/bingo-platform --env test
+```
+
+Then remove the local file:
+
+```bash
+rm deployment/aws/github-actions-test.env
+```
+
+## 7. Run the first test application deployment
+
+The PR validation workflow must pass before merging. For the initial
+deployment, manually dispatch **Build and Deploy Bingo** from `develop` with
+target `all`:
+
+```bash
+gh workflow run deploy.yml --repo equar/bingo-platform --ref develop -f target=all
+```
+
+The workflow validates the selected Environment settings, builds all three
+components, establishes SSH, and deploys the backend, Admin, and public
+website. Later in-repository PRs merged into `develop` deploy changed
+components automatically. The deployment workflow skips backend tests; PR
+validation is the test gate.
+
+Verify:
+
+```bash
+curl --fail --show-error http://api.test.bakaroo.com/actuator/health
+curl --fail --show-error --head http://admin.test.bakaroo.com/
+curl --fail --show-error --head http://test.bakaroo.com/
+```
+
+Then test Admin login, API behavior, CORS, WebSockets, email, and persistence
+with test accounts. Resolve failed deployments before merging more changes.
+Use the latest branch for recovery; manually deploying an older run can
+replace newer artifacts.
+
+## 8. Production readiness gate: resolve the database target
+
+Do not release the application to production until all of these are decided
+and verified:
+
+1. Choose whether production will keep the current RDS database or migrate to
+   the Lightsail MySQL database created by the production Terraform stack.
+2. Verify the selected database endpoint, schema, TLS requirements, app
+   account, least-privilege grants, and matching `MYSQL_PASSWORD`.
+3. Define and execute the data migration if changing databases. Verify
+   backups, rollback, and which deployment version is compatible with the
+   schema.
+4. Preserve the existing production
+   `BINGO_FLOAT_BANK_ENCRYPTION_KEY` from its approved secure source.
+5. Configure the production application variables and secrets in the
+   `production` Environment; do not assume a repository-level secret can be
+   read back from GitHub.
+
+Current code does not perform this database migration or create the
+production application account. Terraform's `database_admin_password` is
+only the Lightsail database administrator credential; it is not the
+application `MYSQL_PASSWORD`. If keeping RDS, do not replace `MYSQL_HOST` with
+the Lightsail Terraform output. If selecting Lightsail, do not point the app
+at it until the data and application-user plan is complete.
+
+## 9. Provision production infrastructure
+
+Only proceed after reviewing costs and choosing whether the provisioned
+Lightsail database is intended. From the repository root:
+
+```bash
+cd deployment/terraform
+cp env/prod.tfvars.example env/prod.tfvars
+```
+
+Edit `env/prod.tfvars`:
+
+- Select approved `instance_bundle_id` and `database_bundle_id`.
+- Set `ssh_allowed_cidrs` to the actual SSH deployment source; never
+  `0.0.0.0/0`.
+- Review region, backups, instance/database sizes, and cost.
+- Do not add `database_admin_password` to the file.
+
+In macOS `zsh`, supply the database administrator password securely. The
+following block runs the plan; review its full output before allowing the
+apply command to continue:
+
+```zsh
+read -s 'TF_VAR_database_admin_password?Lightsail database admin password: '
+export TF_VAR_database_admin_password
+./provision.sh prod plan
+# Review the full plan, including the billable database and network changes.
+./provision.sh prod apply
+unset TF_VAR_database_admin_password
+```
+
+The wrapper asks for `prod-apply`. Protect Terraform state as sensitive data;
+the repository ignores local state, but team use should have an encrypted
+remote backend.
+
+Retrieve production outputs:
+
+```bash
+terraform workspace select prod
+terraform output -raw web_static_ip
+terraform output -raw database_endpoint
+```
+
+Return to the repository root before the following DNS, host-setup, and
+GitHub configuration commands:
+
+```bash
+cd ../..
+```
+
+The Terraform stack does not create production DNS records or finish HTTPS
+Nginx setup. Point `bingo.bakaroo.com`, `admin.bingo.bakaroo.com`, and
+`api.bingo.bakaroo.com` to `web_static_ip` in the authoritative DNS provider.
+Wait until all names resolve to that IP and ports 80/443 are reachable.
+
+Install the production Nginx configuration and certificate separately. Copy
+`deployment/aws/setup-web-host.sh` and
+`deployment/aws/nginx-bingo.conf.template` to the host in the same directory,
+verify the host fingerprint out of band, then run the setup script as root.
+It obtains the certificate and checks the HTTPS health endpoints. Do not use
+the test HTTP template or test domains for production.
+
+The Lightsail instance requires the production deployment public key in
+`ubuntu`'s `authorized_keys`. Use the Lightsail browser SSH session or the
+configured Lightsail SSH key pair to add it. Verify the `ubuntu` account can
+connect over SSH and use passwordless sudo before configuring GitHub Actions.
+
+For example, from a Lightsail browser SSH session as `ubuntu`, append the
+public key (replace the placeholder with the output of `ssh-keygen -y`):
+
+```bash
+mkdir -p ~/.ssh
+chmod 700 ~/.ssh
+printf '%s\n' 'PASTE_PRODUCTION_PUBLIC_KEY' >> ~/.ssh/authorized_keys
+chmod 600 ~/.ssh/authorized_keys
+```
+
+Once SSH is reachable from your operator machine, install the production
+Nginx configuration and certificate. Run from the repository root, using an
+authorized key and a source CIDR allowed by the host firewall:
+
+```bash
+ssh -i ~/.ssh/bingo-prod-deploy ubuntu@PRODUCTION_STATIC_IP 'cloud-init status --wait'
+scp -i ~/.ssh/bingo-prod-deploy \
+  deployment/aws/setup-web-host.sh \
+  deployment/aws/nginx-bingo.conf.template \
+  ubuntu@PRODUCTION_STATIC_IP:/home/ubuntu/
+ssh -i ~/.ssh/bingo-prod-deploy ubuntu@PRODUCTION_STATIC_IP \
+  'sudo bash /home/ubuntu/setup-web-host.sh'
+```
+
+The script defaults to the three production domains and API port `8081`.
+
+## 10. Configure and deploy the production application
+
+From the repository root, create
+`deployment/aws/github-actions-prod.env` from the tracked example, set
+permissions to `600`, and fill values from the inventory. Configure:
+
+- `DEPLOY_HOST` with the production static IP and `DEPLOY_USER=ubuntu`.
+- `DEPLOY_SSH_KEY_B64` with the private key whose public half is authorized
+  on the production host.
+- Production HTTPS values for API, Admin, site, activation URL, CORS, and
+  WebSocket origins.
+- The production database `MYSQL_HOST`, `MYSQL_USER`, and `MYSQL_PASSWORD`
+  only after step 8 is complete.
+- Independent production `JWT_SECRET` and email provider credentials.
+- `BINGO_FLOAT_BANK_ENCRYPTION_KEY` from the existing approved key source;
+  never generate a replacement for existing encrypted data.
+- `ADMIN_EMAIL_BOOTSTRAP_ENABLED=false` unless production bootstrap emails
+  are explicitly intended. Keep `ADMIN_BOOTSTRAP_ENABLED=false` except during
+  approved one-time setup. Keep `PUBLIC_SITE_INDEXABLE=false` until indexing
+  is approved.
+
+Clear unused email-provider placeholders and replace every `REPLACE_...`
+entry. The importer rejects files that still contain placeholders.
+
+Create the local file securely:
+
+```bash
+umask 077
+cp deployment/aws/github-actions.env.example deployment/aws/github-actions-prod.env
+chmod 600 deployment/aws/github-actions-prod.env
+```
+
+Populate the production SSH secret without printing its value:
+
+```bash
+python3 - <<'PY'
+import base64
+from pathlib import Path
+
+env_file = Path("deployment/aws/github-actions-prod.env")
+private_key = Path.home() / ".ssh" / "bingo-prod-deploy"
+encoded = base64.b64encode(private_key.read_bytes()).decode("ascii")
+text = env_file.read_text()
+text = text.replace(
+    "DEPLOY_SSH_KEY_B64=REPLACE_WITH_BASE64_DEPLOYMENT_PRIVATE_KEY",
+    "DEPLOY_SSH_KEY_B64=" + encoded,
+)
+env_file.write_text(text)
+PY
+```
+
+Import the file:
+
+```bash
+GH_ENVIRONMENT=production bash deployment/aws/bootstrap-github-actions-config.sh deployment/aws/github-actions-prod.env
+```
+
+Confirm production variable and secret names in the intended Environment, then
+remove the local credential file:
+
+```bash
+gh variable list --repo equar/bingo-platform --env production
+gh secret list --repo equar/bingo-platform --env production
+rm deployment/aws/github-actions-prod.env
+```
+
+Before production deploy, verify DNS and HTTPS, the database decision and
+credentials, backups, monitoring, and all production Environment settings.
+Merge a reviewed PR into `release`. The production workflow starts and waits
+for a reviewer in the protected `production` Environment; approve only after
+checking the run and change. For an intentional manual redeploy, dispatch
+**Build and Deploy Bingo** from `release` and choose the required target.
+
+Verify the production site, Admin, API health, TLS, CORS, WebSockets, email,
+database persistence, and sanitized deployment logs. Take a database snapshot
+before a risky schema migration. A JAR rollback is unsafe after a Flyway
+migration has advanced the database.
+
+## 11. Optional mobile store releases
+
+Mobile publishing is separate from the web/backend deployment:
+
+1. Complete Play Console and App Store Connect setup, signing, and credentials
+   in the [mobile release guide](./deployment/mobile/README.md). Verify that
+   the repository variables `ANDROID_PACKAGE_NAME` and `IOS_BUNDLE_ID` match
+   the identifiers already used by the app; set them if missing.
+2. Add the listed Android/iOS secrets. Create and protect
+   `bingo-app-android-production` and `bingo-app-ios-production` before
+   production promotion/submission.
+3. For test builds, dispatch Android internal testing or TestFlight from
+   `develop` with the default `http://api.test.bakaroo.com`.
+4. To create a production candidate, dispatch the same upload workflow from
+   `release` with
+   `https://api.bingo.bakaroo.com`. This uploads to the testing track or
+   TestFlight and records provenance; it does not yet publish to consumers.
+5. Promote/submit that exact candidate using its build/version identifiers and
+   source workflow run ID. The production Environment approval and provenance
+   checks must pass. Never promote a test-backend build.
+
+## 12. Ongoing operation and cleanup
+
+- Environment settings and secrets are separate for test and production.
+  Keep database, JWT, encryption, email, and SSH credentials isolated.
+- To redeploy after changing settings without a source change, manually
+  dispatch the deployment workflow on the matching branch with the desired
+  target.
+- Terraform applies sync test DNS to the current IP. Destroying test
+  infrastructure does not delete GoDaddy DNS records; verify/repoint them
+  yourself if the endpoint is retired.
+- Test EC2 and its local database are disposable. Back up any wanted data
+  before destroy or replacement.
+- Do not destroy production resources as a deployment recovery step. Use the
+  reviewed release process and documented database/host recovery plans.
+
+For exact inputs, defaults, secret-generation commands, and current GitHub
+configuration status, see [`deploymentVariables.txt`](./deploymentVariables.txt).

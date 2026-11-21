@@ -70,6 +70,7 @@ void main() {
   test('requires HTTPS and rejects loopback hosts in production', () {
     for (final value in [
       'http://api.example.com',
+      'http://api.test.bingo.bakaroo.com',
       'https://localhost:8080',
       'https://127.0.0.1:8080',
       'https://[::1]:8080',
@@ -83,6 +84,32 @@ void main() {
       );
       expect(config.isValid, isFalse, reason: value);
     }
+  });
+
+  test('allows release HTTP only for the explicitly enabled test API', () {
+    const config = AppConfig(
+      apiBaseUrl: 'http://api.test.bakaroo.com',
+      apiBaseUrlLabel: 'API_BASE_URL',
+      isProduction: true,
+      allowInsecureTestApi: true,
+    );
+
+    expect(config.isValid, isTrue);
+    expect(
+      config.liveGameWebSocketUri,
+      Uri.parse('ws://api.test.bakaroo.com/ws'),
+    );
+  });
+
+  test('does not allow release HTTP for other hosts even with test flag', () {
+    const config = AppConfig(
+      apiBaseUrl: 'http://api.example.com',
+      apiBaseUrlLabel: 'API_BASE_URL',
+      isProduction: true,
+      allowInsecureTestApi: true,
+    );
+
+    expect(config.problem, ApiBaseUrlProblem.productionRequiresHttps);
   });
 
   test('derives a secure WebSocket URI for production HTTPS', () {

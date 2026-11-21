@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+set -euo pipefail
+exec > >(tee -a /var/log/bingo-bootstrap.log | logger -t bingo-bootstrap -s 2>/dev/console) 2>&1
+export DEBIAN_FRONTEND=noninteractive
+
+expected_public_ip='${test_public_ip}'
+public_ip=''
+for attempt in {1..60}; do
+  if public_ip="$(python3 - <<'PY'
+import urllib.error
+import urllib.request
+
+try:
+    token_request = urllib.request.Request(
+        'http://169.254.169.254/latest/api/token',
+        method='PUT',
+        headers={'X-aws-ec2-metadata-token-ttl-seconds': '60'},
+    )
+    with urllib.request.urlopen(token_request, timeout=2) as response:
+        token = response.read().decode()
+    ip_request = urllib.request.Request(
+        'http://169.254.169.254/latest/meta-data/public-ipv4',
+        headers={'X-aws-ec2-metadata-token': token},
+    )
+    with urllib.request.urlopen(ip_request, timeout=2) as response:
+        print(response.read().decode())
+except (urllib.error.URLError, TimeoutError, OSError):
+    raise SystemExit(1)
+PY
+  )" && [[ "$public_ip" == "$expected_public_ip" ]]; then
+    break
+  fi
+  sleep 5
+done
+if [[ "$public_ip" != "$expected_public_ip" ]]; then
+  echo "Timed out waiting for the test Elastic IP $expected_public_ip to attach." >&2
+  exit 1
+fi
+
+apt-get update
+apt-get install -y ca-certificates curl gnupg nginx mysql-server mysql-client
+
+install -d -m 0755 /etc/apt/keyrings
+curl -fsSL https://packages.adoptium.net/artifactory/api/gpg/key/public \
+  | gpg --dearmor -o /etc/apt/keyrings/adoptium.gpg
+echo "deb [signed-by=/etc/apt/keyrings/adoptium.gpg] https://packages.adoptium.net/artifactory/deb noble main" \
+  > /etc/apt/sources.list.d/adoptium.list
+curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key \
+  | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
+echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main" \
+  > /etc/apt/sources.list.d/nodesource.list
+apt-get update
+apt-get install -y temurin-25-jre nodejs
+
+if [[ ! -f /swapfile ]]; then
+  fallocate -l 1G /swapfile
+  chmod 600 /swapfile
+  mkswap /swapfile
+fi
+swapon /swapfile || true
+grep -q '^/swapfile ' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
+
+id bingo >/dev/null 2>&1 || useradd --system --create-home --home-dir /opt/bingo --shell /usr/sbin/nologin bingo
+install -d -o bingo -g bingo -m 0755 /opt/bingo /opt/bingo/logs /opt/bingo/runtime
+install -d -o www-data -g www-data -m 0755 /var/www/bingo-admin /var/www/bingo-website
+
+cat > /etc/mysql/mysql.conf.d/99-bingo-test.cnf <<'MYSQL'
+[mysqld]
+bind-address = 127.0.0.1
+skip_name_resolve = ON
+local_infile = 0
+innodb_buffer_pool_size = 128M
+max_connections = 30
+MYSQL
+systemctl enable --now mysql
+systemctl restart mysql
+
+install -d -m 0755 /etc/bingo
+printf '%s' '${nginx_http_config_b64}' | base64 -d > /etc/nginx/sites-available/bingo.conf
+rm -f /etc/nginx/sites-enabled/default
+ln -sfn /etc/nginx/sites-available/bingo.conf /etc/nginx/sites-enabled/bingo.conf
+nginx -t
+systemctl enable --now nginx
+systemctl reload nginx
+
+echo test > /etc/bingo-environment
+
+echo 'Bingo test EC2 bootstrap completed with HTTP-only Nginx virtual hosts.'

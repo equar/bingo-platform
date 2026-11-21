@@ -162,7 +162,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('feature grid scrolls when the banner leaves too little room', (
+  testWidgets('home scrolls when the status inset reduces card space', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(390, 680);
@@ -175,7 +175,9 @@ void main() {
     await tester.pumpWidget(_home(onGames: () {}));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const ValueKey('home-feature-scroll')), findsOneWidget);
+    expect(find.byKey(const ValueKey('home-scroll')), findsOneWidget);
+    expect(find.byKey(const ValueKey('home-feature-scroll')), findsNothing);
+    await tester.ensureVisible(find.text('Play & Win'));
     expect(tester.takeException(), isNull);
   });
 

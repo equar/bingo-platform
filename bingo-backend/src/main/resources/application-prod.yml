@@ -7,7 +7,7 @@ spring:
           timeout: 10000
           writetimeout: 10000
   datasource:
-    url: jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT:3306}/${MYSQL_DATABASE}?sslMode=VERIFY_IDENTITY&serverTimezone=UTC
+    url: jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT:3306}/${MYSQL_DATABASE}?sslMode=${MYSQL_SSL_MODE:VERIFY_IDENTITY}&allowPublicKeyRetrieval=${MYSQL_ALLOW_PUBLIC_KEY_RETRIEVAL:false}&serverTimezone=UTC
     username: ${MYSQL_USER}
     password: ${MYSQL_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
