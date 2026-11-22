@@ -79,7 +79,7 @@ function runWebsite() {
 }
 
 function runMobile(app) {
-  if (!['bingo-player', 'bingo-agent'].includes(app)) throw new Error(`Unknown mobile app '${app}'.`);
+  if (app !== 'bingo-player') throw new Error(`Unknown mobile app '${app}'.`);
   const cwd = path.join(repoRoot, app);
   const actualVersion = verifyFlutter(ci ? flutterVersion : undefined);
   run('flutter', ['pub', 'get'], cwd);
