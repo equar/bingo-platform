@@ -88,7 +88,7 @@ class FrontendDeploymentTest(unittest.TestCase):
                         script.write_text('''#!/bin/bash
 printf '%s %s\\n' "$(basename "$0")" "$*" >> "$DEPLOY_TEST_LOG"
 case "$(basename "$0")" in
- ssh) if [[ "$*" == *mktemp* ]]; then echo /tmp/bingo-frontend.ABCDEFGH; else cat >/dev/null; fi ;;
+ ssh) if [[ "$*" == *mktemp* ]]; then echo /home/deploy/.cache/bingo-deploy/frontend.ABCDEFGH; else cat >/dev/null; fi ;;
  curl) echo '{"status":"UP"}' ;;
 esac
 ''')
@@ -106,7 +106,7 @@ esac
                     self.assertEqual(len(uploaded), len(apps))
                     for app in apps:
                         self.assertTrue(any(f'bingo-{app}/dist' in line for line in uploaded))
-                    self.assertIn("sudo -n bash -s -- '/tmp/bingo-frontend.ABCDEFGH' " + ' '.join(apps), log.read_text())
+                    self.assertIn("sudo -n bash -s -- '/home/deploy/.cache/bingo-deploy/frontend.ABCDEFGH' " + ' '.join(apps), log.read_text())
 
     def test_http_is_rejected_without_test_opt_in(self):
         with tempfile.TemporaryDirectory() as directory:
