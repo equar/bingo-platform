@@ -44,8 +44,10 @@ class A00FlywayUpgradeRecoveryIntegrationTest extends MySqlIntegrationTest {
 
         JdbcTemplate jdbc = new JdbcTemplate(dataSource);
         jdbc.update("""
-                insert into users (normalized_phone, display_name, password_hash, status, created_at, updated_at)
-                values ('09119990001', 'Legacy withdrawal fixture', 'not-a-login-hash', 'ACTIVE', now(6), now(6))
+                insert into users (normalized_phone, display_name, password_hash, status, referral_code,
+                                   created_at, updated_at)
+                values ('09119990001', 'Legacy withdrawal fixture', 'not-a-login-hash', 'ACTIVE', 'LEG001',
+                        now(6), now(6))
                 """);
         Long playerId = jdbc.queryForObject("select id from users where normalized_phone='09119990001'", Long.class);
         Long reviewerId = playerId;
