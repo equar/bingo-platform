@@ -28,9 +28,15 @@ jobs:
 
           function evaluate(baseRef, headRef, headRepository, baseRepository) {
             if (baseRef === 'develop') {
+              if (['develop', 'release', 'main'].includes(headRef)) {
+                return {
+                  allowed: false,
+                  message: 'Rejected: develop accepts feature and fix branches only. Promote develop -> release -> main.',
+                };
+              }
               return {
                 allowed: true,
-                message: 'Allowed: any source branch may target develop, including main or release for synchronization.',
+                message: 'Allowed: feature/fix branches may target develop.',
               };
             }
 
@@ -71,16 +77,17 @@ jobs:
           const cases = [
             ['feature/example -> develop', 'develop', 'feature/example', repository, true],
             ['fix/example -> develop', 'develop', 'fix/example', repository, true],
+            ['develop -> develop', 'develop', 'develop', repository, false],
             ['develop -> release', 'release', 'develop', repository, true],
             ['feature/example -> release', 'release', 'feature/example', repository, false],
             ['main -> release', 'release', 'main', repository, false],
             ['release -> main', 'main', 'release', repository, true],
+            ['release -> develop', 'develop', 'release', repository, false],
+            ['main -> develop', 'develop', 'main', repository, false],
             ['develop -> main', 'main', 'develop', repository, false],
             ['feature/example -> main', 'main', 'feature/example', repository, false],
             ['fork develop -> release', 'release', 'develop', fork, false],
             ['fork release -> main', 'main', 'release', fork, false],
-            ['release -> develop synchronization', 'develop', 'release', repository, true],
-            ['main -> develop synchronization', 'develop', 'main', repository, true],
             ['fork feature -> develop', 'develop', 'feature/example', fork, true],
           ];
 

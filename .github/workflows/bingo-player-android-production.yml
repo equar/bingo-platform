@@ -18,9 +18,14 @@ on:
         required: false
         default: Production promotion release
       source_workflow_run_id:
-        description: Successful release-branch Android internal-testing run that uploaded this build
+        description: Successful main-branch Android internal-testing run that uploaded this build
         type: string
         required: true
+      confirm_production:
+        description: Required to request an Android production promotion from main
+        type: boolean
+        required: true
+        default: false
 
 permissions:
   actions: read
@@ -33,7 +38,7 @@ concurrency:
 jobs:
   promote:
     name: Promote the tested Android build to production
-    if: github.ref == 'refs/heads/release'
+    if: github.repository == 'equar/bingo-platform' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.confirm_production == true
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: bingo-app-android-production
@@ -82,7 +87,7 @@ jobs:
             --application-id "$ANDROID_PACKAGE_NAME" \
             --source-run-id "$SOURCE_WORKFLOW_RUN_ID" \
             --source-workflow-path .github/workflows/bingo-player-android-internal-testing.yml \
-            --source-branch release
+            --source-branch main
 
       - name: Prepare Google Play credentials
         run: |

@@ -8,41 +8,52 @@ on:
         type: choice
         default: all
         options: [all, backend, frontend, admin, website]
-  pull_request:
-    types: [closed]
-    branches: [develop, release]
+      confirm_production:
+        description: Required to request a production deployment from main
+        type: boolean
+        required: true
+        default: false
+      approve_initial_admin_bootstrap:
+        description: Explicitly approve one-time production Admin provisioning for this run
+        type: boolean
+        required: true
+        default: false
+      admin_bootstrap_approval_expires_at:
+        description: UTC RFC3339 expiry for the approval (must be within 60 minutes)
+        type: string
+        required: false
 
 permissions:
   contents: read
 
 concurrency:
-  group: bingo-deploy-${{ github.event.pull_request.base.ref || github.ref_name }}
+  group: bingo-deploy-${{ github.ref_name }}
   cancel-in-progress: false
 
 jobs:
   build-and-deploy:
     if: >-
-      (github.event_name == 'workflow_dispatch' &&
-      (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/release')) ||
-      (github.event.pull_request.merged == true &&
-      github.event.pull_request.head.repo.full_name == github.repository &&
-      (github.event.pull_request.base.ref == 'develop' ||
-      github.event.pull_request.base.ref == 'release'))
+      github.repository == 'equar/bingo-platform' &&
+      github.event_name == 'workflow_dispatch' &&
+      github.ref_type == 'branch' &&
+      (github.ref == 'refs/heads/develop' ||
+      (github.ref == 'refs/heads/main' && inputs.confirm_production == true))
     runs-on: ubuntu-latest
     timeout-minutes: 45
     environment:
-      name: ${{ (github.event.pull_request.base.ref || github.ref_name) == 'develop' && 'test' || 'production' }}
+      name: ${{ github.ref == 'refs/heads/develop' && 'test' || 'production' }}
     env:
-      DEPLOY_ENVIRONMENT: ${{ (github.event.pull_request.base.ref || github.ref_name) == 'develop' && 'test' || 'prod' }}
-      ALLOW_INSECURE_HTTP: ${{ (github.event.pull_request.base.ref || github.ref_name) == 'develop' && 'true' || 'false' }}
+      DEPLOY_ENVIRONMENT: ${{ github.ref == 'refs/heads/develop' && 'test' || 'prod' }}
+      ALLOW_INSECURE_HTTP: ${{ github.ref == 'refs/heads/develop' && 'true' || 'false' }}
       SPRING_PROFILES_ACTIVE: prod
-      MYSQL_DATABASE: ${{ (github.event.pull_request.base.ref || github.ref_name) == 'develop' && 'bingotest' || 'bingo' }}
-      SERVER_PORT: ${{ (github.event.pull_request.base.ref || github.ref_name) == 'develop' && '8091' || '8081' }}
-      MYSQL_SSL_MODE: ${{ (github.event.pull_request.base.ref || github.ref_name) == 'develop' && 'DISABLED' || 'VERIFY_IDENTITY' }}
-      MYSQL_ALLOW_PUBLIC_KEY_RETRIEVAL: ${{ (github.event.pull_request.base.ref || github.ref_name) == 'develop' && 'true' || 'false' }}
-      JAVA_TOOL_OPTIONS: ${{ (github.event.pull_request.base.ref || github.ref_name) == 'develop' && '-Xms128m -Xmx384m' || '-Xms512m -Xmx1g' }}
+      MYSQL_DATABASE: ${{ github.ref == 'refs/heads/develop' && 'bingotest' || 'bingo' }}
+      SERVER_PORT: ${{ github.ref == 'refs/heads/develop' && '8091' || '8081' }}
+      MYSQL_SSL_MODE: ${{ github.ref == 'refs/heads/develop' && 'DISABLED' || 'VERIFY_IDENTITY' }}
+      MYSQL_ALLOW_PUBLIC_KEY_RETRIEVAL: ${{ github.ref == 'refs/heads/develop' && 'true' || 'false' }}
+      JAVA_TOOL_OPTIONS: ${{ github.ref == 'refs/heads/develop' && '-Xms128m -Xmx384m' || '-Xms512m -Xmx1g' }}
       DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
       DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+      DEPLOY_SSH_HOST_KEY: ${{ vars.DEPLOY_SSH_HOST_KEY }}
       DEPLOY_SSH_KEY_B64: ${{ secrets.DEPLOY_SSH_KEY_B64 }}
       MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
       JWT_SECRET: ${{ secrets.JWT_SECRET }}
@@ -54,18 +65,21 @@ jobs:
       APP_EMAIL_PROVIDER: ${{ vars.APP_EMAIL_PROVIDER }}
       APP_EMAIL_FROM: ${{ vars.APP_EMAIL_FROM }}
       BINGO_FLOAT_BANK_ENCRYPTION_KEY: ${{ secrets.BINGO_FLOAT_BANK_ENCRYPTION_KEY }}
-      ADMIN_BOOTSTRAP_PASSWORD: ${{ secrets.ADMIN_BOOTSTRAP_PASSWORD }}
-      MYSQL_HOST: ${{ (github.event.pull_request.base.ref || github.ref_name) == 'develop' && '127.0.0.1' || vars.MYSQL_HOST }}
+      ADMIN_BOOTSTRAP_PASSWORD: ${{ github.ref == 'refs/heads/main' && inputs.approve_initial_admin_bootstrap == true && secrets.ADMIN_BOOTSTRAP_PASSWORD || '' }}
+      MYSQL_HOST: ${{ github.ref == 'refs/heads/develop' && '127.0.0.1' || vars.MYSQL_HOST }}
       MYSQL_USER: ${{ vars.MYSQL_USER }}
       CORS_ALLOWED_ORIGINS: ${{ vars.CORS_ALLOWED_ORIGINS }}
       WEBSOCKET_ALLOWED_ORIGINS: ${{ vars.WEBSOCKET_ALLOWED_ORIGINS }}
       ADMIN_ACCOUNT_ACTIVATION_URL: ${{ vars.ADMIN_ACCOUNT_ACTIVATION_URL }}
-      ADMIN_BOOTSTRAP_ENABLED: ${{ vars.ADMIN_BOOTSTRAP_ENABLED || 'false' }}
-      ADMIN_EMAIL_BOOTSTRAP_ENABLED: ${{ vars.ADMIN_EMAIL_BOOTSTRAP_ENABLED || ((github.event.pull_request.base.ref || github.ref_name) == 'develop' && 'false' || 'true') }}
-      ADMIN_BOOTSTRAP_EMAILS: ${{ vars.ADMIN_BOOTSTRAP_EMAILS || ((github.event.pull_request.base.ref || github.ref_name) == 'develop' && 'test@example.invalid' || 'apps@bakaroo.com,equarhishe@gmail.com') }}
+      ADMIN_BOOTSTRAP_ENABLED: ${{ github.ref == 'refs/heads/main' && inputs.approve_initial_admin_bootstrap == true && vars.ADMIN_BOOTSTRAP_ENABLED == 'true' && 'true' || 'false' }}
+      ADMIN_EMAIL_BOOTSTRAP_ENABLED: ${{ github.ref == 'refs/heads/main' && inputs.approve_initial_admin_bootstrap == true && vars.ADMIN_EMAIL_BOOTSTRAP_ENABLED == 'true' && 'true' || 'false' }}
+      ADMIN_BOOTSTRAP_EMAILS: ${{ vars.ADMIN_BOOTSTRAP_EMAILS }}
       ADMIN_BOOTSTRAP_PHONE: ${{ vars.ADMIN_BOOTSTRAP_PHONE }}
       ADMIN_BOOTSTRAP_NAME: ${{ vars.ADMIN_BOOTSTRAP_NAME }}
       ADMIN_BOOTSTRAP_EMAIL: ${{ vars.ADMIN_BOOTSTRAP_EMAIL }}
+      ADMIN_BOOTSTRAP_APPROVED: ${{ github.ref == 'refs/heads/main' && inputs.approve_initial_admin_bootstrap == true && 'true' || 'false' }}
+      ADMIN_BOOTSTRAP_APPROVAL_EXPIRES_AT: ${{ github.ref == 'refs/heads/main' && inputs.approve_initial_admin_bootstrap == true && inputs.admin_bootstrap_approval_expires_at || '' }}
+      ADMIN_BOOTSTRAP_APPROVAL_RUN_ID: ${{ github.ref == 'refs/heads/main' && inputs.approve_initial_admin_bootstrap == true && github.run_id || '' }}
       SPRING_MAIL_HOST: ${{ vars.SPRING_MAIL_HOST }}
       SPRING_MAIL_PORT: ${{ vars.SPRING_MAIL_PORT }}
       VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
@@ -82,13 +96,32 @@ jobs:
       APP_PAYMENT_PROVIDER_NAME: ${{ vars.APP_PAYMENT_PROVIDER_NAME }}
       APP_PAYMENT_BUSINESS_ACCOUNT: ${{ vars.APP_PAYMENT_BUSINESS_ACCOUNT }}
       APP_PAYMENT_INSTRUCTIONS: ${{ vars.APP_PAYMENT_INSTRUCTIONS }}
-      APP_GAME_PAYOUTS_ENABLED: ${{ (github.event.pull_request.base.ref || github.ref_name) == 'develop' && 'false' || vars.APP_GAME_PAYOUTS_ENABLED || 'false' }}
+      APP_GAME_PAYOUTS_ENABLED: ${{ github.ref == 'refs/heads/develop' && 'false' || vars.APP_GAME_PAYOUTS_ENABLED || 'false' }}
     steps:
-      - name: Checkout merged branch
+      - name: Checkout requested protected branch commit
         uses: actions/checkout@v5
         with:
-          ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
-          fetch-depth: 2
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - name: Verify trusted deployment ref
+        shell: bash
+        env:
+          DEPLOY_REF: ${{ github.ref }}
+          DEPLOY_SHA: ${{ github.sha }}
+          CONFIRM_PRODUCTION: ${{ inputs.confirm_production }}
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REPOSITORY" == 'equar/bingo-platform' ]]
+          [[ "$GITHUB_EVENT_NAME" == 'workflow_dispatch' ]]
+          [[ "$GITHUB_REF_TYPE" == 'branch' ]]
+          case "$DEPLOY_REF" in
+            refs/heads/develop) ;;
+            refs/heads/main)
+              [[ "$CONFIRM_PRODUCTION" == true ]]
+              git merge-base --is-ancestor "$DEPLOY_SHA" origin/main
+              ;;
+            *) echo 'Refusing deployment: only develop/test and confirmed main/production are supported.' >&2; exit 1 ;;
+          esac
       - name: Detect affected applications
         id: changes
         env:
@@ -106,7 +139,7 @@ jobs:
         if: steps.changes.outputs.admin == 'true' || steps.changes.outputs.website == 'true'
         uses: actions/setup-node@v5
         with:
-          node-version: '22.22.0'
+          node-version-file: .node-version
           cache: npm
           cache-dependency-path: |
             bingo-admin/package-lock.json
@@ -163,6 +196,7 @@ jobs:
           umask 077
           : "${DEPLOY_HOST:?Configure DEPLOY_HOST in the selected GitHub Environment}"
           : "${DEPLOY_USER:?Configure DEPLOY_USER in the selected GitHub Environment}"
+          : "${DEPLOY_SSH_HOST_KEY:?Configure DEPLOY_SSH_HOST_KEY in the selected GitHub Environment}"
           : "${DEPLOY_SSH_KEY_B64:?Configure DEPLOY_SSH_KEY_B64 in the selected GitHub Environment}"
           [[ "$DEPLOY_HOST" =~ ^[a-zA-Z0-9.-]+$ ]]
           [[ "$DEPLOY_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]
@@ -180,9 +214,10 @@ jobs:
             echo '::error::Invalid SSH private key or unsupported passphrase. Set DEPLOY_SSH_KEY_B64 to the Base64 encoding of the complete, unencrypted deployment private key file.'
             exit 1
           fi
-          ssh-keyscan -T 20 -H "$DEPLOY_HOST" >> "$HOME/.ssh/known_hosts"
-          printf 'SSH_KEY=%s\nSERVER=%s@%s\n' "$key" "$DEPLOY_USER" "$DEPLOY_HOST" >> "$GITHUB_ENV"
-          ssh -o BatchMode=yes -o ConnectTimeout=20 -i "$key" "$DEPLOY_USER@$DEPLOY_HOST" true
+          source deployment/lib/pinned-ssh-host.sh
+          configure_pinned_ssh_host "$DEPLOY_USER@$DEPLOY_HOST" "$RUNNER_TEMP/bingo-known_hosts"
+          printf 'SSH_KEY=%s\nSERVER=%s@%s\nDEPLOY_SSH_KNOWN_HOSTS_FILE=%s\n' "$key" "$DEPLOY_USER" "$DEPLOY_HOST" "$DEPLOY_SSH_KNOWN_HOSTS_FILE" >> "$GITHUB_ENV"
+          ssh "${SSH_OPTIONS[@]}" -o ConnectTimeout=20 -i "$key" "$DEPLOY_USER@$DEPLOY_HOST" true
       - name: Deploy backend
         if: steps.changes.outputs.backend == 'true'
         run: bash deployment/aws/deploy-backend.sh

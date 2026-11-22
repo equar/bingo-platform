@@ -91,10 +91,13 @@ public class AdminDepositController {
 
     @PostMapping("/{id}/verify")
     @PreAuthorize("hasAnyRole('ADMIN','SUPPORT')")
-    public DepositVerificationResponse verify(@PathVariable Long id,
+    public ResponseEntity<DepositVerificationResponse> verify(@PathVariable Long id,
             @AuthenticationPrincipal BingoUserPrincipal principal,
-            @Valid @RequestBody DepositVerificationRequest request) {
-        return depositFinancialService.verify(id, principal, request);
+            @Valid @RequestBody DepositVerificationRequest request,
+            @RequestHeader("Idempotency-Key") String idempotencyKey) {
+        IdempotentResult<DepositVerificationResponse> result = depositFinancialService.verify(id, principal, request,
+                idempotencyKey);
+        return ResponseEntity.status(result.statusCode()).body(result.body());
     }
 
     @GetMapping("/{id}/verifications")

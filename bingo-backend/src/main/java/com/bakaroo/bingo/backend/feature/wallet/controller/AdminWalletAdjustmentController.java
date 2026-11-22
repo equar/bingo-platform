@@ -47,10 +47,13 @@ public class AdminWalletAdjustmentController {
 
     @PostMapping("/players/{id}/wallet-adjustments/requests")
     @PreAuthorize("hasRole('SUPPORT')")
-    public WalletAdjustmentRequestResponse submit(@PathVariable Long id,
+    public ResponseEntity<WalletAdjustmentRequestResponse> submit(@PathVariable Long id,
             @AuthenticationPrincipal BingoUserPrincipal principal,
-            @Valid @RequestBody WalletAdjustmentSubmissionRequest request) {
-        return adjustmentService.submit(id, principal, request);
+            @Valid @RequestBody WalletAdjustmentSubmissionRequest request,
+            @RequestHeader("Idempotency-Key") String idempotencyKey) {
+        IdempotentResult<WalletAdjustmentRequestResponse> result = adjustmentService.submit(id, principal, request,
+                idempotencyKey);
+        return ResponseEntity.status(result.statusCode()).body(result.body());
     }
 
     @GetMapping("/players/{id}/wallet-adjustments/requests")

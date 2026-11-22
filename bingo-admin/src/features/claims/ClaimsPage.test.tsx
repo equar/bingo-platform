@@ -4,17 +4,19 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { approveWinClaim, rejectWinClaim, winClaims } from "../../api/admin";
+import { adminPrizeEntitlement, approveWinClaim, rejectWinClaim, winClaims } from "../../api/admin";
 import i18n from "../../i18n";
 import { ClaimsPage } from "./ClaimsPage";
 
 vi.mock("../../api/admin", () => ({
   approveWinClaim: vi.fn(),
+  adminPrizeEntitlement: vi.fn(),
   rejectWinClaim: vi.fn(),
   winClaims: vi.fn(),
 }));
 
 const approveWinClaimMock = vi.mocked(approveWinClaim);
+const adminPrizeEntitlementMock = vi.mocked(adminPrizeEntitlement);
 const rejectWinClaimMock = vi.mocked(rejectWinClaim);
 const winClaimsMock = vi.mocked(winClaims);
 
@@ -43,6 +45,7 @@ describe("ClaimsPage", () => {
     await i18n.changeLanguage("en");
     winClaimsMock.mockReset();
     approveWinClaimMock.mockReset();
+    adminPrizeEntitlementMock.mockReset();
     rejectWinClaimMock.mockReset();
     winClaimsMock.mockResolvedValue({
       content: [
@@ -65,6 +68,9 @@ describe("ClaimsPage", () => {
           reviewedBy: null,
           reviewedAt: null,
           entitlementId: null,
+          prizeStatus: null,
+          prizeAmount: null,
+          prizeCurrency: null,
           createdAt: "2026-10-20T15:07:22Z",
           updatedAt: "2026-10-20T15:07:22Z",
         },
@@ -186,6 +192,7 @@ describe("ClaimsPage", () => {
     await screen.findByTestId("claim-row-21");
 
     await user.click(screen.getByTestId("claim-approve-21"));
+    expect(screen.getByText(/does not credit the player's wallet/i)).toBeInTheDocument();
     const confirm = screen.getByRole("button", { name: "Confirm" });
     expect(confirm).toBeDisabled();
     const note = screen.getByRole("textbox", { name: "Validation note" });
@@ -197,9 +204,9 @@ describe("ClaimsPage", () => {
     expect(confirm).toBeEnabled();
     await user.click(confirm);
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "You don’t have permission to perform this action.",
-    );
+    await waitFor(() => expect(screen.getAllByRole("alert").some((alert) =>
+      alert.textContent?.includes("You don’t have permission to perform this action."),
+    )).toBe(true));
     expect(approveWinClaimMock).toHaveBeenCalledTimes(1);
   });
 
@@ -217,5 +224,27 @@ describe("ClaimsPage", () => {
     fireEvent.click(confirm);
 
     expect(approveWinClaimMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("states approval does not credit the wallet and opens the created entitlement record", async () => {
+    const user = userEvent.setup();
+    approveWinClaimMock.mockResolvedValue({ entitlementId: 24 } as Awaited<ReturnType<typeof approveWinClaim>>);
+    adminPrizeEntitlementMock.mockResolvedValue({
+      id: 24, winClaimId: 21, sessionId: 15, ticketId: 81, claimantId: 10,
+      prizeType: "LINE", settlementPath: "PLAYER_WALLET", status: "PENDING",
+      prizeAmount: "25.00", currency: "ETB", operationId: "entitlement-op-24",
+      createdAt: "2026-10-20T15:07:22Z", settledAt: null, settledBy: null,
+      settlementReference: null, settlementNote: null, payoutsEnabled: false,
+    });
+    render(<ClaimsPage />, { wrapper: createWrapper });
+    await screen.findByTestId("claim-row-21");
+    await user.click(screen.getByTestId("claim-approve-21"));
+    expect(screen.getByText(/does not credit the player's wallet/i)).toBeInTheDocument();
+    await user.type(screen.getByRole("textbox", { name: "Validation note" }), "Validated");
+    await user.click(screen.getByRole("button", { name: "Confirm" }));
+    const viewEntitlement = await screen.findByRole("button", { name: "View prize entitlement #24" });
+    await user.click(viewEntitlement);
+    expect(await screen.findByText("entitlement-op-24")).toBeInTheDocument();
+    expect(adminPrizeEntitlementMock).toHaveBeenCalledWith(24);
   });
 });

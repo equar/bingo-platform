@@ -1,8 +1,11 @@
 import importlib.util
+import base64
+from datetime import datetime, timedelta, timezone
 import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -15,6 +18,7 @@ spec.loader.exec_module(changes)
 db_spec = importlib.util.spec_from_file_location('test_database', AWS / 'ensure-test-database.py')
 test_database = importlib.util.module_from_spec(db_spec)
 db_spec.loader.exec_module(test_database)
+BASH = str(Path('C:/Program Files/Git/bin/bash.exe')) if Path('C:/Program Files/Git/bin/bash.exe').exists() else 'bash'
 
 
 class ChangeSelectionTest(unittest.TestCase):
@@ -49,7 +53,7 @@ class ChangeSelectionTest(unittest.TestCase):
             git('add', '-A')
             git('commit', '-m', 'Move')
             output = root / 'outputs'
-            subprocess.run(['python3', str(AWS / 'detect-deployment-changes.py')], cwd=root,
+            subprocess.run([sys.executable, str(AWS / 'detect-deployment-changes.py')], cwd=root,
                            env=dict(os.environ, GITHUB_OUTPUT=str(output)), check=True, capture_output=True)
             self.assertIn('backend=true', output.read_text())
             self.assertIn('admin=true', output.read_text())
@@ -60,13 +64,14 @@ class ChangeSelectionTest(unittest.TestCase):
                                  ('frontend', {'admin', 'website'}), ('admin', {'admin'}), ('website', {'website'})]:
             with self.subTest(target=target), tempfile.TemporaryDirectory() as directory:
                 output = Path(directory) / 'outputs'
-                subprocess.run(['python3', str(AWS / 'detect-deployment-changes.py'), '--target', target],
+                subprocess.run([sys.executable, str(AWS / 'detect-deployment-changes.py'), '--target', target],
                                cwd=directory, env=dict(os.environ, GITHUB_OUTPUT=str(output)),
                                check=True, capture_output=True)
                 for app in ['backend', 'admin', 'website']:
                     self.assertIn(f'{app}={str(app in selected).lower()}', output.read_text())
 
 
+@unittest.skipIf(os.name == 'nt', 'Requires a POSIX shell and PATH semantics')
 class FrontendDeploymentTest(unittest.TestCase):
     def test_only_selected_frontends_are_required_and_uploaded(self):
         for protocol in ['https', 'http']:
@@ -75,6 +80,11 @@ class FrontendDeploymentTest(unittest.TestCase):
                     root = Path(directory)
                     deploy = root / 'deployment/aws'
                     deploy.mkdir(parents=True)
+                    (root / 'deployment/lib').mkdir(parents=True)
+                    shutil.copy(ROOT / 'deployment/lib/pinned-ssh-host.sh', root / 'deployment/lib')
+                    host_private = root / 'test-host-key'
+                    subprocess.run(['ssh-keygen', '-q', '-t', 'ed25519', '-N', '', '-f', str(host_private)], check=True)
+                    host_public = Path(str(host_private) + '.pub').read_text().strip()
                     shutil.copy(AWS / 'deploy-frontend.sh', deploy)
                     for app in apps:
                         dist = root / f'bingo-{app}/dist'
@@ -93,15 +103,17 @@ case "$(basename "$0")" in
 esac
 ''')
                         script.chmod(0o755)
-                    env = dict(os.environ, PATH=str(binaries)+os.pathsep+os.environ['PATH'],
+                    env = dict(os.environ, PATH=str(binaries).replace('\\', '/') + ':' + os.environ['PATH'].replace(';', ':'),
                                DEPLOY_TEST_LOG=str(log), SERVER='test@example.invalid', SSH_KEY='/unused',
+                               DEPLOY_SSH_HOST_KEY=host_public,
                                DEPLOY_ENVIRONMENT='test' if protocol == 'http' else 'prod',
                                ALLOW_INSECURE_HTTP='true' if protocol == 'http' else 'false',
                                VITE_API_BASE_URL=f'{protocol}://api.example.invalid')
                     if 'admin' in apps: env['ADMIN_PUBLIC_URL'] = f'{protocol}://admin.example.invalid'
                     if 'website' in apps: env['PUBLIC_SITE_URL'] = f'{protocol}://site.example.invalid'
-                    subprocess.run(['bash', str(deploy / 'deploy-frontend.sh'), target], env=env,
-                                   check=True, capture_output=True)
+                    deployed = subprocess.run([BASH, str(deploy / 'deploy-frontend.sh'), target], env=env,
+                                              capture_output=True, text=True)
+                    self.assertEqual(deployed.returncode, 0, deployed.stderr)
                     uploaded = [line for line in log.read_text().splitlines() if line.startswith('scp ')]
                     self.assertEqual(len(uploaded), len(apps))
                     for app in apps:
@@ -113,10 +125,16 @@ esac
             root = Path(directory)
             deploy = root / 'deployment/aws'
             deploy.mkdir(parents=True)
+            (root / 'deployment/lib').mkdir(parents=True)
+            shutil.copy(ROOT / 'deployment/lib/pinned-ssh-host.sh', root / 'deployment/lib')
+            host_private = root / 'test-host-key'
+            subprocess.run(['ssh-keygen', '-q', '-t', 'ed25519', '-N', '', '-f', str(host_private)], check=True)
+            host_public = Path(str(host_private) + '.pub').read_text().strip()
             script = shutil.copy(AWS / 'deploy-frontend.sh', deploy)
             result = subprocess.run(
-                ['bash', str(script), 'admin'],
+                [BASH, str(script), 'admin'],
                 env=dict(os.environ, SERVER='test@example.invalid', SSH_KEY='/unused',
+                         DEPLOY_SSH_HOST_KEY=host_public,
                          DEPLOY_ENVIRONMENT='test',
                          VITE_API_BASE_URL='http://api.example.invalid',
                          ADMIN_PUBLIC_URL='http://admin.example.invalid'),
@@ -125,8 +143,9 @@ esac
             self.assertNotEqual(result.returncode, 0)
             self.assertIn('HTTP is allowed only for the test deployment', result.stderr)
             production_result = subprocess.run(
-                ['bash', str(script), 'admin'],
+                [BASH, str(script), 'admin'],
                 env=dict(os.environ, SERVER='test@example.invalid', SSH_KEY='/unused',
+                         DEPLOY_SSH_HOST_KEY=host_public,
                          DEPLOY_ENVIRONMENT='prod', ALLOW_INSECURE_HTTP='true',
                          VITE_API_BASE_URL='http://api.example.invalid',
                          ADMIN_PUBLIC_URL='http://admin.example.invalid'),
@@ -139,6 +158,7 @@ esac
 class DeploymentUrlValidationTest(unittest.TestCase):
     def test_http_origins_are_allowed_only_for_test(self):
         base_env = {
+            'BINGO_FLOAT_BANK_ENCRYPTION_KEY': base64.b64encode(b'0123456789abcdef0123456789abcdef').decode(),
             'VITE_API_BASE_URL': 'http://api.test.bakaroo.com',
             'ADMIN_PUBLIC_URL': 'http://admin.test.bakaroo.com',
             'PUBLIC_SITE_URL': 'http://test.bakaroo.com',
@@ -150,7 +170,7 @@ class DeploymentUrlValidationTest(unittest.TestCase):
             'SPRING_MAIL_USERNAME': 'test@example.invalid',
         }
         test_result = subprocess.run(
-            ['python3', str(AWS / 'validate-config.py')],
+            [sys.executable, str(AWS / 'validate-config.py')],
             env=dict(os.environ, **base_env, DEPLOY_ENVIRONMENT='test'),
             capture_output=True, text=True,
         )
@@ -166,7 +186,7 @@ class DeploymentUrlValidationTest(unittest.TestCase):
             'ADMIN_ACCOUNT_ACTIVATION_URL': 'https://admin.bingo.bakaroo.com/activate-account',
         }
         wrong_environment_result = subprocess.run(
-            ['python3', str(AWS / 'validate-config.py')],
+            [sys.executable, str(AWS / 'validate-config.py')],
             env=dict(os.environ, **wrong_environment, DEPLOY_ENVIRONMENT='test'),
             capture_output=True, text=True,
         )
@@ -174,7 +194,7 @@ class DeploymentUrlValidationTest(unittest.TestCase):
         self.assertIn('do not match DEPLOY_ENVIRONMENT', wrong_environment_result.stderr)
 
         production_result = subprocess.run(
-            ['python3', str(AWS / 'validate-config.py')],
+            [sys.executable, str(AWS / 'validate-config.py')],
             env=dict(os.environ, **base_env, DEPLOY_ENVIRONMENT='prod'),
             capture_output=True, text=True,
         )
@@ -182,6 +202,7 @@ class DeploymentUrlValidationTest(unittest.TestCase):
 
     def test_email_provider_must_be_explicit_and_graph_aliases_are_rejected(self):
         base_env = {
+            'BINGO_FLOAT_BANK_ENCRYPTION_KEY': base64.b64encode(b'0123456789abcdef0123456789abcdef').decode(),
             'DEPLOY_ENVIRONMENT': 'test',
             'VITE_API_BASE_URL': 'http://api.test.bakaroo.com',
             'ADMIN_PUBLIC_URL': 'http://admin.test.bakaroo.com',
@@ -192,7 +213,7 @@ class DeploymentUrlValidationTest(unittest.TestCase):
             'ADMIN_ACCOUNT_ACTIVATION_URL': 'http://admin.test.bakaroo.com/activate-account',
         }
         missing_provider = subprocess.run(
-            ['python3', str(AWS / 'validate-config.py')],
+            [sys.executable, str(AWS / 'validate-config.py')],
             env=dict(os.environ, **base_env),
             capture_output=True, text=True,
         )
@@ -208,29 +229,151 @@ class DeploymentUrlValidationTest(unittest.TestCase):
             'GRAPH_CLIENT_SECRET': 'secret',
         }
         graph_result = subprocess.run(
-            ['python3', str(AWS / 'validate-config.py')],
+            [sys.executable, str(AWS / 'validate-config.py')],
             env=dict(os.environ, **legacy_graph),
             capture_output=True, text=True,
         )
         self.assertNotEqual(graph_result.returncode, 0)
         self.assertIn('MICROSOFT_GRAPH_TENANT_ID is required', graph_result.stderr)
 
+    def test_production_admin_bootstrap_requires_explicit_unexpired_short_approval(self):
+        base_env = {
+            'DEPLOY_ENVIRONMENT': 'prod',
+            'BINGO_FLOAT_BANK_ENCRYPTION_KEY': base64.b64encode(b'0123456789abcdef0123456789abcdef').decode(),
+            'VITE_API_BASE_URL': 'https://api.bingo.bakaroo.com',
+            'ADMIN_PUBLIC_URL': 'https://admin.bingo.bakaroo.com',
+            'PUBLIC_SITE_URL': 'https://bingo.bakaroo.com',
+            'PUBLIC_SITE_INDEXABLE': 'true',
+            'CORS_ALLOWED_ORIGINS': 'https://admin.bingo.bakaroo.com,https://bingo.bakaroo.com',
+            'WEBSOCKET_ALLOWED_ORIGINS': 'https://admin.bingo.bakaroo.com,https://bingo.bakaroo.com',
+            'ADMIN_ACCOUNT_ACTIVATION_URL': 'https://admin.bingo.bakaroo.com/activate-account',
+            'APP_EMAIL_PROVIDER': 'smtp',
+            'SPRING_MAIL_USERNAME': 'admin@example.invalid',
+            'ADMIN_EMAIL_BOOTSTRAP_ENABLED': 'true',
+            'ADMIN_BOOTSTRAP_EMAILS': 'first@example.invalid',
+            'ADMIN_BOOTSTRAP_ENABLED': 'false',
+        }
+        missing = subprocess.run([sys.executable, str(AWS / 'validate-config.py')], env=dict(os.environ, **base_env),
+                                 capture_output=True, text=True)
+        self.assertNotEqual(missing.returncode, 0)
+        self.assertIn('approve_initial_admin_bootstrap=true', missing.stderr)
+
+        approved = {
+            **base_env,
+            'ADMIN_BOOTSTRAP_APPROVED': 'true',
+            'ADMIN_BOOTSTRAP_APPROVAL_EXPIRES_AT': (datetime.now(timezone.utc) + timedelta(minutes=30))
+            .replace(microsecond=0).isoformat().replace('+00:00', 'Z'),
+        }
+        success = subprocess.run([sys.executable, str(AWS / 'validate-config.py')], env=dict(os.environ, **approved),
+                                 capture_output=True, text=True)
+        self.assertEqual(success.returncode, 0, success.stderr)
+
+        expired = {**approved, 'ADMIN_BOOTSTRAP_APPROVAL_EXPIRES_AT': '2020-01-01T00:00:00Z'}
+        expired_result = subprocess.run([sys.executable, str(AWS / 'validate-config.py')], env=dict(os.environ, **expired),
+                                        capture_output=True, text=True)
+        self.assertNotEqual(expired_result.returncode, 0)
+        self.assertIn('unexpired and expire within 60 minutes', expired_result.stderr)
+
+    def test_production_configuration_rejects_missing_or_invalid_float_encryption_key(self):
+        valid = {
+            'DEPLOY_ENVIRONMENT': 'prod',
+            'BINGO_FLOAT_BANK_ENCRYPTION_KEY': base64.b64encode(b'0123456789abcdef0123456789abcdef').decode(),
+            'VITE_API_BASE_URL': 'https://api.bingo.bakaroo.com',
+            'ADMIN_PUBLIC_URL': 'https://admin.bingo.bakaroo.com',
+            'PUBLIC_SITE_URL': 'https://bingo.bakaroo.com',
+            'PUBLIC_SITE_INDEXABLE': 'true',
+            'CORS_ALLOWED_ORIGINS': 'https://admin.bingo.bakaroo.com,https://bingo.bakaroo.com',
+            'WEBSOCKET_ALLOWED_ORIGINS': 'https://admin.bingo.bakaroo.com,https://bingo.bakaroo.com',
+            'ADMIN_ACCOUNT_ACTIVATION_URL': 'https://admin.bingo.bakaroo.com/activate-account',
+            'APP_EMAIL_PROVIDER': 'smtp',
+            'SPRING_MAIL_USERNAME': 'admin@example.invalid',
+        }
+        for override in [
+            {'BINGO_FLOAT_BANK_ENCRYPTION_KEY': ''},
+            {'BINGO_FLOAT_BANK_ENCRYPTION_KEY': 'not-base64'},
+            {'BINGO_FLOAT_BANK_ENCRYPTION_KEY': base64.b64encode(b'too-short').decode()},
+        ]:
+            with self.subTest(override=override):
+                result = subprocess.run([sys.executable, str(AWS / 'validate-config.py')],
+                env={**os.environ, **valid, **override}, capture_output=True, text=True)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn('BINGO_FLOAT_BANK_ENCRYPTION_KEY must be Base64 encoding of exactly 32 bytes', result.stderr)
+        production_yaml = (ROOT / 'bingo-backend/src/main/resources/application-prod.yml').read_text()
+        self.assertIn('bank-account-encryption-key: ${BINGO_FLOAT_BANK_ENCRYPTION_KEY}', production_yaml)
+        self.assertNotIn('bank-account-encryption-key: ${BINGO_FLOAT_BANK_ENCRYPTION_KEY:}', production_yaml)
+
+    def test_production_workflow_has_no_tofu_or_default_admin_recipients(self):
+        workflow = (ROOT / '.github/workflows/deploy.yml').read_text()
+        self.assertNotIn('ssh-keyscan', workflow)
+        self.assertIn('vars.DEPLOY_SSH_HOST_KEY', workflow)
+        self.assertIn('approve_initial_admin_bootstrap', workflow)
+        self.assertIn('ADMIN_BOOTSTRAP_APPROVAL_RUN_ID', workflow)
+        self.assertNotIn('apps@bakaroo.com,equarhishe@gmail.com', workflow)
+        self.assertIn("'false' }}", workflow)
+        for relative in ('deployment/aws/deploy-backend.sh', 'deployment/aws/deploy-frontend.sh',
+                         'deployment/admin/deploy-admin.sh', 'deployment/admin/rollback-admin.sh'):
+            script = (ROOT / relative).read_text()
+            self.assertIn('configure_pinned_ssh_host', script)
+            for line in script.splitlines():
+                if line.lstrip().startswith(('ssh ', 'scp ')):
+                    self.assertIn('${SSH_OPTIONS[@]}', line, relative + ': ' + line)
+        self.assertIn("'ADMIN_BOOTSTRAP_APPROVAL_RUN_ID':'", (ROOT / 'deployment/aws/deploy-backend.sh').read_text())
+
+
+class PinnedSshHostKeyTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.temp = tempfile.TemporaryDirectory()
+        cls.private_key = Path(cls.temp.name) / 'host'
+        subprocess.run(['ssh-keygen', '-q', '-t', 'ed25519', '-N', '', '-f', str(cls.private_key)], check=True)
+        cls.public_key = Path(str(cls.private_key) + '.pub').read_text().strip()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.temp.cleanup()
+
+    def test_missing_or_invalid_pin_fails_before_ssh(self):
+        helper = ROOT / 'deployment/lib/pinned-ssh-host.sh'
+        known_hosts = Path(self.temp.name) / 'known_hosts-missing'
+        command = [BASH, '-c', 'source "$1"; configure_pinned_ssh_host "$2" "$3"',
+                   'pinned-test', str(helper), 'deploy@example.invalid', str(known_hosts)]
+        missing = subprocess.run(command, capture_output=True, text=True)
+        self.assertNotEqual(missing.returncode, 0)
+        invalid = subprocess.run(command, env=dict(os.environ, DEPLOY_SSH_HOST_KEY='ssh-ed25519 INVALID'),
+                                 capture_output=True, text=True)
+        self.assertNotEqual(invalid.returncode, 0)
+        self.assertFalse(known_hosts.exists())
+
+    def test_known_hosts_contains_the_supplied_pin_without_network_lookup(self):
+        helper = ROOT / 'deployment/lib/pinned-ssh-host.sh'
+        known_hosts = Path(self.temp.name) / 'known_hosts-pinned'
+        result = subprocess.run(
+            [BASH, '-c', 'source "$1"; configure_pinned_ssh_host "$2" "$3"; printf "%s\\n" "${SSH_OPTIONS[@]}"', 'pinned-test',
+             str(helper), 'deploy@example.invalid', str(known_hosts)],
+            env=dict(os.environ, DEPLOY_SSH_HOST_KEY=self.public_key), capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('StrictHostKeyChecking=yes', result.stdout)
+        self.assertIn('GlobalKnownHostsFile=/dev/null', result.stdout)
+        expected_pin = ' '.join(self.public_key.split()[:2])
+        self.assertIn('example.invalid ' + expected_pin, known_hosts.read_text())
+
+    @unittest.skipIf(os.name == 'nt', 'Shell expects a POSIX python3 command')
     def test_mobile_release_url_allows_http_only_for_test_api_host(self):
         validator = ROOT / 'bingo-player/tooling/validate_release_api_base_url.sh'
         accepted = subprocess.run(
-            ['bash', str(validator), 'http://api.test.bakaroo.com', '--allow-test-http'],
+            [BASH, str(validator), 'http://api.test.bakaroo.com', '--allow-test-http'],
             capture_output=True, text=True,
         )
         self.assertEqual(accepted.returncode, 0, accepted.stderr)
 
         blocked_without_opt_in = subprocess.run(
-            ['bash', str(validator), 'http://api.test.bakaroo.com'],
+            [BASH, str(validator), 'http://api.test.bakaroo.com'],
             capture_output=True, text=True,
         )
         self.assertNotEqual(blocked_without_opt_in.returncode, 0)
 
         rejected = subprocess.run(
-            ['bash', str(validator), 'http://api.example.invalid', '--allow-test-http'],
+            [BASH, str(validator), 'http://api.example.invalid', '--allow-test-http'],
             capture_output=True, text=True,
         )
         self.assertNotEqual(rejected.returncode, 0)

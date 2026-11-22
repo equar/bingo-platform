@@ -8,7 +8,7 @@ and live game events.
 ## Prerequisites
 
 - Java 25+ and Maven 3.9+
-- Node.js 22.13.0 and npm for Admin and website CI checks
+- Node.js 22.22.0 and npm for Admin and website checks (version pinned in `.node-version`)
 - Flutter 3.41.0+ and Dart 3.11.0+ for Player and Agent
 - Visual Studio 2022 Build Tools with **Desktop development with C++** and a Windows 10/11 SDK for Windows desktop builds
 - Android Studio and an Android SDK for Android emulators

@@ -23,6 +23,28 @@ describe('api types helpers', () => {
     expect(error.message).not.toContain('SQL');
   });
 
+  it('explains deposit four-eyes conflicts without exposing backend details', () => {
+    const error = parseApiError({
+      response: {
+        status: 409,
+        data: { code: 'DEPOSIT_SEPARATION_OF_DUTIES_REQUIRED', message: 'Internal verifier record detail' },
+      },
+    });
+
+    expect(error.message).toBe('A different authorized staff member must approve this deposit.');
+    expect(error.message).not.toContain('Internal');
+    expect(parseApiError({
+      response: { status: 409, data: { code: 'DEPOSIT_REVIEW_NOT_AUTHORIZED' } },
+    }).message).toContain('Your role cannot approve this deposit');
+  });
+
+  it('explains manual withdrawal evidence and reused transfer references', () => {
+    expect(parseApiError({ response: { status: 400, data: { code: 'PAYMENT_EVIDENCE_REQUIRED', message: 'Internal detail' } } }).message)
+      .toBe('Record evidence that you verified the external transfer before completing this withdrawal.');
+    expect(parseApiError({ response: { status: 409, data: { code: 'TRANSFER_REFERENCE_ALREADY_USED' } } }).message)
+      .toContain('already recorded for this payout provider');
+  });
+
   it('explains game funding and claim-window blockers using safe messages', () => {
     expect(parseApiError({ response: { status: 409, data: { code: 'SESSION_UNDERFUNDED' } } }).message).toContain('house margin');
     expect(parseApiError({ response: { status: 409, data: { code: 'CLAIM_WINDOW_OPEN' } } }).message).toContain('claim window closes');

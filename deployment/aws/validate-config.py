@@ -1,5 +1,7 @@
 """Validate public deployment settings before building or connecting to a host."""
 import os
+import base64
+from datetime import datetime, timedelta, timezone
 from urllib.parse import urlsplit
 origins = {}
 deployment_environment = os.environ.get('DEPLOY_ENVIRONMENT', 'prod')
@@ -53,6 +55,25 @@ if email_bootstrap == 'true':
     if bootstrap_enabled == 'true':
         raise SystemExit('Enable only one admin bootstrap mode at a time')
 
+if bootstrap_enabled == 'true' or email_bootstrap == 'true':
+    if deployment_environment != 'prod':
+        raise SystemExit('Admin bootstrap is permitted only for an explicitly approved production deployment')
+    if os.environ.get('ADMIN_BOOTSTRAP_APPROVED', '').strip().lower() != 'true':
+        raise SystemExit('Admin bootstrap requires approve_initial_admin_bootstrap=true for this workflow run')
+    raw_expiry = os.environ.get('ADMIN_BOOTSTRAP_APPROVAL_EXPIRES_AT', '').strip()
+    try:
+        if not raw_expiry.endswith('Z'):
+            raise ValueError()
+        expiry = datetime.fromisoformat(raw_expiry.replace('Z', '+00:00'))
+        if expiry.tzinfo is None:
+            raise ValueError()
+        expiry = expiry.astimezone(timezone.utc)
+    except ValueError:
+        raise SystemExit('ADMIN_BOOTSTRAP_APPROVAL_EXPIRES_AT must be a UTC RFC3339 timestamp')
+    now = datetime.now(timezone.utc)
+    if not now < expiry <= now + timedelta(minutes=60):
+        raise SystemExit('Admin bootstrap approval must be unexpired and expire within 60 minutes')
+
 
 provider = os.environ.get('APP_EMAIL_PROVIDER', '').strip()
 if provider not in ('smtp', 'graph'):
@@ -66,4 +87,11 @@ if provider == 'graph':
         raise SystemExit('APP_EMAIL_FROM must be the Graph sender mailbox email address')
 elif not os.environ.get('SPRING_MAIL_USERNAME', '').strip():
     raise SystemExit('SPRING_MAIL_USERNAME is required for SMTP email')
+
+key = os.environ.get('BINGO_FLOAT_BANK_ENCRYPTION_KEY', '').strip()
+try:
+    if len(base64.b64decode(key, validate=True)) != 32:
+        raise ValueError()
+except Exception:
+    raise SystemExit('BINGO_FLOAT_BANK_ENCRYPTION_KEY must be Base64 encoding of exactly 32 bytes')
 print('Bingo deployment URLs, origins, bootstrap, and email provider configuration validated')

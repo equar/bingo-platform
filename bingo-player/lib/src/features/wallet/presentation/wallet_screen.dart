@@ -9,6 +9,7 @@ import 'package:bingo_player/src/core/network/api_error.dart';
 import 'package:bingo_player/src/core/widgets/app_status_view.dart';
 import 'package:bingo_player/src/core/widgets/section_card.dart';
 import 'package:bingo_player/src/features/wallet/data/wallet_repository.dart';
+import 'package:bingo_player/src/features/wallet/domain/deposit_validation.dart';
 import 'package:bingo_player/src/features/wallet/domain/wallet_models.dart';
 import 'package:bingo_player/src/features/wallet/presentation/wallet_transaction_labels.dart';
 import 'package:bingo_player/src/features/auth/data/auth_repository.dart';
@@ -354,20 +355,12 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                                     localizations,
                                   ),
                                 ),
-                                validator: (value) {
-                                  final text = value?.trim() ?? '';
-                                  if (text.isEmpty) {
-                                    return localizations.requiredField;
-                                  }
-                                  final amount = num.tryParse(text);
-                                  if (amount == null || !amount.isFinite) {
-                                    return localizations.errorInvalidAmount;
-                                  }
-                                  if (amount <= 0) {
-                                    return localizations.depositAmountPositive;
-                                  }
-                                  return null;
-                                },
+                                validator: (value) => depositAmountError(
+                                  value ?? '',
+                                  minimum: balance.minimumDepositAmount,
+                                  maximum: balance.maximumDepositAmount,
+                                  l10n: localizations,
+                                ),
                               ),
                               const SizedBox(height: 12),
                               TextFormField(
@@ -383,10 +376,10 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                                     localizations,
                                   ),
                                 ),
-                                validator: (value) =>
-                                    value == null || value.trim().isEmpty
-                                    ? localizations.requiredField
-                                    : null,
+                                validator: (value) => depositReferenceError(
+                                  value ?? '',
+                                  localizations,
+                                ),
                               ),
                               if (_depositError != null) ...[
                                 const SizedBox(height: 8),

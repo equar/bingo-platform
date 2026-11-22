@@ -5,7 +5,7 @@ support workflows.
 
 ## Configuration and development
 
-Use Node.js 22.13+ and npm. Set `VITE_API_BASE_URL` to the public API origin
+Use Node.js 22.22.0 (the repository `.node-version`) and npm. Set `VITE_API_BASE_URL` to the public API origin
 (not an API path); Vite embeds it in the frontend bundle, so it is configuration
 and never a secret. For local development, set it in ignored `.env.local`:
 
@@ -21,7 +21,12 @@ npm run dev
 npm test
 npm run lint
 npm run build
+npm run e2e -- --list
 ```
+
+`npm run e2e -- --list` discovers browser tests without running them or needing
+QA credentials. Actual browser tests require the isolated QA environment
+settings described in the [E2E runbook](../docs/qa/platform-e2e-runbook.md).
 
 The same-origin production Nginx deployment serves the SPA and proxies `/api/`
 and `/ws`. Production configuration uses the public HTTPS API origin.
@@ -49,6 +54,33 @@ The checked-in backend [OpenAPI contract](../bingo-backend/openapi.json) is the
 authoritative route reference. See the [backend guide](../bingo-backend/README.md)
 for API and WebSocket details and the [guarded E2E runbook](../docs/qa/platform-e2e-runbook.md)
 for real Chromium execution. Component tests alone are not browser E2E.
+
+## Validation gates
+
+| Stage | Admin checks |
+| --- | --- |
+| Local pre-commit | ESLint on staged Admin source files |
+| Local pre-push | `npm ci`, ESLint, Vitest coverage suite, TypeScript build check, production Vite build, and Playwright test discovery for changed components |
+| Pull request CI | Same Admin suite on Node `.node-version`; backend MySQL validation runs separately. Flutter PR validation runs Player localization generation, analyze, tests, and Android app bundle checks. |
+| Production promotion | Required PR CI status checks must be enforced in GitHub branch protection. The deployment workflow repeats Admin `npm ci` and production build; it is not a replacement for PR CI. |
+| Browser E2E | Manual `Admin Browser E2E` workflow in the protected `admin-e2e` GitHub Environment when the disposable test API and credentials are configured. |
+
+The Admin route tree already lazy-loads each page. The production build still
+has a large shared entry, so Vite now emits the shared React Router runtime as
+a separately cacheable chunk. Keep route-level imports lazy; avoid splitting
+shared UI or API state across routes unless build evidence shows a smaller
+initial download without duplicated dependencies.
+
+To enable the optional browser workflow, configure an `admin-e2e` GitHub
+Environment restricted to `main`, with required reviewer approval. Set the
+environment variable `ADMIN_E2E_ENABLED=true` and `ADMIN_E2E_API_BASE_URL` to
+the HTTPS API origin of a disposable, seeded test environment (never
+`api.bingo.bakaroo.com`). Set
+`ADMIN_E2E_ADMIN_EMAIL` and `ADMIN_E2E_ADMIN_PASSWORD` as environment secrets
+for an account that exists only in that environment. Do not reuse QA or
+production identities. The workflow is manually dispatched from `main`,
+builds Admin against that API, and runs a login/dashboard smoke test in
+Chromium; it does not create data or deploy the app.
 
 ## Navigation and interaction conventions
 

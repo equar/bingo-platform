@@ -3,6 +3,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 : "${SERVER:?Set SERVER}"
 : "${SSH_KEY:?Set SSH_KEY}"
+source "$ROOT/deployment/lib/pinned-ssh-host.sh"
+configure_pinned_ssh_host "$SERVER" "${DEPLOY_SSH_KNOWN_HOSTS_FILE:-${RUNNER_TEMP:-${TMPDIR:-/tmp}}/bingo-known_hosts}"
 case "${1:-all}" in
   all) apps=(admin website) ;;
   admin) apps=(admin) ;;
@@ -54,7 +56,7 @@ done
 for app in "${apps[@]}"; do
   [[ -f "$ROOT/bingo-$app/dist/index.html" ]] || { echo "Build bingo-$app first" >&2; exit 1; }
 done
-remote="$(ssh -i "$SSH_KEY" "$SERVER" '
+remote="$(ssh "${SSH_OPTIONS[@]}" -i "$SSH_KEY" "$SERVER" '
   set -e
   umask 077
   staging_directory="$HOME/.cache/bingo-deploy"
@@ -63,13 +65,13 @@ remote="$(ssh -i "$SSH_KEY" "$SERVER" '
 ')"
 [[ "$remote" =~ ^/home/[a-z_][a-z0-9_-]*/\.cache/bingo-deploy/frontend\.[a-zA-Z0-9]+$ ]]
 cleanup() {
-  ssh -i "$SSH_KEY" "$SERVER" "rm -rf '$remote'"
+  ssh "${SSH_OPTIONS[@]}" -i "$SSH_KEY" "$SERVER" "rm -rf '$remote'"
 }
 trap cleanup EXIT
 for app in "${apps[@]}"; do
-  scp -i "$SSH_KEY" -r "$ROOT/bingo-$app/dist" "$SERVER:$remote/$app"
+  scp "${SSH_OPTIONS[@]}" -i "$SSH_KEY" -r "$ROOT/bingo-$app/dist" "$SERVER:$remote/$app"
 done
-ssh -i "$SSH_KEY" "$SERVER" "sudo -n bash -s -- '$remote' ${apps[*]}" <<'REMOTE'
+ssh "${SSH_OPTIONS[@]}" -i "$SSH_KEY" "$SERVER" "sudo -n bash -s -- '$remote' ${apps[*]}" <<'REMOTE'
 set -euo pipefail
 incoming="$1"
 shift

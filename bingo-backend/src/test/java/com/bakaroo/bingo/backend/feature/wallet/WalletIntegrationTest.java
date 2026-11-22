@@ -2,10 +2,12 @@ package com.bakaroo.bingo.backend.feature.wallet;
 
 import com.bakaroo.bingo.backend.MySqlIntegrationTest;
 import com.bakaroo.bingo.backend.common.idempotency.IdempotentResult;
+import com.bakaroo.bingo.backend.common.exception.ConflictException;
 import com.bakaroo.bingo.backend.feature.auth.dto.LoginRequest;
 import com.bakaroo.bingo.backend.feature.auth.dto.AdminLoginRequest;
 import com.bakaroo.bingo.backend.feature.auth.service.BingoUserPrincipal;
 import com.bakaroo.bingo.backend.feature.auth.service.EthiopianPhoneNormalizer;
+import com.bakaroo.bingo.backend.feature.auth.service.JwtService;
 import com.bakaroo.bingo.backend.feature.user.entity.AccountStatus;
 import com.bakaroo.bingo.backend.feature.user.entity.User;
 import com.bakaroo.bingo.backend.feature.user.entity.UserRole;
@@ -24,6 +26,8 @@ import com.bakaroo.bingo.backend.feature.wallet.dto.DepositVerificationRequest;
 import com.bakaroo.bingo.backend.feature.wallet.dto.WalletAdjustmentRequest;
 import com.bakaroo.bingo.backend.feature.wallet.dto.WalletAdjustmentReviewRequest;
 import com.bakaroo.bingo.backend.feature.wallet.dto.WalletAdjustmentSubmissionRequest;
+import com.bakaroo.bingo.backend.feature.wallet.dto.WithdrawalRequestDto;
+import com.bakaroo.bingo.backend.feature.wallet.dto.WithdrawalReviewDto;
 import com.bakaroo.bingo.backend.feature.wallet.entity.DepositClaim;
 import com.bakaroo.bingo.backend.feature.wallet.entity.DepositClaimStatus;
 import com.bakaroo.bingo.backend.feature.wallet.entity.Wallet;
@@ -50,6 +54,7 @@ import com.bakaroo.bingo.backend.feature.wallet.service.WalletService;
 import com.bakaroo.bingo.backend.feature.wallet.service.DepositFinancialService;
 import com.bakaroo.bingo.backend.feature.wallet.service.WalletAdjustmentService;
 import com.bakaroo.bingo.backend.feature.wallet.service.SignupRewardService;
+import com.bakaroo.bingo.backend.feature.wallet.service.WithdrawalService;
 import com.bakaroo.bingo.backend.feature.support.repository.InternalNoteRepository;
 import com.bakaroo.bingo.backend.feature.support.repository.SupportMessageRepository;
 import com.bakaroo.bingo.backend.feature.support.repository.SupportTicketRepository;
@@ -135,6 +140,9 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
         EthiopianPhoneNormalizer phoneNormalizer;
 
         @Autowired
+        JwtService jwtService;
+
+        @Autowired
         WalletService walletService;
 
         @Autowired
@@ -145,6 +153,9 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
 
         @Autowired
         SignupRewardService signupRewardService;
+
+        @Autowired
+        WithdrawalService withdrawalService;
 
         @Autowired
         SupportTicketRepository supportTicketRepository;
@@ -193,6 +204,10 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
 
         @BeforeEach
         void setUp() {
+                jdbcTemplate.update("delete from withdrawal_transfer_reference_reservation_sources");
+                jdbcTemplate.update("delete from withdrawal_transfer_reference_reservations");
+                jdbcTemplate.update("delete from withdrawal_transfer_reference_migration_issues");
+                jdbcTemplate.update("delete from wallet_withdrawal_requests");
                 jdbcTemplate.update("delete from audit_log_entries");
                 jdbcTemplate.update("delete from float_accounting_journal_lines");
                 jdbcTemplate.update("delete from float_accounting_journals");
@@ -256,6 +271,221 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
         }
 
         @Test
+        void concurrentBalanceReadsProvisionExactlyOneWallet() throws Exception {
+                User newPlayer = userRepository.save(User.create(
+                                phoneNormalizer.normalize("0911000106"), "Concurrent Wallet Player",
+                                passwordEncoder.encode("123456"), AccountStatus.ACTIVE,
+                                Set.of(UserRole.PLAYER), Instant.now()));
+                CountDownLatch ready = new CountDownLatch(2);
+                CountDownLatch start = new CountDownLatch(1);
+                ExecutorService executor = Executors.newFixedThreadPool(2);
+                try {
+                        Callable<Long> readBalance = () -> {
+                                ready.countDown();
+                                start.await(10, TimeUnit.SECONDS);
+                                return walletService.getBalance(new BingoUserPrincipal(newPlayer)).walletId();
+                        };
+                        Future<Long> first = executor.submit(readBalance);
+                        Future<Long> second = executor.submit(readBalance);
+                        assertTrue(ready.await(10, TimeUnit.SECONDS));
+                        start.countDown();
+                        assertEquals(first.get(20, TimeUnit.SECONDS), second.get(20, TimeUnit.SECONDS));
+                } finally {
+                        start.countDown();
+                        executor.shutdownNow();
+                }
+                assertEquals(1L, walletRepository.countByOwnerId(newPlayer.getId()));
+                Wallet created = walletRepository.findByOwnerId(newPlayer.getId()).orElseThrow();
+                assertEquals(new BigDecimal("0.00"), created.getAvailableBalance());
+                assertEquals(new BigDecimal("0.00"), created.getPromotionalBalance());
+                assertEquals(0L, walletTransactionRepository.count());
+        }
+
+        @Test
+        void withdrawalRequestIsDebitedOnceAndManualCompletionIsIdempotentForAdminAndSupport() {
+                Wallet wallet = walletRepository.findByOwnerId(playerUser.getId()).orElseThrow();
+                wallet.setAvailableBalance(new BigDecimal("100.00"));
+                walletRepository.save(wallet);
+                var created = withdrawalService.submit(new BingoUserPrincipal(playerUser), withdrawalDto("40.00"), "withdraw-submit-1");
+                assertEquals(new BigDecimal("60.00"), walletRepository.findByOwnerId(playerUser.getId()).orElseThrow().getAvailableBalance());
+                var staffDto = new WithdrawalReviewDto(" ref-123 ", "Reviewed payout", "Checked bank transfer confirmation outside platform");
+                var completed = withdrawalService.complete(created.body().id(), new BingoUserPrincipal(adminUser), staffDto, "withdraw-complete-admin");
+                var replay = withdrawalService.complete(created.body().id(), new BingoUserPrincipal(adminUser), staffDto, "withdraw-complete-admin");
+                assertEquals(completed.body().id(), replay.body().id());
+                assertEquals("ref-123", replay.body().transferReference());
+                assertEquals("Checked bank transfer confirmation outside platform", replay.body().paymentEvidence());
+                assertEquals(1, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM wallet_transactions WHERE reference_type='WALLET_WITHDRAWAL' AND transaction_type='WALLET_WITHDRAWAL_DEBIT'", Integer.class));
+                assertEquals(new BigDecimal("60.00"), walletRepository.findByOwnerId(playerUser.getId()).orElseThrow().getAvailableBalance());
+
+                User support = financeUser("0911000198", Set.of(UserRole.SUPPORT));
+                wallet = walletRepository.findByOwnerId(playerUser.getId()).orElseThrow();
+                wallet.setAvailableBalance(new BigDecimal("100.00"));
+                walletRepository.save(wallet);
+                var second = withdrawalService.submit(new BingoUserPrincipal(playerUser), withdrawalDto("20.00"), "withdraw-submit-2");
+                withdrawalService.complete(second.body().id(), new BingoUserPrincipal(support), new WithdrawalReviewDto("support-ref", "Support review", "Verified transfer receipt in bank portal"), "withdraw-complete-support");
+                assertEquals("COMPLETED", withdrawalService.own(new BingoUserPrincipal(playerUser), org.springframework.data.domain.PageRequest.of(0, 10)).getContent().get(0).status());
+        }
+
+        @Test
+        void withdrawalRejectRefundsOnceAndReferenceCannotBeReusedAfterNormalization() {
+                Wallet wallet = walletRepository.findByOwnerId(playerUser.getId()).orElseThrow();
+                wallet.setAvailableBalance(new BigDecimal("100.00"));
+                walletRepository.save(wallet);
+                var rejected = withdrawalService.submit(new BingoUserPrincipal(playerUser), withdrawalDto("30.00"), "withdraw-reject-submit");
+                withdrawalService.reject(rejected.body().id(), new BingoUserPrincipal(adminUser), new WithdrawalReviewDto(null, "Rejected", null), "withdraw-reject-1");
+                withdrawalService.reject(rejected.body().id(), new BingoUserPrincipal(adminUser), new WithdrawalReviewDto(null, "Rejected", null), "withdraw-reject-1");
+                assertEquals(new BigDecimal("100.00"), walletRepository.findByOwnerId(playerUser.getId()).orElseThrow().getAvailableBalance());
+                assertEquals(1, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM wallet_transactions WHERE reference_type='WALLET_WITHDRAWAL' AND transaction_type='WALLET_WITHDRAWAL_REFUND'", Integer.class));
+                wallet = walletRepository.findByOwnerId(playerUser.getId()).orElseThrow();
+                wallet.setAvailableBalance(new BigDecimal("100.00"));
+                walletRepository.save(wallet);
+                var completed = withdrawalService.submit(new BingoUserPrincipal(playerUser), withdrawalDto("10.00"), "withdraw-ref-submit");
+                withdrawalService.complete(completed.body().id(), new BingoUserPrincipal(adminUser), new WithdrawalReviewDto("Ref-Case", "Paid", "Verified external receipt"), "withdraw-ref-complete");
+                wallet = walletRepository.findByOwnerId(playerUser.getId()).orElseThrow();
+                wallet.setAvailableBalance(new BigDecimal("100.00"));
+                walletRepository.save(wallet);
+                var duplicate = withdrawalService.submit(new BingoUserPrincipal(playerUser), withdrawalDto("10.00"), "withdraw-ref-submit-2");
+                org.junit.jupiter.api.Assertions.assertThrows(com.bakaroo.bingo.backend.common.exception.ConflictException.class, () -> withdrawalService.complete(duplicate.body().id(), new BingoUserPrincipal(adminUser), new WithdrawalReviewDto(" ref-case ", "Paid", "Verified receipt"), "withdraw-ref-complete-2"));
+                assertEquals(new BigDecimal("90.00"), walletRepository.findByOwnerId(playerUser.getId()).orElseThrow().getAvailableBalance());
+        }
+
+        @Test
+        void ambiguousHistoricalReferenceWithV54NullNormalizedRowCannotBeReused() {
+                long keeperId = insertLegacyCompletedWithdrawal("Legacy-Ref", "LEGACY-REF");
+                long formerlyUnindexedId = insertLegacyCompletedWithdrawal(" legacy-ref ", null);
+                jdbcTemplate.update("""
+                        insert into withdrawal_transfer_reference_reservations
+                            (provider_key, normalized_reference, reservation_status, source_type,
+                             legacy_source_count, created_at)
+                        values ('TELEBIRR', 'LEGACY-REF', 'AMBIGUOUS_LEGACY', 'LEGACY', 2, now(6))
+                        """);
+                Long reservationId = jdbcTemplate.queryForObject("select last_insert_id()", Long.class);
+                jdbcTemplate.update("""
+                        insert into withdrawal_transfer_reference_reservation_sources
+                            (reservation_id, withdrawal_request_id, source_type, created_at)
+                        values (?, ?, 'LEGACY', now(6)), (?, ?, 'LEGACY', now(6))
+                        """, reservationId, keeperId, reservationId, formerlyUnindexedId);
+
+                Wallet wallet = walletRepository.findByOwnerId(playerUser.getId()).orElseThrow();
+                wallet.setAvailableBalance(new BigDecimal("100.00"));
+                walletRepository.save(wallet);
+                var pending = withdrawalService.submit(new BingoUserPrincipal(playerUser),
+                        withdrawalDto("10.00"), "legacy-ref-reuse-submit");
+
+                ConflictException conflict = org.junit.jupiter.api.Assertions.assertThrows(ConflictException.class,
+                        () -> withdrawalService.complete(pending.body().id(), new BingoUserPrincipal(adminUser),
+                                new WithdrawalReviewDto("legacy-ref", "Verified", "Legacy conflict review"),
+                                "legacy-ref-reuse-complete"));
+                assertEquals("TRANSFER_REFERENCE_RECONCILIATION_REQUIRED", conflict.getCode());
+                assertEquals("PENDING", withdrawalService.own(new BingoUserPrincipal(playerUser),
+                        org.springframework.data.domain.PageRequest.of(0, 10)).getContent().get(0).status());
+                assertEquals(new BigDecimal("90.00"), walletRepository.findByOwnerId(playerUser.getId()).orElseThrow().getAvailableBalance());
+                assertEquals(1, jdbcTemplate.queryForObject("""
+                        select count(*) from wallet_transactions
+                        where reference_type='WALLET_WITHDRAWAL' and transaction_type='WALLET_WITHDRAWAL_DEBIT'
+                        """, Integer.class));
+                assertEquals(2, jdbcTemplate.queryForObject("""
+                        select count(*) from withdrawal_transfer_reference_reservation_sources
+                        where reservation_id=?
+                        """, Integer.class, reservationId));
+        }
+
+        @Test
+        void withdrawalRejectsUnauthorizedAndConcurrentCompletionHasOneWinner() throws Exception {
+                Wallet wallet = walletRepository.findByOwnerId(playerUser.getId()).orElseThrow();
+                wallet.setAvailableBalance(new BigDecimal("100.00"));
+                walletRepository.save(wallet);
+                var created = withdrawalService.submit(new BingoUserPrincipal(playerUser), withdrawalDto("25.00"), "withdraw-concurrent-submit");
+                User agent = financeUser("0911000197", Set.of(UserRole.AGENT));
+                org.junit.jupiter.api.Assertions.assertThrows(com.bakaroo.bingo.backend.common.exception.BadRequestException.class, () -> withdrawalService.complete(created.body().id(), new BingoUserPrincipal(agent), new WithdrawalReviewDto("agent-ref", "No", "No"), "withdraw-unauthorized"));
+                CountDownLatch ready = new CountDownLatch(2), start = new CountDownLatch(1);
+                ExecutorService executor = Executors.newFixedThreadPool(2);
+                try {
+                        Callable<String> taskA = () -> concurrentWithdrawalComplete(created.body().id(), adminUser, ready, start, "withdraw-concurrent-a");
+                        User support = financeUser("0911000196", Set.of(UserRole.SUPPORT));
+                        Callable<String> taskB = () -> concurrentWithdrawalComplete(created.body().id(), support, ready, start, "withdraw-concurrent-b");
+                        Future<String> a = executor.submit(taskA), b = executor.submit(taskB);
+                        assertTrue(ready.await(10, TimeUnit.SECONDS)); start.countDown();
+                        List<String> results = List.of(a.get(20, TimeUnit.SECONDS), b.get(20, TimeUnit.SECONDS));
+                        assertEquals(1, results.stream().filter("COMPLETED"::equals).count());
+                        assertEquals(1, results.stream().filter("CONFLICT"::equals).count());
+                } finally { start.countDown(); executor.shutdownNow(); }
+                assertEquals(1, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM wallet_transactions WHERE reference_type='WALLET_WITHDRAWAL' AND transaction_type='WALLET_WITHDRAWAL_DEBIT'", Integer.class));
+                assertEquals(new BigDecimal("75.00"), walletRepository.findByOwnerId(playerUser.getId()).orElseThrow().getAvailableBalance());
+
+                Wallet reset = walletRepository.findByOwnerId(playerUser.getId()).orElseThrow();
+                reset.setAvailableBalance(new BigDecimal("100.00")); walletRepository.save(reset);
+                var requestA = withdrawalService.submit(new BingoUserPrincipal(playerUser), withdrawalDto("20.00"), "withdraw-race-ref-submit-a");
+                var requestB = withdrawalService.submit(new BingoUserPrincipal(playerUser), withdrawalDto("20.00"), "withdraw-race-ref-submit-b");
+                CountDownLatch sameRefReady = new CountDownLatch(2), sameRefStart = new CountDownLatch(1);
+                ExecutorService sameRefExecutor = Executors.newFixedThreadPool(2);
+                try {
+                        User support = financeUser("0911000195", Set.of(UserRole.SUPPORT));
+                        Future<String> sameA = sameRefExecutor.submit(() -> concurrentWithdrawalSameReference(requestA.body().id(), adminUser, sameRefReady, sameRefStart, "withdraw-race-ref-a"));
+                        Future<String> sameB = sameRefExecutor.submit(() -> concurrentWithdrawalSameReference(requestB.body().id(), support, sameRefReady, sameRefStart, "withdraw-race-ref-b"));
+                        assertTrue(sameRefReady.await(10, TimeUnit.SECONDS)); sameRefStart.countDown();
+                        List<String> sameResults = List.of(sameA.get(20, TimeUnit.SECONDS), sameB.get(20, TimeUnit.SECONDS));
+                        assertEquals(1, sameResults.stream().filter("COMPLETED"::equals).count());
+                        assertEquals(1, sameResults.stream().filter("CONFLICT"::equals).count());
+                } finally { sameRefStart.countDown(); sameRefExecutor.shutdownNow(); }
+                assertEquals(1, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM wallet_withdrawal_requests WHERE normalized_transfer_reference='RACE-REFERENCE'", Integer.class));
+                assertEquals(1, jdbcTemplate.queryForObject("""
+                        select count(*) from withdrawal_transfer_reference_reservations
+                        where provider_key='TELEBIRR' and normalized_reference='RACE-REFERENCE'
+                        """, Integer.class));
+                assertEquals(1, jdbcTemplate.queryForObject("""
+                        select count(*) from withdrawal_transfer_reference_reservation_sources source
+                        join withdrawal_transfer_reference_reservations reservation
+                          on reservation.id=source.reservation_id
+                        where reservation.provider_key='TELEBIRR'
+                          and reservation.normalized_reference='RACE-REFERENCE'
+                          and source.source_type='COMPLETION'
+                        """, Integer.class));
+        }
+
+        @Test
+        void withdrawalRequesterCannotApproveOwnRequestEvenWithStaffRole() {
+                Wallet wallet = walletRepository.findByOwnerId(playerUser.getId()).orElseThrow();
+                wallet.setAvailableBalance(new BigDecimal("50.00"));
+                walletRepository.save(wallet);
+                var created = withdrawalService.submit(new BingoUserPrincipal(playerUser), withdrawalDto("10.00"), "withdraw-self-submit");
+                playerUser.setRoles(Set.of(UserRole.PLAYER, UserRole.ADMIN));
+                userRepository.save(playerUser);
+                org.junit.jupiter.api.Assertions.assertThrows(com.bakaroo.bingo.backend.common.exception.ConflictException.class, () -> withdrawalService.complete(created.body().id(), new BingoUserPrincipal(playerUser), new WithdrawalReviewDto("self-ref", "Paid", "Evidence checked"), "withdraw-self-approve"));
+                assertEquals("PENDING", withdrawalService.own(new BingoUserPrincipal(playerUser), org.springframework.data.domain.PageRequest.of(0, 10)).getContent().get(0).status());
+                assertEquals(new BigDecimal("40.00"), walletRepository.findByOwnerId(playerUser.getId()).orElseThrow().getAvailableBalance());
+        }
+
+        private WithdrawalRequestDto withdrawalDto(String amount) {
+                return new WithdrawalRequestDto(new BigDecimal(amount), "ETB", "TELEBIRR", "Player User", "251911000102", null, null);
+        }
+
+        private long insertLegacyCompletedWithdrawal(String reference, String normalizedReference) {
+                jdbcTemplate.update("""
+                        insert into wallet_withdrawal_requests
+                            (player_id, operation_id, amount, currency, destination_type, account_name,
+                             phone_number, status, created_at, reviewed_by, reviewed_at, transfer_reference,
+                             review_note, normalized_transfer_reference, transfer_provider_key, payment_evidence)
+                        values (?, ?, 10.00, 'ETB', 'TELEBIRR', 'Legacy recipient', '251911000102',
+                                'COMPLETED', now(6), ?, now(6), ?, 'Historical completion', ?, 'TELEBIRR', null)
+                        """, playerUser.getId(), java.util.UUID.randomUUID().toString(), adminUser.getId(),
+                        reference, normalizedReference);
+                return jdbcTemplate.queryForObject("select last_insert_id()", Long.class);
+        }
+
+        private String concurrentWithdrawalComplete(Long id, User staff, CountDownLatch ready, CountDownLatch start, String key) throws Exception {
+                ready.countDown(); start.await(10, TimeUnit.SECONDS);
+                try { withdrawalService.complete(id, new BingoUserPrincipal(staff), new WithdrawalReviewDto("concurrent-ref-" + staff.getId(), "Approved", "Independently checked external payment"), key); return "COMPLETED"; }
+                catch (com.bakaroo.bingo.backend.common.exception.ConflictException conflict) { return "CONFLICT"; }
+        }
+
+        private String concurrentWithdrawalSameReference(Long id, User staff, CountDownLatch ready, CountDownLatch start, String key) throws Exception {
+                ready.countDown(); start.await(10, TimeUnit.SECONDS);
+                try { withdrawalService.complete(id, new BingoUserPrincipal(staff), new WithdrawalReviewDto("race-reference", "Approved", "Independent external receipt verified"), key); return "COMPLETED"; }
+                catch (com.bakaroo.bingo.backend.common.exception.ConflictException | org.springframework.dao.DataIntegrityViolationException conflict) { return "CONFLICT"; }
+        }
+
+        @Test
         void playerDepositSubmissionNeverCreditsWalletWithoutIndependentVerification() throws Exception {
                 adminUser.setRoles(Set.of(UserRole.ADMIN));
                 userRepository.save(adminUser);
@@ -299,7 +529,9 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
                                 .header("Authorization", "Bearer " + playerToken))
                                 .andExpect(status().isOk())
                                 .andExpect(jsonPath("$.currency").value("ETB"))
-                                .andExpect(jsonPath("$.availableBalance").value(0));
+                                .andExpect(jsonPath("$.availableBalance").value(0))
+                                .andExpect(jsonPath("$.minimumDepositAmount").value(0.01))
+                                .andExpect(jsonPath("$.maximumDepositAmount").value("99999999999999999.99"));
 
                 Wallet walletBeforeDeposit = walletRepository.findByOwnerId(playerUser.getId()).orElseThrow();
                 walletBeforeDeposit.setPromotionalBalance(new BigDecimal("12.00"));
@@ -369,6 +601,74 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
                                 .content("{\"submittedCashAmount\":0,\"currency\":\"ETB\",\"telebirrReference\":\"TBR-400-INVALID\"}"))
                                 .andExpect(status().isBadRequest())
                                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+
+                mockMvc.perform(post("/api/v1/wallet/deposits")
+                                .header("Authorization", "Bearer " + playerToken)
+                                .header("Idempotency-Key", "amount-scale-invalid")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"submittedCashAmount\":1.001,\"currency\":\"ETB\",\"telebirrReference\":\"TBR-SCALE\"}"))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+
+                mockMvc.perform(post("/api/v1/wallet/deposits")
+                                .header("Authorization", "Bearer " + playerToken)
+                                .header("Idempotency-Key", "reference-invalid")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"submittedCashAmount\":1.00,\"currency\":\"ETB\",\"telebirrReference\":\"--- ...\"}"))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+
+                mockMvc.perform(post("/api/v1/wallet/deposits")
+                                .header("Authorization", "Bearer " + playerToken)
+                                .header("Idempotency-Key", "reference-too-long")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(new DepositClaimRequest(new BigDecimal("1.00"),
+                                                "ETB", "A".repeat(121)))))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+
+                mockMvc.perform(post("/api/v1/wallet/deposits")
+                                .header("Authorization", "Bearer " + playerToken)
+                                .header("Idempotency-Key", "maximum-amount")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"submittedCashAmount\":100000000000000000.00,\"currency\":\"ETB\",\"telebirrReference\":\"TBR-OVER-MAX\"}"))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+        }
+
+        @Test
+        void withdrawalRejectsUnsupportedPrecisionAndDatabaseOverflowBeforeDebit() throws Exception {
+                String playerToken = loginToken("0911000102", "123456");
+                Wallet wallet = walletRepository.findByOwnerId(playerUser.getId()).orElseThrow();
+                wallet.setAvailableBalance(new BigDecimal("25.00"));
+                walletRepository.save(wallet);
+
+                mockMvc.perform(post("/api/v1/wallet/withdrawals")
+                                .header("Authorization", "Bearer " + playerToken)
+                                .header("Idempotency-Key", "withdrawal-scale-invalid")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                        {"amount":1.001,"currency":"ETB","destinationType":"TELEBIRR",
+                                         "accountName":"Player","phoneNumber":"0911000102"}
+                                        """))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+
+                mockMvc.perform(post("/api/v1/wallet/withdrawals")
+                                .header("Authorization", "Bearer " + playerToken)
+                                .header("Idempotency-Key", "withdrawal-overflow")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                        {"amount":100000000000000000.00,"currency":"ETB","destinationType":"TELEBIRR",
+                                         "accountName":"Player","phoneNumber":"0911000102"}
+                                        """))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+
+                assertEquals(new BigDecimal("25.00"),
+                                walletRepository.findByOwnerId(playerUser.getId()).orElseThrow().getAvailableBalance());
+                assertEquals(0L, walletTransactionRepository.count());
+                assertEquals(0L, jdbcTemplate.queryForObject("select count(*) from wallet_withdrawal_requests", Long.class));
         }
 
         @Test
@@ -394,6 +694,59 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
         }
 
         @Test
+        void concurrentPlayersSubmittingSameNormalizedReferenceGetStableConflict() throws Exception {
+                User secondPlayer = userRepository.save(User.create(
+                                phoneNormalizer.normalize("0911000105"), "Second Player",
+                                passwordEncoder.encode("123456"), AccountStatus.ACTIVE,
+                                Set.of(UserRole.PLAYER), Instant.now()));
+                walletService.createWalletIfMissing(secondPlayer);
+                String firstToken = loginToken("0911000102", "123456");
+                String secondToken = loginToken("0911000105", "123456");
+                CountDownLatch ready = new CountDownLatch(2);
+                CountDownLatch start = new CountDownLatch(1);
+                ExecutorService executor = Executors.newFixedThreadPool(2);
+                try {
+                        Callable<org.springframework.test.web.servlet.MvcResult> first = () -> submitDepositInParallel(
+                                        firstToken, "deposit-race-a", "TBR-Race-Reference", ready, start);
+                        Callable<org.springframework.test.web.servlet.MvcResult> second = () -> submitDepositInParallel(
+                                        secondToken, "deposit-race-b", "TBR RACE Reference", ready, start);
+                        Future<org.springframework.test.web.servlet.MvcResult> firstResult = executor.submit(first);
+                        Future<org.springframework.test.web.servlet.MvcResult> secondResult = executor.submit(second);
+                        assertTrue(ready.await(10, TimeUnit.SECONDS));
+                        start.countDown();
+
+                        List<Integer> statuses = List.of(firstResult.get(20, TimeUnit.SECONDS).getResponse().getStatus(),
+                                        secondResult.get(20, TimeUnit.SECONDS).getResponse().getStatus());
+                        assertEquals(1L, statuses.stream().filter(statusCode -> statusCode == 201).count());
+                        assertEquals(1L, statuses.stream().filter(statusCode -> statusCode == 409).count());
+                        String conflictBody = firstResult.get().getResponse().getStatus() == 409
+                                        ? firstResult.get().getResponse().getContentAsString()
+                                        : secondResult.get().getResponse().getContentAsString();
+                        assertEquals("DUPLICATE_TELEBIRR_REFERENCE",
+                                        objectMapper.readTree(conflictBody).get("code").asText());
+                        assertEquals(1L, depositClaimRepository.count());
+                        assertEquals(1L, idempotencyRecordRepository.count());
+                        assertEquals(0L, walletTransactionRepository.count());
+                } finally {
+                        start.countDown();
+                        executor.shutdownNow();
+                }
+        }
+
+        private org.springframework.test.web.servlet.MvcResult submitDepositInParallel(String token, String key,
+                        String reference, CountDownLatch ready, CountDownLatch start) throws Exception {
+                ready.countDown();
+                start.await(10, TimeUnit.SECONDS);
+                return mockMvc.perform(post("/api/v1/wallet/deposits")
+                                .header("Authorization", "Bearer " + token)
+                                .header("Idempotency-Key", key)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(
+                                                new DepositClaimRequest(new BigDecimal("12.34"), "ETB", reference))))
+                                .andReturn();
+        }
+
+        @Test
         void insufficientAdjustmentRollsBackWithoutChangingBalance() throws Exception {
                 String adminToken = adminLoginToken("admin@example.com", "AdminPass123!");
 
@@ -416,6 +769,7 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
         @Test
         void playerReferenceMatchPostsBalancedJournalOnceWithSupportVerification() {
                 User verifier = financeUser("0911000103", Set.of(UserRole.SUPPORT));
+                User approver = financeUser("0911000104", Set.of(UserRole.SUPPORT));
                 BingoUserPrincipal playerPrincipal = new BingoUserPrincipal(playerUser);
                 IdempotentResult<DepositClaimResponse> submitted = walletService.submitDeposit(playerPrincipal,
                                 new DepositClaimRequest(new BigDecimal("60.00"), "ETB", "TBR-VERIFIED-001"),
@@ -430,7 +784,7 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
                 assertEquals(DepositClaimStatus.PENDING,
                                 depositClaimRepository.findById(depositId).orElseThrow().getStatus());
                 IdempotentResult<DepositClaimResponse> approved = depositFinancialService.approve(depositId,
-                                new BingoUserPrincipal(verifier), "QA synthetic approval", "approve-verified-1");
+                                new BingoUserPrincipal(approver), "QA synthetic approval", "approve-verified-1");
                 assertEquals("APPROVED", approved.body().status());
                 assertEquals(verifier.getId(), approved.body().verifiedBy());
 
@@ -446,12 +800,276 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
                                 where j.deposit_claim_id=?
                                 """, BigDecimal.class, depositId);
                 assertEquals(0, new BigDecimal("60.00").compareTo(debitTotal));
+                BigDecimal creditTotal = jdbcTemplate.queryForObject("""
+                                select sum(credit_amount) from deposit_accounting_journal_lines l
+                                join deposit_accounting_journals j on j.id=l.journal_id
+                                where j.deposit_claim_id=?
+                                """, BigDecimal.class, depositId);
+                assertEquals(0, new BigDecimal("60.00").compareTo(creditTotal));
                 IdempotentResult<DepositClaimResponse> retry = depositFinancialService.approve(depositId,
-                                new BingoUserPrincipal(verifier), "QA synthetic approval", "approve-verified-1");
+                                new BingoUserPrincipal(approver), "QA synthetic approval", "approve-verified-1");
                 assertEquals(approved.body().operationId(), retry.body().operationId());
                 assertEquals(new BigDecimal("60.00"),
                                 walletRepository.findByOwnerId(playerUser.getId()).orElseThrow().getAvailableBalance());
                 assertEquals(1L, walletTransactionRepository.count());
+        }
+
+        @Test
+        void adminDepositVerificationReplaysForSameKeyAndRejectsChangedPayload() {
+                User verifier = financeUser("0911000181", Set.of(UserRole.SUPPORT));
+                Long depositId = walletService.submitDeposit(new BingoUserPrincipal(playerUser),
+                                new DepositClaimRequest(new BigDecimal("9.00"), "ETB", "TBR-IDEMPOTENT-VERIFY"),
+                                "idempotent-verify-deposit").body().id();
+                var first = depositFinancialService.verify(depositId, new BingoUserPrincipal(verifier),
+                                new DepositVerificationRequest("TBR-IDEMPOTENT-VERIFY"), "verify-key-1");
+                var replay = depositFinancialService.verify(depositId, new BingoUserPrincipal(verifier),
+                                new DepositVerificationRequest("TBR-IDEMPOTENT-VERIFY"), "verify-key-1");
+                assertEquals(first.body().verificationId(), replay.body().verificationId());
+                assertEquals(1, depositFinancialService.verificationHistory(depositId).size());
+                org.junit.jupiter.api.Assertions.assertThrows(ConflictException.class,
+                                () -> depositFinancialService.verify(depositId, new BingoUserPrincipal(verifier),
+                                                new DepositVerificationRequest("DIFFERENT"), "verify-key-1"));
+                assertEquals(1, depositFinancialService.verificationHistory(depositId).size());
+        }
+
+        @Test
+        void concurrentDepositVerificationWithSameKeyCreatesOneHistoryRecord() throws Exception {
+                User verifier = financeUser("0911000183", Set.of(UserRole.SUPPORT));
+                Long depositId = walletService.submitDeposit(new BingoUserPrincipal(playerUser),
+                                new DepositClaimRequest(new BigDecimal("9.00"), "ETB", "TBR-CONCURRENT-VERIFY"),
+                                "concurrent-verify-deposit").body().id();
+                CountDownLatch ready = new CountDownLatch(2);
+                CountDownLatch start = new CountDownLatch(1);
+                ExecutorService executor = Executors.newFixedThreadPool(2);
+                try {
+                        Callable<Long> verify = () -> {
+                                ready.countDown();
+                                start.await(10, TimeUnit.SECONDS);
+                                return depositFinancialService.verify(depositId, new BingoUserPrincipal(verifier),
+                                                new DepositVerificationRequest("TBR-CONCURRENT-VERIFY"),
+                                                "concurrent-verify-key").body().verificationId();
+                        };
+                        Future<Long> first = executor.submit(verify);
+                        Future<Long> second = executor.submit(verify);
+                        assertTrue(ready.await(10, TimeUnit.SECONDS));
+                        start.countDown();
+                        assertEquals(first.get(20, TimeUnit.SECONDS), second.get(20, TimeUnit.SECONDS));
+                } finally {
+                        start.countDown();
+                        executor.shutdownNow();
+                }
+                assertEquals(1, depositFinancialService.verificationHistory(depositId).size());
+        }
+
+        @Test
+        void walletAdjustmentSubmissionReplaysAndSerializesConcurrentDuplicates() throws Exception {
+                User maker = financeUser("0911000182", Set.of(UserRole.SUPPORT));
+                var input = new WalletAdjustmentSubmissionRequest(new BigDecimal("4.00"), "ETB", "correction", "CASE-4");
+                CountDownLatch ready = new CountDownLatch(2);
+                CountDownLatch start = new CountDownLatch(1);
+                ExecutorService executor = Executors.newFixedThreadPool(2);
+                try {
+                        Callable<Long> submit = () -> {
+                                ready.countDown();
+                                start.await(10, TimeUnit.SECONDS);
+                                return walletAdjustmentService.submit(playerUser.getId(), new BingoUserPrincipal(maker),
+                                                input, "adjustment-submit-concurrent").body().id();
+                        };
+                        Future<Long> first = executor.submit(submit);
+                        Future<Long> second = executor.submit(submit);
+                        assertTrue(ready.await(10, TimeUnit.SECONDS));
+                        start.countDown();
+                        assertEquals(first.get(20, TimeUnit.SECONDS), second.get(20, TimeUnit.SECONDS));
+                } finally {
+                        start.countDown();
+                        executor.shutdownNow();
+                }
+                assertEquals(1, jdbcTemplate.queryForObject("select count(*) from wallet_adjustment_requests", Integer.class));
+                org.junit.jupiter.api.Assertions.assertThrows(ConflictException.class,
+                                () -> walletAdjustmentService.submit(playerUser.getId(), new BingoUserPrincipal(maker),
+                                                new WalletAdjustmentSubmissionRequest(new BigDecimal("5.00"), "ETB", "changed", "CASE-5"),
+                                                "adjustment-submit-concurrent"));
+                assertEquals(1, jdbcTemplate.queryForObject("select count(*) from wallet_adjustment_requests", Integer.class));
+        }
+
+        @Test
+        void supportAndAdminCannotApproveTheirOwnVerificationButOtherAuthorizedUsersCan() throws Exception {
+                User supportVerifier = financeUser("0911000103", Set.of(UserRole.SUPPORT));
+                User supportApprover = financeUser("0911000104", Set.of(UserRole.SUPPORT));
+                Long supportDepositId = walletService.submitDeposit(new BingoUserPrincipal(playerUser),
+                                new DepositClaimRequest(new BigDecimal("25.00"), "ETB", "TBR-FOUR-EYES-SUPPORT"),
+                                "four-eyes-support").body().id();
+                String supportToken = jwtService.generateToken(supportVerifier);
+                mockMvc.perform(post("/api/v1/admin/deposits/{id}/verify", supportDepositId)
+                                .header("Authorization", "Bearer " + supportToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(
+                                                new DepositVerificationRequest("TBR-FOUR-EYES-SUPPORT"))))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.outcome").value("MATCHED"));
+                mockMvc.perform(post("/api/v1/admin/deposits/{id}/approve", supportDepositId)
+                                .header("Authorization", "Bearer " + supportToken)
+                                .header("Idempotency-Key", "four-eyes-support-self")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(new DepositReviewRequest("Self approval"))))
+                                .andExpect(status().isConflict())
+                                .andExpect(jsonPath("$.code").value("DEPOSIT_SEPARATION_OF_DUTIES_REQUIRED"));
+                assertEquals("APPROVED", depositFinancialService.approve(supportDepositId,
+                                new BingoUserPrincipal(supportApprover), "Independent support approval",
+                                "four-eyes-support-other").body().status());
+
+                User rejectionSupport = financeUser("0911000105", Set.of(UserRole.SUPPORT));
+                User secondAdmin = financeUser("0911000106", Set.of(UserRole.ADMIN));
+                Long adminReviewDepositId = walletService.submitDeposit(new BingoUserPrincipal(playerUser),
+                                new DepositClaimRequest(new BigDecimal("35.00"), "ETB", "TBR-FOUR-EYES-ADMIN"),
+                                "four-eyes-admin").body().id();
+                depositFinancialService.verify(adminReviewDepositId, new BingoUserPrincipal(supportVerifier),
+                                new DepositVerificationRequest("TBR-FOUR-EYES-ADMIN"));
+                assertEquals(1, depositFinancialService.verificationHistory(adminReviewDepositId).size());
+                walletService.rejectDeposit(adminReviewDepositId, new BingoUserPrincipal(rejectionSupport),
+                                new DepositReviewRequest("PAYMENT_REFERENCE_MISMATCH"), "four-eyes-reject");
+                var adminVerification = depositFinancialService.verify(adminReviewDepositId,
+                                new BingoUserPrincipal(adminUser),
+                                new DepositVerificationRequest("TBR-FOUR-EYES-ADMIN"));
+                assertEquals(adminUser.getId(), adminVerification.verifierUserId());
+                assertEquals(2, depositFinancialService.verificationHistory(adminReviewDepositId).size());
+                String adminToken = jwtService.generateToken(adminUser);
+                mockMvc.perform(post("/api/v1/admin/deposits/{id}/approve", adminReviewDepositId)
+                                .header("Authorization", "Bearer " + adminToken)
+                                .header("Idempotency-Key", "four-eyes-admin-self")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(new DepositReviewRequest("Self approval"))))
+                                .andExpect(status().isConflict())
+                                .andExpect(jsonPath("$.code").value("DEPOSIT_SEPARATION_OF_DUTIES_REQUIRED"));
+                assertEquals("APPROVED", depositFinancialService.approve(adminReviewDepositId,
+                                new BingoUserPrincipal(secondAdmin), "Independent admin approval",
+                                "four-eyes-admin-other").body().status());
+                assertEquals(2L, jdbcTemplate.queryForObject("select count(*) from deposit_accounting_journals",
+                                Long.class));
+                assertEquals(new BigDecimal("60.00"),
+                                walletRepository.findByOwnerId(playerUser.getId()).orElseThrow()
+                                                .getAvailableBalance());
+                assertEquals(2L, walletTransactionRepository.count());
+        }
+
+        @Test
+        void depositVerificationAndApprovalRejectUnauthorizedUsersAtTheApiBoundary() throws Exception {
+                User supportVerifier = financeUser("0911000103", Set.of(UserRole.SUPPORT));
+                Long depositId = walletService.submitDeposit(new BingoUserPrincipal(playerUser),
+                                new DepositClaimRequest(new BigDecimal("10.00"), "ETB", "TBR-UNAUTHORIZED-REVIEW"),
+                                "unauthorized-review").body().id();
+                String playerToken = loginToken("0911000102", "123456");
+                mockMvc.perform(post("/api/v1/admin/deposits/{id}/verify", depositId)
+                                .header("Authorization", "Bearer " + playerToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(
+                                                new DepositVerificationRequest("TBR-UNAUTHORIZED-REVIEW"))))
+                                .andExpect(status().isForbidden());
+
+                depositFinancialService.verify(depositId, new BingoUserPrincipal(supportVerifier),
+                                new DepositVerificationRequest("TBR-UNAUTHORIZED-REVIEW"));
+                mockMvc.perform(post("/api/v1/admin/deposits/{id}/approve", depositId)
+                                .header("Authorization", "Bearer " + playerToken)
+                                .header("Idempotency-Key", "unauthorized-approve")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(new DepositReviewRequest("Unauthorized"))))
+                                .andExpect(status().isForbidden());
+                assertEquals(0L, jdbcTemplate.queryForObject("select count(*) from deposit_accounting_journals",
+                                Long.class));
+                assertEquals(new BigDecimal("0.00"),
+                                walletRepository.findByOwnerId(playerUser.getId()).orElseThrow()
+                                                .getAvailableBalance());
+        }
+
+        @Test
+        void concurrentAuthorizedApprovalsPostOneBalancedCredit() throws Exception {
+                User verifier = financeUser("0911000103", Set.of(UserRole.SUPPORT));
+                User supportApprover = financeUser("0911000104", Set.of(UserRole.SUPPORT));
+                User adminApprover = financeUser("0911000105", Set.of(UserRole.ADMIN));
+                Long depositId = walletService.submitDeposit(new BingoUserPrincipal(playerUser),
+                                new DepositClaimRequest(new BigDecimal("80.00"), "ETB", "TBR-CONCURRENT-APPROVAL"),
+                                "concurrent-approval").body().id();
+                depositFinancialService.verify(depositId, new BingoUserPrincipal(verifier),
+                                new DepositVerificationRequest("TBR-CONCURRENT-APPROVAL"));
+
+                ExecutorService executor = Executors.newFixedThreadPool(2);
+                CountDownLatch ready = new CountDownLatch(2);
+                CountDownLatch start = new CountDownLatch(1);
+                try {
+                        Future<String> supportResult = executor.submit(() -> approveDepositInParallel(depositId,
+                                        supportApprover, ready, start, "concurrent-support-approval"));
+                        Future<String> adminResult = executor.submit(() -> approveDepositInParallel(depositId,
+                                        adminApprover, ready, start, "concurrent-admin-approval"));
+                        assertTrue(ready.await(10, TimeUnit.SECONDS));
+                        start.countDown();
+                        assertEquals("APPROVED", supportResult.get(20, TimeUnit.SECONDS));
+                        assertEquals("APPROVED", adminResult.get(20, TimeUnit.SECONDS));
+                } finally {
+                        executor.shutdownNow();
+                }
+
+                Wallet wallet = walletRepository.findByOwnerId(playerUser.getId()).orElseThrow();
+                assertEquals(new BigDecimal("80.00"), wallet.getAvailableBalance());
+                assertEquals(1L, walletTransactionRepository.count());
+                assertEquals(1L, jdbcTemplate.queryForObject(
+                                "select count(*) from deposit_accounting_journals where deposit_claim_id=?",
+                                Long.class, depositId));
+                List<BigDecimal> totals = jdbcTemplate.query("""
+                                select sum(l.debit_amount), sum(l.credit_amount)
+                                from deposit_accounting_journal_lines l
+                                join deposit_accounting_journals j on j.id=l.journal_id
+                                where j.deposit_claim_id=?
+                                """, (rs, row) -> List.of(rs.getBigDecimal(1), rs.getBigDecimal(2)), depositId)
+                                .getFirst();
+                assertEquals(0, totals.get(0).compareTo(new BigDecimal("80.00")));
+                assertEquals(0, totals.get(1).compareTo(new BigDecimal("80.00")));
+        }
+
+        @Test
+        void concurrentVerifyAndApproveBySameUserNeverCreditsDeposit() throws Exception {
+                User staff = financeUser("0911000103", Set.of(UserRole.SUPPORT));
+                Long depositId = walletService.submitDeposit(new BingoUserPrincipal(playerUser),
+                                new DepositClaimRequest(new BigDecimal("45.00"), "ETB", "TBR-CONCURRENT-SELF"),
+                                "concurrent-self-review").body().id();
+                ExecutorService executor = Executors.newFixedThreadPool(2);
+                CountDownLatch ready = new CountDownLatch(2);
+                CountDownLatch start = new CountDownLatch(1);
+                try {
+                        Future<String> verification = executor.submit(() -> {
+                                ready.countDown();
+                                start.await(10, TimeUnit.SECONDS);
+                                return depositFinancialService.verify(depositId, new BingoUserPrincipal(staff),
+                                                new DepositVerificationRequest("TBR-CONCURRENT-SELF")).outcome();
+                        });
+                        Future<String> approval = executor.submit(() -> {
+                                ready.countDown();
+                                start.await(10, TimeUnit.SECONDS);
+                                try {
+                                        depositFinancialService.approve(depositId, new BingoUserPrincipal(staff),
+                                                        "Concurrent self approval", "concurrent-self-approve");
+                                        return "APPROVED";
+                                } catch (com.bakaroo.bingo.backend.common.exception.ConflictException exception) {
+                                        return exception.getCode();
+                                }
+                        });
+                        assertTrue(ready.await(10, TimeUnit.SECONDS));
+                        start.countDown();
+                        assertEquals("MATCHED", verification.get(20, TimeUnit.SECONDS));
+                        assertTrue(approval.get(20, TimeUnit.SECONDS).startsWith("DEPOSIT_"));
+                } finally {
+                        executor.shutdownNow();
+                }
+
+                var selfApproval = org.junit.jupiter.api.Assertions.assertThrows(
+                                com.bakaroo.bingo.backend.common.exception.ConflictException.class,
+                                () -> depositFinancialService.approve(depositId, new BingoUserPrincipal(staff),
+                                                "Sequential self approval", "sequential-self-approve"));
+                assertEquals("DEPOSIT_SEPARATION_OF_DUTIES_REQUIRED", selfApproval.getCode());
+                assertEquals(0L, jdbcTemplate.queryForObject("select count(*) from deposit_accounting_journals",
+                                Long.class));
+                assertEquals(new BigDecimal("0.00"),
+                                walletRepository.findByOwnerId(playerUser.getId()).orElseThrow()
+                                                .getAvailableBalance());
         }
 
         @Test
@@ -500,7 +1118,7 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
                 User checker = financeUser("0911000104", Set.of(UserRole.ADMIN));
                 var request = walletAdjustmentService.submit(playerUser.getId(), new BingoUserPrincipal(maker),
                                 new WalletAdjustmentSubmissionRequest(new BigDecimal("15.00"), "ETB",
-                                                "Approved QA adjustment", "CASE-02D-15"));
+                                                "Approved QA adjustment", "CASE-02D-15"), "adjust-request-15").body();
 
                 var separationFailure = org.junit.jupiter.api.Assertions.assertThrows(
                                 com.bakaroo.bingo.backend.common.exception.ConflictException.class,
@@ -526,7 +1144,7 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
                 var excessiveDebit = walletAdjustmentService.submit(playerUser.getId(),
                                 new BingoUserPrincipal(maker),
                                 new WalletAdjustmentSubmissionRequest(new BigDecimal("-20.00"), "ETB",
-                                                "Insufficient funds test", "CASE-02D-NEGATIVE"));
+                                                "Insufficient funds test", "CASE-02D-NEGATIVE"), "adjust-request-negative").body();
                 var insufficientFunds = org.junit.jupiter.api.Assertions.assertThrows(
                                 com.bakaroo.bingo.backend.common.exception.ConflictException.class,
                                 () -> walletAdjustmentService.approve(excessiveDebit.id(),
@@ -1185,6 +1803,17 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
                 } catch (Exception exception) {
                         return "CONFLICT";
                 }
+        }
+
+        private String approveDepositInParallel(Long depositId,
+                        User approver,
+                        CountDownLatch ready,
+                        CountDownLatch start,
+                        String idempotencyKey) throws Exception {
+                ready.countDown();
+                start.await(10, TimeUnit.SECONDS);
+                return depositFinancialService.approve(depositId, new BingoUserPrincipal(approver),
+                                "Concurrent independent approval", idempotencyKey).body().status();
         }
 
         private String loginToken(String phoneNumber, String password) throws Exception {

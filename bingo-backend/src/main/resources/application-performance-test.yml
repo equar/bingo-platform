@@ -1,0 +1,27 @@
+# Safe load-test runtime: schema changes are forbidden. Prepare the disposable
+# bingo_perf_<run> schema through the normal guarded migration workflow first.
+spring:
+  datasource:
+    url: ${BINGO_PERF_MYSQL_URL}
+    username: ${BINGO_PERF_MYSQL_USERNAME}
+    password: ${BINGO_PERF_MYSQL_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: ${BINGO_PERF_DB_POOL_MAX}
+      connection-timeout: 30000
+  flyway:
+    enabled: false
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  sql:
+    init:
+      mode: never
+
+app:
+  performance:
+    expected-catalog: ${BINGO_PERF_MYSQL_DATABASE}
+    expected-mysql-port: ${BINGO_PERF_MYSQL_PORT:3306}
+    expected-mysql-server-uuid: ${BINGO_PERF_MYSQL_SERVER_UUID}
+    guard-token: ${BINGO_PERF_GUARD_TOKEN}
+    approved-maximum-db-connections: ${BINGO_PERF_APPROVED_MAX_DB_CONNECTIONS}

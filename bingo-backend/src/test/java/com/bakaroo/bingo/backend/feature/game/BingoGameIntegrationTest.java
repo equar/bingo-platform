@@ -257,7 +257,7 @@ class BingoGameIntegrationTest extends MySqlIntegrationTest {
         private void fundWallet(User player, String reference) {
                 var request = walletAdjustmentService.submit(player.getId(), new BingoUserPrincipal(financeMaker),
                                 new WalletAdjustmentSubmissionRequest(new BigDecimal("1000.00"), "ETB",
-                                                "Approved integration fixture funding", reference));
+                                                "Approved integration fixture funding", reference), "fixture-funding-" + reference).body();
                 walletAdjustmentService.approve(request.id(), new BingoUserPrincipal(financeChecker),
                                 new WalletAdjustmentReviewRequest("Independent integration fixture approval"));
         }
@@ -628,6 +628,13 @@ class BingoGameIntegrationTest extends MySqlIntegrationTest {
                                 true);
                 var entitlement = prizeEntitlementRepository.findAll().get(0);
                 assertEquals(PrizeEntitlementStatus.PENDING, entitlement.getStatus());
+                mockMvc.perform(get("/api/v1/admin/prize-entitlements/" + entitlement.getId())
+                                .header("Authorization", "Bearer " + adminToken))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.id").value(entitlement.getId()))
+                                .andExpect(jsonPath("$.status").value("PENDING"))
+                                .andExpect(jsonPath("$.payoutsEnabled").value(false))
+                                .andExpect(jsonPath("$.settlementReference").value(org.hamcrest.Matchers.nullValue()));
                 var duplicateReview = assertThrows(ConflictException.class,
                                 () -> bingoGameService.reviewWinClaim(claim.getId(), adminPrincipal,
                                                 new WinClaimReviewRequest("duplicate review"), true));

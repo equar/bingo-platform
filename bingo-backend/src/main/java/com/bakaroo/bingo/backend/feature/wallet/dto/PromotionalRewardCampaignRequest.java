@@ -2,6 +2,7 @@ package com.bakaroo.bingo.backend.feature.wallet.dto;
 
 import com.bakaroo.bingo.backend.feature.wallet.entity.SignupRewardPolicy;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -14,9 +15,11 @@ public record PromotionalRewardCampaignRequest(
         @NotBlank @Size(max = 120) String name,
         @NotNull SignupRewardPolicy.TriggerType triggerType,
         boolean enabled,
-        @NotNull @DecimalMin("0.01") @Digits(integer = 17, fraction = 2) BigDecimal rewardAmount,
+        @NotNull @DecimalMin("0.01") @DecimalMax("99999999999999999.99")
+        @Digits(integer = 17, fraction = 2) BigDecimal rewardAmount,
         @NotBlank @Pattern(regexp = "(?i)ETB") String currency,
         @NotNull Instant effectiveFrom,
         Instant effectiveUntil,
-        @jakarta.validation.constraints.DecimalMin("0.01") @Digits(integer = 17, fraction = 2) BigDecimal thresholdAmount,
+        @jakarta.validation.constraints.DecimalMin("0.01") @DecimalMax("99999999999999999.99")
+        @Digits(integer = 17, fraction = 2) BigDecimal thresholdAmount,
         @Size(max = 500) String reason) { }

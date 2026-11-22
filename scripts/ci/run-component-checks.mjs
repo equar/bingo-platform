@@ -43,8 +43,9 @@ function requireTool(command, guidance) {
 }
 
 function verifyNode() {
-  if (process.versions.node !== '22.13.0') {
-    throw new Error(`PR validation uses Node 22.13.0. Select that exact version for local Admin and website checks (found ${process.versions.node}).`);
+  const expected = fs.readFileSync(path.join(repoRoot, '.node-version'), 'utf8').trim();
+  if (process.versions.node !== expected) {
+    throw new Error(`Admin and website validation use Node ${expected} from .node-version. Select that exact version (found ${process.versions.node}).`);
   }
 }
 
@@ -68,6 +69,7 @@ function runAdmin() {
   run('npm', ['run', 'test:coverage', '--', '--maxWorkers=1', '--reporter=junit', '--outputFile=test-results/vitest-junit.xml'], cwd);
   run('npx', ['tsc', '-b', '--pretty', 'false'], cwd);
   run('npm', ['run', 'build'], cwd);
+  run('npm', ['run', 'e2e:list'], cwd);
 }
 
 function runWebsite() {
@@ -131,6 +133,7 @@ function runBackend() {
 
 function runInfrastructure() {
   requireTool('python3', 'Install Python 3.12.');
+  run('python3', ['scripts/ci/validate-github-workflows.py'], repoRoot);
   run('python3', ['-m', 'py_compile', 'deployment/aws/bootstrap-github-actions-config.py', 'deployment/aws/validate-config.py', 'deployment/mobile/prepare-store-credentials.py', 'deployment/mobile/release_provenance.py', 'deployment/terraform/scripts/update_godaddy_test_dns.py'], repoRoot);
   run('python3', ['-m', 'unittest', 'discover', '-s', 'deployment/mobile', '-p', 'test_*.py'], repoRoot);
   run('python3', ['-m', 'unittest', 'discover', '-s', 'deployment/aws/tests', '-p', 'test_*.py'], repoRoot);

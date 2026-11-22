@@ -123,7 +123,12 @@ public class WalletTransferService {
             throw new BadRequestException("UNSUPPORTED_CURRENCY", "Currency does not match wallet transfer policy");
         }
 
-        BigDecimal amount = MoneyValues.money(request.amount());
+        BigDecimal amount;
+        try {
+            amount = MoneyValues.requireMoneyPrecision(request.amount());
+        } catch (IllegalArgumentException exception) {
+            throw new BadRequestException("INVALID_AMOUNT_PRECISION", "Transfer amounts must fit two decimal places");
+        }
         if (amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new BadRequestException("INVALID_AMOUNT", "Transfer amount must be greater than zero");
         }
@@ -167,13 +172,21 @@ public class WalletTransferService {
     public WalletTransferSettingsResponse saveSettings(BingoUserPrincipal principal,
             WalletTransferSettingsRequest request) {
         requireAdmin(principal);
+        BigDecimal maxSingleAmount;
+        BigDecimal periodAmount;
+        try {
+            maxSingleAmount = MoneyValues.requireMoneyPrecision(request.maxSingleTransferAmount());
+            periodAmount = MoneyValues.requireMoneyPrecision(request.periodOutgoingLimitAmount());
+        } catch (IllegalArgumentException exception) {
+            throw new BadRequestException("INVALID_AMOUNT_PRECISION", "Transfer limits must fit two decimal places");
+        }
         if (request.enabled()) {
             ensureNoActivePolicyForPeriod(request.limitPeriod(), null);
         }
         WalletTransferPolicy policy = policyRepository.save(WalletTransferPolicy.create(
                 request.enabled(),
-                MoneyValues.money(request.maxSingleTransferAmount()),
-                MoneyValues.money(request.periodOutgoingLimitAmount()),
+                maxSingleAmount,
+                periodAmount,
                 request.limitPeriod(),
                 request.currency().toUpperCase(),
                 request.effectiveFrom(),

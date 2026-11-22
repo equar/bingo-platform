@@ -9,5 +9,7 @@ public record WalletBalanceResponse(
                 BigDecimal availableBalance,
                 BigDecimal promotionalBalance,
                 BigDecimal totalBalance,
-                Instant updatedAt) {
+                Instant updatedAt,
+                BigDecimal minimumDepositAmount,
+                String maximumDepositAmount) {
 }

@@ -121,6 +121,7 @@ export function ClaimsPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [mode, setMode] = useState<"APPROVE" | "REJECT">("APPROVE");
   const [reference, setReference] = useState<EntitlementReference | null>(null);
+  const [approvedEntitlementId, setApprovedEntitlementId] = useState<number | null>(null);
   const idempotency = useIdempotencyKey();
 
   useEffect(() => {
@@ -147,7 +148,8 @@ export function ClaimsPage() {
         idempotencyKey: idempotency.getKey(),
       });
     },
-    onSuccess: async () => {
+    onSuccess: async (result) => {
+      setApprovedEntitlementId(mode === "APPROVE" ? result.entitlementId ?? null : null);
       await queryClient.invalidateQueries({ queryKey: ["win-claims"] });
       await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       idempotency.resetKey();
@@ -193,7 +195,7 @@ export function ClaimsPage() {
         <AdminPageHeader
           title={t("Win claims")}
           description={t(
-            "Review submitted claims and record validation evidence.",
+            "Server validation establishes claim eligibility. Admin approval creates a prize entitlement; wallet settlement is a separate action.",
           )}
           refresh={{
             isFetching: claimsQuery.isFetching,
@@ -266,6 +268,15 @@ export function ClaimsPage() {
         {claimsQuery.isFetching && !claimsQuery.isLoading ? (
           <Alert severity="info">{t("Updating claim results...")}</Alert>
         ) : null}
+        {approvedEntitlementId != null ? (
+          <Alert severity="success" action={
+            <Button color="inherit" size="small" onClick={() => setReference({ kind: "entitlement", id: approvedEntitlementId })}>
+              {t("View prize entitlement #")}{approvedEntitlementId}
+            </Button>
+          }>
+            {t("Claim approved and entitlement created. The player's wallet has not been credited; settlement is separate.")}
+          </Alert>
+        ) : null}
 
         <Box sx={{ overflowX: "auto" }}>
           <Table size="small" aria-label={t("win claims table")}>
@@ -277,6 +288,7 @@ export function ClaimsPage() {
                 <TableCell>{t("Pattern")}</TableCell>
                 <TableCell>{t("Status")}</TableCell>
                 <TableCell>{t("Validation")}</TableCell>
+                <TableCell>{t("Entitlement / settlement")}</TableCell>
                 <TableCell align="right">{t("Draw seq.")}</TableCell>
                 <TableCell>{t("Submitted")}</TableCell>
                 <TableCell align="right">{t("Actions")}</TableCell>
@@ -380,6 +392,21 @@ export function ClaimsPage() {
                       size="small"
                     />
                   </TableCell>
+                  <TableCell>
+                    {claim.entitlementId == null ? t("Not approved") : (
+                      <Stack spacing={0.5}>
+                        <Link component="button" type="button" underline="hover"
+                          aria-label={t("View prize entitlement {{id}}", { id: claim.entitlementId })}
+                          onClick={() => setReference({ kind: "entitlement", id: claim.entitlementId! })}>
+                          {t("Entitlement #")}{claim.entitlementId}
+                        </Link>
+                        <Typography variant="caption" color="text.secondary">
+                          {translateAdminStatus(claim.prizeStatus ?? "PENDING", t)}
+                          {claim.prizeAmount ? ` · ${claim.prizeAmount} ${claim.prizeCurrency ?? ""}` : ""}
+                        </Typography>
+                      </Stack>
+                    )}
+                  </TableCell>
                   <TableCell align="right">
                     {claim.drawSequenceSnapshot}
                   </TableCell>
@@ -436,7 +463,7 @@ export function ClaimsPage() {
               ))}
               {claimsQuery.data && claimsQuery.data.content.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9}>
+                  <TableCell colSpan={10}>
                     <Alert severity="info">
                       {t("No claims match the current search and filters.")}
                     </Alert>
@@ -484,6 +511,9 @@ export function ClaimsPage() {
                   )}
                 </Alert>
               ) : null}
+              {mode === "APPROVE" ? <Alert severity="info">
+                {t("Approval validates the claim and creates a prize entitlement. It does not credit the player's wallet. Settlement is a separate authorized action.")}
+              </Alert> : null}
               <TextField
                 label={
                   mode === "APPROVE"

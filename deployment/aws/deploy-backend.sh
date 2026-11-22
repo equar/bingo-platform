@@ -5,6 +5,8 @@ python3 "$ROOT/deployment/aws/validate-config.py"
 : "${SERVER:?Set SERVER to user@host}"
 : "${SSH_KEY:?Set SSH_KEY}"
 [[ -f "$SSH_KEY" ]] || { echo 'SSH key not found' >&2; exit 1; }
+source "$ROOT/deployment/lib/pinned-ssh-host.sh"
+configure_pinned_ssh_host "$SERVER" "${DEPLOY_SSH_KNOWN_HOSTS_FILE:-${RUNNER_TEMP:-${TMPDIR:-/tmp}}/bingo-known_hosts}"
 DEPLOY_ENVIRONMENT="${DEPLOY_ENVIRONMENT:-prod}"
 case "$DEPLOY_ENVIRONMENT" in
   test) expected_database=bingotest; expected_port=8091; expected_ssl_mode=DISABLED; allow_public_key_retrieval=true ;;
@@ -41,7 +43,7 @@ if len(settings['JWT_SECRET']) < 32: raise SystemExit('JWT_SECRET must contain a
 try:
     if len(base64.b64decode(settings['BINGO_FLOAT_BANK_ENCRYPTION_KEY'],validate=True)) != 32: raise ValueError()
 except Exception: raise SystemExit('BINGO_FLOAT_BANK_ENCRYPTION_KEY must be Base64 encoding of 32 bytes')
-defaults={'APP_EMAIL_PROVIDER':os.environ.get('APP_EMAIL_PROVIDER', ''),'APP_EMAIL_FROM':'','MICROSOFT_GRAPH_TENANT_ID':'','MICROSOFT_GRAPH_CLIENT_ID':'','MICROSOFT_GRAPH_CLIENT_SECRET':'','SPRING_MAIL_USERNAME':'','SPRING_MAIL_PASSWORD':'','MYSQL_PORT':'3306','MYSQL_DATABASE':os.environ['MYSQL_DATABASE'],'MYSQL_SSL_MODE':os.environ['MYSQL_SSL_MODE'],'MYSQL_ALLOW_PUBLIC_KEY_RETRIEVAL':os.environ['MYSQL_ALLOW_PUBLIC_KEY_RETRIEVAL'],'JAVA_TOOL_OPTIONS':os.environ.get('JAVA_TOOL_OPTIONS') or ('-Xms128m -Xmx384m' if os.environ['DEPLOY_ENVIRONMENT'] == 'test' else '-Xms512m -Xmx1g'),'SPRING_PROFILES_ACTIVE':'prod','BINGO_ENV_IMPORT':'','SERVER_PORT':os.environ['SERVER_PORT'],'SERVER_ADDRESS':'127.0.0.1','SPRING_JPA_HIBERNATE_DDL_AUTO':'validate','JWT_ACCESS_TOKEN_TTL_SECONDS':'3600','SPRING_MAIL_HOST':'smtp.gmail.com','SPRING_MAIL_PORT':'587','APP_DEV_SEED_ENABLED':'false','APP_BUSINESS_TIMEZONE':'Africa/Addis_Ababa','ADMIN_EMAIL_BOOTSTRAP_ENABLED':'false','ADMIN_BOOTSTRAP_EMAILS':'','ADMIN_BOOTSTRAP_ENABLED':'false','ADMIN_BOOTSTRAP_PHONE':'','ADMIN_BOOTSTRAP_NAME':'','ADMIN_BOOTSTRAP_EMAIL':'','ADMIN_BOOTSTRAP_PASSWORD':'','APP_GAME_PAYOUTS_ENABLED':'false'}
+defaults={'APP_EMAIL_PROVIDER':os.environ.get('APP_EMAIL_PROVIDER', ''),'APP_EMAIL_FROM':'','MICROSOFT_GRAPH_TENANT_ID':'','MICROSOFT_GRAPH_CLIENT_ID':'','MICROSOFT_GRAPH_CLIENT_SECRET':'','SPRING_MAIL_USERNAME':'','SPRING_MAIL_PASSWORD':'','MYSQL_PORT':'3306','MYSQL_DATABASE':os.environ['MYSQL_DATABASE'],'MYSQL_SSL_MODE':os.environ['MYSQL_SSL_MODE'],'MYSQL_ALLOW_PUBLIC_KEY_RETRIEVAL':os.environ['MYSQL_ALLOW_PUBLIC_KEY_RETRIEVAL'],'JAVA_TOOL_OPTIONS':os.environ.get('JAVA_TOOL_OPTIONS') or ('-Xms128m -Xmx384m' if os.environ['DEPLOY_ENVIRONMENT'] == 'test' else '-Xms512m -Xmx1g'),'SPRING_PROFILES_ACTIVE':'prod','BINGO_ENV_IMPORT':'','SERVER_PORT':os.environ['SERVER_PORT'],'SERVER_ADDRESS':'127.0.0.1','SPRING_JPA_HIBERNATE_DDL_AUTO':'validate','JWT_ACCESS_TOKEN_TTL_SECONDS':'3600','SPRING_MAIL_HOST':'smtp.gmail.com','SPRING_MAIL_PORT':'587','APP_DEV_SEED_ENABLED':'false','APP_BUSINESS_TIMEZONE':'Africa/Addis_Ababa','ADMIN_EMAIL_BOOTSTRAP_ENABLED':'false','ADMIN_BOOTSTRAP_EMAILS':'','ADMIN_BOOTSTRAP_ENABLED':'false','ADMIN_BOOTSTRAP_PHONE':'','ADMIN_BOOTSTRAP_NAME':'','ADMIN_BOOTSTRAP_EMAIL':'','ADMIN_BOOTSTRAP_PASSWORD':'','ADMIN_BOOTSTRAP_APPROVED':'false','ADMIN_BOOTSTRAP_APPROVAL_EXPIRES_AT':'','ADMIN_BOOTSTRAP_APPROVAL_RUN_ID':'','APP_GAME_PAYOUTS_ENABLED':'false'}
 fixed={'BINGO_ENV_IMPORT','MYSQL_DATABASE','MYSQL_SSL_MODE','MYSQL_ALLOW_PUBLIC_KEY_RETRIEVAL','SPRING_PROFILES_ACTIVE','SERVER_PORT','SERVER_ADDRESS','SPRING_JPA_HIBERNATE_DDL_AUTO','APP_DEV_SEED_ENABLED'}
 for k,v in defaults.items(): settings[k]=v if k in fixed else os.environ.get(k) or v
 for k in ['APP_PAYMENT_PROVIDER_NAME','APP_PAYMENT_BUSINESS_ACCOUNT','APP_PAYMENT_INSTRUCTIONS']:
@@ -57,7 +59,7 @@ if [[ ! -f "$jar" ]]; then
   (cd "$ROOT/bingo-backend" && mvn -B -Dmaven.test.skip=true clean package)
 fi
 [[ -f "$jar" ]] || { echo 'Bingo backend JAR not found' >&2; exit 1; }
-remote="$(ssh -o BatchMode=yes -i "$SSH_KEY" "$SERVER" '
+remote="$(ssh "${SSH_OPTIONS[@]}" -o ConnectTimeout=20 -i "$SSH_KEY" "$SERVER" '
   set -e
   umask 077
   staging_directory="$HOME/.cache/bingo-deploy"
@@ -68,14 +70,14 @@ remote="$(ssh -o BatchMode=yes -i "$SSH_KEY" "$SERVER" '
 cleanup() {
   status=$?
   trap - EXIT
-  ssh -i "$SSH_KEY" "$SERVER" "rm -rf '$remote'" || status=1
+  ssh "${SSH_OPTIONS[@]}" -i "$SSH_KEY" "$SERVER" "rm -rf '$remote'" || status=1
   rm -rf "$work"
   exit "$status"
 }
 trap cleanup EXIT
-scp -i "$SSH_KEY" "$jar" "$SERVER:$remote/backend.jar"
-scp -i "$SSH_KEY" "$work/backend.env" "$ROOT/deployment/aws/bingo-backend.service" "$ROOT/deployment/aws/setup-rds-truststore.sh" "$ROOT/deployment/aws/ensure-test-database.py" "$SERVER:$remote/"
-ssh -i "$SSH_KEY" "$SERVER" "sudo -n bash -s -- '$remote' '$SERVER_PORT'" <<'REMOTE'
+scp "${SSH_OPTIONS[@]}" -i "$SSH_KEY" "$jar" "$SERVER:$remote/backend.jar"
+scp "${SSH_OPTIONS[@]}" -i "$SSH_KEY" "$work/backend.env" "$ROOT/deployment/aws/bingo-backend.service" "$ROOT/deployment/aws/setup-rds-truststore.sh" "$ROOT/deployment/aws/ensure-test-database.py" "$SERVER:$remote/"
+ssh "${SSH_OPTIONS[@]}" -i "$SSH_KEY" "$SERVER" "sudo -n bash -s -- '$remote' '$SERVER_PORT'" <<'REMOTE'
 set -euo pipefail
 incoming="$1"
 server_port="$2"

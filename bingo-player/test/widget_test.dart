@@ -1,5 +1,6 @@
 import 'package:bingo_player/src/app.dart';
 import 'package:bingo_player/src/core/config/app_config.dart';
+import 'package:bingo_player/src/features/auth/presentation/auth_gate.dart';
 import 'package:bingo_player/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -32,6 +33,24 @@ void main() {
       find.textContaining('profile and release builds require HTTPS/WSS'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('blocks insecure production API URLs before entering auth', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      BingoApp(
+        config: const AppConfig(
+          apiBaseUrl: 'http://api.example.com',
+          apiBaseUrlLabel: 'API_BASE_URL',
+          isProduction: true,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('API base URL is invalid'), findsOneWidget);
+    expect(find.byType(AuthGate), findsNothing);
   });
 
   testWidgets('shows localized configuration guidance in Amharic', (

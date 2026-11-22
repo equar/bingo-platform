@@ -65,6 +65,7 @@ public class DepositFinancialService {
     private final boolean simulationEnabled;
     private final AuditLogService auditLogService;
     private final SignupRewardService signupRewardService;
+    private final WalletService walletService;
 
     public DepositFinancialService(JdbcTemplate jdbc,
             DepositClaimRepository claims,
@@ -79,6 +80,7 @@ public class DepositFinancialService {
             LocalFinancialSimulationGuard simulationGuard,
             AuditLogService auditLogService,
             SignupRewardService signupRewardService,
+            WalletService walletService,
             @Value("${app.wallet.deposit-simulation-enabled:false}") boolean simulationEnabled) {
         this.jdbc = jdbc;
         this.claims = claims;
@@ -93,6 +95,7 @@ public class DepositFinancialService {
         this.simulationGuard = simulationGuard;
         this.auditLogService = auditLogService;
         this.signupRewardService = signupRewardService;
+        this.walletService = walletService;
         this.simulationEnabled = simulationEnabled;
         simulationGuard.validateConfiguration(simulationEnabled, "Player deposit");
     }
@@ -100,7 +103,22 @@ public class DepositFinancialService {
     @Transactional
     public DepositVerificationResponse verify(Long depositId, BingoUserPrincipal principal,
             DepositVerificationRequest input) {
+        return verify(depositId, principal, input, UUID.randomUUID().toString()).body();
+    }
+
+    @Transactional
+    public IdempotentResult<DepositVerificationResponse> verify(Long depositId, BingoUserPrincipal principal,
+            DepositVerificationRequest input, String idempotencyKey) {
         User verifier = requireFinanceStaff(principal.getUser());
+        String path = "/api/v1/admin/deposits/" + depositId + "/verify";
+        String hash = requestHashService.hash("POST", path, input);
+        return idempotencyService.execute(verifier.getId(), idempotencyKey, hash, UUID.randomUUID().toString(),
+                HttpStatus.OK.value(), DepositVerificationResponse.class,
+                () -> verifyOnce(depositId, verifier, input));
+    }
+
+    private DepositVerificationResponse verifyOnce(Long depositId, User verifier,
+            DepositVerificationRequest input) {
         DepositClaim claim = claims.findByIdForUpdate(depositId)
                 .orElseThrow(() -> new NotFoundException("DEPOSIT_NOT_FOUND", "Deposit claim not found"));
         if (claim.getStatus() == DepositClaimStatus.APPROVED) {
@@ -131,6 +149,17 @@ public class DepositFinancialService {
         Long existingVerification = "MATCHED".equals(outcome)
                 ? findMatchedPlayerReferenceVerificationId(depositId)
                 : null;
+        if (existingVerification != null) {
+            DepositVerificationResponse existing = toVerification(existingVerification);
+            Long latestVerificationId = jdbc.query("""
+                    select id from float_top_up_verification_attempts
+                    where deposit_claim_id=? order by id desc limit 1
+                    """, rs -> rs.next() ? rs.getLong(1) : null, depositId);
+            if (!existing.verifierUserId().equals(verifier.getId())
+                    || !existing.verificationId().equals(latestVerificationId)) {
+                existingVerification = null;
+            }
+        }
         long verificationId = existingVerification == null
                 ? insertVerification(depositId, verifier.getId(), outcome)
                 : existingVerification;
@@ -208,6 +237,10 @@ public class DepositFinancialService {
                         throw new ConflictException("DEPOSIT_VERIFIER_NOT_AUTHORIZED",
                                 "The verifying user is no longer an authorized staff member");
                     }
+                    if (approver.getId().equals(verifier.getId())) {
+                        throw new ConflictException("DEPOSIT_SEPARATION_OF_DUTIES_REQUIRED",
+                                "A different authorized staff member must approve a verified deposit");
+                    }
                     boolean supportPosting = claim.getStatus() == DepositClaimStatus.PENDING
                             && approver.hasRole(UserRole.SUPPORT) && verifier.hasRole(UserRole.SUPPORT);
                     boolean adminPosting = claim.getStatus() == DepositClaimStatus.PENDING
@@ -228,14 +261,21 @@ public class DepositFinancialService {
                         throw new ConflictException("DEPOSIT_EVIDENCE_NOT_AUTHORIZED",
                                 "The payment reference must match the player's submitted reference");
                     }
-                    if (!"ETB".equals(claim.getCurrency())
+                    if (BigDecimal.ONE.compareTo(walletProperties.depositConversionRate()) != 0
+                            || claim.getConversionRateSnapshot() == null
+                            || BigDecimal.ONE.compareTo(claim.getConversionRateSnapshot()) != 0
+                            || !"ETB".equals(claim.getCurrency())
                             || claim.getSubmittedCashAmount().compareTo(claim.getCalculatedCreditAmount()) != 0) {
                         throw new ConflictException("DEPOSIT_ACCOUNTING_REVIEW_REQUIRED",
                                 "Deposit conversion requires an approved balancing account before posting");
                     }
 
-                    Wallet wallet = wallets.findByOwnerIdForUpdate(claim.getPlayer().getId()).orElseGet(() ->
-                            wallets.save(Wallet.create(claim.getPlayer(), claim.getCurrency())));
+                    Wallet wallet = wallets.findByOwnerIdForUpdate(claim.getPlayer().getId()).orElseGet(() -> {
+                        walletService.createWalletIfMissing(claim.getPlayer());
+                        return wallets.findByOwnerIdForUpdate(claim.getPlayer().getId()).orElseThrow(
+                                () -> new ConflictException("WALLET_NOT_FOUND",
+                                        "Player wallet could not be provisioned for deposit approval"));
+                    });
                     if (!"ETB".equals(wallet.getCurrency())) {
                         throw new ConflictException("DEPOSIT_WALLET_CURRENCY_MISMATCH",
                                 "Player wallet currency does not match the verified deposit");

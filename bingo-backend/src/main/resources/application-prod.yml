@@ -21,6 +21,22 @@ spring:
     validate-on-migrate: true
     clean-disabled: true
 
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-components: never
+      show-details: never
+
 logging:
   level:
     root: ${LOG_LEVEL_ROOT:INFO}
@@ -44,7 +60,7 @@ app:
     adjustment-simulation-enabled: false
   agent:
     float-simulation-enabled: false
-    bank-account-encryption-key: ${BINGO_FLOAT_BANK_ENCRYPTION_KEY:}
+    bank-account-encryption-key: ${BINGO_FLOAT_BANK_ENCRYPTION_KEY}
   admin-account-email:
     activation-url: ${ADMIN_ACCOUNT_ACTIVATION_URL}
   dev:

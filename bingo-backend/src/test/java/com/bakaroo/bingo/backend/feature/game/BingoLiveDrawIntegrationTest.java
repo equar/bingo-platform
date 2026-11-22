@@ -300,7 +300,7 @@ class BingoLiveDrawIntegrationTest extends MySqlIntegrationTest {
                 var adjustment = walletAdjustmentService.submit(playerUser.getId(),
                                 new BingoUserPrincipal(financeMaker),
                                 new WalletAdjustmentSubmissionRequest(new BigDecimal("1000.00"), "ETB",
-                                                "Approved integration fixture funding", "LIVE-DRAW-PLAYER"));
+                                                "Approved integration fixture funding", "LIVE-DRAW-PLAYER"), "fixture-live-player-funding").body();
                 walletAdjustmentService.approve(adjustment.id(), new BingoUserPrincipal(financeChecker),
                                 new WalletAdjustmentReviewRequest("Independent integration fixture approval"));
         }

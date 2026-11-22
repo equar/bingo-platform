@@ -25,6 +25,7 @@ the current web/backend deployment workflow.
 |---|---|---|---|
 | `DEPLOY_HOST` | Required variable | `terraform output -raw web_static_ip` after test apply | Same output after production apply |
 | `DEPLOY_USER` | Required variable | `ubuntu` (also shown by `test_ssh_user`) | `ubuntu` for the Ubuntu Lightsail host |
+| `DEPLOY_SSH_HOST_KEY` | Required environment variable; pin for StrictHostKeyChecking | Independently verify host public-key fingerprint through the cloud control plane | Independently verify production host public-key fingerprint through the cloud control plane |
 | `DEPLOY_SSH_KEY_B64` | Required secret | Base64 private key whose public half is in `env/test.tfvars` | Private key authorized on the production host |
 | `MYSQL_HOST` | Required variable | `127.0.0.1` | Current repository setting is an RDS endpoint. The Terraform production root instead outputs a Lightsail database endpoint; do not switch until its schema and application account are migrated and verified. |
 | `MYSQL_USER` | Required variable | Test-only account name; first backend deployment creates the account | Account must already exist on the selected production database. Current repository value is `dbmasteruser`; Terraform creates only the master user `bingo_db_admin`, not a least-privilege application account. |
@@ -43,9 +44,9 @@ the current web/backend deployment workflow.
 | `ADMIN_ACCOUNT_ACTIVATION_URL` | Required URL on the Admin origin | `http://admin.test.bakaroo.com/activate-account` | `https://admin.bingo.bakaroo.com/activate-account` |
 | `PUBLIC_SITE_INDEXABLE` | Required boolean | `false` | Keep `false` unless indexing is intentionally approved |
 | `APP_GAME_PAYOUTS_ENABLED` | Workflow-selected variable | Forced to `false` | Set intentionally; workflow defaults to `false` if unset |
-| `ADMIN_EMAIL_BOOTSTRAP_ENABLED` | Optional boolean with workflow defaults | Defaults to `false` | Defaults to `true`; set explicitly to `false` unless email bootstrap is intended |
-| `ADMIN_BOOTSTRAP_EMAILS` | Optional comma-separated emails for email bootstrap | Defaults to `test@example.invalid` | Defaults to `apps@bakaroo.com,equarhishe@gmail.com`; confirm intended recipients or disable email bootstrap |
-| `ADMIN_BOOTSTRAP_ENABLED` | One-time account bootstrap; default `false` | Keep `false` unless explicitly approved | Keep `false` unless explicitly approved; cannot be enabled together with email bootstrap |
+| `ADMIN_EMAIL_BOOTSTRAP_ENABLED` | Optional boolean; default disabled | Keep `false` | Keep `false`; workflow dispatch approval, expiry, and protected Environment approval also required |
+| `ADMIN_BOOTSTRAP_EMAILS` | Comma-separated recipients only when email bootstrap is explicitly enabled | No default recipients | No default recipients; configure only for an approved one-time provisioning run |
+| `ADMIN_BOOTSTRAP_ENABLED` | One-time account bootstrap; default `false` | Keep `false` | Keep `false` unless an auditable one-time workflow approval is active; cannot be enabled with email bootstrap |
 | `ADMIN_BOOTSTRAP_PHONE`, `ADMIN_BOOTSTRAP_NAME`, `ADMIN_BOOTSTRAP_EMAIL` | Variables required only when one-time bootstrap is enabled | Enter the approved test Admin identity | Enter the approved production Admin identity |
 | `ADMIN_BOOTSTRAP_PASSWORD` | Secret required only when one-time bootstrap is enabled | One-time password; remove after setup | One-time password; remove after setup |
 | `PUBLIC_ANDROID_AVAILABILITY`, `PUBLIC_ANDROID_URL`, `PUBLIC_IOS_AVAILABILITY`, `PUBLIC_IOS_URL` | Optional public-site values | Product-approved availability and download links | Product-approved availability and store links |

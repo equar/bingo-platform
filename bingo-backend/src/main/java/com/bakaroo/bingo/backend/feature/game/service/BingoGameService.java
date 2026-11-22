@@ -374,6 +374,13 @@ public class BingoGameService {
         return toRoomResponse(savedRoom);
     }
 
+    /** Admin-only entry point used by the Admin API. Scheduler-created sessions bypass this API intentionally. */
+    @Transactional
+    public BingoRoomResponse createRoomForAdmin(BingoUserPrincipal principal, BingoRoomRequest request) {
+        requireAdmin(principal);
+        return createRoom(request);
+    }
+
     @Transactional
     public BingoRoomResponse updateRoom(Long roomId, BingoRoomRequest request) {
         validateRoomPrizeConfiguration(request);
@@ -406,6 +413,12 @@ public class BingoGameService {
         bingoRoomRepository.saveAndFlush(room);
         if (!wasActive && room.isActive()) roomSessionCadence.ensureNextSession(roomId);
         return toRoomResponse(room);
+    }
+
+    @Transactional
+    public BingoRoomResponse updateRoomForAdmin(BingoUserPrincipal principal, Long roomId, BingoRoomRequest request) {
+        requireAdmin(principal);
+        return updateRoom(roomId, request);
     }
 
     @Transactional
@@ -470,6 +483,13 @@ public class BingoGameService {
     }
 
     @Transactional
+    public GameSessionResponse createSessionForAdmin(BingoUserPrincipal principal, Long roomId,
+            GameSessionRequest request) {
+        requireAdmin(principal);
+        return createSession(roomId, request);
+    }
+
+    @Transactional
     public GameSessionResponse updateSessionState(Long sessionId, GameSessionStateUpdateRequest request) {
         GameSession session = gameSessionRepository.findByIdForUpdate(sessionId)
                 .orElseThrow(() -> new NotFoundException("SESSION_NOT_FOUND", "Game session not found"));
@@ -526,6 +546,13 @@ public class BingoGameService {
     }
 
     @Transactional
+    public GameSessionResponse updateSessionStateForAdmin(BingoUserPrincipal principal, Long sessionId,
+            GameSessionStateUpdateRequest request) {
+        requireAdmin(principal);
+        return updateSessionState(sessionId, request);
+    }
+
+    @Transactional
     public GameSessionResponse updateSession(Long sessionId, GameSessionUpdateRequest request) {
         GameSession session = gameSessionRepository.findByIdForUpdate(sessionId)
                 .orElseThrow(() -> new NotFoundException("SESSION_NOT_FOUND", "Game session not found"));
@@ -549,6 +576,13 @@ public class BingoGameService {
             validateSessionPrizeConfiguration(session);
         }
         return toSessionResponse(gameSessionRepository.saveAndFlush(session));
+    }
+
+    @Transactional
+    public GameSessionResponse updateSessionForAdmin(BingoUserPrincipal principal, Long sessionId,
+            GameSessionUpdateRequest request) {
+        requireAdmin(principal);
+        return updateSession(sessionId, request);
     }
 
     @Transactional
@@ -666,7 +700,7 @@ public class BingoGameService {
     }
 
     public DrawEventResponse triggerAutomaticDraw(Long sessionId, BingoUserPrincipal principal) {
-        User operator = requireDrawOperator(principal);
+        User operator = requireAdmin(principal);
         return gameLiveDrawService.triggerAutomaticDraw(sessionId, Instant.now(), operator);
     }
 
@@ -848,6 +882,13 @@ public class BingoGameService {
         return toPrizeEntitlementResponse(prizeEntitlementRepository.save(entitlement));
     }
 
+    @Transactional(readOnly = true)
+    public PrizeEntitlementResponse getPrizeEntitlement(Long entitlementId) {
+        PrizeEntitlement entitlement = prizeEntitlementRepository.findById(entitlementId)
+                .orElseThrow(() -> new NotFoundException("ENTITLEMENT_NOT_FOUND", "Prize entitlement not found"));
+        return toPrizeEntitlementResponse(entitlement);
+    }
+
     public void validatePrizeForPayment(Long entitlementId) {
         requirePayoutsEnabled();
         PrizeEntitlement reference = prizeEntitlementRepository.findById(entitlementId)
@@ -946,19 +987,11 @@ public class BingoGameService {
     }
 
     private User requireAdmin(BingoUserPrincipal principal) {
-        User user = principal.getUser();
-        if (!user.hasRole(UserRole.ADMIN)) {
-            throw new BadRequestException("ADMIN_ROLE_REQUIRED", "This endpoint is available to admin accounts only");
+        if (principal == null || !principal.isEnabled() || !principal.getUser().isActive()
+                || !principal.getUser().hasRole(UserRole.ADMIN)) {
+            throw new AccessDeniedException("An active admin account is required");
         }
-        return user;
-    }
-
-    private User requireDrawOperator(BingoUserPrincipal principal) {
-        User user = principal.getUser();
-        if (!user.isActive() || !(user.hasRole(UserRole.ADMIN) || user.hasRole(UserRole.SUPPORT))) {
-            throw new AccessDeniedException("An active admin or support account is required to operate game draws");
-        }
-        return user;
+        return principal.getUser();
     }
 
     private Wallet ensureWallet(User owner) {

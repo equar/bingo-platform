@@ -136,7 +136,7 @@ export function PrizeEntitlementsPage() {
 
         <Alert severity="warning">
           {t(
-            "Wallet prizes are credited once when payouts are enabled. Cash prizes must be disbursed through an approved agent. Payout availability follows the operating configuration.",
+            "Claim approval creates an entitlement only; it does not credit the player's wallet. Wallet credit is a separate authorized settlement and remains blocked while payouts are disabled. Cash entitlements remain unresolved: there is no Admin or Player cash settlement path, and these records are not marked paid.",
           )}
         </Alert>
 
@@ -196,6 +196,7 @@ export function PrizeEntitlementsPage() {
                   <TableCell>{t("Status")}</TableCell>
                   <TableCell>{t("Created")}</TableCell>
                   <TableCell>{t("Settlement reference")}</TableCell>
+                  <TableCell>{t("Settlement audit")}</TableCell>
                   <TableCell align="right">{t("Action")}</TableCell>
                 </TableRow>
               </TableHead>
@@ -315,7 +316,25 @@ export function PrizeEntitlementsPage() {
                       {formatEthiopianDateTime(entitlement.createdAt)}
                     </TableCell>
                     <TableCell>
-                      {entitlement.settlementReference ?? t("Not settled")}
+                      <Stack spacing={0.5}>
+                        <Typography variant="body2">
+                          {entitlement.settlementReference ?? t("Not settled")}
+                        </Typography>
+                        {entitlement.settlementPath === "AGENT_CASH" && entitlement.status === "PENDING" ? (
+                          <Typography variant="caption" color="warning.main">
+                            {t("Unresolved external payout; no Admin or Player cash settlement path.")}
+                          </Typography>
+                        ) : null}
+                      </Stack>
+                    </TableCell>
+                    <TableCell>
+                      {entitlement.settledAt == null ? t("No settlement audit yet") : (
+                        <Stack spacing={0.25}>
+                          <Typography variant="body2">{t("Settled by user #")}{entitlement.settledBy ?? t("Not available")}</Typography>
+                          <Typography variant="caption" color="text.secondary">{formatEthiopianDateTime(entitlement.settledAt)}</Typography>
+                          {entitlement.settlementNote ? <Typography variant="caption">{entitlement.settlementNote}</Typography> : null}
+                        </Stack>
+                      )}
                     </TableCell>
                     <TableCell align="right">
                       <Button
@@ -343,7 +362,7 @@ export function PrizeEntitlementsPage() {
                 ))}
                 {entitlementsQuery.data && entitlements.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={10}>
+                    <TableCell colSpan={11}>
                       <Alert severity="info">
                         {t("No prize entitlements match the current filters.")}
                       </Alert>
@@ -409,6 +428,9 @@ export function PrizeEntitlementsPage() {
                 fullWidth
                 required
               />
+              <Alert severity="info">
+                {t("This is a separate wallet credit for an approved wallet-path entitlement. Claim approval itself did not credit the wallet.")}
+              </Alert>
               <TextField
                 label={t("Settlement note")}
                 inputProps={{ maxLength: 500 }}

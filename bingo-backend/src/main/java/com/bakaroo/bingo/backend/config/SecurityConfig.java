@@ -7,6 +7,8 @@ import com.bakaroo.bingo.backend.feature.auth.service.BingoUserDetailsService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpMethod;
@@ -39,9 +41,13 @@ public class SecurityConfig {
         private static final Logger log = LoggerFactory.getLogger(SecurityConfig.class);
 
         private final List<String> allowedOrigins;
+        private final boolean performanceTestProfile;
 
-        public SecurityConfig(@Value("${app.cors.allowed-origins:${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173,http://localhost:3001,http://127.0.0.1:3001}}") String allowedOrigins) {
+        public SecurityConfig(
+                        @Value("${app.cors.allowed-origins:${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173,http://localhost:3001,http://127.0.0.1:3001}}") String allowedOrigins,
+                        Environment environment) {
                 this.allowedOrigins = parseOrigins(allowedOrigins);
+                this.performanceTestProfile = environment.acceptsProfiles(Profiles.of("performance-test"));
         }
 
         @Bean
@@ -79,7 +85,12 @@ public class SecurityConfig {
                                 .authenticationProvider(daoAuthenticationProvider)
                                 .sessionManagement(session -> session
                                                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                                .authorizeHttpRequests(authorize -> authorize
+                                .authorizeHttpRequests(authorize -> {
+                                        if (performanceTestProfile) {
+                                                authorize.requestMatchers(HttpMethod.GET,
+                                                                "/api/v1/admin/performance-target").permitAll();
+                                        }
+                                        authorize
                                                 .requestMatchers("/api/v1/me", "/api/v1/me/preferences", "/api/v1/auth/me")
                                                 .hasAnyRole("PLAYER", "ADMIN", "SUPPORT")
                                                 .requestMatchers("/api/v1/auth/**", "/api/v1/admin/login",
@@ -126,7 +137,8 @@ public class SecurityConfig {
                                                 .hasRole("ADMIN")
                                                 .requestMatchers("/api/v1/admin/**").hasAnyRole("ADMIN", "SUPPORT")
                                                 .requestMatchers("/api/v1/agent/**").hasRole("AGENT")
-                                                .anyRequest().authenticated())
+                                                .anyRequest().authenticated();
+                                })
                                 .exceptionHandling(exception -> {
                                         exception.authenticationEntryPoint(
                                                                 (request, response, authException) -> {

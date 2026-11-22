@@ -50,7 +50,8 @@ contain secure secret entry, outputs, and setup commands.
 | API listener | `127.0.0.1:8091` | `127.0.0.1:8081` |
 
 The workflow builds selected applications only: the Java 25 backend with Maven,
-and the Admin/Astro frontends with Node 22, then deploys them over SSH. PR validation is the test gate:
+and the Admin/Astro frontends with Node.js 22.22.0 from the repository
+`.node-version`, then deploys them over SSH. PR validation is the test gate:
 `.github/workflows/pr-validation-pipeline.yml` runs backend tests against
 disposable MySQL, Admin tests/lint/build, and website checks. Require this
 validation in branch protection. The deployment package step skips backend
@@ -138,8 +139,11 @@ HTTPS-only.
 The application deployment workflow does not configure production Nginx or
 certificates; initial host setup is a separate operation.
 During initial SSH setup, verify the server host fingerprint out of band;
-`ssh-keyscan` alone does not authenticate the host. The SSH workflow requires
-reachable port 22 and passwordless sudo for the deployment account.
+configure the matching OpenSSH public key as the environment-scoped
+`DEPLOY_SSH_HOST_KEY` variable. Workflow and shell deployment clients pin that
+key and require strict host checking; they do not trust runner-side discovery.
+The SSH workflow requires reachable port 22 and passwordless sudo for the
+deployment account.
 
 ## GitHub Actions configuration
 
@@ -220,9 +224,10 @@ Environment **variables**:
 | Name | Purpose/default |
 |---|---|
 | `DEPLOY_HOST`, `DEPLOY_USER` | Target host address and SSH account; configure separately in each environment |
+| `DEPLOY_SSH_HOST_KEY` | Required environment variable containing the independently verified OpenSSH public host key line |
 | `MYSQL_HOST`, `MYSQL_USER` | Database DNS and application user; the port defaults to `3306` |
 | `APP_EMAIL_PROVIDER`, `APP_EMAIL_FROM` | Required email provider selection and authorized sender mailbox |
-| `ADMIN_EMAIL_BOOTSTRAP_ENABLED`, `ADMIN_BOOTSTRAP_EMAILS` | Optional email-based Admin bootstrap; see the default behavior below |
+| `ADMIN_EMAIL_BOOTSTRAP_ENABLED`, `ADMIN_BOOTSTRAP_EMAILS` | Disabled by default; explicit workflow-run approval and expiry are also required |
 | `CORS_ALLOWED_ORIGINS`, `WEBSOCKET_ALLOWED_ORIGINS` | Exact comma-separated browser origins; test uses HTTP, production HTTPS |
 | `ADMIN_ACCOUNT_ACTIVATION_URL` | Production default: `https://admin.bingo.bakaroo.com/activate-account`; test uses its HTTP Admin URL |
 | `ADMIN_BOOTSTRAP_ENABLED` | `false`; enable only for one-time initial Admin setup |
@@ -234,13 +239,14 @@ Environment **variables**:
 | `PUBLIC_SUPPORT_EMAIL`, `PUBLIC_SUPPORT_TELEGRAM_URL`, `PUBLIC_SUPPORT_WHATSAPP_URL` | Optional public contact channels |
 | `APP_PAYMENT_PROVIDER_NAME`, `APP_PAYMENT_BUSINESS_ACCOUNT`, `APP_PAYMENT_INSTRUCTIONS` | Public payment instructions; defaults to Telebirr |
 
-`ADMIN_EMAIL_BOOTSTRAP_ENABLED` defaults to `false` in test but `true` in
-production when unset; the production workflow's default recipients are
-`apps@bakaroo.com` and `equarhishe@gmail.com`. Set it explicitly to `false`
-unless those accounts should be created. The separate
-`ADMIN_BOOTSTRAP_ENABLED` path is disabled by default and cannot be enabled at
-the same time. The full source/generation instructions for all variables,
-including optional public-site and SMTP settings, are in
+Both bootstrap modes default to disabled. A production bootstrap additionally
+requires the workflow dispatch approval input, a UTC expiry no more than 60
+minutes away, and protected `production` Environment reviewer approval. The
+workflow records who requested and approved the run. Email recipients are
+never supplied by workflow defaults. The two bootstrap modes cannot run at the
+same time. See the [pinned SSH and Admin bootstrap guide](aws/ADMIN_BOOTSTRAP.md).
+The full source/generation instructions for all variables, including optional
+public-site and SMTP settings, are in
 [`deploymentVariables.txt`](../deploymentVariables.txt).
 
 The production branch uses schema `bingo` and port 8081; the test branch uses

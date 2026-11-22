@@ -12,6 +12,7 @@ import {
   updatePlayerStatus,
   walletAdjustmentHistory,
 } from "../../api/admin";
+import { ApiError } from "../../api/types";
 import { PlayerDetailPage } from "./PlayerDetailPage";
 
 vi.mock("../../api/admin", () => ({
@@ -222,12 +223,12 @@ describe("PlayerDetailPage", () => {
     await user.click(await screen.findByRole("button", { name: "Submit request" }));
 
     await waitFor(() =>
-      expect(submitWalletAdjustmentRequestMock).toHaveBeenCalledWith(6, {
+      expect(submitWalletAdjustmentRequestMock).toHaveBeenCalledWith(6, expect.objectContaining({
         amount: -12.5,
         currency: "ETB",
         reason: "Support correction",
         supportingReference: "CASE-18",
-      }),
+      })),
     );
     expect(await screen.findByText(/wallet balance has not changed/i)).toBeInTheDocument();
   });
@@ -244,12 +245,12 @@ describe("PlayerDetailPage", () => {
     await user.click(await screen.findByRole("button", { name: "Submit request" }));
 
     await waitFor(() =>
-      expect(submitWalletAdjustmentRequestMock).toHaveBeenCalledWith(6, {
+      expect(submitWalletAdjustmentRequestMock).toHaveBeenCalledWith(6, expect.objectContaining({
         amount: 25.75,
         currency: "ETB",
         reason: "Approved correction",
         supportingReference: "CASE-25",
-      }),
+      })),
     );
   });
 
@@ -333,5 +334,27 @@ describe("PlayerDetailPage", () => {
     fireEvent.click(confirm);
 
     expect(submitWalletAdjustmentRequestMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("reuses the idempotency key when retrying an uncertain adjustment submission", async () => {
+    const user = userEvent.setup();
+    submitWalletAdjustmentRequestMock
+      .mockRejectedValueOnce(new ApiError("unknown", { outcomeUnknown: true }))
+      .mockResolvedValueOnce({ id: 90 } as Awaited<ReturnType<typeof submitWalletAdjustmentRequest>>);
+    render(<PlayerDetailPage />, { wrapper: createWrapper });
+    await screen.findByText("Player Six");
+    await user.click(screen.getByRole("button", { name: "Adjust wallet" }));
+    await user.type(screen.getByRole("spinbutton", { name: "Amount" }), "5");
+    await user.type(screen.getByRole("textbox", { name: "Reason" }), "Retry correction");
+    await user.type(screen.getByRole("textbox", { name: "Reference" }), "CASE-90");
+    await user.click(screen.getByRole("button", { name: "Review" }));
+    await user.click(await screen.findByRole("button", { name: "Submit request" }));
+    await screen.findByRole("button", { name: "Retry same request" });
+    await user.click(screen.getByRole("button", { name: "Retry same request" }));
+    await waitFor(() => expect(submitWalletAdjustmentRequestMock).toHaveBeenCalledTimes(2));
+    const firstKey = submitWalletAdjustmentRequestMock.mock.calls[0][1].idempotencyKey;
+    const retryKey = submitWalletAdjustmentRequestMock.mock.calls[1][1].idempotencyKey;
+    expect(firstKey).toBeTruthy();
+    expect(retryKey).toBe(firstKey);
   });
 });

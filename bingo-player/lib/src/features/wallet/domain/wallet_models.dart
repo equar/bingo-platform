@@ -6,6 +6,8 @@ class WalletBalance {
     required this.promotionalBalance,
     required this.totalBalance,
     required this.updatedAt,
+    this.minimumDepositAmount = '0.01',
+    this.maximumDepositAmount = '99999999999999999.99',
   });
 
   final int walletId;
@@ -14,6 +16,8 @@ class WalletBalance {
   final num promotionalBalance;
   final num totalBalance;
   final DateTime updatedAt;
+  final String minimumDepositAmount;
+  final String maximumDepositAmount;
 
   factory WalletBalance.fromJson(Map<String, dynamic> json) {
     return WalletBalance(
@@ -25,6 +29,9 @@ class WalletBalance {
       updatedAt:
           DateTime.tryParse(json['updatedAt']?.toString() ?? '') ??
           DateTime.fromMillisecondsSinceEpoch(0),
+      minimumDepositAmount: json['minimumDepositAmount']?.toString() ?? '0.01',
+      maximumDepositAmount:
+          json['maximumDepositAmount']?.toString() ?? '99999999999999999.99',
     );
   }
 }

@@ -713,7 +713,7 @@ export interface WinClaimResponse {
 
 export interface WinClaimReviewRequest {
   reviewNote: string;
-  idempotencyKey?: string;
+  idempotencyKey: string;
 }
 
 export interface PrizeEntitlementResponse {
@@ -949,6 +949,7 @@ export interface WalletAdjustmentSubmissionRequest {
   currency: string;
   reason: string;
   supportingReference: string;
+  idempotencyKey?: string;
 }
 
 export interface WalletAdjustmentRequestResponse {
@@ -1317,6 +1318,11 @@ export async function prizeEntitlements(page = 0, size = 20, query?: string, sta
   return data;
 }
 
+export async function adminPrizeEntitlement(entitlementId: number) {
+  const { data } = await http.get<PrizeEntitlementResponse>(`/api/v1/admin/prize-entitlements/${entitlementId}`);
+  return data;
+}
+
 export interface PrizeEntitlementSettlementRequest {
   settlementReference: string;
   settlementNote?: string;
@@ -1337,10 +1343,10 @@ export async function deposits(page = 0, size = 20, query?: string, status?: str
   return data;
 }
 
-export interface WithdrawalResponse { id:number; operationId:string; playerId:number; playerDisplayName:string; playerPhoneNumber:string|null; amount:string; currency:string; destinationType:string; accountName:string; phoneNumber:string|null; bankName:string|null; accountNumber:string|null; status:string; createdAt:string; reviewedBy:number|null; reviewedAt:string|null; transferReference:string|null; reviewNote:string|null }
-export interface WithdrawalReviewRequest { transferReference?:string; reviewNote:string; idempotencyKey:string }
+ export interface WithdrawalResponse { id:number; operationId:string; playerId:number; playerDisplayName:string; playerPhoneNumber:string|null; amount:string; currency:string; destinationType:string; accountName:string; phoneNumber:string|null; bankName:string|null; accountNumber:string|null; status:string; createdAt:string; reviewedBy:number|null; reviewedAt:string|null; transferReference:string|null; reviewNote:string|null; paymentEvidence:string|null }
+ export interface WithdrawalReviewRequest { transferReference?:string; reviewNote:string; paymentEvidence?:string; idempotencyKey:string }
 export async function withdrawals(page=0,size=20,query?:string,status?:string){const {data}=await http.get<PageResponse<WithdrawalResponse>>('/api/v1/admin/wallet/withdrawals',{params:{page,size,query,status}});return data;}
-export async function reviewWithdrawal(id:number,action:'complete'|'reject',body:WithdrawalReviewRequest){const {data}=await http.post<WithdrawalResponse>(`/api/v1/admin/wallet/withdrawals/${id}/${action}`,{transferReference:body.transferReference,reviewNote:body.reviewNote},{headers:{'Idempotency-Key':body.idempotencyKey}});return data;}
+ export async function reviewWithdrawal(id:number,action:'complete'|'reject',body:WithdrawalReviewRequest){const {data}=await http.post<WithdrawalResponse>(`/api/v1/admin/wallet/withdrawals/${id}/${action}`,{transferReference:body.transferReference,reviewNote:body.reviewNote,paymentEvidence:body.paymentEvidence},{headers:{'Idempotency-Key':body.idempotencyKey}});return data;}
 
 export async function deposit(depositId: number) {
   const { data } = await http.get<DepositClaimResponse>(`/api/v1/admin/deposits/${depositId}`);
@@ -1365,10 +1371,11 @@ export async function rejectDeposit(depositId: number, body: DepositReviewReques
   return data;
 }
 
-export async function verifyDeposit(depositId: number, paymentReference: string) {
+export async function verifyDeposit(depositId: number, paymentReference: string, idempotencyKey: string) {
   const { data } = await http.post<DepositVerificationResponse>(
     `/api/v1/admin/deposits/${depositId}/verify`,
     { paymentReference },
+    { headers: { 'Idempotency-Key': idempotencyKey } },
   );
   return data;
 }
@@ -1379,7 +1386,8 @@ export async function submitWalletAdjustmentRequest(
 ) {
   const { data } = await http.post<WalletAdjustmentRequestResponse>(
     `/api/v1/admin/players/${playerId}/wallet-adjustments/requests`,
-    body,
+    { amount: body.amount, currency: body.currency, reason: body.reason, supportingReference: body.supportingReference },
+    { headers: { 'Idempotency-Key': body.idempotencyKey } },
   );
   return data;
 }

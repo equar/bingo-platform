@@ -39,6 +39,27 @@ or release certification.
   The legacy one-step adjustment path is disabled. Neither workflow is
   production-authorized by its implementation or QA simulation.
 
+## Win-claim review and prize entitlements
+
+- Server validation establishes whether a submitted claim is eligible for
+  review; Admin approval records the claim decision and creates a pending prize
+  entitlement. Approval alone does not credit a Player wallet.
+- Wallet-path settlement is a separate Admin action guarded by the payout
+  policy, authoritative winner-share checks, entitlement/session locks, and a
+  settlement reference. A repeated settlement with that same entitlement and
+  reference replays the existing result; a different reference cannot settle
+  it again.
+- Cash entitlements remain pending/unresolved in the Admin and Player
+  workflows. There is no Admin or Player cash settlement path; the Admin UI
+  must not display a pending cash entitlement as paid. Existing Agent-only cash
+  functionality is outside this workflow and is not changed by this review.
+- Current Admin wallet settlement records the wallet balance movement and its
+  `PRIZE_CREDIT` transaction. It does not write a balanced general-ledger
+  journal in the current implementation. The payout policy remains fail-closed;
+  do not treat that operational transaction as double-entry accounting or
+  enable production payouts until Finance approves the accounting design and
+  the corresponding journal is implemented and reconciled.
+
 ## Agent float funding and payouts
 
 - An Agent's reference, note, or uploaded receipt is an unverified claim. Float

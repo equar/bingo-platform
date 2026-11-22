@@ -44,6 +44,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class WalletService {
 
+    private static final BigDecimal MINIMUM_DEPOSIT_AMOUNT = new BigDecimal("0.01");
+
     private static final Set<String> DEPOSIT_REJECTION_REASONS = Set.of(
             "PAYMENT_REFERENCE_NOT_FOUND",
             "PAYMENT_REFERENCE_MISMATCH",
@@ -83,15 +85,16 @@ public class WalletService {
         this.requestHashService = requestHashService;
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public WalletBalanceResponse getBalance(BingoUserPrincipal principal) {
         User player = requirePlayer(principal);
         Wallet wallet = ensureWallet(player);
         return new WalletBalanceResponse(wallet.getId(), wallet.getCurrency(), wallet.getAvailableBalance(),
-                wallet.getPromotionalBalance(), wallet.getTotalBalance(), wallet.getUpdatedAt());
+                wallet.getPromotionalBalance(), wallet.getTotalBalance(), wallet.getUpdatedAt(),
+                MINIMUM_DEPOSIT_AMOUNT, walletProperties.depositMaximumAmount().toPlainString());
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public Page<WalletTransactionResponse> getTransactions(BingoUserPrincipal principal, Pageable pageable) {
         User player = requirePlayer(principal);
         ensureWallet(player);
@@ -164,19 +167,36 @@ public class WalletService {
             throw new BadRequestException("UNSUPPORTED_CURRENCY",
                     "Only " + walletProperties.currency() + " deposits are supported");
         }
-
+        BigDecimal submittedAmount = request.submittedCashAmount();
+        if (submittedAmount == null || submittedAmount.compareTo(MINIMUM_DEPOSIT_AMOUNT) < 0) {
+            throw new BadRequestException("DEPOSIT_AMOUNT_BELOW_MINIMUM", "Deposit amount must be at least 0.01");
+        }
+        if (submittedAmount.scale() > 2 || submittedAmount.precision() - submittedAmount.scale() > 17) {
+            throw new BadRequestException("DEPOSIT_AMOUNT_PRECISION_INVALID",
+                    "Deposit amount must have no more than 17 integer digits and 2 decimal places");
+        }
+        if (BigDecimal.ONE.compareTo(walletProperties.depositConversionRate()) != 0) {
+            throw new ConflictException("DEPOSIT_CONVERSION_UNSUPPORTED",
+                    "Deposits require a configured 1:1 cash-to-credit conversion rate");
+        }
         String normalizedReference = telebirrReferenceNormalizer.normalize(request.telebirrReference());
         String requestHash = requestHashService.hash("POST", "/api/v1/wallet/deposits", request);
         String operationId = UUID.randomUUID().toString();
 
-        return idempotencyService.execute(player.getId(), idempotencyKey, requestHash, operationId,
-                HttpStatus.CREATED.value(), DepositClaimResponse.class, () -> {
+        try {
+            return idempotencyService.execute(player.getId(), idempotencyKey, requestHash, operationId,
+                    HttpStatus.CREATED.value(), DepositClaimResponse.class, () -> {
+                    if (submittedAmount.compareTo(walletProperties.depositMaximumAmount()) > 0) {
+                        throw new BadRequestException("DEPOSIT_AMOUNT_ABOVE_MAXIMUM",
+                                "Deposit amount exceeds the configured maximum of "
+                                        + walletProperties.depositMaximumAmount().toPlainString());
+                    }
                     if (depositClaimRepository.existsByNormalizedTelebirrReference(normalizedReference)) {
                         throw new ConflictException("DUPLICATE_TELEBIRR_REFERENCE",
                                 "That telebirr reference has already been submitted");
                     }
 
-                    BigDecimal cashAmount = MoneyValues.money(request.submittedCashAmount());
+                    BigDecimal cashAmount = MoneyValues.requireMoneyPrecision(request.submittedCashAmount());
                     BigDecimal conversionRate = MoneyValues.conversionRate(walletProperties.depositConversionRate());
                     BigDecimal creditAmount = MoneyValues.creditAmount(cashAmount, conversionRate);
 
@@ -192,7 +212,28 @@ public class WalletService {
                     claim = depositClaimRepository.save(claim);
 
                     return toDepositResponse(claim);
-                });
+                    });
+        } catch (org.springframework.dao.DataIntegrityViolationException exception) {
+            if (isDuplicateTelebirrReference(exception)) {
+                throw new ConflictException("DUPLICATE_TELEBIRR_REFERENCE",
+                        "That telebirr reference has already been submitted");
+            }
+            throw exception;
+        }
+    }
+
+    private boolean isDuplicateTelebirrReference(Throwable failure) {
+        for (Throwable cause = failure; cause != null; cause = cause.getCause()) {
+            if (cause instanceof org.hibernate.exception.ConstraintViolationException constraintFailure
+                    && "uk_deposit_claims_reference".equalsIgnoreCase(constraintFailure.getConstraintName())) {
+                return true;
+            }
+            String message = cause.getMessage();
+            if (message != null && message.toLowerCase(Locale.ROOT).contains("uk_deposit_claims_reference")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Transactional
@@ -279,8 +320,11 @@ public class WalletService {
 
     private Wallet ensureWallet(User owner) {
         return walletRepository.findByOwnerId(owner.getId()).orElseGet(() -> {
-            Wallet wallet = Wallet.create(owner, walletProperties.currency());
-            return walletRepository.saveAndFlush(wallet);
+            // MySQL's unique-key upsert recovers concurrent first-wallet creation
+            // without poisoning the current transaction after a duplicate insert.
+            walletRepository.insertIfMissing(owner.getId(), walletProperties.currency());
+            return walletRepository.findByOwnerId(owner.getId()).orElseThrow(
+                    () -> new IllegalStateException("Wallet provisioning did not create or recover a wallet"));
         });
     }
 

@@ -36,14 +36,16 @@ export function DepositDetailPage() {
     ]);
   };
   const verifyMutation = useMutation({
-    mutationFn: async () => {
-      const result = await verifyDeposit(id, reference.trim());
-      if (result.outcome === "MATCHED") {
-        await approveDeposit(id, { reviewNote: isAdmin ? "ADMIN_REVIEW_APPROVED" : "SUPPORT_REFERENCE_MATCHED", idempotencyKey: idempotency.getKey() });
-      }
-      return result;
-    },
-    onSuccess: async (result) => { setOutcome(result.outcome); await refresh(); if (result.outcome === "MATCHED") idempotency.resetKey(); },
+    mutationFn: () => verifyDeposit(id, reference.trim(), idempotency.getKey()),
+    onSuccess: async (result) => { idempotency.resetKey(); setOutcome(result.outcome); await refresh(); },
+    onError: (error) => { if (!parseApiError(error).outcomeUnknown) idempotency.resetKey(); },
+  });
+  const approveMutation = useMutation({
+    mutationFn: () => approveDeposit(id, {
+      reviewNote: isAdmin ? "ADMIN_REVIEW_APPROVED" : "SUPPORT_REFERENCE_MATCHED",
+      idempotencyKey: idempotency.getKey(),
+    }),
+    onSuccess: async () => { idempotency.resetKey(); await refresh(); },
     onError: (error) => { if (!parseApiError(error).outcomeUnknown) idempotency.resetKey(); },
   });
   const rejectMutation = useMutation({
@@ -56,9 +58,16 @@ export function DepositDetailPage() {
   if (detail.error || !detail.data) return <StatusState title={t("Unable to load deposits")} message={t(getUserFacingErrorMessage(detail.error) ?? "Something went wrong. Please try again.")} actionLabel={t("Retry")} onAction={() => detail.refetch()} />;
   const d = detail.data;
   const open = d.status === "PENDING";
-  const canAdminReview = isAdmin && d.status === "REJECTED";
-  const canSupportReview = isSupport && d.status === "PENDING";
-  const anyError = verifyMutation.error ?? rejectMutation.error;
+  const canAdminVerify = isAdmin && d.status === "REJECTED" && d.verifiedBy == null;
+  const canSupportVerify = isSupport && open && d.verifiedBy == null;
+  const canVerify = canAdminVerify || canSupportVerify;
+  const canApprove = (isAdmin || isSupport)
+    && d.verifiedBy != null
+    && d.verifiedBy !== session?.user.id
+    && (open || (isAdmin && d.status === "REJECTED"));
+  const verifiedByCurrentUser = d.verifiedBy != null && d.verifiedBy === session?.user.id;
+  const canSupportReject = isSupport && open;
+  const anyError = verifyMutation.error ?? approveMutation.error ?? rejectMutation.error;
 
   const details: Array<[string, string]> = [
     [t("Player"), `${d.playerDisplayName || `${t("Player")} #${d.playerId}`} (#${d.playerId})`],
@@ -81,7 +90,8 @@ export function DepositDetailPage() {
     <Button onClick={() => navigate("/deposits")} sx={{ alignSelf: "flex-start", py: 0.25 }}>← {t("Back to deposits")}</Button>
     {anyError ? <Alert severity="error">{t(getUserFacingErrorMessage(anyError) ?? "Something went wrong. Please try again.")}</Alert> : null}
     {outcome && outcome !== "MATCHED" ? <Alert severity="warning">{t(outcome)}</Alert> : null}
-    {verifyMutation.isSuccess && verifyMutation.data.outcome === "MATCHED" ? <Alert severity="success">{t("Deposit approved")}</Alert> : null}
+    {verifyMutation.isSuccess && verifyMutation.data.outcome === "MATCHED" ? <Alert severity="info">{t("Payment reference matched. A different authorized staff member must approve this deposit.")}</Alert> : null}
+    {approveMutation.isSuccess ? <Alert severity="success">{t("Deposit approved")}</Alert> : null}
 
     <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "minmax(0, 1fr) 360px" }, alignItems: "start", gap: 2 }}>
       <Paper variant="outlined" sx={{ p: { xs: 2, sm: 2.5 }, minWidth: 0 }}>
@@ -102,19 +112,23 @@ export function DepositDetailPage() {
         </Box>
       </Paper>
 
-      {(canSupportReview || canAdminReview) ? <Paper variant="outlined" sx={{ p: 2.5, position: { md: "sticky" }, top: 96 }}>
+      {(canVerify || canApprove || verifiedByCurrentUser || canSupportReject) ? <Paper variant="outlined" sx={{ p: 2.5, position: { md: "sticky" }, top: 96 }}>
         <Stack spacing={2}>
           <Box>
-            <Typography variant="h6">{canAdminReview ? t("Review") : t("Deposit actions")}</Typography>
-            <Typography variant="body2" color="text.secondary">{canAdminReview ? t("Review the rejection against the full payment reference. A match will credit the deposit.") : t("Enter the same payment reference submitted by the player. A match will credit the deposit.")}</Typography>
+            <Typography variant="h6">{t("Deposit actions")}</Typography>
+            <Typography variant="body2" color="text.secondary">{canAdminVerify ? t("Review the rejected payment reference. Another authorized administrator must approve a match.") : t("Verify the payment reference first. A different authorized staff member must approve a match before the wallet is credited.")}</Typography>
           </Box>
-          {(canAdminReview || (canSupportReview && open)) ? <>
-            <TextField label={t("Full payment reference")} value={reference} onChange={(e) => setReference(e.target.value)} autoComplete="off" required fullWidth />
-            <Button variant="contained" disabled={!reference.trim() || verifyMutation.isPending} onClick={() => { idempotency.resetKey(); verifyMutation.mutate(); }} fullWidth>
-              {canAdminReview ? t("Review and approve") : t("Verify and deposit")}
+          {canVerify ? <>
+            <TextField label={t("Full payment reference")} value={reference} onChange={(e) => setReference(e.target.value)} autoComplete="off" required fullWidth disabled={verifyMutation.isError && parseApiError(verifyMutation.error).outcomeUnknown} />
+            <Button variant="contained" disabled={!reference.trim() || verifyMutation.isPending} onClick={() => { if (!verifyMutation.isError || !parseApiError(verifyMutation.error).outcomeUnknown) { idempotency.resetKey(); } verifyMutation.reset(); approveMutation.reset(); verifyMutation.mutate(); }} fullWidth>
+              {t("Verify payment reference")}
             </Button>
           </> : null}
-          {canSupportReview ? <>
+          {canApprove ? <Button variant="contained" disabled={approveMutation.isPending} onClick={() => { idempotency.resetKey(); approveMutation.reset(); verifyMutation.reset(); setOutcome(null); approveMutation.mutate(); }} fullWidth>
+            {approveMutation.isPending ? t("Approving…") : t("Approve and credit deposit")}
+          </Button> : null}
+          {verifiedByCurrentUser ? <Alert severity="info">{t("You verified this deposit. A different authorized staff member must approve it.")}</Alert> : null}
+          {canSupportReject ? <>
             <Divider />
             <Typography variant="subtitle2">{t("Reject deposit")}</Typography>
             <TextField select label={t("Rejection reason")} value={reason} onChange={(e) => setReason(e.target.value)} required fullWidth>

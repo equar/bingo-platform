@@ -5,6 +5,9 @@ import com.bakaroo.bingo.backend.feature.auth.service.BingoUserPrincipal;
 import com.bakaroo.bingo.backend.feature.auth.service.JwtService;
 import com.bakaroo.bingo.backend.feature.user.entity.UserRole;
 import java.util.List;
+import java.time.Instant;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.simp.stomp.StompCommand;
@@ -14,6 +17,8 @@ import org.springframework.messaging.support.ChannelInterceptor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
+import org.springframework.context.event.EventListener;
+import org.springframework.web.socket.messaging.SessionDisconnectEvent;
 import org.springframework.util.StringUtils;
 
 @Component
@@ -22,6 +27,7 @@ public class GameWebSocketJwtChannelInterceptor implements ChannelInterceptor {
     private final com.bakaroo.bingo.backend.feature.community.service.GameAccessService gameAccess;
     private final JwtService jwtService;
     private final BingoUserDetailsService userDetailsService;
+    private final ConcurrentMap<String, GameWebSocketTokenContext> sessionTokenContexts = new ConcurrentHashMap<>();
 
     public GameWebSocketJwtChannelInterceptor(JwtService jwtService, BingoUserDetailsService userDetailsService,
             com.bakaroo.bingo.backend.feature.community.service.GameAccessService gameAccess) {
@@ -37,7 +43,15 @@ public class GameWebSocketJwtChannelInterceptor implements ChannelInterceptor {
         if (StompCommand.CONNECT.equals(accessor.getCommand())) {
             Authentication authentication = authenticate(accessor.getNativeHeader("Authorization"));
             accessor.setUser(authentication);
+            if (accessor.getSessionId() != null
+                    && authentication instanceof UsernamePasswordAuthenticationToken token
+                    && token.getDetails() instanceof GameWebSocketTokenContext tokenContext) {
+                sessionTokenContexts.put(accessor.getSessionId(), tokenContext);
+            }
             return MessageBuilder.createMessage(message.getPayload(), accessor.getMessageHeaders());
+        }
+        if (StompCommand.DISCONNECT.equals(accessor.getCommand()) && accessor.getSessionId() != null) {
+            sessionTokenContexts.remove(accessor.getSessionId());
         }
         if (StompCommand.SUBSCRIBE.equals(accessor.getCommand())) {
             String destination = accessor.getDestination();
@@ -80,6 +94,24 @@ public class GameWebSocketJwtChannelInterceptor implements ChannelInterceptor {
             throw new IllegalArgumentException("Invalid websocket token");
         }
 
-        return UsernamePasswordAuthenticationToken.authenticated(principal, null, principal.getAuthorities());
+        UsernamePasswordAuthenticationToken authentication = UsernamePasswordAuthenticationToken.authenticated(
+                principal, null, principal.getAuthorities());
+        authentication.setDetails(new GameWebSocketTokenContext(
+                userId,
+                jwtService.extractTokenVersion(token),
+                jwtService.extractPlayerSessionId(token),
+                jwtService.extractExpiration(token)));
+        return authentication;
+    }
+
+    record GameWebSocketTokenContext(Long userId, long tokenVersion, String playerSessionId, Instant expiresAt) { }
+
+    GameWebSocketTokenContext tokenContextForSession(String sessionId) {
+        return sessionId == null ? null : sessionTokenContexts.get(sessionId);
+    }
+
+    @EventListener
+    void removeDisconnectedSession(SessionDisconnectEvent event) {
+        sessionTokenContexts.remove(event.getSessionId());
     }
 }

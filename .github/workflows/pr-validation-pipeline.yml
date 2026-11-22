@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - develop
+      - release
       - main
       - public-landing-website
   workflow_dispatch:
@@ -86,7 +87,7 @@ jobs:
           if-no-files-found: ignore
 
   admin:
-    name: Admin install, lint, test, typecheck, and build
+    name: Admin install, lint, tests, build, and browser test discovery
     runs-on: ubuntu-latest
     timeout-minutes: 35
     env:
@@ -98,7 +99,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "22.13.0"
+          node-version-file: .node-version
           cache: npm
           cache-dependency-path: bingo-admin/package-lock.json
 
@@ -106,7 +107,7 @@ jobs:
         working-directory: bingo-admin
         run: npm ci
 
-      - name: Lint admin source
+      - name: Run Admin lint, unit tests, typecheck, build, and Playwright discovery
         working-directory: bingo-admin
         run: node ../scripts/ci/run-component-checks.mjs admin --ci
 
@@ -145,7 +146,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "22.13.0"
+          node-version-file: .node-version
           cache: npm
           cache-dependency-path: bingo-website/package-lock.json
 

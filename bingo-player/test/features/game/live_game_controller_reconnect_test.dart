@@ -1,4 +1,5 @@
 import 'package:bingo_player/src/core/config/app_config.dart';
+import 'package:bingo_player/src/core/network/api_error.dart';
 import 'package:bingo_player/src/core/models/page_result.dart';
 import 'package:bingo_player/src/features/auth/data/auth_models.dart';
 import 'package:bingo_player/src/features/auth/data/auth_session_controller.dart';
@@ -483,6 +484,41 @@ void main() {
       expect(transport.isConnected, isFalse);
     },
   );
+
+  test('ends a live game when the server reports a replaced player session', () async {
+    final repo = FakeLiveGameRepository(
+      session: _session(state: 'STARTED'),
+      ticketPage: _ticketPage(),
+      claimPage: _claimPage(),
+      drawResponses: {0: const []},
+    )..getSessionError = ApiError(
+        code: 'PLAYER_SESSION_REPLACED',
+        statusCode: 401,
+      );
+    final transport = FakeLiveGameTransport();
+    final clearedSessionReasons = <String?>[];
+    final controller = LiveGameController(
+      sessionId: 42,
+      repository: repo,
+      readAuthSession: _authenticatedState,
+      clearAuthSession: ({String? reason}) async {
+        clearedSessionReasons.add(reason);
+      },
+      appConfig: const AppConfig(
+        apiBaseUrl: 'https://example.com',
+        apiBaseUrlLabel: 'API_BASE_URL',
+      ),
+      transport: transport,
+    );
+    addTearDown(controller.dispose);
+
+    await controller.start();
+
+    expect(controller.state.connectionState, LiveGameConnectionState.expired);
+    expect(clearedSessionReasons, ['PLAYER_SESSION_REPLACED']);
+    expect(transport.connectCount, 0);
+    expect(transport.isConnected, isFalse);
+  });
 }
 
 class FakeLiveGameRepository implements LiveGameRepository {
@@ -501,9 +537,13 @@ class FakeLiveGameRepository implements LiveGameRepository {
   final void Function(WinClaimRecord claim)? onSubmitClaim;
   final List<int?> drawRequests = <int?>[];
   final List<WinClaimRecord> _claims;
+  Object? getSessionError;
 
   @override
-  Future<GameSession> getSession(int sessionId) async => session;
+  Future<GameSession> getSession(int sessionId) async {
+    if (getSessionError != null) throw getSessionError!;
+    return session;
+  }
 
   @override
   Future<List<LiveDrawEvent>> getDraws(

@@ -44,12 +44,13 @@ function Get-Components([string[]]$Paths) {
         if ($file -match '^deployment/(aws|lightsail)/|^.github/workflows/validate-lightsail-infrastructure.yml$') { $null = $components.Add('infrastructure') }
         if ($file -match '^.github/workflows/pr-validation-pipeline.yml$') { @('backend','admin','website') | ForEach-Object { $null = $components.Add($_) } }
         if ($file -match '^.github/workflows/bingo-player-mobile-ci.yml$') { @('player','agent') | ForEach-Object { $null = $components.Add($_) } }
+        if ($file -match '^.github/workflows/admin-browser-e2e.yml$') { $null = $components.Add('admin') }
         if ($file -match '^.github/workflows/deploy.yml$') { @('backend','admin','website','infrastructure') | ForEach-Object { $null = $components.Add($_) } }
         if ($file -match '^scripts/ci/') { @('backend','admin','website','player','agent','infrastructure') | ForEach-Object { $null = $components.Add($_) } }
         if ($file -match '^deployment/aws/(detect-deployment-changes|validate-config)\.py$') { @('backend','admin','website','infrastructure') | ForEach-Object { $null = $components.Add($_) } }
         if ($file -match '^(\.editorconfig|\.gitattributes|\.gitignore|package\.json|package-lock\.json|pom\.xml|\.mvn/|mvnw|mvnw\.cmd)$') { @('backend','admin','website','player','agent') | ForEach-Object { $null = $components.Add($_) } }
         if ($file -match '^\.github/workflows/') {
-            $known = $file -match '^(\.github/workflows/(pr-validation-pipeline|bingo-player-mobile-ci|deploy|validate-lightsail-infrastructure)\.yml)$'
+            $known = $file -match '^(\.github/workflows/(pr-validation-pipeline|bingo-player-mobile-ci|admin-browser-e2e|deploy|validate-lightsail-infrastructure)\.yml)$'
             if (-not $known) { @('backend','admin','website','player','agent','infrastructure') | ForEach-Object { $null = $components.Add($_) } }
         }
     }

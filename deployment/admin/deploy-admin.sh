@@ -4,6 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 source "$REPO_ROOT/deployment/lib/common.sh"
+source "$REPO_ROOT/deployment/lib/pinned-ssh-host.sh"
 
 SERVER="${SERVER:-ubuntu@YOUR_SERVER_HOST}"
 SSH_KEY="${SSH_KEY:-$HOME/.ssh/bingo-deploy.pem}"
@@ -60,6 +61,7 @@ done
 
 [[ -n "$PUBLIC_URL" ]] || die "--public-url is required"
 [[ -f "$SSH_KEY" ]] || die "SSH key not found: $SSH_KEY"
+configure_pinned_ssh_host "$SERVER" "${DEPLOY_SSH_KNOWN_HOSTS_FILE:-${RUNNER_TEMP:-${TMPDIR:-/tmp}}/bingo-known_hosts}"
 
 require_command ssh
 require_command scp
@@ -82,22 +84,22 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
   exit 0
 fi
 
-ssh -i "$SSH_KEY" "$SERVER" "REMOTE_ROOT='$REMOTE_ROOT' SERVICE_USER='$SERVICE_USER' RELEASE_DIR='$remote_release_dir' bash -s" <<'REMOTE'
+ssh "${SSH_OPTIONS[@]}" -i "$SSH_KEY" "$SERVER" "REMOTE_ROOT='$REMOTE_ROOT' SERVICE_USER='$SERVICE_USER' RELEASE_DIR='$remote_release_dir' bash -s" <<'REMOTE'
 set -euo pipefail
 sudo install -d -o "$SERVICE_USER" -g "$SERVICE_USER" -m 755 "$REMOTE_ROOT" "$REMOTE_ROOT/releases"
 sudo install -d -o "$SERVICE_USER" -g "$SERVICE_USER" -m 755 "$RELEASE_DIR"
 REMOTE
 
-scp -i "$SSH_KEY" -r "$ADMIN_DIST_DIR/." "$SERVER:$remote_release_dir/"
+scp "${SSH_OPTIONS[@]}" -i "$SSH_KEY" -r "$ADMIN_DIST_DIR/." "$SERVER:$remote_release_dir/"
 
-ssh -i "$SSH_KEY" "$SERVER" "REMOTE_ROOT='$REMOTE_ROOT' SERVICE_USER='$SERVICE_USER' RELEASE_DIR='$remote_release_dir' bash -s" <<'REMOTE'
+ssh "${SSH_OPTIONS[@]}" -i "$SSH_KEY" "$SERVER" "REMOTE_ROOT='$REMOTE_ROOT' SERVICE_USER='$SERVICE_USER' RELEASE_DIR='$remote_release_dir' bash -s" <<'REMOTE'
 set -euo pipefail
 sudo chown -R "$SERVICE_USER:$SERVICE_USER" "$RELEASE_DIR"
 sudo find "$RELEASE_DIR" -type d -exec chmod 755 {} \;
 sudo find "$RELEASE_DIR" -type f -exec chmod 644 {} \;
 REMOTE
 
-ssh -i "$SSH_KEY" "$SERVER" "REMOTE_ROOT='$REMOTE_ROOT' RELEASE_DIR='$remote_release_dir' bash -s" <<'REMOTE'
+ssh "${SSH_OPTIONS[@]}" -i "$SSH_KEY" "$SERVER" "REMOTE_ROOT='$REMOTE_ROOT' RELEASE_DIR='$remote_release_dir' bash -s" <<'REMOTE'
 set -euo pipefail
 current_link="$REMOTE_ROOT/current"
 previous_link="$REMOTE_ROOT/previous"

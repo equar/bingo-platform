@@ -169,6 +169,9 @@ class GameOperationalReadinessIntegrationTest extends MySqlIntegrationTest {
         var request = new PrizeEntitlementSettlementRequest("READY-" + ea.getId(), "Verified wallet credit");
         games.settleEntitlement(ea.getId(), new BingoUserPrincipal(admin), request);
         games.settleEntitlement(ea.getId(), new BingoUserPrincipal(admin), request);
+        assertEquals("PAYOUT_ALREADY_SETTLED", assertThrows(ConflictException.class,
+                () -> games.settleEntitlement(ea.getId(), new BingoUserPrincipal(admin),
+                        new PrizeEntitlementSettlementRequest("OTHER-" + ea.getId(), "Different reference"))).getCode());
         assertEquals(new BigDecimal("905.01"), wallets.findByOwnerId(one.getId()).orElseThrow().getAvailableBalance());
         assertEquals(1, transactions.findByReferenceTypeAndReferenceIdOrderByCreatedAtAscIdAsc("BINGO_PRIZE", ea.getId()).size());
     }

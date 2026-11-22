@@ -39,10 +39,21 @@ final liveGameControllerProvider = StateNotifierProvider.autoDispose
 enum ClaimSubmissionOutcome { submitted, alreadySubmitted, notSubmitted }
 
 class PurchaseFlowResult {
-  const PurchaseFlowResult({required this.purchasedCount, this.error});
+  const PurchaseFlowResult({
+    required this.purchasedCount,
+    this.error,
+    this.ticketIds = const [],
+    this.remainingCount = 0,
+    this.chargedAmountMinor = 0,
+    this.currency = '',
+  });
 
   final int purchasedCount;
   final ApiError? error;
+  final List<int> ticketIds;
+  final int remainingCount;
+  final int chargedAmountMinor;
+  final String currency;
 }
 
 enum LiveGameConnectionState {
@@ -308,6 +319,7 @@ class LiveGameController extends StateNotifier<LiveGameState> {
   }
 
   bool _purchaseFlowInProgress = false;
+  int? _lastConfirmedPurchaseTicketId;
 
   Future<ApiError?> purchaseTicket() async {
     final result = await purchaseTickets(1);
@@ -348,41 +360,88 @@ class LiveGameController extends StateNotifier<LiveGameState> {
     _purchaseFlowInProgress = true;
     state = state.copyWith(isPurchasingTicket: true, apiError: null);
     var purchasedCount = 0;
+    final ticketIds = <int>[];
     ApiError? error;
     try {
       for (var index = 0; index < count; index++) {
+        _lastConfirmedPurchaseTicketId = null;
         error = await _purchaseOne();
         if (error != null) break;
         purchasedCount++;
+        final id = _lastConfirmedPurchaseTicketId;
+        if (id != null) ticketIds.add(id);
       }
     } finally {
       _purchaseFlowInProgress = false;
       if (!_disposed) state = state.copyWith(isPurchasingTicket: false);
     }
-    return PurchaseFlowResult(purchasedCount: purchasedCount, error: error);
+    final priceMinor = ((state.session?.ticketPrice ?? 0) * 100).round();
+    return PurchaseFlowResult(
+      purchasedCount: purchasedCount,
+      error: error,
+      ticketIds: List.unmodifiable(ticketIds),
+      remainingCount: count - purchasedCount,
+      chargedAmountMinor: purchasedCount * priceMinor,
+      currency: state.session?.currency ?? '',
+    );
   }
 
   /// Replays the original key only after an ownership refresh. The backend's
   /// idempotency record returns the original committed purchase without a
   /// second debit; if it never committed, this is the user's explicit retry.
-  Future<ApiError?> resolvePendingPurchase() async {
+  Future<PurchaseFlowResult> resolvePendingPurchase() async {
     await _restorePurchaseForCurrentAccount();
     if (!state.purchaseOutcomeUncertain ||
         _purchaseFlowInProgress ||
         state.isPurchasingTicket) {
-      return ApiError(code: 'PURCHASE_OUTCOME_UNKNOWN', outcomeUnknown: true);
+      return PurchaseFlowResult(
+        purchasedCount: 0,
+        remainingCount: 1,
+        error: ApiError(
+          code: 'PURCHASE_OUTCOME_UNKNOWN',
+          outcomeUnknown: true,
+        ),
+      );
     }
     if (state.purchaseRecoveryBlocked ||
         state.pendingPurchaseIdempotencyKey == null) {
-      return ApiError(code: 'PURCHASE_OUTCOME_UNKNOWN', outcomeUnknown: true);
+      return PurchaseFlowResult(
+        purchasedCount: 0,
+        remainingCount: 1,
+        error: ApiError(
+          code: 'PURCHASE_OUTCOME_UNKNOWN',
+          outcomeUnknown: true,
+        ),
+      );
     }
     _purchaseFlowInProgress = true;
     state = state.copyWith(isPurchasingTicket: true, apiError: null);
     try {
       await _loadSnapshotAndHistory();
-      if (_disposed) return null;
+      if (_disposed) {
+        return PurchaseFlowResult(
+          purchasedCount: 0,
+          remainingCount: 1,
+          error: ApiError(
+            code: 'PURCHASE_OUTCOME_UNKNOWN',
+            outcomeUnknown: true,
+          ),
+        );
+      }
+      _lastConfirmedPurchaseTicketId = null;
       final error = await _purchaseOne();
-      return error;
+      final purchased = error == null ? 1 : 0;
+      return PurchaseFlowResult(
+        purchasedCount: purchased,
+        ticketIds: _lastConfirmedPurchaseTicketId == null
+            ? const []
+            : [_lastConfirmedPurchaseTicketId!],
+        remainingCount: 1 - purchased,
+        chargedAmountMinor:
+            purchased * (((state.session?.ticketPrice ?? 0) * 100).round()),
+        currency: state.session?.currency ?? '',
+        error: error,
+      );
     } finally {
       _purchaseFlowInProgress = false;
       if (!_disposed) state = state.copyWith(isPurchasingTicket: false);
@@ -422,6 +481,7 @@ class LiveGameController extends StateNotifier<LiveGameState> {
         sessionId,
         idempotencyKey,
       );
+      _lastConfirmedPurchaseTicketId = purchase.ticket.id;
       await _removePendingPurchaseKey(accountId);
       if (_disposed) {
         return null;
@@ -456,7 +516,7 @@ class LiveGameController extends StateNotifier<LiveGameState> {
       return null;
     } catch (error) {
       if (_isAuthError(error)) {
-        await _expireSession();
+        await _expireSession(reason: _sessionExpiryReason(error));
         state = state.copyWith(
           pendingPurchaseIdempotencyKey: null,
           purchaseOutcomeUncertain: false,
@@ -691,7 +751,7 @@ class LiveGameController extends StateNotifier<LiveGameState> {
       return ClaimSubmissionOutcome.submitted;
     } catch (error) {
       if (_isAuthError(error)) {
-        await _expireSession();
+        await _expireSession(reason: _sessionExpiryReason(error));
         return ClaimSubmissionOutcome.notSubmitted;
       }
       final apiError = normalizeApiError(error);
@@ -815,7 +875,7 @@ class LiveGameController extends StateNotifier<LiveGameState> {
       }
     } catch (error) {
       if (_isAuthError(error)) {
-        await _expireSession();
+        await _expireSession(reason: _sessionExpiryReason(error));
         return;
       }
       if (_disposed || _pauseRequested) {
@@ -847,7 +907,9 @@ class LiveGameController extends StateNotifier<LiveGameState> {
         await _transport.disconnect();
       }
     } catch (error) {
-      if (_isAuthError(error)) await _expireSession();
+      if (_isAuthError(error)) {
+        await _expireSession(reason: _sessionExpiryReason(error));
+      }
       // Socket updates and the next poll can recover transient REST failures.
     } finally {
       _syncingSnapshot = false;
@@ -951,7 +1013,7 @@ class LiveGameController extends StateNotifier<LiveGameState> {
       );
     } catch (error) {
       if (_isAuthError(error)) {
-        await _expireSession();
+        await _expireSession(reason: _sessionExpiryReason(error));
         return;
       }
       state = state.copyWith(apiError: normalizeApiError(error));
@@ -999,7 +1061,7 @@ class LiveGameController extends StateNotifier<LiveGameState> {
       }
     } catch (error) {
       if (_isAuthError(error)) {
-        await _expireSession();
+        await _expireSession(reason: _sessionExpiryReason(error));
         return;
       }
       state = state.copyWith(apiError: normalizeApiError(error));
@@ -1041,7 +1103,7 @@ class LiveGameController extends StateNotifier<LiveGameState> {
       return;
     }
     if (_isAuthError(error)) {
-      await _expireSession();
+      await _expireSession(reason: _sessionExpiryReason(error));
       return;
     }
     state = state.copyWith(
@@ -1109,12 +1171,12 @@ class LiveGameController extends StateNotifier<LiveGameState> {
     });
   }
 
-  Future<void> _expireSession() async {
+  Future<void> _expireSession({String reason = 'SESSION_EXPIRED'}) async {
     _snapshotTimer?.cancel();
     _snapshotTimer = null;
     _pauseRequested = true;
     await _transport.disconnect();
-    await _clearAuthSession(reason: 'SESSION_EXPIRED');
+    await _clearAuthSession(reason: reason);
     if (_disposed) {
       return;
     }
@@ -1158,6 +1220,15 @@ class LiveGameController extends StateNotifier<LiveGameState> {
     final apiError = normalizeApiError(error);
     return apiError.statusCode == 401 ||
         apiError.code == 'UNAUTHORIZED' ||
-        apiError.code == 'SESSION_EXPIRED';
+        apiError.code == 'SESSION_EXPIRED' ||
+        apiError.code == 'PLAYER_SESSION_REPLACED' ||
+        apiError.code == 'ACCOUNT_SUSPENDED';
+  }
+
+  String _sessionExpiryReason(Object error) {
+    final code = normalizeApiError(error).code;
+    if (code == 'PLAYER_SESSION_REPLACED') return code;
+    if (code == 'ACCOUNT_SUSPENDED') return code;
+    return 'SESSION_EXPIRED';
   }
 }

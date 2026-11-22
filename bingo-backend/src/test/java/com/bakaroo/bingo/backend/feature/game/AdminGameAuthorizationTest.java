@@ -11,6 +11,12 @@ import com.bakaroo.bingo.backend.feature.game.controller.AdminGameController;
 import com.bakaroo.bingo.backend.feature.game.repository.GameSessionRepository;
 import com.bakaroo.bingo.backend.feature.game.repository.TicketRepository;
 import com.bakaroo.bingo.backend.feature.game.service.BingoGameService;
+import com.bakaroo.bingo.backend.feature.auth.service.BingoUserPrincipal;
+import com.bakaroo.bingo.backend.feature.user.entity.AccountStatus;
+import com.bakaroo.bingo.backend.feature.user.entity.User;
+import com.bakaroo.bingo.backend.feature.user.entity.UserRole;
+import java.time.Instant;
+import java.util.Set;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
@@ -114,6 +120,59 @@ class AdminGameAuthorizationTest {
         verify(sessions, never()).findById(17L);
         verify(tickets, never()).findById(23L);
         verify(tickets, never()).findByOwnerIdOrderByPurchasedAtDesc(88L, Pageable.unpaged());
+    }
+
+    @Test
+    void adminMutationServiceBoundaryRejectsAnonymousPlayerAndSupport() {
+        BingoGameService service = context.getBean(BingoGameService.class);
+        assertThatThrownBy(() -> service.createRoomForAdmin(null, null))
+                .isInstanceOf(AccessDeniedException.class);
+        for (UserRole role : List.of(UserRole.PLAYER, UserRole.SUPPORT)) {
+            var user = principal(role);
+            assertThatThrownBy(() -> service.createRoomForAdmin(user, null))
+                    .as("%s cannot create game rooms", role).isInstanceOf(AccessDeniedException.class);
+            assertThatThrownBy(() -> service.updateRoomForAdmin(user, 1L, null))
+                    .as("%s cannot edit game rooms", role).isInstanceOf(AccessDeniedException.class);
+            assertThatThrownBy(() -> service.createSessionForAdmin(user, 1L, null))
+                    .as("%s cannot create game sessions", role).isInstanceOf(AccessDeniedException.class);
+            assertThatThrownBy(() -> service.updateSessionForAdmin(user, 1L, null))
+                    .as("%s cannot edit game sessions", role).isInstanceOf(AccessDeniedException.class);
+            assertThatThrownBy(() -> service.updateSessionStateForAdmin(user, 1L, null))
+                    .as("%s cannot change game session state", role).isInstanceOf(AccessDeniedException.class);
+            assertThatThrownBy(() -> service.triggerAutomaticDraw(1L, user))
+                    .as("%s cannot trigger Admin game draws", role).isInstanceOf(AccessDeniedException.class);
+        }
+    }
+
+    @Test
+    void adminIdentityPassesAdminMutationServiceBoundary() {
+        BingoGameService service = context.getBean(BingoGameService.class);
+        // Null request reaches the existing request validation after role authorization.
+        assertThatThrownBy(() -> service.createRoomForAdmin(principal(UserRole.ADMIN), null))
+                .isNotInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void roomMutationApiRoleMatrixIsAnonymousPlayerSupportDeniedAndAdminAllowed() {
+        AdminGameController controller = context.getBean(AdminGameController.class);
+        assertThatThrownBy(() -> controller.createRoom(null, null))
+                .isInstanceOf(org.springframework.security.core.AuthenticationException.class);
+
+        for (UserRole role : List.of(UserRole.PLAYER, UserRole.SUPPORT)) {
+            authenticate("ROLE_" + role.name());
+            assertThatThrownBy(() -> controller.createRoom(principal(role), null))
+                    .as("%s cannot use Admin room mutations", role)
+                    .isInstanceOf(AccessDeniedException.class);
+        }
+
+        authenticate("ROLE_ADMIN");
+        assertThatThrownBy(() -> controller.createRoom(principal(UserRole.ADMIN), null))
+                .isNotInstanceOf(AccessDeniedException.class);
+    }
+
+    private static BingoUserPrincipal principal(UserRole role) {
+        User user = User.create("+251911000000", "Test", "hash", AccountStatus.ACTIVE, Set.of(role), Instant.now());
+        return new BingoUserPrincipal(user);
     }
 
     private static void authenticate(String authority) {

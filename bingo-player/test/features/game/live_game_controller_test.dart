@@ -280,6 +280,9 @@ void main() {
       final result = await controller.purchaseTickets(3);
 
       expect(result.purchasedCount, 1);
+      expect(result.ticketIds, [200]);
+      expect(result.remainingCount, 2);
+      expect(result.chargedAmountMinor, 10000);
       expect(result.error?.code, 'INSUFFICIENT_BALANCE');
       expect(repo.ownedTickets, hasLength(1));
       expect(repo.purchaseKeys, hasLength(2));
@@ -313,12 +316,15 @@ void main() {
 
     expect(result.error, isNull);
     expect(result.purchasedCount, 4);
+    expect(result.ticketIds, [200, 201, 202, 203]);
+    expect(result.remainingCount, 0);
+    expect(result.chargedAmountMinor, 40000);
     expect(repo.ownedTickets, hasLength(4));
     expect(repo.purchaseKeys.toSet(), hasLength(4));
   });
 
   test(
-    'uncertain purchase reconciles with the same backend idempotency key',
+    'network timeout keeps the key and duplicate response confirms one debit',
     () async {
       final repo = _FakeRepo()
         ..purchaseErrorOnCall = 1
@@ -349,15 +355,28 @@ void main() {
 
       final result = await controller.purchaseTickets(2);
       expect(result.purchasedCount, 0);
+      expect(result.ticketIds, isEmpty);
+      expect(result.remainingCount, 2);
+      expect(result.chargedAmountMinor, 0);
       expect(result.error?.outcomeUnknown, true);
       expect(controller.state.purchaseOutcomeUncertain, true);
       expect(repo.purchaseKeys, hasLength(1));
+      expect(
+        (await SharedPreferences.getInstance()).getString(
+          'player.pendingPurchase.7.42',
+        ),
+        repo.purchaseKeys.single,
+      );
 
-      final resolveError = await controller.resolvePendingPurchase();
-      expect(resolveError, isNull);
+      final resolved = await controller.resolvePendingPurchase();
+      expect(resolved.error, isNull);
+      expect(resolved.purchasedCount, 1);
+      expect(resolved.ticketIds, [200]);
+      expect(resolved.chargedAmountMinor, 10000);
       expect(repo.purchaseKeys, hasLength(2));
       expect(repo.purchaseKeys[1], repo.purchaseKeys.first);
       expect(repo.ownedTickets, hasLength(1));
+      expect(repo.purchaseResponses, hasLength(1));
       expect(controller.state.purchaseOutcomeUncertain, false);
       expect(
         (await SharedPreferences.getInstance()).getString(
