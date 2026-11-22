@@ -27,10 +27,20 @@ Configure repository rulesets/branch protection for `develop`, `release`, and `m
 
 Configure GitHub Environments:
 
-- `test`: allow deployments from `develop` only. Store test-only deploy variables and credentials here.
+- `test`: allow deployments from `develop` only; require an independent reviewer and prevent self-review. Scope test-only deploy credentials and variables here.
 - `production`: allow deployments from `main` only; require an Environment reviewer selected from at least two eligible release approvers, enable prevention of self-review, and disable administrator bypass where available. Store production deployment secrets only in this Environment, not as repository-wide secrets.
+- `admin-e2e`: allow `main` only; require an independent reviewer, prevent self-review, and scope the non-production Admin test account and API URL to this Environment.
+- `bingo-app-android-internal` and `bingo-app-ios-testflight`: allow `main` only, require an independent release reviewer, prevent self-review, and scope the respective store upload/signing credentials here.
 - `bingo-app-android-production` and `bingo-app-ios-production`: allow `main` only, require an independent Environment reviewer selected from eligible store approvers, prevent self-review, disable bypass where available, and scope store credentials to the respective Environment.
-- If internal store upload credentials are Environment-scoped, allow only `main` for those environments too. Never place signing or store credentials in a PR-accessible context.
+
+The workflows request these Environment names; they do not prove that the Environments exist or that their protection rules and secrets are configured. No authenticated GitHub settings API was available during the repository audit, so reviewer lists, prevent-self-review, branch restrictions, bypass settings, and secret presence remain to be verified in repository Settings. In **Settings → Environments**, open each name above and verify: at least one eligible reviewer (at least two eligible production approvers), prevent self-review enabled, deployment branch restriction as listed, bypass disabled where supported, and only that environment's minimum required secrets/variables. For Graph email, check the deployment Environment's `APP_EMAIL_PROVIDER` and `APP_EMAIL_FROM` variables and, when provider is `graph`, the presence of `MICROSOFT_GRAPH_TENANT_ID`, `MICROSOFT_GRAPH_CLIENT_ID`, and `MICROSOFT_GRAPH_CLIENT_SECRET` secrets. Check names/presence only; never reveal secret values. If provider is `smtp`, verify `SPRING_MAIL_USERNAME` and `SPRING_MAIL_PASSWORD` instead. Do not configure both providers as a fallback.
+
+The browser E2E workflow requires `ADMIN_E2E_ENABLED=true`, `ADMIN_E2E_API_BASE_URL`, `ADMIN_E2E_ADMIN_EMAIL`, and `ADMIN_E2E_ADMIN_PASSWORD` in `admin-e2e`; the workflow rejects the production API host. Internal Android testing needs its Android signing secrets and `GOOGLE_PLAY_JSON`; Android production needs `GOOGLE_PLAY_JSON`. TestFlight and App Store submission need their respective Apple signing and App Store Connect secrets. Keep these credentials environment-scoped and unavailable to pull-request jobs.
+
+Production backend and mobile store promotion workflows are manual (`workflow_dispatch`) and require `confirm_production=true` for production actions. Backend production deployment checks out the requested `main` SHA and verifies it is an ancestor of `origin/main`; mobile store promotion validates the source upload run and its main-branch provenance. GitHub Environment approval is a separate required gate. The phrase “approved main commit” therefore depends on branch protection and Environment reviewer settings as well as the workflow checks.
+
+The backend deployment validator requires database connection policy explicitly: `test` requires `MYSQL_SSL_MODE=DISABLED` and `MYSQL_ALLOW_PUBLIC_KEY_RETRIEVAL=true`; `prod` requires `MYSQL_SSL_MODE=VERIFY_IDENTITY` and `MYSQL_ALLOW_PUBLIC_KEY_RETRIEVAL=false`. Missing or mismatched values stop deployment instead of being defaulted or silently replaced.
+
 
 GitHub Environment reviewers, deployment branch policies, repository rulesets, bypass rights, and secret scoping are repository settings; workflow YAML can request an Environment but cannot create or guarantee those settings. Verify the settings after applying this policy. Protect the default branch and ensure changes to these workflow files themselves require review.
 

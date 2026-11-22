@@ -138,6 +138,13 @@ describe("RoomsPage", () => {
     }
   });
 
+  it("does not offer agent cash as a selectable room settlement", async () => {
+    const user = userEvent.setup();
+    render(<RoomsPage />, { wrapper: createWrapperFor("/rooms/new") });
+    await user.click(await screen.findByRole("combobox", { name: "Settlement" }));
+    expect(await screen.findByRole("option", { name: "Agent cash (unavailable)" })).toHaveAttribute("aria-disabled", "true");
+  });
+
   it("forwards search, status, and pagination to the admin rooms API", async () => {
     const user = userEvent.setup();
     render(<RoomsPage />, { wrapper: createWrapper });

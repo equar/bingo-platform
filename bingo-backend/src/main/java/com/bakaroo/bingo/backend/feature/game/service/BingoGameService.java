@@ -1048,6 +1048,7 @@ public class BingoGameService {
                     || prize.amount().signum() <= 0 || prize.settlementPath() == null) {
                 throw new BadRequestException("INVALID_SESSION_PRIZE_CONFIGURATION", "Each pattern requires one valid prize");
             }
+            CashPrizeConfigurationGuard.requireAvailable(prize.settlementPath());
         }
         if (!selected.equals(configured)) {
             throw new BadRequestException("INVALID_SESSION_PRIZE_CONFIGURATION", "Prizes must match the selected patterns");
@@ -1079,6 +1080,7 @@ public class BingoGameService {
                 throw new BadRequestException("DUPLICATE_ROOM_PRIZE_PATTERN",
                         "Only one prize configuration is allowed for each pattern");
             }
+            CashPrizeConfigurationGuard.requireAvailable(prize.settlementPath());
         }
         if (!selectedPatterns.equals(prizePatterns)) {
             throw new BadRequestException("ROOM_PRIZES_MUST_MATCH_PATTERNS",
@@ -1168,6 +1170,7 @@ public class BingoGameService {
                 entitlement == null ? null : entitlement.getPrizeAmount(),
                 entitlement == null ? null : entitlement.getCurrency(),
                 entitlement == null ? null : entitlement.getStatus(),
+                entitlement == null ? null : entitlement.getSettlementPath(),
                 ownerView && policy.payoutsEnabled() && entitlement != null
                         && entitlement.getStatus() == PrizeEntitlementStatus.PENDING
                         && entitlement.getSettlementPath() == PrizeSettlementPath.AGENT_CASH

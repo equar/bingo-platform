@@ -13,6 +13,14 @@ case "$DEPLOY_ENVIRONMENT" in
   prod) expected_database=bingo; expected_port=8081; expected_ssl_mode=VERIFY_IDENTITY; allow_public_key_retrieval=false ;;
   *) echo 'DEPLOY_ENVIRONMENT must be test or prod.' >&2; exit 64 ;;
 esac
+if [[ "${MYSQL_SSL_MODE:-}" != "$expected_ssl_mode" ]]; then
+  echo "MYSQL_SSL_MODE must be explicitly set to $expected_ssl_mode for $DEPLOY_ENVIRONMENT." >&2
+  exit 64
+fi
+if [[ "${MYSQL_ALLOW_PUBLIC_KEY_RETRIEVAL:-}" != "$allow_public_key_retrieval" ]]; then
+  echo "MYSQL_ALLOW_PUBLIC_KEY_RETRIEVAL must be explicitly set to $allow_public_key_retrieval for $DEPLOY_ENVIRONMENT." >&2
+  exit 64
+fi
 if [[ -n "${MYSQL_DATABASE:-}" && "$MYSQL_DATABASE" != "$expected_database" ]]; then
   echo "MYSQL_DATABASE must be $expected_database for the $DEPLOY_ENVIRONMENT deployment." >&2
   exit 1
@@ -23,8 +31,6 @@ if [[ -n "${SERVER_PORT:-}" && "$SERVER_PORT" != "$expected_port" ]]; then
 fi
 export DEPLOY_ENVIRONMENT MYSQL_DATABASE="$expected_database"
 export SPRING_PROFILES_ACTIVE=prod SERVER_PORT="$expected_port"
-export MYSQL_SSL_MODE="$expected_ssl_mode"
-export MYSQL_ALLOW_PUBLIC_KEY_RETRIEVAL="$allow_public_key_retrieval"
 export SPRING_JPA_HIBERNATE_DDL_AUTO=validate
 if [[ "$DEPLOY_ENVIRONMENT" == test && "${MYSQL_HOST:-}" != 127.0.0.1 ]]; then
   echo 'Test deployments must use the provisioned local MySQL server at 127.0.0.1.' >&2

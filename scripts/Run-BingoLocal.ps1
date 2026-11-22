@@ -1,17 +1,16 @@
 <#+
 .SYNOPSIS
-Runs the Player or Agent Flutter app against the local Bingo backend.
+Runs the Player Flutter app against the local Bingo backend.
 
 .EXAMPLE
 .\scripts\Run-BingoLocal.ps1 -App player -Platform android
-.\scripts\Run-BingoLocal.ps1 -App agent -Platform chrome
 .\scripts\Run-BingoLocal.ps1 -App player -Platform android -DeviceId emulator-5554
 .\scripts\Run-BingoLocal.ps1 -App player -Platform android -CleanRebuild
 #>
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)]
-    [ValidateSet('player', 'agent')]
+    [ValidateSet('player')]
     [string] $App,
 
     [Parameter(Mandatory)]
@@ -27,12 +26,12 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$projectDirectory = Join-Path $repoRoot $(if ($App -eq 'player') { 'bingo-player' } else { 'bingo-agent' })
+$projectDirectory = Join-Path $repoRoot 'bingo-player'
 $entryPoint = Join-Path $projectDirectory 'lib\main.dart'
 $apiHost = if ($Platform -eq 'android') { '10.0.2.2' } else { 'localhost' }
 $apiBaseUrl = "http://${apiHost}:8080"
 $webSocketBaseUrl = "ws://${apiHost}:8080/ws"
-$webPort = if ($App -eq 'player') { 5180 } else { 5181 }
+$webPort = 5180
 
 if (-not (Test-Path -LiteralPath $projectDirectory -PathType Container)) {
     throw "The $App project was not found at '$projectDirectory'."
@@ -379,7 +378,7 @@ if ($Platform -eq 'chrome') {
         $portListener.Dispose()
     }
     if ($portOccupied) {
-        throw "Port $webPort is already in use. Stop the app using that port or choose the other app's separate Chrome launch. No processes were stopped."
+        throw "Port $webPort is already in use. Stop the process using that port before launching Player. No processes were stopped."
     }
 }
 

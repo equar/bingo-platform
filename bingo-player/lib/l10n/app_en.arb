@@ -6,7 +6,12 @@
   "inviteFriendsTitle": "Invite friends",
   "inviteFriendsDescription": "Share your referral link. Your friend can register with your code to support your referral credit.",
   "inviteFriendsMessage": "Join me on Sunset Bingo! Install the app and register with referral code {code}: {link}",
-  "@inviteFriendsMessage": {"placeholders": {"code": {}, "link": {}}},
+  "@inviteFriendsMessage": {
+    "placeholders": {
+      "code": {},
+      "link": {}
+    }
+  },
   "shareInvitation": "Share invitation",
   "inviteCopied": "Invitation copied. You can paste it into a message.",
   "patternLine": "Line",
@@ -19,25 +24,76 @@
   "patternLShape": "L shape",
   "patternOuterFrame": "Outer frame",
   "patternToGo": "{pattern} · {count} to go",
-  "@patternToGo": {"placeholders": {"pattern": {}, "count": {"type": "int"}}},
+  "@patternToGo": {
+    "placeholders": {
+      "pattern": {},
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "patternWaitingForServer": "Pattern complete · awaiting game confirmation",
   "prizeClosed": "Prize closed",
   "selectionColorOption": "Selection color {index}",
-  "@selectionColorOption": {"placeholders": {"index": {"type": "int"}}},
+  "@selectionColorOption": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
+  },
   "claimReviewTitle": "Review {count} eligible ticket(s)",
-  "@claimReviewTitle": {"placeholders": {"count": {"type": "int"}}},
+  "@claimReviewTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "claimReviewHint": "Select a ticket to review and submit its claim individually.",
   "clearManualMarksConfirm": "Clear all currently marked numbers on tickets in this game? New calls will still be auto-marked.",
   "ticketsPurchasedCount": "{count} ticket(s) purchased.",
-  "@ticketsPurchasedCount": {"placeholders": {"count": {"type": "int"}}},
+  "@ticketsPurchasedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "purchaseOutcomeSummary": "Purchased {purchased} of {requested}. Ticket IDs: {ticketIds}. Remaining: {remaining}. Charged: {amount} {currency}.",
-  "@purchaseOutcomeSummary": {"placeholders": {"purchased": {"type": "int"}, "requested": {"type": "int"}, "ticketIds": {}, "remaining": {"type": "int"}, "amount": {}, "currency": {}}},
+  "@purchaseOutcomeSummary": {
+    "placeholders": {
+      "purchased": {
+        "type": "int"
+      },
+      "requested": {
+        "type": "int"
+      },
+      "ticketIds": {},
+      "remaining": {
+        "type": "int"
+      },
+      "amount": {},
+      "currency": {}
+    }
+  },
   "purchaseUnknownOutcome": "The latest ticket purchase is still unconfirmed. Its saved request key will be used to check or retry it safely; do not start another purchase yet.",
   "resolvePurchase": "Check purchase status safely",
   "purchaseQuantityLabel": "{count} ticket(s)",
-  "@purchaseQuantityLabel": {"placeholders": {"count": {"type": "int"}}},
+  "@purchaseQuantityLabel": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "purchaseTotalLabel": "Total: {amount} {currency}",
-  "@purchaseTotalLabel": {"placeholders": {"amount": {}, "currency": {}}},
+  "@purchaseTotalLabel": {
+    "placeholders": {
+      "amount": {},
+      "currency": {}
+    }
+  },
   "languageSelectorLabel": "Choose language",
   "languageEnglish": "English",
   "languageAmharic": "አማርኛ",
@@ -196,7 +252,12 @@
   "noPreviousGames": "No completed or cancelled games yet.",
   "buyTicketsButton": "Buy tickets",
   "insufficientTicketBalance": "You need {amount} {currency} available to buy these tickets.",
-  "@insufficientTicketBalance": {"placeholders": {"amount": {}, "currency": {}}},
+  "@insufficientTicketBalance": {
+    "placeholders": {
+      "amount": {},
+      "currency": {}
+    }
+  },
   "lobbyLoadError": "Couldn't load rooms. Check your connection and retry.",
   "roomDetailsLoadError": "Couldn't load room details. Check your connection and retry.",
   "sessionsLoadError": "Couldn't load sessions. Check your connection and retry.",
@@ -285,7 +346,14 @@
   "depositAmountPositive": "Enter an amount of at least 0.01.",
   "depositAmountPrecision": "Enter an amount with no more than 2 decimal places.",
   "depositAmountMaximum": "The maximum deposit is {maximum}.",
-  "@depositAmountMaximum": { "placeholders": { "maximum": { "type": "String" } } },
+  "depositAmountAboveMaximum": "The deposit amount exceeds the allowed maximum. Enter a lower amount.",
+  "@depositAmountMaximum": {
+    "placeholders": {
+      "maximum": {
+        "type": "String"
+      }
+    }
+  },
   "depositAmountLimitChanged": "The deposit limit changed. Refresh the wallet and try again.",
   "telebirrReferenceInvalid": "Enter a reference that normalizes to 1–120 letters or numbers.",
   "telebirrInstructionsTitle": "Telebirr instructions",
@@ -431,6 +499,7 @@
   "errorGameFunding": "This game needs more funded ticket sales before it can start.",
   "prizePaid": "Paid",
   "prizeAwaitingPayment": "Awaiting payment",
+  "prizeCashUnresolved": "This cash prize is unresolved. There is no Player or Admin cash payout path, and it has not been paid. It requires manual review.",
   "prizeCashCode": "Agent cash payout code",
   "currentNumber": "Current number",
   "recentCalls": "Recent calls",
@@ -510,13 +579,25 @@
     }
   },
   "accountBalance": "Account · {phone}",
-  "@accountBalance": { "placeholders": { "phone": { "type": "String" } } },
+  "@accountBalance": {
+    "placeholders": {
+      "phone": {
+        "type": "String"
+      }
+    }
+  },
   "totalBalance": "Total balance",
   "withdrawableBalance": "Withdrawable",
   "contactUs": "Contact Us",
   "termsAndConditions": "Terms and Conditions",
   "phoneLabelWithNumbers": "Phone: {numbers}",
-  "@phoneLabelWithNumbers": { "placeholders": { "numbers": { "type": "String" } } },
+  "@phoneLabelWithNumbers": {
+    "placeholders": {
+      "numbers": {
+        "type": "String"
+      }
+    }
+  },
   "settingsTitle": "Settings",
   "themeTitle": "Theme",
   "themeLight": "Light",
@@ -533,7 +614,13 @@
   "notificationWin": "When a card is ready to claim",
   "winningNotificationAlert": "One of your cards is ready to claim a prize.",
   "newCalledNumberAlert": "Bingo number {number} was called.",
-  "@newCalledNumberAlert": {"placeholders": {"number": {"type": "int"}}},
+  "@newCalledNumberAlert": {
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
   "messagesTitle": "Messages",
   "messagesLoadError": "Unable to load messages.",
   "messagesEmpty": "You have no messages yet.",
@@ -556,7 +643,13 @@
   "gameSettingsTitle": "Game Settings",
   "unregisteredCard": "Unregistered card",
   "missedCallCount": "{count} called numbers on your cards need marking.",
-  "@missedCallCount": {"placeholders": {"count": {"type": "int"}}},
+  "@missedCallCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "markCalledNumbers": "Mark all",
   "playerStatisticsTitle": "Your play statistics",
   "gamesPlayed": "Games played",
@@ -574,5 +667,11 @@
   "calendarPreferenceSaving": "Saving calendar preference...",
   "myActiveGamesTitle": "Your upcoming and live games",
   "playingCardsCount": "Cards on board: {count}",
-  "@playingCardsCount": {"placeholders": {"count": {"type": "int"}}}
+  "@playingCardsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }

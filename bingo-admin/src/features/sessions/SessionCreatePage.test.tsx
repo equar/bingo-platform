@@ -112,6 +112,15 @@ describe("SessionCreatePage", () => {
     expect(await screen.findByText("Created session details")).toBeInTheDocument();
   });
 
+  it("does not offer agent cash as a selectable settlement for a new session", async () => {
+    const user = userEvent.setup();
+    render(<SessionCreatePage />, { wrapper: createWrapper });
+    await user.click(await screen.findByRole("combobox", { name: "Room" }));
+    await user.click(await screen.findByRole("option", { name: "Evening Room" }));
+    await user.click(screen.getByRole("combobox", { name: "Settlement" }));
+    expect(await screen.findByRole("option", { name: "Agent cash (unavailable)" })).toHaveAttribute("aria-disabled", "true");
+  });
+
   it("rejects invalid Ethiopian calendar dates and translates the guidance to Amharic", async () => {
     await i18n.changeLanguage("am");
     const result = resolveEthiopianRoomScheduleTime(

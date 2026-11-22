@@ -7,6 +7,7 @@ import re
 import subprocess
 import sys
 import textwrap
+import json
 
 import yaml
 
@@ -75,11 +76,46 @@ def main():
         require(set(workflow["on"]) == {"workflow_dispatch"}, f"{name}: store upload must not run on pushes or pull requests")
         job = next(iter(workflow["jobs"].values()))
         require("equar/bingo-platform" in job["if"] and "refs/heads/main" in job["if"], f"{name}: secret-bearing upload must run only from main in the canonical repository")
+        expected_environment = {
+            "bingo-player-android-internal-testing.yml": "bingo-app-android-internal",
+            "bingo-player-ios-testflight.yml": "bingo-app-ios-testflight",
+        }[name]
+        require(job.get("environment") == expected_environment, f"{name}: signing credentials must be scoped to {expected_environment}")
 
     for name, workflow in workflows.items():
         require("pull_request_target" not in workflow["on"], f"{name}: pull_request_target is not allowed")
 
-    print(f"Validated YAML for {len(workflows)} workflows and promotion/deployment trigger policy.")
+    launch = json.loads((ROOT / ".vscode" / "launch.json").read_text(encoding="utf-8"))
+    configurations = launch["configurations"]
+    require({entry["name"] for entry in configurations} == {
+        "Bingo Player — Android emulator", "Bingo Player — Chrome", "Bingo Player — Windows"
+    }, "VS Code must expose only the supported Player Android, Chrome, and Windows targets")
+    require(all("bingo-player" in entry["program"] and "bingo-player" in entry["cwd"] for entry in configurations),
+            "every VS Code Flutter launch target must resolve to bingo-player")
+    by_name = {entry["name"]: entry for entry in configurations}
+    require("--web-port=5180" in by_name["Bingo Player — Chrome"]["toolArgs"],
+            "Player Chrome launch must retain its configured development port")
+    require("deviceId" not in by_name["Bingo Player — Android emulator"]
+            and by_name["Bingo Player — Windows"]["deviceId"] == "windows",
+            "Player Android emulator and Windows launches must remain selectable")
+
+    component_runner = (ROOT / "scripts/ci/run-component-checks.mjs").read_text(encoding="utf-8")
+    hook = (ROOT / "scripts/hooks/Invoke-BingoGitChecks.ps1").read_text(encoding="utf-8")
+    package_builder = (ROOT / "deployment/mobile/build-packages.sh").read_text(encoding="utf-8")
+    local_launcher = (ROOT / "scripts/Run-BingoLocal.ps1").read_text(encoding="utf-8")
+    signing_helper = (ROOT / "deployment/mobile/prepare-android-signing.py").read_text(encoding="utf-8")
+    package_verifier = (ROOT / "deployment/mobile/verify-android-package.py").read_text(encoding="utf-8")
+    device_installer = (ROOT / "deployment/mobile/install-virtual-device.py").read_text(encoding="utf-8")
+    client_tooling = "\n".join((component_runner, hook, package_builder, local_launcher,
+                                signing_helper, package_verifier, device_installer))
+    require("bingo-agent" not in client_tooling,
+            "local CI, Git hooks, and mobile package builds must not target the deleted Agent Flutter app")
+    require("deployment\\/terraform\\/" in component_runner and "deployment/(aws|lightsail|terraform)" in hook,
+            "Terraform changes must map to infrastructure validation in CI and local hooks")
+    require("validate-deployment-infrastructure" in hook,
+            "the infrastructure workflow must map to infrastructure checks in local hooks")
+
+    print(f"Validated YAML for {len(workflows)} workflows, promotion policy, Player launch targets, and infrastructure mappings.")
 
 
 if __name__ == "__main__":

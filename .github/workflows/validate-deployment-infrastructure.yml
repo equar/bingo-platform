@@ -10,6 +10,10 @@ on:
       - deployment/mobile/test_release_provenance.py
       - deployment/mobile/test_fastlane_release_policy.rb
       - deployment/terraform/**
+      - docs/infrastructure/**
+      - scripts/hooks/Invoke-BingoGitChecks.ps1
+      - .githooks/pre-commit
+      - .githooks/pre-push
       - .github/workflows/deploy.yml
       - .github/workflows/branch-flow-guard.yml
       - .github/workflows/pr-validation-pipeline.yml
@@ -49,6 +53,11 @@ jobs:
           terraform -chdir=deployment/terraform validate
           terraform -chdir=deployment/terraform/test-database init -backend=false -input=false
           terraform -chdir=deployment/terraform/test-database validate
+
+      - name: Plan Terraform roots with mocked providers
+        run: |
+          terraform -chdir=deployment/terraform test
+          terraform -chdir=deployment/terraform/test-database test
 
       - name: Set up Python
         uses: actions/setup-python@v5

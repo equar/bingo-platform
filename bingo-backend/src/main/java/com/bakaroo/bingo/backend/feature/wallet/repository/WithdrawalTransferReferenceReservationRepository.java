@@ -6,6 +6,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Repository;
 
 /** Atomic, provider-scoped reservation of external withdrawal references. */
@@ -30,15 +31,21 @@ public class WithdrawalTransferReferenceReservationRepository {
             throw referenceAlreadyUsed();
         }
 
-        jdbcTemplate.update("""
-                insert into withdrawal_transfer_reference_reservations
-                    (provider_key, normalized_reference, reservation_status, source_type,
-                     legacy_source_count, created_at)
-                values (?, ?, 'RESERVED', 'COMPLETION', 0, ?)
-                """, providerKey, normalizedReference, Timestamp.from(createdAt));
+        try {
+            jdbcTemplate.update("""
+                    insert into withdrawal_transfer_reference_reservations_v57
+                        (provider_key, normalized_reference, reservation_status, source_type,
+                         legacy_source_count, created_at)
+                    values (?, ?, 'RESERVED', 'COMPLETION', 0, ?)
+                    """, providerKey, normalizedReference, Timestamp.from(createdAt));
+        } catch (DuplicateKeyException concurrentReservation) {
+            // The pre-insert lookup is only an optimization; the unique key is the
+            // concurrency authority. Translate the race into the public API code.
+            throw referenceAlreadyUsed();
+        }
         Long reservationId = jdbcTemplate.queryForObject("select last_insert_id()", Long.class);
         jdbcTemplate.update("""
-                insert into withdrawal_transfer_reference_reservation_sources
+                insert into withdrawal_transfer_reference_reservation_sources_v57
                     (reservation_id, withdrawal_request_id, source_type, created_at)
                 values (?, ?, 'COMPLETION', ?)
                 """, reservationId, withdrawalRequestId, Timestamp.from(createdAt));
@@ -47,7 +54,7 @@ public class WithdrawalTransferReferenceReservationRepository {
     private Optional<Reservation> find(String providerKey, String normalizedReference) {
         List<Reservation> exact = jdbcTemplate.query("""
                 select id, reservation_status
-                from withdrawal_transfer_reference_reservations
+                from withdrawal_transfer_reference_reservations_v57
                 where provider_key = ? and normalized_reference = ?
                 limit 1
                 """, (rs, row) -> new Reservation(rs.getLong("id"), rs.getString("reservation_status")),
@@ -60,7 +67,7 @@ public class WithdrawalTransferReferenceReservationRepository {
         }
         return jdbcTemplate.query("""
                 select id, reservation_status
-                from withdrawal_transfer_reference_reservations
+                from withdrawal_transfer_reference_reservations_v57
                 where provider_key = ? and normalized_reference = ?
                 limit 1
                 """, (rs, row) -> new Reservation(rs.getLong("id"), rs.getString("reservation_status")),

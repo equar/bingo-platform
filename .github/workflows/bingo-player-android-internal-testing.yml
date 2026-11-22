@@ -26,6 +26,7 @@ jobs:
     name: Build, sign, and upload to Google Play internal testing
     if: github.repository == 'equar/bingo-platform' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    environment: bingo-app-android-internal
     timeout-minutes: 60
     defaults:
       run:

@@ -40,18 +40,17 @@ function Get-Components([string[]]$Paths) {
         if ($file -match '^bingo-backend/') { $null = $components.Add('backend') }
         if ($file -match '^bingo-website/') { $null = $components.Add('website') }
         if ($file -match '^bingo-player/') { $null = $components.Add('player') }
-        if ($file -match '^bingo-agent/') { $null = $components.Add('agent') }
-        if ($file -match '^deployment/(aws|lightsail)/|^.github/workflows/validate-lightsail-infrastructure.yml$') { $null = $components.Add('infrastructure') }
+        if ($file -match '^deployment/(aws|lightsail|terraform)/|^.github/workflows/validate-(deployment|lightsail)-infrastructure.yml$') { $null = $components.Add('infrastructure') }
         if ($file -match '^.github/workflows/pr-validation-pipeline.yml$') { @('backend','admin','website') | ForEach-Object { $null = $components.Add($_) } }
-        if ($file -match '^.github/workflows/bingo-player-mobile-ci.yml$') { @('player','agent') | ForEach-Object { $null = $components.Add($_) } }
+        if ($file -match '^.github/workflows/bingo-player-mobile-ci.yml$') { $null = $components.Add('player') }
         if ($file -match '^.github/workflows/admin-browser-e2e.yml$') { $null = $components.Add('admin') }
         if ($file -match '^.github/workflows/deploy.yml$') { @('backend','admin','website','infrastructure') | ForEach-Object { $null = $components.Add($_) } }
-        if ($file -match '^scripts/ci/') { @('backend','admin','website','player','agent','infrastructure') | ForEach-Object { $null = $components.Add($_) } }
+        if ($file -match '^scripts/ci/') { @('backend','admin','website','player','infrastructure') | ForEach-Object { $null = $components.Add($_) } }
         if ($file -match '^deployment/aws/(detect-deployment-changes|validate-config)\.py$') { @('backend','admin','website','infrastructure') | ForEach-Object { $null = $components.Add($_) } }
-        if ($file -match '^(\.editorconfig|\.gitattributes|\.gitignore|package\.json|package-lock\.json|pom\.xml|\.mvn/|mvnw|mvnw\.cmd)$') { @('backend','admin','website','player','agent') | ForEach-Object { $null = $components.Add($_) } }
+        if ($file -match '^(\.editorconfig|\.gitattributes|\.gitignore|package\.json|package-lock\.json|pom\.xml|\.mvn/|mvnw|mvnw\.cmd)$') { @('backend','admin','website','player') | ForEach-Object { $null = $components.Add($_) } }
         if ($file -match '^\.github/workflows/') {
-            $known = $file -match '^(\.github/workflows/(pr-validation-pipeline|bingo-player-mobile-ci|admin-browser-e2e|deploy|validate-lightsail-infrastructure)\.yml)$'
-            if (-not $known) { @('backend','admin','website','player','agent','infrastructure') | ForEach-Object { $null = $components.Add($_) } }
+            $known = $file -match '^(\.github/workflows/(pr-validation-pipeline|bingo-player-mobile-ci|admin-browser-e2e|deploy|validate-deployment-infrastructure|validate-lightsail-infrastructure)\.yml)$'
+            if (-not $known) { @('backend','admin','website','player','infrastructure') | ForEach-Object { $null = $components.Add($_) } }
         }
     }
     return @($components | Sort-Object)
@@ -61,7 +60,7 @@ function Invoke-Check([string]$WorkingTree, [string[]]$Components) {
     if ($Components.Count -eq 0) { Write-Host 'No CI-covered component paths changed; no component checks required.'; return }
     $runnerPath = Join-Path $WorkingTree 'scripts/ci/run-component-checks.mjs'
     foreach ($component in $Components) {
-        $targets = if ($component -eq 'player') { @('bingo-player') } elseif ($component -eq 'agent') { @('bingo-agent') } else { @('') }
+        $targets = if ($component -eq 'player') { @('bingo-player') } else { @('') }
         foreach ($target in $targets) {
             $label = if ($target) { "$component ($target)" } else { $component }
             $commandArgs = @($runnerPath, $component)
@@ -85,7 +84,7 @@ function Invoke-Check([string]$WorkingTree, [string[]]$Components) {
                 & npm ci --prefix (Join-Path $WorkingTree $folder)
                 if ($LASTEXITCODE -ne 0) { throw "[$label] command 'npm ci' failed with exit code $LASTEXITCODE. Rerun: cd $folder; npm ci" }
             }
-            if ($component -in @('player','agent')) { $commandArgs += @('--app', $target) }
+            if ($component -eq 'player') { $commandArgs += @('--app', $target) }
             if ($component -eq 'infrastructure' -and -not (Get-Command cfn-lint -ErrorAction SilentlyContinue)) {
                 Write-Host '[infrastructure] SKIPPED: cfn-lint is missing; install with python -m pip install cfn-lint.'
             }

@@ -43,6 +43,8 @@ describe('api types helpers', () => {
       .toBe('Record evidence that you verified the external transfer before completing this withdrawal.');
     expect(parseApiError({ response: { status: 409, data: { code: 'TRANSFER_REFERENCE_ALREADY_USED' } } }).message)
       .toContain('already recorded for this payout provider');
+    expect(parseApiError({ response: { status: 400, data: { code: 'TRANSFER_REFERENCE_INVALID' } } }).message)
+      .toContain('letters or numbers');
   });
 
   it('explains game funding and claim-window blockers using safe messages', () => {

@@ -156,9 +156,31 @@ esac
 
 
 class DeploymentUrlValidationTest(unittest.TestCase):
+    def test_database_tls_settings_must_be_explicit_and_environment_appropriate(self):
+        base = {
+            'DEPLOY_ENVIRONMENT': 'test',
+            'MYSQL_SSL_MODE': 'DISABLED',
+            'MYSQL_ALLOW_PUBLIC_KEY_RETRIEVAL': 'true',
+        }
+        for changes, expected_error in [
+            ({'MYSQL_SSL_MODE': ''}, 'MYSQL_SSL_MODE must be explicitly set'),
+            ({'MYSQL_SSL_MODE': 'PREFERRED'}, 'MYSQL_SSL_MODE must be explicitly set'),
+            ({'MYSQL_ALLOW_PUBLIC_KEY_RETRIEVAL': ''}, 'MYSQL_ALLOW_PUBLIC_KEY_RETRIEVAL must be explicitly set'),
+            ({'MYSQL_ALLOW_PUBLIC_KEY_RETRIEVAL': 'false'}, 'MYSQL_ALLOW_PUBLIC_KEY_RETRIEVAL must be explicitly set'),
+        ]:
+            with self.subTest(changes=changes):
+                result = subprocess.run(
+                    [sys.executable, str(AWS / 'validate-config.py')],
+                    env={**os.environ, **base, **changes}, capture_output=True, text=True,
+                )
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(expected_error, result.stderr)
+
     def test_http_origins_are_allowed_only_for_test(self):
         base_env = {
             'BINGO_FLOAT_BANK_ENCRYPTION_KEY': base64.b64encode(b'0123456789abcdef0123456789abcdef').decode(),
+            'MYSQL_SSL_MODE': 'DISABLED',
+            'MYSQL_ALLOW_PUBLIC_KEY_RETRIEVAL': 'true',
             'VITE_API_BASE_URL': 'http://api.test.bakaroo.com',
             'ADMIN_PUBLIC_URL': 'http://admin.test.bakaroo.com',
             'PUBLIC_SITE_URL': 'http://test.bakaroo.com',
@@ -204,6 +226,8 @@ class DeploymentUrlValidationTest(unittest.TestCase):
         base_env = {
             'BINGO_FLOAT_BANK_ENCRYPTION_KEY': base64.b64encode(b'0123456789abcdef0123456789abcdef').decode(),
             'DEPLOY_ENVIRONMENT': 'test',
+            'MYSQL_SSL_MODE': 'DISABLED',
+            'MYSQL_ALLOW_PUBLIC_KEY_RETRIEVAL': 'true',
             'VITE_API_BASE_URL': 'http://api.test.bakaroo.com',
             'ADMIN_PUBLIC_URL': 'http://admin.test.bakaroo.com',
             'PUBLIC_SITE_URL': 'http://test.bakaroo.com',
@@ -240,6 +264,8 @@ class DeploymentUrlValidationTest(unittest.TestCase):
         base_env = {
             'DEPLOY_ENVIRONMENT': 'prod',
             'BINGO_FLOAT_BANK_ENCRYPTION_KEY': base64.b64encode(b'0123456789abcdef0123456789abcdef').decode(),
+            'MYSQL_SSL_MODE': 'VERIFY_IDENTITY',
+            'MYSQL_ALLOW_PUBLIC_KEY_RETRIEVAL': 'false',
             'VITE_API_BASE_URL': 'https://api.bingo.bakaroo.com',
             'ADMIN_PUBLIC_URL': 'https://admin.bingo.bakaroo.com',
             'PUBLIC_SITE_URL': 'https://bingo.bakaroo.com',
@@ -277,6 +303,8 @@ class DeploymentUrlValidationTest(unittest.TestCase):
     def test_production_configuration_rejects_missing_or_invalid_float_encryption_key(self):
         valid = {
             'DEPLOY_ENVIRONMENT': 'prod',
+            'MYSQL_SSL_MODE': 'VERIFY_IDENTITY',
+            'MYSQL_ALLOW_PUBLIC_KEY_RETRIEVAL': 'false',
             'BINGO_FLOAT_BANK_ENCRYPTION_KEY': base64.b64encode(b'0123456789abcdef0123456789abcdef').decode(),
             'VITE_API_BASE_URL': 'https://api.bingo.bakaroo.com',
             'ADMIN_PUBLIC_URL': 'https://admin.bingo.bakaroo.com',

@@ -47,9 +47,11 @@ public abstract class MySqlIntegrationTest {
             assertNoPersistentSchemaAccess(connection, "bingo_qa_test");
             assertOnlyDisposableSchemaGrants(connection);
             try (var statement = connection.createStatement();
-                    var result = statement.executeQuery("SELECT @@hostname, @@port")) {
-                if (!result.next() || result.getInt(2) != 3306) {
-                    throw new IllegalStateException("Refusing integration tests: MySQL server identity check failed");
+                    var result = statement.executeQuery("SELECT VERSION(), @@hostname, @@port")) {
+                if (!result.next() || result.getInt(3) != 3306
+                        || result.getString(1) == null || !result.getString(1).startsWith("8.")) {
+                    throw new IllegalStateException(
+                            "Refusing integration tests: the target must be local MySQL 8 on port 3306");
                 }
             }
         } catch (SQLException exception) {

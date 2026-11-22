@@ -994,6 +994,15 @@ class _GameRulesCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text('Prizes: $prizes', style: theme.textTheme.bodyMedium),
+          if (session.configuredPrizes.any(
+            (prize) => prize.settlementPath == 'AGENT_CASH',
+          )) ...[
+            const SizedBox(height: 6),
+            Text(
+              AppLocalizations.of(context)!.prizeCashUnresolved,
+              style: theme.textTheme.bodySmall?.copyWith(color: colors.error),
+            ),
+          ],
           const SizedBox(height: 16),
           Text('How to play', style: theme.textTheme.titleMedium),
           const SizedBox(height: 6),
@@ -2123,7 +2132,7 @@ class _ClaimHistoryCard extends StatelessWidget {
                             ),
                           if (claim.prizeAmount != null)
                             Text(
-                              '${claim.prizeAmount} ${claim.prizeCurrency ?? ""} · ${claim.prizeStatus == "SETTLED" ? localizations.prizePaid : localizations.prizeAwaitingPayment}',
+                              '${claim.prizeAmount} ${claim.prizeCurrency ?? ""} · ${claim.prizeStatus == "SETTLED" ? localizations.prizePaid : claim.settlementPath == "AGENT_CASH" ? localizations.prizeCashUnresolved : localizations.prizeAwaitingPayment}',
                             ),
                           if (claim.payoutCode != null)
                             SelectableText(

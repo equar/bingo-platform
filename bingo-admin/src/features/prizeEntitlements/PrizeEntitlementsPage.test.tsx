@@ -93,6 +93,14 @@ describe("PrizeEntitlementsPage", () => {
     await waitFor(() => expect(prizeEntitlementsMock).toHaveBeenLastCalledWith(1, 20, "entitlement-op", "PENDING"));
   });
 
+  it("opens the pending cash entitlement queue for manual review", async () => {
+    const user = userEvent.setup();
+    render(<PrizeEntitlementsPage />, { wrapper: createWrapper });
+    await screen.findByTestId("entitlement-row-24");
+    await user.click(screen.getByRole("button", { name: "Show unresolved cash entitlements" }));
+    await waitFor(() => expect(prizeEntitlementsMock).toHaveBeenLastCalledWith(0, 20, "AGENT_CASH", "PENDING"));
+  });
+
   it("blocks settlement until payout and accounting policy are approved", async () => {
     render(<PrizeEntitlementsPage />, { wrapper: createWrapper });
 

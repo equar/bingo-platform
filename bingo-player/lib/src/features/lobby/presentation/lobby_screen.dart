@@ -429,6 +429,18 @@ class _SessionList extends StatelessWidget {
                                 '${localizations.prizeLabel}: ${session.configuredPrizes.isEmpty ? '—' : session.configuredPrizes.map((prize) => '${prize.prizeType.replaceAll('_', ' ')} ${prize.amount} ${session.currency}').join(' · ')}',
                                 style: Theme.of(context).textTheme.bodySmall,
                               ),
+                              if (session.configuredPrizes.any(
+                                (prize) => prize.settlementPath == 'AGENT_CASH',
+                              ))
+                                Text(
+                                  localizations.prizeCashUnresolved,
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.error,
+                                      ),
+                                ),
                             ],
                           ],
                         ),

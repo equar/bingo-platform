@@ -56,7 +56,8 @@ export function SessionEditPage() {
   }, [room, date, time]);
   const valid = Boolean(session && room && name.trim() && name.trim().length <= 120 && start?.instant
     && prizes.length > 0 && new Set(prizes.map((prize) => prize.prizeType)).size === prizes.length
-    && prizes.every((prize) => Number(prize.amount) >= session.sessionCapacity / 100 && prize.settlementPath));
+    && prizes.every((prize) => Number(prize.amount) >= session.sessionCapacity / 100 && prize.settlementPath === "PLAYER_WALLET"));
+  const hasCashPrize = prizes.some((prize) => prize.settlementPath === "AGENT_CASH");
 
   const saveMutation = useMutation({
     mutationFn: () => updateSession(id, {
@@ -121,12 +122,13 @@ export function SessionEditPage() {
           {start && !start.instant ? <Alert severity="error">{t(start.error)}</Alert> : null}
           <Stack spacing={1.5}>
             <Typography variant="h6">{t("Session prizes")}</Typography>
+            {hasCashPrize ? <Alert severity="warning">{t("Cash prize payouts are unavailable for new games. Change this prize to Player wallet. Existing cash entitlements remain pending and unpaid for manual review.")}</Alert> : null}
             {prizes.map((prize, index) => <Grid container spacing={1.5} key={`${prize.prizeType}-${index}`}>
               <Grid item xs={12} sm={4}><TextField select label={t("Pattern")} value={prize.prizeType} fullWidth onChange={(event) => changePrize(index, { prizeType: event.target.value })}>
                 {patterns.map((pattern) => <MenuItem key={pattern} value={pattern} disabled={prizes.some((item, other) => other !== index && item.prizeType === pattern)}>{translateAdminValue(pattern, t)}</MenuItem>)}
               </TextField></Grid>
               <Grid item xs={12} sm={4}><TextField label={`${t("Prize amount")} (${session.currency})`} type="number" value={prize.amount} inputProps={{ min: session.sessionCapacity / 100, step: 0.01 }} onChange={(event) => changePrize(index, { amount: event.target.value })} fullWidth /></Grid>
-              <Grid item xs={12} sm={4}><TextField select label={t("Settlement")} value={prize.settlementPath} onChange={(event) => changePrize(index, { settlementPath: event.target.value })} fullWidth><MenuItem value="PLAYER_WALLET">{t("Player wallet")}</MenuItem><MenuItem value="AGENT_CASH">{t("Agent cash")}</MenuItem></TextField></Grid>
+              <Grid item xs={12} sm={4}><TextField select label={t("Settlement")} value={prize.settlementPath} onChange={(event) => changePrize(index, { settlementPath: event.target.value })} fullWidth><MenuItem value="PLAYER_WALLET">{t("Player wallet")}</MenuItem><MenuItem value="AGENT_CASH" disabled>{t("Agent cash (unavailable)")}</MenuItem></TextField></Grid>
             </Grid>)}
           </Stack>
           <Stack direction="row" spacing={1} justifyContent="space-between" flexWrap="wrap">

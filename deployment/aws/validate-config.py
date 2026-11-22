@@ -7,6 +7,12 @@ origins = {}
 deployment_environment = os.environ.get('DEPLOY_ENVIRONMENT', 'prod')
 if deployment_environment not in ('test', 'prod'):
     raise SystemExit('DEPLOY_ENVIRONMENT must be test or prod')
+expected_ssl = 'DISABLED' if deployment_environment == 'test' else 'VERIFY_IDENTITY'
+expected_public_key_retrieval = 'true' if deployment_environment == 'test' else 'false'
+if os.environ.get('MYSQL_SSL_MODE', '').strip() != expected_ssl:
+    raise SystemExit('MYSQL_SSL_MODE must be explicitly set to ' + expected_ssl + ' for ' + deployment_environment)
+if os.environ.get('MYSQL_ALLOW_PUBLIC_KEY_RETRIEVAL', '').strip().lower() != expected_public_key_retrieval:
+    raise SystemExit('MYSQL_ALLOW_PUBLIC_KEY_RETRIEVAL must be explicitly set to ' + expected_public_key_retrieval + ' for ' + deployment_environment)
 allowed_schemes = {'http', 'https'} if deployment_environment == 'test' else {'https'}
 for key in ('VITE_API_BASE_URL', 'ADMIN_PUBLIC_URL', 'PUBLIC_SITE_URL'):
     value = os.environ.get(key, '')

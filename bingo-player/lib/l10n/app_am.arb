@@ -6,7 +6,12 @@
   "inviteFriendsTitle": "ጓደኞችን ይጋብዙ",
   "inviteFriendsDescription": "የሪፈራል ሊንክዎን ያጋሩ። ጓደኛዎ በኮድዎ ሲመዘገብ የሪፈራል ሽልማት ያገኛሉ።",
   "inviteFriendsMessage": "ከእኔ ጋር Sunset Bingo ይጫወቱ! መተግበሪያውን ይጫኑና በዚህ የሪፈራል ኮድ ይመዝገቡ {code}: {link}",
-  "@inviteFriendsMessage": {"placeholders": {"code": {}, "link": {}}},
+  "@inviteFriendsMessage": {
+    "placeholders": {
+      "code": {},
+      "link": {}
+    }
+  },
   "shareInvitation": "ግብዣውን ያጋሩ",
   "inviteCopied": "ግብዣው ተቀድቷል። ወደ መልዕክት መለጠፍ ይችላሉ።",
   "patternLine": "መስመር",
@@ -19,25 +24,76 @@
   "patternLShape": "L ቅርጽ",
   "patternOuterFrame": "ውጫዊ ፍሬም",
   "patternToGo": "{pattern} · {count} ይቀራሉ",
-  "@patternToGo": {"placeholders": {"pattern": {}, "count": {"type": "int"}}},
+  "@patternToGo": {
+    "placeholders": {
+      "pattern": {},
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "patternWaitingForServer": "ቅርጹ ተሟልቷል · የጨዋታውን ማረጋገጫ በመጠባበቅ ላይ",
   "prizeClosed": "ሽልማቱ ተዘግቷል",
   "selectionColorOption": "የምርጫ ቀለም {index}",
-  "@selectionColorOption": {"placeholders": {"index": {"type": "int"}}},
+  "@selectionColorOption": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
+  },
   "claimReviewTitle": "{count} ብቁ ቲኬት(ቶች)ን ይመልከቱ",
-  "@claimReviewTitle": {"placeholders": {"count": {"type": "int"}}},
+  "@claimReviewTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "claimReviewHint": "ቲኬት ይምረጡና የሽልማት ጥያቄውን በተናጠል ይላኩ።",
   "clearManualMarksConfirm": "በዚህ ጨዋታ ውስጥ በቲኬቶች ላይ የተመለከቱ ቁጥሮችን ሁሉ ያጽዱ? አዲስ የሚጠሩ ቁጥሮች በራስ-ሰር መመልከታቸው ይቀጥላል።",
   "ticketsPurchasedCount": "{count} ቲኬት(ቶች) ተገዝተዋል።",
-  "@ticketsPurchasedCount": {"placeholders": {"count": {"type": "int"}}},
+  "@ticketsPurchasedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "purchaseOutcomeSummary": "ከ{requested} ቲኬቶች {purchased} ተገዝተዋል። የቲኬት መለያዎች፦ {ticketIds}። የቀሩ፦ {remaining}። የተከፈለ፦ {amount} {currency}።",
-  "@purchaseOutcomeSummary": {"placeholders": {"purchased": {"type": "int"}, "requested": {"type": "int"}, "ticketIds": {}, "remaining": {"type": "int"}, "amount": {}, "currency": {}}},
+  "@purchaseOutcomeSummary": {
+    "placeholders": {
+      "purchased": {
+        "type": "int"
+      },
+      "requested": {
+        "type": "int"
+      },
+      "ticketIds": {},
+      "remaining": {
+        "type": "int"
+      },
+      "amount": {},
+      "currency": {}
+    }
+  },
   "purchaseUnknownOutcome": "የመጨረሻው የቲኬት ግዢ ገና አልተረጋገጠም። በደህና ለማረጋገጥ ወይም እንደገና ለመሞከር የተቀመጠው ቁልፍ ይጠቀማል፤ እባክዎ እስኪጣራ ድረስ ሌላ ግዢ አይጀምሩ።",
   "resolvePurchase": "የግዢውን ሁኔታ በደህና ያረጋግጡ",
   "purchaseQuantityLabel": "{count} ቲኬት(ቶች)",
-  "@purchaseQuantityLabel": {"placeholders": {"count": {"type": "int"}}},
+  "@purchaseQuantityLabel": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "purchaseTotalLabel": "ጠቅላላ፦ {amount} {currency}",
-  "@purchaseTotalLabel": {"placeholders": {"amount": {}, "currency": {}}},
+  "@purchaseTotalLabel": {
+    "placeholders": {
+      "amount": {},
+      "currency": {}
+    }
+  },
   "languageSelectorLabel": "ቋንቋ ይምረጡ",
   "languageEnglish": "English",
   "languageAmharic": "አማርኛ",
@@ -196,7 +252,12 @@
   "noPreviousGames": "እስካሁን የተጠናቀቀ ወይም የተሰረዘ ጨዋታ የለም።",
   "buyTicketsButton": "ቲኬቶችን ይግዙ",
   "insufficientTicketBalance": "እነዚህን ቲኬቶች ለመግዛት {amount} {currency} ያህል የሚገኝ ቀሪ ሂሳብ ያስፈልጋል።",
-  "@insufficientTicketBalance": {"placeholders": {"amount": {}, "currency": {}}},
+  "@insufficientTicketBalance": {
+    "placeholders": {
+      "amount": {},
+      "currency": {}
+    }
+  },
   "lobbyLoadError": "ክፍሎችን መጫን አልተቻለም። ግንኙነትዎን ይመርምሩና ይድገሙ።",
   "roomDetailsLoadError": "የክፍል ዝርዝርን መጫን አልተቻለም። ግንኙነትዎን ይመርምሩና ይድገሙ።",
   "sessionsLoadError": "ሴሽኖችን መጫን አልተቻለም። ግንኙነትዎን ይመርምሩና ይድገሙ።",
@@ -285,7 +346,14 @@
   "depositAmountPositive": "ቢያንስ 0.01 የሆነ መጠን ያስገቡ።",
   "depositAmountPrecision": "ከ2 የአስርዮሽ ቦታዎች ያልበለጠ መጠን ያስገቡ።",
   "depositAmountMaximum": "ከፍተኛው የተቀማጭ መጠን {maximum} ነው።",
-  "@depositAmountMaximum": { "placeholders": { "maximum": { "type": "String" } } },
+  "depositAmountAboveMaximum": "የተቀማጭ መጠኑ ከተፈቀደው ከፍተኛ መጠን በላይ ነው። ከዚያ ያነሰ መጠን ያስገቡ።",
+  "@depositAmountMaximum": {
+    "placeholders": {
+      "maximum": {
+        "type": "String"
+      }
+    }
+  },
   "depositAmountLimitChanged": "የተቀማጭ ገደቡ ተቀይሯል። የኪስ ቦርሳውን አድስና እንደገና ሞክር።",
   "telebirrReferenceInvalid": "ወደ 1 እስከ 120 ፊደላት ወይም ቁጥሮች የሚቀየር ማጣቀሻ ያስገቡ።",
   "telebirrInstructionsTitle": "Telebirr መመሪያ",
@@ -431,6 +499,7 @@
   "errorGameFunding": "ይህ ጨዋታ ከመጀመሩ በፊት ተጨማሪ በገንዘብ የተደገፈ የቲኬት ሽያጭ ያስፈልገዋል።",
   "prizePaid": "ተከፍሏል",
   "prizeAwaitingPayment": "ክፍያ በመጠባበቅ ላይ",
+  "prizeCashUnresolved": "ይህ የጥሬ ገንዘብ ሽልማት ገና አልተፈታም። በPlayer ወይም Admin የጥሬ ገንዘብ ክፍያ መንገድ የለም፣ እና አልተከፈለም። በእጅ መገምገም ያስፈልጋል።",
   "prizeCashCode": "የወኪል ጥሬ ገንዘብ ክፍያ ኮድ",
   "currentNumber": "የአሁኑ ቁጥር",
   "recentCalls": "የቅርብ ጥሪዎች",
@@ -510,13 +579,25 @@
     }
   },
   "accountBalance": "መለያ · {phone}",
-  "@accountBalance": { "placeholders": { "phone": { "type": "String" } } },
+  "@accountBalance": {
+    "placeholders": {
+      "phone": {
+        "type": "String"
+      }
+    }
+  },
   "totalBalance": "ጠቅላላ ቀሪ ሂሳብ",
   "withdrawableBalance": "ሊወጣ የሚችል",
   "contactUs": "ያግኙን",
   "termsAndConditions": "ውሎች እና ሁኔታዎች",
   "phoneLabelWithNumbers": "ስልክ፦ {numbers}",
-  "@phoneLabelWithNumbers": { "placeholders": { "numbers": { "type": "String" } } },
+  "@phoneLabelWithNumbers": {
+    "placeholders": {
+      "numbers": {
+        "type": "String"
+      }
+    }
+  },
   "settingsTitle": "ቅንብሮች",
   "themeTitle": "ገጽታ",
   "themeLight": "ብርሃን",
@@ -533,7 +614,13 @@
   "notificationWin": "ካርድ ለማሸነፍ ዝግጁ ሲሆን",
   "winningNotificationAlert": "ከካርዶችዎ አንዱ ሽልማት ለመጠየቅ ዝግጁ ነው።",
   "newCalledNumberAlert": "የቢንጎ ቁጥር {number} ተጠርቷል።",
-  "@newCalledNumberAlert": {"placeholders": {"number": {"type": "int"}}},
+  "@newCalledNumberAlert": {
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
   "messagesTitle": "መልዕክቶች",
   "messagesLoadError": "መልዕክቶችን መጫን አልተቻለም።",
   "messagesEmpty": "እስካሁን መልዕክት የለዎትም።",
@@ -556,7 +643,13 @@
   "gameSettingsTitle": "የጨዋታ ቅንብሮች",
   "unregisteredCard": "ያልተመዘገበ ካርድ",
   "missedCallCount": "በካርዶችዎ ላይ የተጠሩ ቁጥሮች ሳይምሉ ቀርተዋል: {count}።",
-  "@missedCallCount": {"placeholders": {"count": {"type": "int"}}},
+  "@missedCallCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "markCalledNumbers": "ሁሉንም ምልክት አድርግ",
   "playerStatisticsTitle": "የጨዋታ ስታቲስቲክስዎ",
   "gamesPlayed": "የተጫወቱ ጨዋታዎች",
@@ -574,5 +667,11 @@
   "calendarPreferenceSaving": "የቀን መቁጠሪያ ምርጫ በማስቀመጥ ላይ...",
   "myActiveGamesTitle": "የሚመጡ እና በቀጥታ የሚካሄዱ ጨዋታዎችዎ",
   "playingCardsCount": "በአንድ ጊዜ የሚጫወቱት ካርዶች: {count}",
-  "@playingCardsCount": {"placeholders": {"count": {"type": "int"}}}
+  "@playingCardsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }

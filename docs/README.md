@@ -13,7 +13,7 @@ Start with the root [README](../README.md) for prerequisites and local quick sta
 ## Development and client guides
 
 - [Admin](../bingo-admin/README.md), [Player](../bingo-player/README.md),
-  [Agent](../bingo-agent/README.md), and [website](../bingo-website/README.md)
+  and [website](../bingo-website/README.md)
 
 ## Deployment and operations
 

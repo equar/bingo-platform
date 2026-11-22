@@ -5,6 +5,7 @@ import com.bakaroo.bingo.backend.common.exception.*;
 import com.bakaroo.bingo.backend.feature.auth.service.BingoUserPrincipal;
 import com.bakaroo.bingo.backend.feature.game.dto.*;
 import com.bakaroo.bingo.backend.feature.game.entity.*;
+import com.bakaroo.bingo.backend.feature.game.model.BingoPrizeConfig;
 import com.bakaroo.bingo.backend.feature.game.repository.*;
 import com.bakaroo.bingo.backend.feature.game.service.*;
 import com.bakaroo.bingo.backend.feature.user.entity.*;
@@ -304,11 +305,17 @@ class GameOperationalReadinessIntegrationTest extends MySqlIntegrationTest {
 
     @Test @org.springframework.security.test.context.support.WithMockUser(roles = "ADMIN")
     void agentCashUsesTheSameWinnerFundingAndExactlyOnceControls() {
-        session = games.createSession(room, request(null, List.of(new BingoPrizeConfigRequest(BingoPatternType.LINE,
-                new BigDecimal("10.01"), PrizeSettlementPath.AGENT_CASH)))).id();
-        User agent = sellingAgent(); Long ticket = buy(one); state(GameSessionState.STARTED); calls(75); approve(claim(ticket, one).id());
+        // Represent a legacy session snapshot that predates the configuration guard.
+        Long ticket = buy(one);
+        GameSession legacySession = sessions.findById(session).orElseThrow();
+        legacySession.setPrizesSnapshotJson(json.valueToTree(List.of(new BingoPrizeConfig(BingoPatternType.LINE,
+                new BigDecimal("10.01"), PrizeSettlementPath.AGENT_CASH, 1))).toString());
+        legacySession.setState(GameSessionState.STARTED);
+        sessions.saveAndFlush(legacySession);
+        User agent = sellingAgent(); calls(75); approve(claim(ticket, one).id());
         var entitlement = prizes.findAll().stream().filter(p -> p.getSession().getId().equals(session)).findFirst().orElseThrow();
         assertEquals(entitlement.getPayoutCode(), games.getMyWinClaims(new BingoUserPrincipal(one), org.springframework.data.domain.Pageable.unpaged()).getContent().getFirst().payoutCode());
+        assertEquals(PrizeSettlementPath.AGENT_CASH, games.getMyWinClaims(new BingoUserPrincipal(one), org.springframework.data.domain.Pageable.unpaged()).getContent().getFirst().settlementPath());
         assertNull(games.getAdminWinClaim(entitlement.getWinClaim().getId()).payoutCode());
         assertTrue(games.getMyWinClaims(new BingoUserPrincipal(two), org.springframework.data.domain.Pageable.unpaged()).isEmpty());
         var request = new com.bakaroo.bingo.backend.feature.agent.dto.AgentPayoutVerificationRequest(entitlement.getPayoutCode(), "2468", "CASH-" + entitlement.getId());
@@ -320,6 +327,22 @@ class GameOperationalReadinessIntegrationTest extends MySqlIntegrationTest {
         assertEquals(new BigDecimal("989.99"), balance.getAvailableBalance()); assertEquals(new BigDecimal("10.01"), balance.getClearingBalance());
         assertEquals(agent.getId(), prizes.findById(entitlement.getId()).orElseThrow().getSettledBy().getId());
         assertNull(games.getMyWinClaims(new BingoUserPrincipal(one), org.springframework.data.domain.Pageable.unpaged()).getContent().getFirst().payoutCode());
+    }
+
+    @Test
+    void newCashPrizeConfigurationsAreRejectedAtRoomAndSessionBoundaries() {
+        var cashPrize = new BingoPrizeConfigRequest(BingoPatternType.LINE, new BigDecimal("10.01"),
+                PrizeSettlementPath.AGENT_CASH);
+        BadRequestException roomError = assertThrows(BadRequestException.class, () -> games.createRoom(
+                new BingoRoomRequest("Cash unavailable " + UUID.randomUUID(), "Fixture", new BigDecimal("100.00"),
+                        "ETB", "Africa/Addis_Ababa", "0 0 * * * *", 10, 10, true, true, true,
+                        List.of(BingoPatternType.LINE), List.of(cashPrize), null)));
+        assertEquals("CASH_PRIZE_PAYOUT_UNAVAILABLE", roomError.getCode());
+
+        BadRequestException sessionError = assertThrows(BadRequestException.class,
+                () -> games.createSession(room, request(List.of(BingoPatternType.LINE), List.of(cashPrize))));
+        assertEquals("CASH_PRIZE_PAYOUT_UNAVAILABLE", sessionError.getCode());
+        assertEquals(1, sessions.findByRoomIdOrderByScheduledStartAtDesc(room).size());
     }
 
     @Test @org.springframework.security.test.context.support.WithMockUser(roles = "AGENT")

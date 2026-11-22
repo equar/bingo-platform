@@ -3,7 +3,7 @@ import json, os, secrets, shutil, subprocess, sys
 from pathlib import Path
 root=Path(__file__).resolve().parents[2]
 app=sys.argv[1]
-if app not in ('bingo-player','bingo-agent'): raise SystemExit('Unknown app')
+if app != 'bingo-player': raise SystemExit('Only the Bingo Player Android client is available for signing')
 require_existing='--require-existing' in sys.argv[2:]
 properties=root/app/'android/key.properties'
 if properties.exists():

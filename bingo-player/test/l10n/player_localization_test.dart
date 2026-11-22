@@ -7,12 +7,12 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('Tigrinya catalog has every English message key', () {
-    final english = jsonDecode(
-      File('lib/l10n/app_en.arb').readAsStringSync(),
-    ) as Map<String, dynamic>;
-    final tigrinya = jsonDecode(
-      File('lib/l10n/app_ti.arb').readAsStringSync(),
-    ) as Map<String, dynamic>;
+    final english =
+        jsonDecode(File('lib/l10n/app_en.arb').readAsStringSync())
+            as Map<String, dynamic>;
+    final tigrinya =
+        jsonDecode(File('lib/l10n/app_ti.arb').readAsStringSync())
+            as Map<String, dynamic>;
     final englishMessageKeys = english.keys
         .where((key) => !key.startsWith('@'))
         .toSet();
@@ -63,6 +63,44 @@ void main() {
       expect(tigrinya.languageTigrinya, 'ትግርኛ');
       expect(tigrinya.homeLobby, 'ኣዳራሽ');
       expect(tigrinya.profileLanguagePreferenceDescription, contains('ትግርኛ'));
+    },
+  );
+
+  test(
+    'Tigrinya purchase recovery messages retain all dynamic values',
+    () async {
+      final english = await AppLocalizations.delegate.load(const Locale('en'));
+      final tigrinya = await AppLocalizations.delegate.load(const Locale('ti'));
+      final summary = tigrinya.purchaseOutcomeSummary(
+        2,
+        3,
+        'T-11, T-12',
+        1,
+        '40.00',
+        'ETB',
+      );
+
+      expect(summary, contains('T-11, T-12'));
+      expect(summary, contains('40.00'));
+      expect(summary, contains('ETB'));
+      expect(
+        summary,
+        isNot(
+          english.purchaseOutcomeSummary(2, 3, 'T-11, T-12', 1, '40.00', 'ETB'),
+        ),
+      );
+      expect(
+        tigrinya.purchaseUnknownOutcome,
+        isNot(english.purchaseUnknownOutcome),
+      );
+      expect(
+        tigrinya.depositAmountLimitChanged,
+        isNot(english.depositAmountLimitChanged),
+      );
+      expect(
+        tigrinya.depositAmountAboveMaximum,
+        isNot(english.depositAmountAboveMaximum),
+      );
     },
   );
 }

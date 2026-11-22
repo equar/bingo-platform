@@ -2,8 +2,7 @@ BINGO ANDROID BUILD GUIDE
 ========================
 
 Run these commands from the repository root. These steps build the Player app
-in bingo-player. The Agent app is in bingo-agent and is not the Play Store app
-configured by the current Android publishing workflows.
+in `bingo-player`, the only maintained Flutter client.
 
 Prerequisites
 -------------

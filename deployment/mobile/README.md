@@ -1,6 +1,6 @@
 # Direct-share mobile packages
 
-Both apps build against `https://api.bingo.bakaroo.com` using the checked-in
+The Player app builds against `https://api.bingo.bakaroo.com` using the checked-in
 `production.json`. The URL is an origin: existing REST endpoints include
 `/api/v1`, and player WebSockets use `/ws` with WSS. No HTTP exceptions are
 needed on Android or iOS.
@@ -13,39 +13,35 @@ From the repository root:
 bash deployment/mobile/build-packages.sh android
 ```
 
-Outputs are `artifacts/bingo-player-android.apk` and
-`artifacts/bingo-agent-android.apk`, with SHA-256 checksum files. These are
-universal release APKs suitable for file sharing, not Play Store AABs.
+Output is `artifacts/bingo-player-android.apk`, with a SHA-256 checksum file.
+It is a universal release APK suitable for file sharing, not a Play Store AAB.
 Recipients permit installation from the app they use to open the APK.
 
-The helper creates a separate persistent release keystore per app if no
-`android/key.properties` exists. Back up **all of `signing/` securely**;
-keep those same keys for future app updates. Signing files and build outputs
-are ignored by Git. Existing signing configuration is reused. The player's
-Android application ID is `com.bakaroo.bingo_app`; the agent's is
-`com.bakaroo.bingo_agent`. Previously installed debug/demo apps may need
-uninstalling if their signing identity or package ID differs.
+The helper creates or reuses the Player release keystore if no
+`android/key.properties` exists. Back up `signing/` securely and keep the same
+key for future updates. Signing files and build outputs are ignored by Git.
+The Player Android application ID is `com.bakaroo.bingo_app`. Previously
+installed debug/demo builds may need uninstalling if signing differs.
 
-The Play Store helper (`playstoreBuild.sh`) never generates a signing key. On
-the Player rename it restores the ignored `bingo-player/android/key.properties`
-from the existing `signing/bingo-app.jks` and `signing/bingo-app.json` upload
-key pair. If that pair is unavailable, restore the registered Play upload key
+The Play Store helper (`playstoreBuild.sh`) never generates a signing key. For
+the Player, it restores the ignored `bingo-player/android/key.properties` from
+the existing `signing/bingo-app.jks` and `signing/bingo-app.json` upload key
+pair. If that pair is unavailable, restore the registered Play upload key
 instead of creating a replacement.
 
 ## iOS
 
 An IPA is not generally installable simply by opening a Telegram attachment.
 Direct sharing uses Apple Ad Hoc distribution, with a paid Apple Developer
-team, an Apple Distribution identity/private key, and a matching profile for
-each app that includes every recipient's device UDID. Install using Apple
+team, an Apple Distribution identity/private key, and a matching profile that
+includes every recipient's device UDID. Install using Apple
 Configurator or an appropriate signed OTA distribution setup. TestFlight is
 an alternative when enrolling recipients individually is impractical.
 
-Both iOS projects are included. Configure each Runner target's bundle ID,
-team, certificate, and Ad Hoc provisioning profile in Xcode. Use the checked-in `*-ExportOptions.plist.example` files as a starting point,
-with your Apple team ID and profile names. Export an Ad Hoc
-ExportOptions.plist for each app into `signing/bingo-player-ExportOptions.plist`
-and `signing/bingo-agent-ExportOptions.plist`. Then run:
+Configure the Player Runner target's bundle ID, team, certificate, and Ad Hoc
+provisioning profile in Xcode. Use the checked-in Player ExportOptions example
+as a starting point, with your Apple team ID and profile name. Export an Ad Hoc
+ExportOptions.plist to `signing/bingo-player-ExportOptions.plist`. Then run:
 
 ```bash
 bash deployment/mobile/build-packages.sh ios
@@ -67,15 +63,14 @@ Production device validation remains separate from local analysis/widget tests.
 Do not run financial integration scenarios against the production database
 merely to test a package build.
 
-The checked-in iOS bundle IDs are `com.bakaroo.bingo.bingoApp` (player) and
-`com.equar.bingo.bingoAgent` (agent). Create their Apple profiles accordingly,
-or update the Xcode bundle IDs and export profile mappings together.
+The checked-in Player iOS bundle ID is `com.bakaroo.bingo.bingoApp`. Keep its
+Apple profile and Xcode bundle ID aligned.
 The local Xcode installation currently requires its licence to be reviewed
 and accepted before iOS compilation and native macOS-hosted widget tests work.
 
 ## Device compatibility and failed installs
 
-Both shared Android APKs require **Android 7.0 (API 24) or newer**. They include
+The shared Player Android APK requires **Android 7.0 (API 24) or newer**. It includes
 `armeabi-v7a` (32-bit ARM), `arm64-v8a` (64-bit ARM) and `x86_64`. One universal
 APK is the default so recipients do not need to choose a CPU variant. Legacy
 32-bit Intel Android phones are unsupported. Android 6 and older are unsupported

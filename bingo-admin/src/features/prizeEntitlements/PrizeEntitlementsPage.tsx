@@ -139,6 +139,17 @@ export function PrizeEntitlementsPage() {
             "Claim approval creates an entitlement only; it does not credit the player's wallet. Wallet credit is a separate authorized settlement and remains blocked while payouts are disabled. Cash entitlements remain unresolved: there is no Admin or Player cash settlement path, and these records are not marked paid.",
           )}
         </Alert>
+        <Button
+          variant="outlined"
+          size="small"
+          onClick={() => {
+            setQuery("AGENT_CASH");
+            setStatus("PENDING");
+            setPage(0);
+          }}
+        >
+          {t("Show unresolved cash entitlements")}
+        </Button>
 
         {entitlementsQuery.isFetching ? (
           <Alert severity="info">{t("Updating entitlement results...")}</Alert>

@@ -92,13 +92,23 @@ unreachable directly: port 8091 is not opened in the EC2 security group.
 
 ## Safety and state
 
-Terraform workspaces isolate `prod` and `test`. Configure a remote encrypted
-backend before team use; local state is intentionally ignored and must never be
-committed. Copy `env/prod.tfvars.example` or `env/test.tfvars.example` to its
-matching ignored `.tfvars` file. For production, do not put the database
-administrator password in a `.tfvars` file; supply it as
-`TF_VAR_database_admin_password`. Test application credentials are configured
-in the test GitHub Environment and are not Terraform inputs.
+Terraform workspaces isolate `prod` and `test`. Terraform currently has no
+configured remote backend; local state is intentionally ignored and must never
+be committed. Before team use, approve and provision the encrypted remote state
+design and migrate local state using the documented freeze, backup, and
+`terraform init -migrate-state` procedure in
+[`docs/infrastructure/production-database-and-terraform-state-decision.md`](../../docs/infrastructure/production-database-and-terraform-state-decision.md).
+Do not initialize a remote backend until its bucket, KMS policy, and lockfile
+permissions have been provisioned and reviewed. Copy `env/prod.tfvars.example`
+or `env/test.tfvars.example` to its matching ignored `.tfvars` file. For
+production, do not put the database administrator password in a `.tfvars` file;
+supply it as `TF_VAR_database_admin_password`. Test application credentials are
+configured in the test GitHub Environment and are not Terraform inputs.
+
+The checked-in production Terraform root provisions a Lightsail database,
+while the deployment inventory/runtime path references RDS. This discrepancy
+is unresolved; do not apply the production root or change the runtime database
+until the architecture decision and Terraform state ownership are reconciled.
 
 The stack defaults to `us-east-2` and selects the first available availability
 zone in that region. Set `aws_region` or `availability_zone` in an environment

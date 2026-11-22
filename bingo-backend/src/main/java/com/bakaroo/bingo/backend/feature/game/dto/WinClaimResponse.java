@@ -2,6 +2,7 @@ package com.bakaroo.bingo.backend.feature.game.dto;
 
 import com.bakaroo.bingo.backend.feature.game.entity.BingoPatternType;
 import com.bakaroo.bingo.backend.feature.game.entity.WinClaimStatus;
+import com.bakaroo.bingo.backend.feature.game.entity.PrizeSettlementPath;
 import java.time.Instant;
 import java.util.List;
 
@@ -31,5 +32,6 @@ public record WinClaimResponse(
         java.math.BigDecimal prizeAmount,
         String prizeCurrency,
         com.bakaroo.bingo.backend.feature.game.entity.PrizeEntitlementStatus prizeStatus,
+        PrizeSettlementPath settlementPath,
         String payoutCode) {
 }

@@ -686,6 +686,7 @@ export interface WinClaimResponse {
   prizeAmount?: string | null;
   prizeCurrency?: string | null;
   prizeStatus?: string | null;
+  settlementPath?: string | null;
   payoutCode?: string | null;
   id: number;
   ticketId: number;

@@ -204,6 +204,8 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
 
         @BeforeEach
         void setUp() {
+                jdbcTemplate.update("delete from withdrawal_transfer_reference_reservation_sources_v57");
+                jdbcTemplate.update("delete from withdrawal_transfer_reference_reservations_v57");
                 jdbcTemplate.update("delete from withdrawal_transfer_reference_reservation_sources");
                 jdbcTemplate.update("delete from withdrawal_transfer_reference_reservations");
                 jdbcTemplate.update("delete from withdrawal_transfer_reference_migration_issues");
@@ -332,8 +334,8 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
                 wallet.setAvailableBalance(new BigDecimal("100.00"));
                 walletRepository.save(wallet);
                 var rejected = withdrawalService.submit(new BingoUserPrincipal(playerUser), withdrawalDto("30.00"), "withdraw-reject-submit");
-                withdrawalService.reject(rejected.body().id(), new BingoUserPrincipal(adminUser), new WithdrawalReviewDto(null, "Rejected", null), "withdraw-reject-1");
-                withdrawalService.reject(rejected.body().id(), new BingoUserPrincipal(adminUser), new WithdrawalReviewDto(null, "Rejected", null), "withdraw-reject-1");
+                withdrawalService.reject(rejected.body().id(), new BingoUserPrincipal(adminUser), new WithdrawalReviewDto(null, null, null), "withdraw-reject-1");
+                withdrawalService.reject(rejected.body().id(), new BingoUserPrincipal(adminUser), new WithdrawalReviewDto(null, null, null), "withdraw-reject-1");
                 assertEquals(new BigDecimal("100.00"), walletRepository.findByOwnerId(playerUser.getId()).orElseThrow().getAvailableBalance());
                 assertEquals(1, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM wallet_transactions WHERE reference_type='WALLET_WITHDRAWAL' AND transaction_type='WALLET_WITHDRAWAL_REFUND'", Integer.class));
                 wallet = walletRepository.findByOwnerId(playerUser.getId()).orElseThrow();
@@ -345,8 +347,35 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
                 wallet.setAvailableBalance(new BigDecimal("100.00"));
                 walletRepository.save(wallet);
                 var duplicate = withdrawalService.submit(new BingoUserPrincipal(playerUser), withdrawalDto("10.00"), "withdraw-ref-submit-2");
-                org.junit.jupiter.api.Assertions.assertThrows(com.bakaroo.bingo.backend.common.exception.ConflictException.class, () -> withdrawalService.complete(duplicate.body().id(), new BingoUserPrincipal(adminUser), new WithdrawalReviewDto(" ref-case ", "Paid", "Verified receipt"), "withdraw-ref-complete-2"));
+                ConflictException reuse = org.junit.jupiter.api.Assertions.assertThrows(
+                        ConflictException.class, () -> withdrawalService.complete(duplicate.body().id(),
+                                new BingoUserPrincipal(adminUser),
+                                new WithdrawalReviewDto(" ref.case ", "Paid", "Verified receipt"),
+                                "withdraw-ref-complete-2"));
+                assertEquals("TRANSFER_REFERENCE_ALREADY_USED", reuse.getCode());
                 assertEquals(new BigDecimal("90.00"), walletRepository.findByOwnerId(playerUser.getId()).orElseThrow().getAvailableBalance());
+        }
+
+        @Test
+        void withdrawalServiceRejectsNonPositiveAmountsWhenDtoValidationIsBypassed() {
+                Wallet wallet = walletRepository.findByOwnerId(playerUser.getId()).orElseThrow();
+                wallet.setAvailableBalance(new BigDecimal("100.00"));
+                walletRepository.save(wallet);
+                for (String amount : List.of("0.00", "-1.00")) {
+                        var invalid = new WithdrawalRequestDto(new BigDecimal(amount), "ETB", "TELEBIRR",
+                                "Player User", "251911000102", null, null);
+                        var exception = org.junit.jupiter.api.Assertions.assertThrows(
+                                com.bakaroo.bingo.backend.common.exception.BadRequestException.class,
+                                () -> withdrawalService.submit(new BingoUserPrincipal(playerUser), invalid,
+                                        "invalid-withdrawal-" + amount));
+                        assertEquals("WITHDRAWAL_AMOUNT_INVALID", exception.getCode());
+                }
+                assertEquals(new BigDecimal("100.00"),
+                        walletRepository.findByOwnerId(playerUser.getId()).orElseThrow().getAvailableBalance());
+                assertEquals(0, jdbcTemplate.queryForObject("""
+                        select count(*) from wallet_transactions
+                        where reference_type='WALLET_WITHDRAWAL' and transaction_type='WALLET_WITHDRAWAL_DEBIT'
+                        """, Integer.class));
         }
 
         @Test
@@ -354,14 +383,14 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
                 long keeperId = insertLegacyCompletedWithdrawal("Legacy-Ref", "LEGACY-REF");
                 long formerlyUnindexedId = insertLegacyCompletedWithdrawal(" legacy-ref ", null);
                 jdbcTemplate.update("""
-                        insert into withdrawal_transfer_reference_reservations
+                        insert into withdrawal_transfer_reference_reservations_v57
                             (provider_key, normalized_reference, reservation_status, source_type,
                              legacy_source_count, created_at)
-                        values ('TELEBIRR', 'LEGACY-REF', 'AMBIGUOUS_LEGACY', 'LEGACY', 2, now(6))
+                        values ('TELEBIRR', 'LEGACYREF', 'AMBIGUOUS_LEGACY', 'LEGACY', 2, now(6))
                         """);
                 Long reservationId = jdbcTemplate.queryForObject("select last_insert_id()", Long.class);
                 jdbcTemplate.update("""
-                        insert into withdrawal_transfer_reference_reservation_sources
+                        insert into withdrawal_transfer_reference_reservation_sources_v57
                             (reservation_id, withdrawal_request_id, source_type, created_at)
                         values (?, ?, 'LEGACY', now(6)), (?, ?, 'LEGACY', now(6))
                         """, reservationId, keeperId, reservationId, formerlyUnindexedId);
@@ -385,7 +414,7 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
                         where reference_type='WALLET_WITHDRAWAL' and transaction_type='WALLET_WITHDRAWAL_DEBIT'
                         """, Integer.class));
                 assertEquals(2, jdbcTemplate.queryForObject("""
-                        select count(*) from withdrawal_transfer_reference_reservation_sources
+                        select count(*) from withdrawal_transfer_reference_reservation_sources_v57
                         where reservation_id=?
                         """, Integer.class, reservationId));
         }
@@ -426,19 +455,20 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
                         assertTrue(sameRefReady.await(10, TimeUnit.SECONDS)); sameRefStart.countDown();
                         List<String> sameResults = List.of(sameA.get(20, TimeUnit.SECONDS), sameB.get(20, TimeUnit.SECONDS));
                         assertEquals(1, sameResults.stream().filter("COMPLETED"::equals).count());
-                        assertEquals(1, sameResults.stream().filter("CONFLICT"::equals).count());
+                        assertEquals(List.of("COMPLETED", "CONFLICT:TRANSFER_REFERENCE_ALREADY_USED"),
+                                sameResults.stream().sorted().toList());
                 } finally { sameRefStart.countDown(); sameRefExecutor.shutdownNow(); }
-                assertEquals(1, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM wallet_withdrawal_requests WHERE normalized_transfer_reference='RACE-REFERENCE'", Integer.class));
+                assertEquals(1, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM wallet_withdrawal_requests WHERE normalized_transfer_reference='RACEREFERENCE'", Integer.class));
                 assertEquals(1, jdbcTemplate.queryForObject("""
-                        select count(*) from withdrawal_transfer_reference_reservations
-                        where provider_key='TELEBIRR' and normalized_reference='RACE-REFERENCE'
+                        select count(*) from withdrawal_transfer_reference_reservations_v57
+                        where provider_key='TELEBIRR' and normalized_reference='RACEREFERENCE'
                         """, Integer.class));
                 assertEquals(1, jdbcTemplate.queryForObject("""
-                        select count(*) from withdrawal_transfer_reference_reservation_sources source
-                        join withdrawal_transfer_reference_reservations reservation
+                        select count(*) from withdrawal_transfer_reference_reservation_sources_v57 source
+                        join withdrawal_transfer_reference_reservations_v57 reservation
                           on reservation.id=source.reservation_id
                         where reservation.provider_key='TELEBIRR'
-                          and reservation.normalized_reference='RACE-REFERENCE'
+                          and reservation.normalized_reference='RACEREFERENCE'
                           and source.source_type='COMPLETION'
                         """, Integer.class));
         }
@@ -481,8 +511,9 @@ class WalletIntegrationTest extends MySqlIntegrationTest {
 
         private String concurrentWithdrawalSameReference(Long id, User staff, CountDownLatch ready, CountDownLatch start, String key) throws Exception {
                 ready.countDown(); start.await(10, TimeUnit.SECONDS);
-                try { withdrawalService.complete(id, new BingoUserPrincipal(staff), new WithdrawalReviewDto("race-reference", "Approved", "Independent external receipt verified"), key); return "COMPLETED"; }
-                catch (com.bakaroo.bingo.backend.common.exception.ConflictException | org.springframework.dao.DataIntegrityViolationException conflict) { return "CONFLICT"; }
+                String reference = staff.getId().equals(adminUser.getId()) ? "Race.Reference" : " race-reference ";
+                try { withdrawalService.complete(id, new BingoUserPrincipal(staff), new WithdrawalReviewDto(reference, "Approved", "Independent external receipt verified"), key); return "COMPLETED"; }
+                catch (com.bakaroo.bingo.backend.common.exception.ConflictException conflict) { return "CONFLICT:" + conflict.getCode(); }
         }
 
         @Test

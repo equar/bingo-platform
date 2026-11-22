@@ -1,9 +1,10 @@
-name: Flutter Apps CI
+name: Bingo Player Flutter CI
 
 on:
   pull_request:
     paths:
       - bingo-player/**
+      - scripts/ci/validate-player-localizations.py
       - .github/workflows/bingo-player-mobile-ci.yml
   workflow_dispatch:
 
@@ -39,6 +40,9 @@ jobs:
         with:
           flutter-version: ${{ matrix.flutter_version }}
           channel: stable
+
+      - name: Validate Player localization catalogs
+        run: python3 ../scripts/ci/validate-player-localizations.py
 
       - name: Validate Flutter app
         run: node ../scripts/ci/run-component-checks.mjs mobile --ci --app "${{ matrix.app }}" --flutter-version "${{ matrix.flutter_version }}"

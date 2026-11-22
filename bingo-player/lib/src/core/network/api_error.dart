@@ -99,7 +99,7 @@ class ApiError implements Exception {
       return localizations.depositAmountPrecision;
     }
     if (code == 'DEPOSIT_AMOUNT_ABOVE_MAXIMUM') {
-      return localizations.depositAmountLimitChanged;
+      return localizations.depositAmountAboveMaximum;
     }
     if (code == 'TELEBIRR_REFERENCE_INVALID' ||
         code == 'TELEBIRR_REFERENCE_REQUIRED') {

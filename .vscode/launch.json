@@ -36,35 +36,6 @@
         "--dart-define=API_BASE_URL=http://localhost:8080",
         "--dart-define=WS_BASE_URL=ws://localhost:8080/ws"
       ]
-    },
-    {
-      "name": "Bingo Agent — Android emulator",
-      "request": "launch",
-      "type": "dart",
-      "program": "${workspaceFolder}\\bingo-agent\\lib\\main.dart",
-      "cwd": "${workspaceFolder}\\bingo-agent",
-      "toolArgs": ["--dart-define=API_BASE_URL=http://10.0.2.2:8080"]
-    },
-    {
-      "name": "Bingo Agent — Chrome",
-      "request": "launch",
-      "type": "dart",
-      "program": "${workspaceFolder}\\bingo-agent\\lib\\main.dart",
-      "cwd": "${workspaceFolder}\\bingo-agent",
-      "deviceId": "chrome",
-      "toolArgs": [
-        "--web-port=5181",
-        "--dart-define=API_BASE_URL=http://localhost:8080"
-      ]
-    },
-    {
-      "name": "Bingo Agent — Windows",
-      "request": "launch",
-      "type": "dart",
-      "program": "${workspaceFolder}\\bingo-agent\\lib\\main.dart",
-      "cwd": "${workspaceFolder}\\bingo-agent",
-      "deviceId": "windows",
-      "toolArgs": ["--dart-define=API_BASE_URL=http://localhost:8080"]
     }
   ]
 }

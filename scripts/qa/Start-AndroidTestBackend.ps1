@@ -106,11 +106,10 @@ $fixtureSettings = @{}
 $git = Get-Command git.exe -ErrorAction Stop
 if ($ProvisionAndroidTestFixtures) {
     $appSecretsPath = Join-Path $repoRoot 'bingo-player\e2e-secrets.json'
-    $agentSecretsPath = Join-Path $repoRoot 'bingo-agent\e2e-secrets.json'
     $adminSecretsPath = Join-Path $repoRoot 'bingo-admin\.env.qa'
-    foreach ($path in @($appSecretsPath, $agentSecretsPath, $adminSecretsPath)) {
+    foreach ($path in @($appSecretsPath, $adminSecretsPath)) {
         if (-not (Test-Path -LiteralPath $path)) {
-            throw 'Fixture provisioning requires existing ignored local Player, Agent, and Admin configuration files.'
+            throw 'Fixture provisioning requires existing ignored local Player and Admin configuration files.'
         }
         $relativePath = $path.Substring($repoRoot.Length).TrimStart('\').Replace('\', '/')
         & $git.Source -C $repoRoot check-ignore -q $relativePath
@@ -121,9 +120,8 @@ if ($ProvisionAndroidTestFixtures) {
 
     try {
         $fixtureSettings.Player = Get-Content -LiteralPath $appSecretsPath -Raw | ConvertFrom-Json
-        $fixtureSettings.Agent = Get-Content -LiteralPath $agentSecretsPath -Raw | ConvertFrom-Json
     } catch {
-        throw 'Fixture provisioning local Player or Agent configuration is invalid.'
+        throw 'Fixture provisioning local Player configuration is invalid.'
     }
     $adminSettings = @{}
     foreach ($line in Get-Content -LiteralPath $adminSecretsPath) {
@@ -132,6 +130,9 @@ if ($ProvisionAndroidTestFixtures) {
         }
     }
     $fixtureSettings.Admin = $adminSettings
+    # Agent-domain fixture identities are backend/Admin QA data, not credentials
+    # owned by a separate Flutter client. Keep them in the ignored Admin QA file.
+    $fixtureSettings.Agent = $adminSettings
     foreach ($key in @('BINGO_QA_PLAYER_001_PHONE', 'BINGO_QA_PLAYER_001_PIN')) {
         if ([string]::IsNullOrWhiteSpace([string]$fixtureSettings.Player.$key)) {
             throw 'Fixture provisioning local Player configuration is incomplete.'
@@ -141,8 +142,8 @@ if ($ProvisionAndroidTestFixtures) {
         'BINGO_QA_APPROVED_AGENT_PHONE', 'BINGO_QA_APPROVED_AGENT_PIN',
         'BINGO_QA_PENDING_AGENT_PHONE', 'BINGO_QA_PENDING_AGENT_PIN'
     )) {
-        if ([string]::IsNullOrWhiteSpace([string]$fixtureSettings.Agent.$key)) {
-            throw 'Fixture provisioning local Agent configuration is incomplete.'
+        if ([string]::IsNullOrWhiteSpace([string]$fixtureSettings.Agent[$key])) {
+            throw 'Fixture provisioning local Admin QA configuration is missing Agent-domain test identities.'
         }
     }
     foreach ($key in @('BINGO_ANDROID_TEST_ADMIN_PHONE', 'BINGO_E2E_ADMIN_EMAIL', 'BINGO_E2E_ADMIN_PASSWORD')) {
@@ -246,7 +247,7 @@ if ($ProvisionAndroidTestFixtures) {
         'BINGO_QA_APPROVED_AGENT_PHONE', 'BINGO_QA_APPROVED_AGENT_PIN',
         'BINGO_QA_PENDING_AGENT_PHONE', 'BINGO_QA_PENDING_AGENT_PIN'
     )) {
-        Set-Item -Path "Env:\$key" -Value ([string]$fixtureSettings.Agent.$key)
+        Set-Item -Path "Env:\$key" -Value ([string]$fixtureSettings.Agent[$key])
     }
 }
 
