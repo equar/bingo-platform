@@ -8,6 +8,7 @@ import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.AssertTrue;
 import java.math.BigDecimal;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.bind.ConstructorBinding;
 import org.springframework.validation.annotation.Validated;
 
 @Validated
@@ -21,6 +22,10 @@ public record WalletProperties(
         @NotBlank String paymentInstructions,
         @NotNull @DecimalMin("0.01") @DecimalMax("99999999999999999.99") @Digits(integer = 17, fraction = 2)
         BigDecimal depositMaximumAmount) {
+
+    @ConstructorBinding
+    public WalletProperties {
+    }
 
     public WalletProperties(String currency, BigDecimal depositConversionRate, String paymentProviderName,
             String businessAccount, String paymentInstructions) {
