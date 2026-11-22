@@ -2,9 +2,9 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 PLATFORM="${1:-android}"
-APP="${2:-all}"
-case "$PLATFORM" in android|ios) ;; *) echo 'Usage: build-packages.sh android|ios [all|bingo-player|bingo-agent]' >&2; exit 1;; esac
-case "$APP" in all) apps=(bingo-player bingo-agent);; bingo-player|bingo-agent) apps=("$APP");; *) echo 'Unknown app' >&2; exit 1;; esac
+APP="${2:-bingo-player}"
+case "$PLATFORM" in android|ios) ;; *) echo 'Usage: build-packages.sh android|ios [bingo-player]' >&2; exit 1;; esac
+case "$APP" in bingo-player) apps=(bingo-player);; *) echo 'Only the Bingo Player client is available for mobile builds.' >&2; exit 1;; esac
 output="$ROOT/deployment/mobile/artifacts"
 mkdir -p "$output"
 for app in "${apps[@]}"; do

@@ -134,7 +134,32 @@ describe("DepositsPage", () => {
 
     expect(screen.getByText("****8842")).toBeInTheDocument();
     expect(screen.getByTestId("deposit-verify-32")).toBeInTheDocument();
-    expect(screen.queryByTestId("deposit-reject-32")).not.toBeInTheDocument();
+    expect(screen.getByTestId("deposit-reject-32")).toBeInTheDocument();
+  });
+
+  it("lets support approve only a deposit verified by another user", async () => {
+    writeSessionWithRoles(["SUPPORT"]);
+    depositsMock.mockResolvedValue({
+      ...depositResponse(),
+      content: depositResponse().content.map((deposit) => ({ ...deposit, verifiedBy: 6 })),
+    });
+    render(<DepositsPage />, { wrapper: createWrapper });
+
+    expect(await screen.findByTestId("deposit-approve-32")).toBeEnabled();
+  });
+
+  it("disables self-approval and explains that another staff member must approve", async () => {
+    const user = userEvent.setup();
+    depositsMock.mockResolvedValue({
+      ...depositResponse(),
+      content: depositResponse().content.map((deposit) => ({ ...deposit, verifiedBy: 5 })),
+    });
+    render(<DepositsPage />, { wrapper: createWrapper });
+
+    const approveButton = await screen.findByTestId("deposit-approve-32");
+    expect(approveButton).toBeDisabled();
+    await user.hover(approveButton.parentElement!);
+    expect(await screen.findByRole("tooltip")).toHaveTextContent("A different authorized staff member must approve this verified deposit.");
   });
 
   it("displays only canonical deposit statuses", async () => {
@@ -158,10 +183,10 @@ describe("DepositsPage", () => {
 
     await user.click(await screen.findByTestId("deposit-verify-32"));
     expect(await screen.findByTestId("deposit-detail-route")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Reject" })).not.toBeInTheDocument();
+    expect(screen.queryByTestId("deposit-reject-32")).not.toBeInTheDocument();
   });
 
-  it("lets administrators inspect rejected deposits as read-only records", async () => {
+  it("lets administrators inspect and verify rejected deposits", async () => {
     depositsMock.mockResolvedValue(depositResponse("REJECTED"));
     const user = userEvent.setup();
     render(<DepositsPage />, { wrapper: createWrapper });
@@ -173,7 +198,7 @@ describe("DepositsPage", () => {
     expect(
       await screen.findByRole("heading", { name: "Deposit details #32" }),
     ).toBeInTheDocument();
-    expect(screen.queryByTestId("deposit-verify-32")).not.toBeInTheDocument();
+    expect(screen.getByTestId("deposit-verify-32")).toBeInTheDocument();
   });
 
   it("uses the pending status when opened from the dashboard review metric", async () => {

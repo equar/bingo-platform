@@ -18,11 +18,13 @@ import {
   adminSessionDetail,
   adminTicketDetail,
   adminWinClaimDetail,
+  adminPrizeEntitlement,
   playerDetail,
   type AdminPlayerDetailResponse,
   type GameSessionResponse,
   type TicketResponse,
   type WinClaimResponse,
+  type PrizeEntitlementResponse,
 } from "../../api/admin";
 import { getUserFacingErrorMessage } from "../../api/types";
 import { StatusState } from "../../components/StatusState";
@@ -35,7 +37,7 @@ import { formatEthiopianDateTime } from "../../utils/ethiopianDateTime";
 import { WinningTicketCard } from "../../components/WinningTicketCard";
 
 export type EntitlementReference = {
-  kind: "player" | "claim" | "session" | "ticket";
+  kind: "player" | "claim" | "entitlement" | "session" | "ticket";
   id: number;
   winningClaimId?: number;
 };
@@ -44,7 +46,9 @@ type ReferenceRecord =
   | AdminPlayerDetailResponse
   | WinClaimResponse
   | GameSessionResponse
-  | TicketResponse;
+  | TicketResponse
+  | PrizeEntitlementResponse;
+
 interface DetailField {
   label: string;
   value: string;
@@ -212,6 +216,24 @@ function detailFields(
     ];
   }
 
+  if (reference.kind === "entitlement") {
+    const entitlement = record as PrizeEntitlementResponse;
+    return [
+      { label: t("Entitlement ID"), value: String(entitlement.id) },
+      { label: t("Claim ID"), value: String(entitlement.winClaimId) },
+      { label: t("Player ID"), value: String(entitlement.claimantId) },
+      { label: t("Prize"), value: `${entitlement.prizeAmount} ${entitlement.currency}` },
+      { label: t("Settlement path"), value: translateAdminValue(entitlement.settlementPath, t) },
+      { label: t("Entitlement status"), value: translateAdminStatus(entitlement.status, t) },
+      { label: t("Settlement reference"), value: entitlement.settlementReference ?? t("Not settled") },
+      { label: t("Settled by user"), value: entitlement.settledBy == null ? t("Not available") : String(entitlement.settledBy) },
+      { label: t("Settled at"), value: formatDate(entitlement.settledAt, t) },
+      { label: t("Settlement note"), value: entitlement.settlementNote ?? t("No settlement note") },
+      { label: t("Created"), value: formatDate(entitlement.createdAt, t) },
+      { label: t("Operation ID"), value: entitlement.operationId },
+    ];
+  }
+
   const ticket = record as TicketResponse;
   return [
     { label: t("Ticket ID"), value: String(ticket.id) },
@@ -241,6 +263,8 @@ export function EntitlementReferenceDialog({
           return playerDetail(reference.id);
         case "claim":
           return adminWinClaimDetail(reference.id);
+        case "entitlement":
+          return adminPrizeEntitlement(reference.id);
         case "session":
           return adminSessionDetail(reference.id);
         case "ticket":
@@ -258,7 +282,9 @@ export function EntitlementReferenceDialog({
     ? t(
         reference.kind === "claim"
           ? "Claim"
-          : reference.kind === "player"
+          : reference.kind === "entitlement"
+            ? "Prize entitlement"
+            : reference.kind === "player"
             ? "Player"
             : reference.kind === "session"
               ? "Session"

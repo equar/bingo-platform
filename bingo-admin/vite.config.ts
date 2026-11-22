@@ -3,6 +3,17 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
+  build: {
+    rollupOptions: {
+      output: {
+        // Keep the large shared router runtime cacheable separately from the
+        // application entry. Individual Admin pages are already lazy routes.
+        manualChunks(id) {
+          if (/[\\/]node_modules[\\/]react-router[\\/]/.test(id)) return 'router-vendor'
+        },
+      },
+    },
+  },
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],

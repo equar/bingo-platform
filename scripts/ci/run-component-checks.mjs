@@ -43,8 +43,9 @@ function requireTool(command, guidance) {
 }
 
 function verifyNode() {
-  if (process.versions.node !== '22.13.0') {
-    throw new Error(`PR validation uses Node 22.13.0. Select that exact version for local Admin and website checks (found ${process.versions.node}).`);
+  const expected = fs.readFileSync(path.join(repoRoot, '.node-version'), 'utf8').trim();
+  if (process.versions.node !== expected) {
+    throw new Error(`Admin and website validation use Node ${expected} from .node-version. Select that exact version (found ${process.versions.node}).`);
   }
 }
 
@@ -68,6 +69,7 @@ function runAdmin() {
   run('npm', ['run', 'test:coverage', '--', '--maxWorkers=1', '--reporter=junit', '--outputFile=test-results/vitest-junit.xml'], cwd);
   run('npx', ['tsc', '-b', '--pretty', 'false'], cwd);
   run('npm', ['run', 'build'], cwd);
+  run('npm', ['run', 'e2e:list'], cwd);
 }
 
 function runWebsite() {
@@ -129,8 +131,21 @@ function runBackend() {
   }
 }
 
+function runTerraformChecks() {
+  requireTool('terraform', 'Install Terraform 1.7 or later. Terraform plan checks use mocked providers and do not access AWS.');
+  run('terraform', ['fmt', '-check', '-recursive', 'deployment/terraform'], repoRoot);
+  run('terraform', ['-chdir=deployment/terraform', 'init', '-backend=false', '-input=false'], repoRoot);
+  run('terraform', ['-chdir=deployment/terraform', 'validate'], repoRoot);
+  run('terraform', ['-chdir=deployment/terraform', 'test'], repoRoot);
+  run('terraform', ['-chdir=deployment/terraform/test-database', 'init', '-backend=false', '-input=false'], repoRoot);
+  run('terraform', ['-chdir=deployment/terraform/test-database', 'validate'], repoRoot);
+  run('terraform', ['-chdir=deployment/terraform/test-database', 'test'], repoRoot);
+}
+
 function runInfrastructure() {
+  runTerraformChecks();
   requireTool('python3', 'Install Python 3.12.');
+  run('python3', ['scripts/ci/validate-github-workflows.py'], repoRoot);
   run('python3', ['-m', 'py_compile', 'deployment/aws/bootstrap-github-actions-config.py', 'deployment/aws/validate-config.py', 'deployment/mobile/prepare-store-credentials.py', 'deployment/mobile/release_provenance.py', 'deployment/terraform/scripts/update_godaddy_test_dns.py'], repoRoot);
   run('python3', ['-m', 'unittest', 'discover', '-s', 'deployment/mobile', '-p', 'test_*.py'], repoRoot);
   run('python3', ['-m', 'unittest', 'discover', '-s', 'deployment/aws/tests', '-p', 'test_*.py'], repoRoot);
@@ -152,7 +167,10 @@ async function runPreCommit() {
   if (listed.status !== 0) throw new Error(`git diff --cached --name-only --diff-filter=ACMR -z failed: ${listed.stderr.toString()}`);
   const files = listed.stdout.toString('utf8').split('\0').filter(Boolean);
   const adminFiles = files.filter((file) => /^bingo-admin\/.*\.(?:js|jsx|ts|tsx|mjs|cjs)$/i.test(file));
-  const dartFiles = files.filter((file) => /^bingo-(?:player|agent)\/.*\.dart$/i.test(file));
+  const dartFiles = files.filter((file) => /^bingo-player\/.*\.dart$/i.test(file));
+  const infrastructureFiles = files.filter((file) => /^deployment\/terraform\//i.test(file)
+    || /^\.github\/workflows\/validate-deployment-infrastructure\.yml$/i.test(file)
+    || /^scripts\/(?:ci\/run-component-checks\.mjs|hooks\/Invoke-BingoGitChecks\.ps1)$/i.test(file));
   const blob = (file) => {
     const result = spawnSync('git', ['show', `:${file}`], { cwd: repoRoot, encoding: 'buffer' });
     if (result.status !== 0) throw new Error(`git show :${file} failed: ${result.stderr.toString()}`);
@@ -200,7 +218,9 @@ async function runPreCommit() {
     }
   }
 
-  if (!adminFiles.length && !dartFiles.length) console.log('No staged Admin or Dart source files need a configured fast lint/format check.');
+  if (infrastructureFiles.length) runTerraformChecks();
+
+  if (!adminFiles.length && !dartFiles.length && !infrastructureFiles.length) console.log('No staged Admin, Dart, or Terraform source files need a configured fast check.');
   console.log('Staged-file checks passed.');
 }
 
@@ -219,7 +239,7 @@ try {
     case 'mobile': runMobile(requestedApp); break;
     case 'backend': runBackendPackage(); break;
     case 'infrastructure': runInfrastructure(); break;
-    default: throw new Error('Usage: node scripts/ci/run-component-checks.mjs <admin|website|backend|mobile|infrastructure> [--ci] [--app bingo-player|bingo-agent] [--flutter-version VERSION]');
+    default: throw new Error('Usage: node scripts/ci/run-component-checks.mjs <admin|website|backend|mobile|infrastructure> [--ci] [--app bingo-player] [--flutter-version VERSION]');
   }
   console.log(`\n${component} checks passed.`);
 } catch (error) {

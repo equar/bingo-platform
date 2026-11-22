@@ -19,11 +19,14 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 public class GameWebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     private final GameWebSocketJwtChannelInterceptor jwtChannelInterceptor;
+    private final GameWebSocketRevocationChannelInterceptor revocationChannelInterceptor;
     private final List<String> allowedOrigins;
 
     public GameWebSocketConfig(GameWebSocketJwtChannelInterceptor jwtChannelInterceptor,
+            GameWebSocketRevocationChannelInterceptor revocationChannelInterceptor,
             @Value("${app.websocket.allowed-origins:${WEBSOCKET_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173,http://localhost:3001,http://127.0.0.1:3001,http://localhost:5174,http://127.0.0.1:5174}}") String allowedOrigins) {
         this.jwtChannelInterceptor = jwtChannelInterceptor;
+        this.revocationChannelInterceptor = revocationChannelInterceptor;
         this.allowedOrigins = parseOrigins(allowedOrigins);
     }
 
@@ -54,6 +57,12 @@ public class GameWebSocketConfig implements WebSocketMessageBrokerConfigurer {
     public void configureClientInboundChannel(
             org.springframework.messaging.simp.config.ChannelRegistration registration) {
         registration.interceptors(jwtChannelInterceptor);
+    }
+
+    @Override
+    public void configureClientOutboundChannel(
+            org.springframework.messaging.simp.config.ChannelRegistration registration) {
+        registration.interceptors(revocationChannelInterceptor);
     }
 
     private static List<String> parseOrigins(String rawOrigins) {

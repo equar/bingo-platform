@@ -6,9 +6,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final dioProvider = Provider<Dio>((ref) {
   final appConfig = ref.watch(appConfigProvider);
+  final apiBaseUri = appConfig.apiBaseUri;
+  if (apiBaseUri == null) {
+    throw StateError(
+      'Cannot create the API client: ${appConfig.apiBaseUrlLabel} is invalid.',
+    );
+  }
   final dio = Dio(
     BaseOptions(
-      baseUrl: appConfig.apiBaseUrl,
+      baseUrl: apiBaseUri.toString(),
       connectTimeout: const Duration(seconds: 20),
       receiveTimeout: const Duration(seconds: 20),
       headers: const {'Content-Type': 'application/json'},

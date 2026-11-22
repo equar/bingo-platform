@@ -127,6 +127,27 @@ void main() {
     expect(fieldErrorMessage(error, 'amount', localizations), isNull);
   });
 
+  test(
+    'maps server deposit maximum errors to the accurate safe message',
+    () async {
+      final error = ApiError(
+        code: 'DEPOSIT_AMOUNT_ABOVE_MAXIMUM',
+        statusCode: 400,
+      );
+      final tigrinya = await AppLocalizations.delegate.load(const Locale('ti'));
+
+      expect(
+        error.userMessage(localizations),
+        localizations.depositAmountAboveMaximum,
+      );
+      expect(
+        error.userMessage(localizations),
+        isNot(localizations.depositAmountLimitChanged),
+      );
+      expect(error.userMessage(tigrinya), tigrinya.depositAmountAboveMaximum);
+    },
+  );
+
   test('maps the per-player ticket limit to a clear message', () {
     final error = ApiError(
       code: 'PLAYER_TICKET_LIMIT_REACHED',

@@ -35,7 +35,8 @@ class ApiError implements Exception {
   String _baseUserMessage(AppLocalizations localizations) {
     if (cancelled) return '';
     if (code == 'ACCOUNT_SUSPENDED') return localizations.errorAccountSuspended;
-    if (code == 'PLAYER_ALREADY_LOGGED_IN' || code == 'PLAYER_SESSION_REPLACED') {
+    if (code == 'PLAYER_ALREADY_LOGGED_IN' ||
+        code == 'PLAYER_SESSION_REPLACED') {
       return localizations.errorPlayerAlreadyLoggedIn;
     }
     if (outcomeUnknown) return localizations.errorTransactionUnknown;
@@ -90,6 +91,19 @@ class ApiError implements Exception {
     }
     if (code == 'DEPOSIT_VERIFICATION_REQUIRED') {
       return localizations.errorDepositVerificationRequired;
+    }
+    if (code == 'DEPOSIT_AMOUNT_BELOW_MINIMUM') {
+      return localizations.depositAmountPositive;
+    }
+    if (code == 'DEPOSIT_AMOUNT_PRECISION_INVALID') {
+      return localizations.depositAmountPrecision;
+    }
+    if (code == 'DEPOSIT_AMOUNT_ABOVE_MAXIMUM') {
+      return localizations.depositAmountAboveMaximum;
+    }
+    if (code == 'TELEBIRR_REFERENCE_INVALID' ||
+        code == 'TELEBIRR_REFERENCE_REQUIRED') {
+      return localizations.telebirrReferenceInvalid;
     }
     if (code == 'FINANCE_SEPARATION_OF_DUTIES_REQUIRED') {
       return localizations.errorFinanceSeparation;

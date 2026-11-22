@@ -15,7 +15,7 @@ public class IdempotencyRecord {
     @Column(name = "id", nullable = false)
     private Long id;
 
-    @Column(name = "actor_id")
+    @Column(name = "actor_id", nullable = false)
     private Long actorId;
 
     @Column(name = "idempotency_key", nullable = false, length = 80)

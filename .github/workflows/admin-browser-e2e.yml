@@ -1,0 +1,82 @@
+name: Admin Browser E2E
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: admin-browser-e2e
+  cancel-in-progress: false
+
+jobs:
+  chromium:
+    name: Chromium smoke test in disposable Admin E2E environment
+    if: >-
+      github.repository == 'equar/bingo-platform' &&
+      github.ref == 'refs/heads/main' &&
+      vars.ADMIN_E2E_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: admin-e2e
+    defaults:
+      run:
+        working-directory: bingo-admin
+    env:
+      BINGO_E2E_ADMIN_URL: http://127.0.0.1:5174
+      VITE_API_BASE_URL: ${{ vars.ADMIN_E2E_API_BASE_URL }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: bingo-admin/package-lock.json
+
+      - name: Validate disposable E2E environment settings
+        env:
+          ADMIN_E2E_ADMIN_EMAIL: ${{ secrets.ADMIN_E2E_ADMIN_EMAIL }}
+          ADMIN_E2E_ADMIN_PASSWORD: ${{ secrets.ADMIN_E2E_ADMIN_PASSWORD }}
+          ADMIN_E2E_API_BASE_URL: ${{ vars.ADMIN_E2E_API_BASE_URL }}
+        run: |
+          node -e "for (const key of ['ADMIN_E2E_ADMIN_EMAIL','ADMIN_E2E_ADMIN_PASSWORD','ADMIN_E2E_API_BASE_URL']) if (!process.env[key]?.trim()) { console.error(key + ' is required in the protected admin-e2e environment'); process.exit(1); }"
+          node -e "const u = new URL(process.env.ADMIN_E2E_API_BASE_URL); if (u.protocol !== 'https:' || u.hostname.toLowerCase() === 'api.bingo.bakaroo.com') { console.error('ADMIN_E2E_API_BASE_URL must use HTTPS and must not target the production API'); process.exit(1); }"
+
+      - name: Install Admin dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Build Admin for the disposable test API
+        run: npm run build
+
+      - name: Start local Admin preview
+        shell: bash
+        run: |
+          npm run preview -- --host 127.0.0.1 --port 5174 > "$RUNNER_TEMP/admin-preview.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/admin-preview.pid"
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:5174/ > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat "$RUNNER_TEMP/admin-preview.log"
+          exit 1
+
+      - name: Run Admin Chromium browser smoke test
+        env:
+          BINGO_E2E_ADMIN_EMAIL: ${{ secrets.ADMIN_E2E_ADMIN_EMAIL }}
+          BINGO_E2E_ADMIN_PASSWORD: ${{ secrets.ADMIN_E2E_ADMIN_PASSWORD }}
+        run: npm run e2e -- tests/e2e/admin-smoke.spec.ts --project=chromium
+
+      - name: Upload browser test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-browser-e2e-report
+          path: bingo-admin/test-results/**
+          if-no-files-found: ignore

@@ -36,7 +36,7 @@ const entitlement = {
   ticketId: 44,
   claimantId: 31,
   prizeType: "FULL_HOUSE",
-  settlementPath: "EXTERNAL_AGENT",
+  settlementPath: "AGENT_CASH",
   status: "PENDING",
   prizeAmount: "500.00",
   currency: "ETB",
@@ -93,17 +93,26 @@ describe("PrizeEntitlementsPage", () => {
     await waitFor(() => expect(prizeEntitlementsMock).toHaveBeenLastCalledWith(1, 20, "entitlement-op", "PENDING"));
   });
 
+  it("opens the pending cash entitlement queue for manual review", async () => {
+    const user = userEvent.setup();
+    render(<PrizeEntitlementsPage />, { wrapper: createWrapper });
+    await screen.findByTestId("entitlement-row-24");
+    await user.click(screen.getByRole("button", { name: "Show unresolved cash entitlements" }));
+    await waitFor(() => expect(prizeEntitlementsMock).toHaveBeenLastCalledWith(0, 20, "AGENT_CASH", "PENDING"));
+  });
+
   it("blocks settlement until payout and accounting policy are approved", async () => {
     render(<PrizeEntitlementsPage />, { wrapper: createWrapper });
 
     await screen.findByTestId("entitlement-row-24");
-    expect(screen.getByRole("alert")).toHaveTextContent("Payout availability follows the operating configuration");
+    expect(screen.getByRole("alert")).toHaveTextContent("no Admin or Player cash settlement path");
+    expect(screen.getByText(/Unresolved external payout/)).toBeInTheDocument();
     expect(screen.getByTestId("entitlement-settle-24")).toBeDisabled();
     expect(screen.getByTestId("entitlement-settle-25")).toBeDisabled();
     expect(settlePrizeEntitlementMock).not.toHaveBeenCalled();
   });
 
-  it("credits only enabled pending wallet prizes and leaves cash settlement to agents", async () => {
+  it("credits only enabled pending wallet prizes and leaves cash entitlements unresolved", async () => {
     prizeEntitlementsMock.mockResolvedValueOnce({
       content: [
         { ...entitlement, settlementPath: "PLAYER_WALLET", payoutsEnabled: true },
@@ -114,10 +123,25 @@ describe("PrizeEntitlementsPage", () => {
     await screen.findByTestId("entitlement-row-24");
     expect(screen.getByTestId("entitlement-settle-24")).toBeEnabled();
     expect(screen.getByTestId("entitlement-settle-25")).toBeDisabled();
+    expect(screen.getByText(/Unresolved external payout/)).toBeInTheDocument();
     fireEvent.click(screen.getByTestId("entitlement-settle-24"));
     fireEvent.change(screen.getByRole("textbox", { name: "Settlement reference" }), { target: { value: "CREDIT-24" } });
     fireEvent.click(screen.getByRole("button", { name: "Confirm settlement" }));
     await waitFor(() => expect(settlePrizeEntitlementMock).toHaveBeenCalledWith(24, { settlementReference: "CREDIT-24", settlementNote: undefined }));
+  });
+
+  it("displays settlement reference and who/when/note audit data", async () => {
+    prizeEntitlementsMock.mockResolvedValueOnce({
+      content: [{ ...entitlement, settlementPath: "PLAYER_WALLET", status: "SETTLED",
+        settledAt: "2026-10-20T16:00:00Z", settledBy: 7,
+        settlementReference: "BANK-REF-24", settlementNote: "Reconciled" }],
+      page: 0, size: 20, totalElements: 1, totalPages: 1, first: true, last: true,
+    });
+    render(<PrizeEntitlementsPage />, { wrapper: createWrapper });
+    const row = await screen.findByTestId("entitlement-row-24");
+    expect(within(row).getByText("BANK-REF-24")).toBeInTheDocument();
+    expect(within(row).getByText(/Settled by user #7/)).toBeInTheDocument();
+    expect(within(row).getByText("Reconciled")).toBeInTheDocument();
   });
 
   it("does not submit a settlement request when an operator activates the disabled action", async () => {

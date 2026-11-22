@@ -1,102 +1,27 @@
-# Deployment admin accounts by email
+# Production SSH trust and Admin provisioning
 
-The deployment workflow enables email bootstrap for `apps@bakaroo.com` and
-`equarhishe@gmail.com` by default. Repository variables can override this:
+## GitHub Environment setup
 
-| Variable | Default |
-|---|---|
-| `ADMIN_EMAIL_BOOTSTRAP_ENABLED` | `true` in the deployment workflow; `false` outside it |
-| `ADMIN_BOOTSTRAP_EMAILS` | `apps@bakaroo.com,equarhishe@gmail.com` |
+Create `test` and `production` GitHub Environments and scope deployment variables and secrets to the matching environment. Configure `production` with required reviewers, prevent self-review where available, and restrict deployment branches to `main`. Configure `test` for `develop`. GitHub Environment protection is an account setting and cannot be enforced by workflow YAML alone. The deployment job pauses for the Environment review before its secrets and variables are available.
 
-Keep the legacy `ADMIN_BOOTSTRAP_ENABLED=false`. The deployment validator rejects
-both modes being enabled together. No bootstrap password or phone number is
-needed for email bootstrap. Configure either SMTP or Graph using `APP_EMAIL_PROVIDER` as described in
-[Email providers](EMAIL_PROVIDERS.md). `APP_EMAIL_FROM` is the sender address;
-it defaults to `SPRING_MAIL_USERNAME` in SMTP mode.
+For both environments, configure `DEPLOY_HOST`, `DEPLOY_USER`, and `DEPLOY_SSH_HOST_KEY` as environment variables, and `DEPLOY_SSH_KEY_B64` as an environment secret. `DEPLOY_SSH_HOST_KEY` must be one OpenSSH public host key line, such as `ssh-ed25519 AAAA...`. Retrieve the host public key or fingerprint from an independently authenticated cloud/host control plane or an administrator's verified inventory. Compare its SHA256 fingerprint out of band before saving it; never copy a key learned from the GitHub runner's connection. The workflow and deployment scripts install exactly this key into a temporary `known_hosts` file and use strict host checking. Missing or malformed pins stop deployment.
 
-After Flyway completes, each missing email gets an active ADMIN account with
-its own cryptographically random, readable password (six pronounceable groups
-and four digits). The password is emailed only to that account, stored only as
-a password hash, never logged, and expires in 24 hours. First login requires a
-password change. Existing email identities are skipped without changing roles,
-passwords, or status, including existing non-admin accounts.
+The deployment configuration importer requires `DEPLOY_SSH_HOST_KEY` in its environment-specific input file. Keep the input file outside version control and use `GH_ENVIRONMENT=test` or `GH_ENVIRONMENT=production` so values are stored at the correct Environment scope.
 
-Each account is created in a separate transaction. Email provider failures fail startup
-and roll back that account, allowing the next deployment to retry it while
-previously completed accounts are skipped. Provider acceptance is not proof of inbox
-delivery; monitor delivery/bounces. Database commit and email delivery cannot be
-atomic, so a rare commit failure after sending can result in another email on
-retry. Expired passwords use the existing administrator password-reset flow.
-Concurrent account creation is constrained by the unique email index; retry a
-failed deployment after confirming the other attempt completed.
+## Admin bootstrap policy
 
-Set `ADMIN_EMAIL_BOOTSTRAP_ENABLED=false` to stop checks. It can remain enabled
-for later deployments because existing accounts are never recreated or emailed.
+Production email bootstrap and legacy one-account bootstrap are both disabled by default. No production Admin email addresses are embedded in the workflow. The email bootstrap recipient list is sourced only from `ADMIN_BOOTSTRAP_EMAILS` in the protected `production` Environment; legacy account fields are likewise environment-scoped. Existing account identities are never upgraded, disabled, deleted, or have their password changed by either bootstrap service. Existing Admins therefore remain able to log in when bootstrap is disabled or skipped.
 
----
+If initial provisioning is needed, use the `Build and Deploy Bingo` workflow on `main`, select production confirmation, and set `approve_initial_admin_bootstrap=true`. Supply `admin_bootstrap_approval_expires_at` as a UTC timestamp ending in `Z`, no more than 60 minutes in the future. The workflow run records the actor, inputs, and Environment reviewer approval. Bootstrap is enabled only when the corresponding Environment variable (`ADMIN_EMAIL_BOOTSTRAP_ENABLED=true` or `ADMIN_BOOTSTRAP_ENABLED=true`) is also set. Enable only one mode at a time; the deployment validator checks the complete configuration before SSH starts. Email mode also requires a deliberate `ADMIN_BOOTSTRAP_EMAILS` list. Legacy mode requires a one-time phone, name, email, and `ADMIN_BOOTSTRAP_PASSWORD` secret.
 
-# Legacy one-time production Admin bootstrap
+At application startup, the bootstrap runners require the recorded GitHub Actions run ID and recheck the approval expiry. They log the run ID and expiry when bootstrap is authorized, linking provisioning logs to the reviewed workflow run. If deployment is delayed past expiry, provisioning is skipped and the application starts normally. After provisioning, remove/disable the relevant bootstrap Environment variables and legacy password secret. The next deployment runs with both bootstrap modes disabled. Do not delete or recreate existing Admin accounts as a bootstrap workaround; use the normal Admin account recovery process.
 
-The production-only bootstrap creates one active `ADMIN` user and its required
-`user_roles` association after Spring has initialized the database and Flyway
-migrations. It does not create agents, players, wallets, sample transactions,
-or development fixtures. It is disabled unless `ADMIN_BOOTSTRAP_ENABLED=true`.
-The development seeder remains separate and cannot run when the `prod` profile
-is active, including when profiles are combined.
+## Required secret rotation
 
-## Configure the one-time credentials
+- Rotate `DEPLOY_SSH_KEY_B64` by installing the replacement public key on the host first, updating the protected Environment secret, verifying a deployment, then removing the retired host authorization. Update the pinned `DEPLOY_SSH_HOST_KEY` only after host-key replacement is independently verified; keep a controlled overlap/maintenance plan because host key rotation changes trust for every deployment client.
+- Rotate database and email provider credentials at their provider, update the matching Environment secrets, deploy, then revoke the old credential. Do not put secret values in workflow variables or the repository.
+- `JWT_SECRET` rotation invalidates existing signed access tokens; schedule it as a deliberate session revocation event and update the Environment secret before deployment.
+- `BINGO_FLOAT_BANK_ENCRYPTION_KEY` protects stored receiving-account ciphertext. Do not replace it as an ordinary credential rotation: existing ciphertext must be decrypted with the old key and re-encrypted with the new key in a separately reviewed rotation procedure. Preserve a protected backup of the old key until migration and verification are complete. Production configuration and deployment validation fail closed if the key is missing or does not decode to exactly 32 bytes.
+- Remove one-time bootstrap password material immediately after initial provisioning and password change. Approval inputs are time-limited and are not a substitute for Environment reviewers.
 
-The production deployment reads repository variables and secrets through the
-existing GitHub Actions deployment workflow. Use an authenticated GitHub CLI
-and replace `OWNER` with the repository owner. The bootstrap password is
-entered without echo and is never placed in shell history:
-
-```bash
-gh variable set ADMIN_BOOTSTRAP_ENABLED --repo OWNER/bingo-platform --body true
-gh variable set ADMIN_BOOTSTRAP_PHONE --repo OWNER/bingo-platform --body '+2519XXXXXXXX'
-gh variable set ADMIN_BOOTSTRAP_NAME --repo OWNER/bingo-platform --body 'Your Admin Name'
-gh variable set ADMIN_BOOTSTRAP_EMAIL --repo OWNER/bingo-platform --body 'you@example.com'
-read -rsp 'Initial Admin password: ' ADMIN_BOOTSTRAP_PASSWORD
-printf '\n'
-printf '%s' "$ADMIN_BOOTSTRAP_PASSWORD" | gh secret set ADMIN_BOOTSTRAP_PASSWORD --repo OWNER/bingo-platform
-unset ADMIN_BOOTSTRAP_PASSWORD
-```
-
-Use a unique Ethiopian mobile number, a valid email, and a password of at least
-16 characters and at most 72 UTF-8 bytes. The email is required for the normal
-Admin login flow. Phone, display name, email, and password are required while
-enabled. Configure these values only in GitHub repository settings or its
-authenticated CLI; do not add real values to repository files.
-
-## Deploy and log in
-
-1. Merge the reviewed release through the repository's normal protected PR
-   deployment path. The existing `Build and Deploy Bingo`
-   workflow passes the settings to the root-protected runtime environment. The
-   bootstrap runs after Flyway migrations.
-2. Open `https://admin.bingo.bakaroo.com` and log in with the configured email
-   and initial password. This uses the normal `/api/v1/admin/login` flow and
-   the existing `ADMIN` role.
-3. From the Admin account menu, open **Change password** and replace the
-   bootstrap password with a new password. The existing flow verifies the
-   current password before saving the new one.
-4. Set `ADMIN_BOOTSTRAP_ENABLED` to `false`, then remove the password secret.
-   Remove the identity variables too if they are no longer needed:
-
-   ```bash
-   gh variable set ADMIN_BOOTSTRAP_ENABLED --repo OWNER/bingo-platform --body false
-   gh secret delete ADMIN_BOOTSTRAP_PASSWORD --repo OWNER/bingo-platform
-   gh variable delete ADMIN_BOOTSTRAP_PHONE --repo OWNER/bingo-platform
-   gh variable delete ADMIN_BOOTSTRAP_NAME --repo OWNER/bingo-platform
-   gh variable delete ADMIN_BOOTSTRAP_EMAIL --repo OWNER/bingo-platform
-   ```
-
-5. Run the next normal deployment so the protected `/opt/bingo/.env` is
-   refreshed without the one-time secret and with bootstrap disabled.
-
-If the requested phone or email already belongs to any account, bootstrap
-skips without changing that account's password, status, or roles. Check the
-existing account and use the normal account recovery procedure if needed. A
-concurrent unique-key collision fails startup with a safe instruction to
-verify the account before retrying. Bootstrap never upgrades an existing
-player/support account to `ADMIN`.
+No production host, account, or credential was changed as part of this repository change.

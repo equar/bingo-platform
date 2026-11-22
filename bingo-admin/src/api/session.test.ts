@@ -42,6 +42,17 @@ describe('session helpers', () => {
     expect(window.sessionStorage.getItem('bingo-admin-session')).not.toBeNull();
   });
 
+  it('discards malformed or incomplete stored bearer sessions', () => {
+    window.sessionStorage.setItem('bingo-admin-session', JSON.stringify({
+      accessToken: 'stolen-shape',
+      tokenType: 'Bearer',
+      user: { id: 1, roles: 'ADMIN' },
+    }));
+
+    expect(readSession()).toBeNull();
+    expect(window.sessionStorage.getItem('bingo-admin-session')).toBeNull();
+  });
+
   it('migrates a prior persistent session to tab storage and removes its localStorage copy', () => {
     const session = buildSession();
     window.localStorage.setItem('bingo-admin-session', JSON.stringify(session));

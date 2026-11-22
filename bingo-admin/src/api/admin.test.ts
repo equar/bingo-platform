@@ -16,6 +16,7 @@ import {
   adminFloatTopUpRequests,
   approveDeposit,
   approveWinClaim,
+  adminPrizeEntitlement,
   deposits,
   listSessions,
   listRooms,
@@ -134,12 +135,13 @@ describe("admin API client", () => {
   });
 
   it("uses independent bank evidence and maker-checker wallet adjustment routes", async () => {
-    await verifyDeposit(41, "TEL-REF-81");
+    await verifyDeposit(41, "TEL-REF-81", "verify-key");
     await submitWalletAdjustmentRequest(6, {
       amount: -12.5,
       currency: "ETB",
       reason: "Correction",
       supportingReference: "CASE-18",
+      idempotencyKey: "adjustment-key",
     });
     await walletAdjustmentHistory(6);
     await pendingWalletAdjustmentRequests();
@@ -149,6 +151,7 @@ describe("admin API client", () => {
       1,
       "/api/v1/admin/deposits/41/verify",
       { paymentReference: "TEL-REF-81" },
+      { headers: { "Idempotency-Key": "verify-key" } },
     );
     expect(httpMock.post).toHaveBeenNthCalledWith(
       2,
@@ -159,6 +162,7 @@ describe("admin API client", () => {
         reason: "Correction",
         supportingReference: "CASE-18",
       },
+      { headers: { "Idempotency-Key": "adjustment-key" } },
     );
     expect(httpMock.get).toHaveBeenNthCalledWith(
       1,
@@ -175,7 +179,7 @@ describe("admin API client", () => {
   it("reviews win claims and lists prize entitlements", async () => {
     await winClaims(1, 15, "claim", "PENDING_REVIEW", "LINE", true);
     await approveWinClaim(21, { reviewNote: "Validated", idempotencyKey: "claim-key" });
-    await rejectWinClaim(22, { reviewNote: "Invalid" });
+    await rejectWinClaim(22, { reviewNote: "Invalid", idempotencyKey: "reject-key" });
     await prizeEntitlements(0, 20, "winner", "PENDING");
     await settlePrizeEntitlement(24, { settlementReference: "PAYOUT-24", settlementNote: "Paid" });
 
@@ -198,7 +202,7 @@ describe("admin API client", () => {
     );
     expect(httpMock.post).toHaveBeenNthCalledWith(2, "/api/v1/admin/win-claims/22/reject", {
       reviewNote: "Invalid",
-    }, { headers: undefined });
+    }, { headers: { "Idempotency-Key": "reject-key" } });
     expect(httpMock.get).toHaveBeenNthCalledWith(2, "/api/v1/admin/prize-entitlements", {
       params: { page: 0, size: 20, query: "winner", status: "PENDING" },
     });
@@ -221,6 +225,11 @@ describe("admin API client", () => {
         size: 50,
       },
     });
+  });
+
+  it("loads one prize entitlement by its exact identifier", async () => {
+    await adminPrizeEntitlement(24);
+    expect(httpMock.get).toHaveBeenCalledWith("/api/v1/admin/prize-entitlements/24");
   });
 
   it("uses authoritative wallet endpoints and sends idempotency keys for money operations", async () => {

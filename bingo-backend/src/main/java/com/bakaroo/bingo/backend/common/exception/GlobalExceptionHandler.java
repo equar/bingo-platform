@@ -17,6 +17,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
@@ -216,6 +217,19 @@ public class GlobalExceptionHandler {
                                 .body(error(HttpStatus.CONFLICT, "CONCURRENT_UPDATE_CONFLICT",
                                                 "The resource changed during the update; reload and retry", request,
                                                 List.of()));
+        }
+
+        @ExceptionHandler(DataIntegrityViolationException.class)
+        public ResponseEntity<ApiErrorResponse> handleIntegrityViolation(DataIntegrityViolationException exception,
+                        HttpServletRequest request) {
+                String message = exception.getMostSpecificCause() == null ? "" : exception.getMostSpecificCause().getMessage();
+                if (message != null && (message.contains("uk_withdrawal_provider_transfer_reference")
+                                || message.contains("uk_withdrawal_transfer_reference_reservation"))) {
+                        logRejection(request, "business_rejection", HttpStatus.CONFLICT.value(), "TRANSFER_REFERENCE_ALREADY_USED");
+                        return ResponseEntity.status(HttpStatus.CONFLICT).body(error(HttpStatus.CONFLICT,
+                                        "TRANSFER_REFERENCE_ALREADY_USED", "This external transfer reference is already recorded for this payment provider", request, List.of()));
+                }
+                return handleFallback(exception, request);
         }
 
         @ExceptionHandler(MailException.class)

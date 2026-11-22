@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { approveDeposit, deposit, rejectDeposit, verifyDeposit } from "../../api/admin";
+import { ApiError } from "../../api/types";
 import { clearSession, writeSession } from "../../api/session";
 import i18n from "../../i18n";
 import { DepositDetailPage } from "./DepositDetailPage";
@@ -95,21 +96,37 @@ describe("DepositDetailPage", () => {
     rejectDepositMock.mockReset().mockResolvedValue(depositResponse("REJECTED"));
   });
 
-  it("verifies and deposits a matched payment for support", async () => {
+  it("verifies a matched payment without approving it", async () => {
     const user = userEvent.setup();
     render(<DepositDetailPage />, { wrapper: createWrapper });
 
     await user.type(await screen.findByRole("textbox", { name: "Full payment reference" }), "TXN-8842");
-    await user.click(screen.getByRole("button", { name: "Verify and deposit" }));
+    await user.click(screen.getByRole("button", { name: "Verify payment reference" }));
 
-    await waitFor(() => expect(verifyDepositMock).toHaveBeenCalledWith(32, "TXN-8842"));
-    await waitFor(() =>
-      expect(approveDepositMock).toHaveBeenCalledWith(32, {
-        reviewNote: "SUPPORT_REFERENCE_MATCHED",
-        idempotencyKey: expect.any(String),
-      }),
-    );
-    expect(await screen.findByText("Deposit approved")).toBeInTheDocument();
+    await waitFor(() => expect(verifyDepositMock).toHaveBeenCalledWith(32, "TXN-8842", expect.any(String)));
+    expect(approveDepositMock).not.toHaveBeenCalled();
+    expect(await screen.findByText("Payment reference matched. A different authorized staff member must approve this deposit.")).toBeInTheDocument();
+  });
+
+  it("lets a different authorized staff member approve a verified deposit", async () => {
+    const user = userEvent.setup();
+    depositMock.mockResolvedValue({ ...depositResponse(), verifiedBy: 6 });
+    render(<DepositDetailPage />, { wrapper: createWrapper });
+
+    await user.click(await screen.findByRole("button", { name: "Approve and credit deposit" }));
+
+    expect(approveDepositMock).toHaveBeenCalledWith(32, {
+      reviewNote: "SUPPORT_REFERENCE_MATCHED",
+      idempotencyKey: expect.any(String),
+    });
+  });
+
+  it("explains that a verifier cannot approve their own deposit", async () => {
+    depositMock.mockResolvedValue({ ...depositResponse(), verifiedBy: 5 });
+    render(<DepositDetailPage />, { wrapper: createWrapper });
+
+    expect(await screen.findByText("You verified this deposit. A different authorized staff member must approve it.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Approve and credit deposit" })).not.toBeInTheDocument();
   });
 
   it("allows support to reject a deposit with a reason", async () => {
@@ -135,7 +152,7 @@ describe("DepositDetailPage", () => {
     render(<DepositDetailPage />, { wrapper: createWrapper });
 
     await user.type(await screen.findByRole("textbox", { name: "Full payment reference" }), "TXN-8842");
-    const verifyButton = screen.getByRole("button", { name: "Verify and deposit" });
+    const verifyButton = screen.getByRole("button", { name: "Verify payment reference" });
     await user.click(verifyButton);
     await waitFor(() => expect(verifyButton).toBeDisabled());
     fireEvent.click(verifyButton);
@@ -153,27 +170,39 @@ describe("DepositDetailPage", () => {
     render(<DepositDetailPage />, { wrapper: createWrapper });
 
     await user.type(await screen.findByRole("textbox", { name: "Full payment reference" }), "TXN-8842");
-    await user.click(screen.getByRole("button", { name: "Verify and deposit" }));
+    await user.click(screen.getByRole("button", { name: "Verify payment reference" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "You don’t have permission to perform this action.",
     );
   });
 
-  it("lets administrators review rejected deposits after verification", async () => {
+  it("lets administrators verify rejected deposits without approving them", async () => {
     const user = userEvent.setup();
     writeSessionWithRoles(["ADMIN"]);
     depositMock.mockResolvedValue(depositResponse("REJECTED"));
     render(<DepositDetailPage />, { wrapper: createWrapper });
 
     await user.type(await screen.findByRole("textbox", { name: "Full payment reference" }), "TXN-8842");
-    await user.click(screen.getByRole("button", { name: "Review and approve" }));
+    await user.click(screen.getByRole("button", { name: "Verify payment reference" }));
 
-    await waitFor(() =>
-      expect(approveDepositMock).toHaveBeenCalledWith(32, {
-        reviewNote: "ADMIN_REVIEW_APPROVED",
-        idempotencyKey: expect.any(String),
-      }),
-    );
+    await waitFor(() => expect(verifyDepositMock).toHaveBeenCalledWith(32, "TXN-8842", expect.any(String)));
+    expect(approveDepositMock).not.toHaveBeenCalled();
+    expect(await screen.findByText("Payment reference matched. A different authorized staff member must approve this deposit.")).toBeInTheDocument();
+  });
+
+  it("reuses the verification key after an uncertain response", async () => {
+    const user = userEvent.setup();
+    verifyDepositMock
+      .mockRejectedValueOnce(new ApiError("unknown", { outcomeUnknown: true }))
+      .mockResolvedValueOnce(verificationResponse("MATCHED"));
+    render(<DepositDetailPage />, { wrapper: createWrapper });
+    const reference = await screen.findByRole("textbox", { name: "Full payment reference" });
+    await user.type(reference, "TXN-RETRY");
+    await user.click(screen.getByRole("button", { name: "Verify payment reference" }));
+    await waitFor(() => expect(reference).toBeDisabled());
+    await user.click(screen.getByRole("button", { name: "Verify payment reference" }));
+    await waitFor(() => expect(verifyDepositMock).toHaveBeenCalledTimes(2));
+    expect(verifyDepositMock.mock.calls[1][2]).toBe(verifyDepositMock.mock.calls[0][2]);
   });
 });

@@ -17,13 +17,18 @@ on:
         required: false
         default: App Store submission release
       source_workflow_run_id:
-        description: Successful release-branch TestFlight run that uploaded this build
+        description: Successful main-branch TestFlight run that uploaded this build
         type: string
         required: true
       ios_automatic_release:
         description: Release automatically after App Review approval
         type: boolean
         required: false
+        default: false
+      confirm_production:
+        description: Required to request an App Store production submission from main
+        type: boolean
+        required: true
         default: false
 
 permissions:
@@ -37,7 +42,7 @@ concurrency:
 jobs:
   submit:
     name: Submit the processed iOS build for App Store review
-    if: github.ref == 'refs/heads/release'
+    if: github.repository == 'equar/bingo-platform' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.confirm_production == true
     runs-on: macos-14
     timeout-minutes: 45
     environment: bingo-app-ios-production
@@ -87,7 +92,7 @@ jobs:
             --application-id "$IOS_BUNDLE_ID" \
             --source-run-id "$SOURCE_WORKFLOW_RUN_ID" \
             --source-workflow-path .github/workflows/bingo-player-ios-testflight.yml \
-            --source-branch release
+            --source-branch main
 
       - name: Fail fast when the iOS project is missing
         run: |

@@ -61,6 +61,26 @@ function maskPaymentReference(reference: string): string {
   return `${"*".repeat(Math.max(0, reference.length - 4))}${visibleSuffix}`;
 }
 
+function canVerifyDeposit(deposit: DepositClaimResponse, isAdmin: boolean, isSupport: boolean): boolean {
+  return deposit.verifiedBy == null && (
+    (isSupport && deposit.status === "PENDING") ||
+    (isAdmin && deposit.status === "REJECTED")
+  );
+}
+
+function canApproveDeposit(
+  deposit: DepositClaimResponse,
+  currentUserId: number | undefined,
+  isAdmin: boolean,
+  isSupport: boolean,
+): boolean {
+  const statusCanBeApproved = deposit.status === "PENDING" || (isAdmin && deposit.status === "REJECTED");
+  return (isAdmin || isSupport)
+    && statusCanBeApproved
+    && deposit.verifiedBy != null
+    && deposit.verifiedBy !== currentUserId;
+}
+
 export function DepositsPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -96,11 +116,11 @@ export function DepositsPage() {
   const [mode, setMode] = useState<"APPROVE" | "REJECT">("APPROVE");
   const idempotency = useIdempotencyKey();
   const isAdmin = authSession?.user.roles.includes("ADMIN") ?? false;
-  const canApproveDeposits = isAdmin;
-  const canVerifyDeposits =
-    !isAdmin && (authSession?.user.roles.includes("SUPPORT") ?? false);
+  const isSupport = authSession?.user.roles.includes("SUPPORT") ?? false;
+  const canApproveDeposits = isAdmin || isSupport;
+  const canRejectDeposits = isSupport;
   const displayPaymentReference = (reference: string) =>
-    canVerifyDeposits ? maskPaymentReference(reference) : reference;
+    isSupport ? maskPaymentReference(reference) : reference;
 
   useEffect(() => {
     if (searchParams.has("status"))
@@ -328,21 +348,17 @@ export function DepositsPage() {
                         </Button>
                       ) : null}
                       {canApproveDeposits &&
-                      !finalDepositStatuses.has(deposit.status) ? (
+                      (deposit.status === "PENDING" || (isAdmin && deposit.status === "REJECTED")) ? (
                         <Tooltip
                           title={
                             deposit.verifiedBy == null
                               ? t(
                                   "A matching player-submitted payment reference is required before approval.",
                                 )
-                              : !canApproveDeposits
-                                ? t(
-                                    "An admin role is required to approve deposits.",
-                                  )
-                                : deposit.verifiedBy === authSession?.user.id
-                                  ? t(
-                                      "A different admin must approve this verified deposit.",
-                                    )
+                              : deposit.verifiedBy === authSession?.user.id
+                                ? t("A different authorized staff member must approve this verified deposit.")
+                                : deposit.status === "REJECTED" && !isAdmin
+                                  ? t("An administrator must approve a verified rejected deposit.")
                                   : ""
                           }
                         >
@@ -352,10 +368,7 @@ export function DepositsPage() {
                               size="small"
                               variant="contained"
                               disabled={
-                                deposit.status !== "PENDING" ||
-                                deposit.verifiedBy == null ||
-                                !canApproveDeposits ||
-                                deposit.verifiedBy === authSession?.user.id
+                                !canApproveDeposit(deposit, authSession?.user.id, isAdmin, isSupport)
                               }
                               onClick={() => {
                                 idempotency.resetKey();
@@ -371,7 +384,7 @@ export function DepositsPage() {
                           </span>
                         </Tooltip>
                       ) : null}
-                      {canVerifyDeposits && deposit.status === "PENDING" ? (
+                      {canVerifyDeposit(deposit, isAdmin, isSupport) ? (
                         <Button
                           data-testid={`deposit-verify-${deposit.id}`}
                           size="small"
@@ -381,8 +394,7 @@ export function DepositsPage() {
                           {t("Verify deposit")}
                         </Button>
                       ) : null}
-                      {canApproveDeposits &&
-                      !finalDepositStatuses.has(deposit.status) ? (
+                      {canRejectDeposits && deposit.status === "PENDING" ? (
                         <Button
                           data-testid={`deposit-reject-${deposit.id}`}
                           size="small"
@@ -519,6 +531,15 @@ export function DepositsPage() {
                 ))}
               </Stack>
             ) : null}
+            {detailsDeposit && detailsDeposit.verifiedBy === authSession?.user.id ? (
+              <Alert severity="info">
+                {t("You verified this deposit. A different authorized staff member must approve it.")}
+              </Alert>
+            ) : detailsDeposit && detailsDeposit.verifiedBy == null ? (
+              <Alert severity="info">
+                {t("A matching payment reference must be verified before approval.")}
+              </Alert>
+            ) : null}
           </DialogContent>
           <DialogActions>
             {detailsDeposit &&
@@ -529,14 +550,12 @@ export function DepositsPage() {
             ) : null}
             {detailsDeposit &&
             canApproveDeposits &&
-            !finalDepositStatuses.has(detailsDeposit.status) ? (
+            (detailsDeposit.status === "PENDING" || (isAdmin && detailsDeposit.status === "REJECTED")) ? (
               <>
                 <Button
                   variant="contained"
                   disabled={
-                    detailsDeposit.status !== "PENDING" ||
-                    detailsDeposit.verifiedBy == null ||
-                    detailsDeposit.verifiedBy === authSession?.user.id
+                    !canApproveDeposit(detailsDeposit, authSession?.user.id, isAdmin, isSupport)
                   }
                   onClick={() => {
                     idempotency.resetKey();
@@ -550,7 +569,7 @@ export function DepositsPage() {
                 >
                   {t("Approve")}
                 </Button>
-                <Button
+                {canRejectDeposits && detailsDeposit.status === "PENDING" ? <Button
                   color="error"
                   disabled={
                     detailsDeposit.status !== "PENDING"
@@ -566,13 +585,11 @@ export function DepositsPage() {
                   }}
                 >
                   {t("Reject")}
-                </Button>
+                </Button> : null}
               </>
             ) : null}
             {detailsDeposit &&
-            !canApproveDeposits &&
-            canVerifyDeposits &&
-            !finalDepositStatuses.has(detailsDeposit.status) ? (
+            canVerifyDeposit(detailsDeposit, isAdmin, isSupport) ? (
               <Button
                 variant="contained"
                 onClick={() => {

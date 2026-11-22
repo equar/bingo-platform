@@ -994,6 +994,15 @@ class _GameRulesCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text('Prizes: $prizes', style: theme.textTheme.bodyMedium),
+          if (session.configuredPrizes.any(
+            (prize) => prize.settlementPath == 'AGENT_CASH',
+          )) ...[
+            const SizedBox(height: 6),
+            Text(
+              AppLocalizations.of(context)!.prizeCashUnresolved,
+              style: theme.textTheme.bodySmall?.copyWith(color: colors.error),
+            ),
+          ],
           const SizedBox(height: 16),
           Text('How to play', style: theme.textTheme.titleMedium),
           const SizedBox(height: 6),
@@ -1169,9 +1178,14 @@ class _SessionSummaryCard extends ConsumerWidget {
       };
       if (purchaseError == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(localizations.ticketsPurchasedCount(purchased)),
-          ),
+          SnackBar(content: Text(localizations.purchaseOutcomeSummary(
+            purchased,
+            selectedQuantity,
+            result.ticketIds.join(', '),
+            result.remainingCount,
+            (result.chargedAmountMinor / 100).toStringAsFixed(2),
+            result.currency,
+          ))),
         );
         return;
       }
@@ -1180,7 +1194,16 @@ class _SessionSummaryCard extends ConsumerWidget {
         builder: (dialogContext) => AlertDialog(
           title: Text(title ?? localizations.errorGeneric),
           content: Text(
-            '${purchased > 0 ? '${localizations.ticketsPurchasedCount(purchased)}\n\n' : ''}'
+            '${localizations.purchaseOutcomeSummary(
+              purchased,
+              selectedQuantity,
+              result.ticketIds.join(', '),
+              result.remainingCount,
+              (result.chargedAmountMinor / 100).toStringAsFixed(2),
+              result.currency,
+            )}\n\n'
+            '${purchaseError.outcomeUnknown ? localizations.purchaseUnknownOutcome : ''}'
+            '${purchaseError.outcomeUnknown ? '\n\n' : ''}'
             '${body ?? purchaseError.userMessage(localizations)}',
           ),
           actions: [
@@ -1304,6 +1327,7 @@ class _SessionSummaryCard extends ConsumerWidget {
               state.apiError?.userMessage(localizations) ??
                   localizations.errorTransactionUnknown,
             ),
+            Text(localizations.purchaseUnknownOutcome),
             OutlinedButton(
               key: const ValueKey('resolve-purchase-button'),
               onPressed:
@@ -1324,18 +1348,29 @@ class _SessionSummaryCard extends ConsumerWidget {
                         }
                         return;
                       }
-                      final error = await controller.resolvePendingPurchase();
-                      if (error == null && context.mounted) {
+                      final result = await controller.resolvePendingPurchase();
+                      if (result.error == null && context.mounted) {
                         try {
                           await ref.read(walletRepositoryProvider).getBalance();
                         } catch (_) {}
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text(localizations.purchaseSuccess),
+                              content: Text(localizations.purchaseOutcomeSummary(
+                                result.purchasedCount,
+                                1,
+                                result.ticketIds.join(', '),
+                                result.remainingCount,
+                                (result.chargedAmountMinor / 100).toStringAsFixed(2),
+                                result.currency,
+                              )),
                             ),
                           );
                         }
+                      } else if (result.error?.outcomeUnknown != true && context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(result.error!.userMessage(localizations))),
+                        );
                       }
                     },
               child: Text(localizations.resolvePurchase),
@@ -2097,7 +2132,7 @@ class _ClaimHistoryCard extends StatelessWidget {
                             ),
                           if (claim.prizeAmount != null)
                             Text(
-                              '${claim.prizeAmount} ${claim.prizeCurrency ?? ""} · ${claim.prizeStatus == "SETTLED" ? localizations.prizePaid : localizations.prizeAwaitingPayment}',
+                              '${claim.prizeAmount} ${claim.prizeCurrency ?? ""} · ${claim.prizeStatus == "SETTLED" ? localizations.prizePaid : claim.settlementPath == "AGENT_CASH" ? localizations.prizeCashUnresolved : localizations.prizeAwaitingPayment}',
                             ),
                           if (claim.payoutCode != null)
                             SelectableText(

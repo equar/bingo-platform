@@ -153,6 +153,15 @@ class TicketPreviewScreen extends ConsumerWidget {
                     Text(
                       '${prize.prizeType}: ${prize.amount} ${session.currency}',
                     ),
+                  if (session.configuredPrizes.any(
+                    (prize) => prize.settlementPath == 'AGENT_CASH',
+                  ))
+                    Text(
+                      l10n.prizeCashUnresolved,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
                   const SizedBox(height: 12),
                   SectionCard(
                     child: Column(

@@ -11,6 +11,7 @@ import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import org.springframework.http.HttpStatus;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.access.AccessDeniedException;
@@ -49,6 +50,18 @@ class GlobalExceptionHandlerTest {
 
         assertThat(notFound.status()).isEqualTo(HttpStatus.NOT_FOUND.value());
         assertThat(notFound.code()).isEqualTo("RESOURCE_NOT_FOUND");
+    }
+
+    @Test
+    void mapsConcurrentWithdrawalReferenceReservationViolationToStableConflict() {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/admin/wallet/withdrawals/2/complete");
+        DataIntegrityViolationException exception = new DataIntegrityViolationException("duplicate reservation",
+                new RuntimeException("Duplicate entry for key 'uk_withdrawal_transfer_reference_reservation'"));
+
+        var response = handler.handleIntegrityViolation(exception, request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(response.getBody().code()).isEqualTo("TRANSFER_REFERENCE_ALREADY_USED");
     }
 
     @Test

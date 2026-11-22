@@ -1,11 +1,46 @@
-import 'package:bingo_player/src/core/network/api_client.dart';
 import 'package:bingo_player/src/core/network/api_error.dart';
+import 'package:bingo_player/src/core/config/app_config.dart';
+import 'package:bingo_player/src/core/network/api_client.dart';
 import 'package:bingo_player/l10n/app_localizations.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:ui' show Locale;
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('Dio uses the validated API URI and refuses invalid configuration', () {
+    final validContainer = ProviderContainer(
+      overrides: [
+        appConfigProvider.overrideWithValue(
+          const AppConfig(
+            apiBaseUrl: ' https://api.example.com/root ',
+            apiBaseUrlLabel: 'API_BASE_URL',
+            isProduction: true,
+          ),
+        ),
+      ],
+    );
+    addTearDown(validContainer.dispose);
+    expect(
+      validContainer.read(dioProvider).options.baseUrl,
+      'https://api.example.com/root',
+    );
+
+    final invalidContainer = ProviderContainer(
+      overrides: [
+        appConfigProvider.overrideWithValue(
+          const AppConfig(
+            apiBaseUrl: 'http://api.example.com',
+            apiBaseUrlLabel: 'API_BASE_URL',
+            isProduction: true,
+          ),
+        ),
+      ],
+    );
+    addTearDown(invalidContainer.dispose);
+    expect(() => invalidContainer.read(dioProvider), throwsStateError);
+  });
+
   test(
     'purchase API errors map stable codes and never expose server message',
     () async {

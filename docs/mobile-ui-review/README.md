@@ -1,8 +1,7 @@
 # Player app responsive UI review
 
 The changes preserve the existing home artwork, blue/orange palette, feature cards,
-labels, navigation destinations, APIs, and game/payment rules. Scope is `bingo-player`;
-the separate agent app is unchanged.
+labels, navigation destinations, APIs, and game/payment rules. Scope is `bingo-player`.
 
 ## Layout and accessibility
 

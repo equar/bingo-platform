@@ -21,6 +21,15 @@ public final class MoneyValues {
         return value.setScale(MONEY_SCALE, RoundingMode.HALF_UP);
     }
 
+    /** Validates an externally supplied amount before any rounding or persistence. */
+    public static BigDecimal requireMoneyPrecision(BigDecimal value) {
+        if (value == null || value.scale() > MONEY_SCALE
+                || value.precision() - value.scale() > MONEY_PRECISION - MONEY_SCALE) {
+            throw new IllegalArgumentException("Amount must fit DECIMAL(19,2) without rounding");
+        }
+        return value.setScale(MONEY_SCALE, RoundingMode.UNNECESSARY);
+    }
+
     public static BigDecimal conversionRate(BigDecimal value) {
         return value.setScale(CONVERSION_RATE_SCALE, RoundingMode.HALF_UP);
     }

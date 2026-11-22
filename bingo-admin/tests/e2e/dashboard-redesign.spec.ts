@@ -109,7 +109,7 @@ async function mockAdminApi(
 
 async function switchToAmharic(page: import("@playwright/test").Page) {
   await page.goto("/profile");
-  await page.getByRole("combobox", { name: /Language/ }).click();
+  await page.getByRole("combobox", { name: /^Language / }).click();
   await page.getByRole("option", { name: "አማርኛ" }).click();
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByText("የቋንቋ ምርጫዎ ተቀምጧል።")).toBeVisible();
@@ -119,7 +119,7 @@ async function switchToAmharic(page: import("@playwright/test").Page) {
 
 async function switchToEnglish(page: import("@playwright/test").Page) {
   await page.goto("/profile");
-  await page.getByRole("combobox", { name: /ቋንቋ/ }).click();
+  await page.getByRole("combobox", { name: /^ቋንቋ / }).click();
   await page.getByRole("option", { name: "English" }).click();
   await page.getByRole("button", { name: "አስቀምጥ", exact: true }).click();
   await expect(page.getByText("Your language preference has been saved.")).toBeVisible();
@@ -281,7 +281,7 @@ test("renders mocked dashboard data and responsive navigation in English and Amh
   await expect(page.getByRole("heading", { name: "Deposits", exact: true })).toBeVisible();
   expect(await page.evaluate(() => sessionStorage.getItem("bingo-admin-session"))).toContain("mocked-visual-test-token");
   await expect.poll(() => page.url()).toContain("/deposits?status=PENDING");
-  await expect(page.getByRole("combobox", { name: "Status" })).toHaveText("Pending");
+  await expect(page.getByRole("combobox", { name: "Status" })).toHaveText("PENDING");
 });
 
 test("shows mocked zero and empty states without inventing list data", async ({ page }, testInfo) => {

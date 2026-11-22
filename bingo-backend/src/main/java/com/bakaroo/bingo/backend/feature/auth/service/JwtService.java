@@ -50,6 +50,22 @@ public class JwtService {
         return parseClaims(token).get("sid", String.class);
     }
 
+    public long extractTokenVersion(String token) {
+        Object value = parseClaims(token).get("tokenVersion");
+        if (!(value instanceof Number version)) {
+            throw new IllegalArgumentException("Token version claim is missing");
+        }
+        return version.longValue();
+    }
+
+    public Instant extractExpiration(String token) {
+        Date expiration = parseClaims(token).getExpiration();
+        if (expiration == null) {
+            throw new IllegalArgumentException("Token expiration claim is missing");
+        }
+        return expiration.toInstant();
+    }
+
     public String newPlayerSessionId() { return UUID.randomUUID().toString(); }
 
     public Instant tokenExpiresAt() {

@@ -27,6 +27,16 @@ let cachedSessionRaw: string | null = null;
 let cachedSessionValue: AdminAuthSession | null = null;
 let sessionExpiredPending = false;
 
+function isAdminAuthSession(value: unknown): value is AdminAuthSession {
+  if (typeof value !== 'object' || value === null) return false;
+  const candidate = value as Partial<AdminAuthSession>;
+  const user = candidate.user;
+  return typeof candidate.accessToken === 'string' && candidate.accessToken.length > 0 &&
+    candidate.tokenType === 'Bearer' && typeof user === 'object' && user !== null &&
+    Number.isSafeInteger(user.id) && (user.id ?? 0) > 0 &&
+    Array.isArray(user.roles) && user.roles.every((role) => typeof role === 'string');
+}
+
 function emitChange() {
   window.dispatchEvent(new Event(SESSION_EVENT));
 }
@@ -52,9 +62,20 @@ export function readSession(): AdminAuthSession | null {
     return null;
   }
   try {
-    cachedSessionValue = JSON.parse(raw) as AdminAuthSession;
+    const parsed: unknown = JSON.parse(raw);
+    if (!isAdminAuthSession(parsed)) {
+      window.sessionStorage.removeItem(SESSION_KEY);
+      window.localStorage.removeItem(SESSION_KEY);
+      cachedSessionRaw = null;
+      cachedSessionValue = null;
+      return null;
+    }
+    cachedSessionValue = parsed;
     return cachedSessionValue;
   } catch {
+    window.sessionStorage.removeItem(SESSION_KEY);
+    window.localStorage.removeItem(SESSION_KEY);
+    cachedSessionRaw = null;
     cachedSessionValue = null;
     return null;
   }

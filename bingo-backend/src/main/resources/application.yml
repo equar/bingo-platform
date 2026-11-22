@@ -47,21 +47,21 @@ logging:
 
 springdoc:
   api-docs:
+    enabled: true
     path: /v3/api-docs
   swagger-ui:
+    enabled: true
     path: /swagger-ui.html
 
 management:
   endpoints:
     web:
       exposure:
-        include: health,env,beans
+        include: health
   endpoint:
     health:
-      show-components: always
+      show-components: never
       show-details: never
-    env:
-      show-values: never
   health:
     mail:
       enabled: false
@@ -95,6 +95,7 @@ app:
     deposit-simulation-enabled: false
     adjustment-simulation-enabled: false
     deposit-conversion-rate: ${APP_WALLET_DEPOSIT_CONVERSION_RATE:1.000000}
+    deposit-maximum-amount: ${APP_WALLET_DEPOSIT_MAXIMUM_AMOUNT:99999999999999999.99}
     payment-provider-name: ${APP_PAYMENT_PROVIDER_NAME:Telebirr}
     business-account: ${APP_PAYMENT_BUSINESS_ACCOUNT:}
     payment-instructions: ${APP_PAYMENT_INSTRUCTIONS:Submit the telebirr reference after payment for manual verification.}

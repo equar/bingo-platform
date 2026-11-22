@@ -77,14 +77,16 @@ public class AdminGameController {
 
     @PostMapping("/rooms")
     @PreAuthorize("hasRole('ADMIN')")
-    public BingoRoomResponse createRoom(@Valid @RequestBody BingoRoomRequest request) {
-        return bingoGameService.createRoom(request);
+    public BingoRoomResponse createRoom(@AuthenticationPrincipal BingoUserPrincipal principal,
+            @Valid @RequestBody BingoRoomRequest request) {
+        return bingoGameService.createRoomForAdmin(principal, request);
     }
 
     @PutMapping("/rooms/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public BingoRoomResponse updateRoom(@PathVariable Long id, @Valid @RequestBody BingoRoomRequest request) {
-        return bingoGameService.updateRoom(id, request);
+    public BingoRoomResponse updateRoom(@PathVariable Long id, @AuthenticationPrincipal BingoUserPrincipal principal,
+            @Valid @RequestBody BingoRoomRequest request) {
+        return bingoGameService.updateRoomForAdmin(principal, id, request);
     }
 
     @GetMapping("/sessions/{id}")
@@ -101,22 +103,23 @@ public class AdminGameController {
 
     @PostMapping("/rooms/{id}/sessions")
     @PreAuthorize("hasRole('ADMIN')")
-    public GameSessionResponse createSession(@PathVariable Long id, @Valid @RequestBody GameSessionRequest request) {
-        return bingoGameService.createSession(id, request);
+    public GameSessionResponse createSession(@PathVariable Long id, @AuthenticationPrincipal BingoUserPrincipal principal,
+            @Valid @RequestBody GameSessionRequest request) {
+        return bingoGameService.createSessionForAdmin(principal, id, request);
     }
 
     @PutMapping("/sessions/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public GameSessionResponse updateSession(@PathVariable Long id,
+    public GameSessionResponse updateSession(@PathVariable Long id, @AuthenticationPrincipal BingoUserPrincipal principal,
             @Valid @RequestBody GameSessionUpdateRequest request) {
-        return bingoGameService.updateSession(id, request);
+        return bingoGameService.updateSessionForAdmin(principal, id, request);
     }
 
     @PutMapping("/sessions/{id}/state")
     @PreAuthorize("hasRole('ADMIN')")
-    public GameSessionResponse updateState(@PathVariable Long id,
+    public GameSessionResponse updateState(@PathVariable Long id, @AuthenticationPrincipal BingoUserPrincipal principal,
             @Valid @RequestBody GameSessionStateUpdateRequest request) {
-        return bingoGameService.updateSessionState(id, request);
+        return bingoGameService.updateSessionStateForAdmin(principal, id, request);
     }
 
     @PostMapping("/sessions/{id}/draws")
@@ -173,6 +176,12 @@ public class AdminGameController {
         return PageResponse.from(prizeEntitlementRepository
                 .searchAdmin(normalizeQuery(query), parseNumericQuery(query), status, pageable)
                 .map(this::toPrizeEntitlementResponse));
+    }
+
+    @GetMapping("/prize-entitlements/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public PrizeEntitlementResponse prizeEntitlement(@PathVariable Long id) {
+        return bingoGameService.getPrizeEntitlement(id);
     }
 
     @GetMapping("/prize-entitlements/report")

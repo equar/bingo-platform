@@ -11,7 +11,6 @@ import 'package:bingo_player/src/core/theme/app_theme.dart';
 import 'package:bingo_player/src/core/widgets/app_status_view.dart';
 import 'package:bingo_player/src/features/home/presentation/home_shell.dart';
 import 'package:bingo_player/src/features/lobby/presentation/lobby_screen.dart';
-import 'package:bingo_player/src/features/wallet/presentation/deposit_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -335,7 +334,7 @@ void main() {
     expect(repository.transferCalls, 1);
   });
 
-  testWidgets('deposit form remains usable above a keyboard on a small phone', (
+  testWidgets('wallet deposit form remains usable on a small phone', (
     tester,
   ) async {
     viewport(tester, const Size(320, 568));
@@ -343,8 +342,12 @@ void main() {
       harness(
         scale: 1.5,
         keyboard: 220,
-        home: const Scaffold(body: DepositDialog(currency: 'ETB')),
+        home: const WalletScreen(initialTab: 1),
       ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('wallet-open-deposit-form-button')),
     );
     await tester.pumpAndSettle();
     await tester.ensureVisible(

@@ -1,7 +1,11 @@
 package com.bakaroo.bingo.backend.feature.wallet.service;
 
 import com.bakaroo.bingo.backend.common.exception.ConflictException;
+import com.bakaroo.bingo.backend.common.exception.BadRequestException;
 import com.bakaroo.bingo.backend.common.exception.NotFoundException;
+import com.bakaroo.bingo.backend.common.idempotency.IdempotentResult;
+import com.bakaroo.bingo.backend.common.idempotency.IdempotencyService;
+import com.bakaroo.bingo.backend.common.request.RequestHashService;
 import com.bakaroo.bingo.backend.feature.auth.service.BingoUserPrincipal;
 import com.bakaroo.bingo.backend.feature.user.entity.User;
 import com.bakaroo.bingo.backend.feature.user.entity.UserRole;
@@ -17,6 +21,7 @@ import com.bakaroo.bingo.backend.feature.wallet.repository.WalletTransactionRepo
 import com.bakaroo.bingo.backend.common.money.MoneyValues;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,9 +44,12 @@ public class WalletAdjustmentService {
     private final WalletTransactionRepository transactions;
     private final LocalFinancialSimulationGuard simulationGuard;
     private final boolean simulationEnabled;
+    private final IdempotencyService idempotencyService;
+    private final RequestHashService requestHashService;
 
     public WalletAdjustmentService(JdbcTemplate jdbc, UserRepository users, WalletRepository wallets,
             WalletTransactionRepository transactions, LocalFinancialSimulationGuard simulationGuard,
+            IdempotencyService idempotencyService, RequestHashService requestHashService,
             @Value("${app.wallet.adjustment-simulation-enabled:false}") boolean simulationEnabled) {
         this.jdbc = jdbc;
         this.users = users;
@@ -49,19 +57,35 @@ public class WalletAdjustmentService {
         this.transactions = transactions;
         this.simulationGuard = simulationGuard;
         this.simulationEnabled = simulationEnabled;
+        this.idempotencyService = idempotencyService;
+        this.requestHashService = requestHashService;
         simulationGuard.validateConfiguration(simulationEnabled, "Wallet adjustment");
     }
 
     @Transactional
-    public WalletAdjustmentRequestResponse submit(Long playerId, BingoUserPrincipal principal,
-            WalletAdjustmentSubmissionRequest input) {
+    public IdempotentResult<WalletAdjustmentRequestResponse> submit(Long playerId, BingoUserPrincipal principal,
+            WalletAdjustmentSubmissionRequest input, String idempotencyKey) {
         User maker = requireRole(principal.getUser(), UserRole.SUPPORT);
+        String path = "/api/v1/admin/players/" + playerId + "/wallet-adjustments/requests";
+        String hash = requestHashService.hash("POST", path, input);
+        return idempotencyService.execute(maker.getId(), idempotencyKey, hash, UUID.randomUUID().toString(),
+                HttpStatus.OK.value(), WalletAdjustmentRequestResponse.class,
+                () -> submitOnce(playerId, maker, input));
+    }
+
+    private WalletAdjustmentRequestResponse submitOnce(Long playerId, User maker,
+            WalletAdjustmentSubmissionRequest input) {
         User player = users.findById(playerId)
                 .orElseThrow(() -> new NotFoundException("PLAYER_NOT_FOUND", "Player account not found"));
         if (!player.hasRole(UserRole.PLAYER)) {
             throw new ConflictException("NOT_A_PLAYER", "Wallet adjustments can only target player accounts");
         }
-        BigDecimal amount = MoneyValues.money(input.amount());
+        BigDecimal amount;
+        try {
+            amount = MoneyValues.requireMoneyPrecision(input.amount());
+        } catch (IllegalArgumentException exception) {
+            throw new BadRequestException("INVALID_AMOUNT_PRECISION", "Adjustment amounts must fit two decimal places");
+        }
         if (amount.signum() == 0 || !"ETB".equals(input.currency())) {
             throw new ConflictException("INVALID_WALLET_ADJUSTMENT",
                     "Wallet adjustments require a non-zero amount in ETB");

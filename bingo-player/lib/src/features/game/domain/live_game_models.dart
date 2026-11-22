@@ -51,6 +51,7 @@ class WinClaimRecord {
     this.prizeAmount,
     this.prizeCurrency,
     this.prizeStatus,
+    this.settlementPath,
     this.payoutCode,
   });
 
@@ -74,6 +75,7 @@ class WinClaimRecord {
   final num? prizeAmount;
   final String? prizeCurrency;
   final String? prizeStatus;
+  final String? settlementPath;
   final String? payoutCode;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -102,6 +104,7 @@ class WinClaimRecord {
       prizeAmount: json['prizeAmount'] as num?,
       prizeCurrency: json['prizeCurrency']?.toString(),
       prizeStatus: json['prizeStatus']?.toString(),
+      settlementPath: json['settlementPath']?.toString(),
       payoutCode: json['payoutCode']?.toString(),
       createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0),
       updatedAt: DateTime.tryParse(json['updatedAt']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0),

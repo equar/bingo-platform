@@ -38,8 +38,8 @@ backend origin `http://127.0.0.1:8080` through the local launcher's ADB
 reverse tunnel in the emulator and
 `http://localhost:8080` in Chrome/Windows. REST routes are under `/api/v1`;
 live draws use `ws://<backend-host>:8080/ws`. Chrome authentication is stored
-for its origin; logout clears that app's saved session. Chrome's localhost
-origin is separate from the Agent app's origin on port 5181.
+for its origin; logout clears that app's saved session. Chrome runs on port
+5180.
 
 The Player's current browser target is for local development and browser QA.
 The repository deploys the public information website, but has no configured

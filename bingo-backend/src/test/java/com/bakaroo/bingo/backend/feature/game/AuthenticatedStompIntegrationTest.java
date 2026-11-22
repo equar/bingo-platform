@@ -8,6 +8,7 @@ import com.bakaroo.bingo.backend.MySqlIntegrationTest;
 import com.bakaroo.bingo.backend.feature.auth.dto.AuthResponse;
 import com.bakaroo.bingo.backend.feature.auth.dto.LoginRequest;
 import com.bakaroo.bingo.backend.feature.auth.service.EthiopianPhoneNormalizer;
+import com.bakaroo.bingo.backend.feature.auth.service.JwtService;
 import com.bakaroo.bingo.backend.feature.game.dto.BingoPrizeConfigRequest;
 import com.bakaroo.bingo.backend.feature.game.dto.BingoRoomRequest;
 import com.bakaroo.bingo.backend.feature.game.dto.DrawEventResponse;
@@ -27,6 +28,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
@@ -38,6 +40,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.HttpEntity;
@@ -56,6 +59,9 @@ import org.springframework.web.socket.WebSocketHttpHeaders;
 import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 import org.springframework.web.socket.messaging.WebSocketStompClient;
 import org.springframework.web.client.RestTemplate;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
+import java.util.Date;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
@@ -87,6 +93,9 @@ class AuthenticatedStompIntegrationTest extends MySqlIntegrationTest {
     EthiopianPhoneNormalizer phoneNormalizer;
 
     @Autowired
+    JwtService jwtService;
+
+    @Autowired
     BingoGameService bingoGameService;
 
     @Autowired
@@ -94,6 +103,9 @@ class AuthenticatedStompIntegrationTest extends MySqlIntegrationTest {
 
     @Autowired
     ObjectMapper objectMapper;
+
+    @Value("${app.security.jwt.secret}")
+    String jwtSecret;
 
     private String playerPhone;
     private Long sessionId;
@@ -204,6 +216,84 @@ class AuthenticatedStompIntegrationTest extends MySqlIntegrationTest {
         assertThrows(Exception.class, () -> connect(client, "not-a-valid-token"));
     }
 
+    @Test
+    void logoutStopsProtectedEventsOnAnAlreadyConnectedSocketAndRejectsTokenReuse() throws Exception {
+        String token = loginToken();
+        WebSocketStompClient client = createClient();
+        StompSession session = connect(client, token);
+        CountDownLatch drawReceived = new CountDownLatch(1);
+        session.subscribe("/topic/session/" + sessionId + "/draws", drawHandler(new CopyOnWriteArrayList<>(), drawReceived));
+        Thread.sleep(250);
+
+        logout(token);
+        advanceOneDraw();
+
+        assertTrue(!drawReceived.await(750, TimeUnit.MILLISECONDS),
+                "A socket authenticated before logout must not receive later draw events");
+        assertThrows(Exception.class, () -> connect(client, token),
+                "The revoked token must not be reusable for a new STOMP connection");
+        assertUnauthorizedDrawReplay(token);
+    }
+
+    @Test
+    void replacementLoginStopsOldSocketButAllowsNewConnectionAndRestReplay() throws Exception {
+        String oldToken = loginToken();
+        WebSocketStompClient client = createClient();
+        StompSession oldSession = connect(client, oldToken);
+        CountDownLatch oldDrawReceived = new CountDownLatch(1);
+        oldSession.subscribe("/topic/session/" + sessionId + "/draws",
+                drawHandler(new CopyOnWriteArrayList<>(), oldDrawReceived));
+        Thread.sleep(250);
+
+        AuthResponse replacement = new RestTemplate().postForObject(
+                "http://localhost:" + port + "/api/v1/auth/login/replace-session",
+                new HttpEntity<>(new LoginRequest(playerPhone, PLAYER_PIN), jsonHeaders()),
+                AuthResponse.class);
+        assertTrue(replacement != null && !replacement.accessToken().equals(oldToken));
+
+        CountDownLatch newDrawReceived = new CountDownLatch(1);
+        StompSession newSession = connect(client, replacement.accessToken());
+        newSession.subscribe("/topic/session/" + sessionId + "/draws",
+                drawHandler(new CopyOnWriteArrayList<>(), newDrawReceived));
+        Thread.sleep(250);
+        advanceOneDraw();
+
+        assertTrue(newDrawReceived.await(10, TimeUnit.SECONDS), "The replacement session remains authorized");
+        assertTrue(!oldDrawReceived.await(750, TimeUnit.MILLISECONDS),
+                "The replaced session must not receive protected draw events");
+        assertThrows(Exception.class, () -> connect(client, oldToken));
+        assertUnauthorizedDrawReplay(oldToken);
+        List<DrawEventResponse> replay = fetchDraws(replacement.accessToken(), 0);
+        assertEquals(1, replay.size());
+        assertEquals(1, replay.get(0).sequenceNo());
+    }
+
+    @Test
+    void expiredJwtStopsAnExistingSocketAndCannotReconnect() throws Exception {
+        String issuedToken = loginToken();
+        var player = userRepository.findByNormalizedPhone(phoneNormalizer.normalize(playerPhone)).orElseThrow();
+        String shortLivedToken = Jwts.builder()
+                .subject(playerPhone)
+                .issuedAt(new Date())
+                .expiration(Date.from(Instant.now().plusMillis(1800)))
+                .claim("uid", player.getId())
+                .claim("tokenVersion", player.getSecurityTokenVersion())
+                .claim("roles", List.of(UserRole.PLAYER.name()))
+                .claim("sid", jwtService.extractPlayerSessionId(issuedToken))
+                .signWith(Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8)), Jwts.SIG.HS256)
+                .compact();
+        WebSocketStompClient client = createClient();
+        StompSession session = connect(client, shortLivedToken);
+        CountDownLatch drawReceived = new CountDownLatch(1);
+        session.subscribe("/topic/session/" + sessionId + "/draws", drawHandler(new CopyOnWriteArrayList<>(), drawReceived));
+        Thread.sleep(2200);
+
+        advanceOneDraw();
+
+        assertTrue(!drawReceived.await(750, TimeUnit.MILLISECONDS), "Expired tokens cannot receive protected events");
+        assertThrows(Exception.class, () -> connect(client, shortLivedToken));
+    }
+
     private WebSocketStompClient createClient() {
         stompClient = new WebSocketStompClient(new StandardWebSocketClient());
         stompClient.setMessageConverter(new MappingJackson2MessageConverter(objectMapper));
@@ -280,6 +370,35 @@ class AuthenticatedStompIntegrationTest extends MySqlIntegrationTest {
         assertEquals(200, response.getStatusCode().value());
         return objectMapper.readValue(response.getBody(), new TypeReference<>() {
         });
+    }
+
+    private void logout(String token) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(token);
+        try {
+            new RestTemplate().exchange("http://localhost:" + port + "/api/v1/auth/logout",
+                    HttpMethod.POST, new HttpEntity<>(headers), Void.class);
+        } catch (org.springframework.web.client.HttpClientErrorException exception) {
+            throw exception;
+        }
+    }
+
+    private void assertUnauthorizedDrawReplay(String token) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(token);
+        org.springframework.web.client.HttpClientErrorException exception = org.junit.jupiter.api.Assertions
+                .assertThrows(org.springframework.web.client.HttpClientErrorException.class,
+                        () -> new RestTemplate().exchange(
+                                "http://localhost:" + port + "/api/v1/sessions/" + sessionId
+                                        + "/draws?afterSequence=0",
+                                HttpMethod.GET, new HttpEntity<>(headers), String.class));
+        assertEquals(401, exception.getStatusCode().value());
+    }
+
+    private void advanceOneDraw() {
+        bingoGameService.updateSessionState(
+                sessionId, new GameSessionStateUpdateRequest(GameSessionState.STARTED));
+        gameLiveDrawService.advanceSessionDrawIfDue(sessionId, Instant.now().plusSeconds(30)).orElseThrow();
     }
 
     private HttpHeaders jsonHeaders() {

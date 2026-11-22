@@ -215,6 +215,9 @@ function validateRoomDraft(draft: RoomDraft): string | null {
   ) {
     return "Each prize needs an amount of at least 0.01.";
   }
+  if (draft.configuredPrizes.some((prize) => prize.settlementPath === "AGENT_CASH")) {
+    return "Cash prize payouts are unavailable for new games. Change this prize to Player wallet. Existing cash entitlements remain pending and unpaid for manual review.";
+  }
   return null;
 }
 
@@ -837,6 +840,7 @@ export function RoomsPage() {
                         </Grid>
                         <Grid item xs={12}>
                           <Stack spacing={1.25}>
+                            {draft?.configuredPrizes.some((prize) => prize.settlementPath === "AGENT_CASH") ? <Alert severity="warning">{t("Cash prize payouts are unavailable for new games. Change this prize to Player wallet. Existing cash entitlements remain pending and unpaid for manual review.")}</Alert> : null}
                             <Box
                               display="flex"
                               alignItems="center"
@@ -973,8 +977,8 @@ export function RoomsPage() {
                                             <MenuItem value="PLAYER_WALLET">
                                               {t("Player wallet")}
                                             </MenuItem>
-                                            <MenuItem value="AGENT_CASH">
-                                              {t("Agent cash")}
+                                            <MenuItem value="AGENT_CASH" disabled>
+                                              {t("Agent cash (unavailable)")}
                                             </MenuItem>
                                           </TextField>
                                         </Grid>

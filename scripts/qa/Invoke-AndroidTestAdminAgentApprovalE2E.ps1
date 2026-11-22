@@ -11,7 +11,6 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $identityFile = Join-Path $repoRoot 'docs\qa\evidence\module-06a5\backend-identity-preflight.json'
 $policyModule = Join-Path $PSScriptRoot 'AndroidTestBackendPolicy.psm1'
 $adminConfig = Join-Path $repoRoot 'bingo-admin\.env.qa'
-$agentConfig = Join-Path $repoRoot 'bingo-agent\e2e-secrets.json'
 $testFile = Join-Path $repoRoot 'bingo-admin\tests\e2e\module-06a9-agent-approval.spec.ts'
 $evidenceId = 'QA_M06A9_' + (Get-Date -Format 'yyyyMMdd_HHmmss_fff')
 $testPath = if ($LoginReadinessOnly) { 'tests/e2e/module-06a9-admin-login-readiness.spec.ts' } else { 'tests/e2e/module-06a9-agent-approval.spec.ts' }
@@ -70,10 +69,10 @@ if ($AdminUrl.TrimEnd('/') -ne 'http://127.0.0.1:5174') {
 }
 $adminHealth = Invoke-WebRequest -Uri $AdminUrl -TimeoutSec 5 -UseBasicParsing
 if ([int]$adminHealth.StatusCode -ne 200) { throw 'BLOCKED: isolated Admin Vite server is not healthy.' }
-if (-not (Test-Path -LiteralPath $adminConfig) -or -not (Test-Path -LiteralPath $agentConfig)) {
-    throw 'BLOCKED: ignored local Admin or Agent configuration is missing.'
+if (-not (Test-Path -LiteralPath $adminConfig)) {
+    throw 'BLOCKED: ignored local Admin QA configuration is missing.'
 }
-foreach ($path in @($adminConfig, $agentConfig)) {
+foreach ($path in @($adminConfig)) {
     $relative = $path.Substring($repoRoot.Length).TrimStart('\').Replace('\', '/')
     & git -c safe.directory=D:/GitHub/bingo-platform -C $repoRoot check-ignore -q $relative
     if ($LASTEXITCODE -ne 0) { throw 'BLOCKED: E2E credentials must remain in ignored local configuration.' }
@@ -85,11 +84,10 @@ foreach ($line in Get-Content -LiteralPath $adminConfig) {
         $adminSettings[$matches[1]] = $matches[2].Trim().Trim('"').Trim("'")
     }
 }
-$agentSettings = Get-Content -LiteralPath $agentConfig -Raw | ConvertFrom-Json
 $email = [string]$adminSettings['BINGO_E2E_ADMIN_EMAIL']
 $password = [string]$adminSettings['BINGO_E2E_ADMIN_PASSWORD']
-$candidatePhone = [string]$agentSettings.BINGO_QA_APPROVED_AGENT_PHONE
-$pendingPhone = [string]$agentSettings.BINGO_QA_PENDING_AGENT_PHONE
+$candidatePhone = [string]$adminSettings['BINGO_QA_APPROVED_AGENT_PHONE']
+$pendingPhone = [string]$adminSettings['BINGO_QA_PENDING_AGENT_PHONE']
 if (-not $email -or -not $password -or -not $candidatePhone -or -not $pendingPhone) {
     throw 'BLOCKED: Admin approval E2E local credentials are incomplete.'
 }
@@ -111,8 +109,8 @@ try {
         foreach ($entry in $output) {
             $line = [string]$entry
             foreach ($sensitive in @($email, $password, $candidatePhone, $pendingPhone,
-                    [string]$agentSettings.BINGO_QA_APPROVED_AGENT_PIN,
-                    [string]$agentSettings.BINGO_QA_PENDING_AGENT_PIN)) {
+                    [string]$adminSettings['BINGO_QA_APPROVED_AGENT_PIN'],
+                    [string]$adminSettings['BINGO_QA_PENDING_AGENT_PIN'])) {
                 if (-not [string]::IsNullOrEmpty($sensitive)) { $line = $line.Replace($sensitive, '[REDACTED]') }
             }
             $line

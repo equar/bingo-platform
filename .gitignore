@@ -6,7 +6,6 @@ target/
 **/.flutter-plugins
 **/.flutter-plugins-dependencies
 /bingo-player/lib/l10n/app_localizations*.dart
-/bingo-agent/lib/src/l10n/generated/
 /.idea/
 !.vscode/
 .vscode/*
@@ -75,8 +74,6 @@ xcuserdata/
 *.xcuserstate
 /bingo-player/windows/flutter/generated_plugin_registrant.*
 /bingo-player/windows/flutter/generated_plugins.cmake
-/bingo-agent/windows/flutter/generated_plugin_registrant.*
-/bingo-agent/windows/flutter/generated_plugins.cmake
 
 # Test and coverage reports
 coverage/

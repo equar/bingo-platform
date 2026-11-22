@@ -30,6 +30,7 @@ import {
   walletAdjustmentHistory,
 } from "../../api/admin";
 import { getUserFacingErrorMessage, parseApiError } from "../../api/types";
+import { useIdempotencyKey } from "../common/useIdempotencyKey";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { StatusState } from "../../components/StatusState";
 import {
@@ -119,6 +120,7 @@ export function PlayerDetailPage() {
   const id = Number(playerId);
   const validPlayerId = Number.isSafeInteger(id) && id > 0;
   const queryClient = useQueryClient();
+  const adjustmentIdempotency = useIdempotencyKey();
   const [draft, setDraft] = useState<AdjustmentDraft | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [activity, setActivity] = useState<PlayerActivityType | null>(null);
@@ -152,6 +154,7 @@ export function PlayerDetailPage() {
         currency: player?.walletCurrency ?? body.currency,
         reason: body.reason.trim(),
         supportingReference: body.reference.trim(),
+        idempotencyKey: adjustmentIdempotency.getKey(),
       }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({
@@ -159,8 +162,10 @@ export function PlayerDetailPage() {
       });
       setDraft(null);
       setConfirmOpen(false);
+      adjustmentIdempotency.resetKey();
     },
     onError: async (error) => {
+      if (!parseApiError(error).outcomeUnknown) adjustmentIdempotency.resetKey();
       if (parseApiError(error).outcomeUnknown) {
         await queryClient.invalidateQueries({
           queryKey: ["wallet-adjustment-history", id],
@@ -895,10 +900,9 @@ export function PlayerDetailPage() {
             name: player.displayName,
           },
         )}
-        confirmLabel={t("Submit request")}
+        confirmLabel={adjustmentOutcomeUnknown ? t("Retry same request") : t("Submit request")}
         cancelLabel={t("Back")}
         confirming={adjustmentMutation.isPending}
-        disableConfirm={adjustmentOutcomeUnknown}
         error={
           adjustmentMutation.isError
             ? t(

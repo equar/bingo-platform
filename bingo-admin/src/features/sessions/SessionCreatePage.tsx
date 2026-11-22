@@ -80,6 +80,7 @@ export function SessionCreatePage() {
   const [draft, setDraft] = useState<SessionDraft>(createInitialDraft);
   const [discardOpen, setDiscardOpen] = useState(false);
   const selectedRoom = rooms.find((room) => room.id === Number(draft.roomId));
+  const hasCashPrize = draft.configuredPrizes.some((prize) => prize.settlementPath === "AGENT_CASH");
   const scheduleTime = selectedRoom
     ? resolveEthiopianRoomScheduleTime(draft.scheduledDate, draft.scheduledTime, selectedRoom.timezone)
     : { instant: null, error: null };
@@ -125,6 +126,7 @@ export function SessionCreatePage() {
       draft.configuredPrizes.length
     && draft.configuredPrizes.every(
       (prize) =>
+        prize.settlementPath === "PLAYER_WALLET" &&
         /^\d+(\.\d{1,2})?$/.test(prize.amount) &&
         Number(prize.amount) >= (selectedRoom?.sessionCapacity ?? 1) / 100,
     )
@@ -401,6 +403,7 @@ export function SessionCreatePage() {
                       )}
                     </Typography>
                   </Box>
+                  {hasCashPrize ? <Alert severity="warning">{t("Cash prize payouts are unavailable for new games. Change this prize to Player wallet. Existing cash entitlements remain pending and unpaid for manual review.")}</Alert> : null}
                   <Button
                     size="small"
                     onClick={addPrize}
@@ -485,8 +488,8 @@ export function SessionCreatePage() {
                           <MenuItem value="PLAYER_WALLET">
                             {t("Player wallet")}
                           </MenuItem>
-                          <MenuItem value="AGENT_CASH">
-                            {t("Agent cash")}
+                          <MenuItem value="AGENT_CASH" disabled>
+                            {t("Agent cash (unavailable)")}
                           </MenuItem>
                         </TextField>
                       </Grid>
